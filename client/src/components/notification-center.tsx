@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useI18n } from "@/i18n";
 import { useNotifications } from "@/hooks/use-notifications";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -45,6 +46,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
+import { taskDisplayText } from "@/lib/task-display";
+import type { Task } from "@shared/schema";
+import "./notification-focus.css";
 
 const NOTIFICATION_ICONS: Record<string, any> = {
   new_email: Mail,
@@ -117,9 +122,11 @@ interface NotificationItemProps {
   notification: any;
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
+  leadNotificationId?: string;
 }
 
-function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationItemProps) {
+function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificationId }: NotificationItemProps) {
+  const { t } = useI18n();
   const Icon = NOTIFICATION_ICONS[notification.type] || Info;
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { 
     addSuffix: true, 
@@ -135,62 +142,58 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
 
   function handleClick() {
     if (!notification.isRead) onMarkRead(notification.id);
-    if (notification.type === "group_task_assigned" && notification.metadata?.groupId) {
-      navigate(`/tasks?group=${notification.metadata.groupId}`);
+    const isTaskNotification = notification.entityType === "task" ||
+      ["task_assigned", "group_task_assigned", "task_due", "task_completed"].includes(notification.type);
+    if (isTaskNotification) {
+      const taskId = notification.metadata?.taskId ||
+        notification.metadata?.task_id ||
+        (notification.entityType === "task" ? notification.entityId : null);
+      navigate(`/email?tab=tasks${taskId ? `&task=${encodeURIComponent(String(taskId))}` : ""}`);
     }
   }
 
   return (
-    <div 
+    <div
       className={cn(
-        "p-3 border-b last:border-b-0 hover-elevate cursor-pointer transition-colors",
-        !notification.isRead && "bg-primary/5",
-        isNegativeSms && "border-l-[3px] border-l-red-500 bg-red-50/80 dark:bg-red-900/20"
+        "notification-focus-row group flex items-stretch border-b last:border-b-0",
+        notification.id === leadNotificationId && "notification-focus-lead",
+        isNegativeSms && "notification-focus-negative"
       )}
-      onClick={handleClick}
       data-testid={`notification-item-${notification.id}`}
     >
-      <div className="flex gap-3">
-        <div className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-          isNegativeSms ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" :
-          notification.priority === "urgent" ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300" :
-          notification.priority === "high" ? "bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300" :
-          "bg-muted text-muted-foreground"
+      <button
+        type="button"
+        className="notification-focus-row-main flex min-w-0 flex-1 gap-3 p-3 text-left"
+        onClick={handleClick}
+        aria-label={`${t.nexusOmni.notificationCenter.rowLabel.replace("{title}", notification.title)} — ${notification.isRead ? t.nexusOmni.notificationCenter.read : t.nexusOmni.notificationCenter.unread}${notification.priority === "urgent" ? `, ${t.nexusOmni.notificationCenter.urgent}` : ""}`}
+      >
+        <span className={cn(
+          "notification-focus-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          isNegativeSms || notification.priority === "urgent" ? "notification-focus-icon-urgent" :
+          notification.priority === "high" ? "notification-focus-icon-high" :
+          "notification-focus-icon-default"
         )}>
-          <Icon className="h-4 w-4" />
-        </div>
-        
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <p className={cn(
-                "text-sm truncate",
-                !notification.isRead && "font-medium"
-              )}>
-                {notification.title}
-              </p>
-              {notification.message && (
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
-                  {notification.message}
-                </p>
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="min-w-0 flex-1">
+              {notification.id === leadNotificationId && (
+                <span className="notification-focus-priority-label">{t.nexusOmni.notificationCenter.priorityLead}</span>
               )}
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0 opacity-0 group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDismiss(notification.id);
-              }}
-              data-testid={`dismiss-notification-${notification.id}`}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          </div>
-          
-          <div className="flex items-center gap-2 mt-1">
+              <span className={cn("block truncate text-sm", !notification.isRead && "font-semibold")}>
+                {notification.title}
+              </span>
+              {notification.message && (
+                <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">
+                  {notification.message}
+                </span>
+              )}
+            </span>
+          </span>
+
+          <span className="mt-1 flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{timeAgo}</span>
             {notification.countryCode && (
               <Badge variant="outline" className="text-xs px-1 py-0">
@@ -199,37 +202,64 @@ function NotificationItem({ notification, onMarkRead, onDismiss }: NotificationI
             )}
             {notification.priority !== "normal" && (
               <Badge className={cn("text-xs px-1 py-0", PRIORITY_COLORS[notification.priority])}>
-                {notification.priority === "urgent" ? "Urgentné" : 
-                 notification.priority === "high" ? "Vysoká" : "Nízka"}
+                {notification.priority === "urgent" ? t.nexusOmni.notificationCenter.urgent :
+                 notification.priority === "high" ? t.nexusOmni.notificationCenter.high :
+                 t.nexusOmni.notificationCenter.low}
               </Badge>
             )}
-          </div>
-        </div>
-      </div>
+          </span>
+        </span>
+      </button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="notification-focus-dismiss h-7 w-7 shrink-0 self-start mr-2 mt-3"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDismiss(notification.id);
+        }}
+        data-testid={`dismiss-notification-${notification.id}`}
+        aria-label={t.nexusOmni.notificationCenter.dismissLabel.replace("{title}", notification.title)}
+      >
+        <X className="h-3 w-3" aria-hidden="true" />
+      </Button>
     </div>
   );
 }
 
 export function NotificationBell() {
+  const { t } = useI18n();
+  const [, navigate] = useLocation();
   const { 
     notifications, 
     unreadCount, 
     isLoading, 
-    isConnected,
     markAsRead, 
     markAllAsRead, 
     dismiss,
     dismissAll
   } = useNotifications();
+  const {
+    tasks: myOpenTasks,
+    isLoading: isLoadingMyTasks,
+    isError: myTasksError,
+    refetch: refetchMyTasks,
+  } = useMyOpenTasks();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
-  const filteredNotifications = notifications.filter(n => {
-    if (activeTab === "unread") return !n.isRead;
-    return true;
+  const priorityWeight: Record<string, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+  const triagedNotifications = [...notifications].sort((a, b) => {
+    const unreadDelta = Number(a.isRead) - Number(b.isRead);
+    if (unreadDelta) return unreadDelta;
+    const priorityDelta = (priorityWeight[a.priority] ?? priorityWeight.normal) -
+      (priorityWeight[b.priority] ?? priorityWeight.normal);
+    if (priorityDelta) return priorityDelta;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
-
-  const unreadNotifications = notifications.filter(n => !n.isRead);
+  const unreadNotifications = triagedNotifications.filter(n => !n.isRead);
+  const leadNotificationId = unreadNotifications[0]?.id;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -250,14 +280,17 @@ export function NotificationBell() {
       </PopoverTrigger>
       
       <PopoverContent 
-        className="w-96 p-0" 
+        className="notification-window-popover flex max-h-[85vh] w-[min(24rem,calc(100vw-1rem))] flex-col p-0"
         align="end"
         data-testid="notification-center-popover"
       >
-        <div className="flex items-center justify-between p-3 border-b">
-          <h3 className="font-semibold">Notifikácie</h3>
+        <div className="notification-focus-header flex items-center justify-between p-3 border-b">
+          <div>
+            <p className="notification-focus-kicker">{t.nexusOmni.notificationCenter.kicker}</p>
+            <h3 className="font-semibold">{t.nexusOmni.notificationCenter.title}</h3>
+          </div>
           <div className="flex items-center gap-1">
-            {unreadCount > 0 && (
+            {activeTab !== "tasks" && unreadCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -266,39 +299,59 @@ export function NotificationBell() {
                 data-testid="button-mark-all-read"
               >
                 <CheckCheck className="h-3 w-3 mr-1" />
-                Všetky prečítané
+                {t.nexusOmni.notificationCenter.markAllRead}
               </Button>
             )}
           </div>
         </div>
 
+        <div className="notification-focus-summary" aria-live="polite">
+          <span className="notification-focus-summary-mark" aria-hidden="true" />
+          <span className="notification-focus-summary-copy">
+            <strong>{activeTab === "tasks" ? t.tasks.openTasks : t.nexusOmni.notificationCenter.summaryTitle}</strong>
+            <small>{activeTab === "tasks" ? `${t.tasks.pending} · ${t.tasks.inProgress}` : t.nexusOmni.notificationCenter.summaryDescription}</small>
+          </span>
+          <span className="notification-focus-summary-count">
+            {activeTab === "tasks"
+              ? myOpenTasks.length
+              : t.nexusOmni.notificationCenter.newCount.replace("{count}", String(unreadCount))}
+          </span>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <div className="px-3 pt-2">
-            <TabsList className="grid w-full grid-cols-2 h-8">
-              <TabsTrigger value="all" className="text-xs" data-testid="tab-notifications-all">
-                Všetky
+          <div className="notification-focus-tab-rail px-3 pt-2 pb-2">
+            <TabsList className="grid w-full grid-cols-3 h-9">
+              <TabsTrigger value="all" className="notification-focus-tab-trigger text-xs" data-testid="tab-notifications-all">
+                {t.nexusOmni.notificationCenter.all}
+                <span className="notification-focus-tab-count">{notifications.length}</span>
               </TabsTrigger>
-              <TabsTrigger value="unread" className="text-xs" data-testid="tab-notifications-unread">
-                Neprečítané ({unreadCount})
+              <TabsTrigger value="unread" className="notification-focus-tab-trigger text-xs" data-testid="tab-notifications-unread">
+                {t.nexusOmni.notificationCenter.unreadTab}
+                <span className="notification-focus-tab-count">{unreadCount}</span>
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="notification-focus-tab-trigger text-xs" data-testid="tab-notifications-tasks">
+                {t.nexusOmni.tabs.tasks}
+                <span className="notification-focus-tab-count" data-testid="badge-my-open-tasks">{myOpenTasks.length}</span>
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="all" className="mt-0">
+          <TabsContent value="all" className="notification-focus-tab-content mt-0">
             <ScrollArea className="h-[400px]">
-              {filteredNotifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              {notifications.length === 0 ? (
+                <div className="notification-focus-empty flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <Bell className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">Žiadne notifikácie</p>
+                  <p className="text-sm">{isLoading ? t.nexusOmni.common.loading : t.nexusOmni.notificationCenter.noNotifications}</p>
                 </div>
               ) : (
                 <div className="divide-y">
-                  {filteredNotifications.map((notification) => (
+                  {triagedNotifications.map((notification) => (
                     <NotificationItem
                       key={notification.id}
                       notification={notification}
                       onMarkRead={markAsRead}
                       onDismiss={dismiss}
+                      leadNotificationId={leadNotificationId}
                     />
                   ))}
                 </div>
@@ -306,12 +359,12 @@ export function NotificationBell() {
             </ScrollArea>
           </TabsContent>
 
-          <TabsContent value="unread" className="mt-0">
+          <TabsContent value="unread" className="notification-focus-tab-content mt-0">
             <ScrollArea className="h-[400px]">
               {unreadNotifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="notification-focus-empty flex flex-col items-center justify-center py-12 text-muted-foreground">
                   <CheckCircle className="h-8 w-8 mb-2 opacity-50" />
-                  <p className="text-sm">Všetko prečítané</p>
+                  <p className="text-sm">{t.nexusOmni.notificationCenter.allRead}</p>
                 </div>
               ) : (
                 <div className="divide-y">
@@ -321,16 +374,72 @@ export function NotificationBell() {
                       notification={notification}
                       onMarkRead={markAsRead}
                       onDismiss={dismiss}
+                      leadNotificationId={leadNotificationId}
                     />
                   ))}
                 </div>
               )}
             </ScrollArea>
           </TabsContent>
+
+          <TabsContent value="tasks" className="notification-focus-tab-content mt-0">
+            <ScrollArea className="h-[400px]">
+              <div className="notification-focus-task-list">
+                {myTasksError ? (
+                  <div className="notification-focus-empty-error flex items-center justify-between gap-2 p-4">
+                    <p role="alert" className="text-xs text-destructive">{t.tasks.loadError}</p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => void refetchMyTasks()}>
+                      {t.nexusOmni.common.tryAgain}
+                    </Button>
+                  </div>
+                ) : isLoadingMyTasks ? (
+                  <div className="notification-focus-empty px-4 py-12 text-center text-sm text-muted-foreground">{t.nexusOmni.common.loading}</div>
+                ) : myOpenTasks.length === 0 ? (
+                  <div className="notification-focus-empty flex flex-col items-center py-12 text-muted-foreground">
+                    <CheckCircle className="mb-2 h-8 w-8 opacity-50" />
+                    <p className="text-sm">{t.tasks.noTasks}</p>
+                  </div>
+                ) : myOpenTasks.map((task: Task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="notification-focus-task-row flex w-full min-w-0 items-start gap-3 px-3 py-3.5 text-left"
+                    data-status={task.status}
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate(`/email?tab=tasks&task=${encodeURIComponent(task.id)}`);
+                    }}
+                    aria-label={`${taskDisplayText(task.title)} — ${task.status === "in_progress" ? t.tasks.inProgress : t.tasks.pending}`}
+                    data-testid={`button-open-pending-task-${task.id}`}
+                  >
+                    <span className="notification-focus-task-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                      <Clipboard className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="notification-focus-task-title block text-sm font-semibold leading-snug">{taskDisplayText(task.title)}</span>
+                      <span className="notification-focus-task-status mt-2 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold">
+                        {task.status === "in_progress" ? t.tasks.inProgress : t.tasks.pending}
+                      </span>
+                    </span>
+                    <span className="notification-focus-task-arrow flex h-6 w-6 shrink-0 items-center justify-center rounded-full" aria-hidden="true">
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </TabsContent>
         </Tabs>
 
-        <Separator />
-        <div className="p-2 flex justify-between">
+        <div className="notification-focus-footer flex items-center justify-between gap-2 p-2">
+          {activeTab === "tasks" ? (
+            <Button
+              variant="ghost" size="sm" className="notification-focus-task-footer w-full text-xs"
+              onClick={() => { setIsOpen(false); navigate("/email?tab=tasks&filter=open&view=my"); }}
+            >
+              {t.tasks.openTasks}<ChevronRight className="ml-1 h-3.5 w-3.5" />
+            </Button>
+          ) : <>
           <Button
             variant="ghost"
             size="sm"
@@ -350,6 +459,7 @@ export function NotificationBell() {
           >
             Zobraziť všetky
           </Button>
+          </>}
         </div>
       </PopoverContent>
     </Popover>

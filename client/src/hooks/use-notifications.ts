@@ -132,7 +132,13 @@ export function useNotifications() {
               case "notification": {
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
-                if (message.notification?.type === "group_task_assigned") {
+                const taskNotification = message.notification &&
+                  (message.notification.entityType === "task" ||
+                    ["task_assigned", "group_task_assigned", "task_due", "task_completed"]
+                      .includes(message.notification.type));
+                if (taskNotification) {
+                  // Omni queries all tasks under ["/api/tasks"]; the signed-in
+                  // user's open-task counter shares that prefix so it refreshes too.
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
                 }
                 // Inbound SMS notification → immediately refresh customer messages + history

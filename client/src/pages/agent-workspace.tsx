@@ -11175,11 +11175,20 @@ function AgentWorkspacePageContent() {
     { id: "other", label: t.quickCreate.catOther, phrase: t.quickCreate.reqOther, Icon: Tag },
   ];
 
+  const taskEntityTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      customer: t.customers.title,
+      clinic: t.clinics.title,
+      hospital: t.hospitals.tabs.hospital,
+    };
+    return labels[type] || t.quickCreate.linkedCustomer;
+  };
+
   const applyTaskCategory = (catId: string) => {
     const cat = taskCategoryOptions.find(c => c.id === catId);
     if (!cat) return;
     const ent = resolveTaskEntity();
-    const entLabel = ent ? [ent.name, `(ID: ${ent.id})`].filter(Boolean).join(" ") : "";
+    const entLabel = ent?.name.trim() || "";
     const newTitle = entLabel ? `${cat.label} — ${entLabel}` : cat.label;
     const newDesc = [entLabel, cat.phrase, ""].filter(Boolean).join("\n");
     setCreateTaskForm(prev => ({ ...prev, category: catId, title: newTitle, description: newDesc }));
@@ -14003,7 +14012,7 @@ function AgentWorkspacePageContent() {
         {
           const ent = resolveTaskEntity();
           setCreateTaskForm({
-            title: ent ? [ent.name, `(ID: ${ent.id})`].filter(Boolean).join(" ") : "",
+            title: ent?.name.trim() || "",
             description: "",
             priority: "medium",
             assignedUserIds: user?.id ? [user.id] : [],
@@ -16235,10 +16244,10 @@ function AgentWorkspacePageContent() {
               }}
               onRequestDataChangeTask={() => {
                 const c: any = currentContact;
-                const entityName = c ? (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.companyName || "") : "";
-                const entityId = c?.id ? String(c.id) : "";
+                const entity = resolveTaskEntity();
+                const entityName = entity?.name || (c ? (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.companyName || "") : "");
                 setCreateTaskForm({
-                  title: `${t.agentWorkspace.dataChangeTaskTitle || "Zmena zákazníckych údajov"}${entityName ? ` — ${entityName}` : ""}${entityId ? ` (#${entityId})` : ""}`,
+                  title: `${t.agentWorkspace.dataChangeTaskTitle || "Zmena zákazníckych údajov"}${entityName ? ` — ${entityName}` : ""}`,
                   description: t.agentWorkspace.dataChangeTaskDesc || "Požiadavka na zmenu zákazníckych údajov (karta je v tejto kampani iba na čítanie).",
                   priority: "medium",
                   assignedUserIds: [],
@@ -17682,17 +17691,17 @@ function AgentWorkspacePageContent() {
       />
 
       <Sheet open={createTaskDialogOpen} onOpenChange={(open) => { setCreateTaskDialogOpen(open); if (!open) setTaskUserSearch(""); }}>
-        <SheetContent side="right" className="w-full sm:max-w-[860px] p-0 flex flex-col gap-0 bg-stone-50 dark:bg-stone-950 border-l border-stone-200 dark:border-stone-800">
+        <SheetContent side="right" className="w-full sm:max-w-[860px] p-0 flex flex-col gap-0 bg-[#f7fbfe] dark:bg-slate-950 border-l border-[#caddeb] dark:border-slate-700">
 
-          {/* Terracotta header band */}
-          <SheetHeader className="shrink-0 px-5 py-4 space-y-0 bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
+          {/* Nexus Pulse blue header */}
+          <SheetHeader className="shrink-0 px-5 py-4 space-y-0 bg-[#f8fbfe] dark:bg-slate-900 border-b border-[#dce8f2] dark:border-slate-700">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0 shadow-inner">
-                <CalendarPlus className="h-5 w-5 text-white" />
+              <div className="h-10 w-10 rounded-xl bg-[#e5f0fa] dark:bg-blue-950 border border-[#c9deef] dark:border-blue-800 flex items-center justify-center shrink-0">
+                <CalendarPlus className="h-5 w-5 text-[#2d6fba] dark:text-blue-300" />
               </div>
               <div className="min-w-0">
-                <SheetTitle className="text-white text-lg font-bold leading-tight">{t.quickCreate.newTask}</SheetTitle>
-                <SheetDescription className="text-white/75 text-xs leading-snug">{t.quickCreate.newTaskDesc}</SheetDescription>
+                <SheetTitle className="text-[#173452] dark:text-slate-100 text-lg font-bold leading-tight">{t.quickCreate.newTask}</SheetTitle>
+                <SheetDescription className="text-[#69809a] dark:text-slate-400 text-xs leading-snug">{t.quickCreate.newTaskDesc}</SheetDescription>
               </div>
             </div>
           </SheetHeader>
@@ -17704,13 +17713,12 @@ function AgentWorkspacePageContent() {
 
             {/* Linked entity banner — spans both columns */}
             {taskEnt && (
-              <div className="md:col-span-2 p-2.5 rounded-xl border border-[#c2673a]/25 bg-[#c2673a]/[0.06] text-xs text-stone-600 dark:text-stone-300 flex items-center gap-2">
-                <span className="h-6 w-6 rounded-full bg-[#c2673a]/15 flex items-center justify-center shrink-0">
-                  <User className="h-3.5 w-3.5 text-[#c2673a]" />
+              <div className="md:col-span-2 p-2.5 rounded-xl border border-[#c9deef] dark:border-blue-800 bg-[#edf5fb] dark:bg-blue-950/30 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                <span className="h-6 w-6 rounded-full bg-[#dcecf9] dark:bg-blue-900/50 flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-[#2d6fba] dark:text-blue-300" />
                 </span>
                 <span className="min-w-0 truncate">
-                  {t.quickCreate.linkedCustomer}: <span className="font-semibold text-stone-800 dark:text-stone-100">{taskEnt.name}</span>
-                  <span className="ml-1.5 text-stone-400 dark:text-stone-500">ID: {taskEnt.id}</span>
+                  {taskEntityTypeLabel(taskEnt.type)}: <span className="font-semibold text-stone-800 dark:text-stone-100">{taskEnt.name}</span>
                 </span>
               </div>
             )}
@@ -17729,10 +17737,10 @@ function AgentWorkspacePageContent() {
                         key={id}
                         type="button"
                         onClick={() => applyTaskCategory(id)}
-                        className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[11px] font-medium text-left transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                        className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[11px] font-medium text-left transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
                         data-testid={`chip-task-category-${id}`}
                       >
-                        <Icon className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-white" : "text-[#c2673a]"}`} />
+                        <Icon className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-white" : "text-[#2d6fba] dark:text-blue-300"}`} />
                         <span className="truncate">{label}</span>
                         {selected && <Check className="h-3 w-3 shrink-0 ml-auto" />}
                       </button>
@@ -17748,7 +17756,7 @@ function AgentWorkspacePageContent() {
                   value={createTaskForm.title}
                   onChange={(e) => setCreateTaskForm({ ...createTaskForm, title: e.target.value })}
                   placeholder={t.quickCreate.taskTitle}
-                  className="rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
+                  className="rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
                   data-testid="input-create-task-title"
                 />
               </div>
@@ -17760,7 +17768,7 @@ function AgentWorkspacePageContent() {
                   value={createTaskForm.description}
                   onChange={(e) => setCreateTaskForm({ ...createTaskForm, description: e.target.value })}
                   placeholder={t.quickCreate.taskDescription}
-                  className="resize-none rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
+                  className="resize-none rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
                   rows={7}
                   data-testid="input-create-task-description"
                 />
@@ -17777,7 +17785,7 @@ function AgentWorkspacePageContent() {
                   {[
                     { value: "low", label: t.quickCreate.priorityLow, Icon: ArrowDown, active: "bg-emerald-500 border-emerald-500 text-white shadow-md", dot: "text-emerald-500" },
                     { value: "medium", label: t.quickCreate.priorityMedium, Icon: Flag, active: "bg-amber-500 border-amber-500 text-white shadow-md", dot: "text-amber-500" },
-                    { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-[#c2673a] border-[#c2673a] text-white shadow-md", dot: "text-[#c2673a]" },
+                    { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-orange-500 border-orange-500 text-white shadow-md", dot: "text-orange-500" },
                     { value: "urgent", label: t.quickCreate.priorityUrgent, Icon: Zap, active: "bg-red-600 border-red-600 text-white shadow-md", dot: "text-red-600" },
                   ].map(({ value, label, Icon, active, dot }) => {
                     const selected = createTaskForm.priority === value;
@@ -17805,7 +17813,7 @@ function AgentWorkspacePageContent() {
                     type="date"
                     value={createTaskForm.dueDate}
                     onChange={(e) => setCreateTaskForm({ ...createTaskForm, dueDate: e.target.value })}
-                    className="h-9 flex-1 rounded-xl bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60"
+                    className="h-9 flex-1 rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
                     data-testid="input-create-task-duedate"
                   />
                 </div>
@@ -17821,7 +17829,7 @@ function AgentWorkspacePageContent() {
                         key={testid}
                         type="button"
                         onClick={() => setCreateTaskForm({ ...createTaskForm, dueDate: selected ? "" : date })}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/50 hover:text-[#c2673a]"}`}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:text-[#2d6fba]"}`}
                         data-testid={testid}
                       >
                         <Clock className="h-3 w-3" />
@@ -17840,7 +17848,7 @@ function AgentWorkspacePageContent() {
                     <button
                       type="button"
                       onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-stone-600 border-stone-600 text-white shadow-sm" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400"}`}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca]"}`}
                       data-testid="chip-task-group-none"
                     >
                       {t.quickCreate.noGroup}
@@ -17852,7 +17860,7 @@ function AgentWorkspacePageContent() {
                           key={g.id}
                           type="button"
                           onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
                           data-testid={`chip-task-group-${g.id}`}
                         >
                           <Users className="h-3 w-3" />
@@ -17870,11 +17878,11 @@ function AgentWorkspacePageContent() {
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo}</label>
                   {createTaskForm.assignedUserIds.length > 0 && (
-                    <span className="text-[10px] font-semibold text-[#c2673a] bg-[#c2673a]/10 rounded-full px-1.5 py-0.5" data-testid="text-assignee-count">{createTaskForm.assignedUserIds.length}</span>
+                    <span className="text-[10px] font-semibold text-[#2d6fba] dark:text-blue-300 bg-[#e5f0fa] dark:bg-blue-950 rounded-full px-1.5 py-0.5" data-testid="text-assignee-count">{createTaskForm.assignedUserIds.length}</span>
                   )}
                 </div>
                 <p className="text-[10px] text-stone-400 dark:text-stone-500 -mt-0.5">{t.quickCreate.assignedToHint}</p>
-                <div className="rounded-xl border border-stone-300/70 dark:border-stone-700 bg-white dark:bg-stone-900 shadow-sm overflow-hidden">
+                <div className="rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
                   <div className="relative border-b border-stone-200 dark:border-stone-800">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
                     <input
@@ -17889,7 +17897,7 @@ function AgentWorkspacePageContent() {
                   <div className="max-h-[168px] overflow-y-auto p-2 flex flex-wrap gap-1.5">
                     {(() => {
                       const palette = [
-                        "from-[#c2673a] to-[#a8502a]",
+                        "from-[#2d6fba] to-[#1c568f]",
                         "from-amber-500 to-orange-600",
                         "from-emerald-500 to-teal-600",
                         "from-sky-500 to-blue-600",
@@ -17910,7 +17918,7 @@ function AgentWorkspacePageContent() {
                             key={u.id}
                             type="button"
                             onClick={() => setCreateTaskForm(prev => ({ ...prev, assignedUserIds: selected ? prev.assignedUserIds.filter(id => id !== u.id) : [...prev.assignedUserIds, u.id] }))}
-                            className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#c2673a] border-[#c2673a] text-white shadow-md scale-[1.03]" : "bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-200 hover:border-[#c2673a]/60 hover:shadow-sm"}`}
+                            className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-[#f7fbfe] dark:bg-slate-800 border-[#dce8f2] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#5a94ca] hover:shadow-sm"}`}
                             data-testid={`chip-task-user-${u.id}`}
                           >
                             <span className={`h-5 w-5 rounded-full bg-gradient-to-br ${palette[hash % palette.length]} text-white text-[8px] font-bold flex items-center justify-center shrink-0 ${selected ? "ring-2 ring-white/60" : ""}`}>
@@ -17931,7 +17939,7 @@ function AgentWorkspacePageContent() {
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 border-t border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 px-5 py-3 flex items-center justify-end gap-2">
+          <div className="shrink-0 border-t border-[#dce8f2] dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-3 flex items-center justify-end gap-2">
             <Button variant="outline" className="rounded-lg" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
               {t.common.cancel}
             </Button>
@@ -17956,7 +17964,7 @@ function AgentWorkspacePageContent() {
                 });
               }}
               disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || (createTaskForm.assignedUserIds.length === 0 && !createTaskForm.groupId)}
-              className="rounded-lg px-5 font-semibold bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
+              className="rounded-lg px-5 font-semibold bg-gradient-to-b from-[#3b7ec5] to-[#2d6fba] hover:from-[#2d6fba] hover:to-[#1c568f] text-white border-0 shadow-md disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >
               {createTaskMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}

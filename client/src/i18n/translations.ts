@@ -898,6 +898,8 @@ export interface Translations {
     title: string;
     description: string;
     noTasks: string;
+    openTasks: string;
+    loadError: string;
     myTasks: string;
     allTasks: string;
     searchPlaceholder: string;
@@ -6654,6 +6656,26 @@ export interface Translations {
       calendar: string;
       nexuspoint: string;
     };
+    notificationCenter: {
+      kicker: string;
+      title: string;
+      markAllRead: string;
+      summaryTitle: string;
+      summaryDescription: string;
+      newCount: string;
+      priorityLead: string;
+      rowLabel: string;
+      read: string;
+      unread: string;
+      urgent: string;
+      high: string;
+      low: string;
+      dismissLabel: string;
+      all: string;
+      unreadTab: string;
+      noNotifications: string;
+      allRead: string;
+    };
     folders: {
       inbox: string;
       sent: string;
@@ -9340,6 +9362,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Tasks',
       description: 'Manage and track your tasks',
       noTasks: 'No tasks found',
+      openTasks: 'Open tasks',
+      loadError: 'Could not load your open tasks. Please try again.',
       myTasks: 'My Tasks',
       allTasks: 'All Tasks',
       searchPlaceholder: 'Search tasks...',
@@ -15488,6 +15512,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Sub-statuses',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'SHIFT · PRIORITY OVERVIEW', title: 'Notifications', markAllRead: 'Mark all as read',
+          summaryTitle: 'Handle first', summaryDescription: 'Urgent and new notifications are sorted to the top.',
+          newCount: '{count} new', priorityLead: 'PRIORITY 01', rowLabel: 'Notification: {title}', read: 'read', unread: 'unread',
+          urgent: 'Urgent', high: 'High', low: 'Low', dismissLabel: 'Dismiss notification: {title}',
+          all: 'All', unreadTab: 'Unread', noNotifications: 'No notifications', allRead: 'You’re all caught up',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Please log in to access NEXUS Omni',
         connectMs365: 'NEXUS Omni',
@@ -17016,6 +17047,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Úlohy',
       description: 'Spravujte a sledujte svoje úlohy',
       noTasks: 'Nenašli sa žiadne úlohy',
+      openTasks: 'Otvorené úlohy',
+      loadError: 'Nepodarilo sa načítať otvorené úlohy. Skúste to znova.',
       myTasks: 'Moje úlohy',
       allTasks: 'Všetky úlohy',
       searchPlaceholder: 'Hľadať úlohy...',
@@ -23123,6 +23156,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Sub-statusy',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'SMENA · PREHĽAD PRIORÍT', title: 'Notifikácie', markAllRead: 'Všetky prečítané',
+          summaryTitle: 'Najskôr riešiť', summaryDescription: 'Urgentné a nové upozornenia sú zoradené navrch.',
+          newCount: '{count} nové', priorityLead: 'PRIORITA 01', rowLabel: 'Upozornenie: {title}', read: 'prečítané', unread: 'neprečítané',
+          urgent: 'Urgentné', high: 'Vysoká', low: 'Nízka', dismissLabel: 'Odstrániť upozornenie: {title}',
+          all: 'Všetky', unreadTab: 'Neprečítané', noNotifications: 'Žiadne notifikácie', allRead: 'Všetko prečítané',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Prihláste sa pre prístup do NEXUS Omni',
         connectMs365: 'NEXUS Omni',
@@ -24647,6 +24687,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Úkoly',
       description: 'Spravujte a sledujte své úkoly',
       noTasks: 'Nebyly nalezeny žádné úkoly',
+      openTasks: 'Otevřené úkoly',
+      loadError: 'Nepodařilo se načíst otevřené úkoly. Zkuste to znovu.',
       myTasks: 'Moje úkoly',
       allTasks: 'Všechny úkoly',
       searchPlaceholder: 'Hledat úkoly...',
@@ -30680,6 +30722,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Pod-stavy',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'SMĚNA · PŘEHLED PRIORIT', title: 'Oznámení', markAllRead: 'Označit vše jako přečtené',
+          summaryTitle: 'Nejprve vyřešit', summaryDescription: 'Urgentní a nová oznámení jsou řazena nahoru.',
+          newCount: '{count} nové', priorityLead: 'PRIORITA 01', rowLabel: 'Oznámení: {title}', read: 'přečtené', unread: 'nepřečtené',
+          urgent: 'Urgentní', high: 'Vysoká', low: 'Nízká', dismissLabel: 'Odstranit oznámení: {title}',
+          all: 'Všechna', unreadTab: 'Nepřečtená', noNotifications: 'Žádná oznámení', allRead: 'Vše je přečtené',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Přihlaste se pro přístup do NEXUS Omni',
         connectMs365: 'NEXUS Omni',
@@ -32194,6 +32243,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Feladatok',
       description: 'Kezelje és kövesse feladatait',
       noTasks: 'Nem találhatók feladatok',
+      openTasks: 'Nyitott feladatok',
+      loadError: 'A nyitott feladatokat nem sikerült betölteni. Próbálja újra.',
       myTasks: 'Saját feladataim',
       allTasks: 'Összes feladat',
       searchPlaceholder: 'Feladatok keresése...',
@@ -38196,6 +38247,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Al-állapotok',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'MŰSZAK · PRIORITÁSOK', title: 'Értesítések', markAllRead: 'Összes megjelölése olvasottként',
+          summaryTitle: 'Ezzel kezdje', summaryDescription: 'A sürgős és új értesítések kerülnek előre.',
+          newCount: '{count} új', priorityLead: '1. PRIORITÁS', rowLabel: 'Értesítés: {title}', read: 'olvasott', unread: 'olvasatlan',
+          urgent: 'Sürgős', high: 'Magas', low: 'Alacsony', dismissLabel: 'Értesítés eltávolítása: {title}',
+          all: 'Összes', unreadTab: 'Olvasatlan', noNotifications: 'Nincsenek értesítések', allRead: 'Minden értesítés olvasott',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Jelentkezzen be a NEXUS Omni eléréséhez',
         connectMs365: 'NEXUS Omni',
@@ -39707,6 +39765,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Sarcini',
       description: 'Gestionați și urmăriți sarcinile',
       noTasks: 'Nu s-au găsit sarcini',
+      openTasks: 'Sarcini deschise',
+      loadError: 'Sarcinile deschise nu au putut fi încărcate. Încercați din nou.',
       myTasks: 'Sarcinile mele',
       allTasks: 'Toate sarcinile',
       searchPlaceholder: 'Căutare sarcini...',
@@ -45630,6 +45690,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Sub-statusuri',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'TURĂ · PRIORITĂȚI', title: 'Notificări', markAllRead: 'Marchează tot ca citit',
+          summaryTitle: 'De rezolvat mai întâi', summaryDescription: 'Notificările urgente și noi sunt afișate primele.',
+          newCount: '{count} noi', priorityLead: 'PRIORITATEA 01', rowLabel: 'Notificare: {title}', read: 'citită', unread: 'necitită',
+          urgent: 'Urgentă', high: 'Ridicată', low: 'Scăzută', dismissLabel: 'Elimină notificarea: {title}',
+          all: 'Toate', unreadTab: 'Necitite', noNotifications: 'Nu există notificări', allRead: 'Toate notificările sunt citite',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Autentificați-vă pentru acces la NEXUS Omni',
         connectMs365: 'NEXUS Omni',
@@ -47141,6 +47208,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Attività',
       description: 'Gestisci e monitora le tue attività',
       noTasks: 'Nessuna attività trovata',
+      openTasks: 'Attività aperte',
+      loadError: 'Impossibile caricare le attività aperte. Riprova.',
       myTasks: 'Le mie attività',
       allTasks: 'Tutte le attività',
       searchPlaceholder: 'Cerca attività...',
@@ -53065,6 +53134,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Sub-stati',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'TURNO · PANORAMICA PRIORITÀ', title: 'Notifiche', markAllRead: 'Segna tutte come lette',
+          summaryTitle: 'Da gestire per prime', summaryDescription: 'Le notifiche urgenti e nuove sono in cima.',
+          newCount: '{count} nuove', priorityLead: 'PRIORITÀ 01', rowLabel: 'Notifica: {title}', read: 'letta', unread: 'non letta',
+          urgent: 'Urgente', high: 'Alta', low: 'Bassa', dismissLabel: 'Rimuovi notifica: {title}',
+          all: 'Tutte', unreadTab: 'Non lette', noNotifications: 'Nessuna notifica', allRead: 'Hai letto tutte le notifiche',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Accedi per accedere a NEXUS Omni',
         connectMs365: 'NEXUS Omni',
@@ -54576,6 +54652,8 @@ export const translations: Record<Locale, Translations> = {
       title: 'Aufgaben',
       description: 'Verwalten und verfolgen Sie Ihre Aufgaben',
       noTasks: 'Keine Aufgaben gefunden',
+      openTasks: 'Offene Aufgaben',
+      loadError: 'Ihre offenen Aufgaben konnten nicht geladen werden. Bitte versuchen Sie es erneut.',
       myTasks: 'Meine Aufgaben',
       allTasks: 'Alle Aufgaben',
       searchPlaceholder: 'Aufgaben suchen...',
@@ -60486,6 +60564,13 @@ export const translations: Record<Locale, Translations> = {
       subStatuses: 'Sub-Status',
     },
     nexusOmni: {
+        notificationCenter: {
+          kicker: 'SCHICHT · PRIORITÄTEN', title: 'Benachrichtigungen', markAllRead: 'Alle als gelesen markieren',
+          summaryTitle: 'Zuerst bearbeiten', summaryDescription: 'Dringende und neue Benachrichtigungen stehen oben.',
+          newCount: '{count} neu', priorityLead: 'PRIORITÄT 01', rowLabel: 'Benachrichtigung: {title}', read: 'gelesen', unread: 'ungelesen',
+          urgent: 'Dringend', high: 'Hoch', low: 'Niedrig', dismissLabel: 'Benachrichtigung entfernen: {title}',
+          all: 'Alle', unreadTab: 'Ungelesen', noNotifications: 'Keine Benachrichtigungen', allRead: 'Alles ist gelesen',
+        },
         title: 'NEXUS Omni',
         loginRequired: 'Melden Sie sich an, um auf NEXUS Omni zuzugreifen',
         connectMs365: 'NEXUS Omni',
