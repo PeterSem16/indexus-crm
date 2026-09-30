@@ -39,6 +39,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { NexusPulseView } from "@/components/nexus-pulse-view";
 import { isPulseAgentWorkProtected } from "@/features/nexus-pulse-preflight/diagnostics";
 import { readMissionFaq, readMissionFaqCategoryOrder } from "@/lib/mission-faq";
+import { visibleScheduledQueueGroups } from "@/lib/scheduled-queue-visible-groups";
 import {
   advancePulseCallCountTracker,
   EMPTY_PULSE_CALL_COUNT_TRACKER,
@@ -9827,6 +9828,7 @@ function ScheduledQueuePanel({
   const priorityCopy = priorityBuilderCopy[locale];
 
   const [onlyMine, setOnlyMine] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(40);
 
   const { data: scheduledItems = [], isLoading } = useQuery<ScheduledItem[]>({
     queryKey: ["/api/agent/scheduled-queue", selectedCampaignId || null, onlyMine],
@@ -9852,6 +9854,7 @@ function ScheduledQueuePanel({
       setTimeFilter("all");
       setSearchQuery("");
       setOnlyMine(false);
+      setVisibleCount(40);
     }
   }, [open, selectedCampaignId]);
 
@@ -9934,6 +9937,10 @@ function ScheduledQueuePanel({
   const bucketOrder = sortField === "date" && sortDir === "desc"
     ? (["later", "nextWeek", "thisWeek", "today", "overdue"] as const)
     : (["overdue", "today", "thisWeek", "nextWeek", "later"] as const);
+  const visibleGroups = useMemo(
+    () => visibleScheduledQueueGroups(groupedItems, bucketOrder, visibleCount),
+    [groupedItems, sortField, sortDir, visibleCount],
+  );
 
   const isOverdue = (scheduledAt: string) => new Date(scheduledAt) < new Date();
 
@@ -10107,7 +10114,15 @@ function ScheduledQueuePanel({
               <span className="text-right">{t.agentWorkspace.scheduledActions}</span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto lg:col-start-2">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto lg:col-start-2"
+              onScroll={(event) => {
+                const list = event.currentTarget;
+                if (list.scrollHeight - list.scrollTop - list.clientHeight < 600) {
+                  setVisibleCount(count => Math.min(count + 40, filteredItems.length));
+                }
+              }}
+            >
               {isLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -10134,17 +10149,17 @@ function ScheduledQueuePanel({
                 </div>
               ) : (
                 <div className="space-y-5 p-4 md:p-5">
-                  {bucketOrder.filter(bucket => groupedItems[bucket]?.length).map(bucket => (
+                  {visibleGroups.map(({ bucket, items, total }) => (
                     <section key={bucket} className="space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className={`h-2 w-2 rounded-full ${bucket === "overdue" ? "bg-[#bf5c4f]" : "bg-[#6ba7c8]"}`} />
                           <div><h3 className="text-[13px] font-semibold text-[#1d3d5a]">{bucket === "overdue" ? t.agentWorkspace.scheduledOverdue : bucket === "today" ? t.agentWorkspace.scheduledToday : bucket === "thisWeek" ? t.agentWorkspace.scheduledThisWeek : bucket === "nextWeek" ? t.agentWorkspace.scheduledNextWeek : t.agentWorkspace.scheduledLater}</h3><p className="text-[10px] text-[#7089a0]">{bucket === "overdue" ? t.agentWorkspace.scheduledOverdue : bucket === "today" ? t.agentWorkspace.scheduledToday : bucket === "thisWeek" ? t.agentWorkspace.scheduledThisWeek : bucket === "nextWeek" ? t.agentWorkspace.scheduledNextWeek : t.agentWorkspace.scheduledLater}</p></div>
                         </div>
-                        <Badge variant="secondary" className="bg-[#eaf3fb] text-[10px] text-[#567188]">{groupedItems[bucket].length}</Badge>
+                        <Badge variant="secondary" className="bg-[#eaf3fb] text-[10px] text-[#567188]">{total}</Badge>
                       </div>
                       <div className="space-y-2">
-                  {groupedItems[bucket].map((item, idx) => {
+                  {items.map((item, idx) => {
                     const itemOverdue = isOverdue(item.scheduledAt);
                     return (
                       <div
@@ -14019,32 +14034,13 @@ function AgentWorkspacePageContent() {
     }
     try {
       const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
-      let blocked = false;
-      if (!isOutsideMission) {
-        try {
-          const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
-          if (qRes.ok) {
-            const qData = await qRes.json();
-            if (qData.blocked && qData.blocked[quotaType]) blocked = true;
-            const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
-            if (hasAnyQuota && campaignId === selectedCampaignId) {
-              setQuotas(qData.quotas);
-              if (qData.usage) {
-                quotaDataRef.current = { usage: qData.usage };
-              }
-            }
-          }
-        } catch {}
-      }
-      if (blocked) {
-        const quotaMsg = quotaType === "calls"
-          ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
-          : quotaType === "emails"
-          ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
-          : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
-        toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
-        return null;
-      }
+      // The quota check and entity read are independent. Start both together,
+      // but do not open the card until the quota check has completed.
+      const quotaCheck = isOutsideMission
+        ? Promise.resolve(null)
+        : fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" })
+            .then(async response => response.ok ? response.json() : null)
+            .catch(() => null);
       let customer: any;
       let _clinicEntity: any = null;
       let _hospitalEntity: any = null;
@@ -14120,6 +14116,21 @@ function AgentWorkspacePageContent() {
         const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
         if (!res.ok) throw new Error("Customer not found");
         customer = await res.json();
+      }
+
+      const qData = await quotaCheck;
+      if (qData?.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null) && campaignId === selectedCampaignId) {
+        setQuotas(qData.quotas);
+        if (qData.usage) quotaDataRef.current = { usage: qData.usage };
+      }
+      if (qData?.blocked?.[quotaType]) {
+        const quotaMsg = quotaType === "calls"
+          ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
+          : quotaType === "emails"
+          ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
+          : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
+        toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
+        return null;
       }
 
       if (isOutsideMission) {
