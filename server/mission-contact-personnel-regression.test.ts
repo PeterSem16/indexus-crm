@@ -30,18 +30,25 @@ for (const role of ["admin", "user"]) {
     const fixture = [
       { id: "cc-clinic", contactType: "clinic", clinicId: "clinic-a" },
       { id: "cc-hospital", contactType: "hospital", hospitalId: "hospital-a" },
+      { id: "cc-clinic-again", contactType: "clinic", clinicId: "clinic-a" },
+      { id: "cc-hospital-again", contactType: "hospital", hospitalId: "hospital-a" },
+      { id: "cc-person", contactType: "collaborator", collaboratorId: "person-b" },
+      { id: "cc-customer", contactType: "customer", customerId: "customer-a" },
+      { id: "cc-fallback", contactType: "clinic", customerId: "customer-a" },
     ];
     const assignments = [
       { personId: "person-a", entityType: "clinic", entityId: "clinic-a" },
       { personId: "person-a", entityType: "hospital", entityId: "hospital-a" },
     ];
     const errors: unknown[] = [];
+    const selectedTables: unknown[] = [];
     const context = {
       ...schema, ...orm,
       console: { error: (...args: unknown[]) => errors.push(args) },
       canAgentReadCampaignByWorkspaceCountry: () => true,
       parseCampaignContactVisibility: () => "all",
       includePersonReferrals: () => false,
+      normalizeCollaboratorPriorityCity: () => ({ city: null, countryCode: null }),
       storage: {
         getCampaign: async () => ({ id: "mission", settings: "{}", countryCodes: ["SK"] }),
         getAgentWorkspaceAccess: async () => [{ countryCode: "SK" }],
@@ -53,13 +60,17 @@ for (const role of ["admin", "user"]) {
         select: (fields?: Record<string, unknown>) => {
           let table: unknown;
           const chain: any = {
-            from(value: unknown) { table = value; return chain; },
+            from(value: unknown) { table = value; selectedTables.push(value); return chain; },
             where() { return chain; }, orderBy() { return chain; }, limit() { return chain; },
             then(resolve: (rows: unknown[]) => unknown) {
               if (metadataFails && fields?.firstName) throw new Error("Simulated optional metadata query failure");
               return Promise.resolve(resolve(
                 table === schema.campaignAgents ? [{ id: "agent-link" }]
                 : table === schema.contactAssignments ? assignments
+                : table === schema.clinics ? [{ id: "clinic-a", name: "Clinic" }]
+                : table === schema.hospitals ? [{ id: "hospital-a", name: "Hospital" }]
+                : table === schema.customers ? [{ id: "customer-a", firstName: "Customer" }]
+                : table === schema.collaborators && !fields ? [{ id: "person-b", firstName: "Collaborator" }]
                 : table === schema.collaborators ? [{
                   id: "person-a", isActive: true, firstName: "Jana", lastName: "Testová",
                   hospitalIds: [], clinicIds: [], phone: "0905123456", email: "test@example.org",
@@ -79,10 +90,18 @@ for (const role of ["admin", "user"]) {
     let body: any;
     const res = { status(value: number) { status = value; return res; }, json(value: unknown) { body = value; return res; } };
     await (context as any).handler({ query: { agentView: "true" }, params: { id: "mission" }, session: { user: { id: "agent", role } } }, res);
-    assert.equal(status, 200, JSON.stringify(errors));
-    assert.equal(body.length, 2);
+    assert.equal(status, 200, errors.map((args: any) => String(args[1]?.stack || args[1])).join("\n"));
+    assert.equal(body.length, 7);
     assert.equal(body[0].clinic.id, "clinic-a");
     assert.equal(body[1].hospital.id, "hospital-a");
+    assert.equal(body[2].clinic.id, "clinic-a");
+    assert.equal(body[3].hospital.id, "hospital-a");
+    assert.equal(body[4].collaborator.id, "person-b");
+    assert.equal(body[5].customer.id, "customer-a");
+    assert.equal(body[6].customer.id, "customer-a");
+    assert.equal(selectedTables.filter(table => table === schema.clinics).length, 1);
+    assert.equal(selectedTables.filter(table => table === schema.hospitals).length, 1);
+    assert.equal(selectedTables.filter(table => table === schema.customers).length, 1);
     if (metadataFails) {
       assert.equal(body[0].personnelSearch.length, 0);
       assert.equal(body[1].personnelSearch.length, 0);

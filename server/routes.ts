@@ -30663,18 +30663,46 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
       
-      const enrichedContacts = await Promise.all(
-        contacts.map(async (contact) => {
-          let customer = null, hospital = null, clinic = null, collaborator = null;
-          if (contact.contactType === "hospital" && contact.hospitalId) {
-            hospital = await storage.getHospital(contact.hospitalId);
-          } else if (contact.contactType === "clinic" && contact.clinicId) {
-            clinic = await storage.getClinic(contact.clinicId);
-          } else if (contact.contactType === "collaborator" && contact.collaboratorId) {
-            collaborator = await storage.getCollaborator(contact.collaboratorId);
-          } else if (contact.customerId) {
-            customer = await storage.getCustomer(contact.customerId);
-          }
+      // Resolve distinct entities in batches instead of one query per contact
+      // on every agent-workspace poll.
+      const hospitalEntityIds = new Set<string>();
+      const clinicEntityIds = new Set<string>();
+      const collaboratorEntityIds = new Set<string>();
+      const customerEntityIds = new Set<string>();
+      for (const contact of contacts) {
+        if (contact.contactType === "hospital" && contact.hospitalId) {
+          hospitalEntityIds.add(contact.hospitalId);
+        } else if (contact.contactType === "clinic" && contact.clinicId) {
+          clinicEntityIds.add(contact.clinicId);
+        } else if (contact.contactType === "collaborator" && contact.collaboratorId) {
+          collaboratorEntityIds.add(contact.collaboratorId);
+        } else if (contact.customerId) {
+          customerEntityIds.add(contact.customerId);
+        }
+      }
+      const [hospitalRows, clinicRows, collaboratorRows, customerRows] = await Promise.all([
+        hospitalEntityIds.size ? db.select().from(hospitals).where(inArray(hospitals.id, [...hospitalEntityIds])) : Promise.resolve([]),
+        clinicEntityIds.size ? db.select().from(clinics).where(inArray(clinics.id, [...clinicEntityIds])) : Promise.resolve([]),
+        collaboratorEntityIds.size ? db.select().from(collaborators).where(inArray(collaborators.id, [...collaboratorEntityIds])) : Promise.resolve([]),
+        customerEntityIds.size ? db.select().from(customers).where(inArray(customers.id, [...customerEntityIds])) : Promise.resolve([]),
+      ]);
+      const hospitalById = new Map(hospitalRows.map(row => [row.id, row]));
+      const clinicById = new Map(clinicRows.map(row => [row.id, row]));
+      const collaboratorById = new Map(collaboratorRows.map(row => [row.id, row]));
+      const customerById = new Map(customerRows.map(row => [row.id, row]));
+
+      const enrichedContacts = contacts.map((contact) => {
+          const hospital = contact.contactType === "hospital" && contact.hospitalId
+            ? hospitalById.get(contact.hospitalId) ?? null : null;
+          const clinic = contact.contactType === "clinic" && contact.clinicId
+            ? clinicById.get(contact.clinicId) ?? null : null;
+          const collaborator = contact.contactType === "collaborator" && contact.collaboratorId
+            ? collaboratorById.get(contact.collaboratorId) ?? null : null;
+          const customer = !(contact.contactType === "hospital" && contact.hospitalId)
+            && !(contact.contactType === "clinic" && contact.clinicId)
+            && !(contact.contactType === "collaborator" && contact.collaboratorId)
+            && contact.customerId
+            ? customerById.get(contact.customerId) ?? null : null;
           const hasReferral = contact.clinicId
             ? clinicReferralIds.has(contact.clinicId) || personReferrals.clinic.has(contact.clinicId)
             : contact.hospitalId
@@ -30711,8 +30739,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
               }
               : {}),
           };
-        })
-      );
+        });
       
       if (paginated) {
         return res.json({ data: enrichedContacts, total, page, limit });
