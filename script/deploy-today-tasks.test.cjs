@@ -331,6 +331,21 @@ test("prepare build detects concurrent source edits and leaves them untouched", 
   fs.rmSync(f.root, { recursive: true, force: true });
 });
 
+test("prepare copies nested source data but excludes root runtime data", async () => {
+  const f = fixture();
+  write(f.root, "client/src/data/cla-template.ts", "export const template = {};");
+  write(f.root, "data/private.txt", "runtime data");
+  await deploy({ ...f.options, apply: false }, {
+    manifest: f.manifest, payloads: f.payloads, gitInfo: f.gitInfo,
+    build: async (stage) => {
+      assert.equal(fs.readFileSync(path.join(stage, "client/src/data/cla-template.ts"), "utf8"), "export const template = {};");
+      assert.equal(fs.existsSync(path.join(stage, "data")), false);
+      await f.build(stage);
+    },
+  });
+  fs.rmSync(f.root, { recursive: true, force: true });
+});
+
 test("source overlay final inventory gate preserves edits to untouched and already-written sources", async (t) => {
   for (const kind of ["untouched", "payload"]) {
     await t.test(kind, async () => {

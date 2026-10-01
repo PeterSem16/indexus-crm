@@ -226,7 +226,9 @@ function snapshotSources(root) {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
       const rel = relative ? `${relative}/${entry.name}` : entry.name;
       const abs = path.join(root, rel);
-      if (EXCLUDED_DIRS.has(entry.name) || /^\.env(?:\.|$)/i.test(entry.name)) continue;
+      // Only source roots are traversed; nested data/upload folders are source assets,
+      // not the root-level runtime stores excluded from this inventory.
+      if (["node_modules", ".git", "private-task-attachments"].includes(entry.name) || /^\.env(?:\.|$)/i.test(entry.name)) continue;
       const stat = fs.lstatSync(abs);
       if (stat.isSymbolicLink()) fail(`Symlink in source tree refused: ${rel}`);
       if (stat.isDirectory()) visit(abs, rel);
