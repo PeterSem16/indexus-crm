@@ -11175,7 +11175,7 @@ function AgentWorkspacePageContent() {
       customer: t.customers.title,
       clinic: t.clinics.title,
       hospital: t.hospitals.tabs.hospital,
-      collaborator: t.automationCatalog.collaborator,
+      collaborator: t.collaborators.title,
     };
     return labels[type] || t.quickCreate.linkedCustomer;
   };

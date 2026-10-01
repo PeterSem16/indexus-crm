@@ -9035,7 +9035,7 @@ export default function EmailClientPage() {
             : "") ||
       (entityType === "clinic" ? t.clinics.title :
         entityType === "hospital" ? t.hospitals.tabs.hospital :
-        entityType === "collaborator" ? t.automationCatalog.collaborator : t.customers.title);
+        entityType === "collaborator" ? t.collaborators.title : t.customers.title);
     const isActive = selectedTask.status !== "completed" && selectedTask.status !== "cancelled";
     return (
       <div className="flex flex-col h-full">
