@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import { processEvent, dryRunRule } from "./automation-engine";
 import { emitEvent } from "./event-bus";
+import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
 
 function getSessionUser(req: Request): { id: string; role?: string } | null {
   // @ts-ignore — session shape from existing middleware
@@ -447,10 +448,21 @@ export function registerAutomationRoutes(app: Express) {
 /** Seed system rule(s). Idempotent. */
 export async function seedSystemAutomationRules() {
   const existing = await db
-    .select({ id: workflowRules.id })
+    .select({ id: workflowRules.id, conditions: workflowRules.conditions })
     .from(workflowRules)
     .where(and(eq(workflowRules.isSystem, true), eq(workflowRules.name, "Notify creator on task completion")));
-  if (existing.length) return;
+  // Completion routes own their creator-notification decision and mark those
+  // events so this system rule cannot duplicate a notice or bypass an opt-out.
+  // User-authored task.completed rules remain unchanged.
+  if (existing.length) {
+    const guardedConditions = withUnmanagedTaskCreatorNoticeCondition(existing[0].conditions);
+    if (JSON.stringify(existing[0].conditions) !== JSON.stringify(guardedConditions)) {
+      await db.update(workflowRules).set({ conditions: guardedConditions as any })
+        .where(eq(workflowRules.id, existing[0].id));
+    }
+    return;
+  }
+  const managedNoticeCondition = withUnmanagedTaskCreatorNoticeCondition(null);
   await db.insert(workflowRules).values({
     name: "Notify creator on task completion",
     description: "System rule — notifies the task creator when their task is marked completed.",
@@ -458,7 +470,7 @@ export async function seedSystemAutomationRules() {
     enabled: true,
     isSystem: true,
     trigger: { type: "event", entityType: "task", eventType: "task.completed" },
-    conditions: null,
+    conditions: managedNoticeCondition,
     actions: [
       {
         type: "notify_user",

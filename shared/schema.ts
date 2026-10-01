@@ -3,6 +3,7 @@ import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { WallboardAlarmSettings } from "./wallboard-alarms";
+import type { TaskAttachment } from "./task-attachments";
 
 // Country codes for the CRM system (operating countries)
 export const COUNTRIES = [
@@ -1208,8 +1209,11 @@ export const tasks = pgTable("tasks", {
   resolution: text("resolution"), // solution/response when completing the task
   resolvedByUserId: varchar("resolved_by_user_id"), // who resolved the task
   resolvedAt: timestamp("resolved_at"), // when task was resolved
+  workStartedAt: timestamp("work_started_at"), // first Start Working time in the current work cycle
+  workStoppedAt: timestamp("work_stopped_at"), // terminal completion/cancellation time for the current cycle
   sourceRunId: varchar("source_run_id"), // automation_runs.id (Automation MVP-1)
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
+  attachments: jsonb("attachments").$type<TaskAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   boState: text("bo_state").notNull().default("received"), // Back Office workflow: received|in_progress|waiting_agent|done
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -1221,6 +1225,28 @@ export const tasks = pgTable("tasks", {
   idxTasksRelatedEntity: index("idx_tasks_related_entity").on(table.relatedEntityType, table.relatedEntityId),
   idxTasksSourceRun: index("idx_tasks_source_run").on(table.sourceRunId),
   idxTasksCountry: index("idx_tasks_country").on(table.country),
+}));
+
+// Private task uploads are staged independently from task association, which
+// allows the same creator-owned upload to be attached to multiple Pulse tasks.
+export const taskAttachmentUploads = pgTable("task_attachment_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  uploaderUserId: varchar("uploader_user_id").notNull(),
+  storageKey: text("storage_key").notNull().unique(),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  size: integer("size").notNull(),
+  everAssociated: boolean("ever_associated").notNull().default(false),
+  associationHistory: jsonb("association_history").$type<{
+    taskId: string;
+    country?: string | null;
+    assignedUserId?: string | null;
+    createdByUserId?: string | null;
+    tags?: string[] | null;
+  }[]>().notNull().default(sql`'[]'::jsonb`),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+}, (table) => ({
+  idxTaskAttachmentUploadsUploader: index("idx_task_attachment_uploads_uploader").on(table.uploaderUserId),
 }));
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
@@ -7874,6 +7900,19 @@ export const taskChecklistItems = pgTable("task_checklist_items", {
 export const insertTaskChecklistItemSchema = createInsertSchema(taskChecklistItems).omit({ id: true });
 export type TaskChecklistItem = typeof taskChecklistItems.$inferSelect;
 export type InsertTaskChecklistItem = z.infer<typeof insertTaskChecklistItemSchema>;
+
+export const taskAiChecklistGenerations = pgTable("task_ai_checklist_generations", {
+  taskId: varchar("task_id").primaryKey().references(() => tasks.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("idle"),
+  errorCode: text("error_code"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  attemptToken: varchar("attempt_token"),
+  fingerprint: text("fingerprint"),
+  generatedItemCount: integer("generated_item_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+export type TaskAiChecklistGeneration = typeof taskAiChecklistGenerations.$inferSelect;
 
 export const taskSubscriptions = pgTable("task_subscriptions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

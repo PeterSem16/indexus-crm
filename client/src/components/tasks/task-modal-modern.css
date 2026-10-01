@@ -1,0 +1,188 @@
+.task-modern-modal-overlay {
+  z-index: 10019 !important;
+  background: hsl(222 25% 18% / .4) !important;
+  backdrop-filter: blur(4px);
+}
+/* Radix Select, Popover and Tooltip portal outside the dialog. Keep those
+   controls above the Tasks overlay without changing other app windows. */
+body:has(.task-modern-modal[data-state="open"]) [data-radix-popper-content-wrapper] {
+  z-index: 10040 !important;
+}
+.task-modern-modal {
+  z-index: 10020 !important;
+  display: flex !important;
+  max-height: min(90dvh, 860px) !important;
+  flex-direction: column;
+  gap: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  border: 1px solid hsl(var(--border) / .9) !important;
+  border-radius: 22px !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground));
+  box-shadow: 0 28px 90px hsl(220 30% 12% / .24) !important;
+}
+.task-modern-modal--fullscreen {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: 100dvh !important;
+  border-radius: 0 !important;
+  transform: none !important;
+}
+.task-modern-modal-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 24px;
+  overscroll-behavior: contain;
+}
+.task-modern-modal-footer {
+  flex: 0 0 auto;
+  border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / .28);
+  padding: 14px 24px;
+}
+.task-modern-modal > .flex.flex-col.space-y-1\.5 {
+  padding: 18px 24px;
+}
+.task-modern-modal-footer button {
+  min-height: 40px;
+  border-radius: 11px;
+}
+.task-modern-modal-body input:not([type="checkbox"]):not([type="radio"]),
+.task-modern-modal-body textarea,
+.task-modern-modal-body [role="combobox"] {
+  border-radius: 10px;
+}
+.task-modern-modal--nested {
+  z-index: 10030 !important;
+}
+.task-modern-modal-overlay--nested {
+  z-index: 10029 !important;
+}
+.task-group-alert {
+  width: min(440px, calc(100vw - 28px)) !important;
+  max-width: 440px !important;
+  padding: 0 !important;
+}
+.task-group-alert > [data-slot="alert-dialog-header"],
+.task-group-alert > .flex.flex-col {
+  padding: 18px 24px 17px;
+}
+.task-group-alert-footer {
+  gap: 8px;
+  padding: 12px 20px;
+}
+.task-group-alert-footer > button { min-height: 40px; border-radius: 10px; }
+.task-groups-dialog-content > .task-modal-artwork { height: 82px; }
+.task-groups-dialog-content > .task-groups-editor-body { overflow: hidden; padding: 0; }
+.task-groups-dialog-content > .task-groups-list-body { overflow-y: auto; }
+.task-comments-dialog-main.task-modern-modal-body { overflow: hidden; padding: 0; }
+.task-comments-composer.task-modern-modal-footer { padding: 12px 24px 16px; background: hsl(var(--background)); }
+.task-modal-artwork {
+  --art-accent: var(--primary);
+  position: relative;
+  display: grid;
+  height: 158px;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 110%, hsl(var(--art-accent) / .13), transparent 59%),
+    linear-gradient(145deg, hsl(var(--muted) / .76), hsl(var(--background)));
+}
+.task-modal-artwork--create,
+.task-modal-artwork--edit { --art-accent: var(--primary); }
+.task-modal-artwork--assign,
+.task-modal-artwork--groups { --art-accent: 166 48% 31%; }
+.task-modal-artwork--comments { --art-accent: 166 48% 31%; }
+.task-modal-artwork--resolve { --art-accent: 151 43% 38%; }
+.task-modal-artwork--delete { --art-accent: var(--destructive); }
+.task-modal-artwork--detail { --art-accent: var(--primary); }
+.task-modal-artwork__orbit {
+  position: absolute;
+  border: 1px dashed hsl(var(--art-accent) / .2);
+  border-radius: 50%;
+  transform: rotate(-17deg);
+}
+.task-modal-artwork__orbit--one { width: 230px; height: 96px; }
+.task-modal-artwork__orbit--two { width: 180px; height: 134px; transform: rotate(32deg); }
+.task-modal-artwork__sheet {
+  position: relative;
+  display: flex;
+  width: 112px;
+  height: 123px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+  padding: 19px 17px 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 16px;
+  background: hsl(var(--card));
+  box-shadow: 0 13px 30px hsl(222 25% 22% / .12);
+  transform: rotate(-5deg);
+}
+.task-modal-artwork__sheet-mark { width: 17px; height: 17px; margin-bottom: 1px; color: hsl(var(--art-accent) / .72); }
+.task-modal-artwork__line { width: 64px; height: 6px; border-radius: 5px; background: hsl(var(--muted-foreground) / .18); }
+.task-modal-artwork__line--short { width: 43px; }
+.task-modal-artwork__seal {
+  position: absolute;
+  right: -12px;
+  bottom: -9px;
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border: 4px solid hsl(var(--background));
+  border-radius: 15px;
+  background: hsl(var(--art-accent));
+  color: hsl(var(--primary-foreground));
+  transform: rotate(9deg);
+}
+.task-modal-artwork__seal svg { width: 19px; height: 19px; stroke-width: 2.2; }
+.task-modal-artwork__chip { position: absolute; display: grid; place-items: center; border-radius: 11px; }
+.task-modal-artwork__chip svg { width: 16px; height: 16px; }
+.task-modal-artwork__chip--left { top: 30px; left: calc(50% + 70px); width: 30px; height: 30px; background: hsl(var(--primary) / .1); color: hsl(var(--primary)); transform: rotate(11deg); }
+.task-modal-artwork__chip--right { right: calc(50% + 73px); bottom: 28px; width: 27px; height: 27px; background: hsl(151 38% 90%); color: hsl(151 43% 34%); transform: rotate(-12deg); }
+.task-modal-artwork__confetti { position: absolute; display: block; width: 7px; height: 7px; border-radius: 2px; background: hsl(var(--art-accent) / .56); transform: rotate(35deg); }
+.task-modal-artwork__confetti--one { top: 34px; left: calc(50% - 92px); }
+.task-modal-artwork__confetti--two { right: calc(50% - 97px); bottom: 29px; width: 5px; height: 5px; background: hsl(var(--primary) / .5); }
+.task-modal-artwork--compact { height: 78px; }
+.task-modal-artwork--compact .task-modal-artwork__sheet { width: 67px; height: 62px; gap: 5px; padding: 9px 10px; border-radius: 10px; }
+.task-modal-artwork--compact .task-modal-artwork__sheet-mark { width: 12px; height: 12px; }
+.task-modal-artwork--compact .task-modal-artwork__line { width: 38px; height: 4px; }
+.task-modal-artwork--compact .task-modal-artwork__line--short { width: 26px; }
+.task-modal-artwork--compact .task-modal-artwork__seal { right: -9px; bottom: -7px; width: 30px; height: 30px; border-width: 3px; border-radius: 10px; }
+.task-modal-artwork--compact .task-modal-artwork__seal svg { width: 14px; height: 14px; }
+.task-modal-artwork--compact .task-modal-artwork__chip--left { top: 15px; left: calc(50% + 38px); width: 23px; height: 23px; }
+.task-modal-artwork--compact .task-modal-artwork__chip--right { right: calc(50% + 40px); bottom: 12px; width: 21px; height: 21px; }
+.task-modal-artwork--compact .task-modal-artwork__chip svg { width: 12px; height: 12px; }
+.task-modal-artwork--compact .task-modal-artwork__orbit--one { width: 170px; height: 57px; }
+.task-modal-artwork--compact .task-modal-artwork__orbit--two { width: 130px; height: 69px; }
+.task-modal-artwork--compact .task-modal-artwork__confetti { display: none; }
+.task-modern-modal .task-modal-artwork:first-child { margin: 0; }
+.dark .task-modal-artwork__chip--right { background: hsl(151 27% 24%); color: hsl(151 44% 70%); }
+.dark .task-modal-artwork__seal { color: hsl(var(--background)); }
+@media (max-width: 600px) {
+  .task-modern-modal { width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px) !important; border-radius: 17px !important; }
+  .task-modern-modal.task-comments-dialog-content { border-radius: 18px !important; }
+  .task-modern-modal-body { padding: 16px; }
+  .task-modern-modal-footer { padding: 12px 16px; }
+  .task-modal-artwork { height: 126px; }
+  .task-group-alert > [data-slot="alert-dialog-header"],
+  .task-group-alert > .flex.flex-col { padding: 15px 18px; }
+  .task-group-alert-footer { padding: 10px 16px; }
+  .task-comments-composer.task-modern-modal-footer { padding: 10px 14px 12px; }
+}
+@media (max-height: 620px) {
+  .task-modal-artwork:not(.task-modal-artwork--compact) { height: 88px; }
+  .task-modal-artwork:not(.task-modal-artwork--compact) .task-modal-artwork__sheet { transform: scale(.76) rotate(-5deg); }
+  .task-modal-artwork:not(.task-modal-artwork--compact) .task-modal-artwork__chip,
+  .task-modal-artwork:not(.task-modal-artwork--compact) .task-modal-artwork__confetti { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-modal-artwork *, .task-modal-artwork *::before, .task-modal-artwork *::after { animation: none !important; transition: none !important; }
+}

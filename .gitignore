@@ -1,4 +1,5 @@
 node_modules
+private-task-attachments/
 test-results/
 playwright-report/
 dist

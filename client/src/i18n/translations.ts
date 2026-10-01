@@ -44,6 +44,8 @@ export interface Translations {
     attachLabel: string;
     attachmentUploading: string;
     attachmentError: string;
+    attachmentTooLarge: string;
+    attachmentLimitReached: string;
     attachmentDownload: string;
     attachmentOpenTab: string;
     attachmentPreviewUnavailable: string;
@@ -100,6 +102,12 @@ export interface Translations {
     toastForwarded: string;
     toastForwardError: string;
     questionsInboxTitle: string;
+    questionToastTitle: string;
+    taskCompletionHeading: string;
+    taskCompletionOpenAction: string;
+    taskCompletionDismissAction: string;
+    taskCompletionStatus: string;
+    taskCompletionActionError: string;
     answerPlaceholder: string;
     answerButton: string;
     toastAnswerSent: string;
@@ -464,11 +472,62 @@ export interface Translations {
     users: string;
     userAccessReports: string;
     settings: string;
+    webForms: string;
     konfigurator: string;
     pricing: string;
     executiveSummaries: string;
     campaignReports: string;
     medicalPartnerNetwork: string;
+    campaignTimeline: {
+      title: string;
+      description: string;
+      searchPlaceholder: string;
+      allChannels: string;
+      allActions: string;
+      noHistory: string;
+      noFiltered: string;
+      phase: string;
+      statusChange: string;
+      note: string;
+      metadata: string;
+      defaultCampaign: string;
+      showMore: string;
+      showLess: string;
+      channels: {
+        phone: string;
+        email: string;
+        sms: string;
+        mailchimp: string;
+      };
+      actions: {
+        call_made: string;
+        call_answered: string;
+        call_missed: string;
+        call_failed: string;
+        email_sent: string;
+        email_opened: string;
+        email_clicked: string;
+        email_bounced: string;
+        sms_sent: string;
+        sms_delivered: string;
+        sms_failed: string;
+        mailchimp_sent: string;
+        mailchimp_opened: string;
+        mailchimp_clicked: string;
+        mailchimp_bounced: string;
+        mailchimp_unsubscribed: string;
+        status_change: string;
+        callback_scheduled: string;
+        note_added: string;
+        disposition_set: string;
+        phase_entered: string;
+        phase_completed: string;
+        phase_skipped: string;
+        contact_added: string;
+        contact_completed: string;
+        contact_requeued: string;
+      };
+    };
     logout: string;
   };
   mpn: {
@@ -549,7 +608,6 @@ export interface Translations {
     contactInfo: string;
     primaryContact: string;
     workplaces: string;
-    institutions: string;
     filtered: string;
     page: string;
     previous: string;
@@ -592,6 +650,11 @@ export interface Translations {
     totalVisits: string;
     completedVisits: string;
     activeRepresentatives: string;
+    addPerson: string;
+    searchCollaborator: string;
+    searchCollaboratorPlaceholder: string;
+    noPersonnel: string;
+    assignPerson: string;
     searchInstitution: string;
     searchPerson: string;
     institution: string;
@@ -610,7 +673,6 @@ export interface Translations {
     collaborator: string;
     clinicDoctors: string;
     hospitalContacts: string;
-    persons: string;
     source: string;
     detail: string;
     info: string;
@@ -625,7 +687,6 @@ export interface Translations {
     semiAnnual: string;
     annual: string;
     more: string;
-    role: string;
   };
   collaboratorReports: {
     title: string;
@@ -735,6 +796,8 @@ export interface Translations {
     default: string;
     unknown: string;
     noResults: string;
+    found: string;
+    total: string;
     scheduled: string;
     completed: string;
     cancelled: string;
@@ -749,7 +812,6 @@ export interface Translations {
     refresh: string;
     next: string;
     previous: string;
-    saving: string;
     first: string;
     last: string;
     showing: string;
@@ -772,6 +834,8 @@ export interface Translations {
     aiSuggestError: string;
     aiSuggestErrorDesc: string;
     aiSuggestButton: string;
+    clickToUpload: string;
+    orDragDrop: string;
   };
   advancedFilters: {
     title: string;
@@ -897,6 +961,8 @@ export interface Translations {
   tasks: {
     title: string;
     description: string;
+    requestFromSubmitter: string;
+    originalRequest: string;
     noTasks: string;
     openTasks: string;
     loadError: string;
@@ -938,6 +1004,13 @@ export interface Translations {
     resolveTask: string;
     resolveTaskDesc: string;
     resolution: string;
+    resolutionDialog: {
+      title: string; description: string; resolution: string; placeholder: string; cancel: string; submit: string;
+      checklist: string; loading: string; loadError: string; retry: string; empty: string; remaining: string;
+      complete: string; returnToChecklist: string; draft: string; drafting: string; draftUnavailable: string;
+      draftFailed: string; draftReady: string; draftPreserved: string; draftingHint: string; draftNoCompletedSteps: string;
+      checklistDraftError: string; notify: string; notifyHint: string;
+    };
     resolvedBy: string;
     resolvedAt: string;
     reassign: string;
@@ -945,6 +1018,23 @@ export interface Translations {
     reassignTaskDesc: string;
     reassignTo: string;
     comments: string;
+    taskDiscussion: string;
+    commentsActivity: string;
+    commentsEmptyHint: string;
+    loadingComments: string;
+    commentsLoadFailed: string;
+    commentsRetry: string;
+    unknownAuthor: string;
+    attachmentsOnly: string;
+    viewAllComments: string;
+    previewAttachment: string;
+    openAttachment: string;
+    commentKeyboardHint: string;
+    taskAgentRequestTitle: string;
+    taskAgentRequestHint: string;
+    taskRequestContextTitle: string;
+    taskRequestContextHint: string;
+    dismissUploadError: string;
     addComment: string;
     commentPlaceholder: string;
     noComments: string;
@@ -962,6 +1052,12 @@ export interface Translations {
     halfYear: string;
     year: string;
     cancelTask: string;
+    cancelConfirmKicker: string;
+    cancelConfirmHeading: string;
+    cancelConfirmBody: string;
+    cancelConfirmQuestion: string;
+    cancelConfirmKeep: string;
+    cancelConfirmAction: string;
     save: string;
     selectTask: string;
     task: string;
@@ -976,12 +1072,90 @@ export interface Translations {
     taskNotifyPopup: string;
     taskNotifyPopupDesc: string;
     newTaskAssigned: string;
+    checklistTitle: string;
+    checklistAddPlaceholder: string;
+    checklistAdd: string;
+    checklistRemove: string;
+    checklistEdit: string;
+    checklistSave: string;
+    checklistCancel: string;
+    checklistLoadError: string;
+    checklistMutationError: string;
+    checklistAiGenerating: string;
+    checklistAiProposal: string;
+    checklistAiFailed: string;
+    checklistAiUnavailable: string;
+    checklistAiRetry: string;
+    checklistAiLoadError: string;
+    checklistMarkComplete: string;
+    checklistMarkIncomplete: string;
+    checklistNoteLabel: string;
+    checklistNotePlaceholder: string;
+    checklistNoteAdd: string;
+    checklistNoteEdit: string;
+    checklistNoteSave: string;
+    checklistNoteCancel: string;
+    taskWorkElapsed: string;
+    taskWorkElapsedDescription: string;
+    taskWorkStartUnknown: string;
+    taskOverdueLabel: string;
+    taskOverdueDuration: string;
     priority: string;
     status: string;
     description2: string;
+    workspace: {
+      settings: string;
+      filtersTitle: string;
+      searchPeoplePlaceholder: string;
+      dateAll: string;
+      dateToday: string;
+      dateWeek: string;
+      dateMonth: string;
+      dateCustom: string;
+      basisCreated: string;
+      basisDue: string;
+      basisResolved: string;
+      sortCreated: string;
+      sortDue: string;
+      sortResolved: string;
+      sortPriority: string;
+      sortTitle: string;
+      ascending: string;
+      descending: string;
+      anyCreator: string;
+      anyResolver: string;
+      dateFrom: string;
+      dateTo: string;
+      rangeSeparator: string;
+      clearFilters: string;
+      group: string;
+      noGroup: string;
+      notifyAgent: string;
+      notifyAgentHint: string;
+      noMatchingTasks: string;
+      titleRequired: string;
+      unassigned: string;
+      sortOrder: string;
+      changeSortOrder: string;
+    };
       taskGroups: {
         title: string;
         newGroup: string;
+        dialogTitle: string;
+        activeUsers: string;
+        inactiveMemberWarning: string;
+        inactive: string;
+        changesTitle: string;
+        changesDescription: string;
+        discardChanges: string;
+        moveUp: string;
+        moveDown: string;
+        readOnly: string;
+        nameRequired: string;
+        usersLoadFailed: string;
+        groupsLoadFailed: string;
+        advanced: string;
+        serverError: string;
         editGroup: string;
         newGroupTitle: string;
         deleteTitle: string;
@@ -1144,6 +1318,19 @@ export interface Translations {
     address: string;
     city: string;
     postalCode: string;
+    street: string;
+    streetNumber: string;
+    orientationNumber: string;
+    ico: string;
+    icoTip: string;
+    idZz: string;
+    idZzTip: string;
+    pzsCode: string;
+    pzsCodeTip: string;
+    pzsName: string;
+    pzsNameTip: string;
+    additionalIdentifiers: string;
+    lookupPsc: string;
     notes: string;
     searchPlaceholder: string;
     noCustomers: string;
@@ -1164,6 +1351,16 @@ export interface Translations {
       data: string;
       invoices?: string;
       documents?: string;
+    };
+    docTableHeaders: {
+      type: string;
+      invoiceNumber: string;
+      company: string;
+      issueDate: string;
+      dueDate: string;
+      amount: string;
+      currency: string;
+      status: string;
     };
     formSections?: {
       status: string;
@@ -1193,6 +1390,11 @@ export interface Translations {
       unknownUser: string;
       inbound: string;
       outbound: string;
+      outgoingCall: string;
+      incomingCall: string;
+      duration: string;
+      hungUpByCustomer: string;
+      hungUpByUser: string;
       statusCompleted: string;
       statusAnswered: string;
       statusFailed: string;
@@ -1231,6 +1433,8 @@ export interface Translations {
       revokeConsentDesc: string;
       revokeReason: string;
       confirmRevoke: string;
+      consentTypes: Record<string, string>;
+      legalBases: Record<string, string>;
     };
     fields: {
       title: string;
@@ -1501,6 +1705,12 @@ export interface Translations {
       messageForRecipient?: string;
       note?: string;
       additionalInfo?: string;
+      scheduledPayments: string;
+      realizedPayments: string;
+      noRealizedPayments: string;
+      paidHome: string;
+      paidAccount: string;
+      status: string;
     };
     legacyId?: string;
     legacyIdPlaceholder?: string;
@@ -1552,6 +1762,73 @@ export interface Translations {
     paymentAmount?: string;
     paymentMethod?: string;
     paymentStatus?: string;
+    stepNumber: string;
+    stepCompanyDates: string;
+    stepPayment: string;
+    stepItems: string;
+    stepSummary: string;
+    selectNumberRange: string;
+    numberRange: string;
+    noNumberRanges: string;
+    nextNumber: string;
+    preview: string;
+    previewNote: string;
+    selectCompany: string;
+    bankAccount: string;
+    noAccounts: string;
+    selectAccount: string;
+    dateSettings: string;
+    billingPeriod: string;
+    paymentSymbols: string;
+    variableSymbolNote: string;
+    selectConstantSymbol: string;
+    barcodePreview: string;
+    barcodeData: string;
+    addItems: string;
+    selectProduct: string;
+    itemsAdded: string;
+    noItemsAdded: string;
+    paymentType: string;
+    oneTimePayment: string;
+    installments: string;
+    installmentCount: string;
+    frequency: string;
+    monthly: string;
+    yearly: string;
+    invoiceGenerationPlan: string;
+    invoiceGenerationPlanDesc: string;
+    oneTimeItems: string;
+    installmentOf: string;
+    totalAllInvoices: string;
+    createSuccess: string;
+    createFailed: string;
+    country: string;
+    bank: string;
+    invoice: string;
+    multiInvoice: string;
+    installment: string;
+    preparingInvoice: string;
+    generatingNumber: string;
+    creatingInvoice: string;
+    schedulingInstallments: string;
+    schedulingInstallment: string;
+    finalizingInvoice: string;
+    generatingPdf: string;
+    pdfGenerating: string;
+    pdfReady: string;
+    pdfFailed: string;
+    templateNotFound: string;
+    selectDocxTemplate: string;
+    docxTemplate: string;
+    selectDocxTemplatePlaceholder: string;
+    firstInvoice: string;
+    generateNow: string;
+    futureInvoices: string;
+    onlyInstallments: string;
+    invoiceCalendar: string;
+    installmentPayment: string;
+    ready: string;
+    scheduled: string;
   };
   users: {
     title: string;
@@ -1595,6 +1872,87 @@ export interface Translations {
     userColumn: string;
     statusColumn: string;
     countriesColumn: string;
+    profileTab: string;
+    accessTab: string;
+    countriesTab: string;
+    settingsTab: string;
+    showNotificationBell: string;
+    showNotificationBellHint: string;
+    showEmailQueue: string;
+    showEmailQueueHint: string;
+    showSipPhoneInHeader: string;
+    showSipPhoneInHeaderHint: string;
+    sip: {
+      enableSipPhone: string;
+      enableSipPhoneHint: string;
+      extension: string;
+      extensionPlaceholder: string;
+      extensionHint: string;
+      password: string;
+      passwordPlaceholder: string;
+      passwordHint: string;
+      passwordAutoFilled: string;
+      displayName: string;
+      displayNamePlaceholder: string;
+      displayNameHint: string;
+      selectExtension: string;
+      selectExtensionHint: string;
+      noAvailableExtensions: string;
+      selectCountryFirst: string;
+      currentExtensionHint: string;
+    };
+    nexus: {
+      enableNexus: string;
+      enableNexusHint: string;
+    };
+    ms365: {
+      connectionDescription: string;
+      loading: string;
+      connected: string;
+      notConnected: string;
+      disconnect: string;
+      connect: string;
+      availableAfterCreate: string;
+      authInstructions: string;
+      connectionSaved: string;
+      connectionError: string;
+      disconnected: string;
+      disconnectError: string;
+      sharedMailboxes: string;
+      add: string;
+      sharedMailboxesHint: string;
+      emailPlaceholder: string;
+      namePlaceholder: string;
+      save: string;
+      cancel: string;
+      noSharedMailboxes: string;
+      default: string;
+      setAsDefault: string;
+      remove: string;
+      mailboxAdded: string;
+      mailboxAddError: string;
+      mailboxRemoved: string;
+      mailboxRemoveError: string;
+      defaultSet: string;
+      defaultSetError: string;
+    };
+    jira: {
+      connectionDescription: string;
+      checkingConnection: string;
+      notConnected: string;
+      notConfigured: string;
+      contactAdmin: string;
+      afterConnection: string;
+      connected: string;
+      loadingUsers: string;
+      loadError: string;
+      tryAgain: string;
+      jiraAccount: string;
+      selectUser: string;
+      none: string;
+      syncHint: string;
+      linkedWith: string;
+    };
   };
   hospitals: {
     title: string;
@@ -1636,9 +1994,14 @@ export interface Translations {
       hospital: string;
       clinics: string;
       agreements: string;
+      documents: string;
       templates: string;
       rewards: string;
       healthcareNetworks: string;
+      midwifes: string;
+      persons: string;
+      addMidwife: string;
+      addPerson: string;
     };
   };
   clinics: {
@@ -1715,6 +2078,20 @@ export interface Translations {
     doctorNotInDatabase: string;
     callNow: string;
     statusBar: string;
+    contractTitle: string;
+    contractSentDate: string;
+    contractReturnedDate: string;
+    contractSent: string;
+    contractReturned: string;
+    callsAndContract: string;
+    flyersTitle: string;
+    flyersPlacement: string;
+    flyersSentDate: string;
+    flyersLocation: string;
+    flyersLocationPlaceholder: string;
+    recommendedByMale: string;
+    recommendedByFemale: string;
+    recommendedByMultiple: string;
     leadSourceTypes: {
       new_contact: string;
       former_collaborator: string;
@@ -1820,6 +2197,232 @@ export interface Translations {
     csk_retention_posters_sent: string;
     csk_retention_materials_sent: string;
   };
+  collections: {
+    title: string;
+    description: string;
+    addCollection: string;
+    dashboard: {
+      title: string;
+      listView: string;
+      calendarView: string;
+      totalCollections: string;
+      byStatus: string;
+      byCountry: string;
+      monthlyTrend: string;
+      recentCollections: string;
+      pendingLabResults: string;
+      thisMonth: string;
+      lastMonth: string;
+      topHospitals: string;
+    };
+    timeline: string;
+    workflowProgress: string;
+    currentStatus: string;
+    completedSteps: string;
+    remainingSteps: string;
+    exportCSV: string;
+    exportSuccess: string;
+    noDataToExport: string;
+    today: string;
+    weekDays: {
+      mon: string;
+      tue: string;
+      wed: string;
+      thu: string;
+      fri: string;
+      sat: string;
+      sun: string;
+    };
+    timelineDescriptions: {
+      created: string;
+      paired: string;
+      evaluated: string;
+      verified: string;
+      stored: string;
+      transferred: string;
+      released: string;
+      pending_disposal: string;
+      disposed: string;
+    };
+    countryRequired: string;
+    idColumn: string;
+    editCollection: string;
+    deleteCollection: string;
+    deleteConfirm: string;
+    cbuNumber: string;
+    client: string;
+    child: string;
+    collection: string;
+    status: string;
+    labResults: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    mobile: string;
+    birthNumber: string;
+    birthDay: string;
+    birthMonth: string;
+    birthYear: string;
+    gender: string;
+    male: string;
+    female: string;
+    collectionDate: string;
+    hospital: string;
+    cordBloodCollector: string;
+    tissueCollector: string;
+    placentaCollector: string;
+    assistantNurse: string;
+    secondNurse: string;
+    representative: string;
+    representativeAutoFilled: string;
+    representativeNoClinicRep: string;
+    billset: string;
+    coordinator: string;
+    certificate: string;
+    doctorNote: string;
+    note: string;
+    states: {
+      created: string;
+      paired: string;
+      evaluated: string;
+      verified: string;
+      stored: string;
+      transferred: string;
+      released: string;
+      awaiting_disposal: string;
+      disposed: string;
+    };
+    lab: {
+      usability: string;
+      resultsDate: string;
+      labNote: string;
+      cbu: string;
+      collectionFor: string;
+      processing: string;
+      sterility: string;
+      sterilityType: string;
+      resultOfSterility: string;
+      infectionAgents: string;
+      tncCount: string;
+      volume: string;
+      volumeInBag: string;
+      umbilicalTissue: string;
+      tissueProcessed: string;
+      tissueSterility: string;
+      tissueUsability: string;
+      bagAUsability: string;
+      bagAVolume: string;
+      bagATnc: string;
+      bagBUsability: string;
+      bagBVolume: string;
+      bagBTnc: string;
+      basicInfo: string;
+      sterilitySection: string;
+      volumeSection: string;
+      tissueSection: string;
+      bagASection: string;
+      bagBSection: string;
+      downloadCbuReport: string;
+      medicalReportSk: string;
+      medicalReportEn: string;
+      fullReportSk: string;
+      fullReportEn: string;
+      reportDownloaded: string;
+    };
+    sprievodny: {
+      title: string;
+      uploadTitle: string;
+      uploadButton: string;
+      reupload: string;
+      analyzing: string;
+      reanalyzing: string;
+      analyzed: string;
+      deleted: string;
+      confirmDelete: string;
+      edit: string;
+      cancel: string;
+      ocrHigh: string;
+      ocrMedium: string;
+      ocrLow: string;
+      uncertain: string;
+      imprecise: string;
+      step1: string;
+      step2: string;
+      step3: string;
+      step4: string;
+      step5: string;
+      stepOf: string;
+      stepLabel: string;
+      nameMatch: string;
+      nameMatchDesc: string;
+      nameMismatch: string;
+      nameMismatchDesc: string;
+      collectionRecord: string;
+      ocrDocument: string;
+      sectionMother: string;
+      sectionContacts: string;
+      sectionDonor: string;
+      sectionCollection: string;
+      sectionNewborn: string;
+      sectionBirth: string;
+      sectionMedical: string;
+      sectionPersonnel: string;
+      sectionLab: string;
+      sectionSignatures: string;
+      sectionBarcode: string;
+      surname: string;
+      firstName: string;
+      birthNumber: string;
+      address: string;
+      idCardNumber: string;
+      email: string;
+      phone1: string;
+      phone2: string;
+      donorSelection: string;
+      collectionType: string;
+      collectionDate: string;
+      collectionTime: string;
+      contractNumber: string;
+      sampleId: string;
+      bagId: string;
+      numberOfBags: string;
+      cordBloodVolume: string;
+      cordClampTime: string;
+      placentaWeight: string;
+      childSurname: string;
+      childFirstName: string;
+      childGender: string;
+      childBirthNumber: string;
+      birthDate: string;
+      birthTime: string;
+      birthWeight: string;
+      birthLength: string;
+      gestationalAge: string;
+      apgar1: string;
+      apgar5: string;
+      apgar10: string;
+      bloodGroup: string;
+      rhFactor: string;
+      deliveryType: string;
+      deliveryComplications: string;
+      antibiotics: string;
+      infections: string;
+      previousPregnancies: string;
+      collectorName: string;
+      assistantName: string;
+      hospitalName: string;
+      hospitalDepartment: string;
+      maternalBloodSample: string;
+      labTests: string;
+      transportConditions: string;
+      motherSignature: string;
+      doctorSignature: string;
+      consentSigned: string;
+      notes: string;
+      barcodeValue: string;
+      qrCodeValue: string;
+    };
+  };
   collaborators: {
     title: string;
     description: string;
@@ -1862,9 +2465,11 @@ export interface Translations {
       companyAndAddresses: string;
       otherData: string;
       agreements: string;
+      documents: string;
       templates: string;
       rewards: string;
       actions: string;
+      healthcareNetworks: string;
       history: string;
     };
     addressTabs: {
@@ -1900,6 +2505,19 @@ export interface Translations {
       email: string;
       bankAccountIban: string;
       swiftCode: string;
+      accountNumber: string;
+      bankCode: string;
+      calculateIban: string;
+      agreementType: string;
+      agreementDOVP: string;
+      agreementZOD: string;
+      accountAndBankCode: string;
+      documentUploaded: string;
+      documentDeleted: string;
+      noDocuments: string;
+      uploadDocument: string;
+      documentNote: string;
+      selectFile: string;
       clientContact: string;
       representative: string;
       active: string;
@@ -2067,6 +2685,7 @@ export interface Translations {
     noFile: string;
     uploadAgreement: string;
     companyAddressesDescription: string;
+    documentsDescription: string;
     agreementsDescription: string;
     historyDescription: string;
     mobileApp: {
@@ -4067,8 +4686,6 @@ export interface Translations {
     allCallsHandled: string;
     missedUnhandledCount: string;
     missedHandledCount: string;
-    filterAll: string;
-    filterPending: string;
     filterHandled: string;
     sectionUnhandled: string;
     sectionHandled: string;
@@ -4752,6 +5369,19 @@ export interface Translations {
     userDescription: string;
     companyName: string;
     address: string;
+    street: string;
+    streetNumber: string;
+    orientationNumber: string;
+    ico: string;
+    icoTip: string;
+    idZz: string;
+    idZzTip: string;
+    pzsCode: string;
+    pzsCodeTip: string;
+    pzsName: string;
+    pzsNameTip: string;
+    additionalIdentifiers: string;
+    lookupPsc: string;
     city: string;
     postalCode: string;
     taxId: string;
@@ -5445,6 +6075,46 @@ export interface Translations {
     bulkGeoErrorTimeout: string;
     bulkGeoDoneTitle: string;
     bulkGeoDoneDescription: string;
+    installmentsLabel: string;
+    storageAddOn: string;
+    paymentType: string;
+    feeLabel: string;
+    oneTimePayment: string;
+    amountDue: string;
+    installmentLabel: string;
+    andMoreInstallments: string;
+    monthly: string;
+    quarterly: string;
+    yearly: string;
+    calculationPreview: string;
+    netLabel: string;
+    withInstallments: string;
+    installmentBreakdown: string;
+    installmentFee: string;
+    oneTimePaymentLabel: string;
+    noPaymentOption: string;
+    quantityLabel: string;
+    duplicateProduct: string;
+    duplicateProductDescription: string;
+    productDuplicated: string;
+    duplicate: string;
+    filterAllTypes: string;
+    filterAllCategories: string;
+    filterAllLanguages: string;
+    filterAllCountries: string;
+    filterAllStatuses: string;
+    filterStatusActive: string;
+    filterStatusInactive: string;
+    routerRules: string;
+    emailTagsTab: string;
+    addRule: string;
+    routerRulesDesc: string;
+    noRulesYet: string;
+    allConditions: string;
+    anyCondition: string;
+    priorityLabel: string;
+    conditionsSuffix: string;
+    actionsSuffix: string;
   };
   auth: {
     login: string;
@@ -6613,7 +7283,6 @@ export interface Translations {
     breaks: string;
     contacts: string;
     records: string;
-    hungUpBy: string;
     analysisStatus: string;
     analyzedAt: string;
     scheduledReports: string;
@@ -6973,6 +7642,39 @@ export interface Translations {
         moveDriveLabel: string;
         unknownFile: string;
         globalResultsLabel: string;
+        noPinnedSites: string;
+        configureHint: string;
+        selectSiteHint: string;
+        contentStorageTitle: string;
+        contentStorageHint: string;
+        pinnedSites: string;
+        pinnedSitesHint: string;
+        defaultSite: string;
+        defaultSiteHint: string;
+        noneDefault: string;
+        defaultLibrary: string;
+        defaultLibraryHint: string;
+        loadingLibraries: string;
+        noneDefaultLibrary: string;
+        currentSettings: string;
+        saveSettings: string;
+        settingsSaved: string;
+        settingsError: string;
+        checkingConnection: string;
+        ms365NotConnected: string;
+        ms365NotConnectedHint: string;
+        userSettingsTitle: string;
+        userSettingsDesc: string;
+        loadingSites: string;
+        noSitesMs365: string;
+        pinnedCount: string;
+        defaultSiteLabel: string;
+        globalBadge: string;
+        newSite: string;
+        saveToNexusPoint: string;
+        savedToNexusPoint: string;
+        saveNexusError: string;
+        selectDestination: string;
     };
     search: {
       placeholder: string;
@@ -8448,6 +9150,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Attach file',
       attachmentUploading: 'Uploading…',
       attachmentError: 'Failed to upload attachment',
+      attachmentTooLarge: 'Each file must be 15 MB or smaller',
+      attachmentLimitReached: 'A task can have up to 10 attachments',
       attachmentDownload: 'Download',
       attachmentOpenTab: 'Open in new tab',
       attachmentPreviewUnavailable: 'Preview not available',
@@ -8504,6 +9208,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Task forwarded',
       toastForwardError: 'Error forwarding task',
       questionsInboxTitle: 'Questions from Back Office',
+      questionToastTitle: 'Back Office question',
+      taskCompletionHeading: 'Task completed',
+      taskCompletionOpenAction: 'Open task',
+      taskCompletionDismissAction: 'Dismiss notification',
+      taskCompletionStatus: 'Task {title} completed',
+      taskCompletionActionError: 'Could not update the task notification.',
       answerPlaceholder: 'Write a reply for Back Office…',
       answerButton: 'Reply',
       toastAnswerSent: 'Reply sent to Back Office',
@@ -8873,6 +9583,7 @@ export const translations: Record<Locale, Translations> = {
       executiveSummaries: 'Executive Summaries',
       campaignReports: 'Mission Reports',
       medicalPartnerNetwork: 'Healthcare Network',
+      webForms: 'Web Forms',
       campaignTimeline: {
         title: "Campaign History",
         description: "All campaign results (calls, emails, SMS, Mailchimp) and phase tracking",
@@ -8929,8 +9640,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Manage healthcare network relationships, categories, and communication schedules',
       overview: 'Overview',
-      institutions: 'Institutions',
-      persons: 'Persons',
       settings: 'Settings',
       totalHospitals: 'Total Hospitals',
       totalClinics: 'Total Clinics',
@@ -8967,9 +9676,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Assignment',
       addAssignment: 'Add Assignment',
       editAssignment: 'Edit Assignment',
-      department: 'Department',
-      position: 'Position',
-      role: 'Role',
       subcategory: 'Subcategory',
       entityName: 'Institution',
       personnel: 'Personnel',
@@ -8997,11 +9703,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Country',
       personnelCount: 'Personnel',
       status: 'Status',
-      category: 'Category',
       institutionName: 'Institution',
       lastContact: 'Last Contact',
       contactInfo: 'Contact Info',
-      primaryContact: 'Primary Contact',
       workplaces: 'Workplaces',
       institutions: 'institutions',
       filtered: 'filtered',
@@ -9225,6 +9929,8 @@ export const translations: Record<Locale, Translations> = {
       exporting: 'Exporting...',
       exportSuccess: 'Export successful',
       records: 'records',
+      found: 'found',
+      total: 'total',
       online: 'Online',
       offline: 'Offline',
       indexusConnect: 'Activity',
@@ -9361,6 +10067,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Tasks',
       description: 'Manage and track your tasks',
+      requestFromSubmitter: 'Request from submitter',
+      originalRequest: 'View full original description',
       noTasks: 'No tasks found',
       openTasks: 'Open tasks',
       loadError: 'Could not load your open tasks. Please try again.',
@@ -9402,6 +10110,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Resolve Task',
       resolveTaskDesc: 'Enter a resolution for this task',
       resolution: 'Resolution',
+      resolutionDialog: { title: 'Resolve task', description: 'Record what was done before closing this task.', resolution: 'Resolution', placeholder: 'Describe the outcome…', cancel: 'Cancel', submit: 'Resolve task', checklist: 'Pulse checklist', loading: 'Loading checklist…', loadError: 'Couldn’t load the checklist. Try again before resolving.', retry: 'Try again', empty: 'Add at least one checklist step before resolving this Pulse task.', remaining: '{count} checklist steps remain. Complete every step to resolve.', complete: 'All checklist steps complete', returnToChecklist: 'Return to checklist', draft: 'Draft with AI', drafting: 'Writing a draft…', draftUnavailable: 'AI drafting is unavailable right now. You can still write the resolution.', draftFailed: 'The draft could not be generated. You can retry or write the resolution yourself.', draftReady: 'AI draft ready — review and edit it before resolving.', draftPreserved: 'Your existing text was kept; the AI draft did not overwrite it.', draftingHint: 'Turning completed steps and their notes into a concise summary…', draftNoCompletedSteps: 'No completed checklist steps to summarize yet. You can still write the resolution yourself.', checklistDraftError: 'The checklist could not be loaded, so no steps were sent for summarizing. You can still write the resolution, or try again.', notify: 'Notify agent', notifyHint: 'Let the assigned agent know this task was resolved.' },
       resolvedBy: 'Resolved by',
       resolvedAt: 'Resolved at',
       reassign: 'Reassign',
@@ -9412,6 +10121,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Add Comment',
       commentPlaceholder: 'Write a comment...',
       noComments: 'No comments yet',
+      taskDiscussion: 'Task discussion',
+      commentsActivity: 'Recent discussion',
+      commentsEmptyHint: 'Be the first to leave a note on this task.',
+      loadingComments: 'Loading comments',
+      commentsLoadFailed: 'Comments could not be loaded.',
+      commentsRetry: 'Try again',
+      unknownAuthor: 'Team member',
+      attachmentsOnly: 'Shared an attachment',
+      viewAllComments: 'View all {count} comments',
+      previewAttachment: 'Preview attachment',
+      openAttachment: 'Open attachment',
+      commentKeyboardHint: 'Enter to send · Shift + Enter for a new line',
+      taskAgentRequestTitle: 'Your request',
+      taskAgentRequestHint: 'Describe what needs to be resolved. Include the correct details when requesting a correction.',
+      taskRequestContextTitle: 'Task context',
+      taskRequestContextHint: 'Added automatically to the request.',
+      dismissUploadError: 'Discard failed upload',
       viewDetails: 'View Details',
       taskResolved: 'Task resolved successfully',
       taskReassigned: 'Task reassigned successfully',
@@ -9426,6 +10152,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Half Year',
       year: 'Year',
       cancelTask: 'Cancel Task',
+      cancelConfirmKicker: 'One last check',
+      cancelConfirmHeading: 'Cancel this task?',
+      cancelConfirmBody: 'This task will end as Cancelled. It cannot be completed while it is in this state.',
+      cancelConfirmQuestion: 'Do you really want to cancel this task?',
+      cancelConfirmKeep: 'Keep this task',
+      cancelConfirmAction: 'Cancel task',
       save: 'Save',
       selectTask: 'Select a task to view details',
       task: 'Task',
@@ -9440,12 +10172,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Task popup notification',
       taskNotifyPopupDesc: 'Show popup when a new task is assigned',
       newTaskAssigned: 'New task assigned',
+      checklistTitle: 'Checklist',
+      checklistAddPlaceholder: 'Add a checklist step…',
+      checklistAdd: 'Add checklist step',
+      checklistRemove: 'Remove step',
+      checklistEdit: 'Edit step',
+      checklistSave: 'Save step',
+      checklistCancel: 'Cancel editing',
+      checklistLoadError: "Couldn't load this checklist.",
+      checklistMutationError: "Couldn't update the checklist. Please try again.",
+      checklistAiGenerating: 'AI is preparing suggested steps…',
+      checklistAiProposal: 'Recommended by AI',
+      checklistAiFailed: "AI couldn't generate checklist suggestions. You can add steps manually or try again.",
+      checklistAiUnavailable: 'AI checklist generation is currently unavailable. You can add steps manually or try again.',
+      checklistAiRetry: 'Try again',
+      checklistAiLoadError: "Couldn't load AI checklist status.",
+      checklistMarkComplete: 'Mark complete',
+      checklistMarkIncomplete: 'Mark incomplete',
+      checklistNoteLabel: 'Step note',
+      checklistNotePlaceholder: 'Add a short note about this step…',
+      checklistNoteAdd: 'Add note',
+      checklistNoteEdit: 'Edit note',
+      checklistNoteSave: 'Save note',
+      checklistNoteCancel: 'Cancel',
+      taskWorkElapsed: 'Elapsed',
+      taskWorkElapsedDescription: 'Elapsed wall-clock time since Start Working; includes waiting and is not billable time.',
+      taskWorkStartUnknown: 'Start time unavailable',
+      taskOverdueLabel: 'Overdue',
+      taskOverdueDuration: '{days} days / {hours}:{minutes}',
       priority: 'Priority',
       status: 'Status',
       description2: 'Description',
+      workspace: {
+        settings: 'Task group settings',
+        filtersTitle: 'Task filters',
+        searchPeoplePlaceholder: 'Search tasks...',
+        dateAll: 'Any date',
+        dateToday: 'Today',
+        dateWeek: 'This week',
+        dateMonth: 'This month',
+        dateCustom: 'Custom range',
+        basisCreated: 'Created',
+        basisDue: 'Due',
+        basisResolved: 'Resolved',
+        sortCreated: 'Created',
+        sortDue: 'Due date',
+        sortResolved: 'Resolved',
+        sortPriority: 'Priority',
+        sortTitle: 'Title',
+        ascending: 'Ascending',
+        descending: 'Descending',
+        anyCreator: 'Any creator',
+        anyResolver: 'Any resolver',
+        dateFrom: 'Start date',
+        dateTo: 'End date',
+        rangeSeparator: 'to',
+        clearFilters: 'Clear filters',
+        group: 'Task group',
+        noGroup: 'No group',
+        notifyAgent: 'Notify original agent',
+        notifyAgentHint: 'Notify the original agent who opened this task in Nexus Pulse.',
+        noMatchingTasks: 'No tasks match these filters.',
+        titleRequired: 'Task title is required.',
+        unassigned: 'Unassigned',
+        sortOrder: 'Sort order',
+        changeSortOrder: 'Change sort order',
+      },
       taskGroups: {
         title: 'Task Groups',
         newGroup: 'New Group',
+        dialogTitle: 'Task groups',
+        activeUsers: 'Active users',
+        inactiveMemberWarning: 'Some selected members are inactive. They remain assigned unless you remove them.',
+        inactive: 'Inactive',
+        changesTitle: 'Discard changes?',
+        changesDescription: 'You have unsaved changes. Discard them?',
+        discardChanges: 'Discard changes',
+        moveUp: 'Move {name} up',
+        moveDown: 'Move {name} down',
+        readOnly: 'You can view task groups, but only managers and admins can change them.',
+        nameRequired: 'Group name is required.',
+        usersLoadFailed: 'Could not load users.',
+        groupsLoadFailed: 'Could not load task groups.',
+        advanced: 'Advanced ordering',
+        serverError: 'The server could not save these changes. Please try again.',
         editGroup: 'Edit Group',
         newGroupTitle: 'New Task Group',
         deleteTitle: 'Delete Group?',
@@ -10147,13 +10957,6 @@ export const translations: Record<Locale, Translations> = {
       assignedCountries: 'Assigned Countries',
       searchPlaceholder: 'Search users...',
       noUsers: 'No users found',
-      roles: {
-        admin: 'Administrator',
-        manager: 'Manager',
-        user: 'User',
-        agent: 'Agent',
-        collaborator: 'Collaborator',
-      },
       fullName: 'Full Name',
       newPassword: 'New Password (optional)',
       leaveEmptyPassword: 'Leave empty to keep current',
@@ -10284,6 +11087,7 @@ export const translations: Record<Locale, Translations> = {
       city: 'City',
       postalCode: 'Postal Code',
       region: 'Region',
+      district: 'District',
       contactPerson: 'Contact Person',
       representative: 'Representative',
       responsiblePerson: 'Responsible Person',
@@ -12827,7 +13631,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Call!',
       myCB: 'My CB',
       teamCB: 'Team CB',
-      filterAll: 'All contacts', filterMyCB: 'My scheduled', filterTeamCB: 'Team scheduled', filterDue: 'Due now', filterPending: 'Pending (new)',
+      filterMyCB: 'My scheduled', filterTeamCB: 'Team scheduled', filterDue: 'Due now',
       groupDue: 'Due Calls', groupMyCb: 'My Scheduled', groupTeamCb: 'Team Scheduled', groupOtherCb: 'Assigned to Others', groupPending: 'New Contacts',
       emailHistory: 'Email history',
       smsHistory: 'SMS history',
@@ -13744,6 +14548,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Template created successfully',
       templateUpdated: 'Template updated successfully',
       templateDeleted: 'Template deleted successfully',
+      copyToLanguage: 'Copy to language',
+      targetLanguage: 'Target language',
+      autoTranslate: 'Auto-translate with AI',
+      autoTranslateDesc: 'Use OpenAI to translate content to the target language',
+      templateTranslated: 'Template translated and copied',
+      templateCopied: 'Template copied',
+      translating: 'Translating...',
+      copying: 'Copying...',
+      translateAndCopy: 'Translate & Copy',
+      copyTemplate: 'Copy',
       templateFormDescription: 'Configure invoice template and branding',
       addLayout: 'Add Layout',
       editLayout: 'Edit Layout',
@@ -13769,7 +14583,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Customer Fields',
       billingFields: 'Billing Fields',
       invoiceFields: 'Invoice Fields',
-      preview: 'Preview',
       properties: 'Properties',
       fontWeight: 'Font Weight',
       textAlign: 'Text Align',
@@ -16156,6 +16969,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Priložiť súbor',
       attachmentUploading: 'Nahrávam prílohu…',
       attachmentError: 'Prílohu sa nepodarilo nahrať',
+      attachmentTooLarge: 'Každý súbor môže mať najviac 15 MB',
+      attachmentLimitReached: 'Úloha môže mať najviac 10 príloh',
       attachmentDownload: 'Stiahnuť',
       attachmentOpenTab: 'Otvoriť na novej karte',
       attachmentPreviewUnavailable: 'Náhľad nie je k dispozícii',
@@ -16212,6 +17027,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Úloha preposlaná',
       toastForwardError: 'Nepodarilo sa preposlať úlohu',
       questionsInboxTitle: 'Otázky z Back Office',
+      questionToastTitle: 'Otázka z Back Office',
+      taskCompletionHeading: 'Úloha dokončená',
+      taskCompletionOpenAction: 'Otvoriť úlohu',
+      taskCompletionDismissAction: 'Zavrieť upozornenie',
+      taskCompletionStatus: 'Úloha {title} je dokončená',
+      taskCompletionActionError: 'Upozornenie na úlohu sa nepodarilo aktualizovať.',
       answerPlaceholder: 'Napíšte odpoveď pre Back Office…',
       answerButton: 'Odpovedať',
       toastAnswerSent: 'Odpoveď odoslaná do Back Office',
@@ -16638,8 +17459,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Správa vzťahov s medicínskymi partnermi, kategórie a komunikačné plány',
       overview: 'Prehľad',
-      institutions: 'Inštitúcie',
-      persons: 'Osoby',
       settings: 'Nastavenia',
       totalHospitals: 'Celkom nemocníc',
       totalClinics: 'Celkom kliník',
@@ -16676,9 +17495,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Priradenie',
       addAssignment: 'Pridať priradenie',
       editAssignment: 'Upraviť priradenie',
-      department: 'Oddelenie',
-      position: 'Pozícia',
-      role: 'Rola',
       subcategory: 'Podkategória',
       entityName: 'Inštitúcia',
       personnel: 'Personál',
@@ -16706,11 +17522,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Krajina',
       personnelCount: 'Personál',
       status: 'Stav',
-      category: 'Kategória',
       institutionName: 'Inštitúcia',
       lastContact: 'Posledný kontakt',
       contactInfo: 'Kontaktné údaje',
-      primaryContact: 'Primárny kontakt',
       workplaces: 'Pôsobiská',
       institutions: 'inštitúcií',
       filtered: 'filtrované',
@@ -16847,6 +17661,8 @@ export const translations: Record<Locale, Translations> = {
       loading: 'Načítavam...',
       noData: 'Žiadne dáta',
       selected: 'vybraných',
+      found: 'nájdených',
+      total: 'spolu',
       confirm: 'Potvrdiť',
       yes: 'Áno',
       no: 'Nie',
@@ -17046,6 +17862,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Úlohy',
       description: 'Spravujte a sledujte svoje úlohy',
+      requestFromSubmitter: 'Požiadavka od zadávateľa',
+      originalRequest: 'Zobraziť celý pôvodný popis',
       noTasks: 'Nenašli sa žiadne úlohy',
       openTasks: 'Otvorené úlohy',
       loadError: 'Nepodarilo sa načítať otvorené úlohy. Skúste to znova.',
@@ -17087,6 +17905,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Vyriešiť úlohu',
       resolveTaskDesc: 'Zadajte riešenie tejto úlohy',
       resolution: 'Riešenie',
+      resolutionDialog: { title: 'Vyriešiť úlohu', description: 'Pred uzavretím úlohy zaznamenajte, čo sa vykonalo.', resolution: 'Výsledok', placeholder: 'Opíšte výsledok…', cancel: 'Zrušiť', submit: 'Vyriešiť úlohu', checklist: 'Kontrolný zoznam Pulse', loading: 'Načítava sa zoznam…', loadError: 'Kontrolný zoznam sa nepodarilo načítať. Pred vyriešením to skúste znova.', retry: 'Skúsiť znova', empty: 'Pred vyriešením tejto úlohy Pulse pridajte aspoň jeden krok.', remaining: 'Zostáva {count} krokov. Pred vyriešením dokončite všetky kroky.', complete: 'Všetky kroky sú dokončené', returnToChecklist: 'Späť na kontrolný zoznam', draft: 'Navrhnúť pomocou AI', drafting: 'Pripravuje sa návrh…', draftUnavailable: 'Tvorba návrhu AI momentálne nie je dostupná. Výsledok môžete napísať ručne.', draftFailed: 'Návrh sa nepodarilo vytvoriť. Skúste to znova alebo výsledok napíšte ručne.', draftReady: 'Návrh AI je pripravený — pred vyriešením ho skontrolujte a upravte.', draftPreserved: 'Váš text zostal zachovaný — návrh AI ho neprepísal.', draftingHint: 'Zo zaškrtnutých krokov a ich poznámok skladám stručné zhrnutie na úpravu…', draftNoCompletedSteps: 'Zatiaľ niet dokončených krokov na zhrnutie. Výsledok môžete napísať ručne.', checklistDraftError: 'Kontrolný zoznam sa nepodarilo načítať, preto sa žiadne kroky neposlali na zhrnutie. Môžete písať ručne alebo to skúsiť znova.', notify: 'Upozorniť agenta', notifyHint: 'Informovať prideleného agenta o vyriešení úlohy.' },
       resolvedBy: 'Vyriešil',
       resolvedAt: 'Vyriešené',
       reassign: 'Preradiť',
@@ -17097,6 +17916,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Pridať komentár',
       commentPlaceholder: 'Napíšte komentár...',
       noComments: 'Zatiaľ žiadne komentáre',
+      taskDiscussion: 'Diskusia k úlohe',
+      commentsActivity: 'Nedávna diskusia',
+      commentsEmptyHint: 'Pridajte k tejto úlohe prvú poznámku.',
+      loadingComments: 'Načítavam komentáre',
+      commentsLoadFailed: 'Komentáre sa nepodarilo načítať.',
+      commentsRetry: 'Skúsiť znova',
+      unknownAuthor: 'Člen tímu',
+      attachmentsOnly: 'Zdieľal prílohu',
+      viewAllComments: 'Zobraziť všetkých {count} komentárov',
+      previewAttachment: 'Zobraziť prílohu',
+      openAttachment: 'Otvoriť prílohu',
+      commentKeyboardHint: 'Enter odošle · Shift + Enter pridá nový riadok',
+      taskAgentRequestTitle: 'Vaša požiadavka',
+      taskAgentRequestHint: 'Popíšte, čo treba vyriešiť. Uveďte správne údaje, ak žiadate opravu.',
+      taskRequestContextTitle: 'Kontext úlohy',
+      taskRequestContextHint: 'Pridá sa automaticky k požiadavke.',
+      dismissUploadError: 'Zahodiť neúspešné nahrávanie',
       viewDetails: 'Zobraziť detaily',
       taskResolved: 'Úloha bola úspešne vyriešená',
       taskReassigned: 'Úloha bola úspešne preradená',
@@ -17111,6 +17947,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Polrok',
       year: 'Rok',
       cancelTask: 'Zrušiť úlohu',
+      cancelConfirmKicker: 'Ešte jedna kontrola',
+      cancelConfirmHeading: 'Zrušiť túto úlohu?',
+      cancelConfirmBody: 'Úloha sa ukončí so stavom Zrušená. V tomto stave ju nemožno dokončiť.',
+      cancelConfirmQuestion: 'Naozaj chcete túto úlohu zrušiť?',
+      cancelConfirmKeep: 'Ponechať úlohu',
+      cancelConfirmAction: 'Zrušiť úlohu',
       save: 'Uložiť',
       selectTask: 'Vyberte úlohu pre zobrazenie detailu',
       task: 'Úloha',
@@ -17125,12 +17967,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Vyskakovacie okno úlohy',
       taskNotifyPopupDesc: 'Zobraziť popup pri priradení novej úlohy',
       newTaskAssigned: 'Nová úloha priradená',
+      checklistTitle: 'Kontrolný zoznam',
+      checklistAddPlaceholder: 'Pridať krok kontrolného zoznamu…',
+      checklistAdd: 'Pridať krok',
+      checklistRemove: 'Odstrániť krok',
+      checklistEdit: 'Upraviť krok',
+      checklistSave: 'Uložiť krok',
+      checklistCancel: 'Zrušiť úpravy',
+      checklistLoadError: 'Kontrolný zoznam sa nepodarilo načítať.',
+      checklistMutationError: 'Kontrolný zoznam sa nepodarilo upraviť. Skúste to znova.',
+      checklistAiGenerating: 'AI pripravuje navrhované kroky…',
+      checklistAiProposal: 'Odporúčanie AI',
+      checklistAiFailed: 'AI nedokázala vytvoriť návrhy. Kroky môžete pridať ručne alebo to skúsiť znova.',
+      checklistAiUnavailable: 'Generovanie kontrolného zoznamu pomocou AI je momentálne nedostupné. Kroky môžete pridať ručne alebo to skúsiť znova.',
+      checklistAiRetry: 'Skúsiť znova',
+      checklistAiLoadError: 'Stav kontrolného zoznamu AI sa nepodarilo načítať.',
+      checklistMarkComplete: 'Označiť ako dokončené',
+      checklistMarkIncomplete: 'Označiť ako nedokončené',
+      checklistNoteLabel: 'Poznámka ku kroku',
+      checklistNotePlaceholder: 'Pridajte krátku poznámku ku kroku…',
+      checklistNoteAdd: 'Pridať poznámku',
+      checklistNoteEdit: 'Upraviť poznámku',
+      checklistNoteSave: 'Uložiť poznámku',
+      checklistNoteCancel: 'Zrušiť',
+      taskWorkElapsed: 'Uplynulo',
+      taskWorkElapsedDescription: 'Uplynutý čas od začiatku práce; zahŕňa čakanie a nejde o fakturovateľné hodiny.',
+      taskWorkStartUnknown: 'Čas začiatku nie je známy',
+      taskOverdueLabel: 'Po termíne',
+      taskOverdueDuration: '{days} dní / {hours}:{minutes}',
       priority: 'Priorita',
       status: 'Stav',
       description2: 'Popis',
+      workspace: {
+        settings: 'Nastavenia skupín úloh',
+        filtersTitle: 'Filtre úloh',
+        searchPeoplePlaceholder: 'Hľadať úlohy...',
+        dateAll: 'Ľubovoľný dátum',
+        dateToday: 'Dnes',
+        dateWeek: 'Tento týždeň',
+        dateMonth: 'Tento mesiac',
+        dateCustom: 'Vlastný rozsah',
+        basisCreated: 'Vytvorené',
+        basisDue: 'Termín',
+        basisResolved: 'Vyriešené',
+        sortCreated: 'Vytvorené',
+        sortDue: 'Termín',
+        sortResolved: 'Vyriešené',
+        sortPriority: 'Priorita',
+        sortTitle: 'Názov',
+        ascending: 'Vzostupne',
+        descending: 'Zostupne',
+        anyCreator: 'Ľubovoľný autor',
+        anyResolver: 'Ľubovoľný riešiteľ',
+        dateFrom: 'Začiatok obdobia',
+        dateTo: 'Koniec obdobia',
+        rangeSeparator: 'až',
+        clearFilters: 'Vymazať filtre',
+        group: 'Skupina úloh',
+        noGroup: 'Bez skupiny',
+        notifyAgent: 'Upozorniť pôvodného agenta',
+        notifyAgentHint: 'Upovedomí pôvodného agenta, ktorý túto úlohu vytvoril v Nexus Pulse.',
+        noMatchingTasks: 'Žiadne úlohy nezodpovedajú týmto filtrom.',
+        titleRequired: 'Názov úlohy je povinný.',
+        unassigned: 'Nepriradené',
+        sortOrder: 'Poradie triedenia',
+        changeSortOrder: 'Zmeniť poradie triedenia',
+      },
       taskGroups: {
         title: 'Skupiny úloh',
         newGroup: 'Nová skupina',
+        dialogTitle: 'Skupiny úloh',
+        activeUsers: 'Aktívni používatelia',
+        inactiveMemberWarning: 'Niektorí vybraní členovia sú neaktívni. Zostanú priradení, kým ich neodstránite.',
+        inactive: 'Neaktívny',
+        changesTitle: 'Zahodiť zmeny?',
+        changesDescription: 'Máte neuložené zmeny. Chcete ich zahodiť?',
+        discardChanges: 'Zahodiť zmeny',
+        moveUp: 'Presunúť {name} vyššie',
+        moveDown: 'Presunúť {name} nižšie',
+        readOnly: 'Skupiny úloh môžete prezerať, ale meniť ich môžu iba manažéri a administrátori.',
+        nameRequired: 'Názov skupiny je povinný.',
+        usersLoadFailed: 'Používateľov sa nepodarilo načítať.',
+        groupsLoadFailed: 'Skupiny úloh sa nepodarilo načítať.',
+        advanced: 'Rozšírené nastavenie poradia',
+        serverError: 'Server nemohol uložiť zmeny. Skúste to znova.',
         editGroup: 'Upraviť skupinu',
         newGroupTitle: 'Nová skupina úloh',
         deleteTitle: 'Zmazať skupinu?',
@@ -17286,6 +18206,21 @@ export const translations: Record<Locale, Translations> = {
       editCustomer: 'Upraviť zákazníka',
       deleteCustomer: 'Odstrániť zákazníka',
       deleteConfirm: 'Naozaj chcete odstrániť tohto zákazníka?',
+      firstName: 'Krstné meno',
+      lastName: 'Priezvisko',
+      street: 'Ulica',
+      streetNumber: 'Súpisné číslo',
+      orientationNumber: 'Orientačné číslo',
+      ico: 'IČO',
+      icoTip: 'Identifikačné číslo organizácie',
+      idZz: 'ID ZZ',
+      idZzTip: 'Identifikátor zdravotníckeho zariadenia',
+      pzsCode: 'Kód PZS',
+      pzsCodeTip: 'Kód poskytovateľa zdravotnej starostlivosti',
+      pzsName: 'Názov PZS',
+      pzsNameTip: 'Názov poskytovateľa zdravotnej starostlivosti',
+      additionalIdentifiers: 'Doplňujúce identifikátory',
+      lookupPsc: 'Automaticky doplniť PSČ',
       email: 'Email',
       phone: 'Telefón',
       country: 'Krajina',
@@ -17931,6 +18866,7 @@ export const translations: Record<Locale, Translations> = {
     },
     hospitals: {
       title: 'Nemocnice',
+      district: 'Okres',
       description: 'Správa nemocníc a zdravotníckych zariadení',
       addHospital: 'Pridať nemocnicu',
       editHospital: 'Upraviť nemocnicu',
@@ -17981,6 +18917,8 @@ export const translations: Record<Locale, Translations> = {
     collections: {
       title: 'Odbery',
       description: 'Správa odberov pupočníkovej krvi',
+      firstName: 'Krstné meno',
+      lastName: 'Priezvisko',
       addCollection: 'Pridať odber',
       dashboard: {
         title: 'Dashboard',
@@ -18441,6 +19379,7 @@ export const translations: Record<Locale, Translations> = {
         documents: 'Dokumenty',
         templates: 'Šablóny',
         rewards: 'Odmeny',
+        healthcareNetworks: 'Zdravotnícke siete',
         actions: 'Úkony',
       },
       addressTabs: {
@@ -19584,6 +20523,46 @@ export const translations: Record<Locale, Translations> = {
         queueDisplayModeLastStatus: 'Zobraziť posledný zadaný status',
         defaultOnlyAssignedTitle: 'Predvolený filter „Len priradené"',
         defaultOnlyAssignedDesc: 'Keď je zapnuté, filter „Len priradené" v rade agenta bude automaticky zaškrtnutý pri každom prihlásení agenta do tejto misie.',
+        changeStatus: 'Zmeniť stav',
+        customerHistory: 'História zákazníka',
+        noHistory: 'Žiadna história',
+        campaignJoined: 'Pridal sa k misii',
+        campaignLeft: 'Opustil misiu',
+        emailSent: 'Email odoslaný',
+        smsSent: 'SMS odoslaná',
+        noteAdded: 'Poznámka pridaná',
+        dragFileHere: 'Presuňte súbor sem',
+        orClickToSelect: 'alebo kliknutím vyberte',
+        downloadSampleCsv: 'Stiahnuť vzorový CSV súbor',
+        expectedColumns: 'Očakávané stĺpce:',
+        supportedFormats: 'Podporované formáty: CSV (oddelené bodkočiarkou alebo čiarkou), Excel (.xlsx)',
+        updateExisting: 'Aktualizovať existujúce kontakty (prepíše údaje, ak kontakt už existuje)',
+        uploadingFile: 'Nahrávam súbor...',
+        processingContacts: 'Spracúvam kontakty...',
+        created: 'Vytvorené',
+        updated: 'Aktualizované',
+        duplicates: 'Duplikáty',
+        skipped: 'Preskočené',
+        deleteLastImport: 'Odstrániť posledný import',
+        deleting: 'Odstraňujem...',
+        close: 'Zavrieť',
+        remove: 'Odstrániť',
+        import: 'Importovať',
+        kpiTracking: 'Sledovanie cieľov KPI',
+        kpiTrackingDesc: 'Sledujte priebeh plnenia cieľových hodnôt KPI kampane',
+        current: 'Aktuálne',
+        target: 'Cieľ',
+        targetRevenue: 'Cieľový výnos',
+        revenueTrackingDesc: 'Sledovanie výnosov vyžaduje integráciu fakturačného systému',
+        dailyOperatorTargets: 'Denné ciele operátorov',
+        callsPerDay: 'Hovory/deň',
+        contactsPerDay: 'Kontakty/deň',
+        conversionsPerDay: 'Konverzie/deň',
+        conversionRate: 'Miera konverzie',
+        successful: 'Úspešné',
+        notInterested: 'Nemá záujem',
+        preview: 'Náhľad',
+        textMode: 'Textový režim',
         assignedOperators: 'Priradení operátori',
         assignedOperatorsDesc: 'Vyberte operátorov, ktorí budú pracovať na tejto kampani',
         noOperatorsAvailable: 'Žiadni operátori nie sú k dispozícii. Najprv vytvorte používateľov s rolou "Call Center".',
@@ -20447,7 +21426,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Zavolať!',
       myCB: 'Môj CB',
       teamCB: 'Tím CB',
-      filterAll: 'Všetky kontakty', filterMyCB: 'Moje preplánované', filterTeamCB: 'Tím preplánované', filterDue: 'Splatné teraz', filterPending: 'Čakajúce (nové)',
+      filterMyCB: 'Moje preplánované', filterTeamCB: 'Tím preplánované', filterDue: 'Splatné teraz',
       groupDue: 'Splatné hovory', groupMyCb: 'Moje naplánované', groupTeamCb: 'Tímové naplánované', groupOtherCb: 'Priradené iným', groupPending: 'Nové kontakty',
       emailHistory: 'História emailov',
       smsHistory: 'História SMS',
@@ -21364,6 +22343,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Šablóna bola úspešne vytvorená',
       templateUpdated: 'Šablóna bola úspešne aktualizovaná',
       templateDeleted: 'Šablóna bola úspešne odstránená',
+      copyToLanguage: 'Skopírovať do jazyka',
+      targetLanguage: 'Cieľový jazyk',
+      autoTranslate: 'Automaticky preložiť pomocou AI',
+      autoTranslateDesc: 'Na preklad obsahu do cieľového jazyka použite OpenAI',
+      templateTranslated: 'Šablóna preložená a skopírovaná',
+      templateCopied: 'Šablóna skopírovaná',
+      translating: 'Prekladá sa...',
+      copying: 'Kopíruje sa...',
+      translateAndCopy: 'Preložiť a skopírovať',
+      copyTemplate: 'Kopírovať',
       templateFormDescription: 'Konfigurácia šablóny faktúry a značky',
       addLayout: 'Pridať rozloženie',
       editLayout: 'Upraviť rozloženie',
@@ -21389,7 +22378,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Polia zákazníka',
       billingFields: 'Fakturačné polia',
       invoiceFields: 'Polia faktúry',
-      preview: 'Náhľad',
       properties: 'Vlastnosti',
       fontWeight: 'Hrúbka písma',
       textAlign: 'Zarovnanie textu',
@@ -23177,7 +24165,7 @@ export const translations: Record<Locale, Translations> = {
         chats: { internalChats: 'Interné chaty', selectConversation: 'Vyberte konverzáciu v postrannom paneli', lastMessage: 'Posledná správa:', noConversations: 'Žiadne konverzácie', onlineUsers: 'Online používatelia', startChat: 'Začať chat', typeMessage: 'Napíšte správu...', sendMessage: 'Odoslať', noMessages: 'Zatiaľ žiadne správy', today: 'Dnes', yesterday: 'Včera', typing: 'píše...', you: 'Vy', conversations: 'Konverzácie', newChat: 'Nový chat', online: 'Online', offline: 'Offline', chatNotifySound: 'Zvuk notifikácie chatu', chatNotifySoundDesc: 'Prehrať zvuk pri novej správe', chatNotifyPopup: 'Vyskakovacie okno chatu', chatNotifyPopupDesc: 'Zobraziť popup pri novej správe', newMessageFrom: 'Nová správa od' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Žiadne správy', writePlaceholder: 'Napíšte správu...', directChat: 'Priamy chat', groupChat: 'Skupinový chat', noTeamsChats: 'Žiadne Teams chaty', noTeams: 'Žiadne tímy', notConnected: 'MS365 nie je pripojený', sendError: 'Nepodarilo sa odoslať správu', createMeeting: 'Vytvoriť stretnutie', meetingCreated: 'Stretnutie vytvorené', meetingError: 'Nepodarilo sa vytvoriť stretnutie', joinMeeting: 'Pripojiť sa', meetingSubject: 'Predmet stretnutia', startMeeting: 'Spustiť stretnutie', instantMeeting: 'Okamžité stretnutie', scheduleMeeting: 'Naplánovať stretnutie', meetingLink: 'Odkaz na stretnutie', linkCopied: 'Odkaz skopírovaný', meetingWith: 'Stretnutie s', members: 'Členovia', openInTeams: 'Otvoriť v Teams', lastMessage: 'Posledná správa', meetingDate: 'Dátum', meetingStartTime: 'Čas začiatku', meetingEndTime: 'Čas konca', addParticipants: 'Pridať účastníkov', participantEmail: 'E-mail účastníka', upcomingMeetings: 'Nadchádzajúce stretnutia', noUpcomingMeetings: 'Žiadne nadchádzajúce stretnutia', startsIn: 'Začína o', inProgress: 'Prebieha', today: 'Dnes', tomorrow: 'Zajtra', remove: 'Odstrániť', attachFile: 'Priložiť súbor', attachmentSent: 'Príloha odoslaná', uploadError: 'Nepodarilo sa nahrať súbor', recentMeetings: 'Posledné stretnutia', noMeetings: 'Žiadne stretnutia', transcript: 'Prepis', noTranscript: 'Prepis nie je k dispozícii', loadingTranscript: 'Načítava sa prepis...', aiSummary: 'AI Zhrnutie', generateSummary: 'Generovať AI zhrnutie', generatingSummary: 'Generuje sa zhrnutie...', rawTranscript: 'Surový prepis', summary: 'Zhrnutie', meetingDuration: 'Trvanie', viewTranscript: 'Zobraziť prepis', transcriptError: 'Nepodarilo sa načítať prepis', recordings: 'Nahrávky', noRecordings: 'Žiadne nahrávky', downloadRecording: 'Stiahnuť nahrávku', recording: 'Nahrávka', meetingsAndRecordings: 'Stretnutia a nahrávky', activity: 'Aktivita', noActivity: 'Žiadna aktivita', justNow: 'Práve teraz' },
         calendar: { today: 'Dnes', thisWeek: 'Tento týždeň', thisMonth: 'Tento mesiac' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Stránky', selectSite: 'Vyberte SharePoint stránku', noSites: 'Žiadne stránky', libraries: 'Knižnice', selectLibrary: 'Vyberte knižnicu', files: 'Súbory', folders: 'Priečinky', name: 'Názov', size: 'Veľkosť', modified: 'Upravené', modifiedBy: 'Upravil', noFiles: 'Žiadne súbory ani priečinky', upload: 'Nahrať', uploading: 'Nahráva sa...', uploadSuccess: 'Súbor bol nahraný', uploadError: 'Nepodarilo sa nahrať súbor', newFolder: 'Nový priečinok', folderName: 'Názov priečinka', createFolder: 'Vytvoriť priečinok', folderCreated: 'Priečinok vytvorený', folderError: 'Nepodarilo sa vytvoriť priečinok', download: 'Stiahnuť', delete: 'Zmazať', deleteConfirm: 'Naozaj chcete zmazať túto položku?', deleted: 'Položka zmazaná', deleteError: 'Nepodarilo sa zmazať položku', openInBrowser: 'Otvoriť v prehliadači', dragDropHint: 'Pretiahnite súbory sem alebo kliknite Nahrať', backToRoot: 'Späť na koreň', searchFiles: 'Hľadať súbory...', items: 'položiek', created: 'Created', versions: 'Verzie', version: 'Verzia', restoreVersion: 'Obnoviť túto verziu', versionRestored: 'Verzia obnovená', versionRestoreError: 'Nepodarilo sa obnoviť verziu', noVersions: 'Žiadne verzie', share: 'Zdieľať', shareLink: 'Zdieľací odkaz', copyLink: 'Kopírovať odkaz', linkCopied: 'Odkaz skopírovaný', viewOnly: 'Iba zobrazenie', editAccess: 'Úprava', organization: 'Organizácia', anyone: 'Ktokoľvek', createLink: 'Vytvoriť odkaz', permissions: 'Oprávnenia', removePermission: 'Odstrániť oprávnenie', permissionRemoved: 'Oprávnenie odstránené', noPermissions: 'Žiadne oprávnenia zdieľania', preview: 'Náhľad', closePreview: 'Zatvoriť náhľad', searchResults: 'Výsledky vyhľadávania', searching: 'Vyhľadáva sa...', noPinnedSites: 'Žiadne pinnované weby', configureHint: 'Nakonfigurujte NexusPoint a vyberte weby v nastaveniach profilu.', selectSiteHint: 'Vyberte web a knižnicu z ľavého panela.', contentStorageTitle: 'Tento typ webu nie je podporovaný', contentStorageHint: 'Microsoft Loop pracovné priestory a osobné úložiská nie je možné spravovať cez NexusPoint. Vyberte štandardnú SharePoint stránku.', pinnedSites: 'Pinnované weby', pinnedSitesHint: 'Zaškrtnuté weby sa zobrazia v NexusPointe. Ak nič nevyberiete, zobrazia sa všetky.', defaultSite: 'Predvolený web', defaultSiteHint: 'Automaticky otvorí tento web pri spustení NexusPoint.', noneDefault: 'Žiadny predvolený', defaultLibrary: 'Predvolená knižnica', defaultLibraryHint: 'Automaticky otvorí túto knižnicu po výbere webu.', loadingLibraries: 'Načítavanie knižníc...', noneDefaultLibrary: 'Žiadna predvolená knižnica', currentSettings: 'Aktuálne uložené nastavenia', saveSettings: 'Uložiť nastavenia NexusPoint', settingsSaved: 'Nastavenia NexusPoint uložené', settingsError: 'Chyba pri ukladaní nastavení', checkingConnection: 'Kontrola MS365 pripojenia...', ms365NotConnected: 'MS365 nie je pripojené', ms365NotConnectedHint: 'Najprv pripojte MS365 účet v záložke MS365, potom tu môžete nastaviť NexusPoint.', userSettingsTitle: 'NexusPoint — nastavenia používateľa', userSettingsDesc: 'Pinnované weby a predvolené umiestnenie pre tohto používateľa', loadingSites: 'Načítavanie SharePoint webov...', noSitesMs365: 'Žiadne SharePoint weby nenájdené. Skontrolujte pripojenie MS365.', pinnedCount: 'Pinnované weby:', defaultSiteLabel: 'Predvolený web:', globalBadge: 'Globálny', newSite: 'Nový web', saveToNexusPoint: 'Uložiť do NexusPoint', savedToNexusPoint: 'Uložené do NexusPoint', saveNexusError: 'Chyba pri ukladaní do NexusPoint', selectDestination: 'Vybrať cieľ', move: 'Presunúť', moveSuccess: 'Položka presunutá', moveError: 'Chyba pri presune', moveToFolder: 'Presunúť sem', moveTo: 'Presunúť do', notesAndTags: 'Poznámky a tagy', note: 'Poznámka', notePlaceholder: 'Pridať internú poznámku...', saveNote: 'Uložiť poznámku', noteSaved: 'Poznámka uložená', noteSaveError: 'Chyba pri ukladaní poznámky', tags: 'Tagy', addTag: 'Pridať tag', tagPlaceholder: 'Nový tag...', tagAdded: 'Tag pridaný', tagDeleted: 'Tag odstránený', searchByTag: 'Hľadať podľa tagu', moveDestination: 'Cieľové umiestnenie', moveSiteLabel: 'Web (lokalita)', moveDriveLabel: 'Knižnica', unknownFile: 'Neznámy súbor (kliknite pre otvorenie)', globalResultsLabel: 'Globálne výsledky' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Stránky', selectSite: 'Vyberte SharePoint stránku', noSites: 'Žiadne stránky', libraries: 'Knižnice', selectLibrary: 'Vyberte knižnicu', files: 'Súbory', folders: 'Priečinky', name: 'Názov', size: 'Veľkosť', modified: 'Upravené', modifiedBy: 'Upravil', noFiles: 'Žiadne súbory ani priečinky', upload: 'Nahrať', uploading: 'Nahráva sa...', uploadSuccess: 'Súbor bol nahraný', uploadError: 'Nepodarilo sa nahrať súbor', newFolder: 'Nový priečinok', folderName: 'Názov priečinka', createFolder: 'Vytvoriť priečinok', folderCreated: 'Priečinok vytvorený', folderError: 'Nepodarilo sa vytvoriť priečinok', download: 'Stiahnuť', delete: 'Zmazať', deleteConfirm: 'Naozaj chcete zmazať túto položku?', deleted: 'Položka zmazaná', deleteError: 'Nepodarilo sa zmazať položku', openInBrowser: 'Otvoriť v prehliadači', dragDropHint: 'Pretiahnite súbory sem alebo kliknite Nahrať', backToRoot: 'Späť na koreň', searchFiles: 'Hľadať súbory...', items: 'položiek', created: 'Created', versions: 'Verzie', version: 'Verzia', restoreVersion: 'Obnoviť túto verziu', versionRestored: 'Verzia obnovená', versionRestoreError: 'Nepodarilo sa obnoviť verziu', noVersions: 'Žiadne verzie', share: 'Zdieľať', shareLink: 'Zdieľací odkaz', copyLink: 'Kopírovať odkaz', linkCopied: 'Odkaz skopírovaný', viewOnly: 'Iba zobrazenie', editAccess: 'Úprava', organization: 'Organizácia', anyone: 'Ktokoľvek', createLink: 'Vytvoriť odkaz', permissions: 'Oprávnenia', removePermission: 'Odstrániť oprávnenie', permissionRemoved: 'Oprávnenie odstránené', noPermissions: 'Žiadne oprávnenia zdieľania', preview: 'Náhľad', closePreview: 'Zatvoriť náhľad', searchResults: 'Výsledky vyhľadávania', searching: 'Vyhľadáva sa...', noPinnedSites: 'Žiadne pinnované weby', configureHint: 'Nakonfigurujte NexusPoint a vyberte weby v nastaveniach profilu.', selectSiteHint: 'Vyberte web a knižnicu z ľavého panela.', contentStorageTitle: 'Tento typ webu nie je podporovaný', contentStorageHint: 'Microsoft Loop pracovné priestory a osobné úložiská nie je možné spravovať cez NexusPoint. Vyberte štandardnú SharePoint stránku.', pinnedSites: 'Pinnované weby', pinnedSitesHint: 'Zaškrtnuté weby sa zobrazia v NexusPointe. Ak nič nevyberiete, zobrazia sa všetky.', defaultSite: 'Predvolený web', defaultSiteHint: 'Automaticky otvorí tento web pri spustení NexusPoint.', noneDefault: 'Žiadny predvolený', defaultLibrary: 'Predvolená knižnica', defaultLibraryHint: 'Automaticky otvorí túto knižnicu po výbere webu.', loadingLibraries: 'Načítavanie knižníc...', noneDefaultLibrary: 'Žiadna predvolená knižnica', currentSettings: 'Aktuálne uložené nastavenia', saveSettings: 'Uložiť nastavenia NexusPoint', settingsSaved: 'Nastavenia NexusPoint uložené', settingsError: 'Chyba pri ukladaní nastavení', checkingConnection: 'Kontrola MS365 pripojenia...', ms365NotConnected: 'MS365 nie je pripojené', ms365NotConnectedHint: 'Najprv pripojte MS365 účet v záložke MS365, potom tu môžete nastaviť NexusPoint.', userSettingsTitle: 'NexusPoint — nastavenia používateľa', userSettingsDesc: 'Pinnované weby a predvolené umiestnenie pre tohto používateľa', loadingSites: 'Načítavanie SharePoint webov...', noSitesMs365: 'Žiadne SharePoint weby nenájdené. Skontrolujte pripojenie MS365.', pinnedCount: 'Pinnované weby:', defaultSiteLabel: 'Predvolený web:', globalBadge: 'Globálny', newSite: 'Nový web', saveToNexusPoint: 'Uložiť do NexusPoint', savedToNexusPoint: 'Uložené do NexusPoint', saveNexusError: 'Chyba pri ukladaní do NexusPoint', selectDestination: 'Vybrať cieľ', move: 'Presunúť', moveSuccess: 'Položka presunutá', moveError: 'Chyba pri presune', moveToFolder: 'Presunúť sem', moveTo: 'Presunúť do', notesAndTags: 'Poznámky a tagy', note: 'Poznámka', notePlaceholder: 'Pridať internú poznámku...', saveNote: 'Uložiť poznámku', noteSaved: 'Poznámka uložená', noteSaveError: 'Chyba pri ukladaní poznámky', tags: 'Tagy', addTag: 'Pridať tag', tagPlaceholder: 'Nový tag...', tagAdded: 'Tag pridaný', tagDeleted: 'Tag odstránený', searchByTag: 'Hľadať podľa tagu', moveDestination: 'Cieľové umiestnenie', moveSiteLabel: 'Web (lokalita)', moveDriveLabel: 'Knižnica', unknownFile: 'Neznámy súbor (kliknite pre otvorenie)', globalResultsLabel: 'Globálne výsledky', noTags: 'Zatiaľ žiadne štítky' },
         search: { placeholder: 'Hľadať v emailoch, SMS, úlohách, chatoch...', searchInEmails: 'Hľadať v emailoch', searchAllMailboxes: 'všetky schránky', emails: 'Emaily', sms: 'SMS', tasks: 'Úlohy', chats: 'Chaty', suggestionsTitle: 'Návrhy na základe otvoreného emailu', searchInList: 'Hľadať v zozname...', recentSearches: 'Nedávne vyhľadávania', clearHistory: 'Vymazať históriu', mailbox: 'Schránka', allMailboxes: 'Všetky schránky', dateFrom: 'Od', dateTo: 'Do', quickSearch: 'Rýchle vyhľadávanie', enterMin2Chars: 'Zadajte aspoň 2 znaky', results: 'Výsledky', searchAction: 'Hľadať', closeAction: 'Zavrieť', searchInEmailsQuery: 'Hľadať v emailoch', searchAllMailboxesLabel: 'Prehľadať všetky schránky', aiSearch: 'AI Vyhľadávanie', aiSearchPlaceholder: 'Opýtajte sa prirodzene, napr. "Nájdi všetky emaily od Petra s prílohami za posledný týždeň"', aiSearching: 'AI analyzuje váš dotaz...', aiParsed: 'AI porozumelo', aiSuggestions: 'AI navrhuje', aiExplanation: 'Interpretácia vyhľadávania', aiError: 'AI vyhľadávanie zlyhalo, používam štandardné vyhľadávanie', aiMode: 'AI Vyhľadávanie', aiModeOn: 'AI zapnuté', aiModeOff: 'Štandardné vyhľadávanie', attachmentSearch: 'Hľadať v prílohách', searchInAttachments: 'Hľadať v obsahu príloh', advancedFilters: 'Rozpoznané filtre', fromSender: 'Od', withAttachment: 'S prílohami', highImportance: 'Vysoká dôležitosť', channelEmail: 'Emaily', channelSms: 'SMS', channelTasks: 'Úlohy', channelChats: 'Chaty', searchChannels: 'Hľadať v', executeAiSearch: 'Hľadať s AI', tryAsking: 'Skúste sa opýtať' },
         settings: { appearance: 'Vzhľad', accounts: 'Účty', notifications: 'Notifikácie', sidebar: 'Postranný panel', compose: 'Písanie', signature: 'Podpis', ai: 'AI', unreadIndicator: 'Indikátor neprečítaných', unreadIndicatorDesc: 'Modrá bodka pri neprečítaných správach', highlightUnread: 'Zvýrazniť neprečítané', highlightUnreadDesc: 'Tučné písmo pre neprečítané správy', accountIcons: 'Ikony účtov', accountIconsDesc: 'Farebná bodka podľa priradenia účtu', attachmentIcons: 'Ikony príloh', attachmentIconsDesc: 'Ikona spinky pri správach s prílohami', showTags: 'Zobraziť tagy', showTagsDesc: 'Farebné štítky v zozname správ', previewLines: 'Riadky náhľadu', previewLinesDesc: 'Počet riadkov textu náhľadu v zozname', defaultSort: 'Predvolené radenie', defaultSortDesc: 'Predvolené zoradenie emailov', showAllRecipients: 'Zobraziť všetkých príjemcov', showAllRecipientsDesc: 'V detaile zobraziť CC a BCC príjemcov', expandBody: 'Rozbalené telo správy', expandBodyDesc: 'Automaticky zobraziť celý obsah emailu', autoLoadImages: 'Automaticky nahrať obrázky', autoLoadImagesDesc: 'Načítať vzdialené obrázky v tele emailu', senderInitials: 'Iniciály odosielateľa', senderInitialsDesc: 'Zobrazí kruhový avatar s iniciálami v zozname', groupByDate: 'Zoskupovať podľa dátumu', groupByDateDesc: 'Oddeliť správy podľa dní', attachmentsBefore: 'Prílohy pred obsahom', attachmentsBeforeDesc: 'Zobraziť prílohy nad telom emailu', enableAi: 'Povoliť AI', enableAiDesc: 'Zapnúť AI funkcie (odpoveď, zhrnutie, preklad)', languageMode: 'Režim jazyka', languageModeDesc: 'V akom jazyku má AI generovať odpovede a zhrnutia', targetLanguage: 'Cieľový jazyk', targetLanguageDesc: 'Do akého jazyka preložiť AI výstup', soundOnSend: 'Zvuk pri odoslaní', soundOnSendDesc: 'Prehrať zvuk po úspešnom odoslaní emailu', soundOnReceive: 'Zvuk pri prijatí', soundOnReceiveDesc: 'Prehrať zvuk pri doručení nového emailu', polling: 'Automatická kontrola', pollingDesc: 'Ako často kontrolovať novú poštu', showHideSidebar: 'Zobraziť alebo skryť postranný panel s priečinkami', changeColor: 'Zmeniť farbu', noSignature: 'Žiadny podpis pre tento účet', signaturePlaceholder: 'Váš podpis... (použite ikonu obrázka pre vloženie loga)', lastEdit: 'Posledná úprava: ', personal: 'Osobná', shared: 'Zdieľaná', newTagPlaceholder: 'Názov nového tagu...', tagCreated: 'Tag vytvorený', tagDeleted: 'Tag zmazaný', saved: 'Uložené', signatureSaved: 'Podpis bol uložený', saveError: 'Nepodarilo sa uložiť podpis', maximize: 'Maximalizovať', minimize: 'Zmenšiť', maximizePanel: 'Maximalizovať panel', minimizePanel: 'Zmenšiť panel', settingsTitle: 'Nastavenia', settingsEmailDesc: 'Nastavenia zobrazenia zoznamu a detailu emailov.', settingsAiDesc: 'Nastavenia umelej inteligencie pre emailovú komunikáciu.', settingsNotifDesc: 'Nastavenia zvukových notifikácií a automatickej kontroly pošty.', settingsSignatureDesc: 'Podpisy pre emailové účty. Každý účet môže mať vlastný podpis s obrázkami.', signatureFor: 'Podpis pre', signatureAutoAdd: 'Podpis sa automaticky pridá na koniec emailov odoslaných z tohto účtu. Môžete vložiť aj obrázky cez ikonu obrázka v paneli nástrojov.', tags: 'Tagy', saveSignature: 'Uložiť podpis', sidebarIcon: 'Ikona v bočnom paneli', accountColor: 'Farba účtu', tagsTitle: 'Tagy', tagsDesc: 'Vytvárajte a spravujte farebné tagy pre organizáciu emailov.', addTag: 'Pridať', defaultTag: 'Predvolený', noTags: 'Zatiaľ žiadne tagy', noTagsDesc: 'Vytvorte si vlastné tagy pre organizáciu emailov', emailLanguage: 'Jazyk emailu', info: 'Info', connectedAccountsDesc: 'Pripojené emailové účty, ikony a farby pre bočný panel.', noConnectedAccounts: 'Žiadne pripojené účty' },
         nexusChat: { copied: 'Skopírované', messageCopied: 'Správa bola skopírovaná do schránky', messageDetail: 'Detail správy + Nastavenia', copyMessage: 'Kopírovať správu', conversation: 'Konverzácia', askMore: 'Opýtajte sa ďalej...', precise: 'Presné', creative: 'Kreatívne', systemPrompt: 'Systémový prompt (voliteľné)', customInstructions: 'Vlastné inštrukcie pre NEXUS...', resetDefaults: 'Obnoviť predvolené' }, editor: { bold: 'Tučné', italic: 'Kurzíva', underline: 'Podčiarknuté', strikethrough: 'Prečiarknuté', heading1: 'Nadpis 1', heading2: 'Nadpis 2', bulletList: 'Odrážkový zoznam', numberedList: 'Číslovaný zoznam', blockquote: 'Citácia', horizontalRule: 'Horizontálna čiara', alignLeft: 'Zarovnať vľavo', alignCenter: 'Na stred', alignRight: 'Zarovnať vpravo', alignJustify: 'Do bloku', resetColor: 'Zrušiť farbu', removeLink: 'Odstrániť odkaz', insertImage: 'Vložiť obrázok', imageUrl: 'URL obrázka...', uploadFromFile: 'Nahrať zo súboru', insertTable: 'Vložiť tabuľku', undo: 'Späť', addAttachment: 'Pridať prílohu', generateReply: 'Generovať odpoveď pomocou AI', conversationSummary: 'Zhrnutie emailovej konverzácie' }, ai: { generateReply: 'AI Generovať odpoveď', conversationSummary: 'AI Zhrnutie konverzácie', reviewReply: 'Skontrolujte a upravte navrhovanú odpoveď pred vložením.', reviewSummary: 'Skontrolujte a upravte zhrnutie pred vložením do odpovede.', editPlaceholder: 'Upravte AI obsah...', insert: 'Vložiť', generating: 'Generujem...', generateError: 'Nepodarilo sa vygenerovať AI návrh', summaryError: 'Nepodarilo sa vygenerovať zhrnutie', translateError: 'Nepodarilo sa preložiť obsah', checkTranslation: 'Skontrolovať preklad', checking: 'Kontrolujem...', noErrors: 'Žiadne chyby! Váš text je správny.', errorsFound: 'nájdených chýb', useImproved: 'Použiť vylepšenú verziu', score: 'Skóre', grammar: 'Gramatika', spelling: 'Pravopis', style: 'Štýl', wordChoice: 'Výber slov', punctuation: 'Interpunkcia', close: 'Zavrieť', insertToReply: 'Pridať do odpovede', templates: 'AI Šablóny', businessIntro: 'Obchodné oslovenie', thankYou: 'Poďakovanie', followUp: 'Follow-up', meetingRequest: 'Žiadosť o stretnutie', offer: 'Obchodná ponuka', infoRequest: 'Žiadosť o informácie', invitation: 'Pozvánka', draftGenerated: 'Email vygenerovaný' },
@@ -23796,6 +24784,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Připojit soubor',
       attachmentUploading: 'Nahrávám přílohu…',
       attachmentError: 'Nepodařilo se nahrát přílohu',
+      attachmentTooLarge: 'Každý soubor může mít nejvýše 15 MB',
+      attachmentLimitReached: 'Úkol může mít nejvýše 10 příloh',
       attachmentDownload: 'Stáhnout',
       attachmentOpenTab: 'Otevřít na nové kartě',
       attachmentPreviewUnavailable: 'Náhled není k dispozici',
@@ -23852,6 +24842,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Úkol přeposlán',
       toastForwardError: 'Nepodařilo se přeposlat úkol',
       questionsInboxTitle: 'Otázky z Back Office',
+      questionToastTitle: 'Otázka z Back Office',
+      taskCompletionHeading: 'Úkol dokončen',
+      taskCompletionOpenAction: 'Otevřít úkol',
+      taskCompletionDismissAction: 'Zavřít oznámení',
+      taskCompletionStatus: 'Úkol {title} je dokončen',
+      taskCompletionActionError: 'Oznámení o úkolu se nepodařilo aktualizovat.',
       answerPlaceholder: 'Napište odpověď pro Back Office…',
       answerButton: 'Odpovědět',
       toastAnswerSent: 'Odpověď odeslána do Back Office',
@@ -24278,8 +25274,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Správa vztahů s medicínskými partnery, kategorie a komunikační plány',
       overview: 'Přehled',
-      institutions: 'Instituce',
-      persons: 'Osoby',
       settings: 'Nastavení',
       totalHospitals: 'Celkem nemocnic',
       totalClinics: 'Celkem klinik',
@@ -24316,9 +25310,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Přiřazení',
       addAssignment: 'Přidat přiřazení',
       editAssignment: 'Upravit přiřazení',
-      department: 'Oddělení',
-      position: 'Pozice',
-      role: 'Role',
       subcategory: 'Podkategorie',
       entityName: 'Instituce',
       personnel: 'Personál',
@@ -24346,11 +25337,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Země',
       personnelCount: 'Personál',
       status: 'Stav',
-      category: 'Kategorie',
       institutionName: 'Instituce',
       lastContact: 'Poslední kontakt',
       contactInfo: 'Kontaktní údaje',
-      primaryContact: 'Primární kontakt',
       workplaces: 'Pracoviště',
       institutions: 'institucí',
       filtered: 'filtrováno',
@@ -24487,6 +25476,8 @@ export const translations: Record<Locale, Translations> = {
       loading: 'Načítám...',
       noData: 'Žádná data',
       selected: 'vybraných',
+      found: 'nalezeno',
+      total: 'celkem',
       confirm: 'Potvrdit',
       yes: 'Ano',
       no: 'Ne',
@@ -24686,6 +25677,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Úkoly',
       description: 'Spravujte a sledujte své úkoly',
+      requestFromSubmitter: 'Požadavek od zadavatele',
+      originalRequest: 'Zobrazit celý původní popis',
       noTasks: 'Nebyly nalezeny žádné úkoly',
       openTasks: 'Otevřené úkoly',
       loadError: 'Nepodařilo se načíst otevřené úkoly. Zkuste to znovu.',
@@ -24727,6 +25720,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Vyřešit úkol',
       resolveTaskDesc: 'Zadejte řešení tohoto úkolu',
       resolution: 'Řešení',
+      resolutionDialog: { title: 'Vyřešit úkol', description: 'Před uzavřením úkolu zaznamenejte, co bylo provedeno.', resolution: 'Výsledek', placeholder: 'Popište výsledek…', cancel: 'Zrušit', submit: 'Vyřešit úkol', checklist: 'Kontrolní seznam Pulse', loading: 'Načítá se seznam…', loadError: 'Kontrolní seznam se nepodařilo načíst. Před vyřešením to zkuste znovu.', retry: 'Zkusit znovu', empty: 'Před vyřešením tohoto úkolu Pulse přidejte alespoň jeden krok.', remaining: 'Zbývá {count} kroků. Před vyřešením dokončete všechny kroky.', complete: 'Všechny kroky jsou dokončené', returnToChecklist: 'Zpět na kontrolní seznam', draft: 'Navrhnout pomocí AI', drafting: 'Připravuje se návrh…', draftUnavailable: 'Tvorba návrhu AI teď není dostupná. Výsledek můžete napsat ručně.', draftFailed: 'Návrh se nepodařilo vytvořit. Zkuste to znovu nebo výsledek napište ručně.', draftReady: 'Návrh AI je připravený — před vyřešením ho zkontrolujte a upravte.', draftPreserved: 'Váš text zůstal zachován — AI návrh ho nepřepsal.', draftingHint: 'Z dokončených kroků a jejich poznámek právě skládám stručné shrnutí k úpravě…', draftNoCompletedSteps: 'Zatím nejsou dokončené žádné kroky k shrnutí. Výsledek můžete napsat ručně.', checklistDraftError: 'Kontrolní seznam se nepodařilo načíst, takže žádné kroky nebyly odeslány ke shrnutí. Můžete psát ručně nebo to zkusit znovu.', notify: 'Upozornit agenta', notifyHint: 'Informovat přiděleného agenta o vyřešení úkolu.' },
       resolvedBy: 'Vyřešil',
       resolvedAt: 'Vyřešeno',
       reassign: 'Přeřadit',
@@ -24737,6 +25731,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Přidat komentář',
       commentPlaceholder: 'Napište komentář...',
       noComments: 'Zatím žádné komentáře',
+      taskDiscussion: 'Diskuse k úkolu',
+      commentsActivity: 'Nedávná diskuse',
+      commentsEmptyHint: 'Přidejte k tomuto úkolu první poznámku.',
+      loadingComments: 'Načítání komentářů',
+      commentsLoadFailed: 'Komentáře se nepodařilo načíst.',
+      commentsRetry: 'Zkusit znovu',
+      unknownAuthor: 'Člen týmu',
+      attachmentsOnly: 'Sdílel přílohu',
+      viewAllComments: 'Zobrazit všech {count} komentářů',
+      previewAttachment: 'Náhled přílohy',
+      openAttachment: 'Otevřít přílohu',
+      commentKeyboardHint: 'Enter odešle · Shift + Enter přidá nový řádek',
+      taskAgentRequestTitle: 'Váš požadavek',
+      taskAgentRequestHint: 'Popište, co je třeba vyřešit. Pokud žádáte opravu, uveďte správné údaje.',
+      taskRequestContextTitle: 'Kontext úkolu',
+      taskRequestContextHint: 'K požadavku se přidá automaticky.',
+      dismissUploadError: 'Zahodit neúspěšné nahrávání',
       viewDetails: 'Zobrazit detaily',
       taskResolved: 'Úkol byl úspěšně vyřešen',
       taskReassigned: 'Úkol byl úspěšně přeřazen',
@@ -24751,6 +25762,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Pololetí',
       year: 'Rok',
       cancelTask: 'Zrušit úkol',
+      cancelConfirmKicker: 'Ještě jedna kontrola',
+      cancelConfirmHeading: 'Zrušit tento úkol?',
+      cancelConfirmBody: 'Úkol skončí ve stavu Zrušeno. V tomto stavu jej nelze dokončit.',
+      cancelConfirmQuestion: 'Opravdu chcete tento úkol zrušit?',
+      cancelConfirmKeep: 'Ponechat úkol',
+      cancelConfirmAction: 'Zrušit úkol',
       save: 'Uložit',
       selectTask: 'Vyberte úkol pro zobrazení detailu',
       task: 'Úkol',
@@ -24765,12 +25782,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Vyskakovací okno úkolu',
       taskNotifyPopupDesc: 'Zobrazit popup při přiřazení nového úkolu',
       newTaskAssigned: 'Nový úkol přiřazen',
+      checklistTitle: 'Kontrolní seznam',
+      checklistAddPlaceholder: 'Přidat krok kontrolního seznamu…',
+      checklistAdd: 'Přidat krok',
+      checklistRemove: 'Odstranit krok',
+      checklistEdit: 'Upravit krok',
+      checklistSave: 'Uložit krok',
+      checklistCancel: 'Zrušit úpravy',
+      checklistLoadError: 'Kontrolní seznam se nepodařilo načíst.',
+      checklistMutationError: 'Kontrolní seznam se nepodařilo upravit. Zkuste to znovu.',
+      checklistAiGenerating: 'AI připravuje navrhované kroky…',
+      checklistAiProposal: 'Doporučení AI',
+      checklistAiFailed: 'AI nedokázala vytvořit návrhy. Kroky můžete přidat ručně nebo to zkusit znovu.',
+      checklistAiUnavailable: 'Generování kontrolního seznamu pomocí AI je momentálně nedostupné. Kroky můžete přidat ručně nebo to zkusit znovu.',
+      checklistAiRetry: 'Zkusit znovu',
+      checklistAiLoadError: 'Stav kontrolního seznamu AI se nepodařilo načíst.',
+      checklistMarkComplete: 'Označit jako dokončené',
+      checklistMarkIncomplete: 'Označit jako nedokončené',
+      checklistNoteLabel: 'Poznámka ke kroku',
+      checklistNotePlaceholder: 'Přidejte krátkou poznámku ke kroku…',
+      checklistNoteAdd: 'Přidat poznámku',
+      checklistNoteEdit: 'Upravit poznámku',
+      checklistNoteSave: 'Uložit poznámku',
+      checklistNoteCancel: 'Zrušit',
+      taskWorkElapsed: 'Uplynulo',
+      taskWorkElapsedDescription: 'Uplynulý čas od zahájení práce; zahrnuje čekání a nejde o fakturovatelné hodiny.',
+      taskWorkStartUnknown: 'Čas zahájení není znám',
+      taskOverdueLabel: 'Po termínu',
+      taskOverdueDuration: '{days} dní / {hours}:{minutes}',
       priority: 'Priorita',
       status: 'Stav',
       description2: 'Popis',
+      workspace: {
+        settings: 'Nastavení skupin úkolů',
+        filtersTitle: 'Filtry úkolů',
+        searchPeoplePlaceholder: 'Hledat úkoly...',
+        dateAll: 'Libovolné datum',
+        dateToday: 'Dnes',
+        dateWeek: 'Tento týden',
+        dateMonth: 'Tento měsíc',
+        dateCustom: 'Vlastní rozsah',
+        basisCreated: 'Vytvořeno',
+        basisDue: 'Termín',
+        basisResolved: 'Vyřešeno',
+        sortCreated: 'Vytvořeno',
+        sortDue: 'Termín',
+        sortResolved: 'Vyřešeno',
+        sortPriority: 'Priorita',
+        sortTitle: 'Název',
+        ascending: 'Vzestupně',
+        descending: 'Sestupně',
+        anyCreator: 'Libovolný autor',
+        anyResolver: 'Libovolný řešitel',
+        dateFrom: 'Začátek období',
+        dateTo: 'Konec období',
+        rangeSeparator: 'až',
+        clearFilters: 'Vymazat filtry',
+        group: 'Skupina úkolů',
+        noGroup: 'Bez skupiny',
+        notifyAgent: 'Upozornit původního agenta',
+        notifyAgentHint: 'Upozornit původního agenta, který tento úkol vytvořil v Nexus Pulse.',
+        noMatchingTasks: 'Žádné úkoly neodpovídají těmto filtrům.',
+        titleRequired: 'Název úkolu je povinný.',
+        unassigned: 'Nepřiřazeno',
+        sortOrder: 'Pořadí řazení',
+        changeSortOrder: 'Změnit pořadí řazení',
+      },
       taskGroups: {
         title: 'Skupiny úkolů',
         newGroup: 'Nová skupina',
+        dialogTitle: 'Skupiny úkolů',
+        activeUsers: 'Aktivní uživatelé',
+        inactiveMemberWarning: 'Někteří vybraní členové jsou neaktivní. Zůstanou přiřazeni, dokud je neodeberete.',
+        inactive: 'Neaktivní',
+        changesTitle: 'Zahodit změny?',
+        changesDescription: 'Máte neuložené změny. Chcete je zahodit?',
+        discardChanges: 'Zahodit změny',
+        moveUp: 'Přesunout {name} nahoru',
+        moveDown: 'Přesunout {name} dolů',
+        readOnly: 'Skupiny úkolů můžete prohlížet, ale měnit je mohou pouze manažeři a administrátoři.',
+        nameRequired: 'Název skupiny je povinný.',
+        usersLoadFailed: 'Uživatele se nepodařilo načíst.',
+        groupsLoadFailed: 'Skupiny úkolů se nepodařilo načíst.',
+        advanced: 'Rozšířené nastavení pořadí',
+        serverError: 'Server nemohl uložit změny. Zkuste to znovu.',
         editGroup: 'Upravit skupinu',
         newGroupTitle: 'Nová skupina úkolů',
         deleteTitle: 'Smazat skupinu?',
@@ -24926,6 +26021,21 @@ export const translations: Record<Locale, Translations> = {
       editCustomer: 'Upravit zákazníka',
       deleteCustomer: 'Odstranit zákazníka',
       deleteConfirm: 'Opravdu chcete odstranit tohoto zákazníka?',
+      firstName: 'Křestní jméno',
+      lastName: 'Příjmení',
+      street: 'Ulice',
+      streetNumber: 'Číslo domu',
+      orientationNumber: 'Orientační číslo',
+      ico: 'IČO',
+      icoTip: 'Identifikační číslo organizace',
+      idZz: 'ID ZZ',
+      idZzTip: 'Identifikátor zdravotnického zařízení',
+      pzsCode: 'Kód PZS',
+      pzsCodeTip: 'Kód poskytovatele zdravotní péče',
+      pzsName: 'Název PZS',
+      pzsNameTip: 'Název poskytovatele zdravotní péče',
+      additionalIdentifiers: 'Další identifikátory',
+      lookupPsc: 'Automaticky vyplnit PSČ',
       email: 'Email',
       phone: 'Telefon',
       country: 'Země',
@@ -25572,6 +26682,8 @@ export const translations: Record<Locale, Translations> = {
     collections: {
       title: 'Odběry',
       description: 'Správa odběrů pupečníkové krve',
+      firstName: 'Křestní jméno',
+      lastName: 'Příjmení',
       addCollection: 'Přidat odběr',
       editCollection: 'Upravit odběr',
       deleteCollection: 'Odstranit odběr',
@@ -25606,6 +26718,43 @@ export const translations: Record<Locale, Translations> = {
       certificate: 'Certifikát',
       doctorNote: 'Poznámka lékaře',
       note: 'Poznámka',
+      lab: {
+        usability: 'Použitelnost',
+        resultsDate: 'Datum výsledků',
+        labNote: 'Poznámka laboratoře',
+        cbu: 'CBU',
+        collectionFor: 'Odběr pro',
+        processing: 'Zpracování',
+        sterility: 'Sterilita',
+        sterilityType: 'Typ sterility',
+        resultOfSterility: 'Výsledek sterility',
+        infectionAgents: 'Infekční agens',
+        tncCount: 'Počet TNC',
+        volume: 'Objem',
+        volumeInBag: 'Objem ve vaku',
+        umbilicalTissue: 'Pupečníková tkáň',
+        tissueProcessed: 'Zpracovaná tkáň',
+        tissueSterility: 'Sterilita tkáně',
+        tissueUsability: 'Použitelnost tkáně',
+        bagAUsability: 'Použitelnost vaku A',
+        bagAVolume: 'Objem vaku A',
+        bagATnc: 'TNC vaku A',
+        bagBUsability: 'Použitelnost vaku B',
+        bagBVolume: 'Objem vaku B',
+        bagBTnc: 'TNC vaku B',
+        basicInfo: 'Základní informace',
+        sterilitySection: 'Sterilita a infekce',
+        volumeSection: 'Objem a počty',
+        tissueSection: 'Pupečníková tkáň',
+        bagASection: 'Vak A',
+        bagBSection: 'Vak B',
+        downloadCbuReport: 'Stáhnout zprávu CBU',
+        medicalReportSk: 'Lékařská zpráva (SK)',
+        medicalReportEn: 'Lékařská zpráva (EN)',
+        fullReportSk: 'Úplná zpráva (SK)',
+        fullReportEn: 'Úplná zpráva (EN)',
+        reportDownloaded: 'Zpráva byla úspěšně stažena',
+      },
       states: {
         created: 'Vytvořen',
         paired: 'Spárován',
@@ -25758,6 +26907,7 @@ export const translations: Record<Locale, Translations> = {
     },
     hospitals: {
       title: 'Nemocnice',
+      district: 'Okres',
       description: 'Správa nemocnic a zdravotnických zařízení',
       addHospital: 'Přidat nemocnici',
       editHospital: 'Upravit nemocnici',
@@ -26044,6 +27194,7 @@ export const translations: Record<Locale, Translations> = {
         documents: 'Dokumenty',
         templates: 'Šablony',
         rewards: 'Odměny',
+        healthcareNetworks: 'Zdravotnické sítě',
         actions: 'Úkony',
       },
       addressTabs: {
@@ -27187,6 +28338,46 @@ export const translations: Record<Locale, Translations> = {
         queueDisplayModeLastStatus: 'Zobrazit poslední zadaný status',
         defaultOnlyAssignedTitle: 'Výchozí filtr „Pouze přiřazené"',
         defaultOnlyAssignedDesc: 'Pokud je zapnuto, filtr „Pouze přiřazené" ve frontě agenta bude automaticky zaškrtnut při každém přihlášení agenta do této mise.',
+        changeStatus: 'Změnit stav',
+        customerHistory: 'Historie zákazníka',
+        noHistory: 'Žádná historie',
+        campaignJoined: 'Připojil se k misi',
+        campaignLeft: 'Opustil misi',
+        emailSent: 'E-mail odeslán',
+        smsSent: 'SMS odeslána',
+        noteAdded: 'Poznámka přidána',
+        dragFileHere: 'Přetáhněte soubor sem',
+        orClickToSelect: 'nebo kliknutím vyberte',
+        downloadSampleCsv: 'Stáhnout vzorový soubor CSV',
+        expectedColumns: 'Očekávané sloupce:',
+        supportedFormats: 'Podporované formáty: CSV (oddělené středníkem nebo čárkou), Excel (.xlsx)',
+        updateExisting: 'Aktualizovat stávající kontakty (přepíše údaje, pokud kontakt již existuje)',
+        uploadingFile: 'Nahrávání souboru...',
+        processingContacts: 'Zpracování kontaktů...',
+        created: 'Vytvořeno',
+        updated: 'Aktualizováno',
+        duplicates: 'Duplikáty',
+        skipped: 'Přeskočeno',
+        deleteLastImport: 'Smazat poslední import',
+        deleting: 'Mazání...',
+        close: 'Zavřít',
+        remove: 'Odstranit',
+        import: 'Importovat',
+        kpiTracking: 'Sledování cílů KPI',
+        kpiTrackingDesc: 'Sledujte průběh plnění cílových hodnot KPI kampaně',
+        current: 'Aktuální',
+        target: 'Cíl',
+        targetRevenue: 'Cílový výnos',
+        revenueTrackingDesc: 'Sledování výnosů vyžaduje integraci fakturačního systému',
+        dailyOperatorTargets: 'Denní cíle operátorů',
+        callsPerDay: 'Hovory/den',
+        contactsPerDay: 'Kontakty/den',
+        conversionsPerDay: 'Konverze/den',
+        conversionRate: 'Míra konverze',
+        successful: 'Úspěšné',
+        notInterested: 'Nemá zájem',
+        preview: 'Náhled',
+        textMode: 'Textový režim',
         assignedOperators: 'Přiřazení operátoři',
         assignedOperatorsDesc: 'Vyberte operátory, kteří budou pracovat na této kampani',
         noOperatorsAvailable: 'Žádní operátoři nejsou k dispozici. Nejprve vytvořte uživatele s rolí "Call Center".',
@@ -28050,7 +29241,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Zavolat!',
       myCB: 'Můj CB',
       teamCB: 'Tým CB',
-      filterAll: 'Všechny kontakty', filterMyCB: 'Moje přeplánované', filterTeamCB: 'Tým přeplánované', filterDue: 'Splatné nyní', filterPending: 'Čekající (nové)',
+      filterMyCB: 'Moje přeplánované', filterTeamCB: 'Tým přeplánované', filterDue: 'Splatné nyní',
       groupDue: 'Splatné hovory', groupMyCb: 'Moje naplánované', groupTeamCb: 'Týmové naplánované', groupOtherCb: 'Přiřazené jiným', groupPending: 'Nové kontakty',
       emailHistory: 'Historie e-mailů',
       smsHistory: 'Historie SMS',
@@ -28967,6 +30158,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Šablona byla úspěšně vytvořena',
       templateUpdated: 'Šablona byla úspěšně aktualizována',
       templateDeleted: 'Šablona byla úspěšně odstraněna',
+      copyToLanguage: 'Kopírovat do jazyka',
+      targetLanguage: 'Cílový jazyk',
+      autoTranslate: 'Automaticky přeložit pomocí AI',
+      autoTranslateDesc: 'Pomocí OpenAI přeložte obsah do cílového jazyka',
+      templateTranslated: 'Šablona přeložena a zkopírována',
+      templateCopied: 'Šablona zkopírována',
+      translating: 'Překládání...',
+      copying: 'Kopírování...',
+      translateAndCopy: 'Přeložit a kopírovat',
+      copyTemplate: 'Kopírovat',
       templateFormDescription: 'Konfigurace šablony faktury a značky',
       addLayout: 'Přidat rozvržení',
       editLayout: 'Upravit rozvržení',
@@ -28992,7 +30193,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Pole zákazníka',
       billingFields: 'Fakturační pole',
       invoiceFields: 'Pole faktury',
-      preview: 'Náhled',
       properties: 'Vlastnosti',
       fontWeight: 'Tloušťka písma',
       textAlign: 'Zarovnání textu',
@@ -30737,13 +31937,13 @@ export const translations: Record<Locale, Translations> = {
         exitFullscreen: 'Zmenšit NEXUS Omni',
         tabs: { email: 'Email', sms: 'SMS', tasks: 'Úkoly', chats: 'Chaty', teams: 'Teams', calendar: 'Kalendář', nexuspoint: 'NexusPoint' },
         folders: { inbox: 'Doručená pošta', sent: 'Odesláno', drafts: 'Koncepty', spam: 'Spam', trash: 'Koš', archive: 'Archiv', otherFolders: 'Další složky' },
-        email: { noEmails: 'Žádné emaily', noResults: 'Žádné výsledky pro', unknown: 'Neznámý', noSubject: '(Bez předmětu)', markRead: 'Označit jako přečtené', markUnread: 'Označit jako nepřečtené', markedRead: 'Označeno jako přečtené', markedUnread: 'Označeno jako nepřečtené', reply: 'Odpovědět', replyAll: 'Odpovědět všem', forward: 'Přeposlat', replyToEmail: 'Odpověď na email', replyToAll: 'Odpověď všem', forwardEmail: 'Přeposlat email', recipientPlaceholder: 'Komu (více adres oddělte čárkou)', enterRecipient: 'Zadejte příjemce', messagePlaceholder: 'Napište zprávu...', replyPlaceholder: 'Napište odpověď...', subjectPlaceholder: 'Předmět', ccBccReplyTo: 'Kopie, Skrytá, Reply To', hideFields: 'Skrýt pole', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To adresa', deleted: 'Smazáno', messageDeleted: 'Zpráva byla odstraněna', deleteError: 'Nepodařilo se smazat zprávu', sendError: 'Nepodařilo se odeslat zprávu', replyError: 'Nepodařilo se odeslat odpověď', forwardError: 'Nepodařilo se přeposlat zprávu', readStatusError: 'Nepodařilo se změnit stav přečtení', loadError: 'Chyba při načítání', loadAllError: 'Nepodařilo se načíst všechny emaily', emailSummary: 'Souhrn emailu', clickToRemove: 'Klikněte pro odstranění', attachmentsBeforeContent: 'Přílohy před obsahem', showAttachmentsAbove: 'Zobrazit přílohy nad tělem emailu', important: 'Důležité emaily', withAttachments: 'Emaily s přílohami', fromSenderWithAttachments: 'Emaily s přílohami od tohoto odesílatele', lastWeek: 'Emaily za poslední týden', lastMonth: 'Emaily za poslední měsíc', todaysEmails: 'Dnešní emaily', searchFor: 'Hledat', showMoreFromSender: 'Zobrazit další emaily od tohoto odesílatele', loadedEmails: 'Načtených emailů', channels: 'Kanály', clear: 'Smazat', newMessage: 'Nová zpráva', from: 'Od', to: 'Komu', cc: 'Cc', replyToAddress: 'Reply-To adresa', attachments: 'Přílohy', linkedCustomer: 'Přiřazeno k zákazníkovi', consent: 'Souhlas', emailsFrom: 'Emaily od', emailsFromDomain: 'Emaily z domény', conversation: 'Konverzace', importance: 'Důležitost', importanceLow: 'Nízká', importanceNormal: 'Normální', importanceHigh: 'Vysoká', tag: 'Tag', composeFullscreen: 'Na celou obrazovku', composeMinimize: 'Zmenšit', delete: 'Smazat', toLabel: 'Komu:', toLabel: 'An:', ccLabel: 'Kopie:', bccLabel: 'Skrytá:', wrote: 'napsal(a):' },
+        email: { noEmails: 'Žádné emaily', noResults: 'Žádné výsledky pro', unknown: 'Neznámý', noSubject: '(Bez předmětu)', markRead: 'Označit jako přečtené', markUnread: 'Označit jako nepřečtené', markedRead: 'Označeno jako přečtené', markedUnread: 'Označeno jako nepřečtené', reply: 'Odpovědět', replyAll: 'Odpovědět všem', forward: 'Přeposlat', replyToEmail: 'Odpověď na email', replyToAll: 'Odpověď všem', forwardEmail: 'Přeposlat email', recipientPlaceholder: 'Komu (více adres oddělte čárkou)', enterRecipient: 'Zadejte příjemce', messagePlaceholder: 'Napište zprávu...', replyPlaceholder: 'Napište odpověď...', subjectPlaceholder: 'Předmět', ccBccReplyTo: 'Kopie, Skrytá, Reply To', hideFields: 'Skrýt pole', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To adresa', deleted: 'Smazáno', messageDeleted: 'Zpráva byla odstraněna', deleteError: 'Nepodařilo se smazat zprávu', sendError: 'Nepodařilo se odeslat zprávu', replyError: 'Nepodařilo se odeslat odpověď', forwardError: 'Nepodařilo se přeposlat zprávu', readStatusError: 'Nepodařilo se změnit stav přečtení', loadError: 'Chyba při načítání', loadAllError: 'Nepodařilo se načíst všechny emaily', emailSummary: 'Souhrn emailu', clickToRemove: 'Klikněte pro odstranění', attachmentsBeforeContent: 'Přílohy před obsahem', showAttachmentsAbove: 'Zobrazit přílohy nad tělem emailu', important: 'Důležité emaily', withAttachments: 'Emaily s přílohami', fromSenderWithAttachments: 'Emaily s přílohami od tohoto odesílatele', lastWeek: 'Emaily za poslední týden', lastMonth: 'Emaily za poslední měsíc', todaysEmails: 'Dnešní emaily', searchFor: 'Hledat', showMoreFromSender: 'Zobrazit další emaily od tohoto odesílatele', loadedEmails: 'Načtených emailů', channels: 'Kanály', clear: 'Smazat', newMessage: 'Nová zpráva', from: 'Od', to: 'Komu', cc: 'Cc', replyToAddress: 'Reply-To adresa', attachments: 'Přílohy', linkedCustomer: 'Přiřazeno k zákazníkovi', consent: 'Souhlas', emailsFrom: 'Emaily od', emailsFromDomain: 'Emaily z domény', conversation: 'Konverzace', importance: 'Důležitost', importanceLow: 'Nízká', importanceNormal: 'Normální', importanceHigh: 'Vysoká', tag: 'Tag', composeFullscreen: 'Na celou obrazovku', composeMinimize: 'Zmenšit', delete: 'Smazat', toLabel: 'Komu:', ccLabel: 'Kopie:', bccLabel: 'Skrytá:', wrote: 'napsal(a):' },
         sms: { allSms: 'Všechny SMS', received: 'Přijaté', sent: 'Odeslané SMS', noSms: 'Žádné SMS', receivedSms: 'Přijatá SMS', sentSms: 'Odeslaná SMS', replySent: 'SMS odeslána', replyPlaceholder: 'Odpovědět na', angry: 'Rozzlobený', cancellation: 'Zrušení', criticalAlert: 'Kritické upozornění', warning: 'Upozornění', rudeExpressions: 'Hrubé výrazy', replyToPlaceholder: 'Odpovědět na', selectSms: 'Vyberte SMS pro zobrazení detailu', contractRejection: 'Odmítnutí smlouvy', negativeSentiment: 'Negativní sentiment' },
         tasks: { allTasks: 'Všechny úkoly', pending: 'Čekající', inProgress: 'Rozpracované', completed: 'Dokončené', cancelled: 'Zrušené', noDescription: 'Bez popisu', deadline: 'Termín', noTasks: 'Žádné úkoly', task: 'Úkol', selectTask: 'Vyberte úkol pro zobrazení detailu', comments: 'Komentáře', addComment: 'Přidat komentář', commentPlaceholder: 'Napište komentář...', noComments: 'Zatím žádné komentáře', deleteComment: 'Smazat komentář', commentAdded: 'Komentář přidán', commentDeleted: 'Komentář smazán', assignedTo: 'Přiřazeno', createdBy: 'Vytvořil', taskNotifySound: 'Zvuk notifikace úkolu', taskNotifySoundDesc: 'Přehrát zvuk při přiřazení nového úkolu', taskNotifyPopup: 'Vyskakovací okno úkolu', taskNotifyPopupDesc: 'Zobrazit popup při přiřazení nového úkolu', newTaskAssigned: 'Nový úkol přiřazen' },
         chats: { internalChats: 'Interní chaty', selectConversation: 'Vyberte konverzaci v postranním panelu', lastMessage: 'Poslední zpráva:', noConversations: 'Žádné konverzace', onlineUsers: 'Online uživatelé', startChat: 'Zahájit chat', typeMessage: 'Napište zprávu...', sendMessage: 'Odeslat', noMessages: 'Zatím žádné zprávy', today: 'Dnes', yesterday: 'Včera', typing: 'píše...', you: 'Vy', conversations: 'Konverzace', newChat: 'Nový chat', online: 'Online', offline: 'Offline', chatNotifySound: 'Zvuk notifikace chatu', chatNotifySoundDesc: 'Přehrát zvuk při nové zprávě', chatNotifyPopup: 'Vyskakovací okno chatu', chatNotifyPopupDesc: 'Zobrazit popup při nové zprávě', newMessageFrom: 'Nová zpráva od' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Žádné zprávy', writePlaceholder: 'Napište zprávu...', directChat: 'Přímý chat', groupChat: 'Skupinový chat', noTeamsChats: 'Žádné Teams chaty', noTeams: 'Žádné týmy', notConnected: 'MS365 není připojen', sendError: 'Nepodařilo se odeslat zprávu', createMeeting: 'Vytvořit schůzku', meetingCreated: 'Schůzka vytvořena', meetingError: 'Nepodařilo se vytvořit schůzku', joinMeeting: 'Připojit se', meetingSubject: 'Předmět schůzky', startMeeting: 'Spustit schůzku', instantMeeting: 'Okamžitá schůzka', scheduleMeeting: 'Naplánovat schůzku', meetingLink: 'Odkaz na schůzku', linkCopied: 'Odkaz zkopírován', meetingWith: 'Schůzka s', members: 'Členové', openInTeams: 'Otevřít v Teams', lastMessage: 'Poslední zpráva', meetingDate: 'Datum', meetingStartTime: 'Čas začátku', meetingEndTime: 'Čas konce', addParticipants: 'Přidat účastníky', participantEmail: 'E-mail účastníka', upcomingMeetings: 'Nadcházející schůzky', noUpcomingMeetings: 'Žádné nadcházející schůzky', startsIn: 'Začíná za', inProgress: 'Probíhá', today: 'Dnes', tomorrow: 'Zítra', remove: 'Odstranit', attachFile: 'Připojit soubor', attachmentSent: 'Příloha odeslána', uploadError: 'Nepodařilo se nahrát soubor', recentMeetings: 'Nedávné schůzky', noMeetings: 'Žádné schůzky', transcript: 'Přepis', noTranscript: 'Přepis není k dispozici', loadingTranscript: 'Načítá se přepis...', aiSummary: 'AI Shrnutí', generateSummary: 'Generovat AI shrnutí', generatingSummary: 'Generuje se shrnutí...', rawTranscript: 'Surový přepis', summary: 'Shrnutí', meetingDuration: 'Trvání', viewTranscript: 'Zobrazit přepis', transcriptError: 'Nepodařilo se načíst přepis', recordings: 'Záznamy', noRecordings: 'Žádné záznamy', downloadRecording: 'Stáhnout záznam', recording: 'Záznam', meetingsAndRecordings: 'Schůzky a záznamy', activity: 'Aktivita', noActivity: 'Žádná aktivita', justNow: 'Právě teď' },
         calendar: { today: 'Dnes', thisWeek: 'Tento týden', thisMonth: 'Tento měsíc' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Stránky', selectSite: 'Vyberte SharePoint stránku', noSites: 'Žádné stránky', libraries: 'Knihovny', selectLibrary: 'Vyberte knihovnu', files: 'Soubory', folders: 'Složky', name: 'Název', size: 'Velikost', modified: 'Upraveno', modifiedBy: 'Upravil', noFiles: 'Žádné soubory ani složky', upload: 'Nahrát', uploading: 'Nahrává se...', uploadSuccess: 'Soubor byl nahrán', uploadError: 'Nepodařilo se nahrát soubor', newFolder: 'Nová složka', folderName: 'Název složky', createFolder: 'Vytvořit složku', folderCreated: 'Složka vytvořena', folderError: 'Nepodařilo se vytvořit složku', download: 'Stáhnout', delete: 'Smazat', deleteConfirm: 'Opravdu chcete smazat tuto položku?', deleted: 'Položka smazána', deleteError: 'Nepodařilo se smazat položku', openInBrowser: 'Otevřít v prohlížeči', dragDropHint: 'Přetáhněte soubory sem nebo klikněte Nahrát', backToRoot: 'Zpět na kořen', searchFiles: 'Hledat soubory...', items: 'položek', created: 'Created', versions: 'Verze', version: 'Verze', restoreVersion: 'Obnovit tuto verzi', versionRestored: 'Verze obnovena', versionRestoreError: 'Nepodařilo se obnovit verzi', noVersions: 'Žádné verze', share: 'Sdílet', shareLink: 'Sdílecí odkaz', copyLink: 'Kopírovat odkaz', linkCopied: 'Odkaz zkopírován', viewOnly: 'Pouze zobrazení', editAccess: 'Úpravy', organization: 'Organizace', anyone: 'Kdokoli', createLink: 'Vytvořit odkaz', permissions: 'Oprávnění', removePermission: 'Odstranit oprávnění', permissionRemoved: 'Oprávnění odstraněno', noPermissions: 'Žádná oprávnění sdílení', preview: 'Náhled', closePreview: 'Zavřít náhled', searchResults: 'Výsledky hledání', searching: 'Hledá se...', noPinnedSites: 'Žádné připnuté weby', configureHint: 'Nakonfigurujte NexusPoint a vyberte weby v nastavení profilu.', selectSiteHint: 'Vyberte web a knihovnu z levého panelu.', contentStorageTitle: 'Tento typ webu není podporován', contentStorageHint: 'Microsoft Loop pracovní prostory a osobní úložiště nelze spravovat přes NexusPoint. Vyberte standardní SharePoint web.', pinnedSites: 'Připnuté weby', pinnedSitesHint: 'Zaškrtnuté weby se zobrazí v NexusPointu. Pokud nic nevyberete, zobrazí se vše.', defaultSite: 'Výchozí web', defaultSiteHint: 'Automaticky otevře tento web při spuštění NexusPointu.', noneDefault: 'Žádný výchozí', defaultLibrary: 'Výchozí knihovna', defaultLibraryHint: 'Automaticky otevře tuto knihovnu po výběru webu.', loadingLibraries: 'Načítání knihoven...', noneDefaultLibrary: 'Žádná výchozí knihovna', currentSettings: 'Aktuálně uložená nastavení', saveSettings: 'Uložit nastavení NexusPoint', settingsSaved: 'Nastavení NexusPointu uložena', settingsError: 'Chyba při ukládání nastavení', checkingConnection: 'Kontrola MS365 připojení...', ms365NotConnected: 'MS365 není připojeno', ms365NotConnectedHint: 'Nejprve připojte MS365 účet na záložce MS365, pak zde můžete nastavit NexusPoint.', userSettingsTitle: 'NexusPoint — nastavení uživatele', userSettingsDesc: 'Připnuté weby a výchozí umístění pro tohoto uživatele', loadingSites: 'Načítání SharePoint webů...', noSitesMs365: 'Žádné SharePoint weby nenalezeny. Zkontrolujte připojení MS365.', pinnedCount: 'Připnuté weby:', defaultSiteLabel: 'Výchozí web:', globalBadge: 'Globální', newSite: 'Nová stránka', saveToNexusPoint: 'Uložit do NexusPoint', savedToNexusPoint: 'Uloženo do NexusPoint', saveNexusError: 'Chyba při ukládání do NexusPoint', selectDestination: 'Vyberte cíl', move: 'Přesunout', moveSuccess: 'Položka přesunuta', moveError: 'Přesun se nezdařil', moveToFolder: 'Přesunout sem', moveTo: 'Přesunout do', notesAndTags: 'Poznámky a štítky', note: 'Poznámka', notePlaceholder: 'Přidat interní poznámku...', saveNote: 'Uložit poznámku', noteSaved: 'Poznámka uložena', noteSaveError: 'Chyba při ukládání poznámky', tags: 'Štítky', addTag: 'Přidat štítek', tagPlaceholder: 'Nový štítek...', tagAdded: 'Štítek přidán', tagDeleted: 'Štítek odstraněn', searchByTag: 'Hledat podle štítku', moveDestination: 'Cílové umístění', moveSiteLabel: 'Web (lokalita)', moveDriveLabel: 'Knihovna', unknownFile: 'Neznámý soubor (kliknutím otevřete)', globalResultsLabel: 'Globální výsledky' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Stránky', selectSite: 'Vyberte SharePoint stránku', noSites: 'Žádné stránky', libraries: 'Knihovny', selectLibrary: 'Vyberte knihovnu', files: 'Soubory', folders: 'Složky', name: 'Název', size: 'Velikost', modified: 'Upraveno', modifiedBy: 'Upravil', noFiles: 'Žádné soubory ani složky', upload: 'Nahrát', uploading: 'Nahrává se...', uploadSuccess: 'Soubor byl nahrán', uploadError: 'Nepodařilo se nahrát soubor', newFolder: 'Nová složka', folderName: 'Název složky', createFolder: 'Vytvořit složku', folderCreated: 'Složka vytvořena', folderError: 'Nepodařilo se vytvořit složku', download: 'Stáhnout', delete: 'Smazat', deleteConfirm: 'Opravdu chcete smazat tuto položku?', deleted: 'Položka smazána', deleteError: 'Nepodařilo se smazat položku', openInBrowser: 'Otevřít v prohlížeči', dragDropHint: 'Přetáhněte soubory sem nebo klikněte Nahrát', backToRoot: 'Zpět na kořen', searchFiles: 'Hledat soubory...', items: 'položek', created: 'Created', versions: 'Verze', version: 'Verze', restoreVersion: 'Obnovit tuto verzi', versionRestored: 'Verze obnovena', versionRestoreError: 'Nepodařilo se obnovit verzi', noVersions: 'Žádné verze', share: 'Sdílet', shareLink: 'Sdílecí odkaz', copyLink: 'Kopírovat odkaz', linkCopied: 'Odkaz zkopírován', viewOnly: 'Pouze zobrazení', editAccess: 'Úpravy', organization: 'Organizace', anyone: 'Kdokoli', createLink: 'Vytvořit odkaz', permissions: 'Oprávnění', removePermission: 'Odstranit oprávnění', permissionRemoved: 'Oprávnění odstraněno', noPermissions: 'Žádná oprávnění sdílení', preview: 'Náhled', closePreview: 'Zavřít náhled', searchResults: 'Výsledky hledání', searching: 'Hledá se...', noPinnedSites: 'Žádné připnuté weby', configureHint: 'Nakonfigurujte NexusPoint a vyberte weby v nastavení profilu.', selectSiteHint: 'Vyberte web a knihovnu z levého panelu.', contentStorageTitle: 'Tento typ webu není podporován', contentStorageHint: 'Microsoft Loop pracovní prostory a osobní úložiště nelze spravovat přes NexusPoint. Vyberte standardní SharePoint web.', pinnedSites: 'Připnuté weby', pinnedSitesHint: 'Zaškrtnuté weby se zobrazí v NexusPointu. Pokud nic nevyberete, zobrazí se vše.', defaultSite: 'Výchozí web', defaultSiteHint: 'Automaticky otevře tento web při spuštění NexusPointu.', noneDefault: 'Žádný výchozí', defaultLibrary: 'Výchozí knihovna', defaultLibraryHint: 'Automaticky otevře tuto knihovnu po výběru webu.', loadingLibraries: 'Načítání knihoven...', noneDefaultLibrary: 'Žádná výchozí knihovna', currentSettings: 'Aktuálně uložená nastavení', saveSettings: 'Uložit nastavení NexusPoint', settingsSaved: 'Nastavení NexusPointu uložena', settingsError: 'Chyba při ukládání nastavení', checkingConnection: 'Kontrola MS365 připojení...', ms365NotConnected: 'MS365 není připojeno', ms365NotConnectedHint: 'Nejprve připojte MS365 účet na záložce MS365, pak zde můžete nastavit NexusPoint.', userSettingsTitle: 'NexusPoint — nastavení uživatele', userSettingsDesc: 'Připnuté weby a výchozí umístění pro tohoto uživatele', loadingSites: 'Načítání SharePoint webů...', noSitesMs365: 'Žádné SharePoint weby nenalezeny. Zkontrolujte připojení MS365.', pinnedCount: 'Připnuté weby:', defaultSiteLabel: 'Výchozí web:', globalBadge: 'Globální', newSite: 'Nová stránka', saveToNexusPoint: 'Uložit do NexusPoint', savedToNexusPoint: 'Uloženo do NexusPoint', saveNexusError: 'Chyba při ukládání do NexusPoint', selectDestination: 'Vyberte cíl', move: 'Přesunout', moveSuccess: 'Položka přesunuta', moveError: 'Přesun se nezdařil', moveToFolder: 'Přesunout sem', moveTo: 'Přesunout do', notesAndTags: 'Poznámky a štítky', note: 'Poznámka', notePlaceholder: 'Přidat interní poznámku...', saveNote: 'Uložit poznámku', noteSaved: 'Poznámka uložena', noteSaveError: 'Chyba při ukládání poznámky', tags: 'Štítky', addTag: 'Přidat štítek', tagPlaceholder: 'Nový štítek...', tagAdded: 'Štítek přidán', tagDeleted: 'Štítek odstraněn', searchByTag: 'Hledat podle štítku', moveDestination: 'Cílové umístění', moveSiteLabel: 'Web (lokalita)', moveDriveLabel: 'Knihovna', unknownFile: 'Neznámý soubor (kliknutím otevřete)', globalResultsLabel: 'Globální výsledky', noTags: 'Zatím žádné štítky' },
         search: { placeholder: 'Hledat v emailech, SMS, úkolech, chatech...', searchInEmails: 'Hledat v emailech', searchAllMailboxes: 'všechny schránky', emails: 'Emaily', sms: 'SMS', tasks: 'Úkoly', chats: 'Chaty', suggestionsTitle: 'Návrhy na základě otevřeného emailu', searchInList: 'Hledat v seznamu...', recentSearches: 'Nedávná vyhledávání', clearHistory: 'Vymazat historii', mailbox: 'Schránka', allMailboxes: 'Všechny schránky', dateFrom: 'Od', dateTo: 'Do', quickSearch: 'Rychlé vyhledávání', enterMin2Chars: 'Zadejte alespoň 2 znaky', results: 'Výsledky', searchAction: 'Hledat', closeAction: 'Zavřít', searchInEmailsQuery: 'Hledat v emailech', searchAllMailboxesLabel: 'Prohledat všechny schránky', aiSearch: 'AI Vyhledávání', aiSearchPlaceholder: 'Zeptejte se přirozeně, např. "Najdi všechny emaily od Petra s přílohami za poslední týden"', aiSearching: 'AI analyzuje váš dotaz...', aiParsed: 'AI porozumělo', aiSuggestions: 'AI navrhuje', aiExplanation: 'Interpretace vyhledávání', aiError: 'AI vyhledávání selhalo, používám standardní vyhledávání', aiMode: 'AI Vyhledávání', aiModeOn: 'AI zapnuto', aiModeOff: 'Standardní vyhledávání', attachmentSearch: 'Hledat v přílohách', searchInAttachments: 'Hledat v obsahu příloh', advancedFilters: 'Rozpoznané filtry', fromSender: 'Od', withAttachment: 'S přílohami', highImportance: 'Vysoká důležitost', channelEmail: 'Emaily', channelSms: 'SMS', channelTasks: 'Úkoly', channelChats: 'Chaty', searchChannels: 'Hledat v', executeAiSearch: 'Hledat s AI', tryAsking: 'Zkuste se zeptat' },
         settings: { appearance: 'Vzhled', accounts: 'Účty', notifications: 'Notifikace', sidebar: 'Postranní panel', compose: 'Psaní', signature: 'Podpis', ai: 'AI', unreadIndicator: 'Indikátor nepřečtených', unreadIndicatorDesc: 'Modrá tečka u nepřečtených zpráv', highlightUnread: 'Zvýraznit nepřečtené', highlightUnreadDesc: 'Tučné písmo pro nepřečtené zprávy', accountIcons: 'Ikony účtů', accountIconsDesc: 'Barevná tečka podle přiřazení účtu', attachmentIcons: 'Ikony příloh', attachmentIconsDesc: 'Ikona spony u zpráv s přílohami', showTags: 'Zobrazit tagy', showTagsDesc: 'Barevné štítky v seznamu zpráv', previewLines: 'Řádky náhledu', previewLinesDesc: 'Počet řádků textu náhledu v seznamu', defaultSort: 'Výchozí řazení', defaultSortDesc: 'Výchozí řazení emailů', showAllRecipients: 'Zobrazit všechny příjemce', showAllRecipientsDesc: 'V detailu zobrazit CC a BCC příjemce', expandBody: 'Rozbalené tělo zprávy', expandBodyDesc: 'Automaticky zobrazit celý obsah emailu', autoLoadImages: 'Automaticky načíst obrázky', autoLoadImagesDesc: 'Načíst vzdálené obrázky v těle emailu', senderInitials: 'Iniciály odesílatele', senderInitialsDesc: 'Zobrazí kruhový avatar s iniciálami v seznamu', groupByDate: 'Seskupovat podle data', groupByDateDesc: 'Oddělit zprávy podle dnů', attachmentsBefore: 'Přílohy před obsahem', attachmentsBeforeDesc: 'Zobrazit přílohy nad tělem emailu', enableAi: 'Povolit AI', enableAiDesc: 'Zapnout AI funkce (odpověď, souhrn, překlad)', languageMode: 'Režim jazyka', languageModeDesc: 'V jakém jazyce má AI generovat odpovědi a souhrny', targetLanguage: 'Cílový jazyk', targetLanguageDesc: 'Do jakého jazyka přeložit AI výstup', soundOnSend: 'Zvuk při odeslání', soundOnSendDesc: 'Přehrát zvuk po úspěšném odeslání emailu', soundOnReceive: 'Zvuk při přijetí', soundOnReceiveDesc: 'Přehrát zvuk při doručení nového emailu', polling: 'Automatická kontrola', pollingDesc: 'Jak často kontrolovat novou poštu', showHideSidebar: 'Zobrazit nebo skrýt postranní panel se složkami', changeColor: 'Změnit barvu', noSignature: 'Žádný podpis pro tento účet', signaturePlaceholder: 'Váš podpis... (použijte ikonu obrázku pro vložení loga)', lastEdit: 'Poslední úprava: ', personal: 'Osobní', shared: 'Sdílená', newTagPlaceholder: 'Název nového tagu...', tagCreated: 'Tag vytvořen', tagDeleted: 'Tag smazán', saved: 'Uloženo', signatureSaved: 'Podpis byl uložen', saveError: 'Nepodařilo se uložit podpis', maximize: 'Maximalizovat', minimize: 'Zmenšit', maximizePanel: 'Maximalizovat panel', minimizePanel: 'Zmenšit panel', settingsTitle: 'Nastavení', settingsEmailDesc: 'Nastavení zobrazení seznamu a detailu emailů.', settingsAiDesc: 'Nastavení umělé inteligence pro emailovou komunikaci.', settingsNotifDesc: 'Nastavení zvukových notifikací a automatické kontroly pošty.', settingsSignatureDesc: 'Podpisy pro emailové účty. Každý účet může mít vlastní podpis s obrázky.', signatureFor: 'Podpis pro', signatureAutoAdd: 'Podpis se automaticky přidá na konec emailů odeslaných z tohoto účtu.', tags: 'Štítky', saveSignature: 'Uložit podpis', sidebarIcon: 'Ikona v postranním panelu', accountColor: 'Barva účtu', tagsTitle: 'Tagy', tagsDesc: 'Vytvářejte a spravujte barevné tagy pro organizaci emailů.', addTag: 'Přidat', defaultTag: 'Výchozí', noTags: 'Zatím žádné tagy', noTagsDesc: 'Vytvořte si vlastní tagy pro organizaci emailů', emailLanguage: 'Jazyk emailu', info: 'Info', connectedAccountsDesc: 'Připojené emailové účty, ikony a barvy pro postranní panel.', noConnectedAccounts: 'Žádné připojené účty' },
         nexusChat: { copied: 'Zkopírováno', messageCopied: 'Zpráva byla zkopírována do schránky', messageDetail: 'Detail zprávy + Nastavení', copyMessage: 'Kopírovat zprávu', conversation: 'Konverzace', askMore: 'Zeptejte se dále...', precise: 'Přesné', creative: 'Kreativní', systemPrompt: 'Systémový prompt (volitelné)', customInstructions: 'Vlastní instrukce pro NEXUS...', resetDefaults: 'Obnovit výchozí' }, editor: { bold: 'Tučné', italic: 'Kurzíva', underline: 'Podtržené', strikethrough: 'Přeškrtnuté', heading1: 'Nadpis 1', heading2: 'Nadpis 2', bulletList: 'Odrážkový seznam', numberedList: 'Číslovaný seznam', blockquote: 'Citace', horizontalRule: 'Horizontální čára', alignLeft: 'Zarovnat vlevo', alignCenter: 'Na střed', alignRight: 'Zarovnat vpravo', alignJustify: 'Do bloku', resetColor: 'Zrušit barvu', removeLink: 'Odstranit odkaz', insertImage: 'Vložit obrázek', imageUrl: 'URL obrázku...', uploadFromFile: 'Nahrát ze souboru', insertTable: 'Vložit tabulku', undo: 'Zpět', addAttachment: 'Přidat přílohu', generateReply: 'Generovat odpověď pomocí AI', conversationSummary: 'Shrnutí emailové konverzace' }, ai: { generateReply: 'AI Generovat odpověď', conversationSummary: 'AI Souhrn konverzace', reviewReply: 'Zkontrolujte a upravte navrhovanou odpověď před vložením.', reviewSummary: 'Zkontrolujte a upravte souhrn před vložením do odpovědi.', editPlaceholder: 'Upravte AI obsah...', insert: 'Vložit', generating: 'Generuji...', generateError: 'Nepodařilo se vygenerovat AI návrh', summaryError: 'Nepodařilo se vygenerovat souhrn', translateError: 'Nepodařilo se přeložit obsah', checkTranslation: 'Zkontrolovat překlad', checking: 'Kontroluji...', noErrors: 'Žádné chyby! Váš text je správný.', errorsFound: 'nalezených chyb', useImproved: 'Použít vylepšenou verzi', score: 'Skóre', grammar: 'Gramatika', spelling: 'Pravopis', style: 'Styl', wordChoice: 'Volba slov', punctuation: 'Interpunkce', close: 'Zavřít', insertToReply: 'Vložit do odpovědi', templates: 'AI Šablony', businessIntro: 'Obchodní oslovení', thankYou: 'Poděkování', followUp: 'Follow-up', meetingRequest: 'Žádost o schůzku', offer: 'Obchodní nabídka', infoRequest: 'Žádost o informace', invitation: 'Pozvánka', draftGenerated: 'Email vygenerován' },
@@ -31358,6 +32558,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Fájl csatolása',
       attachmentUploading: 'Melléklet feltöltése…',
       attachmentError: 'Nem sikerült feltölteni a mellékletet',
+      attachmentTooLarge: 'Egy fájl legfeljebb 15 MB lehet',
+      attachmentLimitReached: 'Egy feladathoz legfeljebb 10 melléklet adható',
       attachmentDownload: 'Letöltés',
       attachmentOpenTab: 'Megnyitás új lapon',
       attachmentPreviewUnavailable: 'Az előnézet nem érhető el',
@@ -31414,6 +32616,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Feladat továbbítva',
       toastForwardError: 'Nem sikerült továbbítani a feladatot',
       questionsInboxTitle: 'Kérdések a Back Office-tól',
+      questionToastTitle: 'A Back Office kérdése',
+      taskCompletionHeading: 'Feladat befejezve',
+      taskCompletionOpenAction: 'Feladat megnyitása',
+      taskCompletionDismissAction: 'Értesítés bezárása',
+      taskCompletionStatus: 'A(z) {title} feladat befejeződött',
+      taskCompletionActionError: 'Nem sikerült frissíteni a feladatról szóló értesítést.',
       answerPlaceholder: 'Írjon választ a Back Office számára…',
       answerButton: 'Válasz',
       toastAnswerSent: 'Válasz elküldve a Back Office-nak',
@@ -31760,6 +32968,7 @@ export const translations: Record<Locale, Translations> = {
       searchBtn: 'Keresés',
     },
     nav: {
+      webForms: 'Webes űrlapok',
       dashboard: 'Irányítópult',
       customers: 'Ügyfelek',
       products: 'Termékek',
@@ -31839,8 +33048,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Orvosi partnerkapcsolatok, kategóriák és kommunikációs tervek kezelése',
       overview: 'Áttekintés',
-      institutions: 'Intézmények',
-      persons: 'Személyek',
       settings: 'Beállítások',
       totalHospitals: 'Összes kórház',
       totalClinics: 'Összes klinika',
@@ -31877,9 +33084,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Hozzárendelés',
       addAssignment: 'Hozzárendelés hozzáadása',
       editAssignment: 'Hozzárendelés szerkesztése',
-      department: 'Osztály',
-      position: 'Pozíció',
-      role: 'Szerep',
       subcategory: 'Alkategória',
       entityName: 'Intézmény',
       personnel: 'Személyzet',
@@ -31907,11 +33111,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Ország',
       personnelCount: 'Személyzet',
       status: 'Státusz',
-      category: 'Kategória',
       institutionName: 'Intézmény',
       lastContact: 'Utolsó kapcsolat',
       contactInfo: 'Elérhetőségek',
-      primaryContact: 'Elsődleges kapcsolat',
       workplaces: 'Munkahelyek',
       institutions: 'intézmény',
       filtered: 'szűrt',
@@ -32117,6 +33319,13 @@ export const translations: Record<Locale, Translations> = {
       offline: 'Offline',
       indexusConnect: 'Aktivitás',
       copy: 'Másolás',
+      aiSuggestRegion: 'AI-régió- és járásjavaslat',
+      aiSuggestRegionTitle: 'Régiójavaslat',
+      aiSuggestMissingCity: 'Hiányzik a város',
+      aiSuggestMissingCityDesc: 'Először adja meg az országot és a várost',
+      aiSuggestError: 'Hiba',
+      aiSuggestErrorDesc: 'Nem sikerült javaslatot kérni',
+      aiSuggestButton: 'AI-javaslat',
     },
     advancedFilters: {
       title: 'Speciális szűrők',
@@ -32242,6 +33451,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Feladatok',
       description: 'Kezelje és kövesse feladatait',
+      requestFromSubmitter: 'Beküldő kérése',
+      originalRequest: 'Teljes eredeti leírás megtekintése',
       noTasks: 'Nem találhatók feladatok',
       openTasks: 'Nyitott feladatok',
       loadError: 'A nyitott feladatokat nem sikerült betölteni. Próbálja újra.',
@@ -32283,6 +33494,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Feladat megoldása',
       resolveTaskDesc: 'Adja meg a feladat megoldását',
       resolution: 'Megoldás',
+      resolutionDialog: { title: 'Feladat megoldása', description: 'A feladat lezárása előtt rögzítse az elvégzett munkát.', resolution: 'Megoldás', placeholder: 'Írja le az eredményt…', cancel: 'Mégse', submit: 'Feladat megoldása', checklist: 'Pulse ellenőrzőlista', loading: 'Ellenőrzőlista betöltése…', loadError: 'Az ellenőrzőlista nem tölthető be. Megoldás előtt próbálja újra.', retry: 'Újra', empty: 'A Pulse feladat megoldása előtt adjon hozzá legalább egy lépést.', remaining: '{count} lépés van hátra. A megoldáshoz minden lépést teljesíteni kell.', complete: 'Minden lépés kész', returnToChecklist: 'Vissza az ellenőrzőlistához', draft: 'AI-vázlat', drafting: 'Vázlat készül…', draftUnavailable: 'Az AI-vázlat most nem érhető el. A megoldást kézzel is megírhatja.', draftFailed: 'Nem sikerült elkészíteni a vázlatot. Próbálja újra, vagy írja meg kézzel.', draftReady: 'Az AI-vázlat elkészült — megoldás előtt ellenőrizze és szerkessze.', draftPreserved: 'A meglévő szöveg megmaradt — az AI nem írta felül.', draftingHint: 'Az elvégzett lépésekből és jegyzetekből rövid, szerkeszthető összefoglaló készül…', draftNoCompletedSteps: 'Még nincs összefoglalható befejezett lépés. A megoldást kézzel is megírhatja.', checklistDraftError: 'Az ellenőrzőlista nem tölthető be, ezért lépéseket nem küldtünk összefoglalásra. Írja meg kézzel, vagy próbálja újra.', notify: 'Ügynök értesítése', notifyHint: 'Értesítse a feladathoz rendelt ügynököt a megoldásról.' },
       resolvedBy: 'Megoldotta',
       resolvedAt: 'Megoldva',
       reassign: 'Átadás',
@@ -32293,6 +33505,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Megjegyzés hozzáadása',
       commentPlaceholder: 'Írjon megjegyzést...',
       noComments: 'Még nincsenek megjegyzések',
+      taskDiscussion: 'Feladat megbeszélése',
+      commentsActivity: 'Legutóbbi beszélgetés',
+      commentsEmptyHint: 'Írja az első megjegyzést ehhez a feladathoz.',
+      loadingComments: 'Megjegyzések betöltése',
+      commentsLoadFailed: 'A megjegyzéseket nem sikerült betölteni.',
+      commentsRetry: 'Újrapróbálás',
+      unknownAuthor: 'Csapattag',
+      attachmentsOnly: 'Mellékletet osztott meg',
+      viewAllComments: 'Mind a(z) {count} megjegyzés megtekintése',
+      previewAttachment: 'Melléklet előnézete',
+      openAttachment: 'Melléklet megnyitása',
+      commentKeyboardHint: 'Enter a küldéshez · Shift + Enter új sorhoz',
+      taskAgentRequestTitle: 'Az Ön kérése',
+      taskAgentRequestHint: 'Írja le, mit kell megoldani. Javítás kérésekor adja meg a helyes adatokat.',
+      taskRequestContextTitle: 'Feladatkörnyezet',
+      taskRequestContextHint: 'Automatikusan hozzáadódik a kéréshez.',
+      dismissUploadError: 'Sikertelen feltöltés elvetése',
       viewDetails: 'Részletek megtekintése',
       taskResolved: 'Feladat sikeresen megoldva',
       taskReassigned: 'Feladat sikeresen átadva',
@@ -32307,6 +33536,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Félév',
       year: 'Év',
       cancelTask: 'Feladat törlése',
+      cancelConfirmKicker: 'Még egy ellenőrzés',
+      cancelConfirmHeading: 'Megszakítod ezt a feladatot?',
+      cancelConfirmBody: 'A feladat Megszakítva állapotba kerül. Ebben az állapotban nem teljesíthető.',
+      cancelConfirmQuestion: 'Biztosan meg szeretnéd szakítani ezt a feladatot?',
+      cancelConfirmKeep: 'Megtartom a feladatot',
+      cancelConfirmAction: 'Feladat megszakítása',
       save: 'Mentés',
       selectTask: 'Válasszon feladatot a részletek megtekintéséhez',
       task: 'Feladat',
@@ -32321,12 +33556,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Feladat felugró értesítés',
       taskNotifyPopupDesc: 'Felugró ablak megjelenítése új feladat hozzárendelésekor',
       newTaskAssigned: 'Új feladat hozzárendelve',
+      checklistTitle: 'Ellenőrzőlista',
+      checklistAddPlaceholder: 'Ellenőrzőlista-lépés hozzáadása…',
+      checklistAdd: 'Lépés hozzáadása',
+      checklistRemove: 'Lépés eltávolítása',
+      checklistEdit: 'Lépés szerkesztése',
+      checklistSave: 'Lépés mentése',
+      checklistCancel: 'Szerkesztés megszakítása',
+      checklistLoadError: 'Az ellenőrzőlista betöltése nem sikerült.',
+      checklistMutationError: 'Az ellenőrzőlista frissítése nem sikerült. Próbálja újra.',
+      checklistAiGenerating: 'Az AI előkészíti a javasolt lépéseket…',
+      checklistAiProposal: 'AI ajánlása',
+      checklistAiFailed: 'Az AI nem tudott javaslatokat készíteni. A lépéseket kézzel is hozzáadhatja, vagy próbálja újra.',
+      checklistAiUnavailable: 'Az AI-ellenőrzőlista készítése jelenleg nem érhető el. A lépéseket kézzel is hozzáadhatja, vagy próbálja újra.',
+      checklistAiRetry: 'Újrapróbálás',
+      checklistAiLoadError: 'Az AI-ellenőrzőlista állapotának betöltése nem sikerült.',
+      checklistMarkComplete: 'Megjelölés készre',
+      checklistMarkIncomplete: 'Megjelölés befejezetlenként',
+      checklistNoteLabel: 'Megjegyzés a lépéshez',
+      checklistNotePlaceholder: 'Írjon rövid megjegyzést a lépéshez…',
+      checklistNoteAdd: 'Megjegyzés hozzáadása',
+      checklistNoteEdit: 'Megjegyzés szerkesztése',
+      checklistNoteSave: 'Megjegyzés mentése',
+      checklistNoteCancel: 'Mégse',
+      taskWorkElapsed: 'Eltelt idő',
+      taskWorkElapsedDescription: 'A munka megkezdése óta eltelt idő; a várakozást is tartalmazza, és nem számlázható munkaidő.',
+      taskWorkStartUnknown: 'A kezdési idő nem ismert',
+      taskOverdueLabel: 'Lejárt',
+      taskOverdueDuration: '{days} nap / {hours}:{minutes}',
       priority: 'Prioritás',
       status: 'Állapot',
       description2: 'Leírás',
+      workspace: {
+        settings: 'Feladatcsoport-beállítások',
+        filtersTitle: 'Feladatszűrők',
+        searchPeoplePlaceholder: 'Feladatok keresése...',
+        dateAll: 'Bármely dátum',
+        dateToday: 'Ma',
+        dateWeek: 'Ezen a héten',
+        dateMonth: 'Ebben a hónapban',
+        dateCustom: 'Egyéni időszak',
+        basisCreated: 'Létrehozva',
+        basisDue: 'Határidő',
+        basisResolved: 'Megoldva',
+        sortCreated: 'Létrehozás dátuma',
+        sortDue: 'Határidő',
+        sortResolved: 'Megoldás dátuma',
+        sortPriority: 'Prioritás',
+        sortTitle: 'Cím',
+        ascending: 'Növekvő',
+        descending: 'Csökkenő',
+        anyCreator: 'Bármely létrehozó',
+        anyResolver: 'Bármely megoldó',
+        dateFrom: 'Kezdő dátum',
+        dateTo: 'Záró dátum',
+        rangeSeparator: '–',
+        clearFilters: 'Szűrők törlése',
+        group: 'Feladatcsoport',
+        noGroup: 'Csoport nélkül',
+        notifyAgent: 'Eredeti ügynök értesítése',
+        notifyAgentHint: 'Értesítse az eredeti ügynököt, aki ezt a feladatot létrehozta a Nexus Pulse-ban.',
+        noMatchingTasks: 'Nincs a szűrőknek megfelelő feladat.',
+        titleRequired: 'A feladat címe kötelező.',
+        unassigned: 'Nincs hozzárendelve',
+        sortOrder: 'Rendezési sorrend',
+        changeSortOrder: 'Rendezési sorrend módosítása',
+      },
       taskGroups: {
         title: 'Feladatcsoportok',
         newGroup: 'Új csoport',
+        dialogTitle: 'Feladatcsoportok',
+        activeUsers: 'Aktív felhasználók',
+        inactiveMemberWarning: 'Néhány kiválasztott tag inaktív. Hozzárendelve maradnak, amíg el nem távolítja őket.',
+        inactive: 'Inaktív',
+        changesTitle: 'Módosítások elvetése?',
+        changesDescription: 'Nem mentett módosításai vannak. Elveti őket?',
+        discardChanges: 'Módosítások elvetése',
+        moveUp: '{name} mozgatása felfelé',
+        moveDown: '{name} mozgatása lefelé',
+        readOnly: 'Megtekintheti a feladatcsoportokat, de csak vezetők és adminisztrátorok módosíthatják őket.',
+        nameRequired: 'A csoport neve kötelező.',
+        usersLoadFailed: 'Nem sikerült betölteni a felhasználókat.',
+        groupsLoadFailed: 'Nem sikerült betölteni a feladatcsoportokat.',
+        advanced: 'Speciális sorrendbeállítás',
+        serverError: 'A szerver nem tudta menteni a módosításokat. Próbálja újra.',
         editGroup: 'Csoport szerkesztése',
         newGroupTitle: 'Új feladatcsoport',
         deleteTitle: 'Csoport törlése?',
@@ -32472,6 +33785,21 @@ export const translations: Record<Locale, Translations> = {
     },
     customers: {
       title: 'Ügyfelek',
+      firstName: 'Keresztnév',
+      lastName: 'Vezetéknév',
+      street: 'Utca',
+      streetNumber: 'Házszám',
+      orientationNumber: 'Tájékozódási szám',
+      ico: 'Cégjegyzékszám (IČO)',
+      icoTip: 'A vállalat azonosító száma',
+      idZz: 'ID ZZ',
+      idZzTip: 'Egészségügyi intézmény azonosítója',
+      pzsCode: 'PZS-kód',
+      pzsCodeTip: 'Egészségügyi szolgáltató kódja',
+      pzsName: 'PZS-név',
+      pzsNameTip: 'Egészségügyi szolgáltató neve',
+      additionalIdentifiers: 'További azonosítók',
+      lookupPsc: 'Irányítószám automatikus kitöltése',
       description: 'Köldökzsinórvér-banki ügyfelek kezelése',
       detailsTitle: 'Ügyfél részletei',
       detailsDescription: 'Ügyfél információk, termékek és számlák megtekintése',
@@ -33127,6 +34455,8 @@ export const translations: Record<Locale, Translations> = {
     },
     collections: {
       title: 'Gyűjtések',
+      firstName: 'Keresztnév',
+      lastName: 'Vezetéknév',
       description: 'Köldökzsinórvér gyűjtések kezelése',
       addCollection: 'Gyűjtés hozzáadása',
       editCollection: 'Gyűjtés szerkesztése',
@@ -33311,6 +34641,43 @@ export const translations: Record<Locale, Translations> = {
           barcodeValue: 'Vonalkód (érték)',
           qrCodeValue: 'QR kód (érték)',
         },
+      lab: {
+        usability: 'Használhatóság',
+        resultsDate: 'Eredmények dátuma',
+        labNote: 'Laborjegyzet',
+        cbu: 'CBU',
+        collectionFor: 'Gyűjtés célja',
+        processing: 'Feldolgozás',
+        sterility: 'Sterilitás',
+        sterilityType: 'Sterilitás típusa',
+        resultOfSterility: 'Sterilitási eredmény',
+        infectionAgents: 'Kórokozók',
+        tncCount: 'TNC-szám',
+        volume: 'Térfogat',
+        volumeInBag: 'Zsák térfogata',
+        umbilicalTissue: 'Köldökzsinórszövet',
+        tissueProcessed: 'Szövet feldolgozva',
+        tissueSterility: 'Szövet sterilitása',
+        tissueUsability: 'Szövet használhatósága',
+        bagAUsability: 'A zsák használhatósága',
+        bagAVolume: 'A zsák térfogata',
+        bagATnc: 'A zsák TNC-értéke',
+        bagBUsability: 'B zsák használhatósága',
+        bagBVolume: 'B zsák térfogata',
+        bagBTnc: 'B zsák TNC-értéke',
+        basicInfo: 'Alapadatok',
+        sterilitySection: 'Sterilitás és fertőzések',
+        volumeSection: 'Térfogat és sejtszám',
+        tissueSection: 'Köldökzsinórszövet',
+        bagASection: 'A zsák',
+        bagBSection: 'B zsák',
+        downloadCbuReport: 'CBU-jelentés letöltése',
+        medicalReportSk: 'Orvosi jelentés (SK)',
+        medicalReportEn: 'Orvosi jelentés (EN)',
+        fullReportSk: 'Teljes jelentés (SK)',
+        fullReportEn: 'Teljes jelentés (EN)',
+        reportDownloaded: 'A jelentés sikeresen letöltve',
+      },
     },
     hospitals: {
       title: 'Kórházak',
@@ -33599,6 +34966,7 @@ export const translations: Record<Locale, Translations> = {
         otherData: 'Egyéb adatok',
         agreements: 'Megállapodások',
         documents: 'Dokumentumok',
+        healthcareNetworks: 'Egészségügyi hálózatok',
         templates: 'Sablonok',
         rewards: 'Jutalmak',
         actions: 'Műveletek',
@@ -33977,6 +35345,48 @@ export const translations: Record<Locale, Translations> = {
         not_interested: 'Nem érdekelt',
       },
       detail: {
+        defaultOnlyAssignedTitle: 'Alapértelmezett „Csak hozzárendelt” szűrő',
+        defaultOnlyAssignedDesc: 'Bekapcsolásakor az ügynöki sor „Csak hozzárendelt” szűrője minden alkalommal automatikusan be lesz jelölve, amikor egy ügynök bejelentkezik ebbe a Missionbe.',
+        changeStatus: 'Állapot módosítása',
+        customerHistory: 'Ügyfél előzményei',
+        noHistory: 'Nincs előzmény',
+        campaignJoined: 'Csatlakozott a Missionhöz',
+        campaignLeft: 'Kilépett a Missionből',
+        emailSent: 'E-mail elküldve',
+        smsSent: 'SMS elküldve',
+        noteAdded: 'Jegyzet hozzáadva',
+        dragFileHere: 'Húzza ide a fájlt',
+        orClickToSelect: 'vagy kattintson a kiválasztáshoz',
+        downloadSampleCsv: 'Minta CSV letöltése',
+        expectedColumns: 'Elvárt oszlopok:',
+        supportedFormats: 'Támogatott formátumok: CSV (pontosvesszővel vagy vesszővel elválasztva), Excel (.xlsx)',
+        updateExisting: 'Meglévő kapcsolatok frissítése (a meglévő adatok felülíródnak)',
+        uploadingFile: 'Fájl feltöltése...',
+        processingContacts: 'Kapcsolatok feldolgozása...',
+        created: 'Létrehozva',
+        updated: 'Frissítve',
+        duplicates: 'Duplikátumok',
+        skipped: 'Kihagyva',
+        deleteLastImport: 'Utolsó import törlése',
+        deleting: 'Törlés...',
+        close: 'Bezárás',
+        remove: 'Eltávolítás',
+        import: 'Importálás',
+        kpiTracking: 'KPI-célok követése',
+        kpiTrackingDesc: 'A kampány KPI-céljaihoz viszonyított előrehaladás követése',
+        current: 'Jelenlegi',
+        target: 'Cél',
+        targetRevenue: 'Célbevétel',
+        revenueTrackingDesc: 'A bevételkövetéshez számlázórendszer-integráció szükséges',
+        dailyOperatorTargets: 'Napi operátori célok',
+        callsPerDay: 'Hívás/nap',
+        contactsPerDay: 'Kapcsolat/nap',
+        conversionsPerDay: 'Konverzió/nap',
+        conversionRate: 'Konverziós arány',
+        successful: 'Sikeres',
+        notInterested: 'Nem érdekelt',
+        preview: 'Előnézet',
+        textMode: 'Szöveges mód',
         overview: 'Áttekintés',
         contacts: 'Kapcsolatok',
         settings: 'Beállítások',
@@ -35520,6 +36930,11 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Várólista',
+      todayCallsDisposition: 'Eredmény',
+      todayCallsWord1: 'hívás',
+      todayCallsWord234: 'hívás',
+      todayCallsWord5plus: 'hívás',
+      todayCallsAnswered: 'fogadva',
       breakModal: {
         inProgress: 'Szünet van folyamatban',
         subtitle: 'Az Ön szünetideje.',
@@ -35606,7 +37021,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Hívás!',
       myCB: 'Saját CB',
       teamCB: 'Csapat CB',
-      filterAll: 'Minden névjegy', filterMyCB: 'Saját átütemezett', filterTeamCB: 'Csapat átütemezett', filterDue: 'Esedékes most', filterPending: 'Függőben (új)',
+      filterMyCB: 'Saját átütemezett', filterTeamCB: 'Csapat átütemezett', filterDue: 'Esedékes most',
       groupDue: 'Esedékes hívások', groupMyCb: 'Saját ütemezett', groupTeamCb: 'Csapat ütemezett', groupOtherCb: 'Másokhoz rendelve', groupPending: 'Új kapcsolatok',
       emailHistory: 'E-mail előzmények',
       smsHistory: 'SMS előzmények',
@@ -36436,6 +37851,31 @@ export const translations: Record<Locale, Translations> = {
     },
     konfigurator: {
       title: 'Konfigurátor',
+      bulkGeoTitle: 'Régiók automatikus kitöltése',
+      bulkGeoDescription: 'A rendszer AI segítségével, a város és a cím alapján automatikusan kitölti a hiányzó régiókat és járásokat. Válasszon országot és feldolgozandó modulokat.',
+      bulkGeoCountry: 'Ország',
+      bulkGeoCountryPlaceholder: 'Válasszon országot',
+      bulkGeoModules: 'Modulok',
+      bulkGeoSelectAll: 'Összes kiválasztása',
+      bulkGeoDeselectAll: 'Kiválasztás megszüntetése',
+      bulkGeoHospitals: 'Kórházak',
+      bulkGeoClinics: 'Rendelők',
+      bulkGeoCollaborators: 'Munkatársak',
+      bulkGeoCustomers: 'Ügyfelek',
+      bulkGeoSelectCountry: 'Válasszon országot',
+      bulkGeoSelectModule: 'Válasszon legalább egy modult',
+      bulkGeoProcessing: 'Feldolgozás',
+      bulkGeoRunButton: 'Kitöltés indítása',
+      bulkGeoRunningButton: 'Feldolgozás...',
+      bulkGeoResults: 'Eredmények',
+      bulkGeoComplete: 'kész',
+      bulkGeoAllComplete: 'Minden rekord teljes',
+      bulkGeoNoRecords: 'Nem található rekord ehhez az országhoz',
+      bulkGeoFilled: 'Kitöltve',
+      bulkGeoError: 'Feldolgozási hiba',
+      bulkGeoErrorTimeout: 'A kérés túllépte az időkorlátot – túl sok rekord. Próbálja újra.',
+      bulkGeoDoneTitle: 'Régiók kitöltése befejeződött',
+      bulkGeoDoneDescription: '{total} rekordból {updated} frissítve',
       description: 'Szolgáltatások, számlasablonok és elrendezések konfigurálása',
       webFormsTab: 'Web Űrlapok',
       webFormsDescription: 'Webes regisztrációs űrlapok kezelése minden országhoz',
@@ -36517,6 +37957,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Sablon sikeresen létrehozva',
       templateUpdated: 'Sablon sikeresen frissítve',
       templateDeleted: 'Sablon sikeresen törölve',
+      copyToLanguage: 'Másolás nyelvre',
+      targetLanguage: 'Célnyelv',
+      autoTranslate: 'Automatikus fordítás AI-val',
+      autoTranslateDesc: 'Az OpenAI segítségével fordítsa le a tartalmat a célnyelvre',
+      templateTranslated: 'Sablon lefordítva és másolva',
+      templateCopied: 'Sablon másolva',
+      translating: 'Fordítás...',
+      copying: 'Másolás...',
+      translateAndCopy: 'Fordítás és másolás',
+      copyTemplate: 'Másolás',
       templateFormDescription: 'Számlasablon és márkajelzés konfigurálása',
       addLayout: 'Elrendezés hozzáadása',
       editLayout: 'Elrendezés szerkesztése',
@@ -36542,7 +37992,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Ügyfél mezők',
       billingFields: 'Számlázási mezők',
       invoiceFields: 'Számla mezők',
-      preview: 'Előnézet',
       properties: 'Tulajdonságok',
       fontWeight: 'Betű vastagság',
       textAlign: 'Szöveg igazítás',
@@ -38268,7 +39717,7 @@ export const translations: Record<Locale, Translations> = {
         chats: { internalChats: 'Belső csevegések', selectConversation: 'Válasszon beszélgetést az oldalsávban', lastMessage: 'Utolsó üzenet:', noConversations: 'Nincsenek beszélgetések', onlineUsers: 'Online felhasználók', startChat: 'Csevegés indítása', typeMessage: 'Írjon üzenetet...', sendMessage: 'Küldés', noMessages: 'Még nincsenek üzenetek', today: 'Ma', yesterday: 'Tegnap', typing: 'gépel...', you: 'Ön', conversations: 'Beszélgetések', newChat: 'Új csevegés', online: 'Online', offline: 'Offline', chatNotifySound: 'Csevegés értesítési hang', chatNotifySoundDesc: 'Hang lejátszása új üzenet érkezésekor', chatNotifyPopup: 'Csevegés felugró értesítés', chatNotifyPopupDesc: 'Felugró ablak megjelenítése új üzenet érkezésekor', newMessageFrom: 'Új üzenet tőle:' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Nincsenek üzenetek', writePlaceholder: 'Írjon üzenetet...', directChat: 'Közvetlen chat', groupChat: 'Csoportos chat', noTeamsChats: 'Nincsenek Teams chatek', noTeams: 'Nincsenek csapatok', notConnected: 'MS365 nincs csatlakoztatva', sendError: 'Nem sikerült elküldeni az üzenetet', createMeeting: 'Értekezlet létrehozása', meetingCreated: 'Értekezlet létrehozva', meetingError: 'Nem sikerült létrehozni az értekezletet', joinMeeting: 'Csatlakozás', meetingSubject: 'Értekezlet tárgya', startMeeting: 'Értekezlet indítása', instantMeeting: 'Azonnali értekezlet', scheduleMeeting: 'Értekezlet ütemezése', meetingLink: 'Értekezlet link', linkCopied: 'Link másolva', meetingWith: 'Értekezlet:', members: 'Tagok', openInTeams: 'Megnyitás Teamsben', lastMessage: 'Utolsó üzenet', meetingDate: 'Dátum', meetingStartTime: 'Kezdés ideje', meetingEndTime: 'Befejezés ideje', addParticipants: 'Résztvevők hozzáadása', participantEmail: 'Résztvevő e-mail', upcomingMeetings: 'Közelgő értekezletek', noUpcomingMeetings: 'Nincsenek közelgő értekezletek', startsIn: 'Kezdődik', inProgress: 'Folyamatban', today: 'Ma', tomorrow: 'Holnap', remove: 'Eltávolítás', attachFile: 'Fájl csatolása', attachmentSent: 'Melléklet elküldve', uploadError: 'Nem sikerült feltölteni a fájlt', recentMeetings: 'Legutóbbi értekezletek', noMeetings: 'Nincsenek értekezletek', transcript: 'Átirat', noTranscript: 'Átirat nem érhető el', loadingTranscript: 'Átirat betöltése...', aiSummary: 'AI Összefoglaló', generateSummary: 'AI összefoglaló generálása', generatingSummary: 'Összefoglaló generálása...', rawTranscript: 'Nyers átirat', summary: 'Összefoglaló', meetingDuration: 'Időtartam', viewTranscript: 'Átirat megtekintése', transcriptError: 'Nem sikerült betölteni az átiratot', recordings: 'Felvételek', noRecordings: 'Nincsenek felvételek', downloadRecording: 'Felvétel letöltése', recording: 'Felvétel', meetingsAndRecordings: 'Értekezletek és felvételek', activity: 'Tevékenység', noActivity: 'Nincs tevékenység', justNow: 'Most' },
         calendar: { today: 'Ma', thisWeek: 'Ez a hét', thisMonth: 'Ez a hónap' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Webhelyek', selectSite: 'Válasszon SharePoint webhelyet', noSites: 'Nem találhatók webhelyek', libraries: 'Könyvtárak', selectLibrary: 'Válasszon könyvtárat', files: 'Fájlok', folders: 'Mappák', name: 'Név', size: 'Méret', modified: 'Módosítva', modifiedBy: 'Módosította', noFiles: 'Nincsenek fájlok vagy mappák', upload: 'Feltöltés', uploading: 'Feltöltés...', uploadSuccess: 'Fájl feltöltve', uploadError: 'Nem sikerült feltölteni a fájlt', newFolder: 'Új mappa', folderName: 'Mappa neve', createFolder: 'Mappa létrehozása', folderCreated: 'Mappa létrehozva', folderError: 'Nem sikerült létrehozni a mappát', download: 'Letöltés', delete: 'Törlés', deleteConfirm: 'Biztosan törölni szeretné ezt az elemet?', deleted: 'Elem törölve', deleteError: 'Nem sikerült törölni az elemet', openInBrowser: 'Megnyitás böngészőben', dragDropHint: 'Húzza ide a fájlokat vagy kattintson a Feltöltés gombra', backToRoot: 'Vissza a gyökérbe', searchFiles: 'Fájlok keresése...', items: 'elem', created: 'Created', versions: 'Verziók', version: 'Verzió', restoreVersion: 'Verzió visszaállítása', versionRestored: 'Verzió visszaállítva', versionRestoreError: 'Nem sikerült visszaállítani a verziót', noVersions: 'Nincsenek verziók', share: 'Megosztás', shareLink: 'Megosztási link', copyLink: 'Link másolása', linkCopied: 'Link másolva', viewOnly: 'Csak megtekintés', editAccess: 'Szerkesztés', organization: 'Szervezet', anyone: 'Bárki', createLink: 'Link létrehozása', permissions: 'Jogosultságok', removePermission: 'Jogosultság eltávolítása', permissionRemoved: 'Jogosultság eltávolítva', noPermissions: 'Nincsenek megosztási jogosultságok', preview: 'Előnézet', closePreview: 'Előnézet bezárása', searchResults: 'Keresési eredmények', searching: 'Keresés...', noPinnedSites: 'Nincs rögzített webhely', configureHint: 'Konfigurálja a NexusPointot és válassza ki a webhelyeket a profilbeállításokban.', selectSiteHint: 'Válasszon webhelyet és könyvtárat a bal panelből.', contentStorageTitle: 'Ez a webhely típusa nem támogatott', contentStorageHint: 'A Microsoft Loop munkaterületek és személyes tárhelyek nem kezelhetők a NexusPointon keresztül. Kérjük, válasszon szabványos SharePoint webhelyet.', pinnedSites: 'Rögzített webhelyek', pinnedSitesHint: 'A bejelölt webhelyek megjelennek a NexusPointban. Ha semmit sem jelöl be, az összes megjelenik.', defaultSite: 'Alapértelmezett webhely', defaultSiteHint: 'A NexusPoint indításakor automatikusan megnyitja ezt a webhelyet.', noneDefault: 'Nincs alapértelmezett', defaultLibrary: 'Alapértelmezett könyvtár', defaultLibraryHint: 'A webhely kiválasztása után automatikusan megnyitja ezt a könyvtárat.', loadingLibraries: 'Könyvtárak betöltése...', noneDefaultLibrary: 'Nincs alapértelmezett könyvtár', currentSettings: 'Aktuális mentett beállítások', saveSettings: 'NexusPoint beállítások mentése', settingsSaved: 'NexusPoint beállítások mentve', settingsError: 'Hiba a beállítások mentésekor', checkingConnection: 'MS365 kapcsolat ellenőrzése...', ms365NotConnected: 'MS365 nincs csatlakoztatva', ms365NotConnectedHint: 'Először csatlakoztassa az MS365 fiókot az MS365 lapon, majd itt konfigurálhatja a NexusPointot.', userSettingsTitle: 'NexusPoint — felhasználói beállítások', userSettingsDesc: 'Rögzített webhelyek és alapértelmezett hely ehhez a felhasználóhoz', loadingSites: 'SharePoint webhelyek betöltése...', noSitesMs365: 'Nem találhatók SharePoint webhelyek. Ellenőrizze az MS365 kapcsolatot.', pinnedCount: 'Rögzített webhelyek:', defaultSiteLabel: 'Alapértelmezett webhely:', globalBadge: 'Globális', newSite: 'Új webhely', saveToNexusPoint: 'Mentés NexusPointba', savedToNexusPoint: 'Mentve NexusPointba', saveNexusError: 'Nem sikerült NexusPointba menteni', selectDestination: 'Cél kiválasztása', move: 'Áthelyezés', moveSuccess: 'Elem áthelyezve', moveError: 'Áthelyezés sikertelen', moveToFolder: 'Áthelyezés ide', moveTo: 'Áthelyezés:', notesAndTags: 'Megjegyzések és címkék', note: 'Megjegyzés', notePlaceholder: 'Belső megjegyzés hozzáadása...', saveNote: 'Megjegyzés mentése', noteSaved: 'Megjegyzés mentve', noteSaveError: 'Hiba a megjegyzés mentésekor', tags: 'Címkék', addTag: 'Címke hozzáadása', tagPlaceholder: 'Új címke...', tagAdded: 'Címke hozzáadva', tagDeleted: 'Címke eltávolítva', searchByTag: 'Keresés címke szerint', moveDestination: 'Célhely', moveSiteLabel: 'Webhely', moveDriveLabel: 'Tár', unknownFile: 'Ismeretlen fájl (kattintson a megnyitáshoz)', globalResultsLabel: 'Globális eredmények' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Webhelyek', selectSite: 'Válasszon SharePoint webhelyet', noSites: 'Nem találhatók webhelyek', libraries: 'Könyvtárak', selectLibrary: 'Válasszon könyvtárat', files: 'Fájlok', folders: 'Mappák', name: 'Név', size: 'Méret', modified: 'Módosítva', modifiedBy: 'Módosította', noFiles: 'Nincsenek fájlok vagy mappák', upload: 'Feltöltés', uploading: 'Feltöltés...', uploadSuccess: 'Fájl feltöltve', uploadError: 'Nem sikerült feltölteni a fájlt', newFolder: 'Új mappa', folderName: 'Mappa neve', createFolder: 'Mappa létrehozása', folderCreated: 'Mappa létrehozva', folderError: 'Nem sikerült létrehozni a mappát', download: 'Letöltés', delete: 'Törlés', deleteConfirm: 'Biztosan törölni szeretné ezt az elemet?', deleted: 'Elem törölve', deleteError: 'Nem sikerült törölni az elemet', openInBrowser: 'Megnyitás böngészőben', dragDropHint: 'Húzza ide a fájlokat vagy kattintson a Feltöltés gombra', backToRoot: 'Vissza a gyökérbe', searchFiles: 'Fájlok keresése...', items: 'elem', created: 'Created', versions: 'Verziók', version: 'Verzió', restoreVersion: 'Verzió visszaállítása', versionRestored: 'Verzió visszaállítva', versionRestoreError: 'Nem sikerült visszaállítani a verziót', noVersions: 'Nincsenek verziók', share: 'Megosztás', shareLink: 'Megosztási link', copyLink: 'Link másolása', linkCopied: 'Link másolva', viewOnly: 'Csak megtekintés', editAccess: 'Szerkesztés', organization: 'Szervezet', anyone: 'Bárki', createLink: 'Link létrehozása', permissions: 'Jogosultságok', removePermission: 'Jogosultság eltávolítása', permissionRemoved: 'Jogosultság eltávolítva', noPermissions: 'Nincsenek megosztási jogosultságok', preview: 'Előnézet', closePreview: 'Előnézet bezárása', searchResults: 'Keresési eredmények', searching: 'Keresés...', noPinnedSites: 'Nincs rögzített webhely', configureHint: 'Konfigurálja a NexusPointot és válassza ki a webhelyeket a profilbeállításokban.', selectSiteHint: 'Válasszon webhelyet és könyvtárat a bal panelből.', contentStorageTitle: 'Ez a webhely típusa nem támogatott', contentStorageHint: 'A Microsoft Loop munkaterületek és személyes tárhelyek nem kezelhetők a NexusPointon keresztül. Kérjük, válasszon szabványos SharePoint webhelyet.', pinnedSites: 'Rögzített webhelyek', pinnedSitesHint: 'A bejelölt webhelyek megjelennek a NexusPointban. Ha semmit sem jelöl be, az összes megjelenik.', defaultSite: 'Alapértelmezett webhely', defaultSiteHint: 'A NexusPoint indításakor automatikusan megnyitja ezt a webhelyet.', noneDefault: 'Nincs alapértelmezett', defaultLibrary: 'Alapértelmezett könyvtár', defaultLibraryHint: 'A webhely kiválasztása után automatikusan megnyitja ezt a könyvtárat.', loadingLibraries: 'Könyvtárak betöltése...', noneDefaultLibrary: 'Nincs alapértelmezett könyvtár', currentSettings: 'Aktuális mentett beállítások', saveSettings: 'NexusPoint beállítások mentése', settingsSaved: 'NexusPoint beállítások mentve', settingsError: 'Hiba a beállítások mentésekor', checkingConnection: 'MS365 kapcsolat ellenőrzése...', ms365NotConnected: 'MS365 nincs csatlakoztatva', ms365NotConnectedHint: 'Először csatlakoztassa az MS365 fiókot az MS365 lapon, majd itt konfigurálhatja a NexusPointot.', userSettingsTitle: 'NexusPoint — felhasználói beállítások', userSettingsDesc: 'Rögzített webhelyek és alapértelmezett hely ehhez a felhasználóhoz', loadingSites: 'SharePoint webhelyek betöltése...', noSitesMs365: 'Nem találhatók SharePoint webhelyek. Ellenőrizze az MS365 kapcsolatot.', pinnedCount: 'Rögzített webhelyek:', defaultSiteLabel: 'Alapértelmezett webhely:', globalBadge: 'Globális', newSite: 'Új webhely', saveToNexusPoint: 'Mentés NexusPointba', savedToNexusPoint: 'Mentve NexusPointba', saveNexusError: 'Nem sikerült NexusPointba menteni', selectDestination: 'Cél kiválasztása', move: 'Áthelyezés', moveSuccess: 'Elem áthelyezve', moveError: 'Áthelyezés sikertelen', moveToFolder: 'Áthelyezés ide', moveTo: 'Áthelyezés:', notesAndTags: 'Megjegyzések és címkék', note: 'Megjegyzés', notePlaceholder: 'Belső megjegyzés hozzáadása...', saveNote: 'Megjegyzés mentése', noteSaved: 'Megjegyzés mentve', noteSaveError: 'Hiba a megjegyzés mentésekor', tags: 'Címkék', addTag: 'Címke hozzáadása', tagPlaceholder: 'Új címke...', tagAdded: 'Címke hozzáadva', tagDeleted: 'Címke eltávolítva', noTags: 'Még nincsenek címkék', searchByTag: 'Keresés címke szerint', moveDestination: 'Célhely', moveSiteLabel: 'Webhely', moveDriveLabel: 'Tár', unknownFile: 'Ismeretlen fájl (kattintson a megnyitáshoz)', globalResultsLabel: 'Globális eredmények' },
         search: { placeholder: 'Keresés emailekben, SMS-ben, feladatokban, chatekben...', searchInEmails: 'Keresés emailekben', searchAllMailboxes: 'összes postafiók', emails: 'Emailek', sms: 'SMS', tasks: 'Feladatok', chats: 'Csevegések', suggestionsTitle: 'Javaslatok a megnyitott email alapján', searchInList: 'Keresés a listában...', recentSearches: 'Legutóbbi keresések', clearHistory: 'Előzmények törlése', mailbox: 'Postafiók', allMailboxes: 'Összes postafiók', dateFrom: 'Ettől', dateTo: 'Eddig', quickSearch: 'Gyorskeresés', enterMin2Chars: 'Írjon be legalább 2 karaktert', results: 'Eredmények', searchAction: 'Keresés', closeAction: 'Bezárás', searchInEmailsQuery: 'Keresés az emailekben', searchAllMailboxesLabel: 'Keresés az összes postafiókban', aiSearch: 'AI Keresés', aiSearchPlaceholder: 'Kérdezzen természetesen, pl. "Keresse meg az összes emailt Pétertől mellékletekkel az elmúlt héten"', aiSearching: 'AI elemzi a kérdését...', aiParsed: 'AI megértette', aiSuggestions: 'AI javasolja', aiExplanation: 'Keresés értelmezése', aiError: 'AI keresés sikertelen, standard keresés használata', aiMode: 'AI Keresés', aiModeOn: 'AI bekapcsolva', aiModeOff: 'Standard keresés', attachmentSearch: 'Keresés mellékletekben', searchInAttachments: 'Keresés mellékletek tartalmában', advancedFilters: 'Felismert szűrők', fromSender: 'Feladó', withAttachment: 'Mellékletekkel', highImportance: 'Magas fontosság', channelEmail: 'Emailek', channelSms: 'SMS', channelTasks: 'Feladatok', channelChats: 'Csevegések', searchChannels: 'Keresés itt', executeAiSearch: 'Keresés AI-val', tryAsking: 'Próbálja megkérdezni' },
         settings: { appearance: 'Megjelenés', accounts: 'Fiókok', notifications: 'Értesítések', sidebar: 'Oldalsáv', compose: 'Írás', signature: 'Aláírás', ai: 'AI', unreadIndicator: 'Olvasatlan jelző', unreadIndicatorDesc: 'Kék pont az olvasatlan üzeneteknél', highlightUnread: 'Olvasatlanok kiemelése', highlightUnreadDesc: 'Félkövér betű az olvasatlan üzeneteknél', accountIcons: 'Fiók ikonok', accountIconsDesc: 'Színes pont a fiók hozzárendelés szerint', attachmentIcons: 'Melléklet ikonok', attachmentIconsDesc: 'Gémkapocs ikon a melléklettel rendelkező üzeneteknél', showTags: 'Címkék megjelenítése', showTagsDesc: 'Színes címkék az üzenetlistában', previewLines: 'Előnézeti sorok', previewLinesDesc: 'Előnézeti szöveg sorainak száma a listában', defaultSort: 'Alapértelmezett rendezés', defaultSortDesc: 'Alapértelmezett email rendezés', showAllRecipients: 'Összes címzett megjelenítése', showAllRecipientsDesc: 'CC és BCC címzettek megjelenítése a részletekben', expandBody: 'Üzenettörzs kibontása', expandBodyDesc: 'Automatikusan megjeleníteni az email teljes tartalmát', autoLoadImages: 'Képek automatikus betöltése', autoLoadImagesDesc: 'Távoli képek betöltése az email törzsében', senderInitials: 'Feladó monogramja', senderInitialsDesc: 'Kör alakú avatar monogrammal a listában', groupByDate: 'Csoportosítás dátum szerint', groupByDateDesc: 'Üzenetek szétválasztása napok szerint', attachmentsBefore: 'Mellékletek a tartalom előtt', attachmentsBeforeDesc: 'Mellékletek megjelenítése az email törzse felett', enableAi: 'AI engedélyezése', enableAiDesc: 'AI funkciók bekapcsolása (válasz, összefoglaló, fordítás)', languageMode: 'Nyelvi mód', languageModeDesc: 'Milyen nyelven generáljon az AI válaszokat és összefoglalókat', targetLanguage: 'Célnyelv', targetLanguageDesc: 'Milyen nyelvre fordítsa az AI kimenetet', soundOnSend: 'Hang küldéskor', soundOnSendDesc: 'Hang lejátszása sikeres email küldés után', soundOnReceive: 'Hang fogadáskor', soundOnReceiveDesc: 'Hang lejátszása új email érkezésekor', polling: 'Automatikus ellenőrzés', pollingDesc: 'Milyen gyakran ellenőrizze az új postát', showHideSidebar: 'Mappa oldalsáv megjelenítése vagy elrejtése', changeColor: 'Szín módosítása', noSignature: 'Nincs aláírás ehhez a fiókhoz', signaturePlaceholder: 'Aláírása... (használja a kép ikont logó beillesztéséhez)', lastEdit: 'Utolsó szerkesztés: ', personal: 'Személyes', shared: 'Megosztott', newTagPlaceholder: 'Új címke neve...', tagCreated: 'Címke létrehozva', tagDeleted: 'Címke törölve', saved: 'Mentve', signatureSaved: 'Aláírás elmentve', saveError: 'Nem sikerült menteni az aláírást', maximize: 'Maximalizálás', minimize: 'Kicsinyítés', maximizePanel: 'Panel maximalizálása', minimizePanel: 'Panel kicsinyítése', settingsTitle: 'Beállítások', settingsEmailDesc: 'E-mail lista és részletek megjelenítési beállításai.', settingsAiDesc: 'AI beállítások az e-mail kommunikációhoz.', settingsNotifDesc: 'Hangértesítések és automatikus levélellenőrzés beállításai.', settingsSignatureDesc: 'Aláírások e-mail fiókokhoz.', signatureFor: 'Aláírás ehhez', signatureAutoAdd: 'Az aláírás automatikusan hozzáadódik az e-mailek végéhez.', tags: 'Címkék', saveSignature: 'Aláírás mentése', sidebarIcon: 'Oldalsáv ikon', accountColor: 'Fiók színe', tagsTitle: 'Címkék', tagsDesc: 'Színes címkék létrehozása és kezelése az e-mailek rendszerezéséhez.', addTag: 'Hozzáadás', defaultTag: 'Alapértelmezett', noTags: 'Még nincsenek címkék', noTagsDesc: 'Hozzon létre saját címkéket az e-mailek rendszerezéséhez', emailLanguage: 'E-mail nyelve', info: 'Info', connectedAccountsDesc: 'Csatlakoztatott email fiókok, ikonok és színek az oldalsávhoz.', noConnectedAccounts: 'Nincsenek csatlakoztatott fiókok' },
         nexusChat: { copied: 'Másolva', messageCopied: 'Az üzenet a vágólapra másolva', messageDetail: 'Üzenet részletei + Beállítások', copyMessage: 'Üzenet másolása', conversation: 'Beszélgetés', askMore: 'Kérdezzen tovább...', precise: 'Pontos', creative: 'Kreatív', systemPrompt: 'Rendszer prompt (opcionális)', customInstructions: 'Egyéni utasítások a NEXUS számára...', resetDefaults: 'Alapértelmezések visszaállítása' }, editor: { bold: 'Félkövér', italic: 'Dőlt', underline: 'Aláhúzott', strikethrough: 'Áthúzott', heading1: 'Címsor 1', heading2: 'Címsor 2', bulletList: 'Felsorolás', numberedList: 'Számozott lista', blockquote: 'Idézet', horizontalRule: 'Vízszintes vonal', alignLeft: 'Balra igazítás', alignCenter: 'Középre', alignRight: 'Jobbra igazítás', alignJustify: 'Sorkizárt', resetColor: 'Szín visszaállítása', removeLink: 'Hivatkozás eltávolítása', insertImage: 'Kép beszúrása', imageUrl: 'Kép URL...', uploadFromFile: 'Feltöltés fájlból', insertTable: 'Táblázat beszúrása', undo: 'Visszavonás', addAttachment: 'Melléklet hozzáadása', generateReply: 'Válasz generálása AI-val', conversationSummary: 'E-mail konverzáció összefoglaló' }, ai: { generateReply: 'AI Válasz generálása', conversationSummary: 'AI Beszélgetés összefoglaló', reviewReply: 'Ellenőrizze és szerkessze a javasolt választ beillesztés előtt.', reviewSummary: 'Ellenőrizze és szerkessze az összefoglalót beillesztés előtt.', editPlaceholder: 'AI tartalom szerkesztése...', insert: 'Beillesztés', generating: 'Generálás...', generateError: 'Nem sikerült AI javaslatot generálni', summaryError: 'Nem sikerült összefoglalót generálni', translateError: 'Nem sikerült lefordítani a tartalmat', checkTranslation: 'Fordítás ellenőrzése', checking: 'Ellenőrzés...', noErrors: 'Nincs hiba! A szöveg helyes.', errorsFound: 'hiba találva', useImproved: 'Javított verzió használata', score: 'Pontszám', grammar: 'Nyelvtan', spelling: 'Helyesírás', style: 'Stílus', wordChoice: 'Szóválasztás', punctuation: 'Központozás', close: 'Bezárás', insertToReply: 'Beszúrás a válaszba', templates: 'AI Sablonok', businessIntro: 'Üzleti bemutatkozás', thankYou: 'Köszönet', followUp: 'Utánkövetés', meetingRequest: 'Találkozó kérés', offer: 'Üzleti ajánlat', infoRequest: 'Információ kérés', invitation: 'Meghívó', draftGenerated: 'Email vázlat generálva' },
@@ -38881,6 +40330,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Atașează fișier',
       attachmentUploading: 'Se încarcă atașamentul…',
       attachmentError: 'Încărcarea atașamentului a eșuat',
+      attachmentTooLarge: 'Fiecare fișier trebuie să aibă cel mult 15 MB',
+      attachmentLimitReached: 'O sarcină poate avea cel mult 10 atașamente',
       attachmentDownload: 'Descarcă',
       attachmentOpenTab: 'Deschide într-o filă nouă',
       attachmentPreviewUnavailable: 'Previzualizarea nu este disponibilă',
@@ -38937,6 +40388,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Sarcină redirecționată',
       toastForwardError: 'Eroare la redirecționarea sarcinii',
       questionsInboxTitle: 'Întrebări de la Back Office',
+      questionToastTitle: 'Întrebare de la Back Office',
+      taskCompletionHeading: 'Sarcină finalizată',
+      taskCompletionOpenAction: 'Deschide sarcina',
+      taskCompletionDismissAction: 'Închide notificarea',
+      taskCompletionStatus: 'Sarcina {title} a fost finalizată',
+      taskCompletionActionError: 'Notificarea sarcinii nu a putut fi actualizată.',
       answerPlaceholder: 'Scrieți un răspuns pentru Back Office…',
       answerButton: 'Răspunde',
       toastAnswerSent: 'Răspuns trimis către Back Office',
@@ -39284,6 +40741,7 @@ export const translations: Record<Locale, Translations> = {
     },
     nav: {
       dashboard: 'Panou de control',
+      webForms: 'Formulare web',
       customers: 'Clienți',
       products: 'Produse',
       invoices: 'Facturi în masă',
@@ -39362,8 +40820,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Gestionarea relațiilor cu partenerii medicali, categorii și programe de comunicare',
       overview: 'Prezentare generală',
-      institutions: 'Instituții',
-      persons: 'Persoane',
       settings: 'Setări',
       totalHospitals: 'Total spitale',
       totalClinics: 'Total clinici',
@@ -39400,9 +40856,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Atribuire',
       addAssignment: 'Adaugă atribuire',
       editAssignment: 'Editare atribuire',
-      department: 'Departament',
-      position: 'Poziție',
-      role: 'Rol',
       subcategory: 'Subcategorie',
       entityName: 'Instituție',
       personnel: 'Personal',
@@ -39430,11 +40883,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Țară',
       personnelCount: 'Personal',
       status: 'Status',
-      category: 'Categorie',
       institutionName: 'Instituție',
       lastContact: 'Ultimul contact',
       contactInfo: 'Informații contact',
-      primaryContact: 'Contact principal',
       workplaces: 'Locuri de muncă',
       institutions: 'instituții',
       filtered: 'filtrat',
@@ -39570,6 +41021,7 @@ export const translations: Record<Locale, Translations> = {
       filter: 'Filtru',
       loading: 'Se încarcă...',
       noData: 'Nu există date',
+      selected: 'selectate',
       confirm: 'Confirmare',
       yes: 'Da',
       no: 'Nu',
@@ -39639,6 +41091,13 @@ export const translations: Record<Locale, Translations> = {
       offline: 'Offline',
       indexusConnect: 'Activitate',
       copy: 'Copiază',
+      aiSuggestRegion: 'Sugestie AI pentru regiune și district',
+      aiSuggestRegionTitle: 'Sugestie de regiune',
+      aiSuggestMissingCity: 'Orașul lipsește',
+      aiSuggestMissingCityDesc: 'Introduceți mai întâi țara și orașul',
+      aiSuggestError: 'Eroare',
+      aiSuggestErrorDesc: 'Nu s-a putut obține sugestia',
+      aiSuggestButton: 'Sugestie AI',
     },
     advancedFilters: {
       title: 'Filtre avansate',
@@ -39764,6 +41223,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Sarcini',
       description: 'Gestionați și urmăriți sarcinile',
+      requestFromSubmitter: 'Solicitarea expeditorului',
+      originalRequest: 'Vezi descrierea originală completă',
       noTasks: 'Nu s-au găsit sarcini',
       openTasks: 'Sarcini deschise',
       loadError: 'Sarcinile deschise nu au putut fi încărcate. Încercați din nou.',
@@ -39805,6 +41266,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Rezolvă sarcina',
       resolveTaskDesc: 'Introduceți rezoluția pentru această sarcină',
       resolution: 'Rezoluție',
+      resolutionDialog: { title: 'Rezolvă sarcina', description: 'Înregistrează ce s-a făcut înainte de a închide sarcina.', resolution: 'Rezolvare', placeholder: 'Descrie rezultatul…', cancel: 'Anulează', submit: 'Rezolvă sarcina', checklist: 'Listă Pulse', loading: 'Se încarcă lista…', loadError: 'Lista nu a putut fi încărcată. Încearcă din nou înainte de rezolvare.', retry: 'Încearcă din nou', empty: 'Adaugă cel puțin un pas înainte de a rezolva această sarcină Pulse.', remaining: 'Au rămas {count} pași. Completează toți pașii pentru a rezolva.', complete: 'Toți pașii sunt finalizați', returnToChecklist: 'Înapoi la listă', draft: 'Ciornă AI', drafting: 'Se redactează…', draftUnavailable: 'Redactarea AI nu este disponibilă acum. Poți scrie manual rezolvarea.', draftFailed: 'Ciorna nu a putut fi generată. Reîncearcă sau scrie manual.', draftReady: 'Ciorna AI este gata — verific-o și editeaz-o înainte de rezolvare.', draftPreserved: 'Textul tău a fost păstrat — ciorna AI nu l-a înlocuit.', draftingHint: 'Transform pașii finalizați și notele lor într-un rezumat scurt, pe care îl poți edita…', draftNoCompletedSteps: 'Nu există încă pași finalizați de rezumat. Poți scrie manual rezolvarea.', checklistDraftError: 'Lista nu a putut fi încărcată, așa că niciun pas nu a fost trimis spre rezumare. Poți scrie manual sau poți încerca din nou.', notify: 'Notifică agentul', notifyHint: 'Anunță agentul atribuit că sarcina a fost rezolvată.' },
       resolvedBy: 'Rezolvat de',
       resolvedAt: 'Rezolvat la',
       reassign: 'Reatribuie',
@@ -39815,6 +41277,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Adaugă comentariu',
       commentPlaceholder: 'Scrieți un comentariu...',
       noComments: 'Niciun comentariu încă',
+      taskDiscussion: 'Discuția sarcinii',
+      commentsActivity: 'Discuție recentă',
+      commentsEmptyHint: 'Adăugați prima notă la această sarcină.',
+      loadingComments: 'Se încarcă comentariile',
+      commentsLoadFailed: 'Comentariile nu au putut fi încărcate.',
+      commentsRetry: 'Încercați din nou',
+      unknownAuthor: 'Membru al echipei',
+      attachmentsOnly: 'A distribuit un atașament',
+      viewAllComments: 'Vezi toate cele {count} comentarii',
+      previewAttachment: 'Previzualizează atașamentul',
+      openAttachment: 'Deschide atașamentul',
+      commentKeyboardHint: 'Enter pentru trimitere · Shift + Enter pentru rând nou',
+      taskAgentRequestTitle: 'Solicitarea dvs.',
+      taskAgentRequestHint: 'Descrieți ce trebuie rezolvat. Includeți datele corecte când solicitați o corectare.',
+      taskRequestContextTitle: 'Contextul sarcinii',
+      taskRequestContextHint: 'Se adaugă automat la solicitare.',
+      dismissUploadError: 'Renunță la încărcarea eșuată',
       viewDetails: 'Vizualizare detalii',
       taskResolved: 'Sarcină rezolvată cu succes',
       taskReassigned: 'Sarcină reatribuită cu succes',
@@ -39829,6 +41308,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Semestru',
       year: 'An',
       cancelTask: 'Anulează sarcina',
+      cancelConfirmKicker: 'O ultimă verificare',
+      cancelConfirmHeading: 'Anulezi această sarcină?',
+      cancelConfirmBody: 'Sarcina se va încheia cu starea Anulată. Nu poate fi finalizată cât timp se află în această stare.',
+      cancelConfirmQuestion: 'Sigur vrei să anulezi această sarcină?',
+      cancelConfirmKeep: 'Păstrează sarcina',
+      cancelConfirmAction: 'Anulează sarcina',
       save: 'Salvează',
       selectTask: 'Selectați o sarcină pentru a vedea detaliile',
       task: 'Sarcină',
@@ -39843,12 +41328,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Notificare popup sarcină',
       taskNotifyPopupDesc: 'Afișează popup la atribuirea unei sarcini noi',
       newTaskAssigned: 'Sarcină nouă atribuită',
+      checklistTitle: 'Listă de verificare',
+      checklistAddPlaceholder: 'Adaugă un pas în listă…',
+      checklistAdd: 'Adaugă pas',
+      checklistRemove: 'Elimină pasul',
+      checklistEdit: 'Editează pasul',
+      checklistSave: 'Salvează pasul',
+      checklistCancel: 'Anulează editarea',
+      checklistLoadError: 'Lista de verificare nu a putut fi încărcată.',
+      checklistMutationError: 'Lista de verificare nu a putut fi actualizată. Încearcă din nou.',
+      checklistAiGenerating: 'AI pregătește pașii sugerați…',
+      checklistAiProposal: 'Recomandat de AI',
+      checklistAiFailed: 'AI nu a putut genera sugestii. Poți adăuga pași manual sau poți încerca din nou.',
+      checklistAiUnavailable: 'Generarea listei cu AI nu este disponibilă momentan. Poți adăuga pași manual sau poți încerca din nou.',
+      checklistAiRetry: 'Încearcă din nou',
+      checklistAiLoadError: 'Starea listei AI nu a putut fi încărcată.',
+      checklistMarkComplete: 'Marchează ca finalizat',
+      checklistMarkIncomplete: 'Marchează ca nefinalizat',
+      checklistNoteLabel: 'Notă pentru pas',
+      checklistNotePlaceholder: 'Adaugă o notă scurtă despre acest pas…',
+      checklistNoteAdd: 'Adaugă notă',
+      checklistNoteEdit: 'Editează nota',
+      checklistNoteSave: 'Salvează nota',
+      checklistNoteCancel: 'Anulează',
+      taskWorkElapsed: 'Timp scurs',
+      taskWorkElapsedDescription: 'Timpul scurs de la începerea lucrului; include așteptarea și nu este timp facturabil.',
+      taskWorkStartUnknown: 'Ora de început nu este cunoscută',
+      taskOverdueLabel: 'Depășit',
+      taskOverdueDuration: '{days} zile / {hours}:{minutes}',
       priority: 'Prioritate',
       status: 'Stare',
       description2: 'Descriere',
+      workspace: {
+        settings: 'Setări grupuri de sarcini',
+        filtersTitle: 'Filtre pentru sarcini',
+        searchPeoplePlaceholder: 'Caută sarcini...',
+        dateAll: 'Orice dată',
+        dateToday: 'Astăzi',
+        dateWeek: 'Săptămâna aceasta',
+        dateMonth: 'Luna aceasta',
+        dateCustom: 'Interval personalizat',
+        basisCreated: 'Creată',
+        basisDue: 'Scadentă',
+        basisResolved: 'Rezolvată',
+        sortCreated: 'Data creării',
+        sortDue: 'Data scadentă',
+        sortResolved: 'Data rezolvării',
+        sortPriority: 'Prioritate',
+        sortTitle: 'Titlu',
+        ascending: 'Crescător',
+        descending: 'Descrescător',
+        anyCreator: 'Orice creator',
+        anyResolver: 'Orice rezolvator',
+        dateFrom: 'De la',
+        dateTo: 'Până la',
+        rangeSeparator: 'până la',
+        clearFilters: 'Șterge filtrele',
+        group: 'Grup de sarcini',
+        noGroup: 'Fără grup',
+        notifyAgent: 'Notifică agentul inițial',
+        notifyAgentHint: 'Notifică agentul inițial care a creat această sarcină în Nexus Pulse.',
+        noMatchingTasks: 'Nicio sarcină nu corespunde acestor filtre.',
+        titleRequired: 'Titlul sarcinii este obligatoriu.',
+        unassigned: 'Neatribuită',
+        sortOrder: 'Ordinea sortării',
+        changeSortOrder: 'Modifică ordinea sortării',
+      },
       taskGroups: {
         title: 'Grupuri de sarcini',
         newGroup: 'Grup nou',
+        dialogTitle: 'Grupuri de sarcini',
+        activeUsers: 'Utilizatori activi',
+        inactiveMemberWarning: 'Unii membri selectați sunt inactivi. Rămân alocați până când îi eliminați.',
+        inactive: 'Inactiv',
+        changesTitle: 'Renunțați la modificări?',
+        changesDescription: 'Aveți modificări nesalvate. Doriți să renunțați la ele?',
+        discardChanges: 'Renunță la modificări',
+        moveUp: 'Mută {name} în sus',
+        moveDown: 'Mută {name} în jos',
+        readOnly: 'Puteți vedea grupurile de sarcini, dar numai managerii și administratorii le pot modifica.',
+        nameRequired: 'Numele grupului este obligatoriu.',
+        usersLoadFailed: 'Utilizatorii nu au putut fi încărcați.',
+        groupsLoadFailed: 'Grupurile de sarcini nu au putut fi încărcate.',
+        advanced: 'Ordine avansată',
+        serverError: 'Serverul nu a putut salva modificările. Încercați din nou.',
         editGroup: 'Editează grupul',
         newGroupTitle: 'Grup nou de sarcini',
         deleteTitle: 'Ștergeți grupul?',
@@ -39892,6 +41455,83 @@ export const translations: Record<Locale, Translations> = {
     },
     dashboard: {
       title: 'Panou de control',
+      webForms: 'Formulare web',
+      webFormsNoForms: 'Nu există formulare web',
+      webFormsNew: 'noi',
+      webFormsTotal: 'total',
+      webFormsRegistrations: 'Înregistrări',
+      webFormsListDescription: 'Prezentare generală a înregistrărilor din formularul web',
+      webFormsNoRegistrations: 'Nu există înregistrări',
+      webFormsDate: 'Data',
+      webFormsName: 'Nume',
+      webFormsEmail: 'E-mail',
+      webFormsType: 'Tip',
+      webFormsStatus: 'Stare',
+      webFormsActions: 'Acțiuni',
+      webFormsTabPending: 'În așteptare',
+      webFormsTabApproved: 'Aprobate',
+      webFormsTabRejected: 'Respinse',
+      webFormsTabAll: 'Toate',
+      webFormsNewCustomer: 'Client nou',
+      webFormsExistingCustomer: 'Client existent',
+      webFormsNew2: 'Nouă',
+      webFormsExisting: 'Existentă',
+      webFormsPending: 'În așteptare',
+      webFormsApproved: 'Aprobată',
+      webFormsProcessed: 'Procesată',
+      webFormsRejected: 'Respinsă',
+      webFormsOtpVerified: 'OTP verificat',
+      webFormsWaitingApproval: 'În așteptarea aprobării',
+      webFormsLinkedCustomer: 'Client asociat',
+      webFormsDetailTitle: 'Detalii înregistrare',
+      webFormsBack: 'Înapoi',
+      webFormsApprove: 'Aprobă înregistrarea',
+      webFormsReject: 'Respinge înregistrarea',
+      webFormsSectionPersonal: 'Informații personale',
+      webFormsSectionContact: 'Informații de contact',
+      webFormsSectionAddress: 'Adresă',
+      webFormsSectionCorrAddress: 'Adresă de corespondență',
+      webFormsSectionHealth: 'Informații despre sănătate',
+      webFormsSectionPayment: 'Plată și consimțământ',
+      webFormsSectionOther: 'Alte informații',
+      webFormsTrimester: 'trimestru',
+      webFormsWeek: 'săptămână',
+      webFormsDaysUntilBirth: 'zile până la naștere',
+      webFormsDueDateToday: 'Data estimată este astăzi!',
+      webFormsDaysAfterDue: 'zile după data estimată',
+      webFormsDataPrecheck: 'Verificare preliminară a datelor',
+      webFormsPrecheckDescription: 'Compararea datelor trimise cu fișa clientului existent',
+      webFormsPrecheckWarning: 'Atenție! Datele trimise diferă de cele din fișa clientului existent.',
+      webFormsPrecheckNameMismatch: 'Numele din formular nu corespunde cu cel din fișa clientului asociat. Este posibil ca acesta să-și fi schimbat numele de familie (de exemplu, după căsătorie).',
+      webFormsPrecheckField: 'Câmp',
+      webFormsPrecheckExistingValue: 'Fișa clientului',
+      webFormsPrecheckNewValue: 'Valoare trimisă',
+      webFormsPrecheckResult: 'Rezultat',
+      webFormsPrecheckUpdate: 'Actualizare',
+      webFormsPrecheckMatch: 'Corespunde',
+      webFormsPrecheckDiffers: 'Diferă',
+      webFormsPrecheckNewField: 'Nou',
+      webFormsPrecheckEmpty: 'Necompletat',
+      webFormsPrecheckTestMode: 'MOD DE TESTARE — nu se vor salva modificări',
+      webFormsPrecheckMatchingFields: 'câmpuri care corespund',
+      webFormsPrecheckDifferingFields: 'câmpuri diferite',
+      webFormsPrecheckSelectedUpdates: 'selectate pentru actualizare',
+      webFormsPrecheckNoChanges: 'Toate datele trimise corespund cu fișa clientului.',
+      webFormsPrecheckNewChild: 'A fost detectată o sarcină nouă',
+      webFormsPrecheckNewChildDesc: 'Data estimată de naștere din fișa clientului a trecut deja. Această înregistrare se referă probabil la un al doilea copil. La aprobare, numărul copiilor poate fi actualizat la 2 și se poate introduce o nouă dată estimată.',
+      webFormsPrecheckExistingDob: 'Data estimată existentă în fișă',
+      webFormsSocialCheck: 'Verificare socială AI',
+      webFormsSocialCheckDesc: 'Caută mențiuni despre client pe rețelele sociale și în forumuri',
+      webFormsSocialCheckRunning: 'Se analizează...',
+      webFormsSocialCheckAiAnalysis: 'Recomandări AI',
+      webFormsSocialCheckLinks: 'Linkuri de căutare',
+      webFormsSocialCheckOpen: 'Deschide',
+      webFormsSocialCheckError: 'Eroare la analiza AI',
+      webFormsCallClient: 'Sună clientul',
+      webFormsCallNote: 'Notă privind apelul',
+      webFormsCallNotePlaceholder: 'Introduceți o notă despre apel (de ex. date verificate, schimbarea numelui confirmată)...',
+      webFormsCallNoteSaved: 'Nota a fost salvată în istoricul clientului',
+      webFormsSaveNote: 'Salvează nota',
       description: 'Prezentare generală a afacerii dvs. de banking cu sânge din cordon',
       totalCustomers: 'Total clienți',
       activeCustomers: 'Clienți activi',
@@ -39917,6 +41557,21 @@ export const translations: Record<Locale, Translations> = {
     },
     customers: {
       title: 'Clienți',
+      firstName: 'Prenume',
+      lastName: 'Nume',
+      street: 'Stradă',
+      streetNumber: 'Număr',
+      orientationNumber: 'Număr de orientare',
+      ico: 'Cod de identificare al companiei (IČO)',
+      icoTip: 'Numărul de identificare al companiei',
+      idZz: 'ID ZZ',
+      idZzTip: 'Identificatorul unității medicale',
+      pzsCode: 'Cod PZS',
+      pzsCodeTip: 'Codul furnizorului de servicii medicale',
+      pzsName: 'Denumire PZS',
+      pzsNameTip: 'Denumirea furnizorului de servicii medicale',
+      additionalIdentifiers: 'Identificatori suplimentari',
+      lookupPsc: 'Completare automată a codului poștal',
       description: 'Gestionarea clienților băncii de sânge din cordon',
       detailsTitle: 'Detalii client',
       detailsDescription: 'Vizualizare informații client, produse și facturi',
@@ -40572,6 +42227,8 @@ export const translations: Record<Locale, Translations> = {
     },
     collections: {
       title: 'Colecții',
+      firstName: 'Prenume',
+      lastName: 'Nume',
       description: 'Gestionați colecțiile de sânge din cordonul ombilical',
       addCollection: 'Adaugă colecție',
       editCollection: 'Editare colecție',
@@ -40756,6 +42413,43 @@ export const translations: Record<Locale, Translations> = {
           barcodeValue: 'Cod de bare (valoare)',
           qrCodeValue: 'Cod QR (valoare)',
         },
+      lab: {
+        usability: 'Viabilitate',
+        resultsDate: 'Data rezultatelor',
+        labNote: 'Notă de laborator',
+        cbu: 'CBU',
+        collectionFor: 'Colectare pentru',
+        processing: 'Procesare',
+        sterility: 'Sterilitate',
+        sterilityType: 'Tip de sterilitate',
+        resultOfSterility: 'Rezultatul testului de sterilitate',
+        infectionAgents: 'Agenți infecțioși',
+        tncCount: 'Număr TNC',
+        volume: 'Volum',
+        volumeInBag: 'Volum în pungă',
+        umbilicalTissue: 'Țesut ombilical',
+        tissueProcessed: 'Țesut procesat',
+        tissueSterility: 'Sterilitatea țesutului',
+        tissueUsability: 'Viabilitatea țesutului',
+        bagAUsability: 'Viabilitatea pungii A',
+        bagAVolume: 'Volumul pungii A',
+        bagATnc: 'TNC în punga A',
+        bagBUsability: 'Viabilitatea pungii B',
+        bagBVolume: 'Volumul pungii B',
+        bagBTnc: 'TNC în punga B',
+        basicInfo: 'Informații de bază',
+        sterilitySection: 'Sterilitate și infecții',
+        volumeSection: 'Volume și numărători',
+        tissueSection: 'Țesut ombilical',
+        bagASection: 'Punga A',
+        bagBSection: 'Punga B',
+        downloadCbuReport: 'Descarcă raportul CBU',
+        medicalReportSk: 'Raport medical (SK)',
+        medicalReportEn: 'Raport medical (EN)',
+        fullReportSk: 'Raport complet (SK)',
+        fullReportEn: 'Raport complet (EN)',
+        reportDownloaded: 'Raportul a fost descărcat cu succes',
+      },
     },
     hospitals: {
       title: 'Spitale',
@@ -40796,6 +42490,7 @@ export const translations: Record<Locale, Translations> = {
       tabs: {
         hospital: 'Spital',
         clinics: 'Clinici',
+        documents: 'Documente',
         agreements: 'Acorduri',
         templates: 'Șabloane',
         rewards: 'Recompense',
@@ -41042,6 +42737,8 @@ export const translations: Record<Locale, Translations> = {
         history: 'Istoric',
         otherData: 'Alte date',
         agreements: 'Acorduri',
+        documents: 'Documente',
+        healthcareNetworks: 'Rețele de sănătate',
         templates: 'Șabloane',
         rewards: 'Recompense',
         actions: 'Acțiuni',
@@ -41420,6 +43117,48 @@ export const translations: Record<Locale, Translations> = {
         not_interested: 'Neinteresat',
       },
       detail: {
+        defaultOnlyAssignedTitle: 'Filtru implicit „Doar atribuite”',
+        defaultOnlyAssignedDesc: 'Când este activată, opțiunea „Doar atribuite” din coada agenților va fi bifată automat de fiecare dată când un agent se conectează la această Mission.',
+        changeStatus: 'Schimbă starea',
+        customerHistory: 'Istoricul clientului',
+        noHistory: 'Nu există istoric',
+        campaignJoined: 'S-a alăturat Mission',
+        campaignLeft: 'A părăsit Mission',
+        emailSent: 'E-mail trimis',
+        smsSent: 'SMS trimis',
+        noteAdded: 'Notă adăugată',
+        dragFileHere: 'Trageți fișierul aici',
+        orClickToSelect: 'sau faceți clic pentru a selecta',
+        downloadSampleCsv: 'Descarcă un CSV de exemplu',
+        expectedColumns: 'Coloane așteptate:',
+        supportedFormats: 'Formate acceptate: CSV (separat prin punct și virgulă sau virgulă), Excel (.xlsx)',
+        updateExisting: 'Actualizează contactele existente (suprascrie datele dacă un contact există deja)',
+        uploadingFile: 'Se încarcă fișierul...',
+        processingContacts: 'Se procesează contactele...',
+        created: 'Create',
+        updated: 'Actualizate',
+        duplicates: 'Duplicate',
+        skipped: 'Omise',
+        deleteLastImport: 'Șterge ultimul import',
+        deleting: 'Se șterge...',
+        close: 'Închide',
+        remove: 'Elimină',
+        import: 'Importă',
+        kpiTracking: 'Urmărirea obiectivelor KPI',
+        kpiTrackingDesc: 'Urmăriți progresul în raport cu obiectivele KPI ale campaniei',
+        current: 'Curent',
+        target: 'Obiectiv',
+        targetRevenue: 'Venit țintă',
+        revenueTrackingDesc: 'Urmărirea veniturilor necesită integrarea cu sistemul de facturare',
+        dailyOperatorTargets: 'Obiective zilnice pentru operatori',
+        callsPerDay: 'Apeluri/zi',
+        contactsPerDay: 'Contacte/zi',
+        conversionsPerDay: 'Conversii/zi',
+        conversionRate: 'Rată de conversie',
+        successful: 'Reușite',
+        notInterested: 'Nu este interesat',
+        preview: 'Previzualizare',
+        textMode: 'Mod text',
         overview: 'Prezentare generală',
         contacts: 'Contacte',
         settings: 'Setări',
@@ -42963,6 +44702,11 @@ export const translations: Record<Locale, Translations> = {
     },
     agentWorkspace: {
       queue: 'Coadă',
+      todayCallsDisposition: 'Rezultat',
+      todayCallsWord1: 'apel',
+      todayCallsWord234: 'apeluri',
+      todayCallsWord5plus: 'apeluri',
+      todayCallsAnswered: 'preluate',
       breakModal: {
         inProgress: 'Pauza este în desfășurare',
         subtitle: 'Timpul dumneavoastră de pauză.',
@@ -43049,7 +44793,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Apelează!',
       myCB: 'CB-ul meu',
       teamCB: 'CB echipă',
-      filterAll: 'Toate contactele', filterMyCB: 'Reprogramate ale mele', filterTeamCB: 'Reprogramate echipă', filterDue: 'Scadente acum', filterPending: 'În așteptare (noi)',
+      filterMyCB: 'Reprogramate ale mele', filterTeamCB: 'Reprogramate echipă', filterDue: 'Scadente acum',
       groupDue: 'Apeluri scadente', groupMyCb: 'Programate ale mele', groupTeamCb: 'Programate echipă', groupOtherCb: 'Atribuite altora', groupPending: 'Contacte noi',
       emailHistory: 'Istoric e-mailuri',
       smsHistory: 'Istoric SMS',
@@ -43879,6 +45623,31 @@ export const translations: Record<Locale, Translations> = {
     },
     konfigurator: {
       title: 'Configurator',
+      bulkGeoTitle: 'Completarea automată a regiunilor',
+      bulkGeoDescription: 'Sistemul va completa automat regiunile și districtele lipsă pe baza orașului și adresei, folosind AI. Selectați o țară și modulele de procesat.',
+      bulkGeoCountry: 'Țară',
+      bulkGeoCountryPlaceholder: 'Selectați o țară',
+      bulkGeoModules: 'Module',
+      bulkGeoSelectAll: 'Selectează tot',
+      bulkGeoDeselectAll: 'Deselectează tot',
+      bulkGeoHospitals: 'Spitale',
+      bulkGeoClinics: 'Clinici',
+      bulkGeoCollaborators: 'Colaboratori',
+      bulkGeoCustomers: 'Clienți',
+      bulkGeoSelectCountry: 'Selectați o țară',
+      bulkGeoSelectModule: 'Selectați cel puțin un modul',
+      bulkGeoProcessing: 'Se procesează',
+      bulkGeoRunButton: 'Pornește completarea',
+      bulkGeoRunningButton: 'Se procesează...',
+      bulkGeoResults: 'Rezultate',
+      bulkGeoComplete: 'complete',
+      bulkGeoAllComplete: 'Toate înregistrările sunt complete',
+      bulkGeoNoRecords: 'Nu s-au găsit înregistrări pentru această țară',
+      bulkGeoFilled: 'Completate',
+      bulkGeoError: 'Eroare de procesare',
+      bulkGeoErrorTimeout: 'Cererea a expirat — prea multe înregistrări. Încercați din nou.',
+      bulkGeoDoneTitle: 'Completarea regiunilor s-a încheiat',
+      bulkGeoDoneDescription: 'S-au actualizat {updated} din {total} înregistrări',
       description: 'Configurați servicii, șabloane de facturi și aspecte',
       webFormsTab: 'Formulare Web',
       webFormsDescription: 'Gestionarea formularelor de înregistrare web pentru toate țările',
@@ -43960,6 +45729,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Șablon creat cu succes',
       templateUpdated: 'Șablon actualizat cu succes',
       templateDeleted: 'Șablon șters cu succes',
+      copyToLanguage: 'Copiază în limbă',
+      targetLanguage: 'Limba țintă',
+      autoTranslate: 'Traducere automată cu AI',
+      autoTranslateDesc: 'Folosește OpenAI pentru a traduce conținutul în limba țintă',
+      templateTranslated: 'Șablon tradus și copiat',
+      templateCopied: 'Șablon copiat',
+      translating: 'Se traduce...',
+      copying: 'Se copiază...',
+      translateAndCopy: 'Tradu și copiază',
+      copyTemplate: 'Copiază',
       templateFormDescription: 'Configurați șablonul de factură și branding-ul',
       addLayout: 'Adaugă aspect',
       editLayout: 'Editează aspect',
@@ -43985,7 +45764,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Câmpuri client',
       billingFields: 'Câmpuri facturare',
       invoiceFields: 'Câmpuri factură',
-      preview: 'Previzualizare',
       properties: 'Proprietăți',
       fontWeight: 'Grosime font',
       textAlign: 'Aliniere text',
@@ -45711,10 +47489,10 @@ export const translations: Record<Locale, Translations> = {
         chats: { internalChats: 'Chat-uri interne', selectConversation: 'Selectați o conversație din bara laterală', lastMessage: 'Ultimul mesaj:', noConversations: 'Nicio conversație', onlineUsers: 'Utilizatori online', startChat: 'Începe chat', typeMessage: 'Scrieți un mesaj...', sendMessage: 'Trimite', noMessages: 'Niciun mesaj încă', today: 'Azi', yesterday: 'Ieri', typing: 'scrie...', you: 'Tu', conversations: 'Conversații', newChat: 'Chat nou', online: 'Online', offline: 'Offline', chatNotifySound: 'Sunet notificare chat', chatNotifySoundDesc: 'Redă sunet la primirea unui mesaj nou', chatNotifyPopup: 'Notificare popup chat', chatNotifyPopupDesc: 'Afișează popup la primirea unui mesaj nou', newMessageFrom: 'Mesaj nou de la' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Niciun mesaj', writePlaceholder: 'Scrieți un mesaj...', directChat: 'Chat direct', groupChat: 'Chat de grup', noTeamsChats: 'Niciun chat Teams', noTeams: 'Nicio echipă', notConnected: 'MS365 nu este conectat', sendError: 'Nu s-a putut trimite mesajul', createMeeting: 'Creează întâlnire', meetingCreated: 'Întâlnire creată', meetingError: 'Nu s-a putut crea întâlnirea', joinMeeting: 'Alătură-te', meetingSubject: 'Subiectul întâlnirii', startMeeting: 'Începe întâlnirea', instantMeeting: 'Întâlnire instantanee', scheduleMeeting: 'Programează întâlnire', meetingLink: 'Link întâlnire', linkCopied: 'Link copiat', meetingWith: 'Întâlnire cu', members: 'Membri', openInTeams: 'Deschide în Teams', lastMessage: 'Ultimul mesaj', meetingDate: 'Data', meetingStartTime: 'Ora de început', meetingEndTime: 'Ora de sfârșit', addParticipants: 'Adaugă participanți', participantEmail: 'E-mail participant', upcomingMeetings: 'Întâlniri viitoare', noUpcomingMeetings: 'Nicio întâlnire viitoare', startsIn: 'Începe în', inProgress: 'În desfășurare', today: 'Astăzi', tomorrow: 'Mâine', remove: 'Eliminare', attachFile: 'Atașare fișier', attachmentSent: 'Atașament trimis', uploadError: 'Nu s-a putut încărca fișierul', recentMeetings: 'Întâlniri recente', noMeetings: 'Nicio întâlnire găsită', transcript: 'Transcriere', noTranscript: 'Transcrierea nu este disponibilă', loadingTranscript: 'Se încarcă transcrierea...', aiSummary: 'Rezumat AI', generateSummary: 'Generează rezumat AI', generatingSummary: 'Se generează rezumatul...', rawTranscript: 'Transcriere brută', summary: 'Rezumat', meetingDuration: 'Durată', viewTranscript: 'Vezi transcrierea', transcriptError: 'Nu s-a putut încărca transcrierea', recordings: 'Înregistrări', noRecordings: 'Nicio înregistrare', downloadRecording: 'Descarcă înregistrarea', recording: 'Înregistrare', meetingsAndRecordings: 'Întâlniri și înregistrări', activity: 'Activitate', noActivity: 'Nicio activitate', justNow: 'Chiar acum' },
         calendar: { today: 'Astăzi', thisWeek: 'Săptămâna aceasta', thisMonth: 'Luna aceasta' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Site-uri', selectSite: 'Selectați un site SharePoint', noSites: 'Nu s-au găsit site-uri', libraries: 'Biblioteci', selectLibrary: 'Selectați o bibliotecă', files: 'Fișiere', folders: 'Foldere', name: 'Nume', size: 'Dimensiune', modified: 'Modificat', modifiedBy: 'Modificat de', noFiles: 'Nu există fișiere sau foldere', upload: 'Încărcare', uploading: 'Se încarcă...', uploadSuccess: 'Fișier încărcat cu succes', uploadError: 'Încărcarea fișierului a eșuat', newFolder: 'Folder nou', folderName: 'Numele folderului', createFolder: 'Creează folder', folderCreated: 'Folder creat', folderError: 'Nu s-a putut crea folderul', download: 'Descărcare', delete: 'Ștergere', deleteConfirm: 'Sigur doriți să ștergeți acest element?', deleted: 'Element șters', deleteError: 'Nu s-a putut șterge elementul', openInBrowser: 'Deschide în browser', dragDropHint: 'Trageți fișierele aici sau apăsați Încărcare', backToRoot: 'Înapoi la rădăcină', searchFiles: 'Căutare fișiere...', items: 'elemente', created: 'Created', versions: 'Versiuni', version: 'Versiune', restoreVersion: 'Restaurează această versiune', versionRestored: 'Versiune restaurată', versionRestoreError: 'Nu s-a putut restaura versiunea', noVersions: 'Nu există versiuni', share: 'Partajare', shareLink: 'Link de partajare', copyLink: 'Copiază link', linkCopied: 'Link copiat', viewOnly: 'Doar vizualizare', editAccess: 'Editare', organization: 'Organizație', anyone: 'Oricine', createLink: 'Creează link', permissions: 'Permisiuni', removePermission: 'Elimină permisiune', permissionRemoved: 'Permisiune eliminată', noPermissions: 'Nu există permisiuni de partajare', preview: 'Previzualizare', closePreview: 'Închide previzualizarea', searchResults: 'Rezultate căutare', searching: 'Se caută...', notesAndTags: 'Note și etichete', note: 'Notă', notePlaceholder: 'Adaugă o notă internă...', saveNote: 'Salvează nota', noteSaved: 'Notă salvată', noteSaveError: 'Eroare la salvarea notei', tags: 'Etichete', addTag: 'Adaugă etichetă', tagPlaceholder: 'Etichetă nouă...', tagAdded: 'Etichetă adăugată', tagDeleted: 'Etichetă eliminată', searchByTag: 'Caută după etichetă', noPinnedSites: 'Niciun site fixat', configureHint: 'Configurați NexusPoint și selectați site-uri în setările profilului.', selectSiteHint: 'Selectați un site și o bibliotecă din panoul din stânga.', contentStorageTitle: 'Acest tip de site nu este acceptat', contentStorageHint: 'Spațiile de lucru Microsoft Loop și site-urile de stocare personală nu pot fi gestionate prin NexusPoint. Selectați un site SharePoint standard.', pinnedSites: 'Site-uri fixate', pinnedSitesHint: 'Site-urile bifate vor apărea în NexusPoint. Lăsați toate neselectate pentru a afișa toate site-urile.', defaultSite: 'Site implicit', defaultSiteHint: 'Deschide automat acest site la pornirea NexusPoint.', noneDefault: 'Fără implicit', defaultLibrary: 'Bibliotecă implicită', defaultLibraryHint: 'Deschide automat această bibliotecă după selectarea site-ului.', loadingLibraries: 'Se încarcă bibliotecile...', noneDefaultLibrary: 'Fără bibliotecă implicită', currentSettings: 'Setări salvate curente', saveSettings: 'Salvați setările NexusPoint', settingsSaved: 'Setări NexusPoint salvate', settingsError: 'Eroare la salvarea setărilor', checkingConnection: 'Se verifică conexiunea MS365...', ms365NotConnected: 'MS365 nu este conectat', ms365NotConnectedHint: 'Conectați mai întâi contul MS365 în fila MS365, apoi configurați NexusPoint aici.', userSettingsTitle: 'NexusPoint — setări utilizator', userSettingsDesc: 'Site-uri fixate și locație implicită pentru acest utilizator', loadingSites: 'Se încarcă site-urile SharePoint...', noSitesMs365: 'Nu au fost găsite site-uri SharePoint. Verificați conexiunea MS365.', pinnedCount: 'Site-uri fixate:', defaultSiteLabel: 'Site implicit:', globalBadge: 'Global', newSite: 'Site nou', saveToNexusPoint: 'Salvați în NexusPoint', savedToNexusPoint: 'Salvat în NexusPoint', saveNexusError: 'Nu s-a putut salva în NexusPoint', selectDestination: 'Selectați destinația', move: 'Mutare', moveSuccess: 'Element mutat', moveError: 'Nu s-a putut muta elementul', moveToFolder: 'Mutați aici', moveTo: 'Mutare la', moveDestination: 'Destinație', moveSiteLabel: 'Site', moveDriveLabel: 'Bibliotecă', unknownFile: 'Fișier necunoscut (faceți clic pentru a deschide)', globalResultsLabel: 'Rezultate globale' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Site-uri', selectSite: 'Selectați un site SharePoint', noSites: 'Nu s-au găsit site-uri', libraries: 'Biblioteci', selectLibrary: 'Selectați o bibliotecă', files: 'Fișiere', folders: 'Foldere', name: 'Nume', size: 'Dimensiune', modified: 'Modificat', modifiedBy: 'Modificat de', noFiles: 'Nu există fișiere sau foldere', upload: 'Încărcare', uploading: 'Se încarcă...', uploadSuccess: 'Fișier încărcat cu succes', uploadError: 'Încărcarea fișierului a eșuat', newFolder: 'Folder nou', folderName: 'Numele folderului', createFolder: 'Creează folder', folderCreated: 'Folder creat', folderError: 'Nu s-a putut crea folderul', download: 'Descărcare', delete: 'Ștergere', deleteConfirm: 'Sigur doriți să ștergeți acest element?', deleted: 'Element șters', deleteError: 'Nu s-a putut șterge elementul', openInBrowser: 'Deschide în browser', dragDropHint: 'Trageți fișierele aici sau apăsați Încărcare', backToRoot: 'Înapoi la rădăcină', searchFiles: 'Căutare fișiere...', items: 'elemente', created: 'Created', versions: 'Versiuni', version: 'Versiune', restoreVersion: 'Restaurează această versiune', versionRestored: 'Versiune restaurată', versionRestoreError: 'Nu s-a putut restaura versiunea', noVersions: 'Nu există versiuni', share: 'Partajare', shareLink: 'Link de partajare', copyLink: 'Copiază link', linkCopied: 'Link copiat', viewOnly: 'Doar vizualizare', editAccess: 'Editare', organization: 'Organizație', anyone: 'Oricine', createLink: 'Creează link', permissions: 'Permisiuni', removePermission: 'Elimină permisiune', permissionRemoved: 'Permisiune eliminată', noPermissions: 'Nu există permisiuni de partajare', preview: 'Previzualizare', closePreview: 'Închide previzualizarea', searchResults: 'Rezultate căutare', searching: 'Se caută...', notesAndTags: 'Note și etichete', note: 'Notă', notePlaceholder: 'Adaugă o notă internă...', saveNote: 'Salvează nota', noteSaved: 'Notă salvată', noteSaveError: 'Eroare la salvarea notei', tags: 'Etichete', addTag: 'Adaugă etichetă', tagPlaceholder: 'Etichetă nouă...', tagAdded: 'Etichetă adăugată', tagDeleted: 'Etichetă eliminată', noTags: 'Nu există încă etichete', searchByTag: 'Caută după etichetă', noPinnedSites: 'Niciun site fixat', configureHint: 'Configurați NexusPoint și selectați site-uri în setările profilului.', selectSiteHint: 'Selectați un site și o bibliotecă din panoul din stânga.', contentStorageTitle: 'Acest tip de site nu este acceptat', contentStorageHint: 'Spațiile de lucru Microsoft Loop și site-urile de stocare personală nu pot fi gestionate prin NexusPoint. Selectați un site SharePoint standard.', pinnedSites: 'Site-uri fixate', pinnedSitesHint: 'Site-urile bifate vor apărea în NexusPoint. Lăsați toate neselectate pentru a afișa toate site-urile.', defaultSite: 'Site implicit', defaultSiteHint: 'Deschide automat acest site la pornirea NexusPoint.', noneDefault: 'Fără implicit', defaultLibrary: 'Bibliotecă implicită', defaultLibraryHint: 'Deschide automat această bibliotecă după selectarea site-ului.', loadingLibraries: 'Se încarcă bibliotecile...', noneDefaultLibrary: 'Fără bibliotecă implicită', currentSettings: 'Setări salvate curente', saveSettings: 'Salvați setările NexusPoint', settingsSaved: 'Setări NexusPoint salvate', settingsError: 'Eroare la salvarea setărilor', checkingConnection: 'Se verifică conexiunea MS365...', ms365NotConnected: 'MS365 nu este conectat', ms365NotConnectedHint: 'Conectați mai întâi contul MS365 în fila MS365, apoi configurați NexusPoint aici.', userSettingsTitle: 'NexusPoint — setări utilizator', userSettingsDesc: 'Site-uri fixate și locație implicită pentru acest utilizator', loadingSites: 'Se încarcă site-urile SharePoint...', noSitesMs365: 'Nu au fost găsite site-uri SharePoint. Verificați conexiunea MS365.', pinnedCount: 'Site-uri fixate:', defaultSiteLabel: 'Site implicit:', globalBadge: 'Global', newSite: 'Site nou', saveToNexusPoint: 'Salvați în NexusPoint', savedToNexusPoint: 'Salvat în NexusPoint', saveNexusError: 'Nu s-a putut salva în NexusPoint', selectDestination: 'Selectați destinația', move: 'Mutare', moveSuccess: 'Element mutat', moveError: 'Nu s-a putut muta elementul', moveToFolder: 'Mutați aici', moveTo: 'Mutare la', moveDestination: 'Destinație', moveSiteLabel: 'Site', moveDriveLabel: 'Bibliotecă', unknownFile: 'Fișier necunoscut (faceți clic pentru a deschide)', globalResultsLabel: 'Rezultate globale' },
         search: { placeholder: 'Căutare în emailuri, SMS, sarcini, chaturi...', searchInEmails: 'Căutare în emailuri', searchAllMailboxes: 'toate căsuțele', emails: 'Emailuri', sms: 'SMS', tasks: 'Sarcini', chats: 'Chat-uri', suggestionsTitle: 'Sugestii bazate pe emailul deschis', searchInList: 'Căutare în listă...', recentSearches: 'Căutări recente', clearHistory: 'Șterge istoricul', mailbox: 'Căsuță', allMailboxes: 'Toate căsuțele', dateFrom: 'De la', dateTo: 'Până la', quickSearch: 'Căutare rapidă', enterMin2Chars: 'Introduceți cel puțin 2 caractere', results: 'Rezultate', searchAction: 'Căutare', closeAction: 'Închide', searchInEmailsQuery: 'Căutare în emailuri', searchAllMailboxesLabel: 'Căutare în toate căsuțele', aiSearch: 'Căutare AI', aiSearchPlaceholder: 'Întrebați natural, ex. "Găsește toate emailurile de la Petru cu atașamente din ultima săptămână"', aiSearching: 'AI analizează întrebarea dvs...', aiParsed: 'AI a înțeles', aiSuggestions: 'AI sugerează', aiExplanation: 'Interpretarea căutării', aiError: 'Căutarea AI a eșuat, folosesc căutarea standard', aiMode: 'Căutare AI', aiModeOn: 'AI activat', aiModeOff: 'Căutare standard', attachmentSearch: 'Căutare în atașamente', searchInAttachments: 'Căutare în conținutul atașamentelor', advancedFilters: 'Filtre detectate', fromSender: 'De la', withAttachment: 'Cu atașamente', highImportance: 'Importanță ridicată', channelEmail: 'Emailuri', channelSms: 'SMS', channelTasks: 'Sarcini', channelChats: 'Chat-uri', searchChannels: 'Caută în', executeAiSearch: 'Caută cu AI', tryAsking: 'Încercați să întrebați' },
         settings: { appearance: 'Aspect', accounts: 'Conturi', notifications: 'Notificări', sidebar: 'Bară laterală', compose: 'Compunere', signature: 'Semnătură', ai: 'AI', unreadIndicator: 'Indicator necitite', unreadIndicatorDesc: 'Punct albastru la mesajele necitite', highlightUnread: 'Evidențiere necitite', highlightUnreadDesc: 'Text bold pentru mesajele necitite', accountIcons: 'Icoane conturi', accountIconsDesc: 'Punct colorat după atribuirea contului', attachmentIcons: 'Icoane atașamente', attachmentIconsDesc: 'Icoana agrafă la mesajele cu atașamente', showTags: 'Afișare etichete', showTagsDesc: 'Etichete colorate în lista de mesaje', previewLines: 'Linii de previzualizare', previewLinesDesc: 'Număr de linii de text în previzualizare', defaultSort: 'Sortare implicită', defaultSortDesc: 'Sortare implicită a emailurilor', showAllRecipients: 'Afișare toți destinatarii', showAllRecipientsDesc: 'Afișare CC și BCC în detalii', expandBody: 'Corp mesaj extins', expandBodyDesc: 'Afișare automată conținut complet email', autoLoadImages: 'Încărcare automată imagini', autoLoadImagesDesc: 'Încărcare imagini remote din corpul emailului', senderInitials: 'Inițiale expeditor', senderInitialsDesc: 'Avatar circular cu inițiale în listă', groupByDate: 'Grupare după dată', groupByDateDesc: 'Separare mesaje pe zile', attachmentsBefore: 'Atașamente înainte de conținut', attachmentsBeforeDesc: 'Afișare atașamente deasupra corpului emailului', enableAi: 'Activare AI', enableAiDesc: 'Activare funcții AI (răspuns, rezumat, traducere)', languageMode: 'Mod limbă', languageModeDesc: 'În ce limbă să genereze AI răspunsuri și rezumate', targetLanguage: 'Limba țintă', targetLanguageDesc: 'În ce limbă să traducă AI', soundOnSend: 'Sunet la trimitere', soundOnSendDesc: 'Redare sunet la trimiterea cu succes', soundOnReceive: 'Sunet la primire', soundOnReceiveDesc: 'Redare sunet la primirea unui email nou', polling: 'Verificare automată', pollingDesc: 'Cât de des să verifice posta nouă', showHideSidebar: 'Afișare sau ascundere bară laterală cu dosare', changeColor: 'Schimbare culoare', noSignature: 'Nicio semnătură pentru acest cont', signaturePlaceholder: 'Semnătura dvs... (folosiți icoana de imagine pentru logo)', lastEdit: 'Ultima editare: ', personal: 'Personală', shared: 'Partajată', newTagPlaceholder: 'Nume etichetă nouă...', tagCreated: 'Etichetă creată', tagDeleted: 'Etichetă ștearsă', saved: 'Salvat', signatureSaved: 'Semnătura a fost salvată', saveError: 'Nu s-a putut salva semnătura', maximize: 'Maximizare', minimize: 'Minimizare', maximizePanel: 'Maximizare panou', minimizePanel: 'Minimizare panou', settingsTitle: 'Setări', settingsEmailDesc: 'Setări de afișare a listei și detaliilor emailurilor.', settingsAiDesc: 'Setări AI pentru comunicarea prin email.', settingsNotifDesc: 'Setări de notificări sonore și verificare automată.', settingsSignatureDesc: 'Semnături pentru conturile de email.', signatureFor: 'Semnătură pentru', signatureAutoAdd: 'Semnătura se adaugă automat la sfârșitul emailurilor.', tags: 'Etichete', saveSignature: 'Salvare semnătură', sidebarIcon: 'Pictogramă bară laterală', accountColor: 'Culoare cont', tagsTitle: 'Etichete', tagsDesc: 'Creați și gestionați etichete colorate pentru organizarea emailurilor.', addTag: 'Adăugare', defaultTag: 'Implicit', noTags: 'Nicio etichetă încă', noTagsDesc: 'Creați propriile etichete pentru organizarea emailurilor', emailLanguage: 'Limba emailului', info: 'Info', connectedAccountsDesc: 'Conturi de email conectate, pictograme și culori pentru bara laterală.', noConnectedAccounts: 'Niciun cont conectat' },
-        nexusChat: { copied: 'Copiat', messageCopied: 'Mesajul a fost copiat în clipboard', messageDetail: 'Detaliu mesaj + Setări', copyMessage: 'Copiază mesajul', conversation: 'Conversație', askMore: 'Întrebați mai departe...', precise: 'Precis', creative: 'Creativ', systemPrompt: 'Prompt sistem (opțional)', customInstructions: 'Instrucțiuni personalizate pentru NEXUS...', resetDefaults: 'Restabilire implicite' }, editor: { bold: 'Îngroșat', italic: 'Cursiv', underline: 'Subliniat', strikethrough: 'Tăiat', heading1: 'Titlu 1', heading2: 'Titlu 2', bulletList: 'Listă cu marcatori', numberedList: 'Listă numerotată', blockquote: 'Citat', horizontalRule: 'Linie orizontală', alignLeft: 'Aliniere stânga', alignCenter: 'Centrat', alignRight: 'Aliniere dreapta', alignJustify: 'Justificat', resetColor: 'Resetare culoare', removeLink: 'Eliminare link', insertImage: 'Inserare imagine', imageUrl: 'URL imagine...', uploadFromFile: 'Încărcare din fișier', insertTable: 'Inserare tabel', undo: 'Anulare', addAttachment: 'Adăugare atașament', generateReply: 'Generare răspuns cu AI', conversationSummary: 'Rezumat conversație email' }, ai: { generateReply: 'AI Generare răspuns', conversationSummary: 'AI Rezumat conversație', reviewReply: 'Verificați și editați răspunsul sugerat înainte de inserare.', reviewSummary: 'Verificați și editați rezumatul înainte de inserare.', editPlaceholder: 'Editare conținut AI...', insert: 'Inserare', generating: 'Se generează...', generateError: 'Nu s-a putut genera sugestia AI', summaryError: 'Nu s-a putut genera rezumatul', translateError: 'Nu s-a putut traduce conținutul', checkTranslation: 'Verifică traducerea', checking: 'Se verifică...', noErrors: 'Nicio eroare! Textul este corect.', errorsFound: 'erori găsite', useImproved: 'Folosește versiunea îmbunătățită', score: 'Scor', grammar: 'Gramatică', spelling: 'Ortografie', style: 'Stil', wordChoice: 'Alegerea cuvintelor', punctuation: 'Punctuație', close: 'Închide', insertToReply: 'Inserare în răspuns' },
+        nexusChat: { copied: 'Copiat', messageCopied: 'Mesajul a fost copiat în clipboard', messageDetail: 'Detaliu mesaj + Setări', copyMessage: 'Copiază mesajul', conversation: 'Conversație', askMore: 'Întrebați mai departe...', precise: 'Precis', creative: 'Creativ', systemPrompt: 'Prompt sistem (opțional)', customInstructions: 'Instrucțiuni personalizate pentru NEXUS...', resetDefaults: 'Restabilire implicite' }, editor: { bold: 'Îngroșat', italic: 'Cursiv', underline: 'Subliniat', strikethrough: 'Tăiat', heading1: 'Titlu 1', heading2: 'Titlu 2', bulletList: 'Listă cu marcatori', numberedList: 'Listă numerotată', blockquote: 'Citat', horizontalRule: 'Linie orizontală', alignLeft: 'Aliniere stânga', alignCenter: 'Centrat', alignRight: 'Aliniere dreapta', alignJustify: 'Justificat', resetColor: 'Resetare culoare', removeLink: 'Eliminare link', insertImage: 'Inserare imagine', imageUrl: 'URL imagine...', uploadFromFile: 'Încărcare din fișier', insertTable: 'Inserare tabel', undo: 'Anulare', addAttachment: 'Adăugare atașament', generateReply: 'Generare răspuns cu AI', conversationSummary: 'Rezumat conversație email' }, ai: { generateReply: 'AI Generare răspuns', conversationSummary: 'AI Rezumat conversație', reviewReply: 'Verificați și editați răspunsul sugerat înainte de inserare.', reviewSummary: 'Verificați și editați rezumatul înainte de inserare.', editPlaceholder: 'Editare conținut AI...', insert: 'Inserare', generating: 'Se generează...', generateError: 'Nu s-a putut genera sugestia AI', summaryError: 'Nu s-a putut genera rezumatul', translateError: 'Nu s-a putut traduce conținutul', checkTranslation: 'Verifică traducerea', checking: 'Se verifică...', noErrors: 'Nicio eroare! Textul este corect.', errorsFound: 'erori găsite', useImproved: 'Folosește versiunea îmbunătățită', score: 'Scor', grammar: 'Gramatică', spelling: 'Ortografie', style: 'Stil', wordChoice: 'Alegerea cuvintelor', punctuation: 'Punctuație', close: 'Închide', insertToReply: 'Inserare în răspuns', templates: 'Șabloane AI', businessIntro: 'Prezentare a companiei', thankYou: 'Mesaj de mulțumire', followUp: 'Mesaj de revenire', meetingRequest: 'Solicitare de întâlnire', offer: 'Ofertă comercială', infoRequest: 'Solicitare de informații', invitation: 'Invitație', draftGenerated: 'Ciorna de e-mail a fost generată' },
         permissions: { requiredPermissions: 'Permisiuni necesare pentru Microsoft Teams:', permissionsGuide: 'Mergeți la Azure Portal → App registrations → aplicația dvs → API permissions → Add a permission → Microsoft Graph → Delegated permissions → adăugați permisiunile de mai sus → clic pe "Grant admin consent".' },
         common: { error: 'Eroare', messages: 'Mesaje', none: 'Niciunul', all: 'Toate', noMessages: 'Niciun mesaj', newMessage: 'Mesaj nou', loadMore: 'Încarcă mai multe', loadAll: 'Încarcă tot', loading: 'Se încarcă...', of: 'din', allTagsAssigned: 'Toate etichetele atribuite', sending: 'Se trimite mesajul...', pleaseWait: 'Vă rugăm așteptați', messageSent: 'Mesaj trimis', emailDelivered: 'Emailul a fost livrat cu succes', sendFailed: 'Trimiterea a eșuat', tryAgain: 'Încercați din nou', date: 'Data', received: 'Primită', sent: 'Trimisă', translate: 'Traducere', expandPanel: 'Extindere panou', allAccounts: 'Toate conturile', iconEnvelope: 'Plic', iconInbox: 'Inbox', iconPerson: 'Persoană', iconTeam: 'Echipă', iconOffice: 'Birou', iconWorld: 'Lume', iconBriefcase: 'Servietă', iconShield: 'Scut', iconHeart: 'Inimă', iconStar: 'Stea', iconFire: 'Foc', iconBell: 'Clopoțel', iconGem: 'Bijuterie', iconRocket: 'Rachetă', iconCrown: 'Coroană', cancel: 'Anulare', refresh: 'Reîmprospătare' },
         sort: { sort: 'Sortare', dateNewest: 'Dată (cele mai noi)', dateOldest: 'Dată (cele mai vechi)', senderAZ: 'Expeditor (A→Z)', senderZA: 'Expeditor (Z→A)', subjectAZ: 'Subiect (A→Z)', subjectZA: 'Subiect (Z→A)' },
@@ -46281,6 +48059,15 @@ export const translations: Record<Locale, Translations> = {
       details: { calling: 'Apel în curs', ringing: 'Sună', working: 'Lucrează în fișa contactului', available: 'Pregătit pentru următorul apel', break: 'În pauză', offline: 'Offline' },
       callStatuses: { waiting: 'În așteptare', ringing: 'Sună', talking: 'Vorbește' },
       alarm: {
+        overnight: 'Interval peste noapte',
+        timezone: 'Europe/Bratislava',
+        sunday: 'Dum',
+        monday: 'Lun',
+        tuesday: 'Mar',
+        wednesday: 'Mie',
+        thursday: 'Joi',
+        friday: 'Vin',
+        saturday: 'Sâm',
         settings: 'Alerte', settingsTitle: 'Alerte wallboard', settingsDescription: 'Definiți alerte vizuale și sonore pentru condițiile live.', loading: 'Se încarcă alertele…', settingsLoadError: 'Setările alertelor nu au putut fi încărcate.', sourceUnavailable: 'Sursa alertelor nu este disponibilă.', save: 'Salvează modificările', cancel: 'Anulare', saveError: 'Setările alertelor nu au putut fi salvate.', validationError: 'Corectați setările evidențiate.', invalidSettings: 'Setări de alerte invalide.',
         rules: 'Reguli', addRule: 'Adaugă regulă', maxRules: 'Maximum 30 de reguli', rule: 'Regulă', name: 'Nume', enabled: 'Activat', type: 'Condiție', threshold: 'Prag', countUnit: 'Număr', seconds: 'Secunde', minutes: 'Minute', direction: 'Direcția apelului', inbound: 'Intrare', outbound: 'Ieșire', both: 'Ambele', event: 'Eveniment apel', started: 'Început', connected: 'Conectat', delay: 'Durată', delayHelp: 'Condiția trebuie să rămână activă atât timp.', mode: 'Mod alertă', visual: 'Doar vizual', visualSound: 'Vizual + sunet', repeat: 'Repetare sunet', once: 'O dată per incident', repeatEvery: 'Repetă la fiecare',
         schedule: 'Program', scheduleHelp: 'Intervalele peste noapte folosesc ziua de început. Fus orar: Europe/Bratislava.', days: 'Zile', startTime: 'Început', endTime: 'Sfârșit', startupGrace: 'Perioadă de grație la pornire', startupGraceHelp: 'Ignoră alertele după pornirea wallboardului.', volume: 'Volum', delete: 'Șterge', deleteConfirm: 'Ștergeți această regulă de alertă?', typeNoCalls: 'Fără apeluri', typeMinOnline: 'Minimum agenți online', typeMinAvailable: 'Minimum agenți disponibili', typeMaxBreak: 'Prea mulți agenți în pauză', typeLongBreak: 'Pauză lungă a agentului', typeQueueWait: 'Așteptare în coadă',
@@ -46323,6 +48110,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Allega file',
       attachmentUploading: 'Caricamento allegato…',
       attachmentError: 'Caricamento allegato non riuscito',
+      attachmentTooLarge: 'Ogni file deve avere una dimensione massima di 15 MB',
+      attachmentLimitReached: 'Un’attività può avere al massimo 10 allegati',
       attachmentDownload: 'Scarica',
       attachmentOpenTab: 'Apri in una nuova scheda',
       attachmentPreviewUnavailable: 'Anteprima non disponibile',
@@ -46379,6 +48168,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Attività inoltrata',
       toastForwardError: "Errore nell'inoltro dell'attività",
       questionsInboxTitle: 'Domande dal Back Office',
+      questionToastTitle: 'Domanda dal Back Office',
+      taskCompletionHeading: 'Attività completata',
+      taskCompletionOpenAction: 'Apri attività',
+      taskCompletionDismissAction: 'Chiudi notifica',
+      taskCompletionStatus: 'Attività {title} completata',
+      taskCompletionActionError: 'Impossibile aggiornare la notifica dell’attività.',
       answerPlaceholder: 'Scrivi una risposta per il Back Office…',
       answerButton: 'Rispondi',
       toastAnswerSent: 'Risposta inviata al Back Office',
@@ -46747,6 +48542,7 @@ export const translations: Record<Locale, Translations> = {
       pricing: 'Prezzi prodotti',
       executiveSummaries: 'Report esecutivi',
       campaignReports: 'Report campagne',
+      webForms: 'Moduli web',
       medicalPartnerNetwork: 'Healthcare Network',
       campaignTimeline: {
         title: "Cronologia campagne",
@@ -46804,8 +48600,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Gestione relazioni con partner medici, categorie e piani di comunicazione',
       overview: 'Panoramica',
-      institutions: 'Istituzioni',
-      persons: 'Persone',
       settings: 'Impostazioni',
       totalHospitals: 'Totale ospedali',
       totalClinics: 'Totale cliniche',
@@ -46842,9 +48636,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Assegnazione',
       addAssignment: 'Aggiungi assegnazione',
       editAssignment: 'Modifica assegnazione',
-      department: 'Reparto',
-      position: 'Posizione',
-      role: 'Ruolo',
       subcategory: 'Sottocategoria',
       entityName: 'Istituzione',
       personnel: 'Personale',
@@ -46872,11 +48663,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Paese',
       personnelCount: 'Personale',
       status: 'Stato',
-      category: 'Categoria',
       institutionName: 'Istituzione',
       lastContact: 'Ultimo contatto',
       contactInfo: 'Informazioni contatto',
-      primaryContact: 'Contatto principale',
       workplaces: 'Luoghi di lavoro',
       institutions: 'istituzioni',
       filtered: 'filtrato',
@@ -47003,6 +48792,13 @@ export const translations: Record<Locale, Translations> = {
       dataRefreshed: 'Dati aggiornati con successo',
     },
     common: {
+      aiSuggestRegion: 'Suggerisci regione e distretto con l’IA',
+      aiSuggestRegionTitle: 'Suggerimento della regione',
+      aiSuggestMissingCity: 'Città mancante',
+      aiSuggestMissingCityDesc: 'Inserisci prima un paese e una città',
+      aiSuggestError: 'Errore',
+      aiSuggestErrorDesc: 'Impossibile ottenere il suggerimento',
+      aiSuggestButton: 'Suggerisci con l’IA',
       save: 'Salva',
       cancel: 'Annulla',
       delete: 'Elimina',
@@ -47207,6 +49003,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Attività',
       description: 'Gestisci e monitora le tue attività',
+      requestFromSubmitter: 'Richiesta del mittente',
+      originalRequest: 'Mostra la descrizione originale completa',
       noTasks: 'Nessuna attività trovata',
       openTasks: 'Attività aperte',
       loadError: 'Impossibile caricare le attività aperte. Riprova.',
@@ -47248,6 +49046,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Risolvi attività',
       resolveTaskDesc: 'Inserisci la risoluzione per questa attività',
       resolution: 'Risoluzione',
+      resolutionDialog: { title: 'Risolvi attività', description: 'Registra il lavoro svolto prima di chiudere l’attività.', resolution: 'Risoluzione', placeholder: 'Descrivi il risultato…', cancel: 'Annulla', submit: 'Risolvi attività', checklist: 'Checklist Pulse', loading: 'Caricamento checklist…', loadError: 'Impossibile caricare la checklist. Riprova prima di risolvere.', retry: 'Riprova', empty: 'Aggiungi almeno un passaggio prima di risolvere questa attività Pulse.', remaining: 'Restano {count} passaggi. Completa tutti i passaggi per risolvere.', complete: 'Tutti i passaggi sono completati', returnToChecklist: 'Torna alla checklist', draft: 'Bozza con AI', drafting: 'Bozza in preparazione…', draftUnavailable: 'La bozza AI non è disponibile. Puoi comunque scrivere la risoluzione.', draftFailed: 'Impossibile generare la bozza. Riprova o scrivi manualmente.', draftReady: 'Bozza AI pronta — controllala e modificala prima di risolvere.', draftPreserved: 'Il testo esistente è stato conservato: la bozza AI non lo ha sostituito.', draftingHint: 'Sto trasformando i passaggi completati e le loro note in un riepilogo breve da modificare…', draftNoCompletedSteps: 'Non ci sono ancora passaggi completati da riassumere. Puoi comunque scrivere manualmente.', checklistDraftError: 'Impossibile caricare la checklist: nessun passaggio è stato inviato per il riepilogo. Puoi scriverlo a mano oppure riprovare.', notify: 'Avvisa l’agente', notifyHint: 'Informa l’agente assegnato che l’attività è stata risolta.' },
       resolvedBy: 'Risolto da',
       resolvedAt: 'Risolto il',
       reassign: 'Riassegna',
@@ -47258,6 +49057,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Aggiungi commento',
       commentPlaceholder: 'Scrivi un commento...',
       noComments: 'Ancora nessun commento',
+      taskDiscussion: 'Discussione attività',
+      commentsActivity: 'Discussione recente',
+      commentsEmptyHint: 'Lascia il primo messaggio su questa attività.',
+      loadingComments: 'Caricamento commenti',
+      commentsLoadFailed: 'Impossibile caricare i commenti.',
+      commentsRetry: 'Riprova',
+      unknownAuthor: 'Membro del team',
+      attachmentsOnly: 'Ha condiviso un allegato',
+      viewAllComments: 'Visualizza tutti i {count} commenti',
+      previewAttachment: 'Anteprima allegato',
+      openAttachment: 'Apri allegato',
+      commentKeyboardHint: 'Invio per inviare · Maiusc + Invio per una nuova riga',
+      taskAgentRequestTitle: 'La tua richiesta',
+      taskAgentRequestHint: 'Descrivi cosa va risolto. Includi i dati corretti quando chiedi una correzione.',
+      taskRequestContextTitle: 'Contesto dell’attività',
+      taskRequestContextHint: 'Aggiunto automaticamente alla richiesta.',
+      dismissUploadError: 'Scarta il caricamento non riuscito',
       viewDetails: 'Visualizza dettagli',
       taskResolved: 'Attività risolta con successo',
       taskReassigned: 'Attività riassegnata con successo',
@@ -47272,6 +49088,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Semestre',
       year: 'Anno',
       cancelTask: 'Annulla attività',
+      cancelConfirmKicker: 'Un ultimo controllo',
+      cancelConfirmHeading: 'Annullare questa attività?',
+      cancelConfirmBody: 'L’attività terminerà con lo stato Annullata. Non potrà essere completata mentre si trova in questo stato.',
+      cancelConfirmQuestion: 'Vuoi davvero annullare questa attività?',
+      cancelConfirmKeep: 'Mantieni attività',
+      cancelConfirmAction: 'Annulla attività',
       save: 'Salva',
       selectTask: 'Seleziona un\'attività per visualizzare i dettagli',
       task: 'Attività',
@@ -47286,12 +49108,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Popup notifica attività',
       taskNotifyPopupDesc: 'Mostra popup quando viene assegnata una nuova attività',
       newTaskAssigned: 'Nuova attività assegnata',
+      checklistTitle: 'Checklist',
+      checklistAddPlaceholder: 'Aggiungi un passaggio alla checklist…',
+      checklistAdd: 'Aggiungi passaggio',
+      checklistRemove: 'Rimuovi passaggio',
+      checklistEdit: 'Modifica passaggio',
+      checklistSave: 'Salva passaggio',
+      checklistCancel: 'Annulla modifica',
+      checklistLoadError: 'Impossibile caricare la checklist.',
+      checklistMutationError: 'Impossibile aggiornare la checklist. Riprova.',
+      checklistAiGenerating: 'L’AI sta preparando i passaggi suggeriti…',
+      checklistAiProposal: 'Consigliato dall’AI',
+      checklistAiFailed: 'L’AI non è riuscita a generare suggerimenti. Puoi aggiungere i passaggi manualmente o riprovare.',
+      checklistAiUnavailable: 'La generazione della checklist AI non è attualmente disponibile. Puoi aggiungere i passaggi manualmente o riprovare.',
+      checklistAiRetry: 'Riprova',
+      checklistAiLoadError: 'Impossibile caricare lo stato della checklist AI.',
+      checklistMarkComplete: 'Segna come completato',
+      checklistMarkIncomplete: 'Segna come non completato',
+      checklistNoteLabel: 'Nota sul passaggio',
+      checklistNotePlaceholder: 'Aggiungi una breve nota su questo passaggio…',
+      checklistNoteAdd: 'Aggiungi nota',
+      checklistNoteEdit: 'Modifica nota',
+      checklistNoteSave: 'Salva nota',
+      checklistNoteCancel: 'Annulla',
+      taskWorkElapsed: 'Tempo trascorso',
+      taskWorkElapsedDescription: 'Tempo trascorso dall’inizio del lavoro; include l’attesa e non è tempo fatturabile.',
+      taskWorkStartUnknown: 'Orario di inizio non disponibile',
+      taskOverdueLabel: 'Scaduto',
+      taskOverdueDuration: '{days} giorni / {hours}:{minutes}',
       priority: 'Priorità',
       status: 'Stato',
       description2: 'Descrizione',
+      workspace: {
+        settings: 'Impostazioni gruppi attività',
+        filtersTitle: 'Filtri attività',
+        searchPeoplePlaceholder: 'Cerca attività...',
+        dateAll: 'Qualsiasi data',
+        dateToday: 'Oggi',
+        dateWeek: 'Questa settimana',
+        dateMonth: 'Questo mese',
+        dateCustom: 'Intervallo personalizzato',
+        basisCreated: 'Creata',
+        basisDue: 'Scadenza',
+        basisResolved: 'Risolta',
+        sortCreated: 'Data di creazione',
+        sortDue: 'Data di scadenza',
+        sortResolved: 'Data di risoluzione',
+        sortPriority: 'Priorità',
+        sortTitle: 'Titolo',
+        ascending: 'Crescente',
+        descending: 'Decrescente',
+        anyCreator: 'Qualsiasi creatore',
+        anyResolver: 'Qualsiasi responsabile',
+        dateFrom: 'Data iniziale',
+        dateTo: 'Data finale',
+        rangeSeparator: 'a',
+        clearFilters: 'Cancella filtri',
+        group: 'Gruppo attività',
+        noGroup: 'Nessun gruppo',
+        notifyAgent: 'Notifica l’agente originale',
+        notifyAgentHint: 'Notifica l’agente originale che ha creato questa attività in Nexus Pulse.',
+        noMatchingTasks: 'Nessuna attività corrisponde a questi filtri.',
+        titleRequired: 'Il titolo dell’attività è obbligatorio.',
+        unassigned: 'Non assegnato',
+        sortOrder: 'Ordine di ordinamento',
+        changeSortOrder: 'Modifica ordine di ordinamento',
+      },
       taskGroups: {
         title: 'Gruppi di attività',
         newGroup: 'Nuovo gruppo',
+        dialogTitle: 'Gruppi di attività',
+        activeUsers: 'Utenti attivi',
+        inactiveMemberWarning: 'Alcuni membri selezionati sono inattivi. Restano assegnati finché non vengono rimossi.',
+        inactive: 'Inattivo',
+        changesTitle: 'Scartare le modifiche?',
+        changesDescription: 'Sono presenti modifiche non salvate. Vuoi scartarle?',
+        discardChanges: 'Scarta le modifiche',
+        moveUp: 'Sposta {name} in alto',
+        moveDown: 'Sposta {name} in basso',
+        readOnly: 'Puoi visualizzare i gruppi, ma solo manager e amministratori possono modificarli.',
+        nameRequired: 'Il nome del gruppo è obbligatorio.',
+        usersLoadFailed: 'Impossibile caricare gli utenti.',
+        groupsLoadFailed: 'Impossibile caricare i gruppi di attività.',
+        advanced: 'Ordinamento avanzato',
+        serverError: 'Il server non ha potuto salvare le modifiche. Riprova.',
         editGroup: 'Modifica gruppo',
         newGroupTitle: 'Nuovo gruppo di attività',
         deleteTitle: 'Eliminare il gruppo?',
@@ -47357,6 +49257,83 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Utenti inattivi',
       customersByCountry: 'Clienti per paese',
       noCustomersFound: 'Nessun cliente trovato',
+      webForms: 'Moduli web',
+      webFormsNoForms: 'Nessun modulo web',
+      webFormsNew: 'nuovi',
+      webFormsTotal: 'totale',
+      webFormsRegistrations: 'Registrazioni',
+      webFormsListDescription: 'Panoramica delle registrazioni dai moduli web',
+      webFormsNoRegistrations: 'Nessuna registrazione',
+      webFormsDate: 'Data',
+      webFormsName: 'Nome',
+      webFormsEmail: 'Email',
+      webFormsType: 'Tipo',
+      webFormsStatus: 'Stato',
+      webFormsActions: 'Azioni',
+      webFormsTabPending: 'In attesa',
+      webFormsTabApproved: 'Approvate',
+      webFormsTabRejected: 'Rifiutate',
+      webFormsTabAll: 'Tutte',
+      webFormsNewCustomer: 'Nuovo cliente',
+      webFormsExistingCustomer: 'Cliente esistente',
+      webFormsNew2: 'Nuovo',
+      webFormsExisting: 'Esistente',
+      webFormsPending: 'In attesa',
+      webFormsApproved: 'Approvato',
+      webFormsProcessed: 'Elaborato',
+      webFormsRejected: 'Rifiutato',
+      webFormsOtpVerified: 'OTP verificato',
+      webFormsWaitingApproval: 'In attesa di approvazione',
+      webFormsLinkedCustomer: 'Cliente collegato',
+      webFormsDetailTitle: 'Dettaglio registrazione',
+      webFormsBack: 'Indietro',
+      webFormsApprove: 'Approva registrazione',
+      webFormsReject: 'Rifiuta registrazione',
+      webFormsSectionPersonal: 'Informazioni personali',
+      webFormsSectionContact: 'Informazioni di contatto',
+      webFormsSectionAddress: 'Indirizzo',
+      webFormsSectionCorrAddress: 'Indirizzo di corrispondenza',
+      webFormsSectionHealth: 'Informazioni sanitarie',
+      webFormsSectionPayment: 'Pagamento e consensi',
+      webFormsSectionOther: 'Altre informazioni',
+      webFormsTrimester: 'trimestre',
+      webFormsWeek: 'settimana',
+      webFormsDaysUntilBirth: 'giorni al parto',
+      webFormsDueDateToday: 'La data prevista è oggi!',
+      webFormsDaysAfterDue: 'giorni dopo la data prevista',
+      webFormsDataPrecheck: 'Verifica preliminare dei dati',
+      webFormsPrecheckDescription: 'Confronto dei dati inviati con la scheda cliente esistente',
+      webFormsPrecheckWarning: 'Attenzione! I dati inviati differiscono da quelli della scheda cliente esistente.',
+      webFormsPrecheckNameMismatch: 'Il nome nel modulo non corrisponde a quello della scheda cliente collegata. Il cliente potrebbe aver cambiato cognome (ad esempio dopo il matrimonio).',
+      webFormsPrecheckField: 'Campo',
+      webFormsPrecheckExistingValue: 'Scheda cliente',
+      webFormsPrecheckNewValue: 'Valore inviato',
+      webFormsPrecheckResult: 'Risultato',
+      webFormsPrecheckUpdate: 'Aggiorna',
+      webFormsPrecheckMatch: 'Corrisponde',
+      webFormsPrecheckDiffers: 'Diverso',
+      webFormsPrecheckNewField: 'Nuovo',
+      webFormsPrecheckEmpty: 'Non compilato',
+      webFormsPrecheckTestMode: 'MODALITÀ DI PROVA — non verrà salvata alcuna modifica',
+      webFormsPrecheckMatchingFields: 'campi corrispondenti',
+      webFormsPrecheckDifferingFields: 'campi diversi',
+      webFormsPrecheckSelectedUpdates: 'selezionati per l’aggiornamento',
+      webFormsPrecheckNoChanges: 'Tutti i dati inviati corrispondono alla scheda cliente.',
+      webFormsPrecheckNewChild: 'Rilevata una nuova gravidanza',
+      webFormsPrecheckNewChildDesc: 'La data prevista del parto nella scheda cliente è già passata. Questa registrazione potrebbe riguardare un nuovo (secondo) figlio. Dopo l’approvazione, il numero di figli può essere aggiornato a 2 e si può impostare una nuova data prevista del parto.',
+      webFormsPrecheckExistingDob: 'Data prevista del parto esistente nella scheda',
+      webFormsSocialCheck: 'Verifica social con IA',
+      webFormsSocialCheckDesc: 'Cerca menzioni del cliente sui social media e nei forum',
+      webFormsSocialCheckRunning: 'Analisi in corso...',
+      webFormsSocialCheckAiAnalysis: 'Suggerimenti dell’IA',
+      webFormsSocialCheckLinks: 'Link di ricerca',
+      webFormsSocialCheckOpen: 'Apri',
+      webFormsSocialCheckError: 'Errore nell’analisi IA',
+      webFormsCallClient: 'Chiama il cliente',
+      webFormsCallNote: 'Nota della chiamata',
+      webFormsCallNotePlaceholder: 'Inserisci una nota sulla chiamata (ad es. dati verificati, cambio di nome confermato)...',
+      webFormsCallNoteSaved: 'Nota salvata nella cronologia del cliente',
+      webFormsSaveNote: 'Salva nota',
     },
     customers: {
       title: 'Clienti',
@@ -47377,6 +49354,21 @@ export const translations: Record<Locale, Translations> = {
       serviceType: 'Tipo di servizio',
       address: 'Indirizzo',
       city: 'Città',
+      firstName: 'Nome',
+      lastName: 'Cognome',
+      street: 'Via',
+      streetNumber: 'Numero civico',
+      orientationNumber: 'Numero interno',
+      ico: 'Partita IVA / Codice aziendale',
+      icoTip: 'Codice identificativo aziendale',
+      idZz: 'ID struttura sanitaria',
+      idZzTip: 'Identificativo della struttura sanitaria',
+      pzsCode: 'Codice PZS',
+      pzsCodeTip: 'Codice del prestatore di assistenza sanitaria',
+      pzsName: 'Nome PZS',
+      pzsNameTip: 'Nome del prestatore di assistenza sanitaria',
+      additionalIdentifiers: 'Identificativi aggiuntivi',
+      lookupPsc: 'Compila automaticamente il codice postale',
       postalCode: 'CAP',
       notes: 'Note',
       tabs: {
@@ -48016,6 +50008,8 @@ export const translations: Record<Locale, Translations> = {
     collections: {
       title: 'Raccolte',
       description: 'Gestisci raccolte di sangue del cordone ombelicale',
+      firstName: 'Nome',
+      lastName: 'Cognome',
       addCollection: 'Aggiungi raccolta',
       editCollection: 'Modifica raccolta',
       deleteCollection: 'Elimina raccolta',
@@ -48026,6 +50020,43 @@ export const translations: Record<Locale, Translations> = {
       collection: 'Raccolta',
       status: 'Stato',
       labResults: 'Risultati laboratorio',
+      lab: {
+        usability: 'Idoneità',
+        resultsDate: 'Data dei risultati',
+        labNote: 'Nota di laboratorio',
+        cbu: 'CBU',
+        collectionFor: 'Destinazione del prelievo',
+        processing: 'Lavorazione',
+        sterility: 'Sterilità',
+        sterilityType: 'Tipo di sterilità',
+        resultOfSterility: 'Esito della sterilità',
+        infectionAgents: 'Agenti infettivi',
+        tncCount: 'Conteggio TNC',
+        volume: 'Volume',
+        volumeInBag: 'Volume nella sacca',
+        umbilicalTissue: 'Tessuto ombelicale',
+        tissueProcessed: 'Tessuto lavorato',
+        tissueSterility: 'Sterilità del tessuto',
+        tissueUsability: 'Idoneità del tessuto',
+        bagAUsability: 'Idoneità della sacca A',
+        bagAVolume: 'Volume della sacca A',
+        bagATnc: 'TNC della sacca A',
+        bagBUsability: 'Idoneità della sacca B',
+        bagBVolume: 'Volume della sacca B',
+        bagBTnc: 'TNC della sacca B',
+        basicInfo: 'Informazioni di base',
+        sterilitySection: 'Sterilità e infezioni',
+        volumeSection: 'Volumi e conteggi',
+        tissueSection: 'Tessuto ombelicale',
+        bagASection: 'Sacca A',
+        bagBSection: 'Sacca B',
+        downloadCbuReport: 'Scarica il referto CBU',
+        medicalReportSk: 'Referto medico (SK)',
+        medicalReportEn: 'Referto medico (EN)',
+        fullReportSk: 'Referto completo (SK)',
+        fullReportEn: 'Referto completo (EN)',
+        reportDownloaded: 'Referto scaricato correttamente',
+      },
       phone: 'Telefono',
       mobile: 'Cellulare',
       birthNumber: 'Codice fiscale',
@@ -48216,6 +50247,7 @@ export const translations: Record<Locale, Translations> = {
       fullName: 'Nome completo',
       streetNumber: 'Via e numero',
       city: 'Città',
+      district: 'Distretto',
       postalCode: 'CAP',
       region: 'Regione',
       contactPerson: 'Persona di contatto',
@@ -48489,6 +50521,7 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Modelli',
         rewards: 'Ricompense',
         actions: 'Azioni',
+        healthcareNetworks: 'Reti sanitarie',
       },
       addressTabs: {
         permanent: 'Residenza permanente',
@@ -48864,6 +50897,48 @@ export const translations: Record<Locale, Translations> = {
         not_interested: 'Non interessato',
       },
       detail: {
+        defaultOnlyAssignedTitle: 'Filtro predefinito «Solo assegnati»',
+        defaultOnlyAssignedDesc: 'Se attivato, il filtro «Solo assegnati» nella coda dell’operatore verrà selezionato automaticamente ogni volta che l’operatore accede a questa missione.',
+        changeStatus: 'Cambia stato',
+        customerHistory: 'Cronologia cliente',
+        noHistory: 'Nessuna cronologia',
+        campaignJoined: 'Ha aderito alla missione',
+        campaignLeft: 'Ha lasciato la missione',
+        emailSent: 'Email inviata',
+        smsSent: 'SMS inviato',
+        noteAdded: 'Nota aggiunta',
+        dragFileHere: 'Trascina qui il file',
+        orClickToSelect: 'oppure fai clic per selezionarlo',
+        downloadSampleCsv: 'Scarica CSV di esempio',
+        expectedColumns: 'Colonne previste:',
+        supportedFormats: 'Formati supportati: CSV (separato da punto e virgola o virgola), Excel (.xlsx)',
+        updateExisting: 'Aggiorna i contatti esistenti (sovrascrive i dati se il contatto è già presente)',
+        uploadingFile: 'Caricamento del file...',
+        processingContacts: 'Elaborazione dei contatti...',
+        created: 'Creati',
+        updated: 'Aggiornati',
+        duplicates: 'Duplicati',
+        skipped: 'Ignorati',
+        deleteLastImport: 'Elimina l’ultima importazione',
+        deleting: 'Eliminazione...',
+        close: 'Chiudi',
+        remove: 'Rimuovi',
+        import: 'Importa',
+        kpiTracking: 'Monitoraggio obiettivi KPI',
+        kpiTrackingDesc: 'Monitora i progressi rispetto agli obiettivi KPI della campagna',
+        current: 'Attuale',
+        target: 'Obiettivo',
+        targetRevenue: 'Ricavi obiettivo',
+        revenueTrackingDesc: 'Il monitoraggio dei ricavi richiede l’integrazione con il sistema di fatturazione',
+        dailyOperatorTargets: 'Obiettivi giornalieri degli operatori',
+        callsPerDay: 'Chiamate/giorno',
+        contactsPerDay: 'Contatti/giorno',
+        conversionsPerDay: 'Conversioni/giorno',
+        conversionRate: 'Tasso di conversione',
+        successful: 'Riusciti',
+        notInterested: 'Non interessato',
+        preview: 'Anteprima',
+        textMode: 'Modalità testo',
         overview: 'Panoramica',
         contacts: 'Contatti',
         settings: 'Impostazioni',
@@ -50433,6 +52508,11 @@ export const translations: Record<Locale, Translations> = {
         missedCommunications: 'Comunicazioni perse', missedCommunicationsHint: 'Chiamate, e-mail e SMS',
         myShiftHint: 'Attività di oggi', open: 'Apri',
       },
+      todayCallsDisposition: 'Esito',
+      todayCallsWord1: 'chiamata',
+      todayCallsWord234: 'chiamate',
+      todayCallsWord5plus: 'chiamate',
+      todayCallsAnswered: 'risposte',
       todayCallsButtonLabel: 'Il mio turno',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Attività attive',
@@ -50493,7 +52573,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Chiama!',
       myCB: 'Mio CB',
       teamCB: 'CB squadra',
-      filterAll: 'Tutti i contatti', filterMyCB: 'Miei riprogrammati', filterTeamCB: 'Squadra riprogrammati', filterDue: 'In scadenza ora', filterPending: 'In attesa (nuovi)',
+      filterMyCB: 'Miei riprogrammati', filterTeamCB: 'Squadra riprogrammati', filterDue: 'In scadenza ora',
       groupDue: 'Chiamate in scadenza', groupMyCb: 'I miei programmati', groupTeamCb: 'Squadra programmati', groupOtherCb: 'Assegnati ad altri', groupPending: 'Nuovi contatti',
       emailHistory: 'Cronologia e-mail',
       smsHistory: 'Cronologia SMS',
@@ -51323,6 +53403,31 @@ export const translations: Record<Locale, Translations> = {
     },
     konfigurator: {
       title: 'Configuratore',
+      bulkGeoTitle: 'Compilazione automatica delle regioni',
+      bulkGeoDescription: 'Il sistema compilerà automaticamente con l’IA le regioni e i distretti mancanti in base alla città e all’indirizzo. Seleziona un paese e i moduli da elaborare.',
+      bulkGeoCountry: 'Paese',
+      bulkGeoCountryPlaceholder: 'Seleziona un paese',
+      bulkGeoModules: 'Moduli',
+      bulkGeoSelectAll: 'Seleziona tutto',
+      bulkGeoDeselectAll: 'Deseleziona tutto',
+      bulkGeoHospitals: 'Ospedali',
+      bulkGeoClinics: 'Cliniche',
+      bulkGeoCollaborators: 'Collaboratori',
+      bulkGeoCustomers: 'Clienti',
+      bulkGeoSelectCountry: 'Seleziona un paese',
+      bulkGeoSelectModule: 'Seleziona almeno un modulo',
+      bulkGeoProcessing: 'Elaborazione',
+      bulkGeoRunButton: 'Avvia compilazione',
+      bulkGeoRunningButton: 'Elaborazione...',
+      bulkGeoResults: 'Risultati',
+      bulkGeoComplete: 'completato',
+      bulkGeoAllComplete: 'Tutti i record sono completi',
+      bulkGeoNoRecords: 'Nessun record trovato per questo paese',
+      bulkGeoFilled: 'Compilati',
+      bulkGeoError: 'Errore di elaborazione',
+      bulkGeoErrorTimeout: 'Richiesta scaduta: troppi record. Riprova.',
+      bulkGeoDoneTitle: 'Compilazione delle regioni completata',
+      bulkGeoDoneDescription: 'Aggiornati {updated} record su {total}',
       description: 'Configura servizi, modelli di fattura e layout',
       webFormsTab: 'Moduli Web',
       webFormsDescription: 'Gestione dei moduli di registrazione web per tutti i paesi',
@@ -51404,6 +53509,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Modello creato con successo',
       templateUpdated: 'Modello aggiornato con successo',
       templateDeleted: 'Modello eliminato con successo',
+      copyToLanguage: 'Copia nella lingua',
+      targetLanguage: 'Lingua di destinazione',
+      autoTranslate: 'Traduci automaticamente con l’IA',
+      autoTranslateDesc: 'Usa OpenAI per tradurre i contenuti nella lingua di destinazione',
+      templateTranslated: 'Modello tradotto e copiato',
+      templateCopied: 'Modello copiato',
+      translating: 'Traduzione in corso...',
+      copying: 'Copia in corso...',
+      translateAndCopy: 'Traduci e copia',
+      copyTemplate: 'Copia',
       templateFormDescription: 'Configura modello fattura e branding',
       addLayout: 'Aggiungi layout',
       editLayout: 'Modifica layout',
@@ -51429,7 +53544,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Campi cliente',
       billingFields: 'Campi fatturazione',
       invoiceFields: 'Campi fattura',
-      preview: 'Anteprima',
       properties: 'Proprietà',
       fontWeight: 'Peso font',
       textAlign: 'Allineamento testo',
@@ -53155,7 +55269,7 @@ export const translations: Record<Locale, Translations> = {
         chats: { internalChats: 'Chat interni', selectConversation: 'Seleziona una conversazione nella barra laterale', lastMessage: 'Ultimo messaggio:', noConversations: 'Nessuna conversazione', onlineUsers: 'Utenti online', startChat: 'Avvia chat', typeMessage: 'Scrivi un messaggio...', sendMessage: 'Invia', noMessages: 'Nessun messaggio ancora', today: 'Oggi', yesterday: 'Ieri', typing: 'sta scrivendo...', you: 'Tu', conversations: 'Conversazioni', newChat: 'Nuova chat', online: 'Online', offline: 'Offline', chatNotifySound: 'Suono notifica chat', chatNotifySoundDesc: 'Riproduci suono quando arriva un nuovo messaggio', chatNotifyPopup: 'Popup notifica chat', chatNotifyPopupDesc: 'Mostra popup quando arriva un nuovo messaggio', newMessageFrom: 'Nuovo messaggio da' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Nessun messaggio', writePlaceholder: 'Scrivi un messaggio...', directChat: 'Chat diretto', groupChat: 'Chat di gruppo', noTeamsChats: 'Nessun chat Teams', noTeams: 'Nessun team', notConnected: 'MS365 non è collegato', sendError: 'Impossibile inviare il messaggio', createMeeting: 'Besprechung erstellen', meetingCreated: 'Besprechung erstellt', meetingError: 'Besprechung konnte nicht erstellt werden', joinMeeting: 'Beitreten', meetingSubject: 'Betreff der Besprechung', startMeeting: 'Besprechung starten', instantMeeting: 'Sofortbesprechung', scheduleMeeting: 'Besprechung planen', meetingLink: 'Besprechungslink', linkCopied: 'Link kopiert', meetingWith: 'Besprechung mit', members: 'Mitglieder', openInTeams: 'In Teams öffnen', lastMessage: 'Letzte Nachricht', meetingDate: 'Datum', meetingStartTime: 'Startzeit', meetingEndTime: 'Endzeit', addParticipants: 'Teilnehmer hinzufügen', participantEmail: 'Teilnehmer-E-Mail', upcomingMeetings: 'Bevorstehende Besprechungen', noUpcomingMeetings: 'Keine bevorstehenden Besprechungen', startsIn: 'Beginnt in', inProgress: 'Läuft', today: 'Heute', tomorrow: 'Morgen', remove: 'Entfernen', attachFile: 'Datei anhängen', attachmentSent: 'Anhang gesendet', uploadError: 'Datei konnte nicht hochgeladen werden', recentMeetings: 'Letzte Besprechungen', noMeetings: 'Keine Besprechungen gefunden', transcript: 'Transkript', noTranscript: 'Kein Transkript verfügbar', loadingTranscript: 'Transkript wird geladen...', aiSummary: 'KI-Zusammenfassung', generateSummary: 'KI-Zusammenfassung erstellen', generatingSummary: 'Zusammenfassung wird erstellt...', rawTranscript: 'Rohes Transkript', summary: 'Zusammenfassung', meetingDuration: 'Dauer', viewTranscript: 'Transkript anzeigen', transcriptError: 'Transkript konnte nicht geladen werden', recordings: 'Aufnahmen', noRecordings: 'Keine Aufnahmen verfügbar', downloadRecording: 'Aufnahme herunterladen', recording: 'Aufnahme', meetingsAndRecordings: 'Besprechungen und Aufnahmen', activity: 'Aktivität', noActivity: 'Keine Aktivität', justNow: 'Gerade eben' },
         calendar: { today: 'Heute', thisWeek: 'Diese Woche', thisMonth: 'Dieser Monat' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Websites', selectSite: 'SharePoint-Website auswählen', noSites: 'Keine Websites gefunden', libraries: 'Bibliotheken', selectLibrary: 'Bibliothek auswählen', files: 'Dateien', folders: 'Ordner', name: 'Name', size: 'Größe', modified: 'Geändert', modifiedBy: 'Geändert von', noFiles: 'Keine Dateien oder Ordner', upload: 'Hochladen', uploading: 'Wird hochgeladen...', uploadSuccess: 'Datei hochgeladen', uploadError: 'Hochladen fehlgeschlagen', newFolder: 'Neuer Ordner', folderName: 'Ordnername', createFolder: 'Ordner erstellen', folderCreated: 'Ordner erstellt', folderError: 'Ordner konnte nicht erstellt werden', download: 'Herunterladen', delete: 'Löschen', deleteConfirm: 'Möchten Sie dieses Element wirklich löschen?', deleted: 'Element gelöscht', deleteError: 'Element konnte nicht gelöscht werden', openInBrowser: 'Im Browser öffnen', dragDropHint: 'Dateien hierher ziehen oder Hochladen klicken', backToRoot: 'Zurück zum Stammordner', searchFiles: 'Dateien suchen...', items: 'Elemente', created: 'Created', versions: 'Versionen', version: 'Version', restoreVersion: 'Diese Version wiederherstellen', versionRestored: 'Version wiederhergestellt', versionRestoreError: 'Version konnte nicht wiederhergestellt werden', noVersions: 'Keine Versionen', share: 'Teilen', shareLink: 'Freigabelink', copyLink: 'Link kopieren', linkCopied: 'Link kopiert', viewOnly: 'Nur ansehen', editAccess: 'Bearbeiten', organization: 'Organisation', anyone: 'Jeder', createLink: 'Link erstellen', permissions: 'Berechtigungen', removePermission: 'Berechtigung entfernen', permissionRemoved: 'Berechtigung entfernt', noPermissions: 'Keine Freigabeberechtigungen', preview: 'Vorschau', closePreview: 'Vorschau schließen', searchResults: 'Suchergebnisse', searching: 'Suche...', noPinnedSites: 'Keine angehefteten Websites', configureHint: 'Konfigurieren Sie NexusPoint und wählen Sie Websites in Ihren Profileinstellungen aus.', selectSiteHint: 'Wählen Sie eine Website und Bibliothek aus dem linken Panel.', contentStorageTitle: 'Dieser Website-Typ wird nicht unterstützt', contentStorageHint: 'Microsoft Loop-Arbeitsbereiche und persönliche Speicherorte können nicht über NexusPoint verwaltet werden. Bitte wählen Sie eine Standard-SharePoint-Website.', pinnedSites: 'Angeheftete Websites', pinnedSitesHint: 'Markierte Websites erscheinen in NexusPoint. Wenn nichts ausgewählt wird, werden alle angezeigt.', defaultSite: 'Standard-Website', defaultSiteHint: 'Öffnet diese Website automatisch beim Start von NexusPoint.', noneDefault: 'Kein Standard', defaultLibrary: 'Standardbibliothek', defaultLibraryHint: 'Öffnet diese Bibliothek automatisch nach der Websiteauswahl.', loadingLibraries: 'Bibliotheken laden...', noneDefaultLibrary: 'Keine Standardbibliothek', currentSettings: 'Aktuelle gespeicherte Einstellungen', saveSettings: 'NexusPoint-Einstellungen speichern', settingsSaved: 'NexusPoint-Einstellungen gespeichert', settingsError: 'Fehler beim Speichern der Einstellungen', checkingConnection: 'MS365-Verbindung wird geprüft...', ms365NotConnected: 'MS365 nicht verbunden', ms365NotConnectedHint: 'Verbinden Sie zuerst das MS365-Konto auf dem MS365-Tab, dann können Sie NexusPoint konfigurieren.', userSettingsTitle: 'NexusPoint — Benutzereinstellungen', userSettingsDesc: 'Angeheftete Websites und Standardspeicherort für diesen Benutzer', loadingSites: 'SharePoint-Websites laden...', noSitesMs365: 'Keine SharePoint-Websites gefunden. MS365-Verbindung prüfen.', pinnedCount: 'Angeheftete Websites:', defaultSiteLabel: 'Standard-Website:', globalBadge: 'Global', newSite: 'Neue Website', saveToNexusPoint: 'In NexusPoint speichern', savedToNexusPoint: 'In NexusPoint gespeichert', saveNexusError: 'Fehler beim Speichern in NexusPoint', selectDestination: 'Ziel auswählen', move: 'Verschieben', moveSuccess: 'Element verschoben', moveError: 'Verschieben fehlgeschlagen', moveToFolder: 'Hierher verschieben', moveTo: 'Verschieben nach', notesAndTags: 'Notizen & Tags', note: 'Notiz', notePlaceholder: 'Interne Notiz hinzufügen...', saveNote: 'Notiz speichern', noteSaved: 'Notiz gespeichert', noteSaveError: 'Fehler beim Speichern der Notiz', tags: 'Tags', addTag: 'Tag hinzufügen', tagPlaceholder: 'Neuer Tag...', tagAdded: 'Tag hinzugefügt', tagDeleted: 'Tag entfernt', searchByTag: 'Nach Tag suchen', moveDestination: 'Zielort', moveSiteLabel: 'Website', moveDriveLabel: 'Bibliothek', unknownFile: 'Unbekannte Datei (zum Öffnen klicken)', globalResultsLabel: 'Globale Ergebnisse' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Websites', selectSite: 'SharePoint-Website auswählen', noSites: 'Keine Websites gefunden', libraries: 'Bibliotheken', selectLibrary: 'Bibliothek auswählen', files: 'Dateien', folders: 'Ordner', name: 'Name', size: 'Größe', modified: 'Geändert', modifiedBy: 'Geändert von', noFiles: 'Keine Dateien oder Ordner', upload: 'Hochladen', uploading: 'Wird hochgeladen...', uploadSuccess: 'Datei hochgeladen', uploadError: 'Hochladen fehlgeschlagen', newFolder: 'Neuer Ordner', folderName: 'Ordnername', createFolder: 'Ordner erstellen', folderCreated: 'Ordner erstellt', folderError: 'Ordner konnte nicht erstellt werden', download: 'Herunterladen', delete: 'Löschen', deleteConfirm: 'Möchten Sie dieses Element wirklich löschen?', deleted: 'Element gelöscht', deleteError: 'Element konnte nicht gelöscht werden', openInBrowser: 'Im Browser öffnen', dragDropHint: 'Dateien hierher ziehen oder Hochladen klicken', backToRoot: 'Zurück zum Stammordner', searchFiles: 'Dateien suchen...', items: 'Elemente', created: 'Created', versions: 'Versionen', version: 'Version', restoreVersion: 'Diese Version wiederherstellen', versionRestored: 'Version wiederhergestellt', versionRestoreError: 'Version konnte nicht wiederhergestellt werden', noVersions: 'Keine Versionen', share: 'Teilen', shareLink: 'Freigabelink', copyLink: 'Link kopieren', linkCopied: 'Link kopiert', viewOnly: 'Nur ansehen', editAccess: 'Bearbeiten', organization: 'Organisation', anyone: 'Jeder', createLink: 'Link erstellen', permissions: 'Berechtigungen', removePermission: 'Berechtigung entfernen', permissionRemoved: 'Berechtigung entfernt', noPermissions: 'Keine Freigabeberechtigungen', preview: 'Vorschau', closePreview: 'Vorschau schließen', searchResults: 'Suchergebnisse', searching: 'Suche...', noPinnedSites: 'Keine angehefteten Websites', configureHint: 'Konfigurieren Sie NexusPoint und wählen Sie Websites in Ihren Profileinstellungen aus.', selectSiteHint: 'Wählen Sie eine Website und Bibliothek aus dem linken Panel.', contentStorageTitle: 'Dieser Website-Typ wird nicht unterstützt', contentStorageHint: 'Microsoft Loop-Arbeitsbereiche und persönliche Speicherorte können nicht über NexusPoint verwaltet werden. Bitte wählen Sie eine Standard-SharePoint-Website.', pinnedSites: 'Angeheftete Websites', pinnedSitesHint: 'Markierte Websites erscheinen in NexusPoint. Wenn nichts ausgewählt wird, werden alle angezeigt.', defaultSite: 'Standard-Website', defaultSiteHint: 'Öffnet diese Website automatisch beim Start von NexusPoint.', noneDefault: 'Kein Standard', defaultLibrary: 'Standardbibliothek', defaultLibraryHint: 'Öffnet diese Bibliothek automatisch nach der Websiteauswahl.', loadingLibraries: 'Bibliotheken laden...', noneDefaultLibrary: 'Keine Standardbibliothek', currentSettings: 'Aktuelle gespeicherte Einstellungen', saveSettings: 'NexusPoint-Einstellungen speichern', settingsSaved: 'NexusPoint-Einstellungen gespeichert', settingsError: 'Fehler beim Speichern der Einstellungen', checkingConnection: 'MS365-Verbindung wird geprüft...', ms365NotConnected: 'MS365 nicht verbunden', ms365NotConnectedHint: 'Verbinden Sie zuerst das MS365-Konto auf dem MS365-Tab, dann können Sie NexusPoint konfigurieren.', userSettingsTitle: 'NexusPoint — Benutzereinstellungen', userSettingsDesc: 'Angeheftete Websites und Standardspeicherort für diesen Benutzer', loadingSites: 'SharePoint-Websites laden...', noSitesMs365: 'Keine SharePoint-Websites gefunden. MS365-Verbindung prüfen.', pinnedCount: 'Angeheftete Websites:', defaultSiteLabel: 'Standard-Website:', globalBadge: 'Global', newSite: 'Neue Website', saveToNexusPoint: 'In NexusPoint speichern', savedToNexusPoint: 'In NexusPoint gespeichert', saveNexusError: 'Fehler beim Speichern in NexusPoint', selectDestination: 'Ziel auswählen', move: 'Verschieben', moveSuccess: 'Element verschoben', moveError: 'Verschieben fehlgeschlagen', moveToFolder: 'Hierher verschieben', moveTo: 'Verschieben nach', notesAndTags: 'Notizen & Tags', note: 'Notiz', notePlaceholder: 'Interne Notiz hinzufügen...', saveNote: 'Notiz speichern', noteSaved: 'Notiz gespeichert', noteSaveError: 'Fehler beim Speichern der Notiz', tags: 'Tags', addTag: 'Tag hinzufügen', tagPlaceholder: 'Neuer Tag...', tagAdded: 'Tag hinzugefügt', tagDeleted: 'Tag entfernt', searchByTag: 'Nach Tag suchen', noTags: 'Nessun tag', moveDestination: 'Zielort', moveSiteLabel: 'Website', moveDriveLabel: 'Bibliothek', unknownFile: 'Unbekannte Datei (zum Öffnen klicken)', globalResultsLabel: 'Globale Ergebnisse' },
         search: { placeholder: 'Cerca in email, SMS, attività, chat...', searchInEmails: 'Cerca nelle email', searchAllMailboxes: 'tutte le caselle', emails: 'Email', sms: 'SMS', tasks: 'Attività', chats: 'Chat', suggestionsTitle: "Suggerimenti basati sull'email aperta", searchInList: 'Cerca nella lista...', recentSearches: 'Ricerche recenti', clearHistory: 'Cancella cronologia', mailbox: 'Casella', allMailboxes: 'Tutte le caselle', dateFrom: 'Da', dateTo: 'A', quickSearch: 'Ricerca rapida', enterMin2Chars: 'Inserisci almeno 2 caratteri', results: 'Risultati', searchAction: 'Cerca', closeAction: 'Chiudi', searchInEmailsQuery: 'Cerca nelle email', searchAllMailboxesLabel: 'Cerca in tutte le caselle', aiSearch: 'Ricerca AI', aiSearchPlaceholder: 'Chiedi in modo naturale, es. "Trova tutte le email da Pietro con allegati dell\'ultima settimana"', aiSearching: 'AI sta analizzando la tua richiesta...', aiParsed: 'AI ha capito', aiSuggestions: 'AI suggerisce', aiExplanation: 'Interpretazione della ricerca', aiError: 'Ricerca AI fallita, uso la ricerca standard', aiMode: 'Ricerca AI', aiModeOn: 'AI attivata', aiModeOff: 'Ricerca standard', attachmentSearch: 'Cerca negli allegati', searchInAttachments: 'Cerca nel contenuto degli allegati', advancedFilters: 'Filtri rilevati', fromSender: 'Da', withAttachment: 'Con allegati', highImportance: 'Alta importanza', channelEmail: 'Email', channelSms: 'SMS', channelTasks: 'Attività', channelChats: 'Chat', searchChannels: 'Cerca in', executeAiSearch: 'Cerca con AI', tryAsking: 'Prova a chiedere' },
         settings: { appearance: 'Aspetto', accounts: 'Account', notifications: 'Notifiche', sidebar: 'Barra laterale', compose: 'Composizione', signature: 'Firma', ai: 'AI', unreadIndicator: 'Indicatore non letti', unreadIndicatorDesc: 'Punto blu sui messaggi non letti', highlightUnread: 'Evidenzia non letti', highlightUnreadDesc: 'Testo in grassetto per messaggi non letti', accountIcons: 'Icone account', accountIconsDesc: 'Punto colorato per assegnazione account', attachmentIcons: 'Icone allegati', attachmentIconsDesc: 'Icona graffetta sui messaggi con allegati', showTags: 'Mostra tag', showTagsDesc: 'Tag colorati nella lista messaggi', previewLines: 'Righe anteprima', previewLinesDesc: 'Numero di righe di testo anteprima nella lista', defaultSort: 'Ordinamento predefinito', defaultSortDesc: 'Ordinamento predefinito delle email', showAllRecipients: 'Mostra tutti i destinatari', showAllRecipientsDesc: 'Mostra CC e CCN nei dettagli', expandBody: 'Corpo messaggio espanso', expandBodyDesc: "Mostra automaticamente il contenuto completo dell'email", autoLoadImages: 'Caricamento automatico immagini', autoLoadImagesDesc: "Carica immagini remote nel corpo dell'email", senderInitials: 'Iniziali mittente', senderInitialsDesc: 'Avatar circolare con iniziali nella lista', groupByDate: 'Raggruppamento per data', groupByDateDesc: 'Separare i messaggi per giorno', attachmentsBefore: 'Allegati prima del contenuto', attachmentsBeforeDesc: "Mostra allegati sopra il corpo dell'email", enableAi: 'Abilita AI', enableAiDesc: 'Attiva funzioni AI (risposta, riepilogo, traduzione)', languageMode: 'Modalità lingua', languageModeDesc: "In che lingua l'AI deve generare risposte e riepiloghi", targetLanguage: 'Lingua di destinazione', targetLanguageDesc: "In che lingua tradurre l'output AI", soundOnSend: "Suono all'invio", soundOnSendDesc: 'Riproduci suono dopo invio email riuscito', soundOnReceive: 'Suono alla ricezione', soundOnReceiveDesc: 'Riproduci suono alla consegna di una nuova email', polling: 'Controllo automatico', pollingDesc: 'Frequenza di controllo nuova posta', showHideSidebar: 'Mostra o nascondi barra laterale con cartelle', changeColor: 'Cambia colore', noSignature: 'Nessuna firma per questo account', signaturePlaceholder: "La tua firma... (usa l'icona immagine per inserire il logo)", lastEdit: 'Ultima modifica: ', personal: 'Personale', shared: 'Condivisa', newTagPlaceholder: 'Nome nuovo tag...', tagCreated: 'Tag creato', tagDeleted: 'Tag eliminato', saved: 'Salvato', signatureSaved: 'Firma salvata', saveError: 'Impossibile salvare la firma', maximize: 'Massimizza', minimize: 'Riduci', maximizePanel: 'Massimizza pannello', minimizePanel: 'Riduci pannello', settingsTitle: 'Impostazioni', settingsEmailDesc: 'Impostazioni di visualizzazione elenco e dettagli email.', settingsAiDesc: 'Impostazioni AI per la comunicazione email.', settingsNotifDesc: 'Impostazioni notifiche sonore e controllo automatico.', settingsSignatureDesc: 'Firme per gli account email.', signatureFor: 'Firma per', signatureAutoAdd: 'La firma viene aggiunta automaticamente alle email inviate.', tags: 'Tag', saveSignature: 'Salva firma', sidebarIcon: 'Icona barra laterale', accountColor: 'Colore account', tagsTitle: 'Tag', tagsDesc: 'Crea e gestisci tag colorati per organizzazione email.', addTag: 'Aggiungi', defaultTag: 'Predefinito', noTags: 'Nessun tag ancora', noTagsDesc: 'Crea i tuoi tag per organizzazione email', emailLanguage: 'Lingua email', info: 'Info', connectedAccountsDesc: 'Account email collegati, icone e colori per la barra laterale.', noConnectedAccounts: 'Nessun account collegato' },
         nexusChat: { copied: 'Copiato', messageCopied: 'Messaggio copiato negli appunti', messageDetail: 'Dettaglio messaggio + Impostazioni', copyMessage: 'Copia messaggio', conversation: 'Conversazione', askMore: 'Chiedi di più...', precise: 'Preciso', creative: 'Creativo', systemPrompt: 'Prompt di sistema (opzionale)', customInstructions: 'Istruzioni personalizzate per NEXUS...', resetDefaults: 'Ripristina predefiniti' }, editor: { bold: 'Grassetto', italic: 'Corsivo', underline: 'Sottolineato', strikethrough: 'Barrato', heading1: 'Titolo 1', heading2: 'Titolo 2', bulletList: 'Elenco puntato', numberedList: 'Elenco numerato', blockquote: 'Citazione', horizontalRule: 'Linea orizzontale', alignLeft: 'Allinea a sinistra', alignCenter: 'Centra', alignRight: 'Allinea a destra', alignJustify: 'Giustifica', resetColor: 'Reimposta colore', removeLink: 'Rimuovi link', insertImage: 'Inserisci immagine', imageUrl: 'URL immagine...', uploadFromFile: 'Carica da file', insertTable: 'Inserisci tabella', undo: 'Annulla', addAttachment: 'Aggiungi allegato', generateReply: 'Genera risposta con AI', conversationSummary: 'Riepilogo conversazione email' }, ai: { generateReply: 'AI Genera risposta', conversationSummary: 'AI Riepilogo conversazione', reviewReply: "Controlla e modifica la risposta suggerita prima dell'inserimento.", reviewSummary: "Controlla e modifica il riepilogo prima dell'inserimento.", editPlaceholder: 'Modifica contenuto AI...', insert: 'Inserisci', generating: 'Generazione...', generateError: 'Impossibile generare suggerimento AI', summaryError: 'Impossibile generare il riepilogo', translateError: 'Impossibile tradurre il contenuto', checkTranslation: 'Controlla traduzione', checking: 'Controllo...', noErrors: 'Nessun errore! Il testo è corretto.', errorsFound: 'errori trovati', useImproved: 'Usa versione migliorata', score: 'Punteggio', grammar: 'Grammatica', spelling: 'Ortografia', style: 'Stile', wordChoice: 'Scelta delle parole', punctuation: 'Punteggiatura', close: 'Chiudi', insertToReply: 'Inserisci nella risposta', templates: 'Modelli AI', businessIntro: 'Introduzione commerciale', thankYou: 'Ringraziamento', followUp: 'Follow-up', meetingRequest: 'Richiesta di incontro', offer: 'Offerta commerciale', infoRequest: 'Richiesta informazioni', invitation: 'Invito', draftGenerated: 'Bozza email generata' },
@@ -53767,6 +55881,8 @@ export const translations: Record<Locale, Translations> = {
       attachLabel: 'Datei anhängen',
       attachmentUploading: 'Anhang wird hochgeladen…',
       attachmentError: 'Anhang konnte nicht hochgeladen werden',
+      attachmentTooLarge: 'Jede Datei darf höchstens 15 MB groß sein',
+      attachmentLimitReached: 'Eine Aufgabe kann höchstens 10 Anhänge haben',
       attachmentDownload: 'Herunterladen',
       attachmentOpenTab: 'In neuem Tab öffnen',
       attachmentPreviewUnavailable: 'Vorschau nicht verfügbar',
@@ -53823,6 +55939,12 @@ export const translations: Record<Locale, Translations> = {
       toastForwarded: 'Aufgabe weitergeleitet',
       toastForwardError: 'Fehler beim Weiterleiten der Aufgabe',
       questionsInboxTitle: 'Fragen vom Back Office',
+      questionToastTitle: 'Frage vom Back Office',
+      taskCompletionHeading: 'Aufgabe abgeschlossen',
+      taskCompletionOpenAction: 'Aufgabe öffnen',
+      taskCompletionDismissAction: 'Benachrichtigung schließen',
+      taskCompletionStatus: 'Aufgabe {title} abgeschlossen',
+      taskCompletionActionError: 'Die Aufgabenbenachrichtigung konnte nicht aktualisiert werden.',
       answerPlaceholder: 'Antwort für das Back Office schreiben…',
       answerButton: 'Antworten',
       toastAnswerSent: 'Antwort an das Back Office gesendet',
@@ -54188,6 +56310,7 @@ export const translations: Record<Locale, Translations> = {
       userAccessReports: 'Zugriffe',
       settings: 'Einstellungen',
       konfigurator: 'Konfigurator',
+      webForms: 'Webformulare',
       pricing: 'Produktpreise',
       executiveSummaries: 'Managementberichte',
       campaignReports: 'Missionsberichte',
@@ -54248,8 +56371,6 @@ export const translations: Record<Locale, Translations> = {
       title: 'Healthcare Network',
       description: 'Verwaltung medizinischer Partnerbeziehungen, Kategorien und Kommunikationspläne',
       overview: 'Übersicht',
-      institutions: 'Institutionen',
-      persons: 'Personen',
       settings: 'Einstellungen',
       totalHospitals: 'Krankenhäuser gesamt',
       totalClinics: 'Kliniken gesamt',
@@ -54286,9 +56407,6 @@ export const translations: Record<Locale, Translations> = {
       assignment: 'Zuordnung',
       addAssignment: 'Zuordnung hinzufügen',
       editAssignment: 'Zuordnung bearbeiten',
-      department: 'Abteilung',
-      position: 'Position',
-      role: 'Rolle',
       subcategory: 'Unterkategorie',
       entityName: 'Institution',
       personnel: 'Personal',
@@ -54316,11 +56434,9 @@ export const translations: Record<Locale, Translations> = {
       country: 'Land',
       personnelCount: 'Personal',
       status: 'Status',
-      category: 'Kategorie',
       institutionName: 'Institution',
       lastContact: 'Letzter Kontakt',
       contactInfo: 'Kontaktinformationen',
-      primaryContact: 'Hauptansprechpartner',
       workplaces: 'Arbeitsstätten',
       institutions: 'Institutionen',
       filtered: 'gefiltert',
@@ -54447,6 +56563,13 @@ export const translations: Record<Locale, Translations> = {
       dataRefreshed: 'Daten erfolgreich aktualisiert',
     },
     common: {
+      aiSuggestRegion: 'KI-Vorschlag für Region und Bezirk',
+      aiSuggestRegionTitle: 'Regionsvorschlag',
+      aiSuggestMissingCity: 'Stadt fehlt',
+      aiSuggestMissingCityDesc: 'Geben Sie zuerst ein Land und eine Stadt ein',
+      aiSuggestError: 'Fehler',
+      aiSuggestErrorDesc: 'Vorschlag konnte nicht abgerufen werden',
+      aiSuggestButton: 'KI-Vorschlag',
       save: 'Speichern',
       cancel: 'Abbrechen',
       delete: 'Löschen',
@@ -54651,6 +56774,8 @@ export const translations: Record<Locale, Translations> = {
     tasks: {
       title: 'Aufgaben',
       description: 'Verwalten und verfolgen Sie Ihre Aufgaben',
+      requestFromSubmitter: 'Anfrage des Einreichers',
+      originalRequest: 'Vollständige Originalbeschreibung anzeigen',
       noTasks: 'Keine Aufgaben gefunden',
       openTasks: 'Offene Aufgaben',
       loadError: 'Ihre offenen Aufgaben konnten nicht geladen werden. Bitte versuchen Sie es erneut.',
@@ -54692,6 +56817,7 @@ export const translations: Record<Locale, Translations> = {
       resolveTask: 'Aufgabe lösen',
       resolveTaskDesc: 'Geben Sie die Lösung für diese Aufgabe ein',
       resolution: 'Lösung',
+      resolutionDialog: { title: 'Aufgabe lösen', description: 'Halte fest, was erledigt wurde, bevor du die Aufgabe schließt.', resolution: 'Lösung', placeholder: 'Ergebnis beschreiben…', cancel: 'Abbrechen', submit: 'Aufgabe lösen', checklist: 'Pulse-Checkliste', loading: 'Checkliste wird geladen…', loadError: 'Checkliste konnte nicht geladen werden. Bitte vor dem Abschließen erneut versuchen.', retry: 'Erneut versuchen', empty: 'Füge mindestens einen Schritt hinzu, bevor du diese Pulse-Aufgabe abschließt.', remaining: '{count} Schritte verbleiben. Schließe alle Schritte ab, um fortzufahren.', complete: 'Alle Schritte abgeschlossen', returnToChecklist: 'Zurück zur Checkliste', draft: 'Mit KI entwerfen', drafting: 'Entwurf wird erstellt…', draftUnavailable: 'KI-Entwürfe sind derzeit nicht verfügbar. Du kannst die Lösung selbst schreiben.', draftFailed: 'Der Entwurf konnte nicht erstellt werden. Versuche es erneut oder schreibe selbst.', draftReady: 'KI-Entwurf fertig — prüfe und bearbeite ihn vor dem Abschließen.', draftPreserved: 'Dein vorhandener Text bleibt erhalten — der KI-Entwurf hat ihn nicht überschrieben.', draftingHint: 'Erledigte Schritte und Notizen werden zu einer kurzen, bearbeitbaren Zusammenfassung…', draftNoCompletedSteps: 'Es gibt noch keine erledigten Schritte zum Zusammenfassen. Du kannst die Lösung selbst schreiben.', checklistDraftError: 'Die Checkliste konnte nicht geladen werden. Es wurden keine Schritte zur Zusammenfassung gesendet. Du kannst selbst schreiben oder es erneut versuchen.', notify: 'Agent benachrichtigen', notifyHint: 'Den zuständigen Agenten über die Lösung informieren.' },
       resolvedBy: 'Gelöst von',
       resolvedAt: 'Gelöst am',
       reassign: 'Neu zuweisen',
@@ -54702,6 +56828,23 @@ export const translations: Record<Locale, Translations> = {
       addComment: 'Kommentar hinzufügen',
       commentPlaceholder: 'Schreiben Sie einen Kommentar...',
       noComments: 'Noch keine Kommentare',
+      taskDiscussion: 'Aufgabendiskussion',
+      commentsActivity: 'Letzte Diskussion',
+      commentsEmptyHint: 'Hinterlassen Sie die erste Notiz zu dieser Aufgabe.',
+      loadingComments: 'Kommentare werden geladen',
+      commentsLoadFailed: 'Kommentare konnten nicht geladen werden.',
+      commentsRetry: 'Erneut versuchen',
+      unknownAuthor: 'Teammitglied',
+      attachmentsOnly: 'Hat einen Anhang geteilt',
+      viewAllComments: 'Alle {count} Kommentare anzeigen',
+      previewAttachment: 'Anhangsvorschau',
+      openAttachment: 'Anhang öffnen',
+      commentKeyboardHint: 'Enter zum Senden · Shift + Enter für einen Zeilenumbruch',
+      taskAgentRequestTitle: 'Ihre Anfrage',
+      taskAgentRequestHint: 'Beschreiben Sie, was geklärt werden muss. Geben Sie bei einer Korrekturanfrage die richtigen Angaben an.',
+      taskRequestContextTitle: 'Aufgabenkontext',
+      taskRequestContextHint: 'Wird automatisch zur Anfrage hinzugefügt.',
+      dismissUploadError: 'Fehlgeschlagenen Upload verwerfen',
       viewDetails: 'Details anzeigen',
       taskResolved: 'Aufgabe erfolgreich gelöst',
       taskReassigned: 'Aufgabe erfolgreich neu zugewiesen',
@@ -54716,6 +56859,12 @@ export const translations: Record<Locale, Translations> = {
       halfYear: 'Halbjahr',
       year: 'Jahr',
       cancelTask: 'Aufgabe abbrechen',
+      cancelConfirmKicker: 'Noch eine kurze Prüfung',
+      cancelConfirmHeading: 'Diese Aufgabe abbrechen?',
+      cancelConfirmBody: 'Die Aufgabe endet mit dem Status Abgebrochen. In diesem Status kann sie nicht abgeschlossen werden.',
+      cancelConfirmQuestion: 'Möchtest du diese Aufgabe wirklich abbrechen?',
+      cancelConfirmKeep: 'Aufgabe behalten',
+      cancelConfirmAction: 'Aufgabe abbrechen',
       save: 'Speichern',
       selectTask: 'Wählen Sie eine Aufgabe aus, um Details anzuzeigen',
       task: 'Aufgabe',
@@ -54730,12 +56879,90 @@ export const translations: Record<Locale, Translations> = {
       taskNotifyPopup: 'Aufgaben-Popup-Benachrichtigung',
       taskNotifyPopupDesc: 'Popup anzeigen, wenn eine neue Aufgabe zugewiesen wird',
       newTaskAssigned: 'Neue Aufgabe zugewiesen',
+      checklistTitle: 'Checkliste',
+      checklistAddPlaceholder: 'Checklistenpunkt hinzufügen…',
+      checklistAdd: 'Punkt hinzufügen',
+      checklistRemove: 'Punkt entfernen',
+      checklistEdit: 'Punkt bearbeiten',
+      checklistSave: 'Punkt speichern',
+      checklistCancel: 'Bearbeitung abbrechen',
+      checklistLoadError: 'Die Checkliste konnte nicht geladen werden.',
+      checklistMutationError: 'Die Checkliste konnte nicht aktualisiert werden. Bitte erneut versuchen.',
+      checklistAiGenerating: 'Die KI erstellt Vorschläge…',
+      checklistAiProposal: 'Von der KI empfohlen',
+      checklistAiFailed: 'Die KI konnte keine Vorschläge erstellen. Sie können Punkte manuell hinzufügen oder es erneut versuchen.',
+      checklistAiUnavailable: 'Die KI-Checklistenerstellung ist derzeit nicht verfügbar. Sie können Punkte manuell hinzufügen oder es erneut versuchen.',
+      checklistAiRetry: 'Erneut versuchen',
+      checklistAiLoadError: 'Der KI-Checklistenstatus konnte nicht geladen werden.',
+      checklistMarkComplete: 'Als erledigt markieren',
+      checklistMarkIncomplete: 'Als unerledigt markieren',
+      checklistNoteLabel: 'Notiz zum Schritt',
+      checklistNotePlaceholder: 'Kurze Notiz zu diesem Schritt hinzufügen…',
+      checklistNoteAdd: 'Notiz hinzufügen',
+      checklistNoteEdit: 'Notiz bearbeiten',
+      checklistNoteSave: 'Notiz speichern',
+      checklistNoteCancel: 'Abbrechen',
+      taskWorkElapsed: 'Vergangene Zeit',
+      taskWorkElapsedDescription: 'Vergangene Zeit seit Arbeitsbeginn; Wartezeit ist enthalten und es handelt sich nicht um abrechenbare Arbeitszeit.',
+      taskWorkStartUnknown: 'Startzeit nicht verfügbar',
+      taskOverdueLabel: 'Überfällig',
+      taskOverdueDuration: '{days} Tage / {hours}:{minutes}',
       priority: 'Priorität',
       status: 'Status',
       description2: 'Beschreibung',
+      workspace: {
+        settings: 'Einstellungen für Aufgabengruppen',
+        filtersTitle: 'Aufgabenfilter',
+        searchPeoplePlaceholder: 'Aufgaben suchen...',
+        dateAll: 'Beliebiges Datum',
+        dateToday: 'Heute',
+        dateWeek: 'Diese Woche',
+        dateMonth: 'Diesen Monat',
+        dateCustom: 'Benutzerdefinierter Zeitraum',
+        basisCreated: 'Erstellt',
+        basisDue: 'Fällig',
+        basisResolved: 'Erledigt',
+        sortCreated: 'Erstellt',
+        sortDue: 'Fälligkeitsdatum',
+        sortResolved: 'Erledigt',
+        sortPriority: 'Priorität',
+        sortTitle: 'Titel',
+        ascending: 'Aufsteigend',
+        descending: 'Absteigend',
+        anyCreator: 'Beliebiger Ersteller',
+        anyResolver: 'Beliebiger Bearbeiter',
+        dateFrom: 'Startdatum',
+        dateTo: 'Enddatum',
+        rangeSeparator: 'bis',
+        clearFilters: 'Filter löschen',
+        group: 'Aufgabengruppe',
+        noGroup: 'Keine Gruppe',
+        notifyAgent: 'Ursprünglichen Agenten benachrichtigen',
+        notifyAgentHint: 'Den ursprünglichen Agenten benachrichtigen, der diese Aufgabe in Nexus Pulse erstellt hat.',
+        noMatchingTasks: 'Keine Aufgaben entsprechen diesen Filtern.',
+        titleRequired: 'Der Aufgabentitel ist erforderlich.',
+        unassigned: 'Nicht zugewiesen',
+        sortOrder: 'Sortierreihenfolge',
+        changeSortOrder: 'Sortierreihenfolge ändern',
+      },
       taskGroups: {
         title: 'Aufgabengruppen',
         newGroup: 'Neue Gruppe',
+        dialogTitle: 'Aufgabengruppen',
+        activeUsers: 'Aktive Benutzer',
+        inactiveMemberWarning: 'Einige ausgewählte Mitglieder sind inaktiv. Sie bleiben zugewiesen, bis Sie sie entfernen.',
+        inactive: 'Inaktiv',
+        changesTitle: 'Änderungen verwerfen?',
+        changesDescription: 'Es gibt ungespeicherte Änderungen. Möchten Sie diese verwerfen?',
+        discardChanges: 'Änderungen verwerfen',
+        moveUp: '{name} nach oben verschieben',
+        moveDown: '{name} nach unten verschieben',
+        readOnly: 'Sie können Aufgabengruppen ansehen. Nur Manager und Administratoren können sie ändern.',
+        nameRequired: 'Der Gruppenname ist erforderlich.',
+        usersLoadFailed: 'Benutzer konnten nicht geladen werden.',
+        groupsLoadFailed: 'Aufgabengruppen konnten nicht geladen werden.',
+        advanced: 'Erweiterte Reihenfolge',
+        serverError: 'Der Server konnte die Änderungen nicht speichern. Bitte erneut versuchen.',
         editGroup: 'Gruppe bearbeiten',
         newGroupTitle: 'Neue Aufgabengruppe',
         deleteTitle: 'Gruppe löschen?',
@@ -54801,6 +57028,83 @@ export const translations: Record<Locale, Translations> = {
       inactiveUsers: 'Inaktive Benutzer',
       customersByCountry: 'Kunden nach Land',
       noCustomersFound: 'Keine Kunden gefunden',
+      webForms: 'Webformulare',
+      webFormsNoForms: 'Keine Webformulare',
+      webFormsNew: 'neu',
+      webFormsTotal: 'gesamt',
+      webFormsRegistrations: 'Registrierungen',
+      webFormsListDescription: 'Übersicht der Registrierungen aus Webformularen',
+      webFormsNoRegistrations: 'Keine Registrierungen',
+      webFormsDate: 'Datum',
+      webFormsName: 'Name',
+      webFormsEmail: 'E-Mail',
+      webFormsType: 'Typ',
+      webFormsStatus: 'Status',
+      webFormsActions: 'Aktionen',
+      webFormsTabPending: 'Ausstehend',
+      webFormsTabApproved: 'Genehmigt',
+      webFormsTabRejected: 'Abgelehnt',
+      webFormsTabAll: 'Alle',
+      webFormsNewCustomer: 'Neuer Kunde',
+      webFormsExistingCustomer: 'Bestehender Kunde',
+      webFormsNew2: 'Neu',
+      webFormsExisting: 'Bestehend',
+      webFormsPending: 'Ausstehend',
+      webFormsApproved: 'Genehmigt',
+      webFormsProcessed: 'Verarbeitet',
+      webFormsRejected: 'Abgelehnt',
+      webFormsOtpVerified: 'OTP bestätigt',
+      webFormsWaitingApproval: 'Wartet auf Genehmigung',
+      webFormsLinkedCustomer: 'Verknüpfter Kunde',
+      webFormsDetailTitle: 'Registrierungsdetails',
+      webFormsBack: 'Zurück',
+      webFormsApprove: 'Registrierung genehmigen',
+      webFormsReject: 'Registrierung ablehnen',
+      webFormsSectionPersonal: 'Persönliche Angaben',
+      webFormsSectionContact: 'Kontaktinformationen',
+      webFormsSectionAddress: 'Adresse',
+      webFormsSectionCorrAddress: 'Korrespondenzadresse',
+      webFormsSectionHealth: 'Gesundheitsinformationen',
+      webFormsSectionPayment: 'Zahlung und Einwilligung',
+      webFormsSectionOther: 'Weitere Informationen',
+      webFormsTrimester: 'Trimester',
+      webFormsWeek: 'Woche',
+      webFormsDaysUntilBirth: 'Tage bis zur Entbindung',
+      webFormsDueDateToday: 'Der errechnete Geburtstermin ist heute!',
+      webFormsDaysAfterDue: 'Tage nach dem errechneten Geburtstermin',
+      webFormsDataPrecheck: 'Datenvorprüfung',
+      webFormsPrecheckDescription: 'Vergleich der übermittelten Daten mit der vorhandenen Kundenkarte',
+      webFormsPrecheckWarning: 'Achtung! Die übermittelten Daten weichen von der vorhandenen Kundenkarte ab.',
+      webFormsPrecheckNameMismatch: 'Der Name im Formular stimmt nicht mit der verknüpften Kundenkarte überein. Möglicherweise hat der Kunde seinen Nachnamen geändert (z. B. durch Heirat).',
+      webFormsPrecheckField: 'Feld',
+      webFormsPrecheckExistingValue: 'Kundenkarte',
+      webFormsPrecheckNewValue: 'Übermittelter Wert',
+      webFormsPrecheckResult: 'Ergebnis',
+      webFormsPrecheckUpdate: 'Aktualisieren',
+      webFormsPrecheckMatch: 'Stimmt überein',
+      webFormsPrecheckDiffers: 'Weicht ab',
+      webFormsPrecheckNewField: 'Neu',
+      webFormsPrecheckEmpty: 'Nicht ausgefüllt',
+      webFormsPrecheckTestMode: 'TESTMODUS — es werden keine Änderungen gespeichert',
+      webFormsPrecheckMatchingFields: 'übereinstimmende Felder',
+      webFormsPrecheckDifferingFields: 'abweichende Felder',
+      webFormsPrecheckSelectedUpdates: 'zur Aktualisierung ausgewählt',
+      webFormsPrecheckNoChanges: 'Alle übermittelten Daten stimmen mit der Kundenkarte überein.',
+      webFormsPrecheckNewChild: 'Neue Schwangerschaft erkannt',
+      webFormsPrecheckNewChildDesc: 'Der vorhandene Entbindungstermin auf der Kundenkarte liegt bereits zurück. Diese Registrierung betrifft wahrscheinlich ein weiteres (zweites) Kind. Nach der Genehmigung kann die Kinderzahl auf 2 aktualisiert und ein neuer Entbindungstermin eingetragen werden.',
+      webFormsPrecheckExistingDob: 'Vorhandener Entbindungstermin in der Karte',
+      webFormsSocialCheck: 'KI-Social-Media-Prüfung',
+      webFormsSocialCheckDesc: 'Suchen Sie in sozialen Medien und Foren nach Erwähnungen des Kunden',
+      webFormsSocialCheckRunning: 'Analyse läuft...',
+      webFormsSocialCheckAiAnalysis: 'KI-Empfehlungen',
+      webFormsSocialCheckLinks: 'Suchlinks',
+      webFormsSocialCheckOpen: 'Öffnen',
+      webFormsSocialCheckError: 'Fehler bei der KI-Analyse',
+      webFormsCallClient: 'Kunden anrufen',
+      webFormsCallNote: 'Gesprächsnotiz',
+      webFormsCallNotePlaceholder: 'Notiz zum Gespräch eingeben (z. B. Daten geprüft, Namensänderung bestätigt)...',
+      webFormsCallNoteSaved: 'Notiz im Kundenverlauf gespeichert',
+      webFormsSaveNote: 'Notiz speichern',
     },
     customers: {
       title: 'Kunden',
@@ -54820,6 +57124,21 @@ export const translations: Record<Locale, Translations> = {
       status: 'Status',
       serviceType: 'Dienstleistungsart',
       address: 'Adresse',
+      firstName: 'Vorname',
+      lastName: 'Nachname',
+      street: 'Straße',
+      streetNumber: 'Hausnummer',
+      orientationNumber: 'Orientierungsnummer',
+      ico: 'Unternehmens-ID (IČO)',
+      icoTip: 'Identifikationsnummer des Unternehmens',
+      idZz: 'ID der Gesundheitseinrichtung',
+      idZzTip: 'Kennung der Gesundheitseinrichtung',
+      pzsCode: 'PZS-Code',
+      pzsCodeTip: 'Code des Gesundheitsdienstleisters',
+      pzsName: 'PZS-Name',
+      pzsNameTip: 'Name des Gesundheitsdienstleisters',
+      additionalIdentifiers: 'Zusätzliche Kennungen',
+      lookupPsc: 'Postleitzahl automatisch ausfüllen',
       city: 'Stadt',
       postalCode: 'PLZ',
       notes: 'Notizen',
@@ -55460,6 +57779,8 @@ export const translations: Record<Locale, Translations> = {
     collections: {
       title: 'Entnahmen',
       description: 'Nabelschnurblutentnahmen verwalten',
+      firstName: 'Vorname',
+      lastName: 'Nachname',
       addCollection: 'Entnahme hinzufügen',
       editCollection: 'Entnahme bearbeiten',
       deleteCollection: 'Entnahme löschen',
@@ -55470,6 +57791,43 @@ export const translations: Record<Locale, Translations> = {
       collection: 'Entnahme',
       status: 'Status',
       labResults: 'Laborergebnisse',
+      lab: {
+        usability: 'Verwendbarkeit',
+        resultsDate: 'Ergebnisdatum',
+        labNote: 'Labornotiz',
+        cbu: 'CBU',
+        collectionFor: 'Entnahme für',
+        processing: 'Verarbeitung',
+        sterility: 'Sterilität',
+        sterilityType: 'Sterilitätstyp',
+        resultOfSterility: 'Sterilitätsergebnis',
+        infectionAgents: 'Infektionserreger',
+        tncCount: 'TNC-Anzahl',
+        volume: 'Volumen',
+        volumeInBag: 'Volumen im Beutel',
+        umbilicalTissue: 'Nabelschnurgewebe',
+        tissueProcessed: 'Gewebe verarbeitet',
+        tissueSterility: 'Gewebesterilität',
+        tissueUsability: 'Gewebeverwendbarkeit',
+        bagAUsability: 'Verwendbarkeit Beutel A',
+        bagAVolume: 'Volumen Beutel A',
+        bagATnc: 'TNC Beutel A',
+        bagBUsability: 'Verwendbarkeit Beutel B',
+        bagBVolume: 'Volumen Beutel B',
+        bagBTnc: 'TNC Beutel B',
+        basicInfo: 'Grundlegende Informationen',
+        sterilitySection: 'Sterilität und Infektionen',
+        volumeSection: 'Volumen und Zellzahlen',
+        tissueSection: 'Nabelschnurgewebe',
+        bagASection: 'Beutel A',
+        bagBSection: 'Beutel B',
+        downloadCbuReport: 'CBU-Bericht herunterladen',
+        medicalReportSk: 'Medizinischer Bericht (SK)',
+        medicalReportEn: 'Medizinischer Bericht (EN)',
+        fullReportSk: 'Vollständiger Bericht (SK)',
+        fullReportEn: 'Vollständiger Bericht (EN)',
+        reportDownloaded: 'Bericht erfolgreich heruntergeladen',
+      },
       phone: 'Telefon',
       mobile: 'Mobil',
       birthNumber: 'Geburtsnummer',
@@ -55660,6 +58018,7 @@ export const translations: Record<Locale, Translations> = {
       fullName: 'Vollständiger Name',
       streetNumber: 'Straße und Nummer',
       city: 'Stadt',
+      district: 'Bezirk',
       postalCode: 'Postleitzahl',
       region: 'Region',
       contactPerson: 'Kontaktperson',
@@ -55933,6 +58292,7 @@ export const translations: Record<Locale, Translations> = {
         templates: 'Vorlagen',
         rewards: 'Belohnungen',
         actions: 'Aktionen',
+        healthcareNetworks: 'Gesundheitsnetzwerke',
       },
       addressTabs: {
         permanent: 'Ständiger Wohnsitz',
@@ -56308,6 +58668,48 @@ export const translations: Record<Locale, Translations> = {
         not_interested: 'Kein Interesse',
       },
       detail: {
+        defaultOnlyAssignedTitle: 'Standardfilter „Nur zugewiesene“',
+        defaultOnlyAssignedDesc: 'Wenn aktiviert, wird der Filter „Nur zugewiesene“ in der Agentenwarteschlange automatisch jedes Mal vorausgewählt, wenn sich ein Agent bei dieser Mission anmeldet.',
+        changeStatus: 'Status ändern',
+        customerHistory: 'Kundenverlauf',
+        noHistory: 'Kein Verlauf',
+        campaignJoined: 'Mission beigetreten',
+        campaignLeft: 'Mission verlassen',
+        emailSent: 'E-Mail gesendet',
+        smsSent: 'SMS gesendet',
+        noteAdded: 'Notiz hinzugefügt',
+        dragFileHere: 'Datei hierher ziehen',
+        orClickToSelect: 'oder zum Auswählen klicken',
+        downloadSampleCsv: 'Beispiel-CSV herunterladen',
+        expectedColumns: 'Erwartete Spalten:',
+        supportedFormats: 'Unterstützte Formate: CSV (durch Semikolon oder Komma getrennt), Excel (.xlsx)',
+        updateExisting: 'Bestehende Kontakte aktualisieren (überschreibt Daten, wenn der Kontakt bereits vorhanden ist)',
+        uploadingFile: 'Datei wird hochgeladen...',
+        processingContacts: 'Kontakte werden verarbeitet...',
+        created: 'Erstellt',
+        updated: 'Aktualisiert',
+        duplicates: 'Duplikate',
+        skipped: 'Übersprungen',
+        deleteLastImport: 'Letzten Import löschen',
+        deleting: 'Wird gelöscht...',
+        close: 'Schließen',
+        remove: 'Entfernen',
+        import: 'Importieren',
+        kpiTracking: 'KPI-Zielverfolgung',
+        kpiTrackingDesc: 'Fortschritt im Vergleich zu den KPI-Zielen der Kampagne verfolgen',
+        current: 'Aktuell',
+        target: 'Ziel',
+        targetRevenue: 'Umsatzziel',
+        revenueTrackingDesc: 'Die Umsatzverfolgung erfordert eine Integration mit dem Abrechnungssystem',
+        dailyOperatorTargets: 'Tägliche Agentenziele',
+        callsPerDay: 'Anrufe/Tag',
+        contactsPerDay: 'Kontakte/Tag',
+        conversionsPerDay: 'Konversionen/Tag',
+        conversionRate: 'Konversionsrate',
+        successful: 'Erfolgreich',
+        notInterested: 'Nicht interessiert',
+        preview: 'Vorschau',
+        textMode: 'Textmodus',
         overview: 'Übersicht',
         contacts: 'Kontakte',
         settings: 'Einstellungen',
@@ -57877,6 +60279,11 @@ export const translations: Record<Locale, Translations> = {
         missedCommunications: 'Verpasste Kommunikation', missedCommunicationsHint: 'Anrufe, E-Mails und SMS',
         myShiftHint: 'Heutige Aktivität', open: 'Öffnen',
       },
+      todayCallsDisposition: 'Ergebnis',
+      todayCallsWord1: 'Anruf',
+      todayCallsWord234: 'Anrufe',
+      todayCallsWord5plus: 'Anrufe',
+      todayCallsAnswered: 'angenommen',
       todayCallsButtonLabel: 'Meine Schicht',
       workspace: 'NEXUS Pulse',
       activeTasks: 'Aktive Aufgaben',
@@ -57937,7 +60344,7 @@ export const translations: Record<Locale, Translations> = {
       callBack: 'Anrufen!',
       myCB: 'Mein CB',
       teamCB: 'Team CB',
-      filterAll: 'Alle Kontakte', filterMyCB: 'Meine umgeplanten', filterTeamCB: 'Team umgeplante', filterDue: 'Jetzt fällig', filterPending: 'Ausstehend (neu)',
+      filterMyCB: 'Meine umgeplanten', filterTeamCB: 'Team umgeplante', filterDue: 'Jetzt fällig',
       groupDue: 'Fällige Anrufe', groupMyCb: 'Meine geplanten', groupTeamCb: 'Team geplante', groupOtherCb: 'Anderen zugewiesen', groupPending: 'Neue Kontakte',
       emailHistory: 'E-Mail-Verlauf',
       smsHistory: 'SMS-Verlauf',
@@ -58463,6 +60870,19 @@ export const translations: Record<Locale, Translations> = {
     settings: {
       title: 'Einstellungen',
       description: 'Systemkonfiguration und Rechnungsdetails',
+      street: 'Straße',
+      streetNumber: 'Hausnummer',
+      orientationNumber: 'Orientierungsnummer',
+      ico: 'Unternehmens-ID (IČO)',
+      icoTip: 'Identifikationsnummer des Unternehmens',
+      idZz: 'ID der Gesundheitseinrichtung',
+      idZzTip: 'Kennung der Gesundheitseinrichtung',
+      pzsCode: 'PZS-Code',
+      pzsCodeTip: 'Code des Gesundheitsdienstleisters',
+      pzsName: 'PZS-Name',
+      pzsNameTip: 'Name des Gesundheitsdienstleisters',
+      additionalIdentifiers: 'Zusätzliche Kennungen',
+      lookupPsc: 'Postleitzahl automatisch ausfüllen',
       configuration: 'Konfiguration',
       complaintTypes: 'Beschwerdetypen',
       cooperationTypes: 'Kooperationstypen',
@@ -58754,6 +61174,31 @@ export const translations: Record<Locale, Translations> = {
     },
     konfigurator: {
       title: 'Konfigurator',
+      bulkGeoTitle: 'Automatische Regionsergänzung',
+      bulkGeoDescription: 'Das System ergänzt fehlende Regionen und Bezirke anhand von Stadt und Adresse automatisch mithilfe von KI. Wählen Sie ein Land und die zu verarbeitenden Module aus.',
+      bulkGeoCountry: 'Land',
+      bulkGeoCountryPlaceholder: 'Land auswählen',
+      bulkGeoModules: 'Module',
+      bulkGeoSelectAll: 'Alle auswählen',
+      bulkGeoDeselectAll: 'Alle abwählen',
+      bulkGeoHospitals: 'Krankenhäuser',
+      bulkGeoClinics: 'Kliniken',
+      bulkGeoCollaborators: 'Mitarbeiter',
+      bulkGeoCustomers: 'Kunden',
+      bulkGeoSelectCountry: 'Land auswählen',
+      bulkGeoSelectModule: 'Wählen Sie mindestens ein Modul aus',
+      bulkGeoProcessing: 'Verarbeitung',
+      bulkGeoRunButton: 'Ergänzung starten',
+      bulkGeoRunningButton: 'Wird verarbeitet...',
+      bulkGeoResults: 'Ergebnisse',
+      bulkGeoComplete: 'abgeschlossen',
+      bulkGeoAllComplete: 'Alle Datensätze sind vollständig',
+      bulkGeoNoRecords: 'Keine Datensätze für dieses Land gefunden',
+      bulkGeoFilled: 'Ergänzt',
+      bulkGeoError: 'Verarbeitungsfehler',
+      bulkGeoErrorTimeout: 'Zeitüberschreitung – zu viele Datensätze. Versuchen Sie es erneut.',
+      bulkGeoDoneTitle: 'Regionsergänzung abgeschlossen',
+      bulkGeoDoneDescription: '{updated} von {total} Datensätzen aktualisiert',
       description: 'Dienste, Rechnungsvorlagen und Layouts konfigurieren',
       webFormsTab: 'Web-Formulare',
       webFormsDescription: 'Verwaltung von Web-Registrierungsformularen für alle Länder',
@@ -58835,6 +61280,16 @@ export const translations: Record<Locale, Translations> = {
       templateCreated: 'Vorlage erfolgreich erstellt',
       templateUpdated: 'Vorlage erfolgreich aktualisiert',
       templateDeleted: 'Vorlage erfolgreich gelöscht',
+      copyToLanguage: 'In Sprache kopieren',
+      targetLanguage: 'Zielsprache',
+      autoTranslate: 'Mit KI automatisch übersetzen',
+      autoTranslateDesc: 'Verwenden Sie OpenAI, um Inhalte in die Zielsprache zu übersetzen',
+      templateTranslated: 'Vorlage übersetzt und kopiert',
+      templateCopied: 'Vorlage kopiert',
+      translating: 'Übersetzung läuft...',
+      copying: 'Kopieren...',
+      translateAndCopy: 'Übersetzen und kopieren',
+      copyTemplate: 'Kopieren',
       templateFormDescription: 'Rechnungsvorlage und Branding konfigurieren',
       addLayout: 'Layout hinzufügen',
       editLayout: 'Layout bearbeiten',
@@ -58860,7 +61315,6 @@ export const translations: Record<Locale, Translations> = {
       customerFields: 'Kundenfelder',
       billingFields: 'Rechnungsfelder',
       invoiceFields: 'Rechnungsfelder',
-      preview: 'Vorschau',
       properties: 'Eigenschaften',
       fontWeight: 'Schriftgewicht',
       textAlign: 'Textausrichtung',
@@ -60466,6 +62920,7 @@ export const translations: Record<Locale, Translations> = {
       notes: 'Notizen',
       type: 'Typ',
       subjectOrNotes: 'Details',
+      hungUpBy: 'Aufgelegt von',
       sentiment: 'Stimmung',
       qualityScore: 'Qualitätsbewertung',
       scriptCompliance: 'Skript-Einhaltung',
@@ -60579,13 +63034,13 @@ export const translations: Record<Locale, Translations> = {
         exitFullscreen: 'NEXUS Omni verkleinern',
         tabs: { email: 'E-Mail', sms: 'SMS', tasks: 'Aufgaben', chats: 'Chats', teams: 'Teams', calendar: 'Kalendarz', nexuspoint: 'NexusPoint' },
         folders: { inbox: 'Posteingang', sent: 'Gesendet', drafts: 'Entwürfe', spam: 'Spam', trash: 'Papierkorb', archive: 'Archiv', otherFolders: 'Weitere Ordner' },
-        email: { noEmails: 'Keine E-Mails', noResults: 'Keine Ergebnisse für', unknown: 'Unbekannt', noSubject: '(Kein Betreff)', markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', markedRead: 'Als gelesen markiert', markedUnread: 'Als ungelesen markiert', reply: 'Antworten', replyAll: 'Allen antworten', forward: 'Weiterleiten', replyToEmail: 'Antwort auf E-Mail', replyToAll: 'Antwort an alle', forwardEmail: 'E-Mail weiterleiten', recipientPlaceholder: 'An (mehrere Adressen mit Komma trennen)', enterRecipient: 'Empfänger eingeben', messagePlaceholder: 'Nachricht schreiben...', replyPlaceholder: 'Antwort schreiben...', subjectPlaceholder: 'Betreff', ccBccReplyTo: 'Cc, Bcc, Reply To', hideFields: 'Felder ausblenden', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To-Adresse', deleted: 'Gelöscht', messageDeleted: 'Nachricht wurde gelöscht', deleteError: 'Nachricht konnte nicht gelöscht werden', sendError: 'Nachricht konnte nicht gesendet werden', replyError: 'Antwort konnte nicht gesendet werden', forwardError: 'Nachricht konnte nicht weitergeleitet werden', readStatusError: 'Lesestatus konnte nicht geändert werden', loadError: 'Ladefehler', loadAllError: 'Alle E-Mails konnten nicht geladen werden', emailSummary: 'E-Mail-Zusammenfassung', clickToRemove: 'Klicken zum Entfernen', attachmentsBeforeContent: 'Anhänge vor dem Inhalt', showAttachmentsAbove: 'Anhänge über dem E-Mail-Text anzeigen', important: 'Wichtige E-Mails', withAttachments: 'E-Mails mit Anhängen', fromSenderWithAttachments: 'E-Mails mit Anhängen von diesem Absender', lastWeek: 'E-Mails der letzten Woche', lastMonth: 'E-Mails des letzten Monats', todaysEmails: 'Heutige E-Mails', searchFor: 'Suchen', showMoreFromSender: 'Weitere E-Mails von diesem Absender', loadedEmails: 'Geladene E-Mails', channels: 'Kanäle', clear: 'Löschen', newMessage: 'Neue Nachricht', from: 'Von', to: 'An', cc: 'Cc', replyToAddress: 'Reply-To-Adresse', attachments: 'Anhänge', linkedCustomer: 'Dem Kunden zugeordnet', consent: 'Einwilligung', emailsFrom: 'E-Mails von', emailsFromDomain: 'E-Mails von Domain', conversation: 'Konversation', importance: 'Wichtigkeit', importanceLow: 'Niedrig', importanceNormal: 'Normal', importanceHigh: 'Hoch', tag: 'Tag', composeFullscreen: 'Vollbild', composeMinimize: 'Verkleinern', delete: 'Löschen', ccLabel: 'Kopie:', bccLabel: 'Versteckt:', wrote: 'schrieb:' },
+        email: { noEmails: 'Keine E-Mails', noResults: 'Keine Ergebnisse für', unknown: 'Unbekannt', noSubject: '(Kein Betreff)', markRead: 'Als gelesen markieren', markUnread: 'Als ungelesen markieren', markedRead: 'Als gelesen markiert', markedUnread: 'Als ungelesen markiert', reply: 'Antworten', replyAll: 'Allen antworten', forward: 'Weiterleiten', replyToEmail: 'Antwort auf E-Mail', replyToAll: 'Antwort an alle', forwardEmail: 'E-Mail weiterleiten', recipientPlaceholder: 'An (mehrere Adressen mit Komma trennen)', enterRecipient: 'Empfänger eingeben', messagePlaceholder: 'Nachricht schreiben...', replyPlaceholder: 'Antwort schreiben...', subjectPlaceholder: 'Betreff', ccBccReplyTo: 'Cc, Bcc, Reply To', hideFields: 'Felder ausblenden', ccPlaceholder: 'Cc', bccPlaceholder: 'Bcc', replyToPlaceholder: 'Reply-To-Adresse', deleted: 'Gelöscht', messageDeleted: 'Nachricht wurde gelöscht', deleteError: 'Nachricht konnte nicht gelöscht werden', sendError: 'Nachricht konnte nicht gesendet werden', replyError: 'Antwort konnte nicht gesendet werden', forwardError: 'Nachricht konnte nicht weitergeleitet werden', readStatusError: 'Lesestatus konnte nicht geändert werden', loadError: 'Ladefehler', loadAllError: 'Alle E-Mails konnten nicht geladen werden', emailSummary: 'E-Mail-Zusammenfassung', clickToRemove: 'Klicken zum Entfernen', attachmentsBeforeContent: 'Anhänge vor dem Inhalt', showAttachmentsAbove: 'Anhänge über dem E-Mail-Text anzeigen', important: 'Wichtige E-Mails', withAttachments: 'E-Mails mit Anhängen', fromSenderWithAttachments: 'E-Mails mit Anhängen von diesem Absender', lastWeek: 'E-Mails der letzten Woche', lastMonth: 'E-Mails des letzten Monats', todaysEmails: 'Heutige E-Mails', searchFor: 'Suchen', showMoreFromSender: 'Weitere E-Mails von diesem Absender', loadedEmails: 'Geladene E-Mails', channels: 'Kanäle', clear: 'Löschen', newMessage: 'Neue Nachricht', from: 'Von', to: 'An', toLabel: 'An:', cc: 'Cc', replyToAddress: 'Reply-To-Adresse', attachments: 'Anhänge', linkedCustomer: 'Dem Kunden zugeordnet', consent: 'Einwilligung', emailsFrom: 'E-Mails von', emailsFromDomain: 'E-Mails von Domain', conversation: 'Konversation', importance: 'Wichtigkeit', importanceLow: 'Niedrig', importanceNormal: 'Normal', importanceHigh: 'Hoch', tag: 'Tag', composeFullscreen: 'Vollbild', composeMinimize: 'Verkleinern', delete: 'Löschen', ccLabel: 'Kopie:', bccLabel: 'Versteckt:', wrote: 'schrieb:' },
         sms: { allSms: 'Alle SMS', received: 'Empfangen', sent: 'Gesendete SMS', noSms: 'Keine SMS', receivedSms: 'Empfangene SMS', sentSms: 'Gesendete SMS', replySent: 'SMS gesendet', replyPlaceholder: 'Antwort an', angry: 'Verärgert', cancellation: 'Kündigung', criticalAlert: 'Kritische Warnung', warning: 'Warnung', rudeExpressions: 'Grobe Ausdrücke', replyToPlaceholder: 'Antworten an', selectSms: 'Wählen Sie eine SMS aus, um Details anzuzeigen', contractRejection: 'Vertragsablehnung', negativeSentiment: 'Negative Stimmung' },
         tasks: { allTasks: 'Alle Aufgaben', pending: 'Ausstehend', inProgress: 'In Bearbeitung', completed: 'Abgeschlossen', cancelled: 'Storniert', noDescription: 'Keine Beschreibung', deadline: 'Frist', noTasks: 'Keine Aufgaben', task: 'Aufgabe', selectTask: 'Wählen Sie eine Aufgabe aus, um Details anzuzeigen', comments: 'Kommentare', addComment: 'Kommentar hinzufügen', commentPlaceholder: 'Kommentar schreiben...', noComments: 'Noch keine Kommentare', deleteComment: 'Kommentar löschen', commentAdded: 'Kommentar hinzugefügt', commentDeleted: 'Kommentar gelöscht', assignedTo: 'Zugewiesen an', createdBy: 'Erstellt von', taskNotifySound: 'Aufgabenbenachrichtigungston', taskNotifySoundDesc: 'Ton abspielen bei neuer Aufgabenzuweisung', taskNotifyPopup: 'Aufgaben-Popup', taskNotifyPopupDesc: 'Popup anzeigen bei neuer Aufgabenzuweisung', newTaskAssigned: 'Neue Aufgabe zugewiesen' },
         chats: { internalChats: 'Interne Chats', selectConversation: 'Wählen Sie eine Konversation in der Seitenleiste', lastMessage: 'Letzte Nachricht:', noConversations: 'Keine Konversationen', onlineUsers: 'Online-Benutzer', startChat: 'Chat starten', typeMessage: 'Nachricht eingeben...', sendMessage: 'Senden', noMessages: 'Noch keine Nachrichten', today: 'Heute', yesterday: 'Gestern', typing: 'tippt...', you: 'Sie', conversations: 'Konversationen', newChat: 'Neuer Chat', online: 'Online', offline: 'Offline', chatNotifySound: 'Chat-Benachrichtigungston', chatNotifySoundDesc: 'Ton abspielen bei neuer Nachricht', chatNotifyPopup: 'Chat-Popup', chatNotifyPopupDesc: 'Popup anzeigen bei neuer Nachricht', newMessageFrom: 'Neue Nachricht von' },
         teams: { teamsChat: 'Teams Chat', noMessages: 'Keine Nachrichten', writePlaceholder: 'Nachricht schreiben...', directChat: 'Direkter Chat', groupChat: 'Gruppenchat', noTeamsChats: 'Keine Teams-Chats', noTeams: 'Keine Teams', notConnected: 'MS365 ist nicht verbunden', sendError: 'Nachricht konnte nicht gesendet werden', createMeeting: 'Utwórz spotkanie', meetingCreated: 'Spotkanie utworzone', meetingError: 'Nie udało się utworzyć spotkania', joinMeeting: 'Dołącz', meetingSubject: 'Temat spotkania', startMeeting: 'Rozpocznij spotkanie', instantMeeting: 'Natychmiastowe spotkanie', scheduleMeeting: 'Zaplanuj spotkanie', meetingLink: 'Link do spotkania', linkCopied: 'Link skopiowany', meetingWith: 'Spotkanie z', members: 'Członkowie', openInTeams: 'Otwórz w Teams', lastMessage: 'Ostatnia wiadomość', meetingDate: 'Data', meetingStartTime: 'Czas rozpoczęcia', meetingEndTime: 'Czas zakończenia', addParticipants: 'Dodaj uczestników', participantEmail: 'E-mail uczestnika', upcomingMeetings: 'Nadchodzące spotkania', noUpcomingMeetings: 'Brak nadchodzących spotkań', startsIn: 'Zaczyna się za', inProgress: 'W toku', today: 'Dzisiaj', tomorrow: 'Jutro', remove: 'Usuń', attachFile: 'Dołącz plik', attachmentSent: 'Załącznik wysłany', uploadError: 'Nie udało się przesłać pliku', recentMeetings: 'Ostatnie spotkania', noMeetings: 'Brak spotkań', transcript: 'Transkrypcja', noTranscript: 'Transkrypcja niedostępna', loadingTranscript: 'Ładowanie transkrypcji...', aiSummary: 'Podsumowanie AI', generateSummary: 'Generuj podsumowanie AI', generatingSummary: 'Generowanie podsumowania...', rawTranscript: 'Surowa transkrypcja', summary: 'Podsumowanie', meetingDuration: 'Czas trwania', viewTranscript: 'Zobacz transkrypcję', transcriptError: 'Nie udało się załadować transkrypcji', recordings: 'Nagrania', noRecordings: 'Brak nagrań', downloadRecording: 'Pobierz nagranie', recording: 'Nagranie', meetingsAndRecordings: 'Spotkania i nagrania', activity: 'Aktywność', noActivity: 'Brak aktywności', justNow: 'Właśnie teraz' },
         calendar: { today: 'Dzisiaj', thisWeek: 'Ten tydzień', thisMonth: 'Ten miesiąc' },
-        nexuspoint: { title: 'NexusPoint', sites: 'Witryny', selectSite: 'Wybierz witrynę SharePoint', noSites: 'Nie znaleziono witryn', libraries: 'Biblioteki', selectLibrary: 'Wybierz bibliotekę', files: 'Pliki', folders: 'Foldery', name: 'Nazwa', size: 'Rozmiar', modified: 'Zmodyfikowano', modifiedBy: 'Zmodyfikował', noFiles: 'Brak plików i folderów', upload: 'Prześlij', uploading: 'Przesyłanie...', uploadSuccess: 'Plik przesłany', uploadError: 'Nie udało się przesłać pliku', newFolder: 'Nowy folder', folderName: 'Nazwa folderu', createFolder: 'Utwórz folder', folderCreated: 'Folder utworzony', folderError: 'Nie udało się utworzyć folderu', download: 'Pobierz', delete: 'Usuń', deleteConfirm: 'Czy na pewno chcesz usunąć ten element?', deleted: 'Element usunięty', deleteError: 'Nie udało się usunąć elementu', openInBrowser: 'Otwórz w przeglądarce', dragDropHint: 'Przeciągnij pliki tutaj lub kliknij Prześlij', backToRoot: 'Powrót do katalogu głównego', searchFiles: 'Szukaj plików...', items: 'elementów', created: 'Created', versions: 'Wersje', version: 'Wersja', restoreVersion: 'Przywróć tę wersję', versionRestored: 'Wersja przywrócona', versionRestoreError: 'Nie udało się przywrócić wersji', noVersions: 'Brak wersji', share: 'Udostępnij', shareLink: 'Link do udostępniania', copyLink: 'Kopiuj link', linkCopied: 'Link skopiowany', viewOnly: 'Tylko podgląd', editAccess: 'Edycja', organization: 'Organizacja', anyone: 'Każdy', createLink: 'Utwórz link', permissions: 'Uprawnienia', removePermission: 'Usuń uprawnienie', permissionRemoved: 'Uprawnienie usunięte', noPermissions: 'Brak uprawnień udostępniania', preview: 'Podgląd', closePreview: 'Zamknij podgląd', searchResults: 'Wyniki wyszukiwania', searching: 'Wyszukiwanie...', noPinnedSites: 'Brak przypiętych witryn', configureHint: 'Skonfiguruj NexusPoint i wybierz witryny w ustawieniach profilu.', selectSiteHint: 'Wybierz witrynę i bibliotekę z lewego panelu.', contentStorageTitle: 'Ten typ witryny nie jest obsługiwany', contentStorageHint: 'Obszarów roboczych Microsoft Loop i osobistych magazynów nie można zarządzać przez NexusPoint. Wybierz standardową witrynę SharePoint.', pinnedSites: 'Przypięte witryny', pinnedSitesHint: 'Zaznaczone witryny pojawią się w NexusPoint. Jeśli nic nie wybierzesz, wyświetlą się wszystkie.', defaultSite: 'Domyślna witryna', defaultSiteHint: 'Automatycznie otwiera tę witrynę po uruchomieniu NexusPoint.', noneDefault: 'Brak domyślnego', defaultLibrary: 'Domyślna biblioteka', defaultLibraryHint: 'Automatycznie otwiera tę bibliotekę po wybraniu witryny.', loadingLibraries: 'Ładowanie bibliotek...', noneDefaultLibrary: 'Brak domyślnej biblioteki', currentSettings: 'Aktualne zapisane ustawienia', saveSettings: 'Zapisz ustawienia NexusPoint', settingsSaved: 'Ustawienia NexusPoint zapisane', settingsError: 'Błąd podczas zapisywania ustawień', checkingConnection: 'Sprawdzanie połączenia MS365...', ms365NotConnected: 'MS365 nie jest połączone', ms365NotConnectedHint: 'Najpierw połącz konto MS365 na karcie MS365, a następnie skonfiguruj NexusPoint tutaj.', userSettingsTitle: 'NexusPoint — ustawienia użytkownika', userSettingsDesc: 'Przypięte witryny i domyślna lokalizacja dla tego użytkownika', loadingSites: 'Ładowanie witryn SharePoint...', noSitesMs365: 'Nie znaleziono witryn SharePoint. Sprawdź połączenie MS365.', pinnedCount: 'Przypięte witryny:', defaultSiteLabel: 'Domyślna witryna:', globalBadge: 'Globalny', newSite: 'Nowa witryna', saveToNexusPoint: 'Zapisz do NexusPoint', savedToNexusPoint: 'Zapisano do NexusPoint', saveNexusError: 'Błąd zapisu do NexusPoint', selectDestination: 'Wybierz cel', move: 'Przenieś', moveSuccess: 'Element przeniesiony', moveError: 'Przenoszenie nie powiodło się', moveToFolder: 'Przenieś tutaj', moveTo: 'Przenieś do', notesAndTags: 'Notatki i tagi', note: 'Notatka', notePlaceholder: 'Dodaj wewnętrzną notatkę...', saveNote: 'Zapisz notatkę', noteSaved: 'Notatka zapisana', noteSaveError: 'Błąd zapisu notatki', tags: 'Tagi', addTag: 'Dodaj tag', tagPlaceholder: 'Nowy tag...', tagAdded: 'Tag dodany', tagDeleted: 'Tag usunięty', searchByTag: 'Szukaj po tagu', moveDestination: 'Miejsce docelowe', moveSiteLabel: 'Witryna', moveDriveLabel: 'Biblioteka', unknownFile: 'Nieznany plik (kliknij, aby otworzyć)', globalResultsLabel: 'Wyniki globalne' },
+        nexuspoint: { title: 'NexusPoint', sites: 'Witryny', selectSite: 'Wybierz witrynę SharePoint', noSites: 'Nie znaleziono witryn', libraries: 'Biblioteki', selectLibrary: 'Wybierz bibliotekę', files: 'Pliki', folders: 'Foldery', name: 'Nazwa', size: 'Rozmiar', modified: 'Zmodyfikowano', modifiedBy: 'Zmodyfikował', noFiles: 'Brak plików i folderów', upload: 'Prześlij', uploading: 'Przesyłanie...', uploadSuccess: 'Plik przesłany', uploadError: 'Nie udało się przesłać pliku', newFolder: 'Nowy folder', folderName: 'Nazwa folderu', createFolder: 'Utwórz folder', folderCreated: 'Folder utworzony', folderError: 'Nie udało się utworzyć folderu', download: 'Pobierz', delete: 'Usuń', deleteConfirm: 'Czy na pewno chcesz usunąć ten element?', deleted: 'Element usunięty', deleteError: 'Nie udało się usunąć elementu', openInBrowser: 'Otwórz w przeglądarce', dragDropHint: 'Przeciągnij pliki tutaj lub kliknij Prześlij', backToRoot: 'Powrót do katalogu głównego', searchFiles: 'Szukaj plików...', items: 'elementów', created: 'Created', versions: 'Wersje', version: 'Wersja', restoreVersion: 'Przywróć tę wersję', versionRestored: 'Wersja przywrócona', versionRestoreError: 'Nie udało się przywrócić wersji', noVersions: 'Brak wersji', share: 'Udostępnij', shareLink: 'Link do udostępniania', copyLink: 'Kopiuj link', linkCopied: 'Link skopiowany', viewOnly: 'Tylko podgląd', editAccess: 'Edycja', organization: 'Organizacja', anyone: 'Każdy', createLink: 'Utwórz link', permissions: 'Uprawnienia', removePermission: 'Usuń uprawnienie', permissionRemoved: 'Uprawnienie usunięte', noPermissions: 'Brak uprawnień udostępniania', preview: 'Podgląd', closePreview: 'Zamknij podgląd', searchResults: 'Wyniki wyszukiwania', searching: 'Wyszukiwanie...', noPinnedSites: 'Brak przypiętych witryn', configureHint: 'Skonfiguruj NexusPoint i wybierz witryny w ustawieniach profilu.', selectSiteHint: 'Wybierz witrynę i bibliotekę z lewego panelu.', contentStorageTitle: 'Ten typ witryny nie jest obsługiwany', contentStorageHint: 'Obszarów roboczych Microsoft Loop i osobistych magazynów nie można zarządzać przez NexusPoint. Wybierz standardową witrynę SharePoint.', pinnedSites: 'Przypięte witryny', pinnedSitesHint: 'Zaznaczone witryny pojawią się w NexusPoint. Jeśli nic nie wybierzesz, wyświetlą się wszystkie.', defaultSite: 'Domyślna witryna', defaultSiteHint: 'Automatycznie otwiera tę witrynę po uruchomieniu NexusPoint.', noneDefault: 'Brak domyślnego', defaultLibrary: 'Domyślna biblioteka', defaultLibraryHint: 'Automatycznie otwiera tę bibliotekę po wybraniu witryny.', loadingLibraries: 'Ładowanie bibliotek...', noneDefaultLibrary: 'Brak domyślnej biblioteki', currentSettings: 'Aktualne zapisane ustawienia', saveSettings: 'Zapisz ustawienia NexusPoint', settingsSaved: 'Ustawienia NexusPoint zapisane', settingsError: 'Błąd podczas zapisywania ustawień', checkingConnection: 'Sprawdzanie połączenia MS365...', ms365NotConnected: 'MS365 nie jest połączone', ms365NotConnectedHint: 'Najpierw połącz konto MS365 na karcie MS365, a następnie skonfiguruj NexusPoint tutaj.', userSettingsTitle: 'NexusPoint — ustawienia użytkownika', userSettingsDesc: 'Przypięte witryny i domyślna lokalizacja dla tego użytkownika', loadingSites: 'Ładowanie witryn SharePoint...', noSitesMs365: 'Nie znaleziono witryn SharePoint. Sprawdź połączenie MS365.', pinnedCount: 'Przypięte witryny:', defaultSiteLabel: 'Domyślna witryna:', globalBadge: 'Globalny', newSite: 'Nowa witryna', saveToNexusPoint: 'Zapisz do NexusPoint', savedToNexusPoint: 'Zapisano do NexusPoint', saveNexusError: 'Błąd zapisu do NexusPoint', selectDestination: 'Wybierz cel', move: 'Przenieś', moveSuccess: 'Element przeniesiony', moveError: 'Przenoszenie nie powiodło się', moveToFolder: 'Przenieś tutaj', moveTo: 'Przenieś do', notesAndTags: 'Notatki i tagi', note: 'Notatka', notePlaceholder: 'Dodaj wewnętrzną notatkę...', saveNote: 'Zapisz notatkę', noteSaved: 'Notatka zapisana', noteSaveError: 'Błąd zapisu notatki', tags: 'Tagi', addTag: 'Dodaj tag', tagPlaceholder: 'Nowy tag...', tagAdded: 'Tag dodany', tagDeleted: 'Tag usunięty', searchByTag: 'Szukaj po tagu', noTags: 'Keine Tags', moveDestination: 'Miejsce docelowe', moveSiteLabel: 'Witryna', moveDriveLabel: 'Biblioteka', unknownFile: 'Nieznany plik (kliknij, aby otworzyć)', globalResultsLabel: 'Wyniki globalne' },
         search: { placeholder: 'Suche in E-Mails, SMS, Aufgaben, Chats...', searchInEmails: 'In E-Mails suchen', searchAllMailboxes: 'alle Postfächer', emails: 'E-Mails', sms: 'SMS', tasks: 'Aufgaben', chats: 'Chats', suggestionsTitle: 'Vorschläge basierend auf geöffneter E-Mail', searchInList: 'In der Liste suchen...', recentSearches: 'Letzte Suchen', clearHistory: 'Verlauf löschen', mailbox: 'Postfach', allMailboxes: 'Alle Postfächer', dateFrom: 'Von', dateTo: 'Bis', quickSearch: 'Schnellsuche', enterMin2Chars: 'Geben Sie mindestens 2 Zeichen ein', results: 'Ergebnisse', searchAction: 'Suchen', closeAction: 'Schließen', searchInEmailsQuery: 'In E-Mails suchen', searchAllMailboxesLabel: 'Alle Postfächer durchsuchen', aiSearch: 'AI-Suche', aiSearchPlaceholder: 'Fragen Sie natürlich, z.B. "Finde alle E-Mails von Peter mit Anhängen der letzten Woche"', aiSearching: 'AI analysiert Ihre Anfrage...', aiParsed: 'AI hat verstanden', aiSuggestions: 'AI schlägt vor', aiExplanation: 'Suchinterpretation', aiError: 'AI-Suche fehlgeschlagen, verwende Standardsuche', aiMode: 'AI-Suche', aiModeOn: 'AI aktiviert', aiModeOff: 'Standardsuche', attachmentSearch: 'In Anhängen suchen', searchInAttachments: 'Im Inhalt der Anhänge suchen', advancedFilters: 'Erkannte Filter', fromSender: 'Von', withAttachment: 'Mit Anhängen', highImportance: 'Hohe Wichtigkeit', channelEmail: 'E-Mails', channelSms: 'SMS', channelTasks: 'Aufgaben', channelChats: 'Chats', searchChannels: 'Suchen in', executeAiSearch: 'Mit AI suchen', tryAsking: 'Versuchen Sie zu fragen' },
         settings: { appearance: 'Darstellung', accounts: 'Konten', notifications: 'Benachrichtigungen', sidebar: 'Seitenleiste', compose: 'Verfassen', signature: 'Signatur', ai: 'KI', unreadIndicator: 'Ungelesen-Anzeige', unreadIndicatorDesc: 'Blauer Punkt bei ungelesenen Nachrichten', highlightUnread: 'Ungelesene hervorheben', highlightUnreadDesc: 'Fettschrift für ungelesene Nachrichten', accountIcons: 'Konto-Icons', accountIconsDesc: 'Farbiger Punkt nach Kontozuordnung', attachmentIcons: 'Anhang-Icons', attachmentIconsDesc: 'Büroklammer-Symbol bei Nachrichten mit Anhängen', showTags: 'Tags anzeigen', showTagsDesc: 'Farbige Tags in der Nachrichtenliste', previewLines: 'Vorschauzeilen', previewLinesDesc: 'Anzahl der Vorschau-Textzeilen in der Liste', defaultSort: 'Standard-Sortierung', defaultSortDesc: 'Standard-E-Mail-Sortierung', showAllRecipients: 'Alle Empfänger anzeigen', showAllRecipientsDesc: 'CC und BCC in Details anzeigen', expandBody: 'Nachrichtentext erweitern', expandBodyDesc: 'Automatisch vollständigen E-Mail-Inhalt anzeigen', autoLoadImages: 'Bilder automatisch laden', autoLoadImagesDesc: 'Externe Bilder im E-Mail-Text laden', senderInitials: 'Absender-Initialen', senderInitialsDesc: 'Rundes Avatar mit Initialen in der Liste', groupByDate: 'Nach Datum gruppieren', groupByDateDesc: 'Nachrichten nach Tagen trennen', attachmentsBefore: 'Anhänge vor Inhalt', attachmentsBeforeDesc: 'Anhänge über dem E-Mail-Text anzeigen', enableAi: 'KI aktivieren', enableAiDesc: 'KI-Funktionen aktivieren (Antwort, Zusammenfassung, Übersetzung)', languageMode: 'Sprachmodus', languageModeDesc: 'In welcher Sprache soll die KI Antworten und Zusammenfassungen generieren', targetLanguage: 'Zielsprache', targetLanguageDesc: 'In welche Sprache soll die KI-Ausgabe übersetzt werden', soundOnSend: 'Ton beim Senden', soundOnSendDesc: 'Ton nach erfolgreichem E-Mail-Versand abspielen', soundOnReceive: 'Ton beim Empfang', soundOnReceiveDesc: 'Ton bei Eingang einer neuen E-Mail abspielen', polling: 'Automatische Überprüfung', pollingDesc: 'Wie oft nach neuer Post prüfen', showHideSidebar: 'Ordner-Seitenleiste ein- oder ausblenden', changeColor: 'Farbe ändern', noSignature: 'Keine Signatur für dieses Konto', signaturePlaceholder: 'Ihre Signatur... (verwenden Sie das Bildsymbol zum Einfügen eines Logos)', lastEdit: 'Letzte Bearbeitung: ', personal: 'Persönlich', shared: 'Geteilt', newTagPlaceholder: 'Neuer Tag-Name...', tagCreated: 'Tag erstellt', tagDeleted: 'Tag gelöscht', saved: 'Gespeichert', signatureSaved: 'Signatur wurde gespeichert', saveError: 'Signatur konnte nicht gespeichert werden', maximize: 'Maximieren', minimize: 'Minimieren', maximizePanel: 'Panel maximieren', minimizePanel: 'Panel minimieren', settingsTitle: 'Einstellungen', settingsEmailDesc: 'Anzeige-Einstellungen für E-Mail-Liste und Details.', settingsAiDesc: 'KI-Einstellungen für E-Mail-Kommunikation.', settingsNotifDesc: 'Einstellungen für Tonbenachrichtigungen und automatische Prüfung.', settingsSignatureDesc: 'Signaturen für E-Mail-Konten.', signatureFor: 'Signatur für', signatureAutoAdd: 'Die Signatur wird automatisch am Ende der E-Mails hinzugefügt.', tags: 'Tags', saveSignature: 'Signatur speichern', sidebarIcon: 'Seitenleisten-Symbol', accountColor: 'Kontofarbe', tagsTitle: 'Tags', tagsDesc: 'Erstellen und verwalten Sie farbige Tags zur E-Mail-Organisation.', addTag: 'Hinzufügen', defaultTag: 'Standard', noTags: 'Noch keine Tags', noTagsDesc: 'Erstellen Sie eigene Tags zur E-Mail-Organisation', emailLanguage: 'E-Mail-Sprache', info: 'Info', connectedAccountsDesc: 'Verbundene E-Mail-Konten, Symbole und Farben für die Seitenleiste.', noConnectedAccounts: 'Keine verbundenen Konten' },
         nexusChat: { copied: 'Kopiert', messageCopied: 'Nachricht wurde in die Zwischenablage kopiert', messageDetail: 'Nachrichtendetail + Einstellungen', copyMessage: 'Nachricht kopieren', conversation: 'Konversation', askMore: 'Fragen Sie weiter...', precise: 'Präzise', creative: 'Kreativ', systemPrompt: 'System-Prompt (optional)', customInstructions: 'Eigene Anweisungen für NEXUS...', resetDefaults: 'Standardwerte wiederherstellen' }, editor: { bold: 'Fett', italic: 'Kursiv', underline: 'Unterstrichen', strikethrough: 'Durchgestrichen', heading1: 'Überschrift 1', heading2: 'Überschrift 2', bulletList: 'Aufzählungsliste', numberedList: 'Nummerierte Liste', blockquote: 'Zitat', horizontalRule: 'Horizontale Linie', alignLeft: 'Links ausrichten', alignCenter: 'Zentrieren', alignRight: 'Rechts ausrichten', alignJustify: 'Blocksatz', resetColor: 'Farbe zurücksetzen', removeLink: 'Link entfernen', insertImage: 'Bild einfügen', imageUrl: 'Bild-URL...', uploadFromFile: 'Aus Datei hochladen', insertTable: 'Tabelle einfügen', undo: 'Rückgängig', addAttachment: 'Anhang hinzufügen', generateReply: 'Antwort mit KI generieren', conversationSummary: 'E-Mail-Konversation Zusammenfassung' }, ai: { generateReply: 'KI Antwort generieren', conversationSummary: 'KI Gesprächszusammenfassung', reviewReply: 'Überprüfen und bearbeiten Sie die vorgeschlagene Antwort vor dem Einfügen.', reviewSummary: 'Überprüfen und bearbeiten Sie die Zusammenfassung vor dem Einfügen.', editPlaceholder: 'KI-Inhalt bearbeiten...', insert: 'Einfügen', generating: 'Wird generiert...', generateError: 'KI-Vorschlag konnte nicht generiert werden', summaryError: 'Zusammenfassung konnte nicht generiert werden', translateError: 'Inhalt konnte nicht übersetzt werden', checkTranslation: 'Übersetzung prüfen', checking: 'Wird geprüft...', noErrors: 'Keine Fehler! Ihr Text ist korrekt.', errorsFound: 'Fehler gefunden', useImproved: 'Verbesserte Version verwenden', score: 'Bewertung', grammar: 'Grammatik', spelling: 'Rechtschreibung', style: 'Stil', wordChoice: 'Wortwahl', punctuation: 'Zeichensetzung', close: 'Schließen', insertToReply: 'In Antwort einfügen', templates: 'KI-Vorlagen', businessIntro: 'Geschäftsvorstellung', thankYou: 'Dankeschön', followUp: 'Nachfassen', meetingRequest: 'Terminanfrage', offer: 'Geschäftsangebot', infoRequest: 'Informationsanfrage', invitation: 'Einladung', draftGenerated: 'E-Mail-Entwurf generiert' },

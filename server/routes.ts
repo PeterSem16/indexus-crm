@@ -3,7 +3,40 @@ import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
+import {
+  registerTaskSourceEntityRoute,
+  resolveTaskSourceEntityDisplayName,
+  type TaskSourceEntityDependencies,
+} from "./lib/task-source-entity";
+import {
+  buildValidatedTaskPatch,
+  buildPulseCompletionNotification,
+  canAccessTaskByPolicy,
+  collectTaskParticipantIds,
+  pulseCompletionMissingResolution,
+  shouldNotifyTaskCreator,
+  taskPeopleCandidateAllowed,
+  taskPeoplePersonVisible,
+  userMayAccessTaskCountry,
+} from "./lib/task-contract";
 import { setForwardedRecordingAnalyzer } from "./lib/forwarded-call-reconciliation";
+import {
+  isAuthorizedManualPulseTaskOrigin,
+  MANUAL_PULSE_TASK_TAG,
+} from "@shared/task-provenance";
+import {
+  assertTaskChecklistEditableStatus,
+  PulseChecklistCompletionError,
+  TaskChecklistInactiveError,
+  TaskCompletionNoticeAuthorizationError,
+  TaskInactiveCompletionError,
+} from "./lib/task-completion";
+import {
+  ensureTaskAiChecklist,
+  getTaskAiChecklistState,
+  markTaskChecklistManuallyChanged,
+} from "./lib/task-ai-checklist";
+import { registerTaskResolutionDraftRoute } from "./lib/task-resolution-draft-route";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
@@ -80,6 +113,7 @@ import {
   insertTaskBackOfficeConfirmationSchema,
   tasks,
   taskComments,
+  taskAttachmentUploads,
   insertTaskSchema,
   taskGroups,
   taskGroupMembers,
@@ -223,6 +257,17 @@ import * as mailchimpApi from "./lib/mailchimp";
 import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
+import { normalizeAttachmentName, type TaskAttachment } from "@shared/task-attachments";
+import {
+  TASK_ATTACHMENT_MAX_BYTES,
+  TASK_ATTACHMENT_MAX_FILES,
+  TaskAttachmentInputError,
+  resolveTaskAttachmentMetadata,
+  liveTaskAttachmentSources,
+  taskAttachmentReadAllowed,
+  taskAttachmentPreviewAllowed,
+  taskCommentHasContentOrAttachments,
+} from "./lib/task-attachment-contract";
 
 async function loadFacilityPersonReferralIds(clinicIds: string[], hospitalIds: string[]) {
   const empty = { clinic: new Set<string>(), hospital: new Set<string>() };
@@ -694,12 +739,8 @@ const uploadAvatar = multer({
   },
 });
 
-// Configure multer for back-office task attachments (question + answer files)
-// Map allowed MIME types to safe, server-controlled extensions. We deliberately
-// ignore the client-supplied filename extension: files are served from the public
-// /data + /uploads static mounts, so writing an attacker-chosen .html/.svg/.js
-// (with a spoofed MIME) would otherwise allow stored XSS. None of these extensions
-// are active content.
+// Private task uploads are stored outside DATA_ROOT so they cannot be served by
+// the public /data or /uploads static mounts. The original extension is ignored.
 const TASK_ATTACHMENT_MIME_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -716,19 +757,29 @@ const TASK_ATTACHMENT_MIME_EXT: Record<string, string> = {
   "application/zip": ".zip",
   "application/x-zip-compressed": ".zip",
 };
+const PRIVATE_TASK_ATTACHMENTS_DIR = path.join(path.dirname(DATA_ROOT), "private-task-attachments");
+function taskAttachmentDisplayName(originalName: string): string {
+  const normalized = normalizeAttachmentName(originalName).replace(/\\/g, "/");
+  return normalized.split("/").pop()?.slice(0, 255) || "attachment";
+}
 const taskAttachmentStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, STORAGE_PATHS.taskAttachments);
+  destination: (_req, _file, cb) => {
+    try {
+      fs.mkdirSync(PRIVATE_TASK_ATTACHMENTS_DIR, { recursive: true });
+      cb(null, PRIVATE_TASK_ATTACHMENTS_DIR);
+    } catch (error) {
+      cb(error as Error, "");
+    }
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = TASK_ATTACHMENT_MIME_EXT[file.mimetype] || ".bin";
-    cb(null, `bo-task-${uniqueSuffix}${ext}`);
+  filename: (_req, file, cb) => {
+    const ext = TASK_ATTACHMENT_MIME_EXT[file.mimetype];
+    if (!ext) return cb(new Error("Invalid file type for attachment."), "");
+    cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });
 const uploadTaskAttachment = multer({
   storage: taskAttachmentStorage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  limits: { fileSize: TASK_ATTACHMENT_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     const allowed = [
       "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
@@ -744,6 +795,15 @@ const uploadTaskAttachment = multer({
     else cb(new Error("Invalid file type for attachment."));
   },
 });
+function handleTaskAttachmentUpload(req: Request, res: Response, next: NextFunction): void {
+  uploadTaskAttachment.single("file")(req, res, (error: any) => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "Task attachments must be 15 MB or smaller" });
+    }
+    return res.status(400).json({ error: error?.message || "Invalid task attachment upload" });
+  });
+}
 
 // Configure multer for CSV/Excel contact imports (memory storage)
 const uploadContactsFile = multer({
@@ -8889,17 +8949,21 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/task-groups", requireAuth, async (req, res) => {
     try {
-      const { name, description, color, icon, memberUserIds } = req.body;
-      if (!name) return res.status(400).json({ error: "name is required" });
+      const { name, description, color, icon, memberUserIds, displayAlias } = req.body;
+      if (typeof name !== "string" || !name.trim()) return res.status(400).json({ error: "name is required" });
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { isBackOffice } = req.body;
-      const [group] = await db.insert(taskGroups).values({ name, description, color, icon, isBackOffice: isBackOffice ?? false }).returning();
-      if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
-        await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: group.id, userId: uid })));
-      }
+      if (memberUserIds !== undefined && !Array.isArray(memberUserIds)) return res.status(400).json({ error: "memberUserIds must be an array" });
+      const group = await storage.createTaskGroupWithMembers({
+        name: name.trim(), description, color, icon, displayAlias: displayAlias ?? null,
+        isBackOffice: isBackOffice ?? false,
+      }, memberUserIds || []);
       res.json(group);
     } catch (error) {
+      if (error instanceof Error && /member|user|distinct|Inactive|Unknown/.test(error.message)) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Error creating task group:", error);
       res.status(500).json({ error: "Failed to create task group" });
     }
@@ -8910,19 +8974,23 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { name, description, color, icon, memberUserIds, displayAlias, sortOrder, isBackOffice } = req.body;
-      const [group] = await db.update(taskGroups)
-        .set({ name, description, color, icon, displayAlias: displayAlias ?? null, ...(sortOrder !== undefined ? { sortOrder } : {}), ...(isBackOffice !== undefined ? { isBackOffice } : {}), updatedAt: new Date() })
-        .where(eq(taskGroups.id, req.params.id))
-        .returning();
+      if (memberUserIds !== undefined && !Array.isArray(memberUserIds)) return res.status(400).json({ error: "memberUserIds must be an array" });
+      if (name !== undefined && (typeof name !== "string" || !name.trim())) return res.status(400).json({ error: "name must be a non-empty string" });
+      const group = await storage.updateTaskGroupWithMembers(req.params.id, {
+        ...(name !== undefined ? { name: name.trim() } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(color !== undefined ? { color } : {}),
+        ...(icon !== undefined ? { icon } : {}),
+        ...(displayAlias !== undefined ? { displayAlias } : {}),
+        ...(sortOrder !== undefined ? { sortOrder } : {}),
+        ...(isBackOffice !== undefined ? { isBackOffice } : {}),
+      }, memberUserIds);
       if (!group) return res.status(404).json({ error: "Task group not found" });
-      if (Array.isArray(memberUserIds)) {
-        await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
-        if (memberUserIds.length > 0) {
-          await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: req.params.id, userId: uid })));
-        }
-      }
       res.json(group);
     } catch (error) {
+      if (error instanceof Error && /member|user|distinct|Inactive|Unknown/.test(error.message)) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Error updating task group:", error);
       res.status(500).json({ error: "Failed to update task group" });
     }
@@ -9006,13 +9074,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const sessionRole = (req.session as any)?.user?.role;
       if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
-      const existing = await db.select().from(taskGroupMembers)
-        .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
-      if (existing.length === 0) {
-        await db.insert(taskGroupMembers).values({ groupId: req.params.id, userId: req.params.userId });
-      }
+      const added = await storage.addTaskGroupMember(req.params.id, req.params.userId);
+      if (!added) return res.status(404).json({ error: "Task group not found" });
       res.json({ success: true });
     } catch (error) {
+      if (error instanceof Error && /member|user|Inactive|Unknown/.test(error.message)) return res.status(400).json({ error: error.message });
       res.status(500).json({ error: "Failed to add member" });
     }
   });
@@ -9030,17 +9096,286 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
 
+  // Shared policy for task listing, detail, mutation, and participant lookups.
+  // Every non-admin is country-scoped (country-less tasks are shared); managers
+  // see that country scope while ordinary users also need a task relationship.
+  async function taskAccessContext(user: any) {
+    const memberships = user.role === "admin" || user.role === "manager"
+      ? []
+      : await db.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers)
+        .where(eq(taskGroupMembers.userId, user.id));
+    return {
+      groupIds: new Set(memberships.map(member => member.groupId)),
+    };
+  }
+
+  function taskIsAccessibleToUser(user: any, task: any, context: { groupIds: Set<string> }): boolean {
+    return canAccessTaskByPolicy(user, task, context.groupIds);
+  }
+
+  async function canAccessTaskForMutation(user: any, task: any): Promise<boolean> {
+    return taskIsAccessibleToUser(user, task, await taskAccessContext(user));
+  }
+
+  async function getAuthorizedTasksForUser(user: any): Promise<any[]> {
+    const [allTasks, context] = await Promise.all([storage.getAllTasks(), taskAccessContext(user)]);
+    return allTasks.filter(task => taskIsAccessibleToUser(user, task, context));
+  }
+
+  function taskAttachmentResponse(upload: typeof taskAttachmentUploads.$inferSelect): TaskAttachment {
+    return {
+      id: upload.id,
+      name: upload.name,
+      url: `/api/tasks/attachments/${encodeURIComponent(upload.id)}`,
+      type: upload.type,
+      size: upload.size,
+    };
+  }
+
+  async function taskAttachmentIdsAlreadyOnTask(task: any): Promise<Set<string>> {
+    const ids = new Set<string>();
+    for (const attachment of Array.isArray(task?.attachments) ? task.attachments : []) {
+      if (typeof attachment?.id === "string") ids.add(attachment.id);
+    }
+    if (!task?.id) return ids;
+    const comments = await db.select({ metadata: taskComments.metadata }).from(taskComments)
+      .where(eq(taskComments.taskId, task.id));
+    for (const comment of comments) {
+      const attachments = (comment.metadata as any)?.attachments;
+      if (Array.isArray(attachments)) {
+        for (const attachment of attachments) {
+          if (typeof attachment?.id === "string") ids.add(attachment.id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  async function resolveTaskAttachments(
+    requested: unknown,
+    user: any,
+    task?: any,
+    request?: any,
+  ): Promise<TaskAttachment[]> {
+    const ids = Array.isArray(requested)
+      ? requested.map((item: any) => item && typeof item === "object" && !Array.isArray(item) ? item.id : null)
+        .filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const registryRows = ids.length
+      ? await db.select().from(taskAttachmentUploads).where(inArray(taskAttachmentUploads.id, ids))
+      : [];
+    const history = registryRows.flatMap(upload => Array.isArray(upload.associationHistory) ? upload.associationHistory : []);
+    const historicalTaskIds = Array.from(new Set(history.map(item => item.taskId).filter(Boolean)));
+    const liveHistoricalTasks = historicalTaskIds.length
+      ? await db.select().from(tasks).where(inArray(tasks.id, historicalTaskIds))
+      : [];
+    const sourceTasksByUploadId = new Map(registryRows.map(upload => [
+      upload.id,
+      liveTaskAttachmentSources(
+        Array.isArray(upload.associationHistory) ? upload.associationHistory : [],
+        liveHistoricalTasks,
+      ),
+    ]));
+    const groupIds = (await taskAccessContext(user)).groupIds;
+    return resolveTaskAttachmentMetadata(
+      requested,
+      user.id,
+      task ? await taskAttachmentIdsAlreadyOnTask(task) : new Set<string>(),
+      registryRows,
+      upload => (sourceTasksByUploadId.get(upload.id) || []).some(sourceTask =>
+        canAccessTaskByPolicy(user, sourceTask, groupIds)
+        || (!!(sourceTask.tags || []).includes("back_office")
+          && !!request
+            && (canAccessBoTask(request, sourceTask) || sourceTask.createdByUserId === user.id))),
+    );
+  }
+
+  async function markTaskAttachmentsAssociated(tx: any, attachments: unknown, task: any): Promise<void> {
+    const ids = Array.isArray(attachments)
+      ? attachments.map((attachment: any) => attachment?.id)
+        .filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    if (ids.length) {
+      const snapshot = {
+        taskId: task.id,
+        country: task.country ?? null,
+        assignedUserId: task.assignedUserId ?? null,
+        createdByUserId: task.createdByUserId ?? null,
+        tags: task.tags ?? [],
+      };
+      const taskIdMatch = JSON.stringify([{ taskId: task.id }]);
+      const snapshotJson = JSON.stringify([snapshot]);
+      await tx.update(taskAttachmentUploads).set({
+        everAssociated: true,
+        associationHistory: sql`CASE
+          WHEN ${taskAttachmentUploads.associationHistory} @> ${taskIdMatch}::jsonb
+            THEN ${taskAttachmentUploads.associationHistory}
+          ELSE COALESCE(${taskAttachmentUploads.associationHistory}, '[]'::jsonb) || ${snapshotJson}::jsonb
+        END`,
+      })
+        .where(inArray(taskAttachmentUploads.id, ids));
+    }
+  }
+
+  // Uploads are staged here, without a task id, so the same creator-owned file
+  // can be referenced by several Pulse tasks in one operation.
+  app.post("/api/tasks/attachments", requireAuth, handleTaskAttachmentUpload, async (req, res) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "No file uploaded" });
+    try {
+      const [upload] = await db.insert(taskAttachmentUploads).values({
+        uploaderUserId: req.session.user!.id,
+        storageKey: file.filename,
+        name: taskAttachmentDisplayName(file.originalname),
+        type: file.mimetype,
+        size: file.size,
+      }).returning();
+      res.status(201).json(taskAttachmentResponse(upload));
+    } catch (error) {
+      try { fs.unlinkSync(file.path); } catch {}
+      console.error("Failed to register private task attachment:", error);
+      res.status(500).json({ error: "Failed to upload task attachment" });
+    }
+  });
+
+  app.get("/api/tasks/attachments/:id", requireAuth, async (req, res) => {
+    try {
+      const [upload] = await db.select().from(taskAttachmentUploads)
+        .where(eq(taskAttachmentUploads.id, req.params.id)).limit(1);
+      if (!upload) return res.status(404).json({ error: "Task attachment not found" });
+
+      const associatedResult = await pool.query<{ id: string }>(`
+        SELECT DISTINCT t.id
+        FROM tasks t
+        WHERE EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE(t.attachments, '[]'::jsonb)) AS a
+          WHERE a->>'id' = $1
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM task_comments c
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(c.metadata->'attachments') = 'array' THEN c.metadata->'attachments'
+              ELSE '[]'::jsonb
+            END
+          ) AS a
+          WHERE c.task_id = t.id AND a->>'id' = $1
+        )
+      `, [upload.id]);
+      const associatedTaskIds = Array.from(new Set([
+        ...associatedResult.rows.map(row => row.id),
+        ...(Array.isArray(upload.associationHistory) ? upload.associationHistory.map(item => item.taskId) : []),
+      ]));
+      const associatedTasks = associatedTaskIds.length
+        ? await db.select().from(tasks).where(inArray(tasks.id, associatedTaskIds))
+        : [];
+      const associatedPolicies = liveTaskAttachmentSources(
+        associatedTaskIds.map(taskId => ({ taskId })),
+        associatedTasks,
+      );
+      const user = req.session.user!;
+      const groupIds = (await taskAccessContext(user)).groupIds;
+      const canReadTaskAttachmentForTask = (task: any) =>
+        canAccessTaskByPolicy(user, task, groupIds)
+        || (!!(task.tags || []).includes("back_office")
+          && (canAccessBoTask(req, task) || task.createdByUserId === user.id));
+      if (!taskAttachmentReadAllowed(
+        user,
+        upload.uploaderUserId,
+        associatedPolicies,
+        groupIds,
+        upload.everAssociated,
+        canReadTaskAttachmentForTask,
+      )) {
+        return res.status(404).json({ error: "Task attachment not found" });
+      }
+
+      const storageRoot = path.resolve(PRIVATE_TASK_ATTACHMENTS_DIR);
+      const filePath = path.resolve(storageRoot, upload.storageKey);
+      if (path.basename(upload.storageKey) !== upload.storageKey || !filePath.startsWith(`${storageRoot}${path.sep}`)) {
+        return res.status(404).json({ error: "Task attachment not found" });
+      }
+      const preview = req.query.preview === "1";
+      if (preview && !taskAttachmentPreviewAllowed(upload.type)) {
+        return res.status(415).json({ error: "This task attachment type cannot be previewed" });
+      }
+      res.attachment(upload.name);
+      if (preview) {
+        const attachmentDisposition = String(res.getHeader("Content-Disposition") || "");
+        res.setHeader("Content-Disposition", attachmentDisposition.replace(/^attachment;/i, "inline;"));
+      }
+      res.setHeader("Content-Type", upload.type);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "private, no-store");
+      const stream = fs.createReadStream(filePath);
+      stream.on("error", error => {
+        if (res.headersSent) return res.destroy(error);
+        res.status(404).json({ error: "Task attachment not found" });
+      });
+      stream.pipe(res);
+    } catch (error) {
+      console.error("Failed to download task attachment:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to download task attachment" });
+    }
+  });
+
+  app.get("/api/tasks/people", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const taskId = typeof req.query.taskId === "string" ? req.query.taskId : null;
+      const authorizedTasks = await getAuthorizedTasksForUser(user);
+      let tasksForParticipants = authorizedTasks;
+      if (taskId) {
+        const task = authorizedTasks.find(row => row.id === taskId);
+        if (!task) return res.status(404).json({ error: "Task not found" });
+        tasksForParticipants = [task];
+      }
+      const allGroupIds = tasksForParticipants
+        .flatMap(task => (task.tags || []).filter((tag: string) => tag.startsWith("group_id:")).map((tag: string) => tag.slice("group_id:".length)));
+      const groupIds = allGroupIds.filter((id: string, index: number) => allGroupIds.indexOf(id) === index);
+      let groupMemberIds: string[] = [];
+      if (groupIds.length) {
+        const groupMembers = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(inArray(taskGroupMembers.groupId, groupIds));
+        groupMemberIds = groupMembers.map(member => member.userId);
+      }
+      const participantIds = new Set(collectTaskParticipantIds(tasksForParticipants, groupMemberIds));
+
+      const activeCandidates = await db.select({
+        id: users.id,
+        assignedCountries: users.assignedCountries,
+      }).from(users).where(eq(users.isActive, true));
+      const candidateIds = activeCandidates
+        .filter(candidate => taskPeopleCandidateAllowed(user.role, user.assignedCountries, candidate.assignedCountries))
+        .map(candidate => candidate.id);
+      const peopleIds = Array.from(new Set([...Array.from(participantIds), ...candidateIds]));
+      if (!peopleIds.length) return res.json([]);
+      const people = await db.select({
+        id: users.id,
+        fullName: users.fullName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        isActive: users.isActive,
+      }).from(users).where(inArray(users.id, peopleIds));
+      res.json(people.filter(person => taskPeoplePersonVisible(person.isActive, participantIds.has(person.id))));
+    } catch (error) {
+      console.error("Error fetching task participants:", error);
+      res.status(500).json({ error: "Failed to fetch task participants" });
+    }
+  });
+
   // Tasks API (protected)
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {
+      const authorizedTasks = await getAuthorizedTasksForUser(req.session.user!);
       if (req.query.page || req.query.limit) {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-        const result = await storage.getAllTasksPaginated(page, limit);
-        return res.json(result);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
+        return res.json({ data: authorizedTasks.slice((page - 1) * limit, page * limit), total: authorizedTasks.length });
       }
-      const tasks = await storage.getAllTasks();
-      res.json(tasks);
+      res.json(authorizedTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -9049,14 +9384,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.get("/api/tasks/my", requireAuth, async (req, res) => {
     try {
+      const mine = (await getAuthorizedTasksForUser(req.session.user!))
+        .filter(task => task.assignedUserId === req.session.user!.id);
       if (req.query.page || req.query.limit) {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-        const result = await storage.getTasksByUserPaginated(req.session.user!.id, page, limit);
-        return res.json(result);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
+        return res.json({ data: mine.slice((page - 1) * limit, page * limit), total: mine.length });
       }
-      const tasks = await storage.getTasksByUser(req.session.user!.id);
-      res.json(tasks);
+      res.json(mine);
     } catch (error) {
       console.error("Error fetching user tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -9069,6 +9404,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       res.json(task);
     } catch (error) {
       console.error("Error fetching task:", error);
@@ -9076,26 +9412,208 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  const taskSourceEntityDependencies: TaskSourceEntityDependencies = {
+    getTask: async (id) => (await storage.getTask(id)) ?? null,
+    canAccessTask: async (user, id) => {
+      const task = await storage.getTask(id);
+      return !!task && !!user && canAccessTaskForMutation(user, task);
+    },
+    findLegacyConfirmations: async (statusListItemId, confirmedByUserId, taskCreatedAt) => {
+      const windowStart = new Date(taskCreatedAt.getTime() - 300_000);
+      const windowEnd = new Date(taskCreatedAt.getTime() + 300_000);
+      const result = await db.execute<any>(sql`
+        SELECT s.status_list_item_id AS "statusListItemId",
+               s.confirmed_by_user_id AS "confirmedByUserId",
+               s.confirmed_at AS "confirmedAt",
+               cc.contact_type AS "contactType",
+               cc.customer_id AS "customerId",
+               cc.clinic_id AS "clinicId",
+               cc.hospital_id AS "hospitalId",
+               cc.collaborator_id AS "collaboratorId"
+        FROM campaign_contact_status_list_state s
+        JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
+        WHERE s.status_list_item_id = ${statusListItemId}
+          AND s.confirmed_by_user_id = ${confirmedByUserId}
+          AND s.confirmed_at >= ${windowStart}
+          AND s.confirmed_at <= ${windowEnd}
+      `);
+      return result.rows ?? [];
+    },
+    entityExists: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({ id: customers.id }).from(customers)
+          .where(eq(customers.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ id: clinics.id }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({ id: hospitals.id }).from(hospitals)
+          .where(eq(hospitals.id, id)).limit(1);
+        return !!entity;
+      }
+      const [entity] = await db.select({ id: collaborators.id }).from(collaborators)
+        .where(eq(collaborators.id, id)).limit(1);
+      return !!entity;
+    },
+    getEntityCountry: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({ country: customers.country }).from(customers)
+          .where(eq(customers.id, id)).limit(1);
+        return entity?.country ?? null;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ countryCode: clinics.countryCode }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return entity?.countryCode ?? null;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({ countryCode: hospitals.countryCode }).from(hospitals)
+          .where(eq(hospitals.id, id)).limit(1);
+        return entity?.countryCode ?? null;
+      }
+      const [entity] = await db.select({
+        countryCode: collaborators.countryCode,
+        countryCodes: collaborators.countryCodes,
+      }).from(collaborators).where(eq(collaborators.id, id)).limit(1);
+      return entity ? [entity.countryCode, ...(entity.countryCodes || [])] : null;
+    },
+    getEntityDisplayName: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+        }).from(customers).where(eq(customers.id, id)).limit(1);
+        return entity ? `${entity.firstName} ${entity.lastName}` : null;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ name: clinics.name }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return entity?.name ?? null;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({
+          fullName: hospitals.fullName,
+          name: hospitals.name,
+        }).from(hospitals).where(eq(hospitals.id, id)).limit(1);
+        return entity?.fullName || entity?.name || null;
+      }
+      const [entity] = await db.select({
+        titleBefore: collaborators.titleBefore,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+      }).from(collaborators).where(eq(collaborators.id, id)).limit(1);
+      return entity ? [entity.titleBefore, entity.firstName, entity.lastName].filter(Boolean).join(" ") : null;
+    },
+  };
+  registerTaskSourceEntityRoute(app, requireAuth, taskSourceEntityDependencies);
+
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
-      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags } = req.body;
-      if (!title || !assignedUserId) {
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags, pulseOrigin } = body;
+      if (!title || typeof assignedUserId !== "string" || !assignedUserId.trim()) {
         return res.status(400).json({ error: "Title and assignedUserId are required" });
+      }
+      if (!userMayAccessTaskCountry(req.session.user!.role, req.session.user!.assignedCountries, country)) {
+        return res.status(403).json({ error: "You are not authorized to create a task in this country" });
+      }
+      let manualPulseProvenanceValidated = false;
+      if (pulseOrigin !== undefined) {
+        if (
+          !pulseOrigin
+          || typeof pulseOrigin !== "object"
+          || Array.isArray(pulseOrigin)
+          || typeof pulseOrigin.missionId !== "string"
+          || !pulseOrigin.missionId.trim()
+          || typeof pulseOrigin.sessionId !== "string"
+          || !pulseOrigin.sessionId.trim()
+        ) {
+          return res.status(400).json({ error: "pulseOrigin must identify an active Mission session" });
+        }
+        const [activeSession] = await db.select({
+          id: agentSessions.id,
+          userId: agentSessions.userId,
+          campaignId: agentSessions.campaignId,
+          campaignIds: agentSessions.campaignIds,
+          endedAt: agentSessions.endedAt,
+        }).from(agentSessions).where(and(
+          eq(agentSessions.id, pulseOrigin.sessionId),
+          eq(agentSessions.userId, req.session.user!.id),
+          isNull(agentSessions.endedAt),
+        )).limit(1);
+        const authorizedMissionScope = await sanitizeAgentShiftScope(
+          req.session.user!.id,
+          req.session.user!.role,
+          {
+            name: "manual-pulse-task",
+            campaignIds: [pulseOrigin.missionId],
+            inboundQueueIds: [],
+            backOffice: false,
+          },
+        );
+        if (!isAuthorizedManualPulseTaskOrigin(
+          req.session.user!.id,
+          pulseOrigin,
+          activeSession,
+          authorizedMissionScope.campaignIds,
+        )) {
+          return res.status(403).json({ error: "Manual Nexus Pulse task provenance requires an active authorized Mission session" });
+        }
+        manualPulseProvenanceValidated = true;
+      }
+      const [assignee] = await db.select({ id: users.id, isActive: users.isActive }).from(users)
+        .where(eq(users.id, assignedUserId)).limit(1);
+      if (!assignee || !assignee.isActive) return res.status(400).json({ error: "assignedUserId must reference an active user" });
+      if (tags !== undefined && (!Array.isArray(tags) || tags.some((tag: unknown) => typeof tag !== "string"))) {
+        return res.status(400).json({ error: "tags must be an array of strings" });
+      }
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(body, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(body.attachments, req.session.user!, undefined, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const providedTags: string[] = Array.isArray(tags)
+        ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG)
+        : [];
+      const groupTags = providedTags.filter(tag => tag.startsWith("group_id:"));
+      if (groupTags.length > 1 || groupTags.some(tag => !tag.slice("group_id:".length).trim())) {
+        return res.status(400).json({ error: "tags may contain at most one valid group_id tag" });
+      }
+      if (groupTags.length) {
+        const groupId = groupTags[0].slice("group_id:".length);
+        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups)
+          .where(eq(taskGroups.id, groupId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Unknown task group" });
+        const [membership] = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, assignedUserId))).limit(1);
+        if (!membership) return res.status(400).json({ error: "The assigned user must be a member of the selected task group" });
       }
       const taskData: any = {
         title,
         priority: priority || "medium",
         assignedUserId,
         createdByUserId: req.session.user!.id,
+        attachments,
       };
       if (description) taskData.description = description;
       if (customerId) taskData.customerId = customerId;
-      if (relatedEntityType) taskData.relatedEntityType = relatedEntityType;
-      if (relatedEntityId) taskData.relatedEntityId = relatedEntityId;
+      if (relatedEntityType && relatedEntityType !== "status_list_item") taskData.relatedEntityType = relatedEntityType;
+      if (relatedEntityId && relatedEntityType !== "status_list_item") taskData.relatedEntityId = relatedEntityId;
       if (country) taskData.country = country;
       if (dueDate) taskData.dueDate = new Date(dueDate);
-      if (Array.isArray(tags) && tags.length > 0) taskData.tags = tags;
-      console.log("[CreateTask] payload:", JSON.stringify(taskData));
+      const persistedTags = manualPulseProvenanceValidated
+        ? [...providedTags, MANUAL_PULSE_TASK_TAG]
+        : providedTags;
+      if (persistedTags.length > 0) taskData.tags = persistedTags;
+      console.log("[CreateTask] creating task");
       const task = await storage.createTask(taskData);
       
       await logActivity(
@@ -9103,15 +9621,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
         "create",
         "task",
         task.id,
-        task.title,
+        "Task",
         { priority: task.priority, assignedUserId: task.assignedUserId },
         req.ip
       );
 
       try {
-        const { emitEntityCreated } = await import("./lib/event-bus");
-        await emitEntityCreated("task", "task", task.id, task, req.session.user!.id, task.country);
+        const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+        const { emitEntityCreated, emitTaskAssigned, safeTaskEventValues } = await import("./lib/event-bus");
+        await emitEntityCreated("task", "task", task.id, safeTaskEventValues(task), req.session.user!.id, taskCustomer?.country || null);
+        await emitTaskAssigned(task, undefined, req.session.user!.id);
       } catch (err) { console.error("[EventBus] task create emit error:", err); }
+
+      void (async () => {
+        try {
+          const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+          const { analyzeAndEmitTaskNegativeSentiment } = await import("./lib/task-sentiment");
+          await analyzeAndEmitTaskNegativeSentiment(task, {
+            actorUserId: req.session.user!.id,
+            countryCode: taskCustomer?.country || task.country || null,
+            sensitiveValues: taskCustomer ? [
+              taskCustomer.firstName, taskCustomer.lastName, taskCustomer.maidenName,
+              taskCustomer.email, taskCustomer.email2, taskCustomer.phone, taskCustomer.mobile,
+              taskCustomer.mobile2, taskCustomer.nationalId, taskCustomer.idCardNumber,
+              taskCustomer.address, taskCustomer.city, taskCustomer.postalCode,
+            ].filter((value): value is string => typeof value === "string") : [],
+          });
+        } catch (err) {
+          console.error(`[TaskSentiment] Could not start analysis for task ${task.id} (${err instanceof Error ? err.name : "unknown error"})`);
+        }
+      })();
 
       try {
         const taskTags: string[] = task.tags || [];
@@ -9129,7 +9668,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               message: `Skupina: ${groupName}`,
               priority: "normal",
               entityType: "task",
-              metadata: { groupId, groupName, taskTitle: task.title },
+              metadata: { groupId, groupName, taskId: task.id, taskTitle: task.title },
             });
           }
         }
@@ -9145,32 +9684,116 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
       const oldTask = await storage.getTask(req.params.id);
-      const task = await storage.updateTask(req.params.id, req.body);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
+      if (!oldTask) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, oldTask)) return res.status(404).json({ error: "Task not found" });
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      if (Object.prototype.hasOwnProperty.call(body, "notifyAgent") && typeof body.notifyAgent !== "boolean") {
+        return res.status(400).json({ error: "notifyAgent must be a boolean" });
       }
+      const { notifyAgent: _notifyAgent, ...editableBody } = body;
+      let updateData: any;
+      try {
+        updateData = buildValidatedTaskPatch(editableBody, oldTask.tags || []);
+      } catch (error: any) {
+        return res.status(400).json({ error: error?.message || "Invalid task update" });
+      }
+      if (Object.prototype.hasOwnProperty.call(editableBody, "attachments")) {
+        try {
+          updateData.attachments = await resolveTaskAttachments(editableBody.attachments, req.session.user!, oldTask, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      if (pulseCompletionMissingResolution(
+        oldTask,
+        updateData.status === "completed" && oldTask.status !== "completed",
+        Object.prototype.hasOwnProperty.call(updateData, "resolution") ? updateData.resolution : undefined,
+      )) {
+        return res.status(400).json({ error: "Resolution text is required to complete a Pulse task" });
+      }
+      const assignmentChanged = !!updateData.assignedUserId && updateData.assignedUserId !== oldTask.assignedUserId;
+      if (assignmentChanged) {
+        const [assignee] = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.id, updateData.assignedUserId), eq(users.isActive, true))).limit(1);
+        if (!assignee) return res.status(400).json({ error: "Assigned user must be an active INDEXUS user" });
+      }
+      const groupTag = (updateData.tags || oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+      const oldGroupTag = (oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+      const groupAssignmentChanged = Object.prototype.hasOwnProperty.call(updateData, "tags") && groupTag !== oldGroupTag;
+      if ((groupAssignmentChanged || assignmentChanged) && groupTag) {
+        const groupId = groupTag.slice("group_id:".length);
+        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Task group does not exist" });
+        const assignedUserId = updateData.assignedUserId || oldTask.assignedUserId;
+        const [membership] = await db.select({ id: taskGroupMembers.id }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, assignedUserId))).limit(1);
+        if (!membership) return res.status(400).json({ error: "Assigned user must belong to the selected task group" });
+      }
+      const completionNotification = updateData.status === "completed" && shouldNotifyTaskCreator(oldTask, true, _notifyAgent)
+        ? async (completedTask: NonNullable<typeof oldTask>) => buildPulseCompletionNotification(
+            completedTask,
+            undefined,
+            await resolveTaskSourceEntityDisplayName(completedTask, taskSourceEntityDependencies) ?? undefined,
+          )
+        : undefined;
+      const updateResult = await storage.updateTaskWithActor(req.params.id, updateData, req.session.user!.id, completionNotification);
+      if (!updateResult) return res.status(404).json({ error: "Task not found" });
+      const { task, oldTask: previousTask, completedNow, notification } = updateResult;
       
       await logActivity(
         req.session.user!.id,
         "update",
         "task",
         task.id,
-        task.title,
-        req.body,
+        "Task",
+        { updatedFields: Object.keys(updateData).filter((field) => !["title", "description"].includes(field)) },
         req.ip
       );
 
       try {
-        const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
-        await emitEntityUpdated("task", "task", task.id, oldTask, task, req.session.user!.id, task.country);
-        if (oldTask && oldTask.status !== "completed" && task.status === "completed") {
-          await emitTaskCompleted(task.id, task, req.session.user!.id);
+        const { emitEntityUpdated, emitTaskCompleted, emitTaskAssigned } = await import("./lib/event-bus");
+        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
+        if (previousTask.assignedUserId !== task.assignedUserId) {
+          await emitTaskAssigned(task, previousTask, req.session.user!.id);
+        }
+        if (completedNow) {
+          await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
         }
       } catch (err) { console.error("[EventBus] task update emit error:", err); }
 
+      if (notification) {
+        try {
+          await notificationService.broadcastExistingNotification(notification);
+        } catch (error) { console.warn("[Tasks] Failed to send Pulse completion notification:", error); }
+      }
+
+      const textChanged =
+        (previousTask.title !== task.title || (previousTask.description || "") !== (task.description || ""));
+      if (textChanged) {
+        void (async () => {
+          try {
+            const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+            const { analyzeAndEmitTaskNegativeSentiment } = await import("./lib/task-sentiment");
+            await analyzeAndEmitTaskNegativeSentiment(task, {
+              actorUserId: req.session.user!.id,
+              countryCode: taskCustomer?.country || task.country || null,
+              sensitiveValues: taskCustomer ? [
+                taskCustomer.firstName, taskCustomer.lastName, taskCustomer.maidenName,
+                taskCustomer.email, taskCustomer.email2, taskCustomer.phone, taskCustomer.mobile,
+                taskCustomer.mobile2, taskCustomer.nationalId, taskCustomer.idCardNumber,
+                taskCustomer.address, taskCustomer.city, taskCustomer.postalCode,
+              ].filter((value): value is string => typeof value === "string") : [],
+            });
+          } catch (err) {
+            console.error(`[TaskSentiment] Could not start analysis for task ${task.id} (${err instanceof Error ? err.name : "unknown error"})`);
+          }
+        })();
+      }
+
       try {
         const newTags: string[] = task.tags || [];
-        const oldTags: string[] = oldTask?.tags || [];
+        const oldTags: string[] = previousTask.tags || [];
         const newGroupIdTag = newTags.find((t: string) => t.startsWith("group_id:"));
         const oldGroupIdTag = oldTags.find((t: string) => t.startsWith("group_id:"));
         if (newGroupIdTag && newGroupIdTag !== oldGroupIdTag) {
@@ -9186,7 +9809,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               message: `Skupina: ${groupName}`,
               priority: "normal",
               entityType: "task",
-              metadata: { groupId, groupName, taskTitle: task.title },
+              metadata: { groupId, groupName, taskId: task.id, taskTitle: task.title },
             });
           }
         }
@@ -9194,6 +9817,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       res.json(task);
     } catch (error) {
+      if (error instanceof TaskInactiveCompletionError) {
+        return res.status(409).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof PulseChecklistCompletionError) {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          remainingCount: error.remainingCount,
+        });
+      }
+      if (error instanceof TaskCompletionNoticeAuthorizationError) {
+        return res.status(403).json({ error: error.message });
+      }
       console.error("Error updating task:", error);
       res.status(500).json({ error: "Failed to update task" });
     }
@@ -9205,6 +9841,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       
       const deleted = await storage.deleteTask(req.params.id);
       if (deleted) {
@@ -9229,15 +9866,26 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Resolve task with solution
   app.post("/api/tasks/:id/resolve", requireAuth, async (req, res) => {
     try {
-      const { resolution } = req.body;
-      if (!resolution) {
+      const { resolution, notifyAgent } = req.body || {};
+      if (typeof resolution !== "string" || !resolution.trim()) {
         return res.status(400).json({ error: "Resolution text is required" });
       }
-      
-      const task = await storage.resolveTask(req.params.id, resolution, req.session.user!.id);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
+      if (notifyAgent !== undefined && typeof notifyAgent !== "boolean") return res.status(400).json({ error: "notifyAgent must be a boolean" });
+      const oldTask = await storage.getTask(req.params.id);
+      if (!oldTask) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, oldTask)) return res.status(404).json({ error: "Task not found" });
+      const shouldNotifyCreator = shouldNotifyTaskCreator(oldTask, true, notifyAgent);
+      const completionNotification = shouldNotifyCreator
+        ? async (completedTask: NonNullable<typeof oldTask>) => buildPulseCompletionNotification(
+            completedTask,
+            undefined,
+            await resolveTaskSourceEntityDisplayName(completedTask, taskSourceEntityDependencies) ?? undefined,
+          )
+        : undefined;
+      const result = await storage.resolveTask(req.params.id, resolution.trim(), req.session.user!.id, completionNotification);
+      if (!result) return res.status(404).json({ error: "Task not found" });
+      const { task, oldTask: previousTask, completedNow, notification } = result;
+      if (!completedNow) return res.json(task);
       
       await logActivity(
         req.session.user!.id,
@@ -9245,20 +9893,38 @@ Return ONLY valid JSON, no markdown code blocks.`,
         "task",
         task.id,
         task.title,
-        { resolution },
+        { resolution: resolution.trim() },
         req.ip
       );
 
       try {
         const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
         // Emit a generic update so rules listening for status_changed/updated also fire
-        const oldSnap = { status: "open" };
-        await emitEntityUpdated("task", "task", task.id, oldSnap, task, req.session.user!.id, task.country);
-        await emitTaskCompleted(task.id, task, req.session.user!.id);
+        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
+        await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
       } catch (err) { console.error("[EventBus] task resolve emit error:", err); }
+
+      if (notification) {
+        try {
+          await notificationService.broadcastExistingNotification(notification);
+        } catch (error) { console.warn("[Tasks] Failed to send task resolution notification:", error); }
+      }
       
       res.json(task);
     } catch (error) {
+      if (error instanceof TaskInactiveCompletionError) {
+        return res.status(409).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof PulseChecklistCompletionError) {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          remainingCount: error.remainingCount,
+        });
+      }
+      if (error instanceof TaskCompletionNoticeAuthorizationError) {
+        return res.status(403).json({ error: error.message });
+      }
       console.error("Error resolving task:", error);
       res.status(500).json({ error: "Failed to resolve task" });
     }
@@ -9268,10 +9934,25 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.post("/api/tasks/:id/reassign", requireAuth, async (req, res) => {
     try {
       const { newAssignedUserId } = req.body;
-      if (!newAssignedUserId) {
+      if (typeof newAssignedUserId !== "string" || !newAssignedUserId.trim()) {
         return res.status(400).json({ error: "New assigned user ID is required" });
       }
       
+      const oldTask = await storage.getTask(req.params.id);
+      if (!oldTask) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, oldTask)) return res.status(404).json({ error: "Task not found" });
+      const assignmentChanged = newAssignedUserId !== oldTask.assignedUserId;
+      if (assignmentChanged) {
+        const [activeAssignee] = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.id, newAssignedUserId), eq(users.isActive, true))).limit(1);
+        if (!activeAssignee) return res.status(400).json({ error: "Assigned user must be an active INDEXUS user" });
+      }
+      const groupTag = (oldTask.tags || []).find(tag => tag.startsWith("group_id:"));
+      if (assignmentChanged && groupTag) {
+        const [membership] = await db.select({ id: taskGroupMembers.id }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupTag.slice("group_id:".length)), eq(taskGroupMembers.userId, newAssignedUserId))).limit(1);
+        if (!membership) return res.status(400).json({ error: "Assigned user must belong to the task group" });
+      }
       const task = await storage.reassignTask(req.params.id, newAssignedUserId);
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
@@ -9286,6 +9967,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
         { newAssignedUserId },
         req.ip
       );
+
+      if (oldTask?.assignedUserId !== task.assignedUserId) {
+        try {
+          const { emitTaskAssigned } = await import("./lib/event-bus");
+          await emitTaskAssigned(task, oldTask, req.session.user!.id);
+        } catch (err) { console.error("[EventBus] task reassignment emit error:", err); }
+      }
       
       res.json(task);
     } catch (error) {
@@ -9297,6 +9985,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Task Comments API
   app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     try {
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       const comments = await storage.getTaskComments(req.params.taskId);
       res.json(comments);
     } catch (error) {
@@ -9307,15 +9998,31 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     try {
-      const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ error: "Comment content is required" });
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      if (body.content !== undefined && body.content !== null && typeof body.content !== "string") {
+        return res.status(400).json({ error: "Comment content must be a string" });
       }
-      
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(body, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const content = typeof body.content === "string" ? body.content : "";
+      if (!taskCommentHasContentOrAttachments(content, attachments.length)) {
+        return res.status(400).json({ error: "Comment content or at least one valid attachment is required" });
+      }
       const comment = await storage.createTaskComment({
         taskId: req.params.taskId,
         userId: req.session.user!.id,
         content,
+        metadata: attachments.length ? { attachments } : {},
       });
       
       res.status(201).json(comment);
@@ -9325,20 +10032,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  // Task checklist items — auth: assignee, creator, admin, or member of assignedDepartmentId
+  // Checklist routes share the same country/participant policy as task detail.
   async function canAccessTask(userId: string, role: string | undefined, taskId: string): Promise<{ ok: boolean; task?: any }> {
     const task = await storage.getTask(taskId);
     if (!task) return { ok: false };
-    if (role === "admin") return { ok: true, task };
-    if (task.assignedUserId === userId) return { ok: true, task };
-    if (task.createdByUserId === userId) return { ok: true, task };
-    if (task.assignedDepartmentId) {
-      try {
-        const me: any = await storage.getUser(userId);
-        if (me?.departmentId === task.assignedDepartmentId) return { ok: true, task };
-      } catch {}
-    }
-    return { ok: false, task };
+    const persistedUser: any = await storage.getUser(userId);
+    const user = { ...(persistedUser || {}), id: userId, role };
+    return { ok: await canAccessTaskForMutation(user, task), task };
   }
   async function canAccessChecklistItem(userId: string, role: string | undefined, itemId: string): Promise<{ ok: boolean; item?: any }> {
     const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId));
@@ -9346,6 +10046,44 @@ Return ONLY valid JSON, no markdown code blocks.`,
     const access = await canAccessTask(userId, role, item.taskId);
     return { ok: access.ok, item };
   }
+
+  registerTaskResolutionDraftRoute(app, requireAuth, {
+    getTask: (id) => storage.getTask(id),
+    canAccessTask: async (user, id) => (await canAccessTask(user.id, user.role, id)).ok,
+    getChecklist: (taskId) => db.select({
+      label: taskChecklistItems.label,
+      note: taskChecklistItems.note,
+      doneAt: taskChecklistItems.doneAt,
+    }).from(taskChecklistItems).where(eq(taskChecklistItems.taskId, taskId))
+      .orderBy(taskChecklistItems.position),
+  });
+
+  app.get("/api/tasks/:taskId/checklist/ai", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      res.json(await getTaskAiChecklistState(req.params.taskId));
+    } catch {
+      res.status(500).json({ error: "Failed to read AI checklist status" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/checklist/ai", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      const state = await ensureTaskAiChecklist(req.params.taskId, {
+        retry: req.body?.retry === true,
+      });
+      return res.status(state.status === "generating" ? 202 : 200).json(state);
+    } catch {
+      res.status(500).json({ status: "failed", errorCode: "internal_error" });
+    }
+  });
 
   app.get("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
     try {
@@ -9373,17 +10111,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
       const { label, required, position } = req.body || {};
       if (!label) return res.status(400).json({ error: "label required" });
-      const [item] = await db
-        .insert(taskChecklistItems)
-        .values({
+      const item = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, req.params.taskId)).for("update").limit(1);
+        if (!lockedTask) return null;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const [created] = await tx.insert(taskChecklistItems).values({
           taskId: req.params.taskId,
           label: String(label),
           required: required !== false,
           position: typeof position === "number" ? position : 0,
         })
         .returning();
+        await markTaskChecklistManuallyChanged(tx, req.params.taskId);
+        return created;
+      });
+      if (!item) return res.status(404).json({ error: "Task not found" });
       res.status(201).json(item);
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error creating checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to create item" });
     }
@@ -9396,21 +10141,39 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!access.item) return res.status(404).json({ error: "Item not found" });
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
       const { done, label, note } = req.body || {};
-      const updates: any = {};
-      if (typeof done === "boolean") {
-        updates.doneAt = done ? new Date() : null;
-        updates.doneByUserId = done ? me.id : null;
+      if ((done !== undefined && typeof done !== "boolean") || (label !== undefined && typeof label !== "string") ||
+        (done === undefined && label === undefined && note === undefined)) {
+        return res.status(400).json({ error: "Supply a valid done, label or note update" });
       }
-      if (typeof label === "string") updates.label = label;
-      if (typeof note === "string") updates.note = note;
-      const [item] = await db
-        .update(taskChecklistItems)
-        .set(updates)
-        .where(eq(taskChecklistItems.id, req.params.id))
-        .returning();
+      if (note !== undefined && (typeof note !== "string" || note.length > 240)) {
+        return res.status(400).json({ error: "Checklist note must be a string of at most 240 characters" });
+      }
+      const item = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, access.item.taskId)).for("update").limit(1);
+        if (!lockedTask) return null;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const [lockedItem] = await tx.select().from(taskChecklistItems)
+          .where(and(eq(taskChecklistItems.id, req.params.id), eq(taskChecklistItems.taskId, access.item.taskId)))
+          .for("update").limit(1);
+        if (!lockedItem) return null;
+        const updates: any = {};
+        if (typeof done === "boolean" && done !== !!lockedItem.doneAt) {
+          updates.doneAt = done ? new Date() : null;
+          updates.doneByUserId = done ? me.id : null;
+        }
+        if (typeof label === "string") updates.label = label;
+        if (typeof note === "string") updates.note = note.trim() || null;
+        if (!Object.keys(updates).length) return lockedItem;
+        const [updated] = await tx.update(taskChecklistItems)
+          .set(updates)
+          .where(eq(taskChecklistItems.id, req.params.id))
+          .returning();
+        return updated;
+      });
       if (!item) return res.status(404).json({ error: "Item not found" });
       res.json(item);
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error updating checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to update item" });
     }
@@ -9422,9 +10185,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const access = await canAccessChecklistItem(me.id, me.role, req.params.id);
       if (!access.item) return res.status(404).json({ error: "Item not found" });
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
-      await db.delete(taskChecklistItems).where(eq(taskChecklistItems.id, req.params.id));
+      const deleted = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, access.item.taskId)).for("update").limit(1);
+        if (!lockedTask) return false;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const result = await tx.delete(taskChecklistItems)
+          .where(and(eq(taskChecklistItems.id, req.params.id), eq(taskChecklistItems.taskId, access.item.taskId)))
+          .returning({ id: taskChecklistItems.id });
+        return result.length > 0;
+      });
+      if (!deleted) return res.status(404).json({ error: "Item not found" });
       res.json({ success: true });
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error deleting checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to delete item" });
     }
@@ -9432,6 +10205,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req, res) => {
     try {
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) {
+        return res.status(403).json({ error: "Not authorized to access this task" });
+      }
       const comments = await storage.getTaskComments(req.params.taskId);
       const comment = comments.find((c: any) => c.id === req.params.commentId);
       if (!comment) {
@@ -32874,18 +33652,6 @@ Respond ONLY with valid JSON in this exact format:
     return task;
   }
 
-  // Keep only attachments whose URL we actually generated (defense against arbitrary
-  // url injection in the JSON body); cap the count and string lengths.
-  function sanitizeBoAttachments(raw: any): { name: string; url: string; size: number; type: string }[] {
-    if (!Array.isArray(raw)) return [];
-    return raw.slice(0, 10).map((a: any) => ({
-      name: String(a?.name ?? "file").slice(0, 200),
-      url: String(a?.url ?? ""),
-      size: Number.isFinite(Number(a?.size)) ? Number(a.size) : 0,
-      type: String(a?.type ?? "").slice(0, 120),
-    })).filter((a) => a.url.startsWith("/data/") || a.url.startsWith("/uploads/"));
-  }
-
   // Helper: normalized list of the session user's assigned countries (back-office authz)
   function boUserCountries(req: any): string[] {
     return (((req.session.user?.assignedCountries as string[]) || [])
@@ -33173,16 +33939,25 @@ Respond ONLY with valid JSON in this exact format:
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Question content is required" });
       const highPriority = req.body?.highPriority === true;
-      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
       if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
       if (!task.createdByUserId) return res.status(400).json({ error: "Task has no originating agent" });
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(req.body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
           taskId, userId, content, kind: "question", metadata: { askedBy: userId, highPriority, attachments } as any,
         }).returning();
+        await markTaskAttachmentsAssociated(tx, attachments, task);
         await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
       });
@@ -33454,17 +34229,26 @@ Respond ONLY with valid JSON in this exact format:
       const userId = req.session.user!.id;
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Answer content is required" });
-      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
       if (!task) return res.status(404).json({ error: "Task not found" });
       const taskTags: string[] = (task.tags as string[]) || [];
       if (!taskTags.includes("back_office")) return res.status(404).json({ error: "Task not found" });
       if (task.createdByUserId !== userId) return res.status(403).json({ error: "Not your question to answer" });
       if (task.boState !== "waiting_agent") return res.status(409).json({ error: "No pending question to answer" });
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(req.body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
           taskId, userId, content, kind: "answer", metadata: { answeredBy: userId, attachments } as any,
         }).returning();
+        await markTaskAttachmentsAssociated(tx, attachments, task);
         await tx.update(tasks).set({ boState: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
       });
@@ -33491,7 +34275,7 @@ Respond ONLY with valid JSON in this exact format:
 
   // Upload a file attachment for a back-office task (used by BO question + agent answer).
   // Returns lightweight file metadata to embed in the comment's metadata.attachments[].
-  app.post("/api/back-office/tasks/:taskId/attachment", requireAuth, uploadTaskAttachment.single("file"), async (req, res) => {
+  app.post("/api/back-office/tasks/:taskId/attachment", requireAuth, handleTaskAttachmentUpload, async (req, res) => {
     try {
       const { taskId } = req.params;
       const userId = req.session.user!.id;
@@ -33502,12 +34286,14 @@ Respond ONLY with valid JSON in this exact format:
       // Allow either the back-office side (assignee/country access) or the originating agent.
       const allowed = canAccessBoTask(req, task) || task.createdByUserId === userId;
       if (!allowed) { try { fs.unlinkSync(file.path); } catch {} return res.status(403).json({ error: "Access denied" }); }
-      res.status(201).json({
-        name: file.originalname,
-        url: getPublicUrl(file.path),
-        size: file.size,
+      const [upload] = await db.insert(taskAttachmentUploads).values({
+        uploaderUserId: userId,
+        storageKey: file.filename,
+        name: taskAttachmentDisplayName(file.originalname),
         type: file.mimetype,
-      });
+        size: file.size,
+      }).returning();
+      res.status(201).json(taskAttachmentResponse(upload));
     } catch (error) {
       if (req.file) { try { fs.unlinkSync(req.file.path); } catch {} }
       console.error("Failed to upload task attachment:", error);

@@ -1,13 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { useAuth } from "@/contexts/auth-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { isPulseNotificationTask } from "@/lib/task-query-controls";
 import { useToast } from "@/hooks/use-toast";
 import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuarter, subQuarters, startOfYear, endOfYear, subYears } from "date-fns";
 import type { Task, User, Customer, TaskComment } from "@shared/schema";
+import type { TaskAttachment } from "@shared/task-attachments";
+import { TaskAttachmentList, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
+import { TaskCommentsDialog } from "@/components/tasks/task-comments-dialog";
+import { TaskCancelConfirmationDialog } from "@/components/tasks/task-cancel-confirmation-dialog";
+import { TaskResolutionDialog } from "@/components/tasks/task-resolution-dialog";
+import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import { TaskTimingStatus } from "@/components/tasks/task-timing";
+import { TaskRequestBrief } from "@/components/tasks/task-request-brief";
+import "@/components/tasks/checklist-notes.css";
+import "@/components/nexus/nexus-signal-tasks.css";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -52,15 +64,14 @@ import {
   Edit,
   BarChart3,
   TrendingUp,
-  MessageSquare,
   UserPlus,
   Eye,
-  Send,
   Trash2,
   Square,
   CheckSquare,
   ListChecks,
-  Settings
+  Settings,
+  Sparkles,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
@@ -80,7 +91,7 @@ const statusConfig = {
 };
 
 export default function TasksPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { selectedCountries } = useCountryFilter();
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -103,13 +114,19 @@ export default function TasksPage() {
   const [reportStartDate, setReportStartDate] = useState<Date>(startOfMonth(new Date()));
   const [reportEndDate, setReportEndDate] = useState<Date>(endOfMonth(new Date()));
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskPendingCancellation, setTaskPendingCancellation] = useState<Task | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [resolutionText, setResolutionText] = useState("");
+  const [taskNotifyAgent, setTaskNotifyAgent] = useState(true);
   const [reassignUserId, setReassignUserId] = useState("");
-  const [newComment, setNewComment] = useState("");
+  const [editAttachments, setEditAttachments] = useState<TaskAttachment[]>([]);
+  const [editUploading, setEditUploading] = useState(false);
+  const editAttachmentsChangedRef = useRef(false);
+  const commentScopeRef = useRef<string | undefined>(selectedTask?.id);
+  commentScopeRef.current = selectedTask?.id;
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -117,6 +134,7 @@ export default function TasksPage() {
     status: "pending",
     assignedUserId: "",
     groupId: "",
+    resolution: "",
   });
 
   const { data: tasks = [], isLoading } = useQuery<Task[]>({
@@ -175,8 +193,8 @@ export default function TasksPage() {
   });
 
   const resolveTaskMutation = useMutation({
-    mutationFn: async ({ id, resolution }: { id: string; resolution: string }) => {
-      return apiRequest("POST", `/api/tasks/${id}/resolve`, { resolution });
+    mutationFn: async ({ id, resolution, notifyAgent }: { id: string; resolution: string; notifyAgent: boolean }) => {
+      return apiRequest("POST", `/api/tasks/${id}/resolve`, { resolution, notifyAgent });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -188,7 +206,8 @@ export default function TasksPage() {
       setSelectedTask(null);
       setResolutionText("");
     },
-    onError: () => {
+    onError: (_error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.id, "checklist"] });
       toast({
         title: t.common.error,
         description: t.tasks.resolveFailed,
@@ -220,22 +239,21 @@ export default function TasksPage() {
     },
   });
 
-  const { data: taskComments = [] } = useQuery<TaskComment[]>({
+  const { data: taskComments = [], isLoading: taskCommentsLoading, isError: taskCommentsError, refetch: retryTaskComments } = useQuery<TaskComment[]>({
     queryKey: ["/api/tasks", selectedTask?.id, "comments"],
     enabled: !!selectedTask && detailsDialogOpen,
   });
 
   const addCommentMutation = useMutation({
-    mutationFn: async ({ taskId, content }: { taskId: string; content: string }) => {
-      return apiRequest("POST", `/api/tasks/${taskId}/comments`, { content });
+    mutationFn: async ({ taskId, content, attachments }: { taskId: string; content: string; attachments: TaskAttachment[] }) => {
+      return apiRequest("POST", `/api/tasks/${taskId}/comments`, { content, attachments });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedTask?.id, "comments"] });
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.taskId, "comments"] });
       toast({
         title: t.common.success,
         description: t.tasks.commentAdded,
       });
-      setNewComment("");
     },
     onError: () => {
       toast({
@@ -250,8 +268,8 @@ export default function TasksPage() {
     mutationFn: async ({ taskId, commentId }: { taskId: string; commentId: string }) => {
       return apiRequest("DELETE", `/api/tasks/${taskId}/comments/${commentId}`);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedTask?.id, "comments"] });
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.taskId, "comments"] });
     },
   });
 
@@ -274,11 +292,35 @@ export default function TasksPage() {
   const getCustomer = (customerId: string | null) => customerId ? customers.find(c => c.id === customerId) : null;
 
   const handleStatusChange = (task: Task, newStatus: string) => {
+    if (newStatus === "cancelled") {
+      setTaskPendingCancellation(task);
+      return;
+    }
+    if (newStatus === "completed" && task.status !== "completed" && isPulseNotificationTask(task)) {
+      setSelectedTask(task);
+      setResolutionText("");
+      setTaskNotifyAgent(true);
+      setResolveDialogOpen(true);
+      return;
+    }
     updateTaskMutation.mutate({ id: task.id, status: newStatus });
+  };
+
+  const confirmTaskCancellation = async (taskId: string) => {
+    if (!taskPendingCancellation || taskPendingCancellation.id !== taskId) return false;
+    try {
+      await updateTaskMutation.mutateAsync({ id: taskId, status: "cancelled" });
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const handleEditTask = (task: Task) => {
     setSelectedTask(task);
+    setEditAttachments(task.attachments || []);
+    setEditUploading(false);
+    editAttachmentsChangedRef.current = false;
     const existingGroupTag = (task.tags || []).find((tag: string) => tag.startsWith("group_id:"));
     const existingGroupId = existingGroupTag ? existingGroupTag.replace("group_id:", "") : "";
     setEditForm({
@@ -288,16 +330,25 @@ export default function TasksPage() {
       status: task.status,
       assignedUserId: task.assignedUserId,
       groupId: existingGroupId,
+      resolution: task.resolution || "",
     });
+    setTaskNotifyAgent(isPulseNotificationTask(task));
     setEditDialogOpen(true);
   };
 
   const handleSaveEdit = () => {
-    if (!selectedTask) return;
+    if (!selectedTask || editUploading || updateTaskMutation.isPending) return;
     const existingTags: string[] = (selectedTask.tags || []).filter((tag: string) => !tag.startsWith("group_id:"));
     const newTags = editForm.groupId
       ? [...existingTags, `group_id:${editForm.groupId}`]
       : existingTags;
+    const isPulseCompletion = selectedTask.status !== "completed"
+      && editForm.status === "completed"
+      && isPulseNotificationTask(selectedTask);
+    if (isPulseCompletion && !editForm.resolution.trim()) {
+      toast({ title: t.tasks.resolveTaskDesc, variant: "destructive" });
+      return;
+    }
     updateTaskMutation.mutate({
       id: selectedTask.id,
       title: editForm.title,
@@ -306,12 +357,18 @@ export default function TasksPage() {
       status: editForm.status,
       assignedUserId: editForm.assignedUserId,
       tags: newTags,
+      ...(isPulseCompletion ? { resolution: editForm.resolution } : {}),
+      ...(selectedTask.status !== "completed" && editForm.status === "completed" && selectedTask.createdByUserId
+        ? { notifyAgent: taskNotifyAgent }
+        : {}),
+      ...(editAttachmentsChangedRef.current ? { attachments: editAttachments } : {}),
     } as any);
   };
 
   const handleResolveTask = (task: Task) => {
     setSelectedTask(task);
     setResolutionText("");
+    setTaskNotifyAgent(isPulseNotificationTask(task));
     setResolveDialogOpen(true);
   };
 
@@ -328,17 +385,16 @@ export default function TasksPage() {
 
   const handleSubmitResolve = () => {
     if (!selectedTask || !resolutionText.trim()) return;
-    resolveTaskMutation.mutate({ id: selectedTask.id, resolution: resolutionText });
+    resolveTaskMutation.mutate({
+      id: selectedTask.id,
+      resolution: resolutionText,
+      notifyAgent: taskNotifyAgent,
+    });
   };
 
   const handleSubmitReassign = () => {
     if (!selectedTask || !reassignUserId) return;
     reassignTaskMutation.mutate({ id: selectedTask.id, newAssignedUserId: reassignUserId });
-  };
-
-  const handleAddComment = () => {
-    if (!selectedTask || !newComment.trim()) return;
-    addCommentMutation.mutate({ taskId: selectedTask.id, content: newComment });
   };
 
   const taskCardColors = {
@@ -426,6 +482,7 @@ export default function TasksPage() {
                     <span>{format(new Date(task.dueDate), "dd.MM.yyyy")}</span>
                   </div>
                 )}
+                <TaskTimingStatus task={task} />
               </div>
               {linkedCustomer && (
                 <div className="mt-2 text-xs">
@@ -880,12 +937,13 @@ export default function TasksPage() {
       )}
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="task-modern-modal sm:max-w-md max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="edit" />
           <DialogHeader>
             <DialogTitle>{t.tasks.editTask}</DialogTitle>
             <DialogDescription>{t.tasks.editTaskDesc}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="task-modern-modal-body space-y-4">
             <div>
               <label className="text-sm font-medium">{t.quickCreate.taskTitle}</label>
               <Input
@@ -903,6 +961,13 @@ export default function TasksPage() {
                 data-testid="input-edit-task-description"
               />
             </div>
+            <TaskAttachmentPicker
+              key={selectedTask?.id}
+              attachments={editAttachments}
+              onChange={files => { editAttachmentsChangedRef.current = true; setEditAttachments(files); }}
+              onBusyChange={setEditUploading}
+              disabled={updateTaskMutation.isPending}
+            />
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">{t.quickCreate.priority}</label>
@@ -933,6 +998,35 @@ export default function TasksPage() {
                 </Select>
               </div>
             </div>
+            {selectedTask && selectedTask.status !== "completed" && editForm.status === "completed"
+              && isPulseNotificationTask(selectedTask) && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="standalone-edit-resolution">
+                    {t.tasks.resolutionDialog.resolution} <span className="text-destructive">*</span>
+                  </label>
+                  <Textarea
+                    id="standalone-edit-resolution"
+                    value={editForm.resolution}
+                    onChange={event => setEditForm({ ...editForm, resolution: event.target.value })}
+                    placeholder={t.tasks.resolutionDialog.placeholder}
+                    data-testid="standalone-edit-resolution"
+                  />
+                </div>
+              )}
+            {selectedTask?.status !== "completed" && editForm.status === "completed" && selectedTask?.createdByUserId && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-border px-3 py-3">
+                <Checkbox
+                  id="standalone-edit-notify-agent"
+                  checked={taskNotifyAgent}
+                  onCheckedChange={checked => setTaskNotifyAgent(checked === true)}
+                  data-testid="standalone-edit-notify-agent"
+                />
+                <label htmlFor="standalone-edit-notify-agent" className="cursor-pointer">
+                  <span className="block text-sm font-medium">{t.tasks.resolutionDialog.notify}</span>
+                  <span className="mt-0.5 block text-xs text-muted-foreground">{t.tasks.resolutionDialog.notifyHint}</span>
+                </label>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">{t.quickCreate.assignedTo}</label>
               <Select value={editForm.assignedUserId} onValueChange={(val) => setEditForm({ ...editForm, assignedUserId: val })}>
@@ -965,11 +1059,11 @@ export default function TasksPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="task-modern-modal-footer">
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
               {t.common.cancel}
             </Button>
-            <Button onClick={handleSaveEdit} disabled={updateTaskMutation.isPending}>
+            <Button onClick={handleSaveEdit} disabled={updateTaskMutation.isPending || editUploading} data-testid="btn-save-standalone-task-edit">
               {updateTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t.common.save}
             </Button>
@@ -977,54 +1071,26 @@ export default function TasksPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={resolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t.tasks.resolveTask}</DialogTitle>
-            <DialogDescription>{t.tasks.resolveTaskDesc}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedTask && (
-              <div className="p-3 rounded-md bg-muted">
-                <h4 className="font-medium text-sm">{selectedTask.title}</h4>
-                {selectedTask.description && (
-                  <p className="text-xs text-muted-foreground mt-1">{selectedTask.description}</p>
-                )}
-              </div>
-            )}
-            <div>
-              <label className="text-sm font-medium">{t.tasks.resolution}</label>
-              <Textarea
-                value={resolutionText}
-                onChange={(e) => setResolutionText(e.target.value)}
-                placeholder={t.tasks.resolution}
-                className="min-h-[100px]"
-                data-testid="input-resolve-resolution"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>
-              {t.common.cancel}
-            </Button>
-            <Button 
-              onClick={handleSubmitResolve} 
-              disabled={resolveTaskMutation.isPending || !resolutionText.trim()}
-            >
-              {resolveTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {t.tasks.resolve}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TaskResolutionDialog
+        open={resolveDialogOpen}
+        onOpenChange={open => { if (!resolveTaskMutation.isPending) setResolveDialogOpen(open); }}
+        task={selectedTask}
+        resolution={resolutionText}
+        onResolutionChange={setResolutionText}
+        onConfirm={handleSubmitResolve}
+        saving={resolveTaskMutation.isPending}
+        notifyAgent={taskNotifyAgent}
+        onNotifyAgentChange={setTaskNotifyAgent}
+      />
 
       <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="task-modern-modal sm:max-w-md" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="assign" />
           <DialogHeader>
             <DialogTitle>{t.tasks.reassignTask}</DialogTitle>
             <DialogDescription>{t.tasks.reassignTaskDesc}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="task-modern-modal-body space-y-4">
             {selectedTask && (
               <div className="p-3 rounded-md bg-muted">
                 <h4 className="font-medium text-sm">{selectedTask.title}</h4>
@@ -1049,7 +1115,7 @@ export default function TasksPage() {
               </Select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="task-modern-modal-footer">
             <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>
               {t.common.cancel}
             </Button>
@@ -1065,12 +1131,13 @@ export default function TasksPage() {
       </Dialog>
 
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="task-modern-modal sm:max-w-lg max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="detail" />
           <DialogHeader>
             <DialogTitle>{t.tasks.viewDetails}</DialogTitle>
           </DialogHeader>
           {selectedTask && (
-            <div className="space-y-4">
+            <div className="task-modern-modal-body space-y-4">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge className={priorityConfig[selectedTask.priority as keyof typeof priorityConfig]?.color || ""}>
@@ -1081,9 +1148,28 @@ export default function TasksPage() {
                   </Badge>
                 </div>
                 <h3 className="font-semibold">{selectedTask.title}</h3>
-                {selectedTask.description && (
-                  <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
-                )}
+                <div className="nexus-signal-tasks rounded-lg">
+                  <TaskRequestBrief
+                    description={selectedTask.description}
+                    locale={locale}
+                    taskId={selectedTask.id}
+                    heading={t.tasks.requestFromSubmitter}
+                    originalLabel={t.tasks.originalRequest}
+                    emptyLabel={t.tasks.noDescription}
+                    categoryLabels={{
+                      ChangeData: t.quickCreate.catChangeData,
+                      WrongPhone: t.quickCreate.catWrongPhone,
+                      WrongEmail: t.quickCreate.catWrongEmail,
+                      WrongAddress: t.quickCreate.catWrongAddress,
+                      Document: t.quickCreate.catDocument,
+                      Complaint: t.quickCreate.catComplaint,
+                      Other: t.quickCreate.catOther,
+                    }}
+                  >
+                    <TaskAttachmentList attachments={selectedTask.attachments || []} className="mt-3" />
+                  </TaskRequestBrief>
+                </div>
+                <TaskTimingStatus task={selectedTask} />
                 <div className="text-xs text-muted-foreground">
                   {t.quickCreate.assignedTo}: {getUser(selectedTask.assignedUserId)?.fullName || getUser(selectedTask.assignedUserId)?.username}
                 </div>
@@ -1106,157 +1192,392 @@ export default function TasksPage() {
               </div>
 
               <div className="border-t pt-4">
-                <h4 className="font-medium flex items-center gap-2 mb-3">
-                  <MessageSquare className="h-4 w-4" />
-                  {t.tasks.comments}
-                </h4>
-                <ScrollArea className="h-[200px] pr-4">
-                  {taskComments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">{t.tasks.noComments}</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {taskComments.map((comment) => {
-                        const commentUser = getUser(comment.userId);
-                        return (
-                          <div key={comment.id} className="p-3 rounded-md bg-muted text-sm">
-                            <div className="flex items-center justify-between gap-2 mb-1">
-                              <span className="font-medium">{commentUser?.fullName || commentUser?.username}</span>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(comment.createdAt), "dd.MM.yyyy HH:mm")}
-                                </span>
-                                {comment.userId === user?.id && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => deleteCommentMutation.mutate({ taskId: selectedTask.id, commentId: comment.id })}
-                                    data-testid={`delete-comment-${comment.id}`}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                            <p>{comment.content}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </ScrollArea>
-                <div className="flex gap-2 mt-3">
-                  <Input
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder={t.tasks.commentPlaceholder}
-                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleAddComment()}
-                    data-testid="input-new-comment"
-                  />
-                  <Button 
-                    size="icon" 
-                    onClick={handleAddComment} 
-                    disabled={addCommentMutation.isPending || !newComment.trim()}
-                    data-testid="button-add-comment"
-                  >
-                    {addCommentMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  </Button>
-                </div>
+                <TaskCommentsDialog
+                  key={selectedTask.id}
+                  taskId={selectedTask.id}
+                  taskTitle={selectedTask.title}
+                  comments={taskComments}
+                  currentUserId={user?.id}
+                  resolveUser={getUser}
+                  loading={taskCommentsLoading}
+                  error={taskCommentsError}
+                  onRetry={() => { void retryTaskComments(); }}
+                  submitting={addCommentMutation.isPending}
+                  uploadKey={selectedTask.id}
+                  onSubmit={async (content, attachments) => {
+                    try {
+                      await addCommentMutation.mutateAsync({ taskId: selectedTask.id, content, attachments });
+                      return true;
+                    } catch {
+                      return false;
+                    }
+                  }}
+                  onDelete={(commentId) => deleteCommentMutation.mutate({ taskId: selectedTask.id, commentId })}
+                />
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+      <TaskCancelConfirmationDialog
+        open={!!taskPendingCancellation}
+        taskId={taskPendingCancellation?.id ?? null}
+        taskTitle={taskPendingCancellation?.title ?? ""}
+        onOpenChange={(open) => { if (!open) setTaskPendingCancellation(null); }}
+        onConfirm={confirmTaskCancellation}
+      />
     </div>
   );
 }
 
 export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit: boolean }) {
-  const [newLabel, setNewLabel] = useState("");
-  const { data: items = [], isLoading } = useQuery<Array<{ id: string; label: string; required: boolean; doneAt: string | null; doneByUserId: string | null; position: number }>>({
+  const { t } = useI18n();
+  type ChecklistItem = { id: string; label: string; required: boolean; doneAt: string | null; doneByUserId: string | null; position: number; note?: string | null };
+  type AiChecklistStatus = { status: "idle" | "generating" | "generated" | "preserved" | "failed" | "unavailable"; errorCode?: string };
+  const [newLabelState, setNewLabelState] = useState<{ taskId: string; value: string }>({ taskId, value: "" });
+  const [editingState, setEditingState] = useState<{ taskId: string; itemId: string; value: string } | null>(null);
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [openNoteEditor, setOpenNoteEditor] = useState<string | null>(null);
+  const attemptedAutoGeneration = useRef(new Set<string>());
+  const invalidatedGeneratedChecklist = useRef(new Set<string>());
+  const manuallyAddedChecklistItems = useRef(new Set<string>());
+  const newLabel = newLabelState.taskId === taskId ? newLabelState.value : "";
+  const editing = editingState?.taskId === taskId ? editingState : null;
+
+  useEffect(() => {
+    setNewLabelState({ taskId, value: "" });
+    setEditingState(null);
+    setOpenNoteEditor(null);
+  }, [taskId]);
+
+  const itemsQuery = useQuery<ChecklistItem[]>({
     queryKey: ["/api/tasks", taskId, "checklist"],
     queryFn: async () => {
       const res = await fetch(`/api/tasks/${taskId}/checklist`, { credentials: "include" });
-      if (!res.ok) return [];
+      if (!res.ok) throw new Error(`Checklist request failed (${res.status})`);
       return res.json();
     },
   });
+  const items = itemsQuery.data ?? [];
+  const aiStatusQuery = useQuery<AiChecklistStatus>({
+    queryKey: ["/api/tasks", taskId, "checklist", "ai"],
+    enabled: itemsQuery.isSuccess,
+    queryFn: async () => {
+      const res = await fetch(`/api/tasks/${taskId}/checklist/ai`, { credentials: "include" });
+      if (!res.ok) throw new Error(`AI checklist status request failed (${res.status})`);
+      return res.json();
+    },
+    refetchInterval: (query) => query.state.data?.status === "generating" ? 1500 : false,
+  });
 
   const toggleMut = useMutation({
-    mutationFn: async ({ id, done }: { id: string; done: boolean }) => apiRequest("PATCH", `/api/task-checklist/${id}`, { done }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] }),
+    mutationFn: async ({ id, done }: { id: string; done: boolean; currentTaskId: string }) => apiRequest("PATCH", `/api/task-checklist/${id}`, { done }),
+    onSuccess: (_result, variables) => queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist"] }),
   });
   const addMut = useMutation({
-    mutationFn: async (label: string) => apiRequest("POST", `/api/tasks/${taskId}/checklist`, { label, position: items.length }),
-    onSuccess: () => {
-      setNewLabel("");
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] });
+    mutationFn: async ({ label, currentTaskId }: { label: string; currentTaskId: string }) => apiRequest("POST", `/api/tasks/${currentTaskId}/checklist`, { label, required: false, position: items.length }),
+    onSuccess: (_result, variables) => {
+      manuallyAddedChecklistItems.current.add(variables.currentTaskId);
+      setNewLabelState((previous) => previous.taskId === variables.currentTaskId ? { taskId: variables.currentTaskId, value: "" } : previous);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist"] });
     },
   });
   const deleteMut = useMutation({
-    mutationFn: async (id: string) => apiRequest("DELETE", `/api/task-checklist/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] }),
+    mutationFn: async ({ id }: { id: string; currentTaskId: string }) => apiRequest("DELETE", `/api/task-checklist/${id}`),
+    onSuccess: (_result, variables) => queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist"] }),
+  });
+  const editMut = useMutation({
+    mutationFn: async ({ id, label }: { id: string; label: string; currentTaskId: string }) => apiRequest("PATCH", `/api/task-checklist/${id}`, { label }),
+    onSuccess: (_result, variables) => {
+      setEditingState((previous) => previous?.taskId === variables.currentTaskId ? null : previous);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist"] });
+    },
+  });
+  const noteMut = useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string; currentTaskId: string }) =>
+      apiRequest("PATCH", `/api/task-checklist/${id}`, { note }),
+    onSuccess: (_result, variables) => {
+      setOpenNoteEditor((current) => current === `${variables.currentTaskId}:${variables.id}` ? null : current);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist"] });
+    },
+  });
+  const aiGenerationMut = useMutation({
+    mutationFn: async ({ currentTaskId, retry }: { currentTaskId: string; retry: boolean }) =>
+      apiRequest("POST", `/api/tasks/${currentTaskId}/checklist/ai`, retry ? { retry: true } : {}),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", variables.currentTaskId, "checklist", "ai"] });
+    },
   });
 
-  if (isLoading) return null;
-  if (items.length === 0 && !canEdit) return null;
+  useEffect(() => {
+    if (
+      canEdit &&
+      itemsQuery.isSuccess &&
+      items.length === 0 &&
+      aiStatusQuery.data?.status === "idle" &&
+      !attemptedAutoGeneration.current.has(taskId)
+    ) {
+      attemptedAutoGeneration.current.add(taskId);
+      aiGenerationMut.mutate({ currentTaskId: taskId, retry: false });
+    }
+  }, [canEdit, taskId, itemsQuery.isSuccess, items.length, aiStatusQuery.data?.status]);
+
+  useEffect(() => {
+    if (aiStatusQuery.data?.status === "generated" && !invalidatedGeneratedChecklist.current.has(taskId)) {
+      invalidatedGeneratedChecklist.current.add(taskId);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks", taskId, "checklist"] });
+    }
+  }, [taskId, aiStatusQuery.data?.status]);
+
+  if (itemsQuery.isLoading) return null;
+  if (itemsQuery.isSuccess && items.length === 0 && !canEdit) return null;
 
   const doneCount = items.filter((i) => !!i.doneAt).length;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+  const aiStatus = aiStatusQuery.data?.status;
+  const showGenerationError = aiGenerationMut.isError && aiGenerationMut.variables?.currentTaskId === taskId;
+  const showAiError = items.length === 0 && !manuallyAddedChecklistItems.current.has(taskId) &&
+    (aiStatus === "failed" || aiStatus === "unavailable" || showGenerationError);
+  const showMutationError = [toggleMut, addMut, deleteMut, editMut, noteMut].some((mutation) =>
+    mutation.isError && (mutation.variables as { currentTaskId?: string } | undefined)?.currentTaskId === taskId,
+  );
 
   return (
-    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/40 dark:bg-amber-900/10 p-2 space-y-1.5" data-testid={`checklist-${taskId}`}>
-      <div className="flex items-center gap-2 text-xs font-medium text-amber-800 dark:text-amber-200">
-        <ListChecks className="h-3.5 w-3.5" />
-        <span>Checklist</span>
-        {items.length > 0 && (
-          <span className="text-[10px] text-muted-foreground">{doneCount}/{items.length} ({pct}%)</span>
+    <section className="task-checklist" data-testid={`checklist-${taskId}`} aria-labelledby={`checklist-heading-${taskId}`}>
+      <div className="task-checklist-heading">
+        <div className="task-checklist-title">
+          <span className="task-checklist-icon" aria-hidden="true"><ListChecks className="h-4 w-4" /></span>
+          <h3 id={`checklist-heading-${taskId}`}>{t.tasks.checklistTitle}</h3>
+        </div>
+        {aiStatus === "generated" && (
+          <span
+            className="task-checklist-ai-note"
+            data-testid={`checklist-ai-status-${taskId}`}
+          >
+            <Sparkles className="h-3 w-3" />{t.tasks.checklistAiProposal}
+          </span>
         )}
       </div>
+      {items.length > 0 && (
+        <div className="task-checklist-progress">
+          <div
+            className="task-checklist-progress-track"
+            role="progressbar"
+            aria-label={t.tasks.checklistTitle}
+            aria-valuemin={0}
+            aria-valuemax={items.length}
+            aria-valuenow={doneCount}
+            data-testid={`checklist-progress-${taskId}`}
+          >
+            <span style={{ width: `${pct}%` }} />
+          </div>
+          <span className="task-checklist-progress-count">{doneCount} / {items.length}</span>
+        </div>
+      )}
+      {itemsQuery.isError && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{t.tasks.checklistLoadError}</p>}
+      {aiStatusQuery.isError && !aiStatusQuery.data && itemsQuery.isSuccess && (
+        <p className="text-xs text-red-600 dark:text-red-400" role="alert" data-testid={`checklist-ai-status-${taskId}`}>
+          {t.tasks.checklistAiLoadError}
+        </p>
+      )}
+      {aiStatus === "generating" && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" data-testid={`checklist-ai-status-${taskId}`}>
+          <Loader2 className="h-3 w-3 animate-spin" />{t.tasks.checklistAiGenerating}
+        </div>
+      )}
+      {showAiError && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-red-600 dark:text-red-400" role="alert" data-testid={`checklist-ai-status-${taskId}`}>
+          <span>{aiStatus === "unavailable" ? t.tasks.checklistAiUnavailable : t.tasks.checklistAiFailed}</span>
+          {canEdit && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={aiGenerationMut.isPending}
+              onClick={() => aiGenerationMut.mutate({ currentTaskId: taskId, retry: true })}
+              data-testid={`button-checklist-ai-retry-${taskId}`}
+            >
+              {aiGenerationMut.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              {t.tasks.checklistAiRetry}
+            </Button>
+          )}
+        </div>
+      )}
       {items.map((it) => {
         const done = !!it.doneAt;
+        const noteKey = `${taskId}:${it.id}`;
+        const noteValue = noteDrafts[noteKey] ?? it.note ?? "";
+        const noteEditorOpen = openNoteEditor === noteKey;
         return (
-          <div key={it.id} className="flex items-center gap-2 group" data-testid={`checklist-item-${it.id}`}>
+          <div key={it.id} className={`task-checklist-row${done ? " is-done" : ""}`} data-testid={`checklist-item-${it.id}`}>
             <button
               type="button"
               disabled={!canEdit || toggleMut.isPending}
-              onClick={() => toggleMut.mutate({ id: it.id, done: !done })}
-              className="flex-shrink-0 text-amber-600 hover:text-amber-800 disabled:opacity-50"
+              onClick={() => {
+                if (!done) {
+                  setNoteDrafts((previous) => ({ ...previous, [noteKey]: previous[noteKey] ?? it.note ?? "" }));
+                  setOpenNoteEditor(noteKey);
+                }
+                toggleMut.mutate({ id: it.id, done: !done, currentTaskId: taskId });
+              }}
+              className="task-checklist-toggle"
+              aria-label={`${done ? t.tasks.checklistMarkIncomplete : t.tasks.checklistMarkComplete}: ${it.label}`}
+              aria-pressed={done}
               data-testid={`button-toggle-${it.id}`}
             >
               {done ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
             </button>
-            <span className={`text-xs flex-1 ${done ? "line-through text-muted-foreground" : ""}`}>
-              {it.label}
-              {it.required && <span className="text-red-500 ml-1">*</span>}
-            </span>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => deleteMut.mutate(it.id)}
-                className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 text-xs"
-                title="Odstrániť"
-                data-testid={`button-delete-checklist-${it.id}`}
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
+            {canEdit && editing?.itemId === it.id ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <Input
+                  value={editing.value}
+                  onChange={(e) => setEditingState({ ...editing, value: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && editing.value.trim()) editMut.mutate({ id: it.id, label: editing.value.trim(), currentTaskId: taskId });
+                    if (e.key === "Escape") setEditingState(null);
+                  }}
+                  aria-label={t.tasks.checklistEdit}
+                  className="h-9 text-sm"
+                  data-testid={`input-edit-checklist-${it.id}`}
+                />
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9"
+                  disabled={!editing.value.trim() || editMut.isPending}
+                  aria-label={t.tasks.checklistSave}
+                  onClick={() => editMut.mutate({ id: it.id, label: editing.value.trim(), currentTaskId: taskId })}
+                  data-testid={`button-save-checklist-${it.id}`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" className="h-9 w-9" aria-label={t.tasks.checklistCancel} onClick={() => setEditingState(null)}>
+                  <XCircle className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="task-checklist-content">
+                <div className="task-checklist-line">
+                  <span className="task-checklist-label">
+                    {it.label}
+                    {it.required && <span className="text-red-500 ml-1">*</span>}
+                  </span>
+                  {canEdit && (
+                    <div className="task-checklist-actions">
+                      {done && !noteEditorOpen && !it.note && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNoteDrafts((previous) => ({ ...previous, [noteKey]: previous[noteKey] ?? "" }));
+                            setOpenNoteEditor(noteKey);
+                          }}
+                          className="task-checklist-note-trigger"
+                          data-testid={`button-add-checklist-note-${it.id}`}
+                        >
+                          {t.tasks.checklistNoteAdd}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingState({ taskId, itemId: it.id, value: it.label })}
+                        className="task-checklist-action"
+                        aria-label={`${t.tasks.checklistEdit}: ${it.label}`}
+                        data-testid={`button-edit-checklist-${it.id}`}
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteMut.mutate({ id: it.id, currentTaskId: taskId })}
+                        className="task-checklist-action is-remove"
+                        aria-label={`${t.tasks.checklistRemove}: ${it.label}`}
+                        title={t.tasks.checklistRemove}
+                        data-testid={`button-delete-checklist-${it.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {it.note?.trim() && !noteEditorOpen && (
+                  <div className="task-checklist-note" data-testid={`checklist-note-${it.id}`}>
+                    <span className="task-checklist-note-caption">{t.tasks.checklistNoteLabel}</span>
+                    <p>{it.note}</p>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="task-checklist-note-edit"
+                        onClick={() => {
+                          setNoteDrafts((previous) => ({ ...previous, [noteKey]: previous[noteKey] ?? it.note ?? "" }));
+                          setOpenNoteEditor(noteKey);
+                        }}
+                        data-testid={`button-edit-checklist-note-${it.id}`}
+                      >
+                        {t.tasks.checklistNoteEdit}
+                      </button>
+                    )}
+                  </div>
+                )}
+                {canEdit && noteEditorOpen && (
+                  <div className="task-checklist-note-editor" data-testid={`checklist-note-editor-${it.id}`}>
+                    <Textarea
+                      value={noteValue}
+                      maxLength={240}
+                      rows={2}
+                      placeholder={t.tasks.checklistNotePlaceholder}
+                      aria-label={`${t.tasks.checklistNoteLabel}: ${it.label}`}
+                      onChange={(event) => setNoteDrafts((previous) => ({ ...previous, [noteKey]: event.target.value.slice(0, 240) }))}
+                      data-testid={`input-checklist-note-${it.id}`}
+                    />
+                    <div className="task-checklist-note-footer">
+                      <span>{noteValue.length}/240</span>
+                      <div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setNoteDrafts((previous) => ({ ...previous, [noteKey]: it.note ?? "" }));
+                            setOpenNoteEditor(null);
+                          }}
+                        >
+                          {t.tasks.checklistNoteCancel}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={noteMut.isPending}
+                          onClick={() => noteMut.mutate({ id: it.id, note: noteValue.trim(), currentTaskId: taskId })}
+                          data-testid={`button-save-checklist-note-${it.id}`}
+                        >
+                          {t.tasks.checklistNoteSave}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         );
       })}
+      {showMutationError && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{t.tasks.checklistMutationError}</p>}
       {canEdit && (
-        <div className="flex items-center gap-1 pt-1">
+        <div className="task-checklist-add">
           <Input
             value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
+            onChange={(e) => setNewLabelState({ taskId, value: e.target.value })}
             onKeyDown={(e) => {
               if (e.key === "Enter" && newLabel.trim()) {
                 e.preventDefault();
-                addMut.mutate(newLabel.trim());
+                addMut.mutate({ label: newLabel.trim(), currentTaskId: taskId });
               }
             }}
-            placeholder="Pridať položku…"
-            className="h-7 text-xs"
+            placeholder={t.tasks.checklistAddPlaceholder}
+            aria-label={t.tasks.checklistAddPlaceholder}
+            className="h-9 text-sm"
             data-testid={`input-checklist-add-${taskId}`}
           />
           <Button
@@ -1264,14 +1585,15 @@ export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit:
             size="sm"
             variant="outline"
             disabled={!newLabel.trim() || addMut.isPending}
-            onClick={() => addMut.mutate(newLabel.trim())}
-            className="h-7 px-2"
+            onClick={() => addMut.mutate({ label: newLabel.trim(), currentTaskId: taskId })}
+            className="h-9 px-3"
+            aria-label={t.tasks.checklistAdd}
             data-testid={`button-checklist-add-${taskId}`}
           >
             <Plus className="h-3 w-3" />
           </Button>
         </div>
       )}
-    </div>
+    </section>
   );
 }

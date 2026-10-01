@@ -1,0 +1,163 @@
+/* Compact, task-scoped note treatment for the shared checklist in Omni and Tasks. */
+.task-checklist-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-checklist-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.task-checklist-line .task-checklist-label {
+  padding-top: 4px;
+}
+
+.task-checklist-note-trigger,
+.task-checklist-note-edit {
+  border: 0;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: hsl(var(--primary) / 0.07);
+  color: hsl(var(--primary));
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.task-checklist-note-trigger:hover,
+.task-checklist-note-edit:hover {
+  background: hsl(var(--primary) / 0.13);
+}
+
+.task-checklist-note {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 7px;
+  margin: 4px 0 1px;
+  padding: 7px 9px;
+  border-left: 2px solid hsl(var(--primary) / 0.5);
+  border-radius: 0 6px 6px 0;
+  background: hsl(var(--muted) / 0.42);
+}
+
+.task-checklist-note-caption {
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.task-checklist-note p {
+  min-width: 0;
+  margin: 0;
+  color: hsl(var(--foreground) / 0.86);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.task-checklist-note-edit {
+  padding: 2px 4px;
+  background: transparent;
+}
+
+.task-checklist-note-editor {
+  margin-top: 7px;
+  padding: 8px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 8px;
+  background: hsl(var(--background));
+  animation: checklist-note-in 150ms ease-out both;
+}
+
+.task-checklist-note-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  resize: vertical;
+  border: 0;
+  padding: 4px 5px;
+  background: transparent;
+  color: hsl(var(--foreground));
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: none;
+}
+
+.task-checklist-note-editor textarea:focus-visible {
+  outline: none;
+}
+
+.task-checklist-note-editor:focus-within {
+  border-color: hsl(var(--primary) / 0.52);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.1);
+}
+
+.task-checklist-note-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 5px;
+  border-top: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-checklist-note-footer > div {
+  display: flex;
+  gap: 5px;
+}
+
+.task-checklist-note-footer button {
+  height: 27px;
+  padding-inline: 9px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.dark .task-checklist-note {
+  background: hsl(var(--muted) / 0.55);
+}
+
+@keyframes checklist-note-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+  .task-checklist-note {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 7px;
+  }
+
+  .task-checklist-note-caption {
+    grid-column: 1 / -1;
+  }
+
+  .task-checklist-note-edit {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .task-checklist-note-footer button {
+    padding-inline: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-checklist-note-editor {
+    animation: none;
+  }
+}

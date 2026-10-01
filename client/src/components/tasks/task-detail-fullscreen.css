@@ -1,0 +1,52 @@
+.task-detail-fullscreen-overlay { z-index:9989; }
+.task-detail-fullscreen-modal.nexus-signal-tasks {
+  position:fixed;
+  inset:0;
+  z-index:9990;
+  transform:none;
+  display:flex;
+  flex-direction:column;
+  width:100vw;
+  max-width:none;
+  height:100dvh;
+  min-height:0;
+  max-height:100dvh;
+  margin:0;
+  padding:0;
+  gap:0;
+  border:0;
+  border-radius:0;
+  overflow:hidden;
+  background:hsl(var(--background));
+  animation:none!important;
+}
+.task-detail-fullscreen-toolbar {
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 16px;
+  border-bottom:1px solid hsl(var(--border));
+  background:linear-gradient(110deg,hsl(var(--primary) / .055),hsl(var(--background)) 60%);
+}
+.task-detail-fullscreen-heading { display:flex; align-items:center; gap:12px; }
+.task-detail-fullscreen-heading .task-modal-artwork { width:104px; height:48px; border-radius:10px; }
+.task-detail-fullscreen-heading .task-modal-artwork__sheet { transform:scale(.65) rotate(-5deg); }
+.task-detail-fullscreen-content {
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-height:0;
+  min-width:0;
+}
+.task-detail-fullscreen-content > div { min-height:0; }
+.task-detail-inline-slot,
+.task-detail-preserved-content {
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-width:0;
+  min-height:0;
+  height:100%;
+}

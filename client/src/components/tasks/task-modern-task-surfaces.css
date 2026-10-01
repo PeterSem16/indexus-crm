@@ -1,0 +1,156 @@
+/* Scoped finishing styles for the two legacy task surfaces brought into the
+   shared task-modal visual language. */
+.task-create-sheet {
+  right: 16px !important;
+  top: 16px !important;
+  bottom: 16px !important;
+  height: auto !important;
+  width: min(860px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
+  max-height: min(90dvh, 860px) !important;
+  display: flex !important;
+  overflow: hidden !important;
+  border: 1px solid hsl(var(--border) / .92) !important;
+  border-radius: 22px !important;
+  background: hsl(var(--background)) !important;
+  box-shadow: 0 28px 90px hsl(220 30% 12% / .27) !important;
+}
+
+.task-create-sheet-header {
+  border-bottom: 1px solid hsl(var(--border) / .75);
+  text-align: left;
+}
+
+.task-create-sheet-body {
+  overscroll-behavior: contain;
+  scrollbar-color: hsl(var(--muted-foreground) / .3) transparent;
+}
+
+.task-create-sheet-body > div > div > div[class*="rounded-xl"][class*="border"] {
+  border-color: hsl(var(--border));
+}
+
+.task-create-sheet [class*="border-[#c7d8e7]"],
+.task-create-sheet [class*="border-[#dce8f2]"],
+.task-create-sheet [class*="border-[#c9deef]"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+.task-create-sheet [class*="bg-[#f7fbfe]"],
+.task-create-sheet [class*="bg-[#e5f0fa]"] {
+  background-color: hsl(var(--muted) / .48) !important;
+}
+
+.task-create-sheet-footer {
+  border-top: 1px solid hsl(var(--border) / .8);
+  background: hsl(var(--background));
+}
+
+.task-create-sheet .task-create-submit {
+  background: linear-gradient(180deg, hsl(var(--destructive) / .9), hsl(var(--destructive))) !important;
+  box-shadow: 0 5px 13px hsl(var(--destructive) / .18);
+}
+
+.task-create-sheet button[class*="bg-[#2d6fba]"] {
+  border-color: hsl(var(--destructive)) !important;
+  background-color: hsl(var(--destructive)) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+
+.task-create-sheet button[class*="text-[#2d6fba]"] {
+  color: hsl(var(--destructive)) !important;
+}
+
+body:has(.task-create-sheet[data-state="open"]) [data-radix-dialog-overlay] {
+  background: hsl(222 25% 18% / .4) !important;
+  backdrop-filter: blur(4px);
+}
+
+.task-bo-recap-overlay {
+  z-index: 10030 !important;
+  background: hsl(222 25% 18% / .4) !important;
+  backdrop-filter: blur(4px);
+}
+
+.task-bo-recap-content {
+  z-index: 10031 !important;
+  display: flex !important;
+  max-height: min(90dvh, 760px);
+  flex-direction: column;
+  gap: 0 !important;
+  border: 1px solid hsl(var(--border) / .9) !important;
+  border-radius: 22px !important;
+  background: hsl(var(--background)) !important;
+  box-shadow: 0 28px 90px hsl(220 30% 12% / .27) !important;
+}
+
+.task-bo-recap-header {
+  flex: 0 0 auto;
+}
+
+.task-bo-recap-icon {
+  border: 1px solid hsl(var(--destructive) / .16);
+  background: linear-gradient(145deg, hsl(var(--muted)), hsl(var(--background)));
+  color: hsl(var(--destructive));
+  box-shadow: 0 8px 22px hsl(var(--destructive) / .09);
+}
+
+.task-bo-recap-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.task-bo-recap-confirm {
+  background: hsl(var(--destructive)) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+
+@media (max-width: 767px) {
+  .task-create-sheet {
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    border-radius: 0 !important;
+  }
+
+  .task-create-sheet-header,
+  .task-create-sheet-body,
+  .task-create-sheet-footer {
+    padding-right: 18px !important;
+    padding-left: 18px !important;
+  }
+
+  .task-bo-recap-content {
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px !important;
+  }
+}
+
+@media (max-height: 700px) {
+  .task-create-sheet-header {
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+  }
+
+  .task-bo-recap-content {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .task-bo-recap-body {
+    padding-bottom: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-create-sheet,
+  .task-bo-recap-content,
+  .task-bo-recap-content *,
+  .task-create-sheet * {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
