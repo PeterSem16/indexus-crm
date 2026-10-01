@@ -134,7 +134,7 @@
   box-shadow: inset 3px 0 hsl(var(--primary));
 }
 
-.nexus-signal-sidebar button[data-active="true"] span {
+.nexus-signal-sidebar button[data-active="true"] > div:first-child > span:last-child {
   color: hsl(var(--primary));
 }
 
@@ -801,4 +801,87 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Keep badge/count text independent from the active row's label color. The
+   previous broad descendant selector painted the primary badge text primary,
+   making the selected Pending count disappear into its own red background. */
+.nexus-signal-sidebar button[data-testid^="task-filter-"] [data-task-count] {
+  color: hsl(var(--muted-foreground));
+  opacity: 1;
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"][data-active="true"] [data-task-count] {
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"] [data-task-count-badge] {
+  color: hsl(var(--primary-foreground)) !important;
+  opacity: 1 !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] {
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"]:hover:not([aria-pressed="true"]) {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"][aria-pressed="true"] {
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"][aria-pressed="true"] svg {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] [data-task-count] {
+  color: inherit;
+  opacity: 1;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] [data-task-count-badge] {
+  color: white !important;
+  opacity: 1 !important;
+}
+
+.nexus-signal-queue-header [data-task-count-badge].bg-amber-500 {
+  color: #392a08 !important;
+}
+
+.nexus-signal-queue-header [data-task-count-badge].bg-blue-500 {
+  color: #102b4b !important;
+}
+
+.nexus-signal-tasks .nexus-signal-eyebrow {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.nexus-signal-tabs .nexus-signal-tab-badge {
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-tasks :is(button, a, input, textarea, select, [tabindex]):focus-visible,
+.nexus-signal-tabs :is(button, a, [tabindex]):focus-visible,
+.nexus-signal-sidebar :is(button, a, [tabindex]):focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+.dark .nexus-signal-sidebar button[data-active="true"] {
+  color: hsl(var(--foreground));
+}
+
+.dark .nexus-signal-sidebar button[data-active="true"] > div:first-child > span:last-child {
+  color: hsl(var(--foreground));
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row.is-selected .font-medium {
+  color: var(--signal-ink);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-actions button[data-testid="task-reassign-btn"] {
+  color: var(--signal-ink);
 }

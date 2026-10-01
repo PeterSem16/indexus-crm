@@ -121,6 +121,7 @@ import {
   Globe,
   AtSign,
   HardDrive,
+  Building2,
   FolderOpen,
   FolderPlus,
   FolderInput,
@@ -165,6 +166,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
 
 import NexusSidebar, { getAccountIcons, AccountIcon, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
+import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-drawer";
 import type {
   Mailbox,
   MailFolder,
@@ -2996,6 +2998,7 @@ export default function EmailClientPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskEntity, setSelectedTaskEntity] = useState<EntityRef | null>(null);
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [smsReplyText, setSmsReplyText] = useState("");
@@ -3372,6 +3375,50 @@ export default function EmailClientPage() {
   const { data: allCustomers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
     enabled: !!user?.id,
+  });
+
+  const {
+    data: taskSourceEntity,
+    isLoading: taskSourceLoading,
+    isError: taskSourceError,
+    refetch: refetchTaskSource,
+  } = useQuery<EntityRef | null>({
+    queryKey: ["/api/tasks", selectedTask?.id, "source-entity"],
+    enabled: !!user?.id && !!selectedTask?.id && activeTab === "tasks",
+  });
+  const taskEntityRef = taskSourceEntity;
+  const selectedRelatedEntityType = taskEntityRef?.type || "";
+  const selectedRelatedEntityId = taskEntityRef?.id || "";
+  const { data: selectedCustomerLookup } = useQuery<any>({
+    queryKey: ["/api/customers", selectedRelatedEntityId],
+    enabled: !!user?.id && !!selectedRelatedEntityId && selectedRelatedEntityType === "customer",
+  });
+  const { data: selectedClinicLookup = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics/lookup", "omni-task", selectedRelatedEntityId],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinics/lookup?id=${encodeURIComponent(selectedRelatedEntityId)}&limit=1`,
+        { credentials: "include" },
+      );
+      if (!response.ok) throw new Error("Failed to load linked clinic");
+      return response.json();
+    },
+    enabled: !!user?.id && selectedRelatedEntityType === "clinic" && !!selectedRelatedEntityId,
+  });
+  const { data: selectedHospitalLookup } = useQuery<any>({
+    queryKey: ["/api/hospitals", "omni-task", selectedRelatedEntityId],
+    queryFn: async () => {
+      const response = await fetch(`/api/hospitals/${encodeURIComponent(selectedRelatedEntityId)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to load linked hospital");
+      return response.json();
+    },
+    enabled: !!user?.id && selectedRelatedEntityType === "hospital" && !!selectedRelatedEntityId,
+  });
+  const { data: selectedCollaboratorLookup } = useQuery<any>({
+    queryKey: ["/api/collaborators", selectedRelatedEntityId],
+    enabled: !!user?.id && !!selectedRelatedEntityId && selectedRelatedEntityType === "collaborator",
   });
 
   const { data: chatsData, isLoading: chatsLoading, refetch: refetchChats } = useQuery<ChatConversation[]>({
@@ -5824,10 +5871,10 @@ export default function EmailClientPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-my">
+                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-my">
                     {t.tasks.myTasks}
                   </Button>
-                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-all">
+                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-all">
                     {t.tasks.allTasks}
                   </Button>
                   {taskGroupsList
@@ -5843,14 +5890,17 @@ export default function EmailClientPage() {
                           variant={taskSubTab === g.id ? "default" : "ghost"}
                           size="sm"
                           className="h-6 text-[11px] px-2 gap-1"
+                          aria-pressed={taskSubTab === g.id}
                           onClick={() => { setTaskSubTab(g.id); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
-                          <ListChecks className="h-3 w-3" />
+                          {g.isBackOffice
+                            ? <Building2 className="h-3 w-3" />
+                            : <ListChecks className="h-3 w-3" />}
                           <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
                           {g.displayAlias || g.name}
                           {pendingCount > 0 && (
-                            <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                            <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
                               {pendingCount}
                             </span>
                           )}
@@ -5867,20 +5917,21 @@ export default function EmailClientPage() {
                         variant={taskSubTab === "back_office" ? "default" : "ghost"}
                         size="sm"
                         className="h-6 text-[11px] px-2 gap-1"
+                        aria-pressed={taskSubTab === "back_office"}
                         onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                         data-testid="task-subtab-back-office"
                       >
-                        <span className="text-[10px]">🏢</span>
+                        <Building2 className="h-3.5 w-3.5" />
                         {t.tasks.taskGroups.backOfficeTab}
                         {boPending > 0 && (
-                          <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                          <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
                             {boPending}
                           </span>
                         )}
                       </Button>
                     );
                   })()}
-                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
+                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" aria-pressed="false" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
                     {t.tasks.reporting}
                   </Button>
@@ -5983,6 +6034,7 @@ export default function EmailClientPage() {
                 {renderTaskDetail()}
               </CardContent>
             </Card>
+            <EntityDetailDrawer entity={selectedTaskEntity} onClose={() => setSelectedTaskEntity(null)} />
           </>
         )}
 
@@ -8657,7 +8709,24 @@ export default function EmailClientPage() {
     const assignedUser = getSystemUser(selectedTask.assignedUserId);
     const createdByUser = getSystemUser(selectedTask.createdByUserId);
     const resolvedByUser = selectedTask.resolvedByUserId ? getSystemUser(selectedTask.resolvedByUserId) : null;
-    const linkedCustomer = getCustomer(selectedTask.customerId || null);
+    const taskRecord = selectedTask as any;
+    const entityRef = taskEntityRef;
+    const entityType = entityRef?.type || "";
+    const entityId = entityRef?.id || "";
+    const linkedCustomer = getCustomer(entityType === "customer" ? entityId : null);
+    const linkedEntityName =
+      (entityType === "clinic" ? selectedClinicLookup[0]?.name :
+        entityType === "hospital" ? selectedHospitalLookup?.name :
+        entityType === "collaborator" ? [selectedCollaboratorLookup?.firstName, selectedCollaboratorLookup?.lastName].filter(Boolean).join(" ") :
+          selectedCustomerLookup || linkedCustomer
+            ? [selectedCustomerLookup?.firstName || linkedCustomer?.firstName,
+                selectedCustomerLookup?.lastName || linkedCustomer?.lastName].filter(Boolean).join(" ").trim() ||
+              selectedCustomerLookup?.companyName || linkedCustomer?.companyName ||
+              selectedCustomerLookup?.name || linkedCustomer?.name
+            : "") ||
+      (entityType === "clinic" ? t.clinics.title :
+        entityType === "hospital" ? t.hospitals.tabs.hospital :
+        entityType === "collaborator" ? t.automationCatalog.collaborator : t.customers.title);
     const isActive = selectedTask.status !== "completed" && selectedTask.status !== "cancelled";
     return (
       <div className="flex flex-col h-full">
@@ -8721,12 +8790,30 @@ export default function EmailClientPage() {
                 <span>{t.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}</span>
               </div>
             )}
-            {linkedCustomer && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span>{t.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
-              </div>
+            {entityRef && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="nexus-signal-source h-7 max-w-full justify-start gap-1.5 text-xs"
+                onClick={() => setSelectedTaskEntity(entityRef)}
+                data-testid="task-open-linked-entity"
+              >
+                <User className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{t.tasks.linkedTo}: {linkedEntityName}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </Button>
             )}
+            {taskSourceLoading && <span className="text-xs text-muted-foreground">{t.nexusOmni.common.loading}</span>}
+            {taskSourceError && (
+              <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => void refetchTaskSource()} data-testid="task-source-retry">
+                {t.tasks.loadError} · {t.nexusOmni.common.tryAgain}
+              </Button>
+            )}
+            {!taskSourceLoading && !taskSourceError && !entityRef &&
+              (taskRecord.relatedEntityId || selectedTask.customerId) && (
+                <span className="text-xs text-muted-foreground">{t.callAnalysis.reviewFullCardUnavailable}</span>
+              )}
             {(selectedTask as any).assignedDepartmentId && (
               <div className="flex items-center gap-1" data-testid="text-task-department">
                 <Users className="h-3 w-3" />

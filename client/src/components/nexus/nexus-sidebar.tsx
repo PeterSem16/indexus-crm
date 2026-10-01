@@ -970,10 +970,10 @@ function SidebarItem({ icon, label, badge, badgeVariant = "muted", count, active
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {count !== undefined && !badge && (
-          <span className={`text-[10px] tabular-nums ${active ? "text-primary/60" : "text-muted-foreground/60"}`}>{count}</span>
+          <span data-task-count className="text-[10px] tabular-nums">{count}</span>
         )}
         {badge !== undefined && badge > 0 && (
-          <span className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
+          <span data-task-count-badge className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
             badgeVariant === "primary" 
               ? "bg-primary text-primary-foreground" 
               : "bg-muted text-muted-foreground"

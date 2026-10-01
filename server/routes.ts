@@ -3,6 +3,7 @@ import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
+import { registerTaskSourceEntityRoute } from "./lib/task-source-entity";
 import { setForwardedRecordingAnalyzer } from "./lib/forwarded-call-reconciliation";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
@@ -9074,6 +9075,49 @@ Return ONLY valid JSON, no markdown code blocks.`,
       console.error("Error fetching task:", error);
       res.status(500).json({ error: "Failed to fetch task" });
     }
+  });
+
+  registerTaskSourceEntityRoute(app, requireAuth, {
+    getTask: async (id) => (await storage.getTask(id)) ?? null,
+    findLegacyConfirmations: async (statusListItemId, confirmedByUserId, taskCreatedAt) => {
+      const windowStart = new Date(taskCreatedAt.getTime() - 300_000);
+      const windowEnd = new Date(taskCreatedAt.getTime() + 300_000);
+      const result = await db.execute<any>(sql`
+        SELECT s.status_list_item_id AS "statusListItemId",
+               s.confirmed_by_user_id AS "confirmedByUserId",
+               s.confirmed_at AS "confirmedAt",
+               cc.contact_type AS "contactType",
+               cc.customer_id AS "customerId",
+               cc.clinic_id AS "clinicId",
+               cc.hospital_id AS "hospitalId",
+               cc.collaborator_id AS "collaboratorId"
+        FROM campaign_contact_status_list_state s
+        JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
+        WHERE s.status_list_item_id = ${statusListItemId}
+          AND s.confirmed_by_user_id = ${confirmedByUserId}
+          AND s.confirmed_at >= ${windowStart}
+          AND s.confirmed_at <= ${windowEnd}
+      `);
+      return result.rows ?? [];
+    },
+    entityExists: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({ id: customers.id }).from(customers)
+          .where(eq(customers.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ id: clinics.id }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({ id: hospitals.id }).from(hospitals)
+          .where(eq(hospitals.id, id)).limit(1);
+        return !!entity;
+      }
+      return false;
+    },
   });
 
   app.post("/api/tasks", requireAuth, async (req, res) => {
