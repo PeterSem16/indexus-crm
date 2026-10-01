@@ -6144,20 +6144,21 @@ export default function EmailClientPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
+                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-my">
                     {t.tasks.myTasks}
                     <span data-task-count className="ml-1">{myTaskCount}</span>
                   </Button>
-                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
+                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-all">
                     {t.tasks.allTasks}
                     <span data-task-count className="ml-1">{allTaskCount}</span>
                   </Button>
                   {taskGroupsList
                     .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
                     .map((g: any) => {
-                      const groupCount = taskCountForScope((tasksData || []).filter(task =>
-                        (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${g.id}`)
-                      ));
+                      const pendingCount = (tasksData || []).filter(task =>
+                        (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`) &&
+                        (task.status === "pending" || task.status === "in_progress")
+                      ).length;
                       return (
                         <Button
                           key={g.id}
@@ -6165,7 +6166,7 @@ export default function EmailClientPage() {
                           size="sm"
                           className="h-6 text-[11px] px-2 gap-1"
                           aria-pressed={taskSubTab === g.id}
-                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
+                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
                           {g.isBackOffice
@@ -6173,34 +6174,33 @@ export default function EmailClientPage() {
                             : <ListChecks className="h-3 w-3" />}
                           <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
                           {g.displayAlias || g.name}
-                          {groupCount > 0 && (
+                          {pendingCount > 0 && (
                             <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
-                              {groupCount}
+                              {pendingCount}
                             </span>
                           )}
                         </Button>
                       );
                     })}
                   {backOfficeGroupIds.length > 0 && (() => {
-                    const boTaskCount = taskCountForScope((tasksData || []).filter(task =>
-                      backOfficeGroupIds.some(gid =>
-                        (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${gid}`)
-                      )
-                    ));
+                    const boPending = (tasksData || []).filter(task =>
+                      backOfficeGroupIds.some(gid => (task.tags || []).some((tag: string) => tag === `group_id:${gid}`)) &&
+                      (task.status === "pending" || task.status === "in_progress")
+                    ).length;
                     return (
                       <Button
                         variant={taskSubTab === "back_office" ? "default" : "ghost"}
                         size="sm"
                         className="h-6 text-[11px] px-2 gap-1"
                         aria-pressed={taskSubTab === "back_office"}
-                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); }}
+                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); setTaskMobileDetailOpen(false); }}
                         data-testid="task-subtab-back-office"
                       >
                         <Building2 className="h-3.5 w-3.5" />
                         {t.tasks.taskGroups.backOfficeTab}
-                        {boTaskCount > 0 && (
+                        {boPending > 0 && (
                           <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
-                            {boTaskCount}
+                            {boPending}
                           </span>
                         )}
                       </Button>
@@ -9019,9 +9019,9 @@ export default function EmailClientPage() {
     const createdByUser = getSystemUser(selectedTask.createdByUserId);
     const resolvedByUser = selectedTask.resolvedByUserId ? getSystemUser(selectedTask.resolvedByUserId) : null;
     const taskRecord = selectedTask as any;
-    const entityType = selectedRelatedEntityType;
-    const entityId = selectedRelatedEntityId;
     const entityRef = taskEntityRef;
+    const entityType = entityRef?.type || "";
+    const entityId = entityRef?.id || "";
     const linkedCustomer = getCustomer(entityType === "customer" ? entityId : null);
     const linkedEntityName =
       (entityType === "clinic" ? selectedClinicLookup[0]?.name :

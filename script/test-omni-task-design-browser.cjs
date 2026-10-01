@@ -238,14 +238,14 @@ async function createPage(browser, bundle, width, height, { dark = false, holdTa
 }
 
 async function selectTaskStatus(page, status, { verifyOptions = false } = {}) {
-  const trigger = page.getByTestId("task-status-filter");
+  const trigger = page.getByTestId("task-mobile-filter");
   await trigger.waitFor({ state: "visible" });
   await trigger.click();
   const options = page.locator('[role="option"]');
-  const statusOrder = ["all", "pending", "in_progress", "completed", "cancelled"];
+  const statusOrder = ["all", "open", "pending", "in_progress", "completed", "cancelled"];
   if (verifyOptions) {
     const labels = await options.allInnerTexts();
-    assert.equal(labels.length, statusOrder.length, "the Radix task status selector should expose all five baseline modes");
+    assert.equal(labels.length, statusOrder.length, "the Radix task status selector should expose all six baseline modes");
     assert.ok(labels.every(label => label.trim().length > 0), "all Radix task status modes should have visible translated labels");
   }
   const optionIndex = statusOrder.indexOf(status);
@@ -256,7 +256,7 @@ async function selectTaskStatus(page, status, { verifyOptions = false } = {}) {
   await page.waitForFunction(({ testId, text }) => {
     const trigger = document.querySelector(`[data-testid="${testId}"]`);
     return trigger?.textContent?.trim() === text;
-  }, { testId: "task-status-filter", text: label });
+  }, { testId: "task-mobile-filter", text: label });
 }
 
 async function assertVisibleTaskRows(page, expectedIds, label) {
@@ -373,7 +373,7 @@ async function verifyInitialLoadingAndDesktop(browser, bundle) {
       console.error("Task queue did not mount", { errors: page.__browserErrors, requests, body: await page.locator("body").innerText().catch(() => "") });
       throw error;
     });
-    await page.locator(".nexus-signal-queue svg.animate-spin").waitFor();
+    await page.locator(".nexus-signal-queue .task-loading-skeleton").waitFor();
     assert.ok(await page.locator(".nexus-signal-queue").isVisible(), "task queue loading UI was not visible");
     releaseTaskList();
     await page.getByTestId("task-item-fixture-task-1").waitFor();
@@ -454,7 +454,7 @@ async function verifyInitialLoadingAndDesktop(browser, bundle) {
     assert.notEqual(await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle), "none",
       "task scope tabs should preserve a visible focus treatment");
     await page.getByTestId("task-item-fixture-task-1").click();
-    await page.getByTestId("task-comment-fixture-comment-1").waitFor();
+    await page.getByTestId("task-preview-comment-fixture-comment-1").waitFor();
     assert.equal(await page.getByTestId("tab-tasks").getAttribute("data-testid"), "tab-tasks");
     assert.equal(await page.locator(".nexus-signal-task-row").count(), 2);
     await page.getByTestId("task-subtab-group-fixture-ops").waitFor();
@@ -465,8 +465,9 @@ async function verifyInitialLoadingAndDesktop(browser, bundle) {
     await page.getByTestId("task-resolve-btn").waitFor({ state: "visible" });
     await page.getByTestId("task-reassign-btn").waitFor({ state: "visible" });
     assert.ok(await page.locator(".nexus-signal-brief").innerText().then(text => text.includes("INSTRUCTIONS ONLY")));
-    assert.ok(await page.locator(".nexus-signal-thread").innerText().then(text => text.includes("COMMENT THREAD ONLY")));
+    assert.ok(await page.getByTestId("task-preview-comment-fixture-comment-1").innerText().then(text => text.includes("COMMENT THREAD ONLY")));
     assert.equal(await page.locator(".nexus-signal-brief").innerText().then(text => text.includes("COMMENT THREAD ONLY")), false);
+    await page.getByTestId("btn-task-filters").click();
     await page.getByTestId("task-queue-search").fill("shipment checklist");
     await page.getByTestId("task-item-fixture-task-2").waitFor();
     assert.equal(await page.getByTestId("task-item-fixture-task-1").count(), 0, "task search should filter the queue");
@@ -478,8 +479,7 @@ async function verifyInitialLoadingAndDesktop(browser, bundle) {
     await page.getByTestId("task-item-fixture-task-1").waitFor();
 
     // Keyboard navigation should leave a visible focus treatment on a real task row.
-    const search = page.getByTestId("task-queue-search");
-    await search.focus();
+    await page.getByTestId("task-item-fixture-task-1").focus();
     await page.keyboard.press("Tab");
     const focusState = await page.evaluate(() => {
       const active = document.activeElement;
@@ -492,7 +492,6 @@ async function verifyInitialLoadingAndDesktop(browser, bundle) {
     await page.getByTestId("task-item-fixture-task-1").click();
     await page.waitForTimeout(250);
     await page.screenshot({ path: path.join(PROOF_DIR, "desktop-1280x720.png") });
-    await page.getByTestId("task-more-menu").click();
     await page.getByTestId("task-action-start").click();
     await page.waitForFunction(() => document.querySelector(".nexus-signal-detail-header [data-status='in_progress']"));
     const mutation = requests.find(row => row.method === "PATCH" && row.path === "/api/tasks/fixture-task-1");
@@ -518,7 +517,7 @@ async function verifyShortMobileAndDark(browser, bundle) {
     await short.page.getByTestId("tab-tasks").click();
     await short.page.getByTestId("task-item-fixture-task-1").waitFor();
     await short.page.getByTestId("task-item-fixture-task-1").click();
-    await short.page.getByTestId("task-comment-fixture-comment-1").waitFor();
+    await short.page.getByTestId("task-preview-comment-fixture-comment-1").waitFor();
     await short.page.waitForTimeout(250);
     await short.page.screenshot({ path: path.join(PROOF_DIR, "desktop-1280x600.png") });
     const bounds = await short.page.locator(".nexus-signal-tasks").boundingBox();
@@ -536,7 +535,7 @@ async function verifyShortMobileAndDark(browser, bundle) {
     await mobile.page.getByTestId("task-filter-pending").click();
     await assertVisibleTaskRows(mobile.page, ["fixture-task-1"], "desktop pending filter");
     await mobile.page.setViewportSize({ width: 390, height: 844 });
-    await mobile.page.getByTestId("task-status-filter").waitFor({ state: "visible" });
+    await mobile.page.getByTestId("task-mobile-filter").waitFor({ state: "visible" });
     await selectTaskStatus(mobile.page, "all", { verifyOptions: true });
     await assertVisibleTaskRows(mobile.page, ["fixture-task-1", "fixture-task-2"], "mobile cleared desktop filter");
     for (const [status, ids] of [
@@ -555,6 +554,7 @@ async function verifyShortMobileAndDark(browser, bundle) {
     }
     await selectTaskStatus(mobile.page, "all");
     await assertVisibleTaskRows(mobile.page, ["fixture-task-1", "fixture-task-2"], "mobile all status");
+    await mobile.page.getByTestId("btn-task-filters").click();
     await mobile.page.getByTestId("task-queue-search").fill("no matching task exists");
     await mobile.page.waitForFunction(() => document.querySelectorAll(".nexus-signal-task-row").length === 0);
     const searchEmptyState = mobile.page.locator(".nexus-signal-queue .flex.flex-col.items-center.justify-center");
@@ -562,10 +562,13 @@ async function verifyShortMobileAndDark(browser, bundle) {
     assert.ok((await searchEmptyState.innerText()).trim().length > 0, "a search with no matches should render a nonblank empty state");
     await mobile.page.getByTestId("task-queue-search").fill("");
     await assertVisibleTaskRows(mobile.page, ["fixture-task-1", "fixture-task-2"], "cleared mobile search");
+    await mobile.page.getByTestId("btn-task-filters").click();
     await mobile.page.getByTestId("task-item-fixture-task-1").click();
-    await mobile.page.getByTestId("task-comment-fixture-comment-1").waitFor();
+    await mobile.page.getByTestId("task-preview-comment-fixture-comment-1").waitFor();
+    await mobile.page.getByTestId("button-open-task-comments").click();
     await mobile.page.getByTestId("input-task-comment").scrollIntoViewIfNeeded();
-    assert.ok(await mobile.page.getByTestId("input-task-comment").isVisible(), "mobile comment composer should remain reachable in the detail scroll flow");
+    assert.ok(await mobile.page.getByTestId("input-task-comment").isVisible(), "mobile comment composer should remain reachable from the task detail");
+    await mobile.page.getByTestId("button-close-task-comments").click();
     await mobile.page.waitForTimeout(250);
     await mobile.page.screenshot({ path: path.join(PROOF_DIR, "mobile-390x844.png") });
     const detailBounds = await mobile.page.locator(".nexus-signal-detail").boundingBox();
@@ -586,8 +589,10 @@ async function verifyShortMobileAndDark(browser, bundle) {
     await mobile.page.getByTestId("task-item-fixture-task-1").waitFor({ state: "visible" });
     assert.equal(await mobile.page.getByTestId("task-item-fixture-task-1").getAttribute("aria-current"), "true",
       "mobile back should return to the queue with the selected task preserved");
+    await mobile.page.getByTestId("btn-task-filters").click();
     assert.equal(await mobile.page.getByTestId("task-queue-search").inputValue(), "",
       "mobile queue should return without a stale search filter");
+    await mobile.page.getByTestId("btn-task-filters").click();
     await mobile.page.screenshot({ path: path.join(PROOF_DIR, "mobile-queue-back-390x844.png") });
     await mobile.page.emulateMedia({ reducedMotion: "reduce" });
     const reducedMotion = await mobile.page.locator(".nexus-signal-task-row").first().evaluate(row => getComputedStyle(row).transitionDuration);
@@ -604,7 +609,7 @@ async function verifyShortMobileAndDark(browser, bundle) {
     await dark.page.getByTestId("tab-tasks").click();
     await dark.page.getByTestId("task-item-fixture-task-1").waitFor();
     await dark.page.getByTestId("task-item-fixture-task-1").click();
-    await dark.page.getByTestId("task-comment-fixture-comment-1").waitFor();
+    await dark.page.getByTestId("task-preview-comment-fixture-comment-1").waitFor();
     await dark.page.getByTestId("task-filter-pending").click();
     await dark.page.waitForTimeout(220);
     const darkPendingCount = await dark.page.getByTestId("task-filter-pending").locator("[data-task-count-badge]").evaluate(element => {

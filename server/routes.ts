@@ -9510,7 +9510,6 @@ Return ONLY valid JSON, no markdown code blocks.`,
     },
   };
   registerTaskSourceEntityRoute(app, requireAuth, taskSourceEntityDependencies);
-
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
       const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
@@ -19686,6 +19685,34 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // An approved person-clinic pair is shown only while its clinic link remains active.
+  const activeRewardBadgeClinicLink = `(
+    EXISTS (
+      SELECT 1 FROM collaborators badge_person
+       WHERE badge_person.id = badge.collaborator_id
+         AND (badge_person.clinic_id = badge.clinic_id
+           OR badge.clinic_id = ANY(badge_person.clinic_ids))
+    )
+    OR EXISTS (
+      SELECT 1 FROM contact_assignments badge_assignment
+       WHERE badge_assignment.person_id = badge.collaborator_id
+         AND badge_assignment.entity_type = 'clinic'
+         AND badge_assignment.entity_id = badge.clinic_id
+         AND badge_assignment.is_active = true
+    )
+  ) AND NOT EXISTS (
+    SELECT 1 FROM collaborator_activities paid_badge_action
+     WHERE paid_badge_action.id = (
+       SELECT latest_badge_action.id FROM collaborator_activities latest_badge_action
+        WHERE latest_badge_action.collaborator_id = badge.collaborator_id
+        ORDER BY latest_badge_action.due_date DESC NULLS LAST,
+                 latest_badge_action.created_at DESC, latest_badge_action.id DESC
+        LIMIT 1
+     )
+       AND paid_badge_action.reward_paid = true
+       AND paid_badge_action.reward_paid_at IS NOT NULL
+  )`;
+
   // Resolve the warning for the entity that is actually open in the card.
   // Do not rely on optional campaign-contact enrichment: personnel drawers can
   // open independently and current Healthcare Facilities live in contact_assignments.
@@ -19697,52 +19724,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(400).json({ error: "Unsupported entity type" });
       }
 
-      let personIds: string[] = [];
-      if (entityType === "collaborator") {
-        personIds = [entityId];
-      } else {
-        const assignmentRows = await db.select({ personId: contactAssignments.personId })
-          .from(contactAssignments)
-          .where(and(
-            eq(contactAssignments.entityType, entityType),
-            eq(contactAssignments.entityId, entityId),
-            eq(contactAssignments.isActive, true),
-          ));
-        const legacyRows = entityType === "clinic"
-          ? await db.select({ id: collaborators.id }).from(collaborators).where(or(
-              eq(collaborators.clinicId, entityId),
-              sql`${collaborators.clinicIds} @> ARRAY[${entityId}]::text[]`,
-            ))
-          : await db.select({ id: collaborators.id }).from(collaborators).where(or(
-              eq(collaborators.hospitalId, entityId),
-              sql`${collaborators.hospitalIds} @> ARRAY[${entityId}]::text[]`,
-            ));
-        personIds = [...new Set([
-          ...assignmentRows.map((row) => row.personId),
-          ...legacyRows.map((row) => row.id),
-        ])];
-      }
-
-      if (!personIds.length) return res.json({ unpaidRewardPersonCount: 0 });
-
-      const activityRows = await db.select().from(collaboratorActivities)
-        .where(inArray(collaboratorActivities.collaboratorId, personIds))
-        .orderBy(
-          sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
-          desc(collaboratorActivities.createdAt),
-          desc(collaboratorActivities.id),
-        );
-      const latestByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
-      for (const activity of activityRows) {
-        if (!latestByPerson.has(activity.collaboratorId)) {
-          latestByPerson.set(activity.collaboratorId, activity);
-        }
-      }
-      const unpaidRewardPersonCount = personIds.reduce((count, personId) => {
-        const latest = latestByPerson.get(personId);
-        return latest && !(latest.rewardPaid && latest.rewardPaidAt) ? count + 1 : count;
-      }, 0);
-      res.json({ unpaidRewardPersonCount });
+      // Only reviewed person-clinic pairs are shown. A person can be linked to
+      // other clinics without creating a badge on those clinics.
+      const badgeRows = entityType === "hospital" ? [] : (await pool.query<{ count: number }>(
+        `SELECT COUNT(DISTINCT badge.collaborator_id)::int AS count
+           FROM unpaid_reward_badge_clinic_pairs badge
+          WHERE badge.${entityType === "clinic" ? "clinic_id" : "collaborator_id"} = $1
+            AND ${activeRewardBadgeClinicLink}`,
+        [entityId],
+      )).rows;
+      const unpaidRewardPersonCount = badgeRows[0]?.count || 0;
+      res.json({
+        unpaidRewardPersonCount,
+        ...(entityType === "collaborator" ? { unpaidRewardBadgeEligible: unpaidRewardPersonCount > 0 } : {}),
+      });
     } catch (error: any) {
       console.error("[RewardReadiness] resolve error:", error?.message || error);
       res.status(500).json({ error: "Failed to resolve reward readiness" });
@@ -27107,6 +27102,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinicIds: collaborators.clinicIds,
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
+          unpaidRewardBadgeEligible: collaborators.unpaidRewardBadgeEligible,
         }).from(collaborators).where(or(
           directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
@@ -27149,18 +27145,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const unpaidRewardCountByClinic = new Map<string, number>();
       const unpaidRewardCountByHospital = new Map<string, number>();
       const unpaidRewardCollaboratorIds = new Set<string>();
-      for (const person of linkedRewardPeople) {
-        const latest = latestRewardActivityByPerson.get(person.id);
-        if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
-        unpaidRewardCollaboratorIds.add(person.id);
-        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
-        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
-        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
-        }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+      const rewardBadgePairs = rewardClinicIds.length || rewardCollaboratorIds.length
+        ? (await pool.query<{ collaborator_id: string; clinic_id: string }>(
+            `SELECT badge.collaborator_id, badge.clinic_id
+               FROM unpaid_reward_badge_clinic_pairs badge
+              WHERE (badge.clinic_id = ANY($1::text[]) OR badge.collaborator_id = ANY($2::text[]))
+                AND ${activeRewardBadgeClinicLink}`,
+            [rewardClinicIds, rewardCollaboratorIds],
+          )).rows : [];
+      for (const pair of rewardBadgePairs) {
+        unpaidRewardCollaboratorIds.add(pair.collaborator_id);
+        if (rewardClinicIds.includes(pair.clinic_id)) {
+          unpaidRewardCountByClinic.set(pair.clinic_id, (unpaidRewardCountByClinic.get(pair.clinic_id) || 0) + 1);
         }
       }
 
@@ -31259,6 +31255,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinicIds: collaborators.clinicIds,
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
+          unpaidRewardBadgeEligible: collaborators.unpaidRewardBadgeEligible,
         }).from(collaborators).where(or(
           directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
@@ -31301,18 +31298,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const unpaidRewardCountByClinic = new Map<string, number>();
       const unpaidRewardCountByHospital = new Map<string, number>();
       const unpaidRewardCollaboratorIds = new Set<string>();
-      for (const person of linkedRewardPeople) {
-        const latest = latestRewardActivityByPerson.get(person.id);
-        if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
-        unpaidRewardCollaboratorIds.add(person.id);
-        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
-        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
-        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
-        }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+      const rewardBadgePairs = rewardClinicIds.length || rewardCollaboratorIds.length
+        ? (await pool.query<{ collaborator_id: string; clinic_id: string }>(
+            `SELECT badge.collaborator_id, badge.clinic_id
+               FROM unpaid_reward_badge_clinic_pairs badge
+              WHERE (badge.clinic_id = ANY($1::text[]) OR badge.collaborator_id = ANY($2::text[]))
+                AND ${activeRewardBadgeClinicLink}`,
+            [rewardClinicIds, rewardCollaboratorIds],
+          )).rows : [];
+      for (const pair of rewardBadgePairs) {
+        unpaidRewardCollaboratorIds.add(pair.collaborator_id);
+        if (rewardClinicIds.includes(pair.clinic_id)) {
+          unpaidRewardCountByClinic.set(pair.clinic_id, (unpaidRewardCountByClinic.get(pair.clinic_id) || 0) + 1);
         }
       }
 

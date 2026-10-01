@@ -525,6 +525,27 @@ app.use((req, res, next) => {
     `);
     console.log('[migration] collaborator activity reward payment status ensured');
 
+    // Add with TRUE so existing collaborators retain the prior badge behavior
+    // until the operator applies the allowlist; switch the column default to
+    // FALSE so new collaborators are deny-by-default. SET DEFAULT changes no
+    // existing rows, and IF NOT EXISTS preserves allowlist values on reruns.
+    await pool.query(`
+      ALTER TABLE collaborators
+        ADD COLUMN IF NOT EXISTS unpaid_reward_badge_eligible boolean NOT NULL DEFAULT true;
+      ALTER TABLE collaborators
+        ALTER COLUMN unpaid_reward_badge_eligible SET DEFAULT false;
+    `);
+    console.log('[migration] collaborator unpaid reward badge eligibility ensured');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS unpaid_reward_badge_clinic_pairs (
+        collaborator_id varchar NOT NULL REFERENCES collaborators(id) ON DELETE CASCADE,
+        clinic_id varchar NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+        PRIMARY KEY (collaborator_id, clinic_id)
+      );
+    `);
+    console.log('[migration] unpaid reward badge clinic pairs ensured');
+
+
     await pool.query(`
       UPDATE customers 
       SET client_status = 'in_process', 
