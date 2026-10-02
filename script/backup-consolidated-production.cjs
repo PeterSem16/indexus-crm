@@ -14,8 +14,9 @@ const CONFIG = [".gitignore", "package.json", "package-lock.json", "tsconfig.jso
   "vite.config.ts", "vite.config.js", "vite.config.mjs", "tailwind.config.ts", "postcss.config.js",
   "components.json", "drizzle.config.ts", "webpack.config.js", "rollup.config.js", "esbuild.config.js"];
 const EXT = /\.(?:ts|tsx|js|jsx|cjs|mjs|css|scss|json|svg|sh|md)$/i;
-const OMIT = ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads", "artifacts", "design"];
-const RUNTIME_LIST = "data, uploads, attached_assets, runtime, server/data, server/uploads, artifacts, design";
+const OMIT = ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads", "artifacts", "design",
+  "mobile-app", "private-task-attachments"];
+const RUNTIME_LIST = "data, uploads, attached_assets, runtime, server/data, server/uploads, artifacts, design, mobile-app, private-task-attachments";
 const HASH = b => crypto.createHash("sha256").update(b).digest("hex");
 async function hashFile(file) {
   const hash = crypto.createHash("sha256");
@@ -39,7 +40,7 @@ async function buildFingerprint(root) {
 function approvedPath(p) {
   if (!p || p.includes("\\") || p.startsWith("/") || p.split("/").includes("..")) return false;
   if (/^(?:\.env(?:\.|$)|.*\/\.env(?:\.|$))/i.test(p) || /\.(?:pem|key|p12|pfx|crt|cer)$/i.test(p)) return false;
-  if (/(?:^|\/)(?:node_modules|dist)(?:\/|$)/.test(p)) return false;
+  if (/(?:^|\/)(?:node_modules|dist|private-task-attachments)(?:\/|$)/.test(p)) return false;
   if (OMIT.some(x => p === x || p.startsWith(`${x}/`))) return false;
   if (CONFIG.includes(p) || /^(?:tsconfig(?:\.[\w-]+)?\.json|(?:vite|tailwind|postcss|webpack|rollup|esbuild|drizzle)\.config\.[cm]?js|(?:vite|tailwind|drizzle)\.config\.ts)$/.test(p)) return true;
   return SRC.some(x => p.startsWith(`${x}/`)) && EXT.test(p);
@@ -62,7 +63,7 @@ function urlToPgEnv(connectionString) {
 function command(name, args, options = {}) {
   const r = execFileSync(name, args, { cwd: options.cwd, env: options.env || process.env,
     encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
-  return { stdout: r || "", stderr: "" };
+  return { status: 0, stdout: r || "", stderr: "" };
 }
 function run(dep, name, args, options = {}) {
   try { return (dep.command || command)(name, args, options); }
@@ -186,7 +187,7 @@ async function createBackup(options = {}) {
       fs.copyFileSync(real, dest); fs.chmodSync(dest, 0o600);
     }
     const archive = path.join(dir, "application.tar.gz");
-    const excludes = OMIT.flatMap(x => [`--exclude=./${x}`, `--exclude=./${x}/**`]);
+    const excludes = ["--exclude=private-task-attachments", ...OMIT.flatMap(x => [`--exclude=./${x}`, `--exclude=./${x}/**`])];
     const tr = run(deps, "tar", ["-czpf", archive, ...excludes, "-C", root, "."]);
     log("tar.log", tr);
     if (tr.status !== undefined && tr.status !== 0) throw new Error("archive failed");
@@ -229,7 +230,7 @@ async function createBackup(options = {}) {
 }
 function main(args = process.argv.slice(2), deps = {}) {
   const opts = cliOptions(args);
-  if (opts.help) { console.log("BACKUP-ONLY: run as seman: node script/backup-consolidated-production.cjs --backup\nDefault/help performs no operation. Saves privately under ~/indexus-backups. Runtime uploads/data and artifacts/design are not included."); return Promise.resolve(null); }
+  if (opts.help) { console.log("BACKUP-ONLY: run as seman: node script/backup-consolidated-production.cjs --backup\nDefault/help performs no operation. Saves privately under ~/indexus-backups. Runtime uploads/data, private task documents, mobile-app and artifacts/design are not included."); return Promise.resolve(null); }
   return createBackup({ ...(deps.options || {}), dependencies: deps }).then(result => {
     console.log(`SUCCESS=${result.success} HEAD=${result.head} FINGERPRINT=${result.fingerprint} COUNT=${result.count}`);
     console.log(`BACKUP=${result.directory} ARCHIVE=${result.archive} DATABASE=${result.database}`);

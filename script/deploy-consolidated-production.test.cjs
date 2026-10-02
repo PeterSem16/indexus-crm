@@ -5,6 +5,7 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { test } = require("node:test");
 const deploy = require("./deploy-consolidated-production.cjs");
+const { execFileSync } = require("node:child_process");
 
 const COMMIT = "a".repeat(40);
 const TREE = "b".repeat(40);
@@ -153,6 +154,26 @@ test("release validation verifies pinned origin, direct parent, ancestry, tree a
   assert.throws(() => deploy.validateRelease(root, { commit: COMMIT, tree: TREE, paths: ["server/routes.ts"] }, fail), /pinned base/);
 });
 
+test("native Git adapter accepts real successful ancestry and rejects a non-ancestor", t => {
+  const dir = fixture(t), origin = path.join(dir, "origin.git"), checkout = path.join(dir, "checkout");
+  const repo = path.resolve(__dirname, "..");
+  const git = (args, cwd = repo) => execFileSync("git", args, { cwd, encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GIT_AUTHOR_NAME: "Deployment test",
+      GIT_AUTHOR_EMAIL: "deployment@example.test", GIT_COMMITTER_NAME: "Deployment test",
+      GIT_COMMITTER_EMAIL: "deployment@example.test" } }).trim();
+  git(["clone", "--bare", "--shared", repo, origin]);
+  const tree = git(["--git-dir", origin, "rev-parse", `${BASE}^{tree}`]);
+  const commit = git(["--git-dir", origin, "commit-tree", tree, "-p", BASE, "-m", "Native adapter fixture"]);
+  git(["--git-dir", origin, "update-ref", "refs/heads/main", commit]);
+  git(["clone", "--no-checkout", "--branch", "main", origin, checkout]);
+  assert.doesNotThrow(() => deploy.validateRelease(checkout, { commit, tree, paths: [] }, {}));
+  const unrelated = git(["commit-tree", tree, "-m", "Unrelated fixture"], checkout);
+  // Preserve the direct-parent check while replacing an ancestor only in this
+  // isolated clone. A real merge-base exit 1 must still stop validation.
+  git(["replace", BASE, unrelated], checkout);
+  assert.throws(() => deploy.validateRelease(checkout, { commit, tree, paths: [] }, {}), /ancestry mismatch/);
+});
+
 test("backup verification streams hashes and rejects missing or altered manifest entries without DB commands", async t => {
   const dir = fixture(t), backupDir = path.join(dir, "backup");
   fs.mkdirSync(backupDir, { mode: 0o700 });
@@ -226,6 +247,7 @@ async function deploymentFixture(t) {
   writeBackupFile(".env.copy", fs.readFileSync(path.join(root, ".env")));
   const command = (name, args, opts = {}) => {
     state.calls.push([name, args, opts.cwd]);
+    if (name === "bash" && args[2] === "indexus-tool-check") return { status: 0, stdout: "" };
     if (name === "tar" && args[0] === "-tzf") return { status: 0,
       stdout: "./\n./.git/\n./.git/HEAD\n./node_modules/\n./server/\n./server/routes.ts\n./private-task-attachments/\n./private-task-attachments/old-copy.bin\n" };
     if (name === "tar" && args[0] === "-xzf") {
@@ -246,9 +268,10 @@ async function deploymentFixture(t) {
     if (name === "rsync") {
       assert(args.includes("--delete"));
       assert(!args.includes("--delete-excluded"));
-      for (const excluded of ["/artifacts", "/design", "/private-task-attachments", "/data", "/uploads",
+      for (const excluded of ["/mobile-app", "/artifacts", "/design", "/private-task-attachments", "/data", "/uploads",
         "/attached_assets", "/runtime", "/server/data", "/server/uploads", "/.env", "/.env.*"])
         assert(args.some(arg => arg === `--exclude=${excluded}`), `missing protective rsync exclusion ${excluded}`);
+      assert(args.includes("--exclude=private-task-attachments"), "nested private storage must also be protected");
       restoreExceptRuntime(state.extract, root);
       state.currentHead = "b59f6e006cc2073cbb5ae909555c304cf0030903";
       return { status: 0, stdout: "" };
@@ -301,7 +324,7 @@ async function deploymentFixture(t) {
 function restoreExceptRuntime(from, to) {
   const preserve = (base, rel) => rel === ".env" || /^\.env\./.test(rel)
     || ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads",
-      "artifacts", "design", "private-task-attachments"].includes(rel);
+      "artifacts", "design", "private-task-attachments", "mobile-app"].includes(rel);
   const remove = (dir, rel = "") => {
     for (const name of fs.readdirSync(dir)) {
       const next = rel ? `${rel}/${name}` : name, full = path.join(dir, name);
@@ -323,6 +346,58 @@ function restoreExceptRuntime(from, to) {
   };
   copy(from);
 }
+
+test("missing rsync blocks preparation and rollback before any process stop or extraction", async t => {
+  const f = await deploymentFixture(t), original = f.deps.command;
+  const deps = { ...f.deps, command(name, args, opts) {
+    if (name === "bash" && args[2] === "indexus-tool-check" && args[3] === "rsync")
+      return { status: 1, stdout: "" };
+    return original(name, args, opts);
+  } };
+  await assert.rejects(deploy.prepare({ commit: f.commit, manifest: f.manifest,
+    backup: f.backupDir, health_path: "/api/users" }, deps), /unavailable: rsync/);
+  await assert.rejects(deploy.rollbackInternal({}, f.root, deps), /unavailable: rsync/);
+  assert.equal(f.state.stopped, false);
+  assert.equal(f.state.extract, "");
+});
+
+test("restart health waits for readiness without weakening root/API response checks", () => {
+  let clock = 0, attempts = 0;
+  const deps = { healthClock: () => clock, healthWait: ms => { clock += ms; },
+    healthTimeoutMs: 100, healthRetryMs: 10, health: () => ++attempts < 3
+      ? { status: 503, body: { error: "Starting" }, rootStatus: 200 }
+      : { status: 401, body: { error: "Unauthorized" }, rootStatus: 200 } };
+  assert.doesNotThrow(() => deploy.waitForHealthAfterRestart(5010, "/api/users", deps));
+  assert.equal(attempts, 3);
+  clock = 0;
+  assert.throws(() => deploy.waitForHealthAfterRestart(5010, "/api/users", {
+    ...deps, health: () => ({ status: 200, body: {}, rootStatus: 200 }),
+  }), /did not become ready/);
+});
+
+test("native curl restart health tolerates a real delayed HTTP service", async t => {
+  const { spawn } = require("node:child_process");
+  const child = spawn(process.execPath, ["-e", `
+    const http = require("node:http"); let ready = false;
+    const server = http.createServer((req, res) => {
+      if (req.url === "/") { res.end("ok"); return; }
+      res.writeHead(ready ? 401 : 503, {"content-type":"application/json"});
+      res.end(JSON.stringify({error:ready ? "Unauthorized" : "Starting"}));
+    });
+    server.listen(0, "127.0.0.1", () => {
+      console.log(server.address().port);
+      setTimeout(() => { ready = true; }, 250);
+    });
+  `], { stdio: ["ignore", "pipe", "pipe"] });
+  t.after(() => child.kill());
+  const port = await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.stdout.once("data", data => resolve(Number(data.toString().trim())));
+  });
+  assert.doesNotThrow(() => deploy.waitForHealthAfterRestart(port, "/api/users", {
+    healthTimeoutMs: 3000, healthRetryMs: 30,
+  }));
+});
 
 test("synthetic prepare is build-first and does not mutate live source, dist, PM2, runtime, or database", async t => {
   const f = await deploymentFixture(t);
@@ -397,4 +472,76 @@ test("partial pull failure automatically restores app while retaining live runti
   assert.equal(fs.readFileSync(path.join(f.root, "dist/index.cjs"), "utf8"), "original bundle\n");
   const privateRoot = path.join(f.home, ".indexus-consolidated-deploy");
   assert(fs.readdirSync(privateRoot).some(name => name.startsWith("rollback-")));
+});
+
+test("reviewed follow-up parent is pinned independently of the full-scope base", t => {
+  const dir = fixture(t), file = manifest(dir), parent = "c".repeat(40);
+  const data = JSON.parse(fs.readFileSync(file, "utf8"));
+  fs.writeFileSync(file, JSON.stringify({ ...data, parent }));
+  const pinned = deploy.readManifest(file, COMMIT);
+  assert.equal(pinned.parent, parent);
+  const command = (_name, args) => {
+    if (args[0] === "fetch" || args[0] === "merge-base") return { status: 0, stdout: "" };
+    if (args[0] === "rev-list") return { status: 0, stdout: `${COMMIT} ${parent}\n` };
+    if (args[0] === "diff") return { status: 0, stdout: "server/routes.ts\0" };
+    return { status: 0, stdout: args[1] === "origin/main" ? COMMIT : TREE };
+  };
+  assert.doesNotThrow(() => deploy.validateRelease(dir, pinned, { command }));
+  assert.throws(() => deploy.validateRelease(dir, { ...pinned, parent: "d".repeat(40) }, { command }), /reviewed parent/);
+  fs.writeFileSync(file, JSON.stringify({ ...data, parent: "not-a-commit" }));
+  assert.throws(() => deploy.readManifest(file, COMMIT), /manifest/);
+});
+
+test("restart waits for PM2 online even after HTTP is ready and preserves native timeout cause", () => {
+  let now = 0, checks = 0;
+  const deps = { health: () => ({ status: 401, body: { error: "Unauthorized" }, rootStatus: 200 }),
+    healthClock: () => now, healthWait: ms => { now += ms; }, healthTimeoutMs: 2000 };
+  deploy.waitForHealthAfterRestart(5000, "/api/users", deps, () => {
+    if (++checks < 2) throw new Error("PM2 launching");
+  });
+  assert.equal(checks, 2);
+  const failed = { ...deps, health: undefined, healthTimeoutMs: 0,
+    command: () => ({ status: 7, stdout: "", stderr: "fixture connection refused" }) };
+  assert.throws(() => deploy.waitForHealthAfterRestart(5000, "/api/users", failed),
+    e => e.nativeTool === "curl" && e.nativeStatus === 7 && e.nativeStderr === "fixture connection refused");
+});
+
+test("rollback uses native rsync without touching independent mobile client or nested current documents", async t => {
+  const f = await deploymentFixture(t);
+  await deploy.prepare({ commit: f.commit, manifest: f.manifest, backup: f.backupDir }, f.deps);
+  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments"]) {
+    fs.mkdirSync(path.join(f.root, rel), { recursive: true });
+    fs.writeFileSync(path.join(f.root, rel, "current.dat"), "current protected content");
+  }
+  const command = f.deps.command;
+  f.deps.command = (name, args, opts) => {
+    if (name !== "rsync") return command(name, args, opts);
+    execFileSync("rsync", args, { cwd: opts.cwd, stdio: "pipe" });
+    f.state.currentHead = "b59f6e006cc2073cbb5ae909555c304cf0030903";
+    return { status: 0, stdout: "", stderr: "" };
+  };
+  await deploy.rollback({ maintenance: true, health_path: "/api/users" }, f.deps);
+  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments"])
+    assert.equal(fs.readFileSync(path.join(f.root, rel, "current.dat"), "utf8"), "current protected content");
+  assert.equal(f.state.stopped, false);
+  const extraction = f.state.calls.find(([name, args]) => name === "tar" && args[0] === "-xzf")[1];
+  assert(extraction.includes("--exclude=./mobile-app") && extraction.includes("--exclude=private-task-attachments"));
+});
+
+test("native failure details stay bounded and private while successful rollback retains diagnostics", async t => {
+  const f = await deploymentFixture(t);
+  const prepared = await deploy.prepare({ commit: f.commit, manifest: f.manifest, backup: f.backupDir }, f.deps);
+  const command = f.deps.command;
+  f.deps.command = (name, args, opts) => name === "git" && args[0] === "pull"
+    ? { status: 23, stdout: "never store sensitive stdout", stderr: "x".repeat(9000) + "fixture failure tail" }
+    : command(name, args, opts);
+  await assert.rejects(deploy.apply({ commit: f.commit, manifest: f.manifest, maintenance: true, health_path: "/api/users" }, f.deps),
+    e => /rollback completed/.test(e.message) && e.privateFailureLog === path.join(prepared.runDir, "ERROR_DEPLOY.json"));
+  const file = path.join(prepared.runDir, "ERROR_DEPLOY.json");
+  const detail = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.equal(detail.phase, "pull_release"); assert.equal(detail.tool, "git"); assert.equal(detail.status, 23);
+  assert.equal(detail.stderr.length, 8192); assert(detail.stderr.endsWith("fixture failure tail"));
+  assert(!fs.readFileSync(file, "utf8").includes("sensitive stdout"));
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+  assert.equal(f.state.stopped, false);
 });

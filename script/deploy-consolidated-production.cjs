@@ -12,14 +12,14 @@ const BACKUP = "/home/seman/indexus-backups/20261002T114842Z";
 const SOURCE_FP = "d0e1add5bcf9c38654376b342a543c42dce6924dde325e991a84723d7454aa9d";
 const PROCESS = "indexus-crm";
 const OMIT = ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads",
-  "artifacts", "design", "private-task-attachments"];
+  "artifacts", "design", "private-task-attachments", "mobile-app"];
 const DOCS = new Set(["docs/releases/indexus-consolidation.md"]);
 const approvedReleasePath = p => backup.approvedPath(p) || DOCS.has(p);
 function sha(s) { return crypto.createHash("sha256").update(s).digest("hex"); }
 function command(name, args, opts = {}) {
   const out = execFileSync(name, args, { cwd: opts.cwd, env: opts.env || process.env, encoding: "utf8",
     maxBuffer: 128 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
-  return { stdout: out || "", stderr: "" };
+  return { status: 0, stdout: out || "", stderr: "" };
 }
 function run(deps, name, args, opts) {
   try { return (deps.command || command)(name, args, opts); }
@@ -27,10 +27,21 @@ function run(deps, name, args, opts) {
 }
 function must(deps, name, args, opts) {
   const r = run(deps, name, args, opts);
-  if (r.status !== undefined && r.status !== 0) throw new Error(`${name} command failed`);
+  if (r.status !== undefined && r.status !== 0) {
+    const e = new Error(`${name} command failed`);
+    e.nativeTool = name; e.nativeStatus = r.status;
+    e.nativeStderr = String(r.stderr || "").slice(-8192);
+    throw e;
+  }
   return r.stdout;
 }
 function git(root, args, deps) { return must(deps, "git", args, { cwd: root }).trim(); }
+function requireTools(root, deps, tools) {
+  for (const tool of tools) {
+    const r = run(deps, "bash", ["-c", 'command -v "$1" >/dev/null', "indexus-tool-check", tool], { cwd: root });
+    if (r.status !== 0) throw new Error(`required deployment tool unavailable: ${tool}`);
+  }
+}
 function privateDir(dir) {
   noSymlinkChain(dir);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 }); fs.chmodSync(dir, 0o700);
@@ -47,6 +58,16 @@ function noSymlinkChain(target) {
   }
 }
 function writePrivate(file, data) { fs.writeFileSync(file, data, { mode: 0o600, flag: "w" }); fs.chmodSync(file, 0o600); }
+function recordFailure(file, phase, error) {
+  try {
+    if (fs.lstatSync(file, { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error("unsafe diagnostic symlink");
+    writePrivate(file, JSON.stringify({ phase, message: error.message,
+      tool: error.nativeTool || "", status: error.nativeStatus ?? null,
+      stderr: error.nativeStderr || "", healthFailure: error.healthFailure || "", timestamp: new Date().toISOString() }, null, 2));
+    error.privateFailureLog = file;
+  } catch { error.privateFailureLogWriteFailed = true; }
+  error.failurePhase = phase;
+}
 function parseArgs(args) {
   const o = { prepare: false, apply: false, rollback: false, maintenance: false };
   if (!args.length || args.includes("--help") || args.includes("-h")) return { help: true };
@@ -80,9 +101,11 @@ function readManifest(file, commit) {
   const stat = fs.lstatSync(file);
   if (!stat.isFile() || (process.getuid && stat.uid !== process.getuid()) || (stat.mode & 0o077)) throw new Error("unsafe pinned manifest");
   const m = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (m.base !== BASE || m.commit !== commit || !/^[a-f0-9]{40}$/.test(m.tree || "") || !Array.isArray(m.paths)
+   if (m.base !== BASE || m.commit !== commit || !/^[a-f0-9]{40}$/.test(m.tree || "")
+     || (m.parent !== undefined && !/^[a-f0-9]{40}$/.test(m.parent))
+     || !Array.isArray(m.paths)
     || !m.paths.length || m.paths.some(p => !approvedReleasePath(p)) || new Set(m.paths).size !== m.paths.length) throw new Error("pinned reviewed manifest mismatch");
-  return { base: m.base, commit: m.commit, tree: m.tree, paths: [...m.paths].sort() };
+  return { base: m.base, parent: m.parent || BASE, commit: m.commit, tree: m.tree, paths: [...m.paths].sort() };
 }
 function stable(value) {
   if (Array.isArray(value)) return value.map(stable);
@@ -186,7 +209,7 @@ function validateRelease(root, manifest, deps) {
   const tree = git(root, ["rev-parse", `${manifest.commit}^{tree}`], deps);
   if (tree !== manifest.tree) throw new Error("release tree differs from reviewed manifest");
   const parents = git(root, ["rev-list", "--parents", "-n", "1", manifest.commit], deps).split(/\s+/).slice(1);
-  if (!parents.includes(BASE)) throw new Error("release commit must directly include the pinned base as a parent");
+  if (!parents.includes(manifest.parent || BASE)) throw new Error("release commit must directly include the pinned base/reviewed parent");
   for (const ancestor of [BASE, HEAD]) {
     const r = run(deps, "git", ["merge-base", "--is-ancestor", ancestor, manifest.commit], { cwd: root });
     if (r.status !== 0) throw new Error("release ancestry mismatch");
@@ -229,6 +252,25 @@ function healthDeclared(sourceRoot, route) {
     return false;
   };
   return ["server", "shared"].some(r => walk(path.join(sourceRoot, r)));
+}
+function waitForHealthAfterRestart(port, route, deps, runtimeReady = () => {}) {
+  const now = deps.healthClock || Date.now;
+  const timeout = deps.healthTimeoutMs ?? 60000;
+  const delay = deps.healthRetryMs ?? 1000;
+  const deadline = now() + timeout;
+  for (;;) {
+    try { checkHealth(port, route, deps); runtimeReady(); return; }
+    catch (cause) {
+      if (now() >= deadline) {
+        const error = new Error("application health did not become ready after restart");
+        for (const key of ["nativeTool", "nativeStatus", "nativeStderr"]) error[key] = cause[key];
+        error.healthFailure = cause.message;
+        throw error;
+      }
+      if (deps.healthWait) deps.healthWait(delay);
+      else Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delay);
+    }
+  }
 }
 function lockAt(home, deps) {
   const dir = path.join(home, ".indexus-consolidated-deploy");
@@ -285,6 +327,7 @@ function preserveOldAssets(oldPublic, newPublic) {
 async function prepare(options, deps = {}) {
   const root = path.resolve(deps.root || ROOT), home = path.resolve(deps.home || HOME);
   checkRoot(root, home);
+  requireTools(root, deps, ["git", "tar", "rsync", "curl", "pm2", "npm"]);
   const stateDir = path.join(home, ".indexus-consolidated-deploy");
   privateDir(stateDir);
   const unlock = lockAt(home, deps);
@@ -346,12 +389,15 @@ async function prepare(options, deps = {}) {
   if (options.health_path && !healthDeclared(stage, options.health_path))
       throw new Error("health path is not declared by staged application source");
     const metadata = { version: 1, commit: manifest.commit, tree: manifest.tree, paths: manifest.paths, runDir, stage,
-      backup: backupDir, head: HEAD, fingerprint: bk.fingerprint, runtime, config: configSnapshot(root),
+      backup: backupDir, head: HEAD, parent: manifest.parent, fingerprint: bk.fingerprint, runtime, config: configSnapshot(root),
       preparedFingerprint: fp.aggregate, preparedPaths: fp.rows.map(r => r.path), healthPath: options.health_path || "",
       distHash: await distFingerprint(stage), created: Date.now() };
     writePrivate(path.join(runDir, "PREPARED.json"), JSON.stringify(metadata));
     writePrivate(path.join(stateDir, "CURRENT"), `${runDir}\n`);
     return { prepared: true, runDir, commit: manifest.commit, build: !!build };
+  } catch (e) {
+    recordFailure(path.join(stateDir, "ERROR_PREPARE.json"), "prepare", e);
+    throw e;
   } finally { unlock(); }
 }
 async function preparedState(home) {
@@ -385,13 +431,16 @@ async function preparedState(home) {
 async function apply(options, deps = {}) {
   const root = path.resolve(deps.root || ROOT), home = path.resolve(deps.home || HOME);
   checkRoot(root, home);
+  requireTools(root, deps, ["git", "tar", "rsync", "curl", "pm2"]);
   const unlock = lockAt(home, deps);
-  let state, activation = false;
+  let state, activation = false, phase = "preflight";
   try {
     state = await preparedState(home);
     await verifyBackup(state.backup, deps, root);
     const manifest = readManifest(options.manifest, options.commit);
-    if (state.commit !== options.commit || JSON.stringify(state.paths) !== JSON.stringify(manifest.paths)) throw new Error("prepared release mismatch");
+    if (state.commit !== options.commit || state.tree !== manifest.tree
+      || (state.parent || BASE) !== manifest.parent
+      || JSON.stringify(state.paths) !== JSON.stringify(manifest.paths)) throw new Error("prepared release mismatch");
     if (git(root, ["rev-parse", "HEAD"], deps) !== HEAD) throw new Error("production source HEAD changed after prepare");
     if (git(root, ["symbolic-ref", "--short", "HEAD"], deps) !== "main") throw new Error("production checkout is not on main");
     const fp = sourceFingerprint(root, deps);
@@ -408,14 +457,17 @@ async function apply(options, deps = {}) {
     const dirty = runPaths;
     let stashRef = "";
     activation = true;
+    phase = "stash_sources";
     if (dirty.length) {
       if (!dirty.every(backup.approvedPath)) throw new Error("unsafe dirty source path");
       must(deps, "git", ["stash", "push", "--include-untracked", "-m", `consolidated-deploy-${options.commit}`, "--", ...dirty], { cwd: root });
       stashRef = git(root, ["rev-parse", "refs/stash"], deps); writePrivate(path.join(state.runDir, "STASH.json"), JSON.stringify({ stashRef }));
     }
+    phase = "pull_release";
     must(deps, "git", ["pull", "--ff-only", "origin", "main"], { cwd: root });
     if (git(root, ["rev-parse", "HEAD"], deps) !== options.commit || git(root, ["symbolic-ref", "--short", "HEAD"], deps) !== "main")
       throw new Error("pulled Git state differs from pinned main commit");
+    phase = "prepare_serving_build";
     const newDist = path.join(root, `.dist-new-${crypto.randomUUID()}`);
     if (fs.existsSync(newDist)) throw new Error("unexpected staged dist collision");
     fs.cpSync(path.join(state.stage, "dist"), newDist, { recursive: true, preserveTimestamps: true });
@@ -426,27 +478,42 @@ async function apply(options, deps = {}) {
     const previous = path.join(evidence, "dist");
     preserveOldAssets(path.join(oldDist, "public"), path.join(newDist, "public"));
     // Same-filesystem rename is used for each serving-tree transition.
+    phase = "swap_build";
     if (deps.swapDist) deps.swapDist(newDist, oldDist, previous);
     else { fs.renameSync(oldDist, previous); fs.renameSync(newDist, oldDist); }
     writePrivate(path.join(state.runDir, "ACTIVATED.json"), JSON.stringify({ previous, stashRef }));
+    phase = "restart";
     if (deps.pm2Restart) deps.pm2Restart(PROCESS);
     else must(deps, "pm2", ["restart", PROCESS], { cwd: root });
-    const after = pm2(deps, root);
-    checkHealth(after.port, options.health_path, deps);
+    const after = pm2(deps, root, false);
+    phase = "post_restart_health";
+    waitForHealthAfterRestart(after.port, options.health_path, deps, () => pm2(deps, root));
     return { applied: true, commit: options.commit, previousDist: previous, stashRef };
   } catch (e) {
+    recordFailure(path.join(state?.runDir || path.join(home, ".indexus-consolidated-deploy"), "ERROR_DEPLOY.json"), phase, e);
     if (activation) {
       try { await rollbackInternal(state || await preparedState(home), root, deps, options.health_path); }
-      catch { throw new Error("deployment failed and automatic rollback failed; preserve operator evidence and inspect private state"); }
-      throw new Error("deployment failed; verified application rollback completed");
+      catch (recoveryError) {
+        const failure = new Error(`deployment failed at ${phase}; automatic rollback failed at ${recoveryError.failurePhase || "unknown"}; inspect private operator evidence`);
+        failure.privateFailureLog = recoveryError.privateFailureLog || e.privateFailureLog;
+        throw failure;
+      }
+       const failure = new Error("deployment failed; verified application rollback completed");
+       failure.privateFailureLog = e.privateFailureLog;
+       failure.privateFailureLogWriteFailed = e.privateFailureLogWriteFailed;
+       throw failure;
     }
     throw e;
   } finally { unlock(); }
 }
 async function rollbackInternal(state, root, deps, healthPath = "/api/users") {
+  requireTools(root, deps, ["git", "tar", "rsync", "curl", "pm2"]);
+  let phase = "verify_backup", runDir;
+  try {
   await verifyBackup(state.backup, deps);
-  const runDir = path.join(path.dirname(state.runDir), `rollback-${Date.now()}`);
+  runDir = path.join(path.dirname(state.runDir), `rollback-${Date.now()}`);
   privateDir(runDir);
+  phase = "capture_failed_release";
   if (fs.existsSync(path.join(root, "dist")))
     fs.cpSync(path.join(root, "dist"), path.join(runDir, "failed-dist"), { recursive: true });
   for (const rel of state.paths) {
@@ -458,7 +525,10 @@ async function rollbackInternal(state, root, deps, healthPath = "/api/users") {
     }
   }
   const extract = path.join(runDir, "restore"); fs.mkdirSync(extract, { mode: 0o700 });
-  must(deps, "tar", ["-xzf", path.join(state.backup, "application.tar.gz"), "-C", extract], { cwd: root });
+  phase = "extract_original";
+  must(deps, "tar", ["-xzf", path.join(state.backup, "application.tar.gz"),
+    "--exclude=./mobile-app", "--exclude=./mobile-app/**", "--exclude=private-task-attachments",
+    "-C", extract], { cwd: root });
   for (const rel of [".git", "node_modules", "dist"]) {
     const p = path.join(extract, rel), s = fs.lstatSync(p);
     if (!s.isDirectory() || s.isSymbolicLink()) throw new Error(`verified backup ${rel} is not a real directory`);
@@ -468,14 +538,26 @@ async function rollbackInternal(state, root, deps, healthPath = "/api/users") {
   const expected = JSON.parse(fs.readFileSync(path.join(state.backup, "source-fingerprint.json"), "utf8"));
   const restoredFp = sourceFingerprint(extract, deps);
   if (restoredFp.aggregate !== expected.aggregate) throw new Error("backup archive source fingerprint mismatch");
+  const originalRuntime = JSON.parse(fs.readFileSync(path.join(state.backup, "runtime-fingerprint.json"), "utf8"));
+  if (await distFingerprint(extract) !== originalRuntime.buildHash) throw new Error("backup archive build fingerprint mismatch");
+  phase = "stop_process";
   if (deps.pm2Stop) deps.pm2Stop(PROCESS); else must(deps, "pm2", ["stop", PROCESS], { cwd: root });
-  const excludes = [".env", ".env.*", ...OMIT].flatMap(p => [`--exclude=/${p}`, `--exclude=/${p}/**`]);
+  phase = "restore_files";
+  const excludes = ["--exclude=private-task-attachments", ...[".env", ".env.*", ...OMIT].flatMap(p => [`--exclude=/${p}`, `--exclude=/${p}/**`])];
   must(deps, "rsync", ["-a", "--owner", "--group", "--delete", ...excludes, `${extract}/`, `${root}/`], { cwd: root });
+  phase = "verify_restored_sources";
   if (git(root, ["rev-parse", "HEAD"], deps) !== HEAD || sourceFingerprint(root, deps).aggregate !== expected.aggregate)
     throw new Error("restored application source verification failed");
+  if (await distFingerprint(root) !== originalRuntime.buildHash) throw new Error("restored serving build verification failed");
+  phase = "restart";
   if (deps.pm2Restart) deps.pm2Restart(PROCESS);
   else must(deps, "pm2", ["restart", PROCESS], { cwd: root });
-  checkHealth(pm2(deps, root).port, healthPath, deps);
+  phase = "post_restart_health";
+  waitForHealthAfterRestart(pm2(deps, root, false).port, healthPath, deps, () => pm2(deps, root));
+  } catch (e) {
+    recordFailure(path.join(runDir || state.runDir, "ERROR_ROLLBACK.json"), phase, e);
+    throw e;
+  }
 }
 async function rollback(options, deps = {}) {
   const root = path.resolve(deps.root || ROOT), home = path.resolve(deps.home || HOME);
@@ -496,5 +578,5 @@ async function main(args = process.argv.slice(2), deps = {}) {
   if (options.apply) return apply(options, deps);
   return rollback(options, deps);
 }
-if (require.main === module) main().then(r => { if (r) console.log(`DEPLOY_STATUS=${r.applied ? "APPLIED" : r.rolledBack ? "ROLLED_BACK" : "PREPARED"} COMMIT=${r.commit || r.head} PATH=${r.runDir || r.previousDist || ""}`); }).catch(e => { console.error(`DEPLOY FAILED: ${e.message}`); process.exitCode = 1; });
-module.exports = { parseArgs, readManifest, verifyBackup, pm2, pmConfigHash, distFingerprint, validateRelease, checkHealth, healthDeclared, sourceFingerprint, prepare, apply, rollback, rollbackInternal, main };
+if (require.main === module) main().then(r => { if (r) console.log(`DEPLOY_STATUS=${r.applied ? "APPLIED" : r.rolledBack ? "ROLLED_BACK" : "PREPARED"} COMMIT=${r.commit || r.head} PATH=${r.runDir || r.previousDist || ""}`); }).catch(e => { console.error(`DEPLOY FAILED: ${e.message}`); if (e.privateFailureLog) console.error(`DETAILS_PRIVATE=${e.privateFailureLog}`); if (e.privateFailureLogWriteFailed) console.error("PRIVATE_DIAGNOSTIC_WRITE_FAILED"); process.exitCode = 1; });
+module.exports = { parseArgs, readManifest, verifyBackup, pm2, pmConfigHash, distFingerprint, validateRelease, checkHealth, waitForHealthAfterRestart, requireTools, healthDeclared, sourceFingerprint, prepare, apply, rollback, rollbackInternal, main };

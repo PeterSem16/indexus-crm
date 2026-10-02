@@ -43,6 +43,10 @@ function fixture(t) {
     fs.writeFileSync(path.join(root, p), "excluded runtime/design\n");
   }
   fs.writeFileSync(path.join(root, "client/src/data/keep.ts"), "source data\n");
+  for (const dir of ["mobile-app/node_modules/pkg", "private-task-attachments", "custom/private-task-attachments"]) {
+    fs.mkdirSync(path.join(root, dir), { recursive: true });
+    fs.writeFileSync(path.join(root, dir, "keep.txt"), "independent current content\n");
+  }
   fs.writeFileSync(path.join(root, "data/runtime.json"), "private runtime\n");
   fs.writeFileSync(path.join(root, ".env"), "DATABASE_URL=postgres://appuser:app-secret@db.example/appdb?sslmode=require\nSECRET=should-not-print\n", { mode: 0o600 });
   const pm2 = JSON.stringify([{ name: "indexus-crm", pid: 123, pm2_env: {
@@ -202,6 +206,8 @@ test("happy path creates private validated backup with only safe console output"
     }
     const tar = f.state.args.find(x => x[0] === "tar")[1].join(" ");
     assert(tar.includes("--exclude=./data") && tar.includes("--exclude=./server/data"));
+    assert(tar.includes("--exclude=./mobile-app") && tar.includes("--exclude=private-task-attachments"));
+    assert(!names.some(n => n === "mobile-app" || n.startsWith("mobile-app/") || n.includes("private-task-attachments")));
     assert(tar.includes("-C"));
     const du = f.state.args.find(x => x[0] === "du")[1];
     assert(du.includes(`--exclude=${path.join(f.root, "data")}`), "du should exclude only root runtime data");

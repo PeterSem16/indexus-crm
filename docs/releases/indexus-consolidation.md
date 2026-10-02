@@ -89,3 +89,20 @@ dependencies while retaining current runtime uploads/data and configuration.
 It does not restore the old database. Additive schema remains; new business
 records are not erased. HTTP root/API probes verify serving/routing, not a full
 database or authenticated-feature health check.
+
+Recovery-tool availability is checked before preparation/activation or stopping
+the service. Restart health polls have a bounded readiness wait, including PM2
+startup state; they still require HTTP 200 at `/` and JSON 401 Unauthorized at
+`/api/users`. Original source and build fingerprints must match before a restored
+service is restarted.
+
+Web snapshots and recovery exclude the independent `mobile-app` tree and protect
+private task-document buckets at any depth, including in older archives.
+Command failures retain phase, exit status and bounded stderr in private 0600
+operator JSON logs; never paste these potentially sensitive logs into chat.
+
+After a recovery restart, take a fresh backup and prepare again: the earlier
+backup/preparation is tied to the former PM2 process identity. Do not reuse it
+for activation. A reviewed follow-up release may pin an explicit `parent` in
+its private manifest; `base` remains the original full-scope comparison point.
+Legacy manifests without `parent` require `base` as the direct parent.
