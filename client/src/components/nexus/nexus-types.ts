@@ -72,6 +72,8 @@ export interface Task {
   title: string;
   description?: string;
   dueDate?: string;
+  workStartedAt?: string | null;
+  workStoppedAt?: string | null;
   priority: string;
   status: string;
   assignedUserId: string;
@@ -141,5 +143,5 @@ export const typeColors: Record<string, { bg: string; text: string; border: stri
   "training-room": { bg: "bg-teal-50 dark:bg-teal-950/30", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800", dot: "bg-teal-500", accent: "text-teal-600 dark:text-teal-400" },
 };
 
-export type TaskFilter = "all" | "pending" | "in_progress" | "completed" | "cancelled";
+export type TaskFilter = "all" | "open" | "pending" | "in_progress" | "completed" | "cancelled";
 export type SmsFilter = "all" | "inbound" | "outbound";

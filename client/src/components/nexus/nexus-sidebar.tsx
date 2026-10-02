@@ -16,6 +16,7 @@ import {
   Mail,
   MessageSquare,
   ListTodo,
+  ListChecks,
   MessagesSquare,
   ChevronDown,
   ChevronRight,
@@ -217,6 +218,7 @@ export default function NexusSidebar({
   const smsOutboundTotal = smsData?.filter(s => s.direction === "outbound")?.length || 0;
   const pendingTasks = tasksData?.filter(t => t.status === "pending")?.length || 0;
   const inProgressTasks = tasksData?.filter(t => t.status === "in_progress")?.length || 0;
+  const openTasks = pendingTasks + inProgressTasks;
   const completedTasks = tasksData?.filter(t => t.status === "completed")?.length || 0;
   const cancelledTasks = tasksData?.filter(t => t.status === "cancelled")?.length || 0;
   const totalTasks = tasksData?.length || 0;
@@ -360,6 +362,16 @@ export default function NexusSidebar({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="text-xs">{t.tasks.allTasks} ({totalTasks})</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button onClick={() => onTaskFilterChange("open")}
+                    className={`p-2 rounded-md transition-all ${taskFilter === "open" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
+                    aria-label={`${t.tasks.openTasks} (${openTasks})`} data-testid="task-collapsed-open">
+                    <ListChecks className="h-5 w-5 text-teal-600" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-xs">{t.tasks.openTasks} ({openTasks})</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -763,6 +775,14 @@ export default function NexusSidebar({
                 onClick={() => onTaskFilterChange("all")}
                 testId="task-filter-all"
               />
+              <SidebarItem
+                icon={<ListChecks className="h-4 w-4 text-teal-600" />}
+                label={t.tasks.openTasks}
+                count={openTasks}
+                active={taskFilter === "open"}
+                onClick={() => onTaskFilterChange("open")}
+                testId="task-filter-open"
+              />
               <div className="my-1 mx-2 border-t" />
               <SidebarItem
                 icon={<Clock className="h-3.5 w-3.5 text-amber-500" />}
@@ -970,10 +990,10 @@ function SidebarItem({ icon, label, badge, badgeVariant = "muted", count, active
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {count !== undefined && !badge && (
-          <span className={`text-[10px] tabular-nums ${active ? "text-primary/60" : "text-muted-foreground/60"}`}>{count}</span>
+          <span data-task-count className="text-[10px] tabular-nums">{count}</span>
         )}
         {badge !== undefined && badge > 0 && (
-          <span className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
+          <span data-task-count-badge className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
             badgeVariant === "primary" 
               ? "bg-primary text-primary-foreground" 
               : "bg-muted text-muted-foreground"

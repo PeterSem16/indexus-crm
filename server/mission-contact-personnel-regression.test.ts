@@ -30,9 +30,9 @@ for (const role of ["admin", "user"]) {
     const fixture = [
       { id: "cc-clinic", contactType: "clinic", clinicId: "clinic-a" },
       { id: "cc-hospital", contactType: "hospital", hospitalId: "hospital-a" },
-      { id: "cc-clinic-again", contactType: "clinic", clinicId: "clinic-a" },
-      { id: "cc-hospital-again", contactType: "hospital", hospitalId: "hospital-a" },
-      { id: "cc-person", contactType: "collaborator", collaboratorId: "person-b" },
+      { id: "cc-clinic-second", contactType: "clinic", clinicId: "clinic-a" },
+      { id: "cc-hospital-second", contactType: "hospital", hospitalId: "hospital-a" },
+      { id: "cc-collaborator", contactType: "collaborator", collaboratorId: "person-b" },
       { id: "cc-customer", contactType: "customer", customerId: "customer-a" },
       { id: "cc-fallback", contactType: "clinic", customerId: "customer-a" },
     ];
@@ -45,6 +45,8 @@ for (const role of ["admin", "user"]) {
     const context = {
       ...schema, ...orm,
       console: { error: (...args: unknown[]) => errors.push(args) },
+      activeRewardBadgeClinicLink: "true",
+      pool: { query: async () => ({ rows: [] }) },
       canAgentReadCampaignByWorkspaceCountry: () => true,
       parseCampaignContactVisibility: () => "all",
       includePersonReferrals: () => false,
@@ -70,7 +72,9 @@ for (const role of ["admin", "user"]) {
                 : table === schema.clinics ? [{ id: "clinic-a", name: "Clinic" }]
                 : table === schema.hospitals ? [{ id: "hospital-a", name: "Hospital" }]
                 : table === schema.customers ? [{ id: "customer-a", firstName: "Customer" }]
-                : table === schema.collaborators && !fields ? [{ id: "person-b", firstName: "Collaborator" }]
+                : table === schema.collaborators && !fields ? [{
+                  id: "person-b", firstName: "Collaborator", isActive: true,
+                }]
                 : table === schema.collaborators ? [{
                   id: "person-a", isActive: true, firstName: "Jana", lastName: "Testová",
                   hospitalIds: [], clinicIds: [], phone: "0905123456", email: "test@example.org",
@@ -90,7 +94,7 @@ for (const role of ["admin", "user"]) {
     let body: any;
     const res = { status(value: number) { status = value; return res; }, json(value: unknown) { body = value; return res; } };
     await (context as any).handler({ query: { agentView: "true" }, params: { id: "mission" }, session: { user: { id: "agent", role } } }, res);
-    assert.equal(status, 200, errors.map((args: any) => String(args[1]?.stack || args[1])).join("\n"));
+    assert.equal(status, 200, JSON.stringify(errors));
     assert.equal(body.length, 7);
     assert.equal(body[0].clinic.id, "clinic-a");
     assert.equal(body[1].hospital.id, "hospital-a");

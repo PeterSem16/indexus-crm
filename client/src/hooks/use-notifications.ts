@@ -8,9 +8,16 @@ import { ToastAction } from "@/components/ui/toast";
 import { useI18n } from "@/i18n";
 import { playBackOfficeChime, installBackOfficeAudioUnlock } from "@/lib/back-office-chime";
 import { dispatchBackOfficeAlert } from "@/lib/back-office-alert";
+import {
+  dispatchTaskCompletionNoticeOnce,
+  setActiveTaskCompletionNoticeUser,
+} from "@/lib/task-completion-notice";
 
 const _shownSmsToasts = new Set<string>();
 const _shownNegSmsToasts = new Set<string>();
+const _shownBoQuestionToasts = new Set<string>();
+const UNREAD_NOTIFICATIONS_URL = "/api/notifications?includeRead=false&includeDismissed=false&limit=100";
+let _questionToastUserId: string | null = null;
 
 interface Notification {
   id: string;
@@ -67,6 +74,36 @@ export function useNotifications() {
     enabled: !!user,
   });
 
+  // Persisted unread notices rehydrate the agent inbox after offline periods and
+  // remounts. Keep the query user-scoped so one authenticated user's cached
+  // completion notices can never be emitted into another user's session.
+  const { data: unreadNotifications = [] } = useQuery<Notification[]>({
+    queryKey: [UNREAD_NOTIFICATIONS_URL, user?.id],
+    queryFn: () => apiRequest("GET", UNREAD_NOTIFICATIONS_URL).then(r => r.json()),
+    enabled: !!user,
+    refetchOnMount: "always",
+  });
+
+  useEffect(() => {
+    setActiveTaskCompletionNoticeUser(user?.id ?? null);
+    const activeUserId = user?.id ?? null;
+    if (_questionToastUserId !== activeUserId) {
+      _shownBoQuestionToasts.clear();
+      _questionToastUserId = activeUserId;
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    for (const notification of unreadNotifications) {
+      dispatchTaskCompletionNoticeOnce(notification, user.id, savedNotification => {
+        try {
+          window.dispatchEvent(new CustomEvent("indexus:bo-resolved", { detail: savedNotification }));
+        } catch {}
+      });
+    }
+  }, [unreadNotifications, user?.id]);
+
   const { data: countData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
     enabled: !!user,
@@ -79,6 +116,7 @@ export function useNotifications() {
   }, [countData]);
 
   const userIdRef = useRef<string | null>(null);
+  userIdRef.current = user?.id ?? null;
   const connectingRef = useRef(false);
 
   useEffect(() => {
@@ -127,19 +165,25 @@ export function useNotifications() {
             switch (message.type) {
               case "connected":
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
                 break;
               case "notification": {
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+                const pulseTaskCompletion = message.notification?.type === "back_office_resolved" &&
+                  message.notification.entityType?.toLowerCase() === "task" &&
+                  message.notification.metadata?.source === "nexus_pulse";
                 const taskNotification = message.notification &&
-                  (message.notification.entityType === "task" ||
+                  (message.notification.entityType?.toLowerCase() === "task" ||
                     ["task_assigned", "group_task_assigned", "task_due", "task_completed"]
                       .includes(message.notification.type));
-                if (taskNotification) {
+                if (taskNotification || pulseTaskCompletion) {
                   // Omni queries all tasks under ["/api/tasks"]; the signed-in
-                  // user's open-task counter shares that prefix so it refreshes too.
+                  // user's task list and people-task cache refresh for task changes.
                   queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+                  queryClient.invalidateQueries({ queryKey: ["/api/tasks/people"] });
                 }
                 // Inbound SMS notification → immediately refresh customer messages + history
                 if (message.notification?.entityType === "sms" && message.notification?.metadata?.customerId) {
@@ -201,21 +245,33 @@ export function useNotifications() {
                 // questions inbox immediately regardless of whether the agent has BO access.
                 if (notif?.type === "back_office_question") {
                   queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
-                  const tt = tRef.current;
-                  const taskLabel = (notif.metadata?.taskTitle || notif.title || "").slice(0, 120);
-                  const custLabel = notif.metadata?.customerName ? notif.metadata.customerName : null;
-                  toastRef.current({
-                    title: tt.backOffice?.questionToastTitle || "Back Office sa pýta",
-                    description: custLabel ? `${custLabel} — ${taskLabel}` : taskLabel || undefined,
-                  });
+                  if (!_shownBoQuestionToasts.has(notif.id)) {
+                    _shownBoQuestionToasts.add(notif.id);
+                    if (_shownBoQuestionToasts.size > 300) {
+                      _shownBoQuestionToasts.clear();
+                      _shownBoQuestionToasts.add(notif.id);
+                    }
+                    const tt = tRef.current;
+                    const taskLabel = (notif.metadata?.taskTitle || notif.title || "").slice(0, 120);
+                    const custLabel = notif.metadata?.customerName ? notif.metadata.customerName : null;
+                    toastRef.current({
+                      title: tt.backOffice?.questionToastTitle || "Back Office sa pýta",
+                      description: custLabel ? `${custLabel} — ${taskLabel}` : taskLabel || undefined,
+                    });
+                  }
                 }
                 // Back Office resolved the agent's task — show a beautiful notification and
                 // dispatch a window event so BackOfficeQuestionsInbox can render a resolved card.
                 if (notif?.type === "back_office_resolved") {
                   queryClient.invalidateQueries({ queryKey: ["/api/agent/bo-questions"] });
-                  try {
-                    window.dispatchEvent(new CustomEvent("indexus:bo-resolved", { detail: notif }));
-                  } catch {}
+                  const activeUserId = userIdRef.current;
+                  if (activeUserId && notif.userId === activeUserId) {
+                    dispatchTaskCompletionNoticeOnce(notif, activeUserId, savedNotification => {
+                      try {
+                        window.dispatchEvent(new CustomEvent("indexus:bo-resolved", { detail: savedNotification }));
+                      } catch {}
+                    });
+                  }
                 }
                 break;
               }
@@ -225,6 +281,7 @@ export function useNotifications() {
               case "allRead":
                 setUnreadCount(0);
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+                queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
                 break;
             }
           } catch (error) {
@@ -273,6 +330,7 @@ export function useNotifications() {
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/read`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+      queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
@@ -282,6 +340,7 @@ export function useNotifications() {
     onSuccess: () => {
       setUnreadCount(0);
       queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+      queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
       queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
     },
   });
@@ -290,6 +349,7 @@ export function useNotifications() {
     mutationFn: (id: string) => apiRequest("PATCH", `/api/notifications/${id}/dismiss`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+      queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
     },
   });
 
@@ -297,6 +357,7 @@ export function useNotifications() {
     mutationFn: () => apiRequest("PATCH", "/api/notifications/dismiss-all"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
+      queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
     },
   });
 

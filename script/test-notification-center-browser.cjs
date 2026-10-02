@@ -238,6 +238,7 @@ async function assertSelectedContent(page, tab, count) {
   assert.equal(await selected.getAttribute("data-state"), "active");
   const panel = page.locator('[role="tabpanel"]:visible');
   await panel.waitFor();
+  // Radix/Tailwind states animate; wait for colors and screenshot pixels to settle.
   await page.waitForTimeout(220);
   const rows = tab === "tasks"
     ? panel.locator(".notification-focus-task-row")
@@ -319,6 +320,7 @@ async function testPrimaryFlow(browser, bundle) {
     await assertSummaryAndGap(page, summaryMetrics);
     await saveScreenshot(page, "desktop-tasks");
 
+    // Keyboard-focus the first task and verify the real component provides a visible focus ring.
     await page.getByTestId("tab-notifications-tasks").focus();
     await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");

@@ -1162,6 +1162,8 @@ export function NotificationRulesManager() {
 }
 
 export function NotificationCenterPage() {
+  const { t } = useI18n();
+  const [, navigate] = useLocation();
   const { 
     notifications, 
     unreadCount, 

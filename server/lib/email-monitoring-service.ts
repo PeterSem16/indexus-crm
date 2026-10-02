@@ -3,6 +3,7 @@ import { notificationService } from "./notification-service";
 import { db } from "../db";
 import { communicationMessages, clinics, hospitals, collaborators, systemMs365Connections } from "../../shared/schema";
 import { sql, and, eq, desc } from "drizzle-orm";
+import { storeInboundEmailOnce } from "./inbound-email";
 
 interface ProcessedEmail {
   emailId: string;
@@ -12,6 +13,17 @@ interface ProcessedEmail {
 const processedEmailsMap: Record<string, ProcessedEmail> = {};
 const PROCESSED_CACHE_TTL = 24 * 60 * 60 * 1000;
 const CHECK_INTERVAL = 60000;
+
+export async function emitInboundEmailEvents(message: any, contactType: string, _sentiment?: string, includeReceived = true) {
+  if (!message?.id) return;
+  try {
+    const { emitPersistedInboundEvent } = await import("./inbound-communication-events");
+    if (includeReceived) await emitPersistedInboundEvent(message.id, "email.received", contactType);
+    await emitPersistedInboundEvent(message.id, "sentiment.negative", contactType);
+  } catch (err) {
+    console.error("[EventBus] inbound email event emit error:", err);
+  }
+}
 
 async function analyzeEmailContent(content: string): Promise<{
   sentiment: "positive" | "neutral" | "negative" | "angry";
@@ -129,10 +141,12 @@ async function checkUserEmails(userId: string, connection: any) {
       const senderName = email.from?.emailAddress?.name || senderEmail;
       const emailSubject = email.subject || "(bez predmetu)";
       const conversationId = (email as any).conversationId || null;
+      let emailAnalysis: Awaited<ReturnType<typeof analyzeEmailContent>> | null = null;
 
       // ── Sentiment analysis ──────────────────────────────────────────
       try {
         const analysis = await analyzeEmailContent(content);
+        emailAnalysis = analysis;
         
         console.log(`[EmailMonitor] Email ${emailId}: sentiment=${analysis.sentiment}, alert=${analysis.alertLevel}`);
         
@@ -231,7 +245,7 @@ async function checkUserEmails(userId: string, connection: any) {
             }
 
             if (linkedId) {
-              await storage.createCommunicationMessage({
+              const storedMessage = await storeInboundEmailOnce(emailId, {
                 customerId: linkedId,
                 userId,
                 type: "email",
@@ -240,6 +254,18 @@ async function checkUserEmails(userId: string, connection: any) {
                 content: (email.body?.content || email.bodyPreview || content).substring(0, 100000),
                 status: "received",
                 externalId: emailId,
+                ...(emailAnalysis ? {
+                  aiAnalyzed: true,
+                  aiSentiment: emailAnalysis.sentiment,
+                  aiAlertLevel: emailAnalysis.alertLevel,
+                  aiHasAngryTone: emailAnalysis.hasAngryTone,
+                  aiHasRudeExpressions: emailAnalysis.hasRudeExpressions,
+                  aiWantsToCancel: emailAnalysis.wantsToCancel,
+                  aiWantsConsent: emailAnalysis.wantsConsent,
+                  aiDoesNotAcceptContract: emailAnalysis.doesNotAcceptContract,
+                  aiAnalysisNote: emailAnalysis.note,
+                  aiAnalyzedAt: new Date(),
+                } : {}),
                 metadata: JSON.stringify({
                   from: senderEmail,
                   senderName,
@@ -248,7 +274,10 @@ async function checkUserEmails(userId: string, connection: any) {
                   isHtml: email.body?.contentType?.toLowerCase().includes("html") ?? false,
                 }),
               });
-              console.log(`[EmailMonitor] Linked inbound email ${emailId} to ${linkedType} ${linkedId}`);
+              if (storedMessage) {
+                await emitInboundEmailEvents(storedMessage, linkedType, emailAnalysis?.sentiment);
+                console.log(`[EmailMonitor] Linked inbound email ${emailId} to ${linkedType} ${linkedId}`);
+              }
             }
           }
         } catch (linkError) {
@@ -331,7 +360,7 @@ async function linkInboundEmailToContact(
     if (lastOut?.userId) responsibleUserId = lastOut.userId;
   }
 
-  await storage.createCommunicationMessage({
+  const storedMessage = await storeInboundEmailOnce(emailId, {
     customerId: linkedId,
     userId: responsibleUserId,
     type: "email",
@@ -342,8 +371,10 @@ async function linkInboundEmailToContact(
     externalId: emailId,
     metadata: JSON.stringify({ from: senderEmail, senderName, conversationId: conversationId || null, contactType: linkedType, isHtml: bodyIsHtml }),
   });
+  if (!storedMessage) return null;
+  await emitInboundEmailEvents(storedMessage, linkedType);
   console.log(`[EmailMonitor] Linked inbound email ${emailId} to ${linkedType} ${linkedId}`);
-  return { linkedId, linkedType, responsibleUserId };
+  return { linkedId, linkedType, responsibleUserId, messageId: storedMessage.id };
 }
 
 async function checkSystemMailboxEmails() {
@@ -395,6 +426,25 @@ async function checkSystemMailboxEmails() {
           if (linked?.responsibleUserId) {
             try {
               const analysis = await analyzeEmailContent(content);
+              try {
+                const persistedAnalysis = await storage.updateCommunicationMessage(linked.messageId, {
+                  aiAnalyzed: true,
+                  aiSentiment: analysis.sentiment,
+                  aiAlertLevel: analysis.alertLevel,
+                  aiHasAngryTone: analysis.hasAngryTone,
+                  aiHasRudeExpressions: analysis.hasRudeExpressions,
+                  aiWantsToCancel: analysis.wantsToCancel,
+                  aiWantsConsent: analysis.wantsConsent,
+                  aiDoesNotAcceptContract: analysis.doesNotAcceptContract,
+                  aiAnalysisNote: analysis.note,
+                  aiAnalyzedAt: new Date(),
+                });
+                if (persistedAnalysis) {
+                  await emitInboundEmailEvents(persistedAnalysis, linked.linkedType, analysis.sentiment, false);
+                }
+              } catch (persistError) {
+                console.error(`[EmailMonitor] Failed to persist AI result for email ${emailId}:`, persistError);
+              }
               if (analysis.sentiment === "negative" || analysis.sentiment === "angry" || analysis.hasAngryTone) {
                 const notification = await storage.createNotification({
                   userId: linked.responsibleUserId,

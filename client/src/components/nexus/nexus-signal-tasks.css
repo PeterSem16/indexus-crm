@@ -19,6 +19,12 @@
   font-family: inherit;
 }
 
+/* The panes own their scrolling. Unlike hidden, clip also prevents focus
+   restoration from horizontally scrolling the entire mobile workspace. */
+.nexus-signal-tasks.overflow-hidden {
+  overflow: clip;
+}
+
 .dark .nexus-signal-tasks,
 .nexus-signal-tasks.dark {
   --signal-soft: hsl(var(--muted) / 0.35);
@@ -134,7 +140,7 @@
   box-shadow: inset 3px 0 hsl(var(--primary));
 }
 
-.nexus-signal-sidebar button[data-active="true"] span {
+.nexus-signal-sidebar button[data-active="true"] > div:first-child > span:last-child {
   color: hsl(var(--primary));
 }
 
@@ -430,12 +436,67 @@
 }
 
 .nexus-signal-detail-body {
-  display: grid;
-  grid-template-columns: minmax(0, 0.43fr) minmax(0, 1fr);
+  display: block;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px 22px;
+}
+
+.task-request-workspace {
+  container-type: inline-size;
+}
+
+.task-request-top {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 14px;
+}
+
+.task-request-top .task-request-brief {
+  width: 100%;
+}
+
+.task-work-main {
+  min-width: 0;
+}
+
+.task-work-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(230px, 0.82fr);
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.task-work-comments.nexus-signal-thread {
+  min-height: 0;
+  padding: 0 13px 13px;
+  overflow: visible;
+  border: 1px solid var(--signal-line);
+  border-radius: 10px;
+  background: var(--signal-soft);
+}
+
+.task-work-comments.nexus-signal-thread > :first-child {
+  margin: 0 0 9px;
+  padding: 10px 0 9px;
+}
+
+.task-work-comments.nexus-signal-thread > :nth-child(2) {
+  flex: none;
+  min-height: 0;
+  max-height: none;
+  margin-bottom: 10px;
+  overflow: visible;
+}
+
+.task-work-comments .nexus-signal-composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
 }
 
 .nexus-signal-context {
@@ -455,6 +516,106 @@
   padding: 13px 14px 14px;
   background: var(--signal-surface);
   color: var(--signal-body);
+}
+
+.nexus-signal-brief.task-request-brief {
+  width: 100%;
+  min-width: 0;
+  padding: 15px 15px 14px;
+  border-color: hsl(var(--primary) / 0.24);
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.055), transparent 58%),
+    var(--signal-surface);
+  box-shadow: 0 3px 12px hsl(var(--foreground) / 0.045);
+}
+
+.task-request-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 11px;
+}
+
+.task-request-heading h3 {
+  margin: 0;
+  color: var(--signal-ink);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.015em;
+}
+
+.task-request-icon {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  place-items: center;
+  border: 1px solid hsl(var(--primary) / 0.19);
+  border-radius: 9px;
+  background: hsl(var(--primary) / 0.09);
+  color: var(--signal-crimson);
+}
+
+.task-request-category {
+  display: inline-flex;
+  max-width: 100%;
+  margin: 0 0 8px;
+  padding: 3px 7px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.055);
+  color: var(--signal-crimson);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.nexus-signal-brief p.task-request-text {
+  width: 100%;
+  max-width: 100%;
+  color: var(--signal-ink);
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.task-request-original {
+  margin-top: 12px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--signal-line);
+}
+
+.task-request-original summary {
+  width: fit-content;
+  max-width: 100%;
+  color: var(--signal-muted);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.task-request-original summary:hover {
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-brief .task-request-original p {
+  margin-top: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.dark .nexus-signal-brief.task-request-brief {
+  border-color: hsl(var(--primary) / 0.38);
+  background:
+    linear-gradient(135deg, hsl(var(--primary) / 0.12), transparent 62%),
+    var(--signal-surface);
 }
 
 .nexus-signal-brief::before {
@@ -494,8 +655,218 @@
 
 .nexus-signal-checklist {
   min-width: 0;
-  margin-top: 17px;
   color: var(--signal-body);
+}
+
+.task-checklist {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--signal-line);
+  border-radius: 12px;
+  background: var(--signal-surface);
+  box-shadow: 0 3px 12px hsl(var(--foreground) / 0.035);
+}
+
+.task-checklist-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.task-checklist-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.task-checklist-title h3 {
+  margin: 0;
+  color: var(--signal-ink);
+  font-size: 15px;
+  font-weight: 720;
+  line-height: 1.3;
+}
+
+.task-checklist-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 1px solid hsl(var(--primary) / 0.19);
+  border-radius: 9px;
+  background: hsl(var(--primary) / 0.08);
+  color: var(--signal-crimson);
+}
+
+.task-checklist-ai-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--signal-muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.task-checklist-ai-note svg {
+  color: var(--signal-crimson);
+}
+
+.dark .task-request-brief .task-request-heading h3,
+.dark .task-request-category,
+.dark .task-request-icon,
+.dark .task-checklist-icon,
+.dark .task-checklist-ai-note svg {
+  color: hsl(var(--foreground));
+}
+
+.task-checklist-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+
+.task-checklist-progress-track {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: hsl(var(--foreground) / 0.09);
+}
+
+.task-checklist-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--signal-crimson);
+  transition: width 180ms ease-out;
+}
+
+.task-checklist-progress-count {
+  flex: none;
+  color: var(--signal-muted);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-checklist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 8px;
+  border-top: 1px solid hsl(var(--foreground) / 0.075);
+  border-radius: 7px;
+  transition: background-color 140ms ease;
+}
+
+.task-checklist-row:hover {
+  background: hsl(var(--primary) / 0.035);
+}
+
+.task-checklist-row.is-done {
+  background: hsl(var(--primary) / 0.035);
+}
+
+.task-checklist-toggle,
+.task-checklist-action {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--signal-line);
+  border-radius: 8px;
+  background: var(--signal-surface);
+  color: var(--signal-muted);
+  cursor: pointer;
+}
+
+.task-checklist-toggle {
+  margin-top: -2px;
+}
+
+.task-checklist-toggle:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.4);
+  color: var(--signal-crimson);
+}
+
+.task-checklist-row.is-done .task-checklist-toggle {
+  border-color: hsl(var(--primary) / 0.27);
+  background: hsl(var(--primary) / 0.085);
+  color: var(--signal-crimson);
+}
+
+.task-checklist-toggle:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.task-checklist-label {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+  color: var(--signal-ink);
+  font-size: 14px;
+  font-weight: 540;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.task-checklist-row.is-done .task-checklist-label {
+  color: var(--signal-muted);
+}
+
+.task-checklist-actions {
+  display: flex;
+  flex: none;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.task-checklist-action {
+  color: var(--signal-muted);
+}
+
+.task-checklist-action:hover {
+  border-color: hsl(var(--primary) / 0.3);
+  color: var(--signal-crimson);
+}
+
+.task-checklist-action.is-remove:hover {
+  border-color: hsl(var(--destructive) / 0.35);
+  color: hsl(var(--destructive));
+}
+
+.task-checklist-add {
+  display: flex;
+  gap: 8px;
+  padding-top: 11px;
+}
+
+.task-checklist button:focus-visible {
+  outline: 3px solid var(--signal-citrus);
+  outline-offset: 2px;
+}
+
+@container (max-width: 700px) {
+  .task-work-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-work-comments.nexus-signal-thread {
+    padding-right: 11px;
+    padding-left: 11px;
+  }
 }
 
 .nexus-signal-checklist input[type="checkbox"] {
@@ -736,10 +1107,10 @@
   }
 
   .nexus-signal-detail-body {
-    display: flex;
-    flex-direction: column;
+    display: block;
     overflow: auto;
     overscroll-behavior: contain;
+    padding: 12px 11px 18px;
   }
 
   .nexus-signal-context {
@@ -755,6 +1126,12 @@
     min-height: 320px;
     overflow: hidden;
     padding: 0 13px 12px;
+  }
+
+  .task-work-comments.nexus-signal-thread {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
   }
 
   .nexus-signal-thread > :nth-child(2) {
@@ -800,5 +1177,262 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Keep badge/count text independent from the active row's label color. The
+   previous broad descendant selector painted the primary badge text primary,
+   making the selected Pending count disappear into its own red background. */
+.nexus-signal-sidebar button[data-testid^="task-filter-"] [data-task-count] {
+  color: hsl(var(--muted-foreground));
+  opacity: 1;
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"][data-active="true"] [data-task-count] {
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-sidebar button[data-testid^="task-filter-"] [data-task-count-badge] {
+  color: hsl(var(--primary-foreground)) !important;
+  opacity: 1 !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] {
+  color: hsl(var(--foreground));
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"]:hover:not([aria-pressed="true"]) {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.08);
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"][aria-pressed="true"] {
+  color: hsl(var(--primary-foreground)) !important;
+  background: hsl(var(--primary)) !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"][aria-pressed="true"] svg {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] [data-task-count] {
+  color: inherit;
+  opacity: 1;
+}
+
+.nexus-signal-queue-header [data-testid^="task-subtab-"] [data-task-count-badge] {
+  color: white !important;
+  opacity: 1 !important;
+}
+
+.nexus-signal-queue-header [data-task-count-badge].bg-amber-500 {
+  color: #392a08 !important;
+}
+
+.nexus-signal-queue-header [data-task-count-badge].bg-blue-500 {
+  color: #102b4b !important;
+}
+
+.nexus-signal-tasks .nexus-signal-eyebrow {
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.nexus-signal-tabs .nexus-signal-tab-badge {
+  color: hsl(var(--primary-foreground));
+}
+
+.nexus-signal-tasks :is(button, a, input, textarea, select, [tabindex]):focus-visible,
+.nexus-signal-tabs :is(button, a, [tabindex]):focus-visible,
+.nexus-signal-sidebar :is(button, a, [tabindex]):focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+.dark .nexus-signal-sidebar button[data-active="true"] {
+  color: hsl(var(--foreground));
+}
+
+.dark .nexus-signal-sidebar button[data-active="true"] > div:first-child > span:last-child {
+  color: hsl(var(--foreground));
+}
+
+.dark .nexus-signal-tasks .nexus-signal-task-row.is-selected .font-medium {
+  color: var(--signal-ink);
+}
+
+.dark .nexus-signal-tasks .nexus-signal-actions button[data-testid="task-reassign-btn"] {
+  color: var(--signal-ink);
+}
+
+/* Dense, scan-first filter rail for the task inbox. */
+.task-filters-popover {
+  --signal-muted: hsl(var(--muted-foreground));
+  --signal-crimson: hsl(var(--primary));
+  width: min(420px, calc(100vw - 24px));
+  max-height: var(--radix-popover-content-available-height);
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.task-filters-popover .task-queue-controls {
+  margin-top: 0;
+}
+
+.task-filters-popover .nexus-signal-queue-search {
+  display: block;
+  padding: 1px 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+}
+
+.task-queue-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.task-queue-controls .nexus-signal-queue-search {
+  margin-top: 0;
+}
+
+.task-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.task-filter-grid [data-testid^="task-"] {
+  min-width: 0;
+  height: 31px;
+  font-size: 11px;
+}
+
+.task-filter-grid [data-testid^="task-"] svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.task-custom-range {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  grid-column: 1 / -1;
+  color: var(--signal-muted);
+  font-size: 10px;
+}
+
+.task-custom-range input {
+  min-width: 0;
+  height: 31px;
+  flex: 1;
+  font-size: 10px;
+}
+
+.task-clear-filters {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+  color: var(--signal-crimson);
+}
+
+.nexus-signal-tasks .nexus-signal-actions {
+  max-width: 100%;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 1px 5px;
+  scrollbar-width: thin;
+}
+
+.nexus-signal-tasks .nexus-signal-actions button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.task-notify-agent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 8px;
+  background: hsl(var(--primary) / 0.045);
+}
+
+.task-notify-agent [role="checkbox"] {
+  margin-top: 2px;
+  flex: none;
+}
+
+.task-notify-agent label {
+  display: grid;
+  gap: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.task-notify-agent label span {
+  color: var(--signal-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.task-loading-skeleton {
+  padding: 4px 12px;
+}
+
+.task-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  border-bottom: 1px solid var(--signal-line);
+}
+
+.task-skeleton-row i,
+.task-skeleton-row b,
+.task-skeleton-row span {
+  display: block;
+  border-radius: 5px;
+  background: hsl(var(--primary) / 0.1);
+  animation: task-skeleton-breathe 1.15s ease-in-out infinite alternate;
+}
+
+.task-skeleton-row i {
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.task-skeleton-row div {
+  display: grid;
+  flex: 1;
+  gap: 7px;
+}
+
+.task-skeleton-row b {
+  width: 58%;
+  height: 9px;
+}
+
+.task-skeleton-row span {
+  width: 84%;
+  height: 7px;
+  animation-delay: 130ms;
+}
+
+@keyframes task-skeleton-breathe {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 767px) {
+  .task-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nexus-signal-tasks .nexus-signal-actions {
+    margin-right: -12px;
+    padding-right: 12px;
   }
 }

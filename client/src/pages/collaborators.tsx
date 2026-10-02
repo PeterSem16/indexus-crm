@@ -1258,6 +1258,8 @@ function ActionsTab({
       apiRequest("PUT", `/api/collaborators/${collaboratorId}/activities/${activityId}/reward`, { rewardPaid }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "activities"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reward-readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
     },
   });
 

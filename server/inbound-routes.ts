@@ -2894,6 +2894,45 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   const busyAgentNotifications = new Map<string, Set<string>>();
 
+  const emitInboundAutomation = async (
+    eventType: "call.assigned" | "call.answered" | "call.completed" | "call.abandoned" | "call.timeout",
+    data: { callId?: string | null; agentId?: string | null; [key: string]: any },
+    values: Record<string, unknown>,
+  ) => {
+    if (!data.callId) return;
+    try {
+      const [row] = await db.select({
+        queueId: inboundCallLogs.queueId,
+        metadata: inboundCallLogs.metadata,
+        queueCountry: inboundQueues.countryCode,
+        queueName: inboundQueues.name,
+      }).from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundCallLogs.queueId, inboundQueues.id))
+        .where(eq(inboundCallLogs.id, data.callId)).limit(1);
+      if (!row?.queueId) return;
+      const metadata = row.metadata as Record<string, unknown> | null;
+      const campaignId = metadata?.campaignClassificationConflict || metadata?.campaignClassificationVerified === false
+        ? null : typeof metadata?.campaignId === "string" ? metadata.campaignId : null;
+      const userId = (id: unknown) =>
+        typeof id === "string" && id.startsWith("standing:") ? id.slice("standing:".length) : id;
+      await emitEvent({
+        source: "inbound-call", module: "call", entityType: "call",
+        entityId: data.callId, eventType,
+        newValues: {
+          callerNumber: data.callerNumber, callerName: data.callerName,
+          channelId: data.channelId || "",
+          ...values,
+          agentId: userId(values.agentId), assignedAgentId: userId(values.assignedAgentId),
+          callId: data.callId, queueId: row.queueId, queueName: row.queueName, campaignId,
+        },
+        actorUserId: (userId(data.agentId) as string | null) || null,
+        countryCode: row.queueCountry || null,
+      });
+    } catch (error) {
+      console.error("[Inbound automation] Could not emit verified call event:", error instanceof Error ? error.message : "unknown");
+    }
+  };
+
   engine.on("call-queued", async (data) => {
     console.log(`[QueueEngine WS] Call queued: ${data.callerNumber} in ${data.queueName} (pos: ${data.position})`);
     const ws = await getWs();
@@ -2969,25 +3008,11 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
       }
       busyAgentNotifications.delete(data.callId);
     }
-    emitEvent({
-      source: "inbound-call",
-      module: "call",
-      entityType: "call",
-      entityId: data.callId,
-      eventType: "call.assigned",
-      newValues: {
-        callId: data.callId,
-        callerNumber: data.callerNumber,
-        callerName: data.callerName,
-        queueId: data.queueId,
-        queueName: data.queueName,
-        agentId: data.agentId,
-        waitDuration: data.waitDuration || 0,
-        channelId: data.channelId || "",
-      },
-      actorUserId: data.agentId,
-      countryCode: data.countryCode || null,
-    }).catch(() => {});
+    void emitInboundAutomation("call.assigned", data, {
+      callId: data.callId,
+      agentId: data.agentId,
+      waitDuration: data.waitDuration || 0,
+    });
   });
 
   engine.on("call-cancelled-for-agent", async (data) => {
@@ -2998,69 +3023,30 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   engine.on("call-answered", (data) => {
     console.log(`[QueueEngine] Call answered: ${data.callerNumber} by agent ${data.agentId}`);
-    emitEvent({
-      source: "inbound-call",
-      module: "call",
-      entityType: "call",
-      entityId: data.callId,
-      eventType: "call.answered",
-      newValues: {
-        callId: data.callId,
-        callerNumber: data.callerNumber,
-        callerName: data.callerName,
-        queueId: data.queueId,
-        queueName: data.queueName,
-        agentId: data.agentId,
-        answeredAt: new Date().toISOString(),
-      },
-      actorUserId: data.agentId,
-      countryCode: data.countryCode || null,
-    }).catch(() => {});
+    void emitInboundAutomation("call.answered", data, {
+      callId: data.callId,
+      agentId: data.agentId,
+      answeredAt: new Date().toISOString(),
+    });
   });
-  // (call-answered emit handled inline above)
 
   engine.on("call-completed", (data) => {
     console.log(`[QueueEngine] Call completed: ${data.callId}, talk: ${data.talkDuration}s`);
-    emitEvent({
-      source: "inbound-call",
-      module: "call",
-      entityType: "call",
-      entityId: data.callId,
-      eventType: "call.completed",
-      newValues: {
-        callId: data.callId,
-        callerNumber: data.callerNumber,
-        callerName: data.callerName,
-        queueId: data.queueId,
-        queueName: data.queueName,
-        agentId: data.agentId,
-        talkDuration: data.talkDuration || 0,
-        completedAt: new Date().toISOString(),
-      },
-      actorUserId: data.agentId || null,
-      countryCode: data.countryCode || null,
-    }).catch(() => {});
+    void emitInboundAutomation("call.completed", data, {
+      callId: data.callId,
+      agentId: data.agentId,
+      talkDuration: data.talkDuration || 0,
+      completedAt: new Date().toISOString(),
+    });
   });
 
   engine.on("call-abandoned", async (data) => {
     console.log(`[QueueEngine] Call abandoned: ${data.callerNumber}, reason: ${data.reason}`);
-    emitEvent({
-      source: "inbound-call",
-      module: "call",
-      entityType: "call",
-      entityId: data.callId,
-      eventType: "call.abandoned",
-      newValues: {
-        callId: data.callId,
-        callerNumber: data.callerNumber,
-        callerName: data.callerName,
-        queueId: data.queueId,
-        queueName: data.queueName,
-        reason: data.reason || "caller_hangup",
-        assignedAgentId: data.assignedAgentId || null,
-      },
-      countryCode: data.countryCode || null,
-    }).catch(() => {});
+    void emitInboundAutomation("call.abandoned", data, {
+      callId: data.callId,
+      reason: data.reason || "caller_hangup",
+      assignedAgentId: data.assignedAgentId || null,
+    });
     const ws = await getWs();
     let queueName = data.queueName || "";
     if (!queueName && data.queueId) {
@@ -3096,22 +3082,10 @@ function setupQueueEngineWebSocketEvents(engine: QueueEngine): void {
 
   engine.on("call-timeout", async (data) => {
     console.log(`[QueueEngine] Call timeout: ${data.callerNumber}`);
-    emitEvent({
-      source: "inbound-call",
-      module: "call",
-      entityType: "call",
-      entityId: data.callId,
-      eventType: "call.timeout",
-      newValues: {
-        callId: data.callId,
-        callerNumber: data.callerNumber,
-        callerName: data.callerName,
-        queueId: data.queueId,
-        queueName: data.queueName,
-        assignedAgentId: data.assignedAgentId || null,
-      },
-      countryCode: data.countryCode || null,
-    }).catch(() => {});
+    void emitInboundAutomation("call.timeout", data, {
+      callId: data.callId,
+      assignedAgentId: data.assignedAgentId || null,
+    });
     const ws = await getWs();
     let queueName = data.queueName || "";
     if (!queueName && data.queueId) {

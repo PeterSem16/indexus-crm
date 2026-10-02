@@ -3,7 +3,7 @@ import { db } from "./db";
 import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications, workflowEvents } from "@shared/schema";
 import { eq, sql, and, isNull, lt, gte, lte, inArray, ne } from "drizzle-orm";
 import { emitEvent } from "./lib/event-bus";
-import { runScheduledRule, getEnabledScheduleRules } from "./lib/automation-engine";
+import { runScheduledRule, getEnabledScheduleRules, claimScheduledRuleDue } from "./lib/automation-engine";
 
 type MetricType = 
   | 'pending_lab_results'
@@ -496,19 +496,14 @@ const scheduleIntervalMs: Record<string, number> = {
   weekly: 7 * 24 * 60 * 60 * 1000,
 };
 
-const lastScheduleFiredAt = new Map<string, number>();
-
 async function processScheduledAutomationRules(): Promise<void> {
   try {
     const rules = await getEnabledScheduleRules();
-    const now = Date.now();
     for (const rule of rules) {
       const t: any = rule.trigger || {};
       const intervalMs = scheduleIntervalMs[String(t.interval)] ?? 0;
       if (intervalMs <= 0) continue;
-      const last = lastScheduleFiredAt.get(rule.id) ?? 0;
-      if (now - last < intervalMs) continue;
-      lastScheduleFiredAt.set(rule.id, now);
+      if (!(await claimScheduledRuleDue(rule, intervalMs))) continue;
       try {
         await runScheduledRule(rule);
       } catch (err) {

@@ -72,7 +72,8 @@ import {
   type CampaignContactSession, type InsertCampaignContactSession,
   type CampaignMetricsSnapshot, type InsertCampaignMetricsSnapshot,
   sipSettings, sipExtensions, callLogs, chatMessages, exchangeRates, inflationRates,
-  productSets, productSetCollections, productSetStorage, customerConsents, tasks, taskComments,
+  productSets, productSetCollections, productSetStorage, customerConsents, tasks, taskComments, taskAttachmentUploads, taskChecklistItems,
+  taskGroups, taskGroupMembers,
   contractCategories, contractCategoryDefaultTemplates, contractTemplates, contractTemplateVersions, contractInstances, contractInstanceProducts,
   contractParticipants, contractSignatureRequests, contractAuditLog, contractAuditShareTokens,
   type SipSettings, type InsertSipSettings,
@@ -82,7 +83,7 @@ import {
   type ProductSetCollection, type InsertProductSetCollection,
   type ProductSetStorage, type InsertProductSetStorage,
   type CustomerConsent, type InsertCustomerConsent,
-  type Task, type InsertTask,
+  type Task, type InsertTask, type TaskGroup,
   type TaskComment, type InsertTaskComment,
   type ChatMessage, type InsertChatMessage,
   type ExchangeRate, type InsertExchangeRate,
@@ -169,8 +170,109 @@ import {
   type CampaignStatusAssignment, type InsertCampaignStatusAssignment,
 } from "@shared/schema";
 import { db } from "./db";
+import { ensureTaskAiChecklist } from "./lib/task-ai-checklist";
+import { stripTaskWorkTimingInput, transitionTaskWorkTiming } from "./lib/task-work-timing";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull, count } from "drizzle-orm";
 import bcrypt from "bcrypt";
+import { canAccessTaskByPolicy, isPulseOriginTask, normalizeTaskGroupMemberIds, type TaskAccessUser } from "./lib/task-contract";
+import {
+  assertTaskReassignmentActive,
+  buildTaskReassignmentChange,
+  buildTaskReassignmentTargets,
+  taskReassignmentActorGroups,
+  taskReassignmentGroupId,
+  TaskReassignmentError,
+  type TaskReassignmentCatalog,
+  type TaskReassignmentResult,
+  type TaskReassignmentTarget,
+} from "./lib/task-reassignment";
+import { assertTaskRecipientAllowed, assertTaskResolverAllowed, hasCountryAuthorizedTaskRecipient, isTaskAssignmentUserAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
+import {
+  assertTaskCompletionNoticeRecipient,
+  assertPulseTaskChecklistComplete,
+  completeTaskWithinTransaction,
+} from "./lib/task-completion";
+
+/** POST locks the receiving users, groups and memberships until the write commits.
+ * GET uses the full catalog but exposes only eligible, minimal picker fields. */
+async function loadTaskReassignmentCatalog(
+  connection: any,
+  lockedScope?: { task: Task; target: TaskReassignmentTarget; user: TaskAccessUser },
+): Promise<TaskReassignmentCatalog> {
+  let memberQuery = connection.select({ groupId: taskGroupMembers.groupId, userId: taskGroupMembers.userId }).from(taskGroupMembers);
+  let groupIds: string[] = [];
+  if (lockedScope) {
+    groupIds = Array.from(new Set([
+      taskReassignmentGroupId(lockedScope.task), lockedScope.target.newTaskGroupId,
+    ].filter((id): id is string => !!id)));
+    memberQuery = memberQuery.where(groupIds.length
+      ? or(eq(taskGroupMembers.userId, lockedScope.user.id), inArray(taskGroupMembers.groupId, groupIds))
+      : eq(taskGroupMembers.userId, lockedScope.user.id)).for("share");
+  }
+  const members = await memberQuery;
+  let peopleQuery = connection.select({
+    id: users.id, fullName: users.fullName, username: users.username, email: users.email,
+    avatarUrl: users.avatarUrl, isActive: users.isActive, role: users.role, assignedCountries: users.assignedCountries,
+  }).from(users);
+  let groupsQuery = connection.select().from(taskGroups);
+  if (lockedScope) {
+    const peopleIds = Array.from(new Set([
+      ...members.map((member: { userId: string }) => member.userId), lockedScope.target.newAssignedUserId,
+    ].filter((id): id is string => !!id)));
+    peopleQuery = peopleQuery.where(peopleIds.length ? inArray(users.id, peopleIds) : sql`false`).for("share");
+    groupsQuery = groupsQuery.where(groupIds.length ? inArray(taskGroups.id, groupIds) : sql`false`).for("share");
+  }
+  const loadedPeople = await peopleQuery;
+  const people = (await Promise.all(loadedPeople.map(async (person: any) =>
+    await isTaskAssignmentUserAllowed(connection, person.id) ? person : null
+  ))).filter(Boolean);
+  const groups = await groupsQuery;
+  return { users: people, groups, members };
+}
+
+async function assertPulseTaskChecklistCompleteInTransaction(tx: any, task: Task): Promise<void> {
+  if (!isPulseOriginTask(task)) return;
+  const items = await tx.select({ doneAt: taskChecklistItems.doneAt })
+    .from(taskChecklistItems)
+    .where(eq(taskChecklistItems.taskId, task.id));
+  assertPulseTaskChecklistComplete(task, items);
+}
+
+async function markTaskAttachmentAssociations(
+  tx: any,
+  attachmentValues: unknown,
+  task?: Pick<Task, "id" | "country" | "assignedUserId" | "createdByUserId" | "tags">,
+): Promise<void> {
+  const ids = Array.isArray(attachmentValues)
+    ? attachmentValues.map((attachment: any) => attachment?.id)
+      .filter((id: unknown): id is string => typeof id === "string")
+    : [];
+  if (!ids.length) return;
+
+  if (!task) {
+    await tx.update(taskAttachmentUploads).set({ everAssociated: true })
+      .where(inArray(taskAttachmentUploads.id, ids));
+    return;
+  }
+
+  const snapshot = {
+    taskId: task.id,
+    country: task.country ?? null,
+    assignedUserId: task.assignedUserId ?? null,
+    createdByUserId: task.createdByUserId ?? null,
+    tags: task.tags ?? [],
+  };
+  const taskIdMatch = JSON.stringify([{ taskId: task.id }]);
+  const snapshotJson = JSON.stringify([snapshot]);
+  await tx.update(taskAttachmentUploads).set({
+    everAssociated: true,
+    associationHistory: sql`CASE
+      WHEN ${taskAttachmentUploads.associationHistory} @> ${taskIdMatch}::jsonb
+        THEN ${taskAttachmentUploads.associationHistory}
+      ELSE COALESCE(${taskAttachmentUploads.associationHistory}, '[]'::jsonb) || ${snapshotJson}::jsonb
+    END`,
+  }).where(inArray(taskAttachmentUploads.id, ids));
+}
 
 const SALT_ROUNDS = 10;
 
@@ -369,9 +471,24 @@ export interface IStorage {
   getTasksByCountry(countryCodes: string[]): Promise<Task[]>;
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
+  updateTaskWithActor(
+    id: string,
+    data: Partial<InsertTask>,
+    actorUserId: string,
+    completionNotification?: (task: Task) => Omit<InsertNotification, "userId"> | Promise<Omit<InsertNotification, "userId">>,
+  ): Promise<{ task: Task; oldTask: Task; completedNow: boolean; notification?: Notification } | undefined>;
   deleteTask(id: string): Promise<boolean>;
-  resolveTask(id: string, resolution: string, resolvedByUserId: string): Promise<Task | undefined>;
-  reassignTask(id: string, newAssignedUserId: string): Promise<Task | undefined>;
+  resolveTask(
+    id: string,
+    resolution: string,
+    resolvedByUserId: string,
+    completionNotification?: (task: Task) => Omit<InsertNotification, "userId"> | Promise<Omit<InsertNotification, "userId">>,
+  ): Promise<{ task: Task; oldTask: Task; completedNow: boolean; notification?: Notification } | undefined>;
+  createTaskGroupWithMembers(data: Partial<TaskGroup>, memberUserIds: string[]): Promise<TaskGroup>;
+  updateTaskGroupWithMembers(id: string, data: Partial<TaskGroup>, memberUserIds?: string[]): Promise<TaskGroup | undefined>;
+  addTaskGroupMember(groupId: string, userId: string): Promise<boolean>;
+  getTaskReassignmentTargets(task: Task, user: TaskAccessUser): Promise<ReturnType<typeof buildTaskReassignmentTargets>>;
+  reassignTask(id: string, target: TaskReassignmentTarget, user: TaskAccessUser, expectedUpdatedAt: Date): Promise<TaskReassignmentResult | undefined>;
 
   // Task Comments
   getTaskComments(taskId: string): Promise<TaskComment[]>;
@@ -2511,16 +2628,150 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTask(task: InsertTask): Promise<Task> {
-    const [created] = await db.insert(tasks).values(task).returning();
+    const safeTask = stripTaskWorkTimingInput(task);
+    const created = await db.transaction(async (tx) => {
+      const groupId = (safeTask.tags || []).find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      if (groupId) {
+        await assertTaskRecipientAllowed(tx, safeTask.assignedUserId, safeTask.country);
+        const memberRows = await tx.select({ id: users.id }).from(taskGroupMembers)
+          .innerJoin(users, eq(users.id, taskGroupMembers.userId))
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(users.isActive, true))).for("share");
+        if (!memberRows.some(row => row.id === safeTask.assignedUserId)) {
+          throw new TaskAssignmentAccessError("The selected group owner must be an active group member");
+        }
+        if (!await hasCountryAuthorizedTaskRecipient(tx, memberRows.map(row => row.id), safeTask.country)) {
+          throw new TaskAssignmentAccessError("The task group has no approved active recipients");
+        }
+      } else {
+        await assertTaskRecipientAllowed(tx, safeTask.assignedUserId, safeTask.country);
+      }
+      const [created] = await tx.insert(tasks).values(safeTask as any).returning();
+      await markTaskAttachmentAssociations(tx, task.attachments, created);
+      return created;
+    });
+    // AI is strictly best-effort and starts only after the task transaction commits.
+    void ensureTaskAiChecklist(created.id);
     return created;
   }
 
   async updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined> {
-    const [updated] = await db.update(tasks)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(tasks.id, id))
-      .returning();
-    return updated || undefined;
+    const safeData: any = stripTaskWorkTimingInput(data);
+    return db.transaction(async (tx) => {
+      const [current] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update").limit(1);
+      if (!current) return undefined;
+      if (safeData.status === "completed" && current.status !== "completed") {
+        throw new TaskAssignmentAccessError("Task completion requires an authorized actor; use updateTaskWithActor");
+      }
+      const nextTags = safeData.tags ?? current.tags ?? [];
+      const nextGroupId = nextTags.find((tag: string) => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      const assignedUserId = safeData.assignedUserId ?? current.assignedUserId;
+      const currentGroupId = (current.tags || []).find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      const nextCountry = safeData.country !== undefined ? safeData.country : current.country;
+      const assignmentChanged = assignedUserId !== current.assignedUserId;
+      const countryChanged = nextCountry !== current.country;
+      if (assignmentChanged || nextGroupId !== currentGroupId || countryChanged) {
+        if (assignmentChanged || (!nextGroupId && nextGroupId !== currentGroupId)) {
+          await assertTaskRecipientAllowed(tx, assignedUserId, nextCountry);
+        }
+        if (nextGroupId) {
+          const memberRows = await tx.select({ id: users.id }).from(taskGroupMembers)
+            .innerJoin(users, eq(users.id, taskGroupMembers.userId))
+            .where(and(eq(taskGroupMembers.groupId, nextGroupId), eq(users.isActive, true))).for("share");
+          if (!await hasCountryAuthorizedTaskRecipient(tx, memberRows.map(row => row.id), nextCountry)) {
+            throw new TaskAssignmentAccessError("The task group has no approved active recipients");
+          }
+        }
+      }
+      const now = new Date();
+      const nextStatus = typeof safeData.status === "string" ? safeData.status : current.status;
+      const workTiming = transitionTaskWorkTiming(current, nextStatus, now);
+      const [updated] = await tx.update(tasks)
+        .set({ ...safeData, ...workTiming, updatedAt: now })
+        .where(eq(tasks.id, id))
+        .returning();
+      return updated || undefined;
+    });
+  }
+
+  async updateTaskWithActor(
+    id: string,
+    data: Partial<InsertTask>,
+    actorUserId: string,
+    completionNotification?: (task: Task) => Omit<InsertNotification, "userId"> | Promise<Omit<InsertNotification, "userId">>,
+  ): Promise<{ task: Task; oldTask: Task; completedNow: boolean; notification?: Notification } | undefined> {
+    const safeData: any = stripTaskWorkTimingInput(data);
+    return db.transaction(async (tx) => {
+      const [oldTask] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update").limit(1);
+      if (!oldTask) return undefined;
+      const nextTags = safeData.tags ?? oldTask.tags ?? [];
+      const nextGroupId = nextTags.find((tag: string) => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      const nextAssignee = safeData.assignedUserId ?? oldTask.assignedUserId;
+      const oldGroupId = (oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      const nextCountry = safeData.country !== undefined ? safeData.country : oldTask.country;
+      const assignmentChanged = nextAssignee !== oldTask.assignedUserId;
+      const countryChanged = nextCountry !== oldTask.country;
+      if (assignmentChanged || nextGroupId !== oldGroupId || countryChanged) {
+        if (assignmentChanged || (!nextGroupId && nextGroupId !== oldGroupId)) {
+          await assertTaskRecipientAllowed(tx, nextAssignee, nextCountry);
+        }
+        if (nextGroupId) {
+          const memberRows = await tx.select({ id: users.id }).from(taskGroupMembers)
+            .innerJoin(users, eq(users.id, taskGroupMembers.userId))
+            .where(and(eq(taskGroupMembers.groupId, nextGroupId), eq(users.isActive, true))).for("share");
+          if (!await hasCountryAuthorizedTaskRecipient(tx, memberRows.map(row => row.id), nextCountry)) {
+            throw new TaskAssignmentAccessError("The task group has no approved active recipients");
+          }
+        }
+      }
+      if (safeData.status === "completed" && oldTask.status !== "completed") {
+        await assertTaskResolverAllowed(tx, actorUserId);
+      }
+      const transition = await completeTaskWithinTransaction(
+        oldTask,
+        async (completedNow) => {
+          const reopening = safeData.status !== undefined && safeData.status !== "completed" && oldTask.status === "completed";
+          const now = new Date();
+          const nextStatus = typeof safeData.status === "string" ? safeData.status : oldTask.status;
+          const workTiming = transitionTaskWorkTiming(oldTask, nextStatus, now);
+          const values: Partial<typeof tasks.$inferInsert> & { updatedAt: Date } = {
+            ...safeData,
+            ...workTiming,
+            ...(completedNow ? { resolvedAt: now, resolvedByUserId: actorUserId } : {}),
+            ...(reopening ? { resolvedAt: null, resolvedByUserId: null, resolution: null } : {}),
+            updatedAt: now,
+          };
+          const [updated] = await tx.update(tasks).set(values).where(eq(tasks.id, id)).returning();
+          if (!updated) throw new Error("Task disappeared during update");
+          if (Object.prototype.hasOwnProperty.call(safeData, "attachments")) {
+            await markTaskAttachmentAssociations(tx, safeData.attachments, updated);
+          }
+          return updated;
+        },
+        completionNotification
+          ? async (creatorUserId, completedTask) => {
+              const [created] = await tx.insert(notifications)
+                .values({ ...await completionNotification(completedTask), userId: creatorUserId })
+                .returning();
+              return created;
+            }
+          : undefined,
+        safeData.status === "completed",
+        completionNotification
+          ? async () => {
+              await assertTaskCompletionNoticeRecipient(oldTask, async (creatorId) => {
+                const [creator] = await tx.select({
+                  role: users.role,
+                  isActive: users.isActive,
+                  assignedCountries: users.assignedCountries,
+                }).from(users).where(eq(users.id, creatorId)).for("share").limit(1);
+                return creator;
+              });
+            }
+          : undefined,
+        async () => assertPulseTaskChecklistCompleteInTransaction(tx, oldTask),
+      );
+      return { ...transition, oldTask };
+    });
   }
 
   async deleteTask(id: string): Promise<boolean> {
@@ -2528,26 +2779,171 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async resolveTask(id: string, resolution: string, resolvedByUserId: string): Promise<Task | undefined> {
-    const [updated] = await db.update(tasks)
-      .set({ 
-        resolution, 
-        resolvedByUserId, 
-        resolvedAt: new Date(),
-        status: "completed",
-        updatedAt: new Date() 
-      })
-      .where(eq(tasks.id, id))
-      .returning();
-    return updated || undefined;
+  async resolveTask(
+    id: string,
+    resolution: string,
+    resolvedByUserId: string,
+    completionNotification?: (task: Task) => Omit<InsertNotification, "userId"> | Promise<Omit<InsertNotification, "userId">>,
+  ): Promise<{ task: Task; oldTask: Task; completedNow: boolean; notification?: Notification } | undefined> {
+    return db.transaction(async (tx) => {
+      const [oldTask] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update").limit(1);
+      if (!oldTask) return undefined;
+      if (oldTask.status !== "completed" && oldTask.boState !== "done") {
+        await assertTaskResolverAllowed(tx, resolvedByUserId);
+      }
+      const transition = await completeTaskWithinTransaction(
+        oldTask,
+        async (completedNow) => {
+          if (!completedNow) return oldTask;
+          const now = new Date();
+          const workTiming = transitionTaskWorkTiming(oldTask, "completed", now);
+          const [updated] = await tx.update(tasks).set({
+            resolution,
+            status: "completed",
+            resolvedByUserId,
+            resolvedAt: now,
+            ...workTiming,
+            updatedAt: now,
+          }).where(eq(tasks.id, id)).returning();
+          if (!updated) throw new Error("Task disappeared during resolution");
+          await tx.insert(taskComments).values({
+            taskId: id,
+            userId: resolvedByUserId,
+            content: resolution,
+            kind: "state_change",
+            metadata: { fromState: oldTask.status, toState: "completed" },
+          });
+          return updated;
+        },
+        completionNotification
+          ? async (creatorUserId, completedTask) => {
+              const [created] = await tx.insert(notifications)
+                .values({ ...await completionNotification(completedTask), userId: creatorUserId })
+                .returning();
+              return created;
+            }
+          : undefined,
+        true,
+        completionNotification
+          ? async () => {
+              await assertTaskCompletionNoticeRecipient(oldTask, async (creatorId) => {
+                const [creator] = await tx.select({
+                  role: users.role,
+                  isActive: users.isActive,
+                  assignedCountries: users.assignedCountries,
+                }).from(users).where(eq(users.id, creatorId)).for("share").limit(1);
+                return creator;
+              });
+            }
+          : undefined,
+        async () => assertPulseTaskChecklistCompleteInTransaction(tx, oldTask),
+      );
+      return { ...transition, oldTask };
+    });
   }
 
-  async reassignTask(id: string, newAssignedUserId: string): Promise<Task | undefined> {
-    const [updated] = await db.update(tasks)
-      .set({ assignedUserId: newAssignedUserId, updatedAt: new Date() })
-      .where(eq(tasks.id, id))
-      .returning();
-    return updated || undefined;
+  async createTaskGroupWithMembers(data: Partial<TaskGroup>, memberUserIds: string[]): Promise<TaskGroup> {
+    return db.transaction(async (tx) => {
+      const memberUsers = memberUserIds.length
+        ? await tx.select({ id: users.id, isActive: users.isActive }).from(users).where(inArray(users.id, memberUserIds))
+        : [];
+      const validatedIds = normalizeTaskGroupMemberIds(memberUserIds, [], memberUsers);
+      const [group] = await tx.insert(taskGroups).values(data as any).returning();
+      if (validatedIds.length) {
+        await tx.insert(taskGroupMembers).values(validatedIds.map(userId => ({ groupId: group.id, userId })));
+      }
+      return group;
+    });
+  }
+
+  async updateTaskGroupWithMembers(
+    id: string,
+    data: Partial<TaskGroup>,
+    memberUserIds?: string[],
+  ): Promise<TaskGroup | undefined> {
+    return db.transaction(async (tx) => {
+      if (memberUserIds !== undefined) {
+        const existing = await tx.select({ userId: taskGroupMembers.userId })
+          .from(taskGroupMembers).where(eq(taskGroupMembers.groupId, id));
+        const idsToCheck = Array.from(new Set([...memberUserIds, ...existing.map(member => member.userId)]));
+        const memberUsers = idsToCheck.length
+          ? await tx.select({ id: users.id, isActive: users.isActive }).from(users).where(inArray(users.id, idsToCheck))
+          : [];
+        const validatedIds = normalizeTaskGroupMemberIds(memberUserIds, existing, memberUsers);
+        const [updated] = await tx.update(taskGroups).set({ ...data, updatedAt: new Date() })
+          .where(eq(taskGroups.id, id)).returning();
+        if (!updated) return undefined;
+        await tx.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, id));
+        if (validatedIds.length) {
+          await tx.insert(taskGroupMembers).values(validatedIds.map(userId => ({ groupId: id, userId })));
+        }
+        return updated;
+      }
+      const [updated] = await tx.update(taskGroups).set({ ...data, updatedAt: new Date() })
+        .where(eq(taskGroups.id, id)).returning();
+      return updated || undefined;
+    });
+  }
+
+  async addTaskGroupMember(groupId: string, userId: string): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [group] = await tx.select({ id: taskGroups.id }).from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+      if (!group) return false;
+      const [member] = await tx.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.id, userId)).limit(1);
+      if (!member) throw new Error(`Unknown task group member: ${userId}`);
+      if (!member.isActive) throw new Error(`Inactive users cannot be added to a task group: ${userId}`);
+      const [existing] = await tx.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+        .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, userId))).limit(1);
+      if (!existing) await tx.insert(taskGroupMembers).values({ groupId, userId });
+      return true;
+    });
+  }
+
+  async getTaskReassignmentTargets(task: Task, user: TaskAccessUser): Promise<ReturnType<typeof buildTaskReassignmentTargets>> {
+    return buildTaskReassignmentTargets(user, task, await loadTaskReassignmentCatalog(db));
+  }
+
+  async reassignTask(
+    id: string,
+    target: TaskReassignmentTarget,
+    user: TaskAccessUser,
+    expectedUpdatedAt: Date,
+  ): Promise<TaskReassignmentResult | undefined> {
+    return db.transaction(async (tx) => {
+      const [oldTask] = await tx.select().from(tasks).where(eq(tasks.id, id)).for("update").limit(1);
+      if (!oldTask) return undefined;
+      const catalog = await loadTaskReassignmentCatalog(tx, { task: oldTask, target, user });
+      if (!canAccessTaskByPolicy(user, oldTask, taskReassignmentActorGroups(user, catalog))) {
+        throw new TaskReassignmentError(404, "Task not found", "task_not_found");
+      }
+      assertTaskReassignmentActive(oldTask);
+      if (oldTask.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+        throw new TaskReassignmentError(409, "Task changed during reassignment. Reload and try again.", "task_changed");
+      }
+      const change = buildTaskReassignmentChange(user, oldTask, target, catalog);
+      if (target.newAssignedUserId) await assertTaskRecipientAllowed(tx, target.newAssignedUserId, oldTask.country);
+      if (target.newTaskGroupId && !change.recipientIds.length) {
+        throw new TaskAssignmentAccessError("The task group has no approved active recipients");
+      }
+      if (!change.changed) return { task: oldTask, oldTask, ...change };
+      const [task] = await tx.update(tasks).set({
+        ...change.data, updatedAt: new Date(Math.max(Date.now(), oldTask.updatedAt.getTime() + 1)),
+      })
+        .where(eq(tasks.id, id)).returning();
+      if (!task) throw new Error("Task disappeared during reassignment");
+      await tx.insert(taskComments).values({
+        taskId: id, userId: user.id, kind: "state_change",
+        content: change.group ? `Úloha pridelená skupine: ${change.group.name}` : "Úloha pridelená inému používateľovi",
+        metadata: {
+          action: "reassign",
+          oldAssignedUserId: oldTask.assignedUserId,
+          newAssignedUserId: task.assignedUserId,
+          oldTaskGroupId: taskReassignmentGroupId(oldTask) ?? null,
+          newTaskGroupId: taskReassignmentGroupId(task) ?? null,
+        },
+      });
+      return { task, oldTask, changed: true, recipientIds: change.recipientIds, group: change.group };
+    });
   }
 
   // Task Comments
@@ -2558,8 +2954,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTaskComment(comment: InsertTaskComment): Promise<TaskComment> {
-    const [created] = await db.insert(taskComments).values(comment).returning();
-    return created;
+    return db.transaction(async (tx) => {
+      const [created] = await tx.insert(taskComments).values(comment).returning();
+      const attachments = (comment.metadata as any)?.attachments;
+      if (Array.isArray(attachments) && attachments.length) {
+        const [task] = await tx.select().from(tasks).where(eq(tasks.id, comment.taskId)).limit(1);
+        await markTaskAttachmentAssociations(tx, attachments, task);
+      }
+      return created;
+    });
   }
 
   async deleteTaskComment(id: string): Promise<boolean> {
@@ -4770,10 +5173,14 @@ export class DatabaseStorage implements IStorage {
     if (data.answeredAt) values.answeredAt = new Date(data.answeredAt);
     if (data.endedAt) values.endedAt = new Date(data.endedAt);
     const [created] = await db.insert(callLogs).values(values).returning();
+    // Emit only after the durable row (including its canonical DB identity) exists.
+    const { emitOutboundCallLifecycle } = await import("./lib/outbound-call-automation");
+    await emitOutboundCallLifecycle(null, created);
     return created;
   }
 
   async updateCallLog(id: string, data: Partial<InsertCallLog>): Promise<CallLog | undefined> {
+    const [previous] = await db.select().from(callLogs).where(eq(callLogs.id, id)).limit(1);
     const values: any = { ...data };
     if (data.startedAt) values.startedAt = new Date(data.startedAt);
     if (data.answeredAt) values.answeredAt = new Date(data.answeredAt);
@@ -4782,6 +5189,11 @@ export class DatabaseStorage implements IStorage {
       .set(values)
       .where(eq(callLogs.id, id))
       .returning();
+    if (updated) {
+      // The helper rejects inbound rows and deduplicates each outbound transition.
+      const { emitOutboundCallLifecycle } = await import("./lib/outbound-call-automation");
+      await emitOutboundCallLifecycle(previous || null, updated);
+    }
     return updated || undefined;
   }
 

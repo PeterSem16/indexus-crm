@@ -9,9 +9,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
 import type { Translations } from "@/i18n";
 import { useBackOfficeSoundMuted } from "@/lib/back-office-chime";
+import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
 import {
   ClipboardList, Clock, AlertTriangle, CheckCircle2, Loader2, Check,
   ChevronRight, Zap, Building2, PhoneIncoming, Inbox, Wrench, HelpCircle,
@@ -28,6 +30,10 @@ import { UserAvatar } from "./user-avatar";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { motion } from "framer-motion";
 import { SendProcessingOverlay } from "./send-processing-animation";
+import { TaskFileIcon } from "@/components/tasks/task-attachments";
+import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import "@/components/tasks/task-modern-task-surfaces.css";
+import { normalizeAttachmentName } from "@shared/task-attachments";
 
 const DF_LOCALES: Record<string, typeof enUS> = { en: enUS, sk, cs, hu, ro, it, de };
 function dfLocale(locale: string) {
@@ -319,11 +325,17 @@ function isImageAttachment(a: BoAttachment): boolean {
 function isPdfAttachment(a: BoAttachment): boolean {
   return (a.type || "") === "application/pdf" || /\.pdf$/i.test(a.url);
 }
-// Server (sanitizeBoAttachments) only ever stores same-origin /data/ or /uploads/ paths.
-// Mirror that allowlist before feeding a.url into href/img/iframe sinks so a tampered
-// metadata blob can never inject javascript:/data:/external URLs.
+function isProtectedRasterImageAttachment(a: BoAttachment): boolean {
+  return ["image/jpeg", "image/png", "image/gif", "image/webp"].includes((a.type || "").toLowerCase());
+}
+// Mirror the server's same-origin legacy and protected task-attachment URL allowlist before
+// feeding a.url into href/img/iframe sinks so tampered metadata cannot inject external URLs.
 function isSafeAttachmentUrl(url: string): boolean {
-  return /^\/(data|uploads)\//.test(url || "");
+  return /^\/api\/tasks\/attachments\/[A-Za-z0-9_-]+$/.test(url || "") ||
+    /^\/(data|uploads)\//.test(url || "");
+}
+function isProtectedTaskAttachmentUrl(url: string): boolean {
+  return /^\/api\/tasks\/attachments\/[A-Za-z0-9_-]+$/.test(url || "");
 }
 
 // Preview modal — opens attachments in-app (image inline, PDF in an iframe, anything else
@@ -333,9 +345,12 @@ function AttachmentPreviewModal({ attachment, onClose }: { attachment: BoAttachm
   const { t } = useI18n();
   if (!attachment) return null;
   const a = attachment;
+  const displayName = normalizeAttachmentName(a.name);
   const safe = isSafeAttachmentUrl(a.url);
-  const image = safe && isImageAttachment(a);
+  const protectedUrl = isProtectedTaskAttachmentUrl(a.url);
+  const image = safe && (protectedUrl ? isProtectedRasterImageAttachment(a) : isImageAttachment(a));
   const pdf = safe && isPdfAttachment(a);
+  const previewUrl = protectedUrl ? `${a.url}?preview=1` : a.url;
   return (
     <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogPrimitive.Portal>
@@ -350,13 +365,13 @@ function AttachmentPreviewModal({ attachment, onClose }: { attachment: BoAttachm
           data-testid="modal-bo-attachment"
         >
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
-            <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <DialogPrimitive.Title className="min-w-0 flex-1 truncate text-sm font-medium" data-testid="text-bo-attachment-name">{a.name}</DialogPrimitive.Title>
+            <TaskFileIcon name={displayName} type={a.type} />
+            <DialogPrimitive.Title className="min-w-0 flex-1 truncate text-sm font-medium" data-testid="text-bo-attachment-name">{displayName}</DialogPrimitive.Title>
             {safe && (
               <>
                 <a
                   href={a.url}
-                  download={a.name}
+                  download={displayName}
                   className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted"
                   data-testid="btn-bo-attachment-download"
                 >
@@ -383,9 +398,9 @@ function AttachmentPreviewModal({ attachment, onClose }: { attachment: BoAttachm
           </div>
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-muted/30 p-3">
             {image ? (
-              <img src={a.url} alt={a.name} className="max-h-[75vh] max-w-full rounded object-contain" data-testid="img-bo-attachment" />
+              <img src={previewUrl} alt={displayName} className="max-h-[75vh] max-w-full rounded object-contain" data-testid="img-bo-attachment" />
             ) : pdf ? (
-              <iframe src={a.url} title={a.name} className="h-[75vh] w-full rounded border-0" data-testid="iframe-bo-attachment" />
+              <iframe src={previewUrl} title={displayName} className="h-[75vh] w-full rounded border-0" data-testid="iframe-bo-attachment" />
             ) : (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <Paperclip className="h-10 w-10 text-muted-foreground" />
@@ -393,7 +408,7 @@ function AttachmentPreviewModal({ attachment, onClose }: { attachment: BoAttachm
                 {safe && (
                   <a
                     href={a.url}
-                    download={a.name}
+                    download={displayName}
                     className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted"
                     data-testid="btn-bo-attachment-download-fallback"
                   >
@@ -423,8 +438,8 @@ export function AttachmentChips({ attachments }: { attachments?: BoAttachment[] 
             className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted hover:underline"
             data-testid={`link-timeline-attachment-${i}`}
           >
-            <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
-            <span className="truncate max-w-[140px]">{a.name}</span>
+            <TaskFileIcon name={normalizeAttachmentName(a.name)} type={a.type} />
+            <span className="min-w-0 max-w-[180px] whitespace-normal break-all text-left" title={normalizeAttachmentName(a.name)}>{normalizeAttachmentName(a.name)}</span>
           </button>
         ))}
       </div>
@@ -493,8 +508,8 @@ export function BoAttachmentComposer({
               className="inline-flex items-center gap-1 max-w-full rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px]"
               data-testid={`chip-bo-attachment-${i}`}
             >
-              <Paperclip className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
-              <span className="truncate max-w-[120px]">{a.name}</span>
+              <TaskFileIcon name={normalizeAttachmentName(a.name)} type={a.type} />
+              <span className="min-w-0 max-w-[160px] whitespace-normal break-all" title={normalizeAttachmentName(a.name)}>{normalizeAttachmentName(a.name)}</span>
               <button
                 type="button"
                 onClick={() => onChange(attachments.filter((_, idx) => idx !== i))}
@@ -671,6 +686,7 @@ function CustomerCard({ customer, onOpenEntity }: { customer: NonNullable<BOCust
 
 function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string; open: boolean; onClose: () => void }) {
   const { t, locale } = useI18n();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [note, setNote] = useState("");
   const [question, setQuestion] = useState("");
@@ -683,6 +699,15 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
   const [notifyAgent, setNotifyAgent] = useState(true);
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
   const [recap, setRecap] = useState<{ createdAt: string; dueDate: string | null; completedAt: string } | null>(null);
+  const assignmentOptionsQuery = useTaskAssignmentOptions();
+  const canUseTaskActions = !assignmentOptionsQuery.isLoading
+    && !assignmentOptionsQuery.isFetching
+    && !assignmentOptionsQuery.isError
+    && assignmentOptionsQuery.data?.canResolve === true;
+  const [assignmentActionDenied, setAssignmentActionDenied] = useState(false);
+  useEffect(() => {
+    if (canUseTaskActions) setAssignmentActionDenied(false);
+  }, [canUseTaskActions]);
 
   const threadKey = ["/api/back-office/tasks", taskId, "thread"];
   const { data: thread, isLoading } = useQuery<ThreadData>({
@@ -699,8 +724,15 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
 
   const claimMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/back-office/tasks/${taskId}/claim`).then(r => r.json()),
-    onSuccess: () => { invalidate(); toast({ title: t.backOffice.toastClaimed }); },
-    onError: () => toast({ title: t.backOffice.toastClaimError, variant: "destructive" }),
+    onSuccess: () => { setAssignmentActionDenied(false); invalidate(); toast({ title: t.backOffice.toastClaimed }); },
+    onError: (error: any) => {
+      if (error?.status === 403 || error?.status === 409) {
+        setAssignmentActionDenied(true);
+        toast({ title: t.tasks.taskGroups.noEligibleResolvers, variant: "destructive" });
+      } else {
+        toast({ title: t.backOffice.toastClaimError, variant: "destructive" });
+      }
+    },
   });
 
   const noteMutation = useMutation({
@@ -727,6 +759,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
       notifyAgent,
     }).then(r => r.json()),
     onSuccess: (data: any) => {
+      setAssignmentActionDenied(false);
       invalidate();
       toast({ title: t.backOffice.toastConfirmed });
       const tk = thread?.task;
@@ -740,32 +773,62 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
         onClose();
       }
     },
-    onError: () => toast({ title: t.backOffice.toastConfirmError, variant: "destructive" }),
+    onError: (error: any) => {
+      if (error?.status === 403 || error?.status === 409) {
+        setAssignmentActionDenied(true);
+        toast({ title: t.tasks.taskGroups.noEligibleResolvers, variant: "destructive" });
+      } else {
+        toast({ title: t.backOffice.toastConfirmError, variant: "destructive" });
+      }
+    },
   });
 
-  const [forwardTarget, setForwardTarget] = useState("");
-  const [forwardNote, setForwardNote] = useState("");
-  const { data: forwardTargets } = useQuery<{
+  const forwardTargetsQuery = useQuery<{
     admins: { id: string; name: string }[];
     groups: { id: string; name: string; isBackOffice: boolean; memberCount: number }[];
   }>({
-    queryKey: ["/api/back-office/forward-targets"],
+    queryKey: ["/api/back-office/forward-targets", user?.id],
     queryFn: () => apiRequest("GET", "/api/back-office/forward-targets").then(r => r.json()),
-    enabled: open,
+    enabled: open && !!user?.id,
   });
+  const forwardTargets = forwardTargetsQuery.data;
+  const hasForwardTargets = !!forwardTargets?.admins?.length || !!forwardTargets?.groups?.length;
+  const forwardTargetsLoading = forwardTargetsQuery.isLoading || forwardTargetsQuery.isFetching;
+  const [forwardEligibilityDenied, setForwardEligibilityDenied] = useState(false);
+  const [forwardTarget, setForwardTarget] = useState("");
+  const [forwardNote, setForwardNote] = useState("");
+  useEffect(() => {
+    setForwardTarget("");
+    setForwardNote("");
+    setForwardEligibilityDenied(false);
+    setAssignmentActionDenied(false);
+  }, [user?.id]);
+  const [targetType, targetId] = forwardTarget.split(":");
+  const forwardTargetIsEligible = targetType === "admin"
+    ? !!forwardTargets?.admins.some(target => target.id === targetId)
+    : targetType === "group"
+      ? !!forwardTargets?.groups.some(target => target.id === targetId)
+      : false;
   const forwardMutation = useMutation({
     mutationFn: () => {
-      const [tt, tid] = forwardTarget.split(":");
+      if (!forwardTargetIsEligible) throw Object.assign(new Error("Forward target is no longer eligible."), { status: 403 });
       return apiRequest("POST", `/api/back-office/tasks/${taskId}/forward`, {
-        targetType: tt, targetId: tid, note: forwardNote || null,
+        targetType, targetId, note: forwardNote || null,
       }).then(r => r.json());
     },
     onSuccess: () => {
-      setForwardTarget(""); setForwardNote(""); invalidate();
+      setForwardTarget(""); setForwardNote(""); setForwardEligibilityDenied(false); invalidate();
       toast({ title: t.backOffice.toastForwarded });
       onClose();
     },
-    onError: () => toast({ title: t.backOffice.toastForwardError, variant: "destructive" }),
+    onError: (error: any) => {
+      if (error?.status === 403 || error?.status === 409) {
+        setForwardEligibilityDenied(true);
+        toast({ title: t.tasks.taskGroups.noEligibleResolvers, variant: "destructive" });
+      } else {
+        toast({ title: t.backOffice.toastForwardError, variant: "destructive" });
+      }
+    },
   });
 
   const task = thread?.task;
@@ -902,12 +965,38 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <div className="space-y-3">
               {state !== "done" && (
                 <>
+                  {(!canUseTaskActions || assignmentActionDenied) && (
+                    <div
+                      className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-foreground"
+                      role={assignmentOptionsQuery.isLoading || assignmentOptionsQuery.isFetching ? "status" : "alert"}
+                      data-testid="bo-assignment-eligibility-message"
+                    >
+                      <p>
+                        {assignmentOptionsQuery.isLoading || assignmentOptionsQuery.isFetching
+                          ? t.tasks.taskGroups.assignmentLoading
+                          : assignmentOptionsQuery.isError
+                            ? t.tasks.taskGroups.assignmentLoadFailed
+                            : t.tasks.taskGroups.noEligibleResolvers}
+                      </p>
+                      {assignmentOptionsQuery.isError && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-1 h-7 px-2"
+                          onClick={() => void assignmentOptionsQuery.refetch()}
+                        >
+                          {t.tasks.taskGroups.assignmentRetry}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   {state === "received" && (
                     <Button
                       className="w-full gap-2"
                       variant="outline"
                       onClick={() => claimMutation.mutate()}
-                      disabled={claimMutation.isPending}
+                      disabled={claimMutation.isPending || !canUseTaskActions}
                       data-testid="btn-bo-claim"
                     >
                       {claimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hand className="h-4 w-4" />}
@@ -990,7 +1079,25 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                       <Forward className="h-3.5 w-3.5" /> {t.backOffice.forwardTitle}
                     </div>
                     <p className="text-[10px] text-muted-foreground">{t.backOffice.forwardHint}</p>
-                    <Select value={forwardTarget} onValueChange={setForwardTarget}>
+                    {forwardTargetsLoading && (
+                      <p className="text-xs text-muted-foreground" role="status">{t.tasks.taskGroups.assignmentLoading}</p>
+                    )}
+                    {forwardTargetsQuery.isError && (
+                      <div className="flex items-center justify-between gap-2 text-xs text-destructive" role="alert">
+                        <span>{t.tasks.taskGroups.assignmentLoadFailed}</span>
+                        <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => void forwardTargetsQuery.refetch()}>
+                          {t.tasks.taskGroups.assignmentRetry}
+                        </Button>
+                      </div>
+                    )}
+                    {!forwardTargetsLoading && !forwardTargetsQuery.isError && !hasForwardTargets && (
+                      <p className="text-xs text-muted-foreground" role="status">{t.tasks.taskGroups.noEligibleResolvers}</p>
+                    )}
+                    <Select
+                      value={forwardTarget}
+                      onValueChange={value => { setForwardTarget(value); setForwardEligibilityDenied(false); }}
+                      disabled={forwardTargetsLoading || forwardTargetsQuery.isError || !hasForwardTargets}
+                    >
                       <SelectTrigger className="text-xs bg-background h-9" data-testid="select-bo-forward-target">
                         <SelectValue placeholder={t.backOffice.forwardPlaceholder} />
                       </SelectTrigger>
@@ -1023,12 +1130,15 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                     <Button
                       size="sm" className="w-full gap-2 bg-sky-600 hover:bg-sky-700 text-white"
                       onClick={() => forwardMutation.mutate()}
-                      disabled={forwardMutation.isPending || !forwardTarget}
+                      disabled={forwardMutation.isPending || !forwardTargetIsEligible}
                       data-testid="btn-bo-forward"
                     >
                       {forwardMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Forward className="h-3.5 w-3.5" />}
                       {t.backOffice.forwardButton}
                     </Button>
+                    {(forwardEligibilityDenied || (!!forwardTarget && !forwardTargetIsEligible)) && (
+                      <p className="text-xs text-destructive" role="alert">{t.tasks.taskGroups.noEligibleResolvers}</p>
+                    )}
                   </div>
 
                   <div className="rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 space-y-2">
@@ -1060,7 +1170,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                     <Button
                       className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={() => confirmMutation.mutate()}
-                      disabled={confirmMutation.isPending}
+                      disabled={confirmMutation.isPending || !canUseTaskActions}
                       data-testid="btn-bo-confirm-task"
                     >
                       {confirmMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -1153,38 +1263,39 @@ function TaskCompletionRecap({ createdAt, dueDate, completedAt, t, onClose }: {
     <DialogPrimitive.Root open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
-          className="fixed inset-0 z-[10030] bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+          className="task-modern-modal-overlay task-bo-recap-overlay fixed inset-0 z-[10030] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
           data-testid="overlay-bo-recap"
         />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed left-1/2 top-1/2 z-[10031] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border bg-background shadow-2xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          className="task-modern-modal task-bo-recap-content fixed left-1/2 top-1/2 z-[10031] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
           data-testid="modal-bo-recap"
         >
-          <div className={`relative overflow-hidden bg-gradient-to-br ${theme.grad} px-6 pt-8 pb-7 text-center text-white`}>
+          <TaskModalArtwork variant="resolve" compact />
+          <div className="task-bo-recap-header relative px-6 pb-5 text-center">
             {status === "onTime" && (
               <>
-                <Sparkles className="absolute left-5 top-5 h-5 w-5 text-white/70 animate-pulse" />
-                <Sparkles className="absolute right-8 top-10 h-4 w-4 text-white/60 animate-pulse [animation-delay:300ms]" />
-                <Sparkles className="absolute left-10 bottom-4 h-3.5 w-3.5 text-white/50 animate-pulse [animation-delay:600ms]" />
+                <Sparkles className="absolute left-7 top-1 h-5 w-5 text-primary/45 animate-pulse" />
+                <Sparkles className="absolute right-9 top-5 h-4 w-4 text-destructive/45 animate-pulse [animation-delay:300ms]" />
+                <Sparkles className="absolute left-12 bottom-3 h-3.5 w-3.5 text-primary/35 animate-pulse [animation-delay:600ms]" />
               </>
             )}
             <DialogPrimitive.Close
-              className="absolute right-3 top-3 rounded-full p-1.5 text-white/80 transition hover:bg-white/20 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              className="task-modern-modal-close absolute right-4 top-3 rounded-full p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               data-testid="btn-bo-recap-close-x"
               aria-label={t.backOffice.recapClose}
             >
               <X className="h-4 w-4" />
             </DialogPrimitive.Close>
-            <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-white/15 ring-8 ring-white/10">
-              <Icon className={`h-10 w-10 ${theme.iconAnim}`} strokeWidth={2.2} />
+            <div className={`task-bo-recap-icon mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl ${theme.iconAnim}`}>
+              <Icon className="h-8 w-8" strokeWidth={2.2} />
             </div>
-            <DialogPrimitive.Title className="text-xl font-bold tracking-tight" data-testid="text-bo-recap-title">{theme.title}</DialogPrimitive.Title>
-            <p className="mx-auto mt-1 max-w-xs text-sm text-white/90">{theme.desc}</p>
+            <DialogPrimitive.Title className="text-xl font-bold tracking-tight text-foreground" data-testid="text-bo-recap-title">{theme.title}</DialogPrimitive.Title>
+            <p className="mx-auto mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground">{theme.desc}</p>
           </div>
 
-          <div className="space-y-3 px-6 py-5">
-            <div className="flex items-center gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+          <div className="task-bo-recap-body space-y-3 px-6 pb-6">
+            <div className="flex items-center gap-3 rounded-xl border bg-muted/35 px-4 py-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Hourglass className="h-5 w-5" />
               </div>
@@ -1201,7 +1312,7 @@ function TaskCompletionRecap({ createdAt, dueDate, completedAt, t, onClose }: {
               </div>
             )}
 
-            <div className="space-y-2 rounded-xl border px-4 py-3 text-sm">
+            <div className="space-y-2 rounded-xl border bg-card px-4 py-3 text-sm">
               {dueDate && due !== null && (
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-muted-foreground"><CalendarClock className="h-4 w-4" /> {t.backOffice.recapDeadline}</span>
@@ -1215,7 +1326,7 @@ function TaskCompletionRecap({ createdAt, dueDate, completedAt, t, onClose }: {
             </div>
 
             <DialogPrimitive.Close asChild>
-              <Button className="w-full gap-2" data-testid="btn-bo-recap-close">
+              <Button className="task-bo-recap-confirm w-full gap-2 rounded-xl" data-testid="btn-bo-recap-close">
                 <Check className="h-4 w-4" /> {t.backOffice.recapClose}
               </Button>
             </DialogPrimitive.Close>

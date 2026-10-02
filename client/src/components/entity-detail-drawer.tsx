@@ -3,13 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useI18n } from "@/i18n";
 import { User, Stethoscope, Hospital, Loader2 } from "lucide-react";
-import type { Customer } from "@shared/schema";
+import type { Customer, Collaborator } from "@shared/schema";
+import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import { CustomerDetailsContent } from "@/pages/customers";
 import { HospitalEditDrawer } from "@/pages/hospitals";
 import { ClinicFormSheet } from "@/components/clinic-form-wizard";
 import { queryClient } from "@/lib/queryClient";
 
-export type EntityRef = { type: "hospital" | "clinic" | "customer"; id: string };
+export type EntityRef = { type: "hospital" | "clinic" | "customer" | "collaborator"; id: string };
 type InstitutionRef = { type: "hospital" | "clinic"; id: string };
 
 let institutionOpenSequence = 0;
@@ -114,6 +115,26 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: InstitutionRef; 
 // z-[9991]) but BELOW the card's own portalled popups (Dialog z-[9996], Popover z-[9999],
 // Select z-[10000]). That keeps every dropdown/dialog inside the card clickable on top of
 // the sheet. Do NOT raise this above 9995 or the card's selects/dialogs will hide behind it.
+function CollaboratorFullCardDrawer({ collaboratorId, onClose }: { collaboratorId: string; onClose: () => void }) {
+  const { t } = useI18n();
+  const { data, isLoading, isError } = useQuery<Collaborator>({
+    queryKey: ["/api/collaborators", collaboratorId],
+    enabled: !!collaboratorId,
+  });
+  return (
+    <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-5xl p-0 gap-0 overflow-y-auto z-[9994]" data-testid="drawer-collaborator-full">
+        <SheetHeader className="px-5 py-4 border-b">
+          <SheetTitle>{t.mpn.collaborator}</SheetTitle>
+        </SheetHeader>
+        {isLoading ? <div className="flex justify-center p-12"><Loader2 className="h-6 w-6 animate-spin" /></div>
+          : isError || !data ? <p role="alert" className="p-6 text-destructive">{t.callAnalysis.reviewFullCardUnavailable}</p>
+          : <CollaboratorFormWizard initialData={data} readOnly onSuccess={() => {}} onCancel={onClose} />}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function CustomerFullCardDrawer({ customerId, onClose }: { customerId: string | null; onClose: () => void }) {
   const { t } = useI18n();
 
@@ -162,12 +183,15 @@ function CustomerFullCardDrawer({ customerId, onClose }: { customerId: string | 
 }
 
 export function EntityDetailDrawer({ entity, onClose }: { entity: EntityRef | null; onClose: () => void }) {
-  const institutionEntity = entity && entity.type !== "customer" ? entity : null;
+  const institutionEntity: InstitutionRef | null = entity && (entity.type === "hospital" || entity.type === "clinic")
+    ? { type: entity.type, id: entity.id } : null;
   const customerId = entity && entity.type === "customer" ? entity.id : null;
+  const collaboratorId = entity && entity.type === "collaborator" ? entity.id : null;
   return (
     <>
       {institutionEntity && <InstitutionDetailDrawer entity={institutionEntity} onClose={onClose} />}
       <CustomerFullCardDrawer customerId={customerId} onClose={onClose} />
+      {collaboratorId && <CollaboratorFullCardDrawer collaboratorId={collaboratorId} onClose={onClose} />}
     </>
   );
 }

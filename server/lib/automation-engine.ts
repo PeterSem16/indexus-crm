@@ -1,19 +1,41 @@
 import { db } from "../db";
-import { eq, and, gte, sql } from "drizzle-orm";
+import { ensureTaskAiChecklist } from "./task-ai-checklist";
+import { eq, and, gte, inArray, sql } from "drizzle-orm";
 import {
   workflowRules,
   workflowEvents,
   workflowRuns,
   workflowActionLog,
+  COUNTRIES,
   tasks,
+  taskGroupMembers,
+  callLogs,
+  users,
   taskSubscriptions,
   taskChecklistItems,
+  customers,
+  hospitals,
+  clinics,
+  inboundCallLogs,
+  queueMembers,
+  agentStandingForwards,
   type WorkflowRule,
   type WorkflowEvent,
 } from "@shared/schema";
 import { setEventDispatcher } from "./event-bus";
+import {
+  compareOrderedValues, conditionValuesEqual, fieldsForEvent,
+  matchesRuleCountryScope, SCHEDULE_MAX_MATCHES, SCHEDULE_MAX_SCAN_ROWS, SCHEDULE_RECORD_MODULES,
+  validateRuleCapabilities,
+} from "./automation-capabilities";
+import { permitsSentimentSource } from "./sentiment-source-guard";
+import { resolveAutomationRecipientTarget } from "./automation-recipient-target";
+import { taskOwnersForTarget } from "./automation-recipient-policy";
+import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
+import { assertTaskRecipientAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds } from "./task-assignment-access";
+import { userMayAccessTaskCountry } from "./task-contract";
 import {
   getValidAccessToken as getMs365ValidToken,
   sendEmail as ms365SendEmail,
@@ -21,9 +43,9 @@ import {
 
 const MAX_CAUSATION_DEPTH = 5;
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  Template engine — {{path.to.field}} substitution
- * ============================================================ */
+ * ------------------------------------------------------------ */
 function getPath(obj: any, path: string): any {
   if (!obj || !path) return undefined;
   return path.split(".").reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
@@ -46,9 +68,9 @@ function renderTemplate(input: any, ctx: any): any {
   return input;
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  Condition DSL evaluator
- * ============================================================ */
+ * ------------------------------------------------------------ */
 type Cond =
   | { all: Cond[] }
   | { any: Cond[] }
@@ -62,15 +84,17 @@ function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
   if ((cond as any).not) return !evalCondition((cond as any).not, ctx);
   const c = cond as { field: string; op: string; value?: any };
   const v = getPath(ctx, c.field);
+  // A field absent from the event must not satisfy negative comparisons.
+  if (v === undefined) return false;
   switch (c.op) {
-    case "eq": return v === c.value;
-    case "neq": return v !== c.value;
-    case "gt": return Number(v) > Number(c.value);
-    case "gte": return Number(v) >= Number(c.value);
-    case "lt": return Number(v) < Number(c.value);
-    case "lte": return Number(v) <= Number(c.value);
-    case "in": return Array.isArray(c.value) && c.value.includes(v);
-    case "not_in": return Array.isArray(c.value) && !c.value.includes(v);
+    case "eq": return conditionValuesEqual(v, c.value);
+    case "neq": return !conditionValuesEqual(v, c.value);
+    case "gt": return compareOrderedValues(v, c.value, "gt");
+    case "gte": return compareOrderedValues(v, c.value, "gte");
+    case "lt": return compareOrderedValues(v, c.value, "lt");
+    case "lte": return compareOrderedValues(v, c.value, "lte");
+    case "in": return Array.isArray(c.value) && c.value.some((item: unknown) => conditionValuesEqual(v, item));
+    case "not_in": return Array.isArray(c.value) && !c.value.some((item: unknown) => conditionValuesEqual(v, item));
     case "contains": return typeof v === "string" && v.includes(String(c.value));
     case "starts_with": return typeof v === "string" && v.startsWith(String(c.value));
     case "is_null": return v == null;
@@ -81,11 +105,11 @@ function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
     }
     case "changed_to": {
       const oldV = getPath(ctx, c.field.replace(/^newValues\./, "oldValues."));
-      return oldV !== v && v === c.value;
+      return !conditionValuesEqual(oldV, v) && conditionValuesEqual(v, c.value);
     }
     case "changed_from": {
       const oldV = getPath(ctx, c.field.replace(/^newValues\./, "oldValues."));
-      return oldV !== v && oldV === c.value;
+      return !conditionValuesEqual(oldV, v) && conditionValuesEqual(oldV, c.value);
     }
     default:
       console.warn(`[Automation] Unknown operator: ${c.op}`);
@@ -93,63 +117,154 @@ function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
   }
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  Action handlers
- * ============================================================ */
+ * ------------------------------------------------------------ */
 type ActionResult = { ok: boolean; output?: any; error?: string };
+
+// Dynamic inbound recipients must be the agent of a persisted call, never a
+// client-supplied template path or an agent from a different queue.
+async function verifiedInboundAgentRecipient(raw: unknown, recipientId: string, ctx: any): Promise<boolean> {
+  const field = typeof raw === "string"
+    ? raw.match(/^\{\{\s*newValues\.(agentId|assignedAgentId)\s*\}\}$/)?.[1]
+    : null;
+  if (!field) return true;
+  if (ctx.event?.module !== "call" || ctx.event?.entityType !== "call" || !recipientId ||
+      recipientId !== ctx.newValues?.[field] ||
+      !ctx.event?.entityId || ctx.event.entityId !== ctx.newValues?.callId) return false;
+  if (field === "agentId" && ctx.event?.source === "storage") {
+    if (!["outbound.started", "outbound.answered", "outbound.completed", "outbound.unanswered"]
+      .includes(ctx.event.eventType)) return false;
+    const [call] = await db.select({
+      id: callLogs.id,
+      userId: callLogs.userId,
+      direction: callLogs.direction,
+    }).from(callLogs).where(eq(callLogs.id, ctx.event.entityId)).limit(1);
+    if (!call || call.direction !== "outbound" || call.id !== ctx.newValues.callId ||
+        call.userId !== recipientId || ctx.newValues.agentId !== recipientId) return false;
+    const [user] = await db.select({ id: users.id }).from(users)
+      .where(eq(users.id, recipientId)).limit(1);
+    return user?.id === recipientId;
+  }
+  if (ctx.event?.source !== "inbound-call") return false;
+  const [call] = await db.select({
+    queueId: inboundCallLogs.queueId,
+    assignedAgentId: inboundCallLogs.assignedAgentId,
+  }).from(inboundCallLogs).where(eq(inboundCallLogs.id, ctx.event.entityId)).limit(1);
+  if (!call?.queueId || call.queueId !== ctx.newValues.queueId) return false;
+  if (call.assignedAgentId === recipientId || call.assignedAgentId === `standing:${recipientId}`) return true;
+  const [member] = await db.select({ id: queueMembers.id }).from(queueMembers).where(and(
+    eq(queueMembers.queueId, call.queueId),
+    eq(queueMembers.userId, recipientId),
+    eq(queueMembers.isActive, true),
+  )).limit(1);
+  if (member) return true;
+  const [forward] = await db.select({ id: agentStandingForwards.id }).from(agentStandingForwards).where(and(
+    eq(agentStandingForwards.inboundQueueId, call.queueId),
+    eq(agentStandingForwards.userId, recipientId),
+  )).limit(1);
+  return !!forward;
+}
 
 async function actionCreateTask(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
     const assignedUserId = rendered.assignedUserId || rendered.assignee_user_id || null;
     const assignedDepartmentId = rendered.assignedDepartmentId || rendered.assignee_department_id || null;
-    if (!assignedUserId && !assignedDepartmentId) {
-      return { ok: false, error: "create_task requires assignedUserId or assignedDepartmentId" };
+    const grouped = rendered.taskGroupId || rendered.targetRole;
+    if (grouped && (assignedUserId || assignedDepartmentId)) {
+      return { ok: false, error: "Choose one task recipient: user, department, group or role" };
+    }
+    if (!assignedUserId && !assignedDepartmentId && !grouped) {
+      return { ok: false, error: "create_task requires a user, department, task group or role" };
+    }
+    if (!(await verifiedInboundAgentRecipient(config.assignedUserId || config.assignee_user_id, assignedUserId, ctx))) {
+      return { ok: false, error: "Inbound task recipient is not an authorized call agent" };
+    }
+    if (ctx.event?.module === "call" && (assignedDepartmentId || grouped) &&
+        (!ctx.newValues?.campaignId || !ctx.event?.countryCode)) {
+      return { ok: false, error: "Inbound group task requires a verified Mission and queue country" };
+    }
+    if (ctx.event?.module === "call" && rendered.country && rendered.country !== ctx.event?.countryCode) {
+      return { ok: false, error: "Inbound task country must match the persisted call queue" };
     }
     const dueInHours = Number(rendered.dueInHours || 0);
     const dueDate = dueInHours > 0 ? new Date(Date.now() + dueInHours * 3600_000) : null;
-
-    const [task] = await db
-      .insert(tasks)
-      .values({
+    let target = grouped ? await resolveAutomationRecipientTarget(rendered) : null;
+    const taskCountry = ctx.event?.module === "call" ? ctx.event.countryCode || null : rendered.country || ctx.event?.countryCode || null;
+    if (target) {
+      const recipients = await db.select({ id: users.id, role: users.role, assignedCountries: users.assignedCountries, isActive: users.isActive })
+        .from(users).where(inArray(users.id, target.userIds));
+      const eligibleIds = recipients.filter(user => user.isActive && user.role
+        && userMayAccessTaskCountry(user.role, user.assignedCountries, taskCountry))
+        .map(user => user.id)
+        .sort();
+      if (target.tags.some(tag => tag.startsWith("group_id:")) && !await hasAllowedTaskRecipient(db, eligibleIds)) {
+        throw new Error("The task group has no approved active country-authorized recipients");
+      }
+      target = { ...target, userIds: eligibleIds };
+      if (!target.userIds.length) throw new Error("The task target has no approved active country-authorized recipients");
+    }
+    const taskIds = await db.transaction(async tx => {
+      let owners = target ? taskOwnersForTarget(target) : [assignedUserId || "system"];
+      const groupId = target?.tags.find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
+      if (groupId && target) {
+        const members = await tx.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(eq(taskGroupMembers.groupId, groupId)).for("share");
+        const currentMemberIds = await countryAuthorizedTaskRecipientIds(tx, members.map(member => member.userId), taskCountry);
+        const eligibleIds = target.userIds.filter(id => currentMemberIds.includes(id));
+        if (!eligibleIds.length) throw new Error("The task group has no approved active country-authorized recipients");
+        owners = taskOwnersForTarget({ ...target, userIds: eligibleIds });
+      }
+      const ids: string[] = [];
+      for (const owner of owners) {
+        await assertTaskRecipientAllowed(tx, owner, taskCountry);
+        const [task] = await tx.insert(tasks).values({
         title: String(rendered.title || "Automation task"),
         description: rendered.description || null,
         priority: rendered.priority || "medium",
         status: "pending",
-        assignedUserId: assignedUserId || rendered.assignee_user_id || "system",
+        assignedUserId: owner,
         assignedDepartmentId: assignedDepartmentId || null,
         createdByUserId: rendered.createdByUserId || ctx.event?.actorUserId || "system",
-        customerId: rendered.customerId || ctx.event?.entityType === "customer" ? ctx.event?.entityId : null,
-        relatedEntityType: rendered.relatedEntityType || ctx.event?.entityType || null,
-        relatedEntityId: rendered.relatedEntityId || ctx.event?.entityId || null,
-        country: rendered.country || ctx.event?.countryCode || null,
+        customerId: ctx.event?.source === "schedule"
+          ? (ctx.event?.module === "customer" ? ctx.event.entityId : null)
+          : rendered.customerId || (ctx.event?.entityType === "customer" ? ctx.event?.entityId : null),
+        relatedEntityType: ctx.event?.source === "schedule"
+          ? ctx.event?.entityType || null
+          : rendered.relatedEntityType || ctx.event?.entityType || null,
+        relatedEntityId: ctx.event?.source === "schedule"
+          ? ctx.event?.entityId || null
+          : rendered.relatedEntityId || ctx.event?.entityId || null,
+        country: taskCountry,
+        tags: target?.tags || [],
         dueDate,
         sourceRunId: runId,
-      })
-      .returning();
-    if (!task) return { ok: false, error: "Insert returned no row" };
-
-    // Checklist
-    if (Array.isArray(rendered.checklist) && rendered.checklist.length) {
-      const items = rendered.checklist.map((it: any, idx: number) => ({
-        taskId: task.id,
-        position: idx,
-        label: typeof it === "string" ? it : String(it.label || ""),
-        required: typeof it === "object" ? it.required !== false : true,
-      }));
-      await db.insert(taskChecklistItems).values(items);
-    }
-
-    // Subscriptions: creator + assignee
-    const subs: any[] = [];
-    const creatorId = rendered.createdByUserId || ctx.event?.actorUserId;
-    if (creatorId) subs.push({ taskId: task.id, userId: creatorId, role: "creator", notifyOn: ["completed", "overdue"] });
-    if (assignedUserId && assignedUserId !== creatorId) {
-      subs.push({ taskId: task.id, userId: assignedUserId, role: "assignee", notifyOn: ["overdue"] });
-    }
-    if (subs.length) await db.insert(taskSubscriptions).values(subs);
-
-    return { ok: true, output: { taskId: task.id, title: task.title } };
+        }).returning();
+        if (!task) throw new Error("Insert returned no row");
+        ids.push(task.id);
+        if (Array.isArray(rendered.checklist) && rendered.checklist.length) {
+          await tx.insert(taskChecklistItems).values(rendered.checklist.map((it: any, idx: number) => ({
+            taskId: task.id,
+            position: idx,
+            label: typeof it === "string" ? it : String(it.label || ""),
+            required: typeof it === "object" ? it.required !== false : true,
+          })));
+        }
+        const subs: any[] = [];
+        const creatorId = rendered.createdByUserId || ctx.event?.actorUserId;
+        if (creatorId) subs.push({ taskId: task.id, userId: creatorId, role: "creator", notifyOn: ["completed", "overdue"] });
+        if (owner !== "system" && owner !== creatorId) {
+          subs.push({ taskId: task.id, userId: owner, role: "assignee", notifyOn: ["overdue"] });
+        }
+        if (subs.length) await tx.insert(taskSubscriptions).values(subs);
+      }
+      return ids;
+    });
+    // Trigger after transaction commit. Existing automation template steps are
+    // detected as preserved by the checklist service and are never replaced.
+    for (const taskId of taskIds) void ensureTaskAiChecklist(taskId);
+    return { ok: true, output: { taskId: taskIds[0], taskIds, taskCount: taskIds.length } };
   } catch (err: any) {
     return { ok: false, error: err?.message || "create_task failed" };
   }
@@ -158,12 +273,31 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
 async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
-    const userIds: string[] = Array.isArray(rendered.userIds)
+    const grouped = rendered.taskGroupId || rendered.targetRole;
+    if (grouped && (rendered.userId || rendered.userIds?.length)) {
+      return { ok: false, error: "Choose one notification recipient: user, group or role" };
+    }
+    if (grouped && ctx.event?.module === "call" &&
+        (!ctx.newValues?.campaignId || !ctx.event?.countryCode)) {
+      return { ok: false, error: "Inbound group notification requires a verified Mission and queue country" };
+    }
+    if (ctx.event?.module === "call" && rendered.countryCode && rendered.countryCode !== ctx.event?.countryCode) {
+      return { ok: false, error: "Inbound notification country must match the persisted call queue" };
+    }
+    const userIds: string[] = grouped
+      ? (await resolveAutomationRecipientTarget(rendered)).userIds
+      : Array.isArray(rendered.userIds)
       ? rendered.userIds
       : rendered.userId
       ? [rendered.userId]
       : [];
     if (!userIds.length) return { ok: false, error: "notify_user requires userId or userIds" };
+    const rawRecipients = Array.isArray(config.userIds) ? config.userIds : [config.userId];
+    for (let i = 0; !grouped && i < userIds.length; i++) {
+      if (!(await verifiedInboundAgentRecipient(rawRecipients[i], userIds[i], ctx))) {
+        return { ok: false, error: "Inbound notification recipient is not an authorized call agent" };
+      }
+    }
 
     const { notificationService } = await import("./notification-service");
     await notificationService.sendNotificationToUsers(userIds, {
@@ -171,9 +305,9 @@ async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
       title: String(rendered.title || "Notification"),
       message: rendered.message || "",
       priority: rendered.priority || "normal",
-      entityType: rendered.entityType || ctx.event?.entityType,
-      entityId: rendered.entityId || ctx.event?.entityId,
-      countryCode: rendered.countryCode || ctx.event?.countryCode,
+      entityType: ctx.event?.source === "schedule" ? ctx.event?.entityType : rendered.entityType || ctx.event?.entityType,
+      entityId: ctx.event?.source === "schedule" ? ctx.event?.entityId : rendered.entityId || ctx.event?.entityId,
+      countryCode: ctx.event?.module === "call" ? ctx.event.countryCode : rendered.countryCode || ctx.event?.countryCode,
       metadata: rendered.metadata || {},
     });
     return { ok: true, output: { notifiedUsers: userIds.length } };
@@ -186,6 +320,7 @@ async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
 async function applyMessageTemplate(
   config: any,
   expectedType: "email" | "sms",
+  silent = false,
 ): Promise<any> {
   const templateId = config?.templateId;
   if (!templateId || typeof templateId !== "string") return config;
@@ -215,7 +350,7 @@ async function applyMessageTemplate(
               });
             }
           } catch (e) {
-            console.warn("[Automation] template attachment load failed:", (e as any)?.message);
+            if (!silent) console.warn("[Automation] template attachment load failed:", (e as any)?.message);
           }
         }
         if (loaded.length > 0) merged.attachments = loaded;
@@ -230,16 +365,36 @@ async function applyMessageTemplate(
     storage.incrementMessageTemplateUsage?.(templateId).catch?.(() => {});
     return merged;
   } catch (err) {
-    console.warn("[Automation] applyMessageTemplate failed:", (err as any)?.message);
+    if (!silent) console.warn("[Automation] applyMessageTemplate failed:", (err as any)?.message);
     return config;
   }
 }
 
 async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
+  const scheduled = ctx.event?.source === "schedule";
   try {
-    config = await applyMessageTemplate(config, "email");
+    config = await applyMessageTemplate(config, "email", scheduled);
     const rendered = renderTemplate(config, ctx);
-    const toRaw = rendered.to;
+    const grouped = rendered.taskGroupId || rendered.targetRole;
+    if (grouped && rendered.to) return { ok: false, error: "Choose either an email address or a group/role" };
+    if (ctx.event?.module === "call") {
+      if (!ctx.newValues?.campaignId || !ctx.event?.countryCode)
+        return { ok: false, error: "Inbound email requires a verified Mission and queue country" };
+      if (rendered.countryCode && rendered.countryCode !== ctx.event.countryCode)
+        return { ok: false, error: "Inbound email country must match the persisted call queue" };
+    }
+    const toRaw = grouped
+      ? (await (async () => {
+          const target = await resolveAutomationRecipientTarget(rendered);
+          const { users } = await import("@shared/schema");
+          const { inArray } = await import("drizzle-orm");
+          const rows = await db.select({ email: users.email }).from(users).where(inArray(users.id, target.userIds));
+          const emails = [...new Set(rows.map(row => row.email?.trim()).filter((v): v is string => !!v))];
+          if (rows.length !== target.userIds.length || rows.some(row => !row.email?.trim()))
+            throw new Error("Some group/role members have no email address");
+          return emails;
+        })())
+      : rendered.to;
     if (!toRaw) return { ok: false, error: "send_email requires `to`" };
     const recipients: string[] = Array.isArray(toRaw)
       ? toRaw.map((s) => String(s).trim()).filter(Boolean)
@@ -262,7 +417,9 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
     const bodyRaw = String(rendered.body || "");
     const isHtml = /<[a-z][\s\S]*>/i.test(bodyRaw);
     const html = isHtml ? bodyRaw : bodyRaw.replace(/\n/g, "<br/>");
-    const from = rendered.from ? String(rendered.from).trim() : undefined;
+    const from = ctx.event?.source === "schedule"
+      ? undefined
+      : rendered.from ? String(rendered.from).trim() : undefined;
 
     // ----- Resolve attachments (max 5, max 10MB each, max 25MB total) -----
     const MAX_ATT = 5;
@@ -327,10 +484,10 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
     let provider: "ms365" | "sendgrid" | "log" = "log";
 
     // Prefer MS365 system mailbox for the event's country (or `cc` config override)
-    const countryCode: string | undefined =
-      (rendered.countryCode as string) ||
-      ctx.event?.countryCode ||
-      undefined;
+    const countryCode: string | undefined = ctx.event?.source === "schedule"
+      ? ctx.event?.countryCode || undefined
+      : (ctx.event?.module !== "call" ? rendered.countryCode as string : undefined) ||
+        ctx.event?.countryCode || undefined;
     let ms365Conn: any = null;
     if (countryCode) {
       try {
@@ -340,11 +497,19 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
 
     if (ms365Conn?.accessToken) {
       try {
-        const tokenInfo = await getMs365ValidToken(
-          ms365Conn.accessToken,
-          ms365Conn.tokenExpiresAt,
-          ms365Conn.refreshToken,
-        );
+        // Token refresh logs provider response bodies from the shared MS365
+        // helper. Scheduled runs require a currently valid token instead, so
+        // their failures never log vendor response data.
+        if (scheduled && (!ms365Conn.tokenExpiresAt ||
+            new Date(ms365Conn.tokenExpiresAt).getTime() <= Date.now() + 5 * 60 * 1000))
+          return { ok: false, error: "Scheduled email requires a working country mailbox" };
+        const tokenInfo = scheduled
+          ? { accessToken: ms365Conn.accessToken, refreshed: false, refreshToken: undefined, expiresOn: ms365Conn.tokenExpiresAt }
+          : await getMs365ValidToken(
+            ms365Conn.accessToken,
+            ms365Conn.tokenExpiresAt,
+            ms365Conn.refreshToken,
+          );
         if (tokenInfo?.accessToken) {
           // Persist refreshed token for reuse
           if (tokenInfo.refreshed) {
@@ -376,12 +541,14 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
           }
         }
       } catch (err: any) {
+        if (scheduled) return { ok: false, error: "Scheduled email requires a working country mailbox" };
         // Fall through to SendGrid below
         console.warn("[Automation] MS365 send failed, falling back:", err?.message);
       }
     }
 
     if (provider === "log") {
+      if (scheduled) return { ok: false, error: "Scheduled email requires a working country mailbox" };
       provider = process.env.SENDGRID_API_KEY ? "sendgrid" : "log";
       for (const to of recipients) {
         const ok = await sendEmailViaProvider({ to, subject, html, from });
@@ -390,6 +557,10 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
       }
     }
 
+    if (grouped && failed.length > 0) {
+      return { ok: false, error: `Group email delivery incomplete (${failed.length} of ${recipients.length} failed)`,
+        output: { provider, sentCount: sent.length, failedCount: failed.length } };
+    }
     if (sent.length === 0) {
       return { ok: false, error: `send_email failed for all recipients: ${failed.join(", ")}` };
     }
@@ -410,13 +581,13 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
       },
     };
   } catch (err: any) {
-    return { ok: false, error: err?.message || "send_email failed" };
+    return { ok: false, error: ctx.event?.source === "schedule" ? "Scheduled email failed" : err?.message || "send_email failed" };
   }
 }
 
 async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
   try {
-    config = await applyMessageTemplate(config, "sms");
+    config = await applyMessageTemplate(config, "sms", ctx.event?.source === "schedule");
     const rendered = renderTemplate(config, ctx);
     const to: string = String(rendered.to || "").trim();
     const text: string = String(rendered.text || rendered.message || "").trim();
@@ -424,8 +595,9 @@ async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
     if (!text) return { ok: false, error: "send_sms requires `text`" };
 
     const promotional = rendered.kind === "promotional" || rendered.promotional === true;
-    const country: string | undefined =
-      rendered.country || ctx.event?.countryCode || undefined;
+    const country: string | undefined = ctx.event?.source === "schedule"
+      ? ctx.event?.countryCode || undefined
+      : rendered.country || ctx.event?.countryCode || undefined;
     // Mission identity must come from the server-emitted event, never from the
     // editable SMS action config. Campaign-contact events include campaignId in
     // newValues (or oldValues for delete-style events).
@@ -651,9 +823,9 @@ async function actionUpdateEntity(config: any, ctx: any): Promise<ActionResult> 
   }
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  assign_user — auto-assign owner using round-robin / least-loaded / random / specific
- * ============================================================ */
+ * ------------------------------------------------------------ */
 const ASSIGN_RR_CURSOR: Map<string, number> = new Map();
 
 const ASSIGN_TARGET_MAP: Record<string, { method: string; field: string }> = {
@@ -757,9 +929,9 @@ async function actionAssignUser(config: any, ctx: any, runId: string): Promise<A
   }
 }
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  add_tag / remove_tag — manipulate the tags[] column on supported entities
- * ============================================================ */
+ * ------------------------------------------------------------ */
 const TAG_TARGET_MAP: Record<string, { table: string }> = {
   task: { table: "tasks" },
   customer: { table: "customers" },
@@ -821,7 +993,8 @@ async function actionTagMutation(
   }
 }
 
-const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
+// Keep the public action policy in sync with the handlers that can actually run.
+const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
   send_email: actionSendEmail,
@@ -833,56 +1006,375 @@ const ACTION_HANDLERS: Record<string, (cfg: any, ctx: any, runId: string) => Pro
   remove_tag: (cfg, ctx) => actionTagMutation(cfg, ctx, "remove"),
 };
 
-/* ============================================================
+/* ------------------------------------------------------------
  *  Engine
- * ============================================================ */
-async function findMatchingRules(event: WorkflowEvent): Promise<WorkflowRule[]> {
+ * ------------------------------------------------------------ */
+async function findMatchingRules(event: WorkflowEvent, onlyRuleIds?: readonly string[]): Promise<WorkflowRule[]> {
+  if (onlyRuleIds && onlyRuleIds.length === 0) return [];
   const all = await db
     .select()
     .from(workflowRules)
-    .where(and(eq(workflowRules.enabled, true), eq(workflowRules.module, event.module)));
+    .where(and(
+      eq(workflowRules.enabled, true),
+      eq(workflowRules.module, event.module),
+      ...(onlyRuleIds ? [inArray(workflowRules.id, [...onlyRuleIds])] : []),
+    ));
   return all.filter((rule) => {
     const t: any = rule.trigger || {};
     if (t.type === "event") {
       if (t.entityType && t.entityType !== event.entityType) return false;
       if (t.eventType && t.eventType !== event.eventType) return false;
-      if (rule.countryCode && event.countryCode && rule.countryCode !== event.countryCode) return false;
+      // Inbound services must fail closed on unknown queue country. Keep the
+      // legacy matching behavior of unrelated modules unchanged.
+      // A country-scoped rule must not run on an event without a verified country.
+      if (!matchesRuleCountryScope(rule.countryCodes, rule.countryCode, event.countryCode)) return false;
       return true;
     }
     return false;
   });
 }
 
-/** Used by the cron driver in alert-evaluator to fire schedule-triggered rules. */
-export async function runScheduledRule(rule: WorkflowRule): Promise<void> {
-  const syntheticEvent = {
-    id: `schedule-${rule.id}-${Date.now()}`,
-    source: "cron",
+type ScheduledCandidate = { id: string; countryCode: string; newValues: Record<string, unknown> };
+
+function scheduleRuleError(rule: WorkflowRule): string | null {
+  const issues = validateRuleCapabilities(rule);
+  return issues.length ? issues[0].message : null;
+}
+
+const SCHEDULE_SCAN_PAGE_SIZE = 1000;
+const SCHEDULE_MAX_DELIVERIES = 100;
+
+function scheduleRecipients(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(item => String(item).trim()).filter(Boolean);
+  return typeof value === "string" ? value.split(/[,;\s]+/).map(item => item.trim()).filter(Boolean) : [];
+}
+
+function hasUnresolvedTemplate(value: unknown): boolean {
+  if (typeof value === "string") return /\{\{\s*[^{}]+?\s*\}\}/.test(value);
+  if (Array.isArray(value)) return value.some(hasUnresolvedTemplate);
+  return !!value && typeof value === "object" && Object.values(value).some(hasUnresolvedTemplate);
+}
+
+function scheduledEvent(rule: WorkflowRule, candidate?: ScheduledCandidate, countryCode?: string): any {
+  return {
+    id: `schedule-${rule.id}-${candidate?.id || "once"}-${Date.now()}`,
+    source: "schedule",
     module: rule.module,
-    entityType: "schedule",
-    entityId: rule.id,
+    entityType: candidate ? rule.module : "schedule",
+    entityId: candidate?.id ?? null,
     eventType: "schedule.tick",
     oldValues: null,
-    newValues: { firedAt: new Date().toISOString(), trigger: rule.trigger },
+    newValues: candidate?.newValues || {},
     changedFields: null,
     actorUserId: null,
-    countryCode: rule.countryCode,
+    countryCode: candidate?.countryCode || countryCode || null,
     causationRunId: null,
     createdAt: new Date(),
-  } as any;
+  };
+}
+
+/**
+ * Resolve all recipient fanout before any action runs. Unknown/template-derived
+ * fanout is rejected rather than allowing a partially delivered batch.
+ */
+async function countScheduledDeliveries(rule: WorkflowRule, candidates: ScheduledCandidate[], onceCountry?: string): Promise<number> {
+  let total = 0;
+  for (const candidate of candidates) {
+    const event = scheduledEvent(rule, candidate, onceCountry);
+    const ctx = {
+      event,
+      newValues: event.newValues || {},
+      oldValues: {},
+      entityId: event.entityId,
+      countryCode: event.countryCode,
+      actorUserId: null,
+    };
+    for (const action of (rule.actions as any[]) || []) {
+      if (!["send_email", "send_sms"].includes(action?.type)) continue;
+      const rendered = renderTemplate(action.config || {}, ctx);
+      if (action.type === "send_sms") {
+        const recipients = scheduleRecipients(rendered.to);
+        if (recipients.length !== 1 || hasUnresolvedTemplate(recipients))
+          throw new Error("Scheduled SMS recipient fanout cannot be safely determined");
+        total++;
+      } else {
+        const grouped = rendered.taskGroupId || rendered.targetRole;
+        let recipients: string[];
+        if (grouped) {
+          if (rendered.to) throw new Error("Scheduled email has conflicting recipients");
+          const target = await resolveAutomationRecipientTarget(rendered);
+          const rows = target.userIds.length
+            ? await db.select({ email: users.email }).from(users).where(inArray(users.id, target.userIds))
+            : [];
+          if (rows.length !== target.userIds.length || rows.some(row => !row.email?.trim()))
+            throw new Error("Scheduled email group membership cannot be safely resolved");
+          recipients = [...new Set(rows.map(row => row.email!.trim()))];
+        } else {
+          recipients = scheduleRecipients(rendered.to);
+          if (!recipients.length || hasUnresolvedTemplate(recipients))
+            throw new Error("Scheduled email recipient fanout cannot be safely determined");
+        }
+        if (!recipients.length) throw new Error("Scheduled email has no recipients");
+        const cc = scheduleRecipients(rendered.cc);
+        const bcc = scheduleRecipients(rendered.bcc);
+        if (hasUnresolvedTemplate(cc) || hasUnresolvedTemplate(bcc))
+          throw new Error("Scheduled email recipient fanout cannot be safely determined");
+        total += recipients.length * (1 + cc.length + bcc.length);
+      }
+      if (total > SCHEDULE_MAX_DELIVERIES)
+        throw new Error(`Scheduled external deliveries exceed the ${SCHEDULE_MAX_DELIVERIES} delivery safety limit; no actions were run`);
+    }
+  }
+  return total;
+}
+
+async function fetchScheduleRecords(module: string, offset: number): Promise<Array<{ id: string; countryCode: string | null; values: Record<string, unknown> }>> {
+  // These projections deliberately enumerate only persisted, non-identity
+  // fields. The limit is a hard scan bound: never execute against a partial
+  // table scan when the bound is exceeded.
+  if (module === "customer") {
+    const rows = await db.select({
+      id: customers.id, country: customers.country, status: customers.status,
+      clientStatus: customers.clientStatus, leadScore: customers.leadScore, leadStatus: customers.leadStatus,
+      registrationSource: customers.registrationSource,
+      registrationDate: customers.registrationDate, createdAt: customers.createdAt,
+    }).from(customers).orderBy(customers.id).limit(SCHEDULE_SCAN_PAGE_SIZE).offset(offset);
+    return rows.map(({ id, country, ...values }) => ({ id, countryCode: country, values }));
+  }
+  if (module === "task") {
+    const rows = await db.select({
+      id: tasks.id, country: tasks.country, status: tasks.status, priority: tasks.priority,
+      dueDate: tasks.dueDate, boState: tasks.boState, createdAt: tasks.createdAt, updatedAt: tasks.updatedAt,
+    }).from(tasks).orderBy(tasks.id).limit(SCHEDULE_SCAN_PAGE_SIZE).offset(offset);
+    return rows.map(({ id, country, ...values }) => ({ id, countryCode: country, values }));
+  }
+  if (module === "hospital") {
+    const rows = await db.select({
+      id: hospitals.id, countryCode: hospitals.countryCode, isActive: hospitals.isActive,
+      region: hospitals.region, district: hospitals.district, autoRecruiting: hospitals.autoRecruiting,
+      svetZdravia: hospitals.svetZdravia,
+    }).from(hospitals).orderBy(hospitals.id).limit(SCHEDULE_SCAN_PAGE_SIZE).offset(offset);
+    return rows.map(({ id, countryCode, ...values }) => ({ id, countryCode, values }));
+  }
+  if (module === "clinic") {
+    const rows = await db.select({
+      id: clinics.id, countryCode: clinics.countryCode, isActive: clinics.isActive,
+      contractStatus: clinics.contractStatus, leadSource: clinics.leadSource,
+      leadSourceDate: clinics.leadSourceDate, conferenceDate: clinics.conferenceDate,
+      isReferredByDoctor: clinics.isReferredByDoctor, isFromConference: clinics.isFromConference,
+      initialStatus: clinics.initialStatus, interestCooperation: clinics.interestCooperation,
+      interestContract: clinics.interestContract, hasFlyers: clinics.hasFlyers,
+      flyersSentDate: clinics.flyersSentDate,
+    }).from(clinics).orderBy(clinics.id).limit(SCHEDULE_SCAN_PAGE_SIZE).offset(offset);
+    return rows.map(({ id, countryCode, ...values }) => ({ id, countryCode, values }));
+  }
+  throw new Error(`No verified schedule record source for module: ${module}`);
+}
+
+/**
+ * The shared, bounded matcher used by runtime execution and schedule-preview.
+ * It scans every candidate up to a hard row ceiling before reporting matches;
+ * if that ceiling is crossed, callers fail closed rather than acting on a
+ * potentially incomplete result.
+ */
+export async function scanScheduledRule(rule: WorkflowRule): Promise<{
+  candidates: ScheduledCandidate[];
+  matchedCount: number;
+  overLimit: boolean;
+  maxMatches: number;
+}> {
+  const invalid = scheduleRuleError(rule);
+  if (invalid) throw new Error(invalid);
+  const trigger = rule.trigger as any;
+  const mode = trigger?.mode ?? "once";
+  if (mode === "once") {
+    return { candidates: [], matchedCount: 1, overLimit: false, maxMatches: SCHEDULE_MAX_MATCHES };
+  }
+  if (mode !== "per_record" || !SCHEDULE_RECORD_MODULES.includes(rule.module as any))
+    throw new Error("No verified schedule record source for module");
+
+  const candidates: ScheduledCandidate[] = [];
+  let matchedCount = 0;
+  const countryCodes = new Set<string>(COUNTRIES.map(country => country.code));
+  const allowedFields = fieldsForEvent(rule.module, "schedule.tick");
+  for (let offset = 0; offset <= SCHEDULE_MAX_SCAN_ROWS; offset += SCHEDULE_SCAN_PAGE_SIZE) {
+    const records = await fetchScheduleRecords(rule.module, offset);
+    if (offset + records.length > SCHEDULE_MAX_SCAN_ROWS)
+      throw new Error(`Schedule scan exceeds the ${SCHEDULE_MAX_SCAN_ROWS} record safety limit`);
+    for (const record of records) {
+      const countryCode = typeof record.countryCode === "string" ? record.countryCode.toUpperCase() : "";
+      // Schedule runs always require an unambiguous persisted operating country,
+      // including globally scoped rules.
+      if (!countryCodes.has(countryCode) || !matchesRuleCountryScope(
+        rule.countryCodes, rule.countryCode, countryCode,
+      )) continue;
+      const newValues: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        const key = field.value.replace(/^newValues\./, "");
+        if (key === "country" || key === "countryCode") newValues[key] = countryCode;
+        else if (Object.hasOwn(record.values, key)) newValues[key] = record.values[key];
+      }
+      const event = {
+        id: `schedule-preview-${rule.id}-${record.id}`,
+        source: "schedule",
+        module: rule.module,
+        entityType: rule.module,
+        entityId: record.id,
+        eventType: "schedule.tick",
+        oldValues: null,
+        newValues,
+        changedFields: null,
+        actorUserId: null,
+        countryCode,
+        causationRunId: null,
+        createdAt: new Date(),
+      } as any;
+      const ctx = { event, newValues, oldValues: {}, entityId: record.id, countryCode, actorUserId: null };
+      if (!evalCondition(rule.conditions as any, ctx)) continue;
+      matchedCount++;
+      if (candidates.length < SCHEDULE_MAX_MATCHES + 1)
+        candidates.push({ id: record.id, countryCode, newValues });
+    }
+    if (records.length < SCHEDULE_SCAN_PAGE_SIZE) break;
+  }
+  return {
+    candidates,
+    matchedCount: Math.min(matchedCount, SCHEDULE_MAX_MATCHES),
+    overLimit: matchedCount > SCHEDULE_MAX_MATCHES,
+    maxMatches: SCHEDULE_MAX_MATCHES,
+  };
+}
+
+function oneShotCountry(rule: WorkflowRule): string | null {
+  const selected = rule.countryCodes != null
+    ? rule.countryCodes
+    : rule.countryCode ? [rule.countryCode] : [];
+  return selected.length === 1 ? selected[0] : null;
+}
+
+/** Used by the cron driver after the durable interval claim has been acquired. */
+export async function runScheduledRule(rule: WorkflowRule): Promise<void> {
   try {
-    await runRule(rule, syntheticEvent, []);
+    const [current] = await db.select().from(workflowRules).where(eq(workflowRules.id, rule.id));
+    if (!current?.enabled || (current.trigger as any)?.type !== "schedule" ||
+        !(await scheduleRuleVersionMatches(rule, current.updatedAt))) return;
+    rule = Object.assign(current, { _scheduleVersion: (rule as any)._scheduleVersion });
+    const mode = ((rule.trigger as any)?.mode ?? "once") as string;
+    const scan = await scanScheduledRule(rule);
+    if (scan.overLimit) throw new Error(`Schedule has more than ${SCHEDULE_MAX_MATCHES} matches; no actions were run`);
+    if (mode === "once") {
+      const countryCode = oneShotCountry(rule);
+      const providerAction = ((rule.actions as any[]) || []).some(action =>
+        ["send_email", "send_sms"].includes(action?.type));
+      if (providerAction && !countryCode)
+        throw new Error("One-shot email/SMS schedules require exactly one selected country");
+      await countScheduledDeliveries(rule, [{ id: "", countryCode: countryCode || "", newValues: {} }], countryCode || undefined);
+      const [beforeRun] = await db.select().from(workflowRules).where(eq(workflowRules.id, rule.id));
+      if (!beforeRun?.enabled || !(await scheduleRuleVersionMatches(rule, beforeRun.updatedAt))) return;
+      const event = scheduledEvent(rule, undefined, countryCode || undefined);
+      await runRule(rule, event, []);
+      return;
+    }
+    await countScheduledDeliveries(rule, scan.candidates);
+    // scanScheduledRule completed the entire bounded scan before this loop.
+    for (const candidate of scan.candidates) {
+      const [latest] = await db.select().from(workflowRules).where(eq(workflowRules.id, rule.id));
+      if (!latest?.enabled || (latest.trigger as any)?.type !== "schedule" ||
+          !(await scheduleRuleVersionMatches(rule, latest.updatedAt))) break;
+      const event = scheduledEvent(rule, candidate);
+      await runRule(rule, event, []);
+    }
   } catch (err) {
-    console.error(`[Automation] runScheduledRule error rule=${rule.id}:`, err);
+    console.error(`[Automation] Scheduled rule execution failed rule=${rule.id}`);
+    // A claimed interval is deliberately not retried after an ambiguous
+    // failure. Surface the failure in run history without storing recipients,
+    // record values, or vendor error text.
+    await db.insert(workflowRuns).values({
+      ruleId: rule.id,
+      status: "failed",
+      error: "Scheduled execution did not complete. Check the rule preview, recipient limit, and country mailbox.",
+      payload: { source: "schedule", interval: (rule.trigger as any)?.interval },
+      finishedAt: new Date(),
+    }).catch(() => console.error(`[Automation] Could not record scheduled failure rule=${rule.id}`));
   }
 }
 
 export async function getEnabledScheduleRules(): Promise<WorkflowRule[]> {
   const all = await db.select().from(workflowRules).where(eq(workflowRules.enabled, true));
-  return all.filter((r) => {
+  const schedules = all.filter((r) => {
     const t: any = r.trigger || {};
     return t.type === "schedule";
   });
+  return Promise.all(schedules.map(async rule => Object.assign(rule, {
+    _scheduleVersion: await getExactScheduleVersion(rule.id),
+  })));
+}
+
+async function getExactScheduleVersion(id: string): Promise<string | null> {
+  const [row] = await db.select({
+    version: sql<string>`to_char(${workflowRules.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.US')`,
+  }).from(workflowRules).where(eq(workflowRules.id, id));
+  return row?.version || null;
+}
+
+async function scheduleRuleVersionMatches(rule: WorkflowRule, updatedAt: Date): Promise<boolean> {
+  const expected = (rule as any)._scheduleVersion as string | undefined;
+  if (expected) return expected === await getExactScheduleVersion(rule.id);
+  // Compatibility for direct callers/tests that pass a rule without the
+  // precision-preserving version fetched by getEnabledScheduleRules().
+  return new Date(updatedAt).getTime() === new Date(rule.updatedAt).getTime();
+}
+
+/**
+ * Durably claim one due schedule interval. The first observation (including
+ * after a restart) only establishes next_due_at; a later tick can claim it.
+ * The claim advances the due time atomically before side effects start, so a
+ * crashed/ambiguous execution is not automatically retried.
+ */
+export async function claimScheduledRuleDue(rule: WorkflowRule, intervalMs: number): Promise<boolean> {
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) return false;
+  const interval = String((rule.trigger as any)?.interval ?? "");
+  const scheduleVersion = (rule as any)._scheduleVersion as string | undefined;
+  const versionPredicate = scheduleVersion
+    ? sql`to_char(${workflowRules.updatedAt} AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.US') = ${scheduleVersion}`
+    : sql`date_trunc('milliseconds', ${workflowRules.updatedAt}) = date_trunc('milliseconds', ${rule.updatedAt}::timestamptz)`;
+
+  // Initialize on first observation, interval edits, and re-enable. Use the
+  // database clock so workers with skewed host clocks agree on due-ness.
+  await db
+    .update(workflowRules)
+    .set({
+      scheduleInterval: interval,
+      scheduleNextDueAt: sql`clock_timestamp() + (${intervalMs} * interval '1 millisecond')`,
+    })
+    .where(sql`
+      ${workflowRules.id} = ${rule.id}
+      AND ${workflowRules.enabled} = true
+      AND ${workflowRules.trigger}->>'type' = 'schedule'
+      AND ${workflowRules.trigger}->>'interval' = ${interval}
+      AND ${versionPredicate}
+      AND (
+        ${workflowRules.scheduleInterval} IS DISTINCT FROM ${interval}
+        OR ${workflowRules.scheduleNextDueAt} IS NULL
+      )
+    `);
+
+  const claimed = await db
+    .update(workflowRules)
+    .set({
+      scheduleNextDueAt: sql`clock_timestamp() + (${intervalMs} * interval '1 millisecond')`,
+    })
+    .where(sql`
+      ${workflowRules.id} = ${rule.id}
+      AND ${workflowRules.enabled} = true
+      AND ${workflowRules.trigger}->>'type' = 'schedule'
+      AND ${workflowRules.trigger}->>'interval' = ${interval}
+      AND ${versionPredicate}
+      AND ${workflowRules.scheduleInterval} = ${interval}
+      AND ${workflowRules.scheduleNextDueAt} <= clock_timestamp()
+    `)
+    .returning({ id: workflowRules.id });
+  return claimed.length > 0;
 }
 
 async function rateLimitOk(rule: WorkflowRule): Promise<boolean> {
@@ -895,11 +1387,12 @@ async function rateLimitOk(rule: WorkflowRule): Promise<boolean> {
   return rows.length < rule.rateLimitPerHour;
 }
 
-async function runRule(
+export async function runRule(
   rule: WorkflowRule,
   event: WorkflowEvent,
   causationChain: string[]
 ): Promise<void> {
+  const scheduled = event.source === "schedule";
   const ctx = {
     event,
     newValues: event.newValues || {},
@@ -910,13 +1403,14 @@ async function runRule(
   };
 
   // Skip if conditions not met
-  if (!evalCondition(rule.conditions as any, ctx)) {
+  if (!permitsSentimentSource(rule.conditions, event) || !evalCondition(rule.conditions as any, ctx)) {
     await db.insert(workflowRuns).values({
       ruleId: rule.id,
       eventId: event.id,
       status: "skipped",
       skippedReason: "condition_false",
-      payload: ctx,
+      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
+        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
       causationChain,
       finishedAt: new Date(),
     });
@@ -930,7 +1424,8 @@ async function runRule(
       eventId: event.id,
       status: "skipped",
       skippedReason: "loop_guard",
-      payload: ctx,
+      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
+        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
       causationChain,
       finishedAt: new Date(),
     });
@@ -944,7 +1439,8 @@ async function runRule(
       eventId: event.id,
       status: "skipped",
       skippedReason: "rate_limit",
-      payload: ctx,
+      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
+        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
       causationChain,
       finishedAt: new Date(),
     });
@@ -953,7 +1449,12 @@ async function runRule(
 
   const [run] = await db
     .insert(workflowRuns)
-    .values({ ruleId: rule.id, eventId: event.id, status: "running", payload: ctx, causationChain })
+    .values({
+      ruleId: rule.id, eventId: scheduled ? null : event.id, status: "running",
+      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
+        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
+      causationChain,
+    })
     .returning();
   if (!run) return;
 
@@ -979,24 +1480,28 @@ async function runRule(
     }
     try {
       const r = await handler(action.config || {}, ctx, run.id);
-      results.push({ index: i, type: action.type, ...r });
+      results.push(scheduled
+        ? { index: i, type: action.type, ok: r.ok }
+        : { index: i, type: action.type, ...r });
       await db.insert(workflowActionLog).values({
         runId: run.id,
         actionIndex: i,
         actionType: action.type,
         status: r.ok ? "success" : "failed",
-        output: r.output ?? null,
-        error: r.error ?? null,
+        output: scheduled ? null : r.output ?? null,
+        error: scheduled ? (r.ok ? null : "Scheduled action failed") : r.error ?? null,
       });
       if (!r.ok) overallOk = false;
     } catch (err: any) {
-      results.push({ index: i, type: action.type, ok: false, error: err?.message });
+      results.push(scheduled
+        ? { index: i, type: action.type, ok: false, error: "Scheduled action failed" }
+        : { index: i, type: action.type, ok: false, error: err?.message });
       await db.insert(workflowActionLog).values({
         runId: run.id,
         actionIndex: i,
         actionType: action.type,
         status: "failed",
-        error: err?.message || "Handler threw",
+        error: scheduled ? "Scheduled action failed" : err?.message || "Handler threw",
       });
       overallOk = false;
     }
@@ -1019,7 +1524,11 @@ async function runRule(
       if ((rule as any).consecutiveErrorCount && (rule as any).consecutiveErrorCount > 0) {
         await db
           .update(workflowRules)
-          .set({ consecutiveErrorCount: 0, lastErrorMessage: null, updatedAt: new Date() })
+          .set({
+            consecutiveErrorCount: 0,
+            lastErrorMessage: null,
+            ...(scheduled ? {} : { updatedAt: new Date() }),
+          })
           .where(eq(workflowRules.id, rule.id));
       }
     } else {
@@ -1036,7 +1545,7 @@ async function runRule(
           consecutiveErrorCount: sql`${workflowRules.consecutiveErrorCount} + 1`,
           lastErrorAt: new Date(),
           lastErrorMessage: truncated,
-          updatedAt: new Date(),
+          ...(scheduled ? {} : { updatedAt: new Date() }),
         })
         .where(eq(workflowRules.id, rule.id))
         .returning({
@@ -1056,6 +1565,7 @@ async function runRule(
           .set({
             enabled: false,
             disabledReason: `Auto-disabled po ${updated.newCount} po sebe idúcich chybách. Posledná: ${String(firstError).slice(0, 200)}`,
+            scheduleNextDueAt: null,
             updatedAt: new Date(),
           })
           .where(and(eq(workflowRules.id, rule.id), eq(workflowRules.enabled, true)));
@@ -1069,10 +1579,11 @@ async function runRule(
   }
 }
 
-export async function processEvent(eventId: string): Promise<void> {
+export async function processEvent(eventId: string, onlyRuleIds?: readonly string[]): Promise<void> {
   const [event] = await db.select().from(workflowEvents).where(eq(workflowEvents.id, eventId));
   if (!event) return;
-  const rules = await findMatchingRules(event);
+  if (event.source === "status-list" || event.module === "status_list") return;
+  const rules = await findMatchingRules(event, onlyRuleIds);
   if (!rules.length) return;
   const baseChain = event.causationRunId ? [event.causationRunId] : [];
   for (const rule of rules) {

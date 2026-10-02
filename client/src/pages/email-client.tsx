@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { useTaskSettingsAccess } from "@/hooks/use-task-settings-access";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,22 @@ import { format, startOfMonth, endOfMonth, subMonths, startOfQuarter, endOfQuart
 import { Link, useSearch, useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
 import "@/components/nexus/nexus-signal-tasks.css";
+import "@/components/email-html-body.css";
+import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
+import { TaskQueueControls } from "@/components/tasks/task-queue-controls";
+import { TaskAttachmentList, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
+import { TaskCommentsDialog } from "@/components/tasks/task-comments-dialog";
+import { TaskCancelConfirmationDialog } from "@/components/tasks/task-cancel-confirmation-dialog";
+import { TaskResolutionDialog } from "@/components/tasks/task-resolution-dialog";
+import { TaskReassignDialog } from "@/components/tasks/task-reassign-dialog";
+import type { TaskReassignPayload } from "@/components/tasks/task-reassign-dialog.helpers";
+import { invalidateTaskReassignment } from "@/components/tasks/task-reassign-cache";
+import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
+import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import { TaskDetailFullscreen } from "@/components/tasks/task-detail-fullscreen";
+import { TaskTimingStatus } from "@/components/tasks/task-timing";
+import type { TaskAttachment } from "@shared/task-attachments";
+import { chooseTaskGroupForSave, clampTaskPage, filterTasksByDate, getFreshTaskById, getTaskGroupId, isPulseNotificationTask, matchesTaskPeopleAndSearch, requiresPulseResolutionForCompletion, sortTasks, type DateRange, type TaskDateBasis, type TaskDatePreset, type TaskSortField } from "@/lib/task-query-controls";
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +138,7 @@ import {
   Globe,
   AtSign,
   HardDrive,
+  Building2,
   FolderOpen,
   FolderPlus,
   FolderInput,
@@ -165,6 +183,9 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import EmailEditor, { EmailRecipientInput } from "@/components/nexus/email-editor";
 
 import NexusSidebar, { getAccountIcons, AccountIcon, type AccountIconConfig } from "@/components/nexus/nexus-sidebar";
+import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-drawer";
+import { taskDisplayText } from "@/lib/task-display";
+import { TaskRequestBrief } from "@/components/tasks/task-request-brief";
 import type {
   Mailbox,
   MailFolder,
@@ -2996,6 +3017,7 @@ export default function EmailClientPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedEmail, setSelectedEmail] = useState<EmailMessage | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskEntity, setSelectedTaskEntity] = useState<EntityRef | null>(null);
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
   const [smsReplyText, setSmsReplyText] = useState("");
@@ -3037,6 +3059,14 @@ export default function EmailClientPage() {
 
   const [smsFilter, setSmsFilter] = useState<SmsFilter>("all");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
+  const [taskSubTab, setTaskSubTab] = useState<string>("my");
+  const [taskDeepLinkId, setTaskDeepLinkId] = useState<string | null>(null);
+  const [taskMobileDetailOpen, setTaskMobileDetailOpen] = useState(false);
+  const [taskDetailFullscreen, setTaskDetailFullscreen] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "tasks" || !selectedTask) setTaskDetailFullscreen(false);
+  }, [activeTab, selectedTask?.id]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -3193,15 +3223,17 @@ export default function EmailClientPage() {
   const [searchPanelExpanded, setSearchPanelExpanded] = useState(false);
   const [listPanelExpanded, setListPanelExpanded] = useState(false);
   const [nexusFullscreen, setNexusFullscreen] = useState(false);
-  const [taskQueueSearch, setTaskQueueSearch] = useState("");
-  const [taskMobileDetailOpen, setTaskMobileDetailOpen] = useState(false);
   const [localPage, setLocalPage] = useState(0);
+  const [taskQueueSearch, setTaskQueueSearch] = useState("");
+  const [taskDatePreset, setTaskDatePreset] = useState<TaskDatePreset>("all");
+  const [taskDateBasis, setTaskDateBasis] = useState<TaskDateBasis>("created");
+  const [taskDateRange, setTaskDateRange] = useState<DateRange>({ from: "", to: "" });
+  const [taskSortField, setTaskSortField] = useState<TaskSortField>("created");
+  const [taskSortDirection, setTaskSortDirection] = useState<"asc" | "desc">("desc");
+  const [taskCreatorFilter, setTaskCreatorFilter] = useState("");
+  const [taskResolverFilter, setTaskResolverFilter] = useState("");
+  const taskQueueHasFilters = Boolean(taskQueueSearch || taskDatePreset !== "all" || taskCreatorFilter || taskResolverFilter || taskSortField !== "created" || taskSortDirection !== "desc");
   const localPageSize = 25;
-  const handleTaskFilterChange = (filter: TaskFilter) => {
-    setTaskFilter(filter);
-    setTaskMobileDetailOpen(false);
-    setLocalPage(0);
-  };
 
   const [isSidebarHidden, setIsSidebarHidden] = useState(() => {
     const saved = localStorage.getItem("nexus-sidebar-hidden");
@@ -3232,7 +3264,8 @@ export default function EmailClientPage() {
   const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
 
   const searchString = useSearch();
-  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+  const [, navigateOmni] = useLocation();
+  const processedSearchRef = useRef<string | null>(null);
 
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<{ connected: boolean; folders: MailFolder[]; inboxId?: string | null }>({
     queryKey: ["/api/users", user?.id, "ms365-folders", effectiveMailbox],
@@ -3348,16 +3381,45 @@ export default function EmailClientPage() {
     }
   }, [messagesData, page]);
 
-  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<Task[]>({
+  const { data: tasksData, isLoading: tasksLoading, isError: tasksError, refetch: refetchTasks } = useQuery<Task[]>({
     queryKey: ["/api/tasks"],
     enabled: !!user?.id,
   });
+
+  const { data: taskPeople = [] } = useQuery<Array<{ id: string; fullName: string; username: string; avatarUrl?: string }>>({
+    queryKey: ["/api/tasks/people", user?.id],
+    queryFn: () => apiRequest("GET", "/api/tasks/people").then(response => response.json()),
+    enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
+    select: data => Array.isArray(data) ? data : [],
+  });
+  useEffect(() => {
+    if (!user?.id || !tasksData) return;
+    void queryClient.invalidateQueries({ queryKey: ["/api/tasks/people", user.id] });
+  }, [tasksData, user?.id]);
+  const { canManage: canManageTaskSettings, isPending: taskSettingsAccessPending } = useTaskSettingsAccess();
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    if (params.get("taskSettings") === "1") {
+      if (taskSettingsAccessPending) return;
+      setActiveTab("tasks");
+      setTaskGroupsDialogOpen(canManageTaskSettings);
+      params.delete("taskSettings");
+      const remainingQuery = params.toString();
+      navigateOmni(`/email${remainingQuery ? `?${remainingQuery}` : ""}`, { replace: true });
+    }
+  }, [searchString, navigateOmni, taskSettingsAccessPending, canManageTaskSettings]);
 
   const { data: taskGroupsData } = useQuery<any[]>({
     queryKey: ["/api/task-groups"],
     enabled: !!user?.id,
   });
   const taskGroupsList = taskGroupsData || [];
+  const { data: taskAssignmentOptions, isLoading: taskAssignmentOptionsLoading, isError: taskAssignmentOptionsFailed, refetch: retryTaskAssignmentOptions } = useTaskAssignmentOptions();
+  const eligibleTaskAssignees = taskAssignmentOptions?.users || [];
+  const eligibleTaskGroups = taskAssignmentOptions?.groups || [];
+  const canResolveTasks = !taskAssignmentOptionsLoading && !taskAssignmentOptionsFailed && taskAssignmentOptions?.canResolve === true;
 
   const { data: allSystemUsers = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
@@ -3372,6 +3434,50 @@ export default function EmailClientPage() {
   const { data: allCustomers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
     enabled: !!user?.id,
+  });
+
+  const {
+    data: taskSourceEntity,
+    isLoading: taskSourceLoading,
+    isError: taskSourceError,
+    refetch: refetchTaskSource,
+  } = useQuery<EntityRef | null>({
+    queryKey: ["/api/tasks", selectedTask?.id, "source-entity"],
+    enabled: !!user?.id && !!selectedTask?.id && activeTab === "tasks",
+  });
+  const taskEntityRef = taskSourceEntity;
+  const selectedRelatedEntityType = taskEntityRef?.type || "";
+  const selectedRelatedEntityId = taskEntityRef?.id || "";
+  const { data: selectedCustomerLookup } = useQuery<any>({
+    queryKey: ["/api/customers", selectedRelatedEntityId],
+    enabled: !!user?.id && !!selectedRelatedEntityId && selectedRelatedEntityType === "customer",
+  });
+  const { data: selectedClinicLookup = [] } = useQuery<any[]>({
+    queryKey: ["/api/clinics/lookup", "omni-task", selectedRelatedEntityId],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinics/lookup?id=${encodeURIComponent(selectedRelatedEntityId)}&limit=1`,
+        { credentials: "include" },
+      );
+      if (!response.ok) throw new Error("Failed to load linked clinic");
+      return response.json();
+    },
+    enabled: !!user?.id && selectedRelatedEntityType === "clinic" && !!selectedRelatedEntityId,
+  });
+  const { data: selectedHospitalLookup } = useQuery<any>({
+    queryKey: ["/api/hospitals", "omni-task", selectedRelatedEntityId],
+    queryFn: async () => {
+      const response = await fetch(`/api/hospitals/${encodeURIComponent(selectedRelatedEntityId)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to load linked hospital");
+      return response.json();
+    },
+    enabled: !!user?.id && selectedRelatedEntityType === "hospital" && !!selectedRelatedEntityId,
+  });
+  const { data: selectedCollaboratorLookup } = useQuery<any>({
+    queryKey: ["/api/collaborators", selectedRelatedEntityId],
+    enabled: !!user?.id && selectedRelatedEntityType === "collaborator" && !!selectedRelatedEntityId,
   });
 
   const { data: chatsData, isLoading: chatsLoading, refetch: refetchChats } = useQuery<ChatConversation[]>({
@@ -3569,8 +3675,12 @@ export default function EmailClientPage() {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
   useEffect(() => {
-    if (urlParamsProcessed) return;
-    if (!searchString) return;
+    if (!searchString) {
+      processedSearchRef.current = null;
+      return;
+    }
+    if (processedSearchRef.current === searchString) return;
+    processedSearchRef.current = searchString;
     const params = new URLSearchParams(searchString);
     const composeTo = params.get("compose");
     const contactSearch = params.get("contactSearch");
@@ -3581,8 +3691,21 @@ export default function EmailClientPage() {
       if (roomParam) {
         setTrainingRoomId(roomParam);
       }
-      setUrlParamsProcessed(true);
-      window.history.replaceState({}, "", "/email");
+      navigateOmni("/email", { replace: true });
+      return;
+    }
+    if (tabParam === "tasks" || params.has("task")) {
+      setActiveTab("tasks");
+      const requestedFilter = params.get("filter");
+      if (requestedFilter === "all" || requestedFilter === "open" || requestedFilter === "pending" || requestedFilter === "in_progress" ||
+        requestedFilter === "completed" || requestedFilter === "cancelled") {
+        setTaskFilter(requestedFilter);
+      }
+      const requestedView = params.get("view");
+      if (requestedView && requestedView.length <= 100) setTaskSubTab(requestedView);
+      const requestedTaskId = params.get("task");
+      if (requestedTaskId) setTaskDeepLinkId(requestedTaskId);
+      navigateOmni("/email", { replace: true });
       return;
     }
     if (composeTo) {
@@ -3602,9 +3725,8 @@ export default function EmailClientPage() {
       setSearchMailbox("all");
       setSelectedEmail(null);
     }
-    setUrlParamsProcessed(true);
-    window.history.replaceState({}, "", "/email");
-  }, [searchString, urlParamsProcessed, effectiveMailbox]);
+    navigateOmni("/email", { replace: true });
+  }, [searchString, effectiveMailbox, navigateOmni]);
 
   const { data: saveNexusNpSettings } = useQuery<any>({
     queryKey: ["/api/users", user?.id, "nexuspoint-settings"],
@@ -3883,34 +4005,42 @@ export default function EmailClientPage() {
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
   const smsInboundUnread = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
-  const pendingTasks = tasksData?.filter(t => t.status === "pending")?.length || 0;
   const unreadChats = chatsData?.reduce((acc, c) => acc + (c.unreadCount || 0), 0) || 0;
-
   const filteredSms = (smsData || []).filter(sms => {
     if (smsFilter === "inbound") return sms.direction === "inbound";
     if (smsFilter === "outbound") return sms.direction === "outbound";
     return true;
   });
 
-  const [taskSubTab, setTaskSubTab] = useState<string>("my");
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
   const backOfficeGroupIds = taskGroupsList.filter((g: any) => g.isBackOffice).map((g: any) => g.id);
 
-  const filteredTasks = (tasksData || []).filter(task => {
-    const matchesStatus = taskFilter === "all" || task.status === taskFilter;
+  const taskScopeTasks = (tasksData || []).filter(task => {
     let matchesTab = true;
     if (taskSubTab === "my") matchesTab = task.assignedUserId === user?.id;
     else if (taskSubTab === "all") matchesTab = true;
     else if (taskSubTab === "back_office") matchesTab = backOfficeGroupIds.some(gid => (task.tags || []).some((tag: string) => tag === `group_id:${gid}`));
     else matchesTab = (task.tags || []).some((tag: string) => tag === `group_id:${taskSubTab}`);
-    return matchesStatus && matchesTab;
+    return matchesTab;
   });
+  const pendingTasks = taskScopeTasks.filter(task => task.status === "pending" || task.status === "in_progress").length;
+  const matchesTaskStatus = (task: Task, filter: TaskFilter) => filter === "all" ||
+    (filter === "open" ? task.status === "pending" || task.status === "in_progress" : task.status === filter);
+  const filteredTasks = taskScopeTasks.filter(task => matchesTaskStatus(task, taskFilter));
   const normalizedTaskSearch = taskQueueSearch.trim().toLocaleLowerCase();
-  const visibleTasks = normalizedTaskSearch
-    ? filteredTasks.filter(task =>
-        `${task.title || ""} ${task.description || ""}`.toLocaleLowerCase().includes(normalizedTaskSearch))
-    : filteredTasks;
+  const searchablePeople = Array.from(new Map([...taskPeople, ...allSystemUsers].map((person: any) => [person.id, person])).values());
+  const visibleTasks = sortTasks(filterTasksByDate(filteredTasks.filter(task => matchesTaskPeopleAndSearch(task, {
+    creatorId: taskCreatorFilter,
+    resolverId: taskResolverFilter,
+    query: normalizedTaskSearch,
+    people: searchablePeople,
+    formatText: value => taskDisplayText(String(value || "")),
+  })), { preset: taskDatePreset, basis: taskDateBasis, range: taskDateRange }), taskSortField, taskSortDirection);
+  const taskCountForScope = (scope: Task[]) =>
+    scope.filter(task => matchesTaskStatus(task, taskFilter)).length;
+  const myTaskCount = taskCountForScope((tasksData || []).filter(task => task.assignedUserId === user?.id));
+  const allTaskCount = taskCountForScope(tasksData || []);
 
   const currentFolderName = (() => {
     const folder = folders.find(f => f.id === selectedFolderId);
@@ -3983,11 +4113,21 @@ export default function EmailClientPage() {
 
   const tasksPage = visibleTasks.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalTaskPages = Math.ceil(visibleTasks.length / localPageSize);
+  useEffect(() => {
+    setLocalPage(page => clampTaskPage(page, totalTaskPages, activeTab));
+  }, [activeTab, totalTaskPages]);
 
   useEffect(() => {
-    setLocalPage(0);
-    setTaskMobileDetailOpen(false);
-  }, [activeTab, selectedFolderId, smsFilter, taskFilter]);
+    if (activeTab === "email") setLocalPage(0);
+  }, [activeTab, selectedFolderId]);
+
+  useEffect(() => {
+    if (activeTab === "sms") setLocalPage(0);
+  }, [activeTab, smsFilter]);
+
+  useEffect(() => {
+    if (activeTab === "tasks") setLocalPage(0);
+  }, [activeTab, taskFilter, taskSubTab, taskQueueSearch, taskDatePreset, taskDateBasis, taskDateRange, taskSortField, taskSortDirection, taskCreatorFilter, taskResolverFilter]);
 
   useEffect(() => {
     setSelectedEmail(null);
@@ -3995,7 +4135,46 @@ export default function EmailClientPage() {
     _setSelectedChat(null);
     setSelectedChatId(null);
     setSelectedSms(null);
+    setSelectedTaskEntity(null);
+    setTaskMobileDetailOpen(false);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!taskDeepLinkId || tasksLoading || !tasksData) return;
+    const task = tasksData.find(item => item.id === taskDeepLinkId);
+    setTaskDeepLinkId(null);
+    if (!task) return;
+
+    const matchesTaskView = (item: Task, view: string) => {
+      if (view === "all") return true;
+      if (view === "my") return item.assignedUserId === user?.id;
+      if (view === "back_office") {
+        return backOfficeGroupIds.some(groupId =>
+          (((item as any).tags || []) as string[]).some(tag => tag === `group_id:${groupId}`)
+        );
+      }
+      return (((item as any).tags || []) as string[]).some(tag => tag === `group_id:${view}`);
+    };
+    const nextView = matchesTaskView(task, taskSubTab) ? taskSubTab : "all";
+    const validTaskStatus = task.status === "pending" || task.status === "in_progress" ||
+      task.status === "completed" || task.status === "cancelled";
+    const nextFilter: TaskFilter = matchesTaskStatus(task, taskFilter)
+      ? taskFilter
+      : validTaskStatus ? task.status as TaskFilter : "all";
+    setTaskQueueSearch("");
+    if (nextView !== taskSubTab) setTaskSubTab(nextView);
+    if (nextFilter !== taskFilter) setTaskFilter(nextFilter);
+    const statusTasks = tasksData.filter(item =>
+      matchesTaskStatus(item, nextFilter) && matchesTaskView(item, nextView)
+    );
+    const taskIndex = statusTasks.findIndex(item => item.id === task.id);
+    setLocalPage(taskIndex >= 0 ? Math.floor(taskIndex / localPageSize) : 0);
+    setSelectedTask(task);
+    setSelectedEmail(null);
+    setSelectedSms(null);
+    _setSelectedChat(null);
+    setTaskMobileDetailOpen(true);
+  }, [taskDeepLinkId, tasksData, tasksLoading]);
 
   useEffect(() => {
     setReplyMode(null);
@@ -4141,32 +4320,60 @@ export default function EmailClientPage() {
     setInternalChatInput("");
   };
 
-  const [taskCommentInput, setTaskCommentInput] = useState("");
   const [taskComments, setTaskComments] = useState<any[]>([]);
   const [taskCommentsLoading, setTaskCommentsLoading] = useState(false);
+  const [taskCommentsError, setTaskCommentsError] = useState(false);
+  const [taskCommentSending, setTaskCommentSending] = useState(false);
+  const taskCommentScopeRef = useRef<string | undefined>(selectedTask?.id);
+  taskCommentScopeRef.current = selectedTask?.id;
 
   const fetchTaskComments = async (taskId: string) => {
     setTaskCommentsLoading(true);
+    setTaskCommentsError(false);
     try {
       const res = await fetch(`/api/tasks/${taskId}/comments`, { credentials: "include" });
-      if (res.ok) { const data = await res.json(); setTaskComments(data); }
-    } catch {} finally { setTaskCommentsLoading(false); }
+      if (!res.ok) throw new Error(t.tasks.loadError);
+      const data = await res.json();
+      if (taskCommentScopeRef.current === taskId) setTaskComments(data);
+    } catch {
+      if (taskCommentScopeRef.current === taskId) {
+        setTaskCommentsError(true);
+        toast({ title: t.tasks.loadError, variant: "destructive" });
+      }
+    } finally {
+      if (taskCommentScopeRef.current === taskId) setTaskCommentsLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (selectedTask?.id) { fetchTaskComments(selectedTask.id); setTaskCommentInput(""); }
+    setTaskComments([]);
+    setTaskCommentsError(false);
+    setTaskCommentSending(false);
+    if (selectedTask?.id) fetchTaskComments(selectedTask.id);
   }, [selectedTask?.id]);
 
-  const addTaskComment = async () => {
-    if (!taskCommentInput.trim() || !selectedTask?.id) return;
+  const addTaskComment = async (content: string, attachments: TaskAttachment[]) => {
+    if ((!content.trim() && !attachments.length) || !selectedTask?.id || taskCommentSending) return false;
+    const taskId = selectedTask.id;
+    setTaskCommentSending(true);
     try {
-      const res = await apiRequest("POST", `/api/tasks/${selectedTask.id}/comments`, { content: taskCommentInput.trim() });
+      const res = await apiRequest("POST", `/api/tasks/${taskId}/comments`, { content: content.trim(), attachments });
       if (res.ok) {
         toast({ title: t.tasks.commentAdded });
-        setTaskCommentInput("");
-        fetchTaskComments(selectedTask.id);
+        if (taskCommentScopeRef.current === taskId) {
+          fetchTaskComments(taskId);
+        }
+        return true;
       }
-    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+      toast({ title: t.tasks.commentFailed, variant: "destructive" });
+      return false;
+    } catch {
+      toast({ title: t.tasks.commentFailed, variant: "destructive" });
+      return false;
+    }
+    finally {
+      if (taskCommentScopeRef.current === taskId) setTaskCommentSending(false);
+    }
   };
 
   const deleteTaskComment = async (commentId: string) => {
@@ -4181,71 +4388,186 @@ export default function EmailClientPage() {
   const [taskResolveDialogOpen, setTaskResolveDialogOpen] = useState(false);
   const [taskReassignDialogOpen, setTaskReassignDialogOpen] = useState(false);
   const [taskEditDialogOpen, setTaskEditDialogOpen] = useState(false);
+  const [taskPendingCancellation, setTaskPendingCancellation] = useState<any | null>(null);
   const [taskResolutionText, setTaskResolutionText] = useState("");
-  const [taskReassignUserId, setTaskReassignUserId] = useState("");
-  const [taskEditForm, setTaskEditForm] = useState({ title: "", description: "", priority: "medium", status: "pending", assignedUserId: "" });
+  const taskEditResolutionInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [taskNotifyAgent, setTaskNotifyAgent] = useState(false);
+  const [taskSaving, setTaskSaving] = useState(false);
+  const [taskEditFormError, setTaskEditFormError] = useState("");
+  const [taskEditForm, setTaskEditForm] = useState({ title: "", description: "", priority: "medium", status: "pending", assignedUserId: "", dueDate: "", groupId: "", resolution: "" });
+  const [taskEditAttachments, setTaskEditAttachments] = useState<TaskAttachment[]>([]);
+  const [taskEditUploading, setTaskEditUploading] = useState(false);
+  const taskEditAttachmentsChangedRef = useRef(false);
+  useEffect(() => {
+    if (!canResolveTasks && taskResolveDialogOpen) setTaskResolveDialogOpen(false);
+  }, [canResolveTasks, taskResolveDialogOpen]);
+  const taskEditGroupChangedRef = useRef(false);
+  const [taskGroupsDialogOpen, setTaskGroupsDialogOpen] = useState(false);
   const [taskReportDateRange, setTaskReportDateRange] = useState("this_month");
   const [taskReportStartDate, setTaskReportStartDate] = useState(startOfMonth(new Date()));
   const [taskReportEndDate, setTaskReportEndDate] = useState(endOfMonth(new Date()));
+
+  const invalidateTaskPeople = () => queryClient.invalidateQueries({ queryKey: ["/api/tasks/people"] });
+  const freshTaskSnapshot = (task: any) => getFreshTaskById(tasksData, task?.id) || task;
+
+  useEffect(() => {
+    if (!selectedTask?.id || !tasksData) return;
+    const freshTask = getFreshTaskById(tasksData, selectedTask.id);
+    if (!freshTask) {
+      setSelectedTask(null);
+      if (taskEditDialogOpen) setTaskEditFormError(t.tasks.loadError);
+      return;
+    }
+    setSelectedTask(current => current?.id === freshTask.id ? freshTask : current);
+  }, [tasksData, selectedTask?.id, taskEditDialogOpen, t.tasks.loadError]);
 
   const getSystemUser = (userId: string) => allSystemUsers.find((u: any) => u.id === userId);
   const getCustomer = (customerId: string | null) => customerId ? allCustomers.find((c: any) => c.id === customerId) : null;
 
   const handleTaskStatusChange = async (task: any, newStatus: string) => {
+    if (newStatus === "completed" && !canResolveTasks) return;
+    const freshTask = freshTaskSnapshot(task);
+    if (newStatus === "cancelled") {
+      setTaskPendingCancellation(freshTask);
+      return;
+    }
     try {
-      await apiRequest("PATCH", `/api/tasks/${task.id}`, { status: newStatus });
+      await apiRequest("PATCH", `/api/tasks/${freshTask.id}`, { status: newStatus });
       toast({ title: t.tasks.taskUpdated });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      if (selectedTask?.id === task.id) setSelectedTask({ ...task, status: newStatus });
+      const [refreshed] = await Promise.all([refetchTasks(), invalidateTaskPeople()]);
+      const updated = refreshed.data?.find(item => item.id === freshTask.id);
+      if (selectedTask?.id === freshTask.id && updated) setSelectedTask(updated);
     } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+  };
+
+  const confirmTaskCancellation = async (taskId: string) => {
+    if (!taskPendingCancellation || taskPendingCancellation.id !== taskId) return false;
+    const targetTask = getFreshTaskById(tasksData, taskId) || taskPendingCancellation;
+    if (targetTask?.id !== taskId) return false;
+    try {
+      await apiRequest("PATCH", `/api/tasks/${taskId}`, { status: "cancelled" });
+      toast({ title: t.tasks.taskUpdated });
+      const [refreshed] = await Promise.all([refetchTasks(), invalidateTaskPeople()]);
+      const updated = refreshed.data?.find(item => item.id === taskId);
+      if (selectedTask?.id === taskId && updated) setSelectedTask(updated);
+      return true;
+    } catch {
+      toast({ title: t.nexusOmni.common.error, variant: "destructive" });
+      return false;
+    }
   };
 
   const handleTaskResolve = async () => {
-    if (!selectedTask || !taskResolutionText.trim()) return;
+    if (!selectedTask || !taskResolutionText.trim() || taskSaving) return;
+    setTaskSaving(true);
     try {
-      await apiRequest("POST", `/api/tasks/${selectedTask.id}/resolve`, { resolution: taskResolutionText });
+      const freshTask = freshTaskSnapshot(selectedTask);
+      await apiRequest("POST", `/api/tasks/${freshTask.id}/resolve`, { resolution: taskResolutionText.trim(), notifyAgent: taskNotifyAgent });
       toast({ title: t.tasks.taskResolved });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      const refreshed = await refetchTasks();
+      await invalidateTaskPeople();
       setTaskResolveDialogOpen(false);
       setTaskResolutionText("");
-      setSelectedTask(null);
-      setTaskMobileDetailOpen(false);
-    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+      setSelectedTask(refreshed.data?.find(item => item.id === freshTask.id) || null);
+    } catch {
+      await queryClient.invalidateQueries({ queryKey: ["/api/tasks", selectedTask.id, "checklist"] });
+      toast({ title: t.tasks.resolveFailed, variant: "destructive" });
+    }
+    finally { setTaskSaving(false); }
   };
 
-  const handleTaskReassign = async () => {
-    if (!selectedTask || !taskReassignUserId) return;
+  const handleTaskReassign = async (taskId: string, payload: TaskReassignPayload): Promise<boolean> => {
+    if (!selectedTask || selectedTask.id !== taskId || taskSaving) return false;
+    setTaskSaving(true);
     try {
-      await apiRequest("POST", `/api/tasks/${selectedTask.id}/reassign`, { newAssignedUserId: taskReassignUserId });
+      const freshTask = freshTaskSnapshot(selectedTask);
+      await apiRequest("POST", `/api/tasks/${freshTask.id}/reassign`, payload);
       toast({ title: t.tasks.taskReassigned });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      const refreshed = await refetchTasks();
+      await invalidateTaskReassignment();
       setTaskReassignDialogOpen(false);
-      setTaskReassignUserId("");
-      setSelectedTask(null);
-      setTaskMobileDetailOpen(false);
-    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+      setSelectedTask(current => current?.id === taskId ? refreshed.data?.find(item => item.id === freshTask.id) || null : current);
+      return true;
+    } catch {
+      toast({ title: t.nexusOmni.common.error, variant: "destructive" });
+      return false;
+    }
+    finally { setTaskSaving(false); }
   };
 
   const handleTaskEditSave = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask || taskSaving || taskEditUploading) return;
+    if (taskEditForm.status === "completed" && selectedTask.status !== "completed" && !canResolveTasks) {
+      setTaskEditFormError(t.tasks.taskGroups.noEligibleResolvers);
+      return;
+    }
+    if (!taskEditForm.title.trim()) { setTaskEditFormError(t.tasks.workspace.titleRequired); return; }
+    const freshTask = freshTaskSnapshot(selectedTask);
+    if (requiresPulseResolutionForCompletion(freshTask, taskEditForm.status, taskEditForm.resolution)) {
+      setTaskEditFormError(t.tasks.resolveTaskDesc);
+      taskEditResolutionInputRef.current?.focus();
+      return;
+    }
+    setTaskEditFormError("");
+    setTaskSaving(true);
     try {
-      await apiRequest("PATCH", `/api/tasks/${selectedTask.id}`, taskEditForm);
+      const preservedTags = (freshTask.tags || []).filter((tag: string) => !tag.startsWith("group_id:"));
+      const selectedGroupId = chooseTaskGroupForSave(freshTask.tags || [], taskEditForm.groupId, taskEditGroupChangedRef.current);
+      const tags = selectedGroupId ? [...preservedTags, `group_id:${selectedGroupId}`] : preservedTags;
+      const payload: any = {
+        title: taskEditForm.title.trim(),
+        description: taskEditForm.description,
+        priority: taskEditForm.priority,
+        status: taskEditForm.status,
+        dueDate: taskEditForm.dueDate || null,
+        assignedUserId: taskEditForm.assignedUserId || null,
+        tags,
+      };
+      if (taskEditAttachmentsChangedRef.current) payload.attachments = taskEditAttachments;
+      if (taskEditForm.status === "completed") {
+        payload.resolution = taskEditForm.resolution || (freshTask as any).resolution || "";
+        payload.notifyAgent = freshTask.status === "completed" ? false : taskNotifyAgent;
+      }
+      await apiRequest("PATCH", `/api/tasks/${freshTask.id}`, payload);
       toast({ title: t.tasks.taskUpdated });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      const [result] = await Promise.all([refetchTasks(), invalidateTaskPeople()]);
+      const updatedTask = result.data?.find(item => item.id === freshTask.id);
       setTaskEditDialogOpen(false);
-      setSelectedTask(null);
-      setTaskMobileDetailOpen(false);
-    } catch { toast({ title: t.nexusOmni.common.error, variant: "destructive" }); }
+      if (updatedTask) setSelectedTask(updatedTask);
+    } catch (error: any) {
+      setTaskEditFormError(error?.message || t.nexusOmni.common.error);
+    } finally { setTaskSaving(false); }
   };
 
-  const openTaskEditDialog = (task: any) => {
-    setSelectedTask(task);
-    setTaskEditForm({ title: task.title, description: task.description || "", priority: task.priority, status: task.status, assignedUserId: task.assignedUserId, dueDate: task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "" } as any);
+  const openTaskEditDialog = async (task: any) => {
+    let freshTask = freshTaskSnapshot(task);
+    try {
+      const refreshed = await refetchTasks();
+      freshTask = refreshed.data?.find(item => item.id === task.id) || freshTask;
+    } catch { /* Keep the latest cached snapshot; the dialog still reports save errors. */ }
+    const groupId = getTaskGroupId(freshTask.tags || []);
+    taskEditGroupChangedRef.current = false;
+    taskEditAttachmentsChangedRef.current = false;
+    setTaskEditAttachments(freshTask.attachments || []);
+    setTaskEditUploading(false);
+    setSelectedTask(freshTask);
+    setTaskEditForm({ title: freshTask.title || "", description: freshTask.description || "", priority: freshTask.priority || "medium", status: freshTask.status || "pending", assignedUserId: freshTask.assignedUserId || "", dueDate: freshTask.dueDate ? format(new Date(freshTask.dueDate), "yyyy-MM-dd") : "", groupId, resolution: freshTask.resolution || "" });
+    setTaskEditFormError("");
+    setTaskNotifyAgent(isPulseNotificationTask(freshTask));
     setTaskEditDialogOpen(true);
   };
 
-  const openTaskResolveDialog = (task: any) => { setSelectedTask(task); setTaskResolutionText(""); setTaskResolveDialogOpen(true); };
-  const openTaskReassignDialog = (task: any) => { setSelectedTask(task); setTaskReassignUserId(""); setTaskReassignDialogOpen(true); };
+  const openTaskResolveDialog = async (task: any) => {
+    if (!canResolveTasks) return;
+    let freshTask = freshTaskSnapshot(task);
+    try { const refreshed = await refetchTasks(); freshTask = refreshed.data?.find(item => item.id === task.id) || freshTask; } catch { /* Keep latest cached snapshot. */ }
+    setSelectedTask(freshTask); setTaskResolutionText(""); setTaskNotifyAgent(isPulseNotificationTask(freshTask)); setTaskResolveDialogOpen(true);
+  };
+  const openTaskReassignDialog = async (task: any) => {
+    let freshTask = freshTaskSnapshot(task);
+    try { const refreshed = await refetchTasks(); freshTask = refreshed.data?.find(item => item.id === task.id) || freshTask; } catch { /* Keep latest cached snapshot. */ }
+    setSelectedTask(freshTask); setTaskReassignDialogOpen(true);
+  };
 
   const handleTaskReportDateRange = (preset: string) => {
     setTaskReportDateRange(preset);
@@ -4529,18 +4851,8 @@ export default function EmailClientPage() {
         return `background="/api/users/${user?.id}/email-image-proxy?url=${encodeURIComponent(url)}"`;
       }
     );
-    processed = processed.replace(
-      /<img\b([^>]*?)(?:\s+width=["']?\d+["']?)([^>]*?)(?:\s+height=["']?\d+["']?)([^>]*?)>/gi,
-      (match, before, mid, after) => {
-        return `<img${before}${mid}${after} style="max-width:100%;height:auto;object-fit:contain;">`;
-      }
-    );
-    processed = processed.replace(
-      /<img\b([^>]*?)(?:\s+height=["']?\d+["']?)([^>]*?)(?:\s+width=["']?\d+["']?)([^>]*?)>/gi,
-      (match, before, mid, after) => {
-        return `<img${before}${mid}${after} style="max-width:100%;height:auto;object-fit:contain;">`;
-      }
-    );
+    // Preserve the sender's image dimensions and inline styles. Responsive
+    // sizing belongs to the viewer CSS, not to a destructive HTML rewrite.
     return processed;
   };
 
@@ -4898,7 +5210,7 @@ export default function EmailClientPage() {
     } else if (activeTab === "sms") {
       refetchSms();
     } else if (activeTab === "tasks") {
-      refetchTasks();
+      void Promise.all([refetchTasks(), invalidateTaskPeople()]);
     } else if (activeTab === "chats") {
       refetchChats();
     }
@@ -5098,7 +5410,10 @@ export default function EmailClientPage() {
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => setNexusFullscreen(prev => !prev)}
+                  onClick={() => {
+                    if (activeTab === "tasks" && selectedTask) setTaskDetailFullscreen(true);
+                    else setNexusFullscreen(prev => !prev);
+                  }}
                   data-testid="button-nexus-fullscreen"
                 >
                   {nexusFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
@@ -5139,7 +5454,7 @@ export default function EmailClientPage() {
         ))}
       </div>
 
-      <div className={cn("flex gap-2 transition-all duration-300", "flex-1 min-h-0", activeTab === "tasks" && "nexus-task-layout")}>
+      <div className={cn("flex gap-2 transition-all duration-300 flex-1 min-h-0", activeTab === "tasks" && "nexus-task-layout")}>
         {activeTab !== "training-room" && (
         <NexusSidebar
           activeTab={activeTab}
@@ -5151,9 +5466,9 @@ export default function EmailClientPage() {
           smsFilter={smsFilter}
           onSmsFilterChange={setSmsFilter}
           taskFilter={taskFilter}
-          onTaskFilterChange={handleTaskFilterChange}
+          onTaskFilterChange={setTaskFilter}
           smsData={smsData}
-          tasksData={tasksData}
+          tasksData={taskScopeTasks}
           chatsData={internalConversations.map((conv: any) => ({
             id: conv.partnerId,
             participantId: conv.partnerId,
@@ -5784,7 +6099,8 @@ export default function EmailClientPage() {
         {activeTab === "tasks" && (
           <>
             <Card className={cn(
-              "nexus-signal-queue transition-all duration-300 shrink-0 flex flex-col",
+              "nexus-signal-queue",
+              "transition-all duration-300 shrink-0 flex flex-col",
               taskMobileDetailOpen
                 ? "hidden md:flex md:w-[30%] md:min-w-[300px] md:max-w-[420px]"
                 : "flex-1 w-full min-w-0 md:flex-none md:w-[30%] md:min-w-[300px] md:max-w-[420px]",
@@ -5793,16 +6109,17 @@ export default function EmailClientPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ListTodo className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-semibold">{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</span>
+                    <span className="sr-only md:not-sr-only text-sm font-semibold">{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "open" ? t.tasks.openTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</span>
                     <Badge variant="secondary" className="text-[10px]">{visibleTasks.length}</Badge>
                   </div>
                   <div className="flex items-center gap-0.5">
-                    <Select value={taskFilter} onValueChange={(value: TaskFilter) => handleTaskFilterChange(value)}>
-                      <SelectTrigger className="h-7 w-[120px] text-[11px] md:hidden" data-testid="task-status-filter">
+                    <Select value={taskFilter} onValueChange={(value: TaskFilter) => { setTaskFilter(value); setTaskMobileDetailOpen(false); }}>
+                      <SelectTrigger className="h-7 w-[88px] text-[11px] md:hidden" data-testid="task-mobile-filter">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">{t.tasks.allTasks}</SelectItem>
+                        <SelectItem value="open">{t.tasks.openTasks}</SelectItem>
                         <SelectItem value="pending">{t.tasks.pending}</SelectItem>
                         <SelectItem value="in_progress">{t.tasks.inProgress}</SelectItem>
                         <SelectItem value="completed">{t.tasks.completed}</SelectItem>
@@ -5816,98 +6133,129 @@ export default function EmailClientPage() {
                     <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalTaskPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="task-page-next">
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
-                    <Link href="/task-groups">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" data-testid="btn-task-groups-nexus">
-                        <Settings2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className={cn("relative h-7 w-7", taskQueueHasFilters && "bg-primary/10 text-primary")} aria-label={t.tasks.workspace.filtersTitle} title={t.tasks.workspace.filtersTitle} data-testid="btn-task-filters" data-active={taskQueueHasFilters}>
+                          <Filter className="h-3.5 w-3.5" />
+                          {taskQueueHasFilters && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="task-filters-popover" aria-label={t.tasks.workspace.filtersTitle} data-testid="task-filters-popover">
+                        <h3 className="mb-2 text-sm font-semibold">{t.tasks.workspace.filtersTitle}</h3>
+                        <TaskQueueControls
+                          t={t}
+                          search={taskQueueSearch}
+                          onSearch={value => { setTaskQueueSearch(value); setLocalPage(0); setSelectedTask(null); setTaskMobileDetailOpen(false); }}
+                          datePreset={taskDatePreset} onDatePreset={setTaskDatePreset}
+                          dateBasis={taskDateBasis} onDateBasis={setTaskDateBasis}
+                          range={taskDateRange} onRange={setTaskDateRange}
+                          sortField={taskSortField} onSortField={setTaskSortField}
+                          sortDirection={taskSortDirection} onSortDirection={setTaskSortDirection}
+                          creator={taskCreatorFilter} onCreator={setTaskCreatorFilter}
+                          resolver={taskResolverFilter} onResolver={setTaskResolverFilter}
+                          people={taskPeople}
+                          onClear={() => { setTaskQueueSearch(""); setTaskDatePreset("all"); setTaskDateBasis("created"); setTaskCreatorFilter(""); setTaskResolverFilter(""); setTaskDateRange({ from: "", to: "" }); setTaskSortField("created"); setTaskSortDirection("desc"); setLocalPage(0); }}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    {canManageTaskSettings && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setTaskGroupsDialogOpen(true)} aria-label={t.tasks.workspace.settings} title={t.tasks.workspace.settings} data-testid="btn-task-groups-nexus">
+                      <Settings2 className="h-3.5 w-3.5" />
+                    </Button>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("my"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-my">
+                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
                     {t.tasks.myTasks}
+                    <span data-task-count className="ml-1">{myTaskCount}</span>
                   </Button>
-                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" onClick={() => { setTaskSubTab("all"); setLocalPage(0); setTaskMobileDetailOpen(false); }} data-testid="task-subtab-all">
+                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
                     {t.tasks.allTasks}
+                    <span data-task-count className="ml-1">{allTaskCount}</span>
                   </Button>
                   {taskGroupsList
                     .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
                     .map((g: any) => {
-                      const pendingCount = (tasksData || []).filter(task =>
-                        (task.tags || []).some((tag: string) => tag === `group_id:${g.id}`) &&
-                        (task.status === "pending" || task.status === "in_progress")
-                      ).length;
+                      const groupCount = taskCountForScope((tasksData || []).filter(task =>
+                        (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${g.id}`)
+                      ));
                       return (
                         <Button
                           key={g.id}
                           variant={taskSubTab === g.id ? "default" : "ghost"}
                           size="sm"
                           className="h-6 text-[11px] px-2 gap-1"
-                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); setTaskMobileDetailOpen(false); }}
+                          aria-pressed={taskSubTab === g.id}
+                          onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
-                          <ListChecks className="h-3 w-3" />
+                          {g.isBackOffice
+                            ? <Building2 className="h-3 w-3" />
+                            : <ListChecks className="h-3 w-3" />}
                           <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
                           {g.displayAlias || g.name}
-                          {pendingCount > 0 && (
-                            <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
-                              {pendingCount}
+                          {groupCount > 0 && (
+                            <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                              {groupCount}
                             </span>
                           )}
                         </Button>
                       );
                     })}
                   {backOfficeGroupIds.length > 0 && (() => {
-                    const boPending = (tasksData || []).filter(task =>
-                      backOfficeGroupIds.some(gid => (task.tags || []).some((tag: string) => tag === `group_id:${gid}`)) &&
-                      (task.status === "pending" || task.status === "in_progress")
-                    ).length;
+                    const boTaskCount = taskCountForScope((tasksData || []).filter(task =>
+                      backOfficeGroupIds.some(gid =>
+                        (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${gid}`)
+                      )
+                    ));
                     return (
                       <Button
                         variant={taskSubTab === "back_office" ? "default" : "ghost"}
                         size="sm"
                         className="h-6 text-[11px] px-2 gap-1"
-                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); setTaskMobileDetailOpen(false); }}
+                        aria-pressed={taskSubTab === "back_office"}
+                        onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); }}
                         data-testid="task-subtab-back-office"
                       >
-                        <span className="text-[10px]">🏢</span>
+                        <Building2 className="h-3.5 w-3.5" />
                         {t.tasks.taskGroups.backOfficeTab}
-                        {boPending > 0 && (
-                          <span className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
-                            {boPending}
+                        {boTaskCount > 0 && (
+                          <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                            {boTaskCount}
                           </span>
                         )}
                       </Button>
                     );
                   })()}
-                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
+                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" aria-pressed="false" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
                     <BarChart3 className="h-3 w-3 mr-1" />
                     {t.tasks.reporting}
                   </Button>
                 </div>
-                <label className="nexus-signal-queue-search">
-                  <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  <Input
-                    value={taskQueueSearch}
-                    onChange={event => {
-                      setTaskQueueSearch(event.target.value);
-                      setLocalPage(0);
-                      setSelectedTask(null);
-                      setTaskMobileDetailOpen(false);
-                    }}
-                    placeholder={t.tasks.searchPlaceholder}
-                    aria-label={t.tasks.searchPlaceholder}
-                    data-testid="task-queue-search"
-                  />
-                </label>
               </CardHeader>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
+                {taskAssignmentOptionsFailed && (
+                  <div className="flex items-center justify-between gap-2 border-b border-destructive/20 bg-destructive/5 px-3 py-2 text-xs" role="alert">
+                    <span>{t.tasks.taskGroups.assignmentLoadFailed}</span>
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => void retryTaskAssignmentOptions()}>
+                      {t.tasks.taskGroups.assignmentRetry}
+                    </Button>
+                  </div>
+                )}
                 {tasksLoading ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                ) : visibleTasks.length === 0 ? (
+                  <div className="task-loading-skeleton" aria-label={t.nexusOmni.common.loading}>
+                    {[0, 1, 2, 3, 4].map(index => <div className="task-skeleton-row" key={index}><i /><div><b /><span /></div></div>)}
+                  </div>
+                ) : tasksError ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
+                    <AlertCircle className="h-7 w-7" />
+                    <span className="text-sm">{t.tasks.loadError}</span>
+                    <Button variant="outline" size="sm" onClick={() => void Promise.all([refetchTasks(), invalidateTaskPeople()])}>{t.nexusOmni.common.tryAgain}</Button>
+                  </div>
+                ) : tasksPage.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                     <ListTodo className="h-8 w-8 mb-2 opacity-50" />
-                    <span className="text-sm">{t.tasks.noTasks}</span>
+                    <span className="text-sm">{visibleTasks.length === 0 && (taskQueueSearch || taskDatePreset !== "all" || taskCreatorFilter || taskResolverFilter || taskFilter !== "all") ? t.tasks.workspace.noMatchingTasks : t.tasks.noTasks}</span>
+                    {visibleTasks.length === 0 && (taskQueueSearch || taskDatePreset !== "all" || taskCreatorFilter || taskResolverFilter || taskFilter !== "all") && <Button variant="link" size="sm" onClick={() => { setTaskQueueSearch(""); setTaskDatePreset("all"); setTaskDateBasis("created"); setTaskCreatorFilter(""); setTaskResolverFilter(""); setTaskDateRange({ from: "", to: "" }); setTaskFilter("all"); }}>{t.tasks.workspace.clearFilters}</Button>}
                   </div>
                 ) : (
                   <ScrollArea className="flex-1 min-h-0">
@@ -5939,13 +6287,13 @@ export default function EmailClientPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between gap-1">
-                                  <span className="text-sm truncate font-medium">{task.title}</span>
+                                  <span className="text-sm truncate font-medium">{taskDisplayText(task.title)}</span>
                                   <span className="text-[11px] text-muted-foreground whitespace-nowrap">
                                     {format(new Date(task.updatedAt || task.createdAt), "d.M. HH:mm")}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground truncate">{task.description || t.tasks.noDescription}</p>
-                                <div className="flex items-center gap-1 mt-0.5">
+                                <p className="text-[11px] text-muted-foreground truncate">{taskDisplayText(task.description) || t.tasks.noDescription}</p>
+                                <div className="flex flex-wrap items-center gap-1 mt-0.5">
                                   {task.priority && (
                                     <Badge variant="outline" className="nexus-signal-priority text-[10px] px-1 py-0 h-4 gap-0.5" data-priority={task.priority}>
                                       {priorityIcons[task.priority]}
@@ -5961,6 +6309,7 @@ export default function EmailClientPage() {
                                       {format(new Date(task.dueDate), "d.M.")}
                                     </Badge>
                                   )}
+                                  <TaskTimingStatus task={task} compact className="basis-full" />
                                   {assignedUser && taskSubTab === "all" && (
                                     <span className="text-[10px] text-muted-foreground ml-auto truncate max-w-[100px]">{assignedUser.fullName || assignedUser.username}</span>
                                   )}
@@ -5976,13 +6325,18 @@ export default function EmailClientPage() {
               </CardContent>
             </Card>
             <Card className={cn(
-              "nexus-signal-detail transition-all duration-300 flex-1 min-w-0 flex flex-col",
+              "nexus-signal-detail",
+              "transition-all duration-300 flex-1 min-w-0 flex flex-col",
               taskMobileDetailOpen ? "flex w-full md:flex-1" : "hidden md:flex",
             )}>
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {renderTaskDetail()}
+                <TaskDetailFullscreen open={taskDetailFullscreen && !!selectedTask} onOpenChange={setTaskDetailFullscreen}>
+                  {renderTaskDetail()}
+                </TaskDetailFullscreen>
               </CardContent>
             </Card>
+            <EntityDetailDrawer entity={selectedTaskEntity} onClose={() => setSelectedTaskEntity(null)} />
+            <TaskGroupsDialog open={taskGroupsDialogOpen && canManageTaskSettings} onOpenChange={setTaskGroupsDialogOpen} />
           </>
         )}
 
@@ -6865,7 +7219,7 @@ export default function EmailClientPage() {
                               {matchedTasks.map(task => (
                                 <button
                                   key={task.id}
-                                  onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setTaskMobileDetailOpen(true); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
+                                  onClick={() => { setActiveTab("tasks"); setSelectedTask(task); setSmartSearchOpen(false); setSmartSearchQuery(""); }}
                                   className="w-full flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-accent transition-all text-left group"
                                   data-testid={`search-task-${task.id}`}
                                 >
@@ -6873,8 +7227,8 @@ export default function EmailClientPage() {
                                     <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium truncate">{task.title}</p>
-                                    <p className="text-[11px] text-muted-foreground truncate">{task.description}</p>
+                                    <p className="text-sm font-medium truncate">{taskDisplayText(task.title)}</p>
+                                    <p className="text-[11px] text-muted-foreground truncate">{taskDisplayText(task.description)}</p>
                                   </div>
                                 </button>
                               ))}
@@ -7724,71 +8078,34 @@ export default function EmailClientPage() {
         </div>
       )}
 
-      <Dialog open={taskResolveDialogOpen} onOpenChange={setTaskResolveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.tasks.resolve}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
-            <Textarea
-              value={taskResolutionText}
-              onChange={(e) => setTaskResolutionText(e.target.value)}
-              placeholder={t.tasks.resolution}
-              rows={4}
-              className="text-sm"
-              data-testid="resolve-text"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskResolveDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
-            <Button onClick={handleTaskResolve} disabled={!taskResolutionText.trim()} data-testid="resolve-confirm">
-              <CheckCircle2 className="h-4 w-4 mr-2" />{t.tasks.resolve}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TaskResolutionDialog
+        open={taskResolveDialogOpen}
+        onOpenChange={open => { if (!taskSaving) setTaskResolveDialogOpen(open); }}
+        task={selectedTask}
+        resolution={taskResolutionText}
+        onResolutionChange={setTaskResolutionText}
+        onConfirm={() => void handleTaskResolve()}
+        saving={taskSaving}
+        canResolve={canResolveTasks}
+        resolutionTestId="resolve-text"
+        notifyAgent={taskNotifyAgent}
+        onNotifyAgentChange={setTaskNotifyAgent}
+      />
 
-      <Dialog open={taskReassignDialogOpen} onOpenChange={setTaskReassignDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t.tasks.reassign}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">{selectedTask?.title}</p>
-            <div className="space-y-2">
-              {allSystemUsers.filter((u: any) => u.id !== selectedTask?.assignedUserId).map((u: any) => (
-                <div
-                  key={u.id}
-                  className={cn("flex items-center gap-2.5 p-2 rounded-md cursor-pointer border transition-colors", taskReassignUserId === u.id ? "border-primary bg-primary/5" : "border-transparent hover:bg-accent/50")}
-                  onClick={() => setTaskReassignUserId(u.id)}
-                  data-testid={`reassign-user-${u.id}`}
-                >
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={u.avatarUrl || undefined} className="object-cover" />
-                    <AvatarFallback className={cn("text-white text-[9px] font-semibold", getAvatarColorStatic(u.fullName || u.username))}>
-                      {getInitialsStatic(u.fullName || u.username)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-xs font-medium">{u.fullName || u.username}</p>
-                    <p className="text-[10px] text-muted-foreground">{u.email}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskReassignDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
-            <Button onClick={handleTaskReassign} disabled={!taskReassignUserId} data-testid="reassign-confirm">
-              <UserPlus className="h-4 w-4 mr-2" />{t.tasks.reassign}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TaskReassignDialog
+        open={taskReassignDialogOpen}
+        taskId={selectedTask?.id || null}
+        taskTitle={selectedTask?.title || ""}
+        assignedUserId={selectedTask?.assignedUserId}
+        taskGroupId={getTaskGroupId(selectedTask?.tags || [])}
+        submitting={taskSaving}
+        onOpenChange={setTaskReassignDialogOpen}
+        onConfirm={handleTaskReassign}
+      />
 
       <Dialog open={taskReportingOpen} onOpenChange={setTaskReportingOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="task-modern-modal max-w-2xl max-h-[80vh] flex flex-col" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="detail" />
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-amber-600" />
@@ -7810,7 +8127,7 @@ export default function EmailClientPage() {
               return { user: u, total, completed, inProgress: inProg, pending: pend, cancelled: canc, completionRate: total > 0 ? Math.round((completed / total) * 100) : 0 };
             }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
             return (
-              <div className="flex-1 min-h-0 overflow-auto space-y-4">
+              <div className="task-modern-modal-body flex-1 min-h-0 overflow-auto space-y-4">
                 <div className="flex items-center gap-1 flex-wrap">
                   {["this_month", "last_month", "quarter", "half_year", "year"].map(preset => (
                     <Button key={preset} variant={taskReportDateRange === preset ? "default" : "outline"} size="sm" className="h-7 text-xs px-3" onClick={() => handleTaskReportDateRange(preset)} data-testid={`report-${preset}`}>
@@ -7880,19 +8197,31 @@ export default function EmailClientPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={taskEditDialogOpen} onOpenChange={setTaskEditDialogOpen}>
-        <DialogContent>
+      <TaskCancelConfirmationDialog
+        open={!!taskPendingCancellation}
+        taskId={taskPendingCancellation?.id ?? null}
+        taskTitle={taskPendingCancellation?.title ?? ""}
+        onOpenChange={(open) => { if (!open) setTaskPendingCancellation(null); }}
+        onConfirm={confirmTaskCancellation}
+      />
+
+      <Dialog open={taskEditDialogOpen} onOpenChange={open => { if (!taskSaving) setTaskEditDialogOpen(open); }}>
+        <DialogContent className="task-modern-modal max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="edit" />
           <DialogHeader>
             <DialogTitle>{t.tasks.editTask}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="task-modern-modal-body space-y-3">
             <Input
               value={taskEditForm.title}
               onChange={(e) => setTaskEditForm(prev => ({ ...prev, title: e.target.value }))}
               placeholder={t.tasks.title}
               className="text-sm"
+              required
+              aria-required="true"
               data-testid="edit-task-title"
             />
+            {!selectedTask && <p role="alert" className="text-sm text-destructive">{t.tasks.loadError}</p>}
             <Textarea
               value={taskEditForm.description}
               onChange={(e) => setTaskEditForm(prev => ({ ...prev, description: e.target.value }))}
@@ -7900,6 +8229,13 @@ export default function EmailClientPage() {
               rows={4}
               className="text-sm"
               data-testid="edit-task-description"
+            />
+            <TaskAttachmentPicker
+              key={selectedTask?.id}
+              attachments={taskEditAttachments}
+              onChange={files => { taskEditAttachmentsChangedRef.current = true; setTaskEditAttachments(files); }}
+              onBusyChange={setTaskEditUploading}
+              disabled={taskSaving}
             />
             <div className="grid grid-cols-2 gap-2">
               <Select value={taskEditForm.priority} onValueChange={(v) => setTaskEditForm(prev => ({ ...prev, priority: v }))}>
@@ -7920,10 +8256,51 @@ export default function EmailClientPage() {
                 <SelectContent>
                   <SelectItem value="pending">{t.tasks.statuses?.pending || "Pending"}</SelectItem>
                   <SelectItem value="in_progress">{t.tasks.statuses?.in_progress || "In Progress"}</SelectItem>
-                  <SelectItem value="completed">{t.tasks.statuses?.completed || "Completed"}</SelectItem>
+                  <SelectItem value="completed" disabled={!canResolveTasks}>{t.tasks.statuses?.completed || "Completed"}</SelectItem>
                   <SelectItem value="cancelled">{t.tasks.statuses?.cancelled || "Cancelled"}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            {!canResolveTasks && (
+              <p className="text-xs text-muted-foreground" role="status">
+                {taskAssignmentOptionsLoading
+                  ? t.tasks.taskGroups.assignmentLoading
+                  : taskAssignmentOptionsFailed
+                    ? t.tasks.taskGroups.assignmentLoadFailed
+                    : t.tasks.taskGroups.noEligibleResolvers}
+              </p>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{t.tasks.assignedTo}</label>
+                <Select value={taskEditForm.assignedUserId || "unassigned"} onValueChange={value => setTaskEditForm(prev => ({ ...prev, assignedUserId: value === "unassigned" ? "" : value }))}>
+                  <SelectTrigger data-testid="edit-task-assignee"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">{t.tasks.workspace.unassigned}</SelectItem>
+                    {selectedTask?.assignedUserId && !eligibleTaskAssignees.some(person => person.id === selectedTask.assignedUserId) && (
+                      <SelectItem value={selectedTask.assignedUserId} disabled>
+                        {(getSystemUser(selectedTask.assignedUserId)?.fullName || getSystemUser(selectedTask.assignedUserId)?.username || selectedTask.assignedUserId)} — {t.tasks.taskGroups.excludedCurrentAssignee}
+                      </SelectItem>
+                    )}
+                    {eligibleTaskAssignees.map(person => <SelectItem key={person.id} value={person.id}>{person.fullName || person.username}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">{t.tasks.workspace.group}</label>
+                <Select value={taskEditForm.groupId || "no-group"} onValueChange={value => { taskEditGroupChangedRef.current = true; setTaskEditForm(prev => ({ ...prev, groupId: value === "no-group" ? "" : value })); }}>
+                  <SelectTrigger data-testid="edit-task-group"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="no-group">{t.tasks.workspace.noGroup}</SelectItem>
+                    {taskEditForm.groupId && !eligibleTaskGroups.some(group => group.id === taskEditForm.groupId) && taskGroupsList.some((group: any) => group.id === taskEditForm.groupId) && (
+                      <SelectItem value={taskEditForm.groupId} disabled>
+                        {taskGroupsList.find((group: any) => group.id === taskEditForm.groupId)?.displayAlias || taskGroupsList.find((group: any) => group.id === taskEditForm.groupId)?.name} — {t.tasks.taskGroups.excludedCurrentGroup}
+                      </SelectItem>
+                    )}
+                    {eligibleTaskGroups.map(group => <SelectItem key={group.id} value={group.id}>{group.displayAlias || group.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <Input
               type="date"
@@ -7932,11 +8309,21 @@ export default function EmailClientPage() {
               className="text-sm h-8"
               data-testid="edit-task-due-date"
             />
+            {taskEditForm.status === "completed" && (
+              <>
+                <Textarea ref={taskEditResolutionInputRef} value={taskEditForm.resolution} onChange={event => setTaskEditForm(prev => ({ ...prev, resolution: event.target.value }))} placeholder={t.tasks.resolution} rows={2} data-testid="edit-task-resolution" />
+                {selectedTask?.createdByUserId && <div className="task-notify-agent">
+                  <Checkbox id="edit-task-notify-agent" checked={taskNotifyAgent} onCheckedChange={checked => setTaskNotifyAgent(checked === true)} data-testid="edit-task-notify-agent" />
+                  <label htmlFor="edit-task-notify-agent"><strong>{t.tasks.workspace.notifyAgent}</strong><span>{t.tasks.workspace.notifyAgentHint}</span></label>
+                </div>}
+              </>
+            )}
+            {taskEditFormError && <p role="alert" className="text-sm text-destructive">{taskEditFormError}</p>}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)}>{t.nexusOmni.common.cancel}</Button>
-            <Button onClick={handleTaskEditSave} disabled={!taskEditForm.title.trim()} data-testid="edit-task-save">
-              <Edit className="h-4 w-4 mr-2" />{t.tasks.save || "Save"}
+          <DialogFooter className="task-modern-modal-footer">
+            <Button variant="outline" onClick={() => setTaskEditDialogOpen(false)} disabled={taskSaving}>{t.nexusOmni.common.cancel}</Button>
+            <Button onClick={handleTaskEditSave} disabled={!selectedTask || taskSaving || taskEditUploading} data-testid="edit-task-save">
+              {taskSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Edit className="h-4 w-4 mr-2" />}{t.tasks.save || "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -8383,7 +8770,7 @@ export default function EmailClientPage() {
                   </p>
                   <div className="pl-3 border-l-2 border-muted-foreground/30 max-h-60 overflow-auto">
                     {emailDetail.body?.contentType === "html" ? (
-                      <div className="prose dark:prose-invert max-w-none text-sm opacity-70 overflow-hidden [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:whitespace-nowrap [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_th]:whitespace-nowrap [&_a]:break-all [&_*]:max-w-full" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+                      <div className="omni-email-html-body" dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
                     ) : (
                       <pre className="whitespace-pre-wrap font-sans text-sm opacity-70" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
                     )}
@@ -8404,7 +8791,7 @@ export default function EmailClientPage() {
         <ScrollArea className="flex-1">
           <div className="p-4 overflow-x-auto">
             {emailDetail.body?.contentType === "html" ? (
-              <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
+              <div className="omni-email-html-body" dangerouslySetInnerHTML={{ __html: processHtmlForImages(emailDetail.body.content, emailDetail.id, emailDetail.attachmentsList) }} />
             ) : (
               <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{emailDetail.body?.content || emailDetail.bodyPreview}</pre>
             )}
@@ -8657,7 +9044,26 @@ export default function EmailClientPage() {
     const assignedUser = getSystemUser(selectedTask.assignedUserId);
     const createdByUser = getSystemUser(selectedTask.createdByUserId);
     const resolvedByUser = selectedTask.resolvedByUserId ? getSystemUser(selectedTask.resolvedByUserId) : null;
-    const linkedCustomer = getCustomer(selectedTask.customerId || null);
+    const taskRecord = selectedTask as any;
+    const entityType = selectedRelatedEntityType;
+    const entityId = selectedRelatedEntityId;
+    const entityRef = taskEntityRef;
+    const linkedCustomer = getCustomer(
+      entityType === "customer" ? entityId : null,
+    );
+    const linkedEntityName =
+      (entityType === "clinic" ? selectedClinicLookup[0]?.name :
+        entityType === "hospital" ? selectedHospitalLookup?.name :
+        entityType === "collaborator" ? [selectedCollaboratorLookup?.firstName, selectedCollaboratorLookup?.lastName].filter(Boolean).join(" ") :
+          selectedCustomerLookup || linkedCustomer
+            ? [selectedCustomerLookup?.firstName || linkedCustomer?.firstName,
+                selectedCustomerLookup?.lastName || linkedCustomer?.lastName].filter(Boolean).join(" ").trim() ||
+              selectedCustomerLookup?.companyName || linkedCustomer?.companyName ||
+              selectedCustomerLookup?.name || linkedCustomer?.name
+            : "") ||
+      (entityType === "clinic" ? t.clinics.title :
+        entityType === "hospital" ? t.hospitals.tabs.hospital :
+        entityType === "collaborator" ? t.collaborators.title : t.customers.title);
     const isActive = selectedTask.status !== "completed" && selectedTask.status !== "cancelled";
     return (
       <div className="flex flex-col h-full">
@@ -8667,7 +9073,7 @@ export default function EmailClientPage() {
             variant="ghost"
             size="sm"
             className="h-7 -ml-2 md:hidden"
-            onClick={() => setTaskMobileDetailOpen(false)}
+            onClick={() => { setTaskMobileDetailOpen(false); setSelectedTask(null); }}
             data-testid="task-detail-back-mobile"
           >
             <ChevronLeft className="h-4 w-4 mr-1" />{t.tasks.title}
@@ -8677,9 +9083,22 @@ export default function EmailClientPage() {
               <Badge className="nexus-signal-eyebrow">
                 <ListTodo className="h-3 w-3 mr-1" />{t.tasks.task}
               </Badge>
-              <h2 className="text-lg font-semibold">{selectedTask.title}</h2>
+              <h2 className="text-lg font-semibold">{taskDisplayText(selectedTask.title)}</h2>
             </div>
             <div className="flex items-center gap-2">
+              {!taskDetailFullscreen && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 shrink-0"
+                  onClick={() => setTaskDetailFullscreen(true)}
+                  data-testid="button-task-maximize"
+                  title={t.nexusOmni.settings.maximize}
+                  aria-label={t.nexusOmni.settings.maximize}
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </Button>
+              )}
               {selectedTask.priority && (
                 <Badge variant="outline" className="nexus-signal-priority gap-1" data-priority={selectedTask.priority}>
                   {priorityIcons[selectedTask.priority]}
@@ -8721,12 +9140,31 @@ export default function EmailClientPage() {
                 <span>{t.tasks.deadline}: {format(new Date(selectedTask.dueDate), "d. MMMM yyyy")}</span>
               </div>
             )}
-            {linkedCustomer && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span>{t.tasks.linkedTo}: {linkedCustomer.firstName} {linkedCustomer.lastName}</span>
-              </div>
+            <TaskTimingStatus task={selectedTask} />
+            {entityRef && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="nexus-signal-source h-7 max-w-full justify-start gap-1.5 text-xs"
+                onClick={() => setSelectedTaskEntity(entityRef)}
+                data-testid="task-open-linked-entity"
+              >
+                <User className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{t.tasks.linkedTo}: {linkedEntityName}</span>
+                <ExternalLink className="h-3 w-3 shrink-0" />
+              </Button>
             )}
+            {taskSourceLoading && <span className="text-xs text-muted-foreground">{t.nexusOmni.common.loading}</span>}
+            {taskSourceError && (
+              <Button variant="ghost" size="sm" className="text-xs text-destructive" onClick={() => void refetchTaskSource()} data-testid="task-source-retry">
+                {t.tasks.loadError} · {t.nexusOmni.common.tryAgain}
+              </Button>
+            )}
+            {!taskSourceLoading && !taskSourceError && !entityRef &&
+              (taskRecord.relatedEntityId || selectedTask.customerId) && (
+                <span className="text-xs text-muted-foreground">{t.callAnalysis.reviewFullCardUnavailable}</span>
+              )}
             {(selectedTask as any).assignedDepartmentId && (
               <div className="flex items-center gap-1" data-testid="text-task-department">
                 <Users className="h-3 w-3" />
@@ -8734,39 +9172,40 @@ export default function EmailClientPage() {
               </div>
             )}
           </div>
-          <div className="nexus-signal-actions flex items-center gap-2 flex-wrap">
+          <div className="nexus-signal-actions flex items-center gap-2">
             {isActive && (
               <>
-                <Button variant="outline" size="sm" className="nexus-signal-resolve h-7 text-xs border-green-300 text-green-600 dark:border-green-700 dark:text-green-400" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />{t.tasks.resolve}
-                </Button>
-                <Button variant="outline" size="sm" className="nexus-signal-reassign h-7 text-xs border-amber-300 text-amber-600 dark:border-amber-700 dark:text-amber-400" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
+                {canResolveTasks ? (
+                  <Button title={t.tasks.resolve} aria-label={t.tasks.resolve} variant="outline" size="sm" className="nexus-signal-resolve h-8 text-xs" onClick={() => openTaskResolveDialog(selectedTask)} data-testid="task-resolve-btn">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />{t.tasks.resolve}
+                  </Button>
+                ) : (
+                  <span className="max-w-[240px] text-[11px] text-muted-foreground" role="status">
+                    {taskAssignmentOptionsLoading
+                      ? t.tasks.taskGroups.assignmentLoading
+                      : taskAssignmentOptionsFailed
+                        ? t.tasks.taskGroups.assignmentLoadFailed
+                        : t.tasks.taskGroups.noEligibleResolvers}
+                  </span>
+                )}
+                <Button title={t.tasks.reassign} aria-label={t.tasks.reassign} variant="outline" size="sm" className="nexus-signal-reassign h-8 text-xs" onClick={() => openTaskReassignDialog(selectedTask)} data-testid="task-reassign-btn">
                   <UserPlus className="h-3 w-3 mr-1" />{t.tasks.reassign}
                 </Button>
               </>
             )}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="task-more-menu">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openTaskEditDialog(selectedTask)} data-testid="task-action-edit">
-                  <Edit className="h-4 w-4 mr-2" />{t.tasks.editTask}
-                </DropdownMenuItem>
-                {selectedTask.status !== "in_progress" && isActive && (
-                  <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "in_progress")} data-testid="task-action-start">
-                    <Play className="h-4 w-4 mr-2" />{t.tasks.startWorking}
-                  </DropdownMenuItem>
-                )}
-                {isActive && (
-                  <DropdownMenuItem onClick={() => handleTaskStatusChange(selectedTask, "cancelled")} data-testid="task-action-cancel">
-                    <XCircle className="h-4 w-4 mr-2" />{t.tasks.cancelTask}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button title={t.tasks.editTask} aria-label={t.tasks.editTask} variant="outline" size="sm" className="h-8 text-xs" onClick={() => openTaskEditDialog(selectedTask)} data-testid="task-action-edit">
+              <Edit className="h-3.5 w-3.5 mr-1" />{t.tasks.editTask}
+            </Button>
+            {selectedTask.status !== "in_progress" && isActive && (
+              <Button title={t.tasks.startWorking} aria-label={t.tasks.startWorking} variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleTaskStatusChange(selectedTask, "in_progress")} data-testid="task-action-start">
+                <Play className="h-3.5 w-3.5 mr-1" />{t.tasks.startWorking}
+              </Button>
+            )}
+            {isActive && (
+              <Button title={t.tasks.cancelTask} aria-label={t.tasks.cancelTask} variant="outline" size="sm" className="h-8 text-xs text-destructive" onClick={() => handleTaskStatusChange(selectedTask, "cancelled")} data-testid="task-action-cancel">
+                <XCircle className="h-3.5 w-3.5 mr-1" />{t.tasks.cancelTask}
+              </Button>
+            )}
           </div>
           {selectedTask.status === "completed" && selectedTask.resolution && (
             <div className="p-3 rounded-md bg-green-50 dark:bg-green-900/20">
@@ -8780,74 +9219,50 @@ export default function EmailClientPage() {
             </div>
           )}
         </div>
-        <div className="nexus-signal-detail-body flex-1 min-h-0">
-          <div className="nexus-signal-context">
-            <div className="nexus-signal-brief">
-              <div className="nexus-signal-section-label"><ListTodo className="h-3.5 w-3.5" />{t.tasks.description}</div>
-              <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>
-                {selectedTask.description || t.tasks.noDescription}
-              </p>
-            </div>
-            <div className="nexus-signal-checklist">
-              <ChecklistSection taskId={selectedTask.id} canEdit={isActive} />
-            </div>
+        <div className="nexus-signal-detail-body task-request-workspace flex-1 min-h-0" data-testid="task-work-layout">
+          <div className="task-request-top" data-testid={`task-request-top-${selectedTask.id}`}>
+            <TaskRequestBrief
+              description={selectedTask.description}
+              locale={locale}
+              taskId={selectedTask.id}
+              heading={t.tasks.requestFromSubmitter}
+              originalLabel={t.tasks.originalRequest}
+              emptyLabel={t.tasks.noDescription}
+              categoryLabels={{
+                ChangeData: t.quickCreate.catChangeData,
+                WrongPhone: t.quickCreate.catWrongPhone,
+                WrongEmail: t.quickCreate.catWrongEmail,
+                WrongAddress: t.quickCreate.catWrongAddress,
+                Document: t.quickCreate.catDocument,
+                Complaint: t.quickCreate.catComplaint,
+                Other: t.quickCreate.catOther,
+              }}
+            >
+              <TaskAttachmentList attachments={taskRecord.attachments || []} className="mt-3" />
+            </TaskRequestBrief>
           </div>
-          <div className="nexus-signal-thread p-4 flex-1 flex flex-col min-h-0">
-            <div className="flex items-center gap-2 mb-3">
-              <MessagesSquare className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-semibold">{t.tasks.comments}</span>
-              <Badge variant="secondary" className="text-[10px] h-5">{taskComments.length}</Badge>
+          <div className="task-work-layout">
+            <div className="task-work-main">
+              <div className="nexus-signal-checklist">
+                <ChecklistSection taskId={selectedTask.id} canEdit={isActive} />
+              </div>
             </div>
-            <div className="flex-1 min-h-0 overflow-auto space-y-2 mb-3">
-              {taskCommentsLoading ? (
-                <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
-              ) : taskComments.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground">
-                  <MessageCircle className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                  <p className="text-xs">{t.tasks.noComments}</p>
-                </div>
-              ) : (
-                taskComments.map((comment: any) => {
-                  const commentUser = getSystemUser(comment.userId) || comment.user;
-                  return (
-                    <div key={comment.id} className="nexus-signal-comment flex gap-2.5 group" data-testid={`task-comment-${comment.id}`}>
-                      <Avatar className="h-7 w-7 shrink-0 mt-0.5">
-                        <AvatarImage src={commentUser?.avatarUrl || undefined} className="object-cover" />
-                        <AvatarFallback className={cn("text-white text-[10px] font-semibold", getAvatarColorStatic(commentUser?.fullName || "?"))}>
-                          {getInitialsStatic(commentUser?.fullName || "?")}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium">{commentUser?.fullName || comment.userId}</span>
-                          <span className="text-[10px] text-muted-foreground">{format(new Date(comment.createdAt), "d.M. HH:mm")}</span>
-                          {comment.userId === user?.id && (
-                            <Button variant="ghost" size="icon" className="h-5 w-5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity" onClick={() => deleteTaskComment(comment.id)} aria-label={t.tasks.deleteComment} data-testid={`delete-comment-${comment.id}`}>
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
-                          )}
-                        </div>
-                        <p className="text-xs mt-0.5 whitespace-pre-wrap" style={{ overflowWrap: "break-word" }}>{comment.content}</p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            <div className="nexus-signal-composer flex items-center gap-2 shrink-0">
-              <textarea
-                value={taskCommentInput}
-                onChange={(e) => setTaskCommentInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addTaskComment(); } }}
-                placeholder={t.tasks.commentPlaceholder}
-                aria-label={t.tasks.commentPlaceholder}
-                rows={2}
-                className="flex-1 text-sm"
-                data-testid="input-task-comment"
+            <div className="task-work-comments task-comments-host p-4">
+              <TaskCommentsDialog
+                key={selectedTask.id}
+                taskId={selectedTask.id}
+                taskTitle={selectedTask.title}
+                comments={taskComments}
+                currentUserId={user?.id}
+                resolveUser={getSystemUser}
+                loading={taskCommentsLoading}
+                error={taskCommentsError}
+                onRetry={() => { void fetchTaskComments(selectedTask.id); }}
+                submitting={taskCommentSending}
+                uploadKey={selectedTask.id}
+                onSubmit={addTaskComment}
+                onDelete={deleteTaskComment}
               />
-              <Button size="sm" className="h-8 px-3" onClick={addTaskComment} disabled={!taskCommentInput.trim()} aria-label={t.tasks.addComment} data-testid="button-add-comment">
-                <Send className="h-3.5 w-3.5" />
-              </Button>
             </div>
           </div>
         </div>
@@ -9045,7 +9460,7 @@ export default function EmailClientPage() {
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-5 overflow-x-auto">
               {detail.body?.contentType === "html" ? (
-                <div className="prose dark:prose-invert max-w-none [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_table]:table-auto [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-gray-300 [&_th]:px-2 [&_th]:py-1 [&_a]:break-all" style={{ overflowWrap: "break-word", wordBreak: "break-word" }} dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
+                <div className="omni-email-html-body" dangerouslySetInnerHTML={{ __html: processHtmlForImages(detail.body.content, detail.id, detail.attachmentsList) }} />
               ) : (
                 <pre className="whitespace-pre-wrap font-sans text-sm" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{detail.body?.content || detail.bodyPreview}</pre>
               )}

@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
+import { createAgentWorkspaceTask, type AgentWorkspaceTaskCreateInput } from "@/lib/agent-workspace-task-create";
 import {
   createPulseDialEntryPoints,
   requestPulseDial,
@@ -28,6 +29,11 @@ import { MyActivityPanel } from "@/components/agent/MyShiftUnified";
 import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
 import { AgentBreakDialog } from "@/components/agent/AgentBreakDialog";
 import { Button } from "@/components/ui/button";
+import { getTaskAttachmentContextKey, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
+import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import "@/components/tasks/task-modern-task-surfaces.css";
+import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
+import { applyTaskRequestCategory, composeTaskRequestDescription } from "@/components/tasks/task-request-description";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -45,6 +51,7 @@ import {
   EMPTY_PULSE_CALL_COUNT_TRACKER,
 } from "@/lib/pulse-session-call-counter";
 import { sanitizeMissionFaqAnswer } from "@shared/mission-faq";
+import type { TaskAttachment } from "@shared/task-attachments";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -1954,6 +1961,7 @@ function TaskListPanel({
 }
 
 function ScriptViewer({ script, contact, campaignContactId, campaignId, initialStepId, onAction }: { script: string | null; contact?: Customer | null; campaignContactId?: string | null; campaignId?: string | null; initialStepId?: string | null; onAction?: (action: string, data?: any) => void }) {
+  const { t } = useI18n();
   const { user: authUser } = useAuth();
   const SCRIPT_VARIABLES: Record<string, string> = {
     "{{customer.firstName}}": contact?.firstName || "",
@@ -2698,7 +2706,6 @@ export function CommunicationCanvas({
   onBatchUnsavedCountChange,
   slCallbackDate,
   slCallbackActive,
-  unpaidRewardPersonCount = 0,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2783,7 +2790,7 @@ export function CommunicationCanvas({
       : rewardEntityType === "collaborator"
         ? collaboratorData?.id
         : null;
-  const { data: directRewardReadiness } = useQuery<{ unpaidRewardPersonCount: number }>({
+  const { data: directRewardReadiness, isFetchedAfterMount: hasFetchedRewardReadiness } = useQuery<{ unpaidRewardPersonCount: number }>({
     queryKey: ["/api/reward-readiness", rewardEntityType, rewardEntityId],
     queryFn: async () => {
       const response = await fetch(`/api/reward-readiness/${rewardEntityType}/${rewardEntityId}`, { credentials: "include" });
@@ -2803,37 +2810,9 @@ export function CommunicationCanvas({
     },
     enabled: !!personnelEntityType && !!personnelEntityId,
   });
-  const institutionRewardPersonIds = useMemo(() => {
-    const combined = [...(personnelRecipientData?.assigned || []), ...(personnelRecipientData?.legacy || [])];
-    return [...new Set(
-      combined
-        .filter((person: any) => person?.person_active !== false)
-        .map((person: any) => String(person?.person_id || ""))
-        .filter(Boolean),
-    )];
-  }, [personnelRecipientData]);
-  const { data: institutionRewardCount = 0 } = useQuery<number>({
-    queryKey: ["/api/institutions", personnelEntityType, personnelEntityId, "unpaid-reward-count", institutionRewardPersonIds],
-    queryFn: async () => {
-      const activityLists = await Promise.all(institutionRewardPersonIds.map(async (personId) => {
-        const response = await fetch(`/api/collaborators/${personId}/activities?includeCalls=false`, { credentials: "include" });
-        if (!response.ok) throw new Error("Failed to load personnel activities");
-        return response.json() as Promise<Array<{ rewardPaid?: boolean; rewardPaidAt?: string | null }>>;
-      }));
-      return activityLists.reduce((count, activities) => {
-        const latest = activities[0];
-        return latest && !(latest.rewardPaid && latest.rewardPaidAt) ? count + 1 : count;
-      }, 0);
-    },
-    enabled: !!personnelEntityType && institutionRewardPersonIds.length > 0,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-  const visibleUnpaidRewardPersonCount = Math.max(
-    directRewardReadiness?.unpaidRewardPersonCount || 0,
-    unpaidRewardPersonCount,
-    institutionRewardCount,
-  );
+  const visibleUnpaidRewardPersonCount = hasFetchedRewardReadiness
+    ? directRewardReadiness?.unpaidRewardPersonCount || 0
+    : 0;
   const personnelRecipients = useMemo(() => {
     if (!personnelDialingEnabled) return [];
     const combined = [...(personnelRecipientData?.assigned || []), ...(personnelRecipientData?.legacy || [])];
@@ -3315,8 +3294,9 @@ export function CommunicationCanvas({
         if (newChecked) next.delete(itemId); else next.add(itemId);
         return next;
       });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
     }
-  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, toast]);
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode]);
 
   const handleSlConfirmWithCallback = useCallback(async () => {
     if (!slPendingCallback || !campaign?.id || !campaignContactId) return;
@@ -3348,6 +3328,7 @@ export function CommunicationCanvas({
     } catch {
       setDbSlChecked(prev => { const next = new Set(prev); next.delete(itemId); return next; });
       toast({ title: "Chyba", variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
     }
   }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast, locale]);
 
@@ -9818,8 +9799,7 @@ function ScheduledQueuePanel({
   showOnlyAssigned?: boolean;
   onToggleAssigned?: (v: boolean) => void;
 }) {
-  // The toolbar opens this panel through a ref so opening/closing it does not
-  // re-render the entire Agent Workspace and its other live panels.
+  // Keep the modal's open state local so opening it does not re-render the full workspace.
   const [open, setOpen] = useState(false);
   useEffect(() => {
     openQueueRef.current = () => setOpen(true);
@@ -10597,6 +10577,8 @@ function AgentWorkspacePageContent() {
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserIds: [] as string[], dueDate: "", groupId: "", category: "" });
+  const [createTaskAttachments, setCreateTaskAttachments] = useState<TaskAttachment[]>([]);
+  const [createTaskAttachmentsBusy, setCreateTaskAttachmentsBusy] = useState(false);
   const [taskUserSearch, setTaskUserSearch] = useState("");
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
   const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
@@ -10623,6 +10605,20 @@ function AgentWorkspacePageContent() {
   const wrapUpTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prevCallStateRef = useRef(callContext.callState);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!createTaskDialogOpen) return;
+    setCreateTaskAttachments([]);
+    setCreateTaskAttachmentsBusy(false);
+  }, [
+    createTaskDialogOpen,
+    currentContact?.id,
+    currentContactType,
+    currentClinicData?.id,
+    currentHospitalData?.id,
+    currentCollaboratorData?.id,
+    selectedCampaignId,
+  ]);
 
   useEffect(() => {
     if (!pendingMissedChannel || !currentContact?.id) return;
@@ -11165,6 +11161,16 @@ function AgentWorkspacePageContent() {
     return null;
   };
 
+  const taskEntityTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      customer: t.customers.title,
+      clinic: t.clinics.title,
+      hospital: t.hospitals.tabs.hospital,
+      collaborator: t.collaborators.title,
+    };
+    return labels[type] || t.quickCreate.linkedCustomer;
+  };
+
   const taskCategoryOptions: { id: string; label: string; phrase: string; Icon: any }[] = [
     { id: "change_data", label: t.quickCreate.catChangeData, phrase: t.quickCreate.reqChangeData, Icon: User },
     { id: "wrong_phone", label: t.quickCreate.catWrongPhone, phrase: t.quickCreate.reqWrongPhone, Icon: Phone },
@@ -11175,45 +11181,31 @@ function AgentWorkspacePageContent() {
     { id: "other", label: t.quickCreate.catOther, phrase: t.quickCreate.reqOther, Icon: Tag },
   ];
 
-  const taskEntityTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      customer: t.customers.title,
-      clinic: t.clinics.title,
-      hospital: t.hospitals.tabs.hospital,
-    };
-    return labels[type] || t.quickCreate.linkedCustomer;
-  };
-
   const applyTaskCategory = (catId: string) => {
     const cat = taskCategoryOptions.find(c => c.id === catId);
     if (!cat) return;
     const ent = resolveTaskEntity();
     const entLabel = ent?.name.trim() || "";
     const newTitle = entLabel ? `${cat.label} — ${entLabel}` : cat.label;
-    const newDesc = [entLabel, cat.phrase, ""].filter(Boolean).join("\n");
-    setCreateTaskForm(prev => ({ ...prev, category: catId, title: newTitle, description: newDesc }));
+    setCreateTaskForm(prev => applyTaskRequestCategory(prev, catId, newTitle));
   };
 
   const createTaskMutation = useMutation({
-    mutationFn: async (data: { title: string; description: string; priority: string; assignedUserIds: string[]; customerId?: string; relatedEntityType?: string; relatedEntityId?: string; dueDate?: string; country?: string; groupId?: string }) => {
-      const basePayload: any = {
-        title: data.title,
-        priority: data.priority,
-      };
-      if (data.description) basePayload.description = data.description;
-      if (data.dueDate) basePayload.dueDate = new Date(data.dueDate).toISOString();
-      if (data.customerId) basePayload.customerId = data.customerId;
-      if (data.relatedEntityType) basePayload.relatedEntityType = data.relatedEntityType;
-      if (data.relatedEntityId) basePayload.relatedEntityId = data.relatedEntityId;
-      if (data.country) basePayload.country = data.country;
-      if (data.groupId) basePayload.tags = [`group_id:${data.groupId}`];
+    mutationFn: async (data: AgentWorkspaceTaskCreateInput & { assignedUserIds: string[] }) => {
+      const sessionId = agentSession.isSessionActive ? agentSession.session?.id : null;
+      if (!selectedCampaignId || !sessionId) {
+        throw new Error("An active Mission session is required to create a Nexus Pulse task.");
+      }
+      const pulseOrigin = { missionId: selectedCampaignId, sessionId };
       const assignees = data.assignedUserIds.length > 0 ? data.assignedUserIds : [];
-      return Promise.all(assignees.map(uid => apiRequest("POST", "/api/tasks", { ...basePayload, assignedUserId: uid })));
+      return Promise.all(assignees.map(uid => createAgentWorkspaceTask(data, uid, pulseOrigin)));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
       toast({ title: t.quickCreate.taskCreated, description: t.quickCreate.taskCreatedDesc });
       setCreateTaskDialogOpen(false);
+      setCreateTaskAttachments([]);
+      setCreateTaskAttachmentsBusy(false);
       setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
     },
     onError: (e: any) => {
@@ -14051,13 +14043,32 @@ function AgentWorkspacePageContent() {
     }
     try {
       const quotaType = channel === "phone" ? "calls" : channel === "email" ? "emails" : "sms";
-      // The quota check and entity read are independent. Start both together,
-      // but do not open the card until the quota check has completed.
-      const quotaCheck = isOutsideMission
-        ? Promise.resolve(null)
-        : fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" })
-            .then(async response => response.ok ? response.json() : null)
-            .catch(() => null);
+      let blocked = false;
+      if (!isOutsideMission) {
+        try {
+          const qRes = await fetch(`/api/campaigns/${campaignId}/quota-check`, { credentials: "include" });
+          if (qRes.ok) {
+            const qData = await qRes.json();
+            if (qData.blocked && qData.blocked[quotaType]) blocked = true;
+            const hasAnyQuota = qData.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null);
+            if (hasAnyQuota && campaignId === selectedCampaignId) {
+              setQuotas(qData.quotas);
+              if (qData.usage) {
+                quotaDataRef.current = { usage: qData.usage };
+              }
+            }
+          }
+        } catch {}
+      }
+      if (blocked) {
+        const quotaMsg = quotaType === "calls"
+          ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
+          : quotaType === "emails"
+          ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
+          : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
+        toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
+        return null;
+      }
       let customer: any;
       let _clinicEntity: any = null;
       let _hospitalEntity: any = null;
@@ -14133,21 +14144,6 @@ function AgentWorkspacePageContent() {
         const res = await fetch(`/api/customers/${contactId}`, { credentials: "include" });
         if (!res.ok) throw new Error("Customer not found");
         customer = await res.json();
-      }
-
-      const qData = await quotaCheck;
-      if (qData?.quotas && (qData.quotas.calls !== null || qData.quotas.emails !== null || qData.quotas.sms !== null) && campaignId === selectedCampaignId) {
-        setQuotas(qData.quotas);
-        if (qData.usage) quotaDataRef.current = { usage: qData.usage };
-      }
-      if (qData?.blocked?.[quotaType]) {
-        const quotaMsg = quotaType === "calls"
-          ? (t.agentWorkspace?.callQuotaReached || "Daily call quota reached")
-          : quotaType === "emails"
-          ? (t.agentWorkspace?.emailQuotaReached || "Daily email quota reached")
-          : (t.agentWorkspace?.smsQuotaReached || "Daily SMS quota reached");
-        toast({ title: t.agentWorkspace?.quotaReached || "Quota reached", description: quotaMsg, variant: "destructive" });
-        return null;
       }
 
       if (isOutsideMission) {
@@ -16248,7 +16244,7 @@ function AgentWorkspacePageContent() {
                 const entityName = entity?.name || (c ? (c.name || [c.firstName, c.lastName].filter(Boolean).join(" ") || c.companyName || "") : "");
                 setCreateTaskForm({
                   title: `${t.agentWorkspace.dataChangeTaskTitle || "Zmena zákazníckych údajov"}${entityName ? ` — ${entityName}` : ""}`,
-                  description: t.agentWorkspace.dataChangeTaskDesc || "Požiadavka na zmenu zákazníckych údajov (karta je v tejto kampani iba na čítanie).",
+                  description: t.agentWorkspace.dataChangeTaskDesc || "",
                   priority: "medium",
                   assignedUserIds: [],
                   dueDate: "",
@@ -17690,38 +17686,41 @@ function AgentWorkspacePageContent() {
         }}
       />
 
-      <Sheet open={createTaskDialogOpen} onOpenChange={(open) => { setCreateTaskDialogOpen(open); if (!open) setTaskUserSearch(""); }}>
-        <SheetContent side="right" className="w-full sm:max-w-[860px] p-0 flex flex-col gap-0 bg-[#f7fbfe] dark:bg-slate-950 border-l border-[#caddeb] dark:border-slate-700">
+      <Sheet open={createTaskDialogOpen} onOpenChange={(open) => {
+        setCreateTaskDialogOpen(open);
+        if (open) {
+          setCreateTaskAttachments([]);
+          setCreateTaskAttachmentsBusy(false);
+        } else {
+          setTaskUserSearch("");
+          setCreateTaskAttachments([]);
+          setCreateTaskAttachmentsBusy(false);
+          setCreateTaskForm(prev => ({ ...prev, description: "" }));
+        }
+      }}>
+        <SheetContent side="right" className="task-create-sheet w-full sm:max-w-[860px] p-0 flex flex-col gap-0">
 
-          {/* Nexus Pulse blue header */}
-          <SheetHeader className="shrink-0 px-5 py-4 space-y-0 bg-[#f8fbfe] dark:bg-slate-900 border-b border-[#dce8f2] dark:border-slate-700">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-[#e5f0fa] dark:bg-blue-950 border border-[#c9deef] dark:border-blue-800 flex items-center justify-center shrink-0">
-                <CalendarPlus className="h-5 w-5 text-[#2d6fba] dark:text-blue-300" />
-              </div>
-              <div className="min-w-0">
-                <SheetTitle className="text-[#173452] dark:text-slate-100 text-lg font-bold leading-tight">{t.quickCreate.newTask}</SheetTitle>
-                <SheetDescription className="text-[#69809a] dark:text-slate-400 text-xs leading-snug">{t.quickCreate.newTaskDesc}</SheetDescription>
-              </div>
-            </div>
+          <TaskModalArtwork variant="create" compact />
+          <SheetHeader className="task-create-sheet-header shrink-0 px-6 pb-4 space-y-1">
+            <SheetTitle className="text-foreground text-xl font-bold leading-tight">{t.quickCreate.newTask}</SheetTitle>
+            <SheetDescription className="max-w-2xl text-muted-foreground text-sm leading-relaxed">{t.quickCreate.newTaskDesc}</SheetDescription>
           </SheetHeader>
 
           {/* Scrollable body — two columns */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4">
+          <div className="task-modern-modal-body task-create-sheet-body flex-1 min-h-0 overflow-y-auto px-6 py-5">
             {(() => { const taskEnt = resolveTaskEntity(); return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {/* Linked entity banner — spans both columns */}
-            {taskEnt && (
-              <div className="md:col-span-2 p-2.5 rounded-xl border border-[#c9deef] dark:border-blue-800 bg-[#edf5fb] dark:bg-blue-950/30 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                <span className="h-6 w-6 rounded-full bg-[#dcecf9] dark:bg-blue-900/50 flex items-center justify-center shrink-0">
-                  <User className="h-3.5 w-3.5 text-[#2d6fba] dark:text-blue-300" />
-                </span>
-                <span className="min-w-0 truncate">
-                  {taskEntityTypeLabel(taskEnt.type)}: <span className="font-semibold text-stone-800 dark:text-stone-100">{taskEnt.name}</span>
-                </span>
-              </div>
-            )}
+            {/* Generated details stay visually secondary and never enter the editable body. */}
+            <div className="md:col-span-2">
+              <AgentTaskRequestContext
+                title={t.tasks.taskRequestContextTitle}
+                hint={t.tasks.taskRequestContextHint}
+                entityTypeLabel={taskEnt ? taskEntityTypeLabel(taskEnt.type) : undefined}
+                entityName={taskEnt?.name || undefined}
+                categoryPhrase={taskCategoryOptions.find(category => category.id === createTaskForm.category)?.phrase}
+              />
+            </div>
 
             {/* ── Left column ── */}
             <div className="space-y-5 min-w-0">
@@ -17737,10 +17736,10 @@ function AgentWorkspacePageContent() {
                         key={id}
                         type="button"
                         onClick={() => applyTaskCategory(id)}
-                        className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[11px] font-medium text-left transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
+                         className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[11px] font-medium text-left transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
                         data-testid={`chip-task-category-${id}`}
                       >
-                        <Icon className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-white" : "text-[#2d6fba] dark:text-blue-300"}`} />
+                         <Icon className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-white" : "text-[#2d6fba] dark:text-blue-300"}`} />
                         <span className="truncate">{label}</span>
                         {selected && <Check className="h-3 w-3 shrink-0 ml-auto" />}
                       </button>
@@ -17756,23 +17755,17 @@ function AgentWorkspacePageContent() {
                   value={createTaskForm.title}
                   onChange={(e) => setCreateTaskForm({ ...createTaskForm, title: e.target.value })}
                   placeholder={t.quickCreate.taskTitle}
-                  className="rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
+                   className="rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
                   data-testid="input-create-task-title"
                 />
               </div>
 
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskDescription}</label>
-                <Textarea
-                  value={createTaskForm.description}
-                  onChange={(e) => setCreateTaskForm({ ...createTaskForm, description: e.target.value })}
-                  placeholder={t.quickCreate.taskDescription}
-                  className="resize-none rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
-                  rows={7}
-                  data-testid="input-create-task-description"
-                />
-              </div>
+              <AgentTaskRequestEditor
+                value={createTaskForm.description}
+                onChange={(description) => setCreateTaskForm(prev => ({ ...prev, description }))}
+                agentTitle={t.tasks.taskAgentRequestTitle}
+                agentHint={t.tasks.taskAgentRequestHint}
+              />
             </div>
 
             {/* ── Right column ── */}
@@ -17785,7 +17778,7 @@ function AgentWorkspacePageContent() {
                   {[
                     { value: "low", label: t.quickCreate.priorityLow, Icon: ArrowDown, active: "bg-emerald-500 border-emerald-500 text-white shadow-md", dot: "text-emerald-500" },
                     { value: "medium", label: t.quickCreate.priorityMedium, Icon: Flag, active: "bg-amber-500 border-amber-500 text-white shadow-md", dot: "text-amber-500" },
-                    { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-orange-500 border-orange-500 text-white shadow-md", dot: "text-orange-500" },
+                     { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-orange-500 border-orange-500 text-white shadow-md", dot: "text-orange-500" },
                     { value: "urgent", label: t.quickCreate.priorityUrgent, Icon: Zap, active: "bg-red-600 border-red-600 text-white shadow-md", dot: "text-red-600" },
                   ].map(({ value, label, Icon, active, dot }) => {
                     const selected = createTaskForm.priority === value;
@@ -17813,7 +17806,7 @@ function AgentWorkspacePageContent() {
                     type="date"
                     value={createTaskForm.dueDate}
                     onChange={(e) => setCreateTaskForm({ ...createTaskForm, dueDate: e.target.value })}
-                    className="h-9 flex-1 rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
+                     className="h-9 flex-1 rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
                     data-testid="input-create-task-duedate"
                   />
                 </div>
@@ -17829,7 +17822,7 @@ function AgentWorkspacePageContent() {
                         key={testid}
                         type="button"
                         onClick={() => setCreateTaskForm({ ...createTaskForm, dueDate: selected ? "" : date })}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:text-[#2d6fba]"}`}
+                         className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:text-[#2d6fba]"}`}
                         data-testid={testid}
                       >
                         <Clock className="h-3 w-3" />
@@ -17848,7 +17841,7 @@ function AgentWorkspacePageContent() {
                     <button
                       type="button"
                       onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca]"}`}
+                       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca]"}`}
                       data-testid="chip-task-group-none"
                     >
                       {t.quickCreate.noGroup}
@@ -17860,7 +17853,7 @@ function AgentWorkspacePageContent() {
                           key={g.id}
                           type="button"
                           onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
-                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
+                           className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
                           data-testid={`chip-task-group-${g.id}`}
                         >
                           <Users className="h-3 w-3" />
@@ -17878,11 +17871,11 @@ function AgentWorkspacePageContent() {
                 <div className="flex items-center justify-between">
                   <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo}</label>
                   {createTaskForm.assignedUserIds.length > 0 && (
-                    <span className="text-[10px] font-semibold text-[#2d6fba] dark:text-blue-300 bg-[#e5f0fa] dark:bg-blue-950 rounded-full px-1.5 py-0.5" data-testid="text-assignee-count">{createTaskForm.assignedUserIds.length}</span>
+                     <span className="text-[10px] font-semibold text-[#2d6fba] dark:text-blue-300 bg-[#e5f0fa] dark:bg-blue-950 rounded-full px-1.5 py-0.5" data-testid="text-assignee-count">{createTaskForm.assignedUserIds.length}</span>
                   )}
                 </div>
                 <p className="text-[10px] text-stone-400 dark:text-stone-500 -mt-0.5">{t.quickCreate.assignedToHint}</p>
-                <div className="rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+                 <div className="rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
                   <div className="relative border-b border-stone-200 dark:border-stone-800">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
                     <input
@@ -17897,7 +17890,7 @@ function AgentWorkspacePageContent() {
                   <div className="max-h-[168px] overflow-y-auto p-2 flex flex-wrap gap-1.5">
                     {(() => {
                       const palette = [
-                        "from-[#2d6fba] to-[#1c568f]",
+                         "from-[#2d6fba] to-[#1c568f]",
                         "from-amber-500 to-orange-600",
                         "from-emerald-500 to-teal-600",
                         "from-sky-500 to-blue-600",
@@ -17918,7 +17911,7 @@ function AgentWorkspacePageContent() {
                             key={u.id}
                             type="button"
                             onClick={() => setCreateTaskForm(prev => ({ ...prev, assignedUserIds: selected ? prev.assignedUserIds.filter(id => id !== u.id) : [...prev.assignedUserIds, u.id] }))}
-                            className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-[#f7fbfe] dark:bg-slate-800 border-[#dce8f2] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#5a94ca] hover:shadow-sm"}`}
+                             className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-[#f7fbfe] dark:bg-slate-800 border-[#dce8f2] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#5a94ca] hover:shadow-sm"}`}
                             data-testid={`chip-task-user-${u.id}`}
                           >
                             <span className={`h-5 w-5 rounded-full bg-gradient-to-br ${palette[hash % palette.length]} text-white text-[8px] font-bold flex items-center justify-center shrink-0 ${selected ? "ring-2 ring-white/60" : ""}`}>
@@ -17934,13 +17927,28 @@ function AgentWorkspacePageContent() {
                 </div>
               </div>
             </div>
+            <div className="md:col-span-2 rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 p-3">
+              <label className="mb-2 block text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.backOffice.attachLabel}</label>
+              <TaskAttachmentPicker
+                key={getTaskAttachmentContextKey({
+                  isOpen: createTaskDialogOpen,
+                  campaignId: selectedCampaignId,
+                  entityType: taskEnt?.type,
+                  entityId: taskEnt?.id,
+                })}
+                attachments={createTaskAttachments}
+                onChange={setCreateTaskAttachments}
+                onBusyChange={setCreateTaskAttachmentsBusy}
+                disabled={createTaskMutation.isPending}
+              />
+            </div>
             </div>
             ); })()}
           </div>
 
           {/* Footer */}
-          <div className="shrink-0 border-t border-[#dce8f2] dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-3 flex items-center justify-end gap-2">
-            <Button variant="outline" className="rounded-lg" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
+           <div className="task-modern-modal-footer task-create-sheet-footer shrink-0 px-6 py-4 flex items-center justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setCreateTaskDialogOpen(false)} data-testid="btn-cancel-create-task">
               {t.common.cancel}
             </Button>
             <Button
@@ -17950,9 +17958,14 @@ function AgentWorkspacePageContent() {
                   : (createTaskForm.groupId && user?.id ? [user.id] : []);
                 if (!createTaskForm.title.trim() || assignees.length === 0) return;
                 const ent = resolveTaskEntity();
+                const selectedCategory = taskCategoryOptions.find(category => category.id === createTaskForm.category);
                 createTaskMutation.mutate({
                   title: createTaskForm.title.trim(),
-                  description: createTaskForm.description.trim(),
+                  description: composeTaskRequestDescription(
+                    ent?.name,
+                    selectedCategory?.phrase,
+                    createTaskForm.description,
+                  ),
                   priority: createTaskForm.priority,
                   assignedUserIds: assignees,
                   customerId: ent?.type === "customer" ? ent.id : undefined,
@@ -17961,10 +17974,11 @@ function AgentWorkspacePageContent() {
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
                   groupId: createTaskForm.groupId || undefined,
+                  attachments: createTaskAttachments,
                 });
               }}
-              disabled={createTaskMutation.isPending || !createTaskForm.title.trim() || (createTaskForm.assignedUserIds.length === 0 && !createTaskForm.groupId)}
-              className="rounded-lg px-5 font-semibold bg-gradient-to-b from-[#3b7ec5] to-[#2d6fba] hover:from-[#2d6fba] hover:to-[#1c568f] text-white border-0 shadow-md disabled:opacity-40 transition-all"
+              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || (createTaskForm.assignedUserIds.length === 0 && !createTaskForm.groupId)}
+                className="task-create-submit rounded-xl px-5 font-semibold text-white border-0 disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >
               {createTaskMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}

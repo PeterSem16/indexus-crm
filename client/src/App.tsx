@@ -58,7 +58,6 @@ const PricingPage = lazy(() => import("@/pages/pricing"));
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
 const WallboardPage = lazy(() => import("@/pages/wallboard"));
 const CampaignDetailPage = lazy(() => import("@/pages/campaign-detail"));
-const TasksPage = lazy(() => import("@/pages/tasks"));
 const TaskGroupsPage = lazy(() => import("@/pages/task-groups"));
 const ContractsPage = lazy(() => import("@/pages/contracts"));
 const ContractDetailPage = lazy(() => import("@/pages/contract-detail"));
@@ -302,7 +301,9 @@ function AuthenticatedApp() {
                     <Route path="/campaigns/:id/reports" component={CampaignReportsPage} />
                     <Route path="/representative-quality" component={RepresentativeQualityPage} />
                     <Route path="/pipeline" component={PipelinePage} />
-                    <Route path="/tasks" component={TasksPage} />
+                    <Route path="/tasks">
+                      <Redirect to="/email?tab=tasks" />
+                    </Route>
                     <Route path="/task-groups" component={TaskGroupsPage} />
                     <Route path="/contracts/editor/:categoryId/:countryCode">
                       {(params) => <TemplateEditorPage categoryId={params.categoryId} countryCode={params.countryCode} />}

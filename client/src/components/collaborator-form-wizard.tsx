@@ -2115,6 +2115,7 @@ function ActionsTabContent({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators", collaboratorId, "activities"] });
       queryClient.invalidateQueries({ queryKey: ["/api/reward-readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
     },
   });
 
@@ -3607,27 +3608,25 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
   const { isHidden, isReadonly } = useModuleFieldPermissions("collaborators");
   
   const isEditMode = !!initialData;
-  const { data: headerActivities = [] } = useQuery<Array<CollaboratorActivity & { isCall?: boolean }>>({
-    queryKey: ["/api/collaborators", initialData?.id, "activities"],
+  const { data: headerRewardReadiness, isFetchedAfterMount: hasFetchedHeaderRewardReadiness } = useQuery<{ unpaidRewardPersonCount: number; unpaidRewardBadgeEligible?: boolean }>({
+    queryKey: ["/api/reward-readiness", "collaborator", initialData?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/collaborators/${initialData?.id}/activities`, { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to load collaborator activities");
+      const response = await fetch(`/api/reward-readiness/collaborator/${initialData?.id}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to resolve reward readiness");
       return response.json();
     },
     enabled: isEditMode && !!initialData?.id,
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const latestHeaderAction = headerActivities.find((activity) => !activity.isCall);
-  const hasUnpaidLatestAction = !!latestHeaderAction
-    && !(latestHeaderAction.rewardPaid && latestHeaderAction.rewardPaidAt);
-  const resolvedHeaderBadge = headerBadge ?? (
-    hasUnpaidLatestAction ? (
+  const resolvedHeaderBadge = hasFetchedHeaderRewardReadiness
+    && headerRewardReadiness?.unpaidRewardBadgeEligible === true ? (
+    headerBadge ?? (
       <Badge className="ml-2 border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-collaborator-unpaid-reward">
         {priorityBuilderCopy[locale]?.unpaidRewardBadge || priorityBuilderCopy.en.unpaidRewardBadge}: 1
       </Badge>
-    ) : null
-  );
+    )
+  ) : null;
   
   const wizardSteps = isEditMode 
     ? WIZARD_STEPS 

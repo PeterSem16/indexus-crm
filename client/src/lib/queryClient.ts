@@ -11,6 +11,7 @@ async function throwIfResNotOk(res: Response) {
       if (json.error) {
         const err = new Error(json.error);
         (err as any).status = res.status;
+        if (json.code) (err as any).code = json.code;
         if (json.detail) (err as any).detail = json.detail;
         throw err;
       }

@@ -5157,8 +5157,10 @@ export default function CampaignDetailPage() {
   const getDispName = (_code: string, fallbackName: string) => {
     return fallbackName;
   };
-  const [activeTab, setActiveTab] = useState("overview");
-  const [settingsSubTab, setSettingsSubTab] = useState("general");
+  const fromStatusListCatalog = new URLSearchParams(window.location.search).get("tab") === "settings" &&
+    new URLSearchParams(window.location.search).get("section") === "status_list";
+  const [activeTab, setActiveTab] = useState(fromStatusListCatalog ? "settings" : "overview");
+  const [settingsSubTab, setSettingsSubTab] = useState(fromStatusListCatalog ? "status_list" : "general");
   
   const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
@@ -6593,7 +6595,7 @@ export default function CampaignDetailPage() {
                   })}
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-6 py-4">
+                <div className="min-w-0 flex-1 overflow-y-auto px-6 py-4">
                   {settingsSubTab === "general" && (
                     <div className="space-y-8">
                       <section className="space-y-3">

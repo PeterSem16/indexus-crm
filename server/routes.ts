@@ -3,7 +3,40 @@ import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
+import {
+  registerTaskSourceEntityRoute,
+  getTaskCompletionNoticeSourceLookupId,
+  resolveAccessibleTaskSourceEntityDisplayName,
+  resolveTaskSourceEntityDisplayName,
+  type TaskSourceEntityDependencies,
+} from "./lib/task-source-entity";
+import {
+  buildValidatedTaskPatch,
+  buildPulseCompletionNotification,
+  canAccessTaskByPolicy,
+  collectTaskParticipantIds,
+  isPulseOriginTask,
+  pulseCompletionMissingResolution,
+  shouldNotifyTaskCreator,
+  taskPeopleCandidateAllowed,
+  taskPeoplePersonVisible,
+  userMayAccessTaskCountry,
+} from "./lib/task-contract";
 import { setForwardedRecordingAnalyzer } from "./lib/forwarded-call-reconciliation";
+import {
+  isAuthorizedManualPulseTaskOrigin,
+  MANUAL_PULSE_TASK_TAG,
+} from "@shared/task-provenance";
+import {
+  assertTaskCompletionNoticeRecipient,
+  assertTaskCanBeCompletedStatus,
+  assertPulseTaskChecklistComplete,
+  PulseChecklistCompletionError,
+  assertTaskChecklistEditableStatus,
+  TaskChecklistInactiveError,
+  TaskCompletionNoticeAuthorizationError,
+  TaskInactiveCompletionError,
+} from "./lib/task-completion";
 import { createServer, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
@@ -12,6 +45,18 @@ import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count,
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { storage } from "./storage";
+import { executeStatusListTaskAction } from "./lib/status-list-task-action";
+import {
+  ensureTaskAiChecklist,
+  getTaskAiChecklistState,
+  markTaskChecklistManuallyChanged,
+} from "./lib/task-ai-checklist";
+import { registerTaskResolutionDraftRoute } from "./lib/task-resolution-draft-route";
+import { registerTaskReassignmentRoutes } from "./lib/task-reassignment-route";
+import { taskReassignmentGroupId } from "./lib/task-reassignment";
+import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/admin-authorization";
+import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
+import { transitionTaskWorkTiming } from "./lib/task-work-timing";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
 import { registerAgentShiftLoginSetRoutes, sanitizeAgentShiftScope } from "./agent-shift-login-set-routes";
 import { registerWallboardRoutes } from "./wallboard-routes";
@@ -73,6 +118,7 @@ import {
   campaignStatusListQuestions,
   campaignContactStatusListState,
   taskBackOfficeConfirmations,
+  notifications,
   insertCampaignStatusListItemSchema,
   insertCampaignStatusListAutomationSchema,
   insertCampaignStatusListQuestionSchema,
@@ -80,9 +126,11 @@ import {
   insertTaskBackOfficeConfirmationSchema,
   tasks,
   taskComments,
+  taskAttachmentUploads,
   insertTaskSchema,
   taskGroups,
   taskGroupMembers,
+  taskAssignmentAccess,
   taskGroupRoleSortOrders,
   insertTaskGroupSchema,
   insertTaskGroupMemberSchema,
@@ -223,6 +271,17 @@ import * as mailchimpApi from "./lib/mailchimp";
 import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileViaSsh, runSshCommand } from "./lib/ami-client";
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
+import { normalizeAttachmentName, type TaskAttachment } from "@shared/task-attachments";
+import {
+  TASK_ATTACHMENT_MAX_BYTES,
+  TASK_ATTACHMENT_MAX_FILES,
+  TaskAttachmentInputError,
+  resolveTaskAttachmentMetadata,
+  liveTaskAttachmentSources,
+  taskAttachmentReadAllowed,
+  taskAttachmentPreviewAllowed,
+  taskCommentHasContentOrAttachments,
+} from "./lib/task-attachment-contract";
 
 async function loadFacilityPersonReferralIds(clinicIds: string[], hospitalIds: string[]) {
   const empty = { clinic: new Set<string>(), hospital: new Set<string>() };
@@ -694,12 +753,8 @@ const uploadAvatar = multer({
   },
 });
 
-// Configure multer for back-office task attachments (question + answer files)
-// Map allowed MIME types to safe, server-controlled extensions. We deliberately
-// ignore the client-supplied filename extension: files are served from the public
-// /data + /uploads static mounts, so writing an attacker-chosen .html/.svg/.js
-// (with a spoofed MIME) would otherwise allow stored XSS. None of these extensions
-// are active content.
+// Private task uploads are stored outside DATA_ROOT so they cannot be served by
+// the public /data or /uploads static mounts. The original extension is ignored.
 const TASK_ATTACHMENT_MIME_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -716,19 +771,29 @@ const TASK_ATTACHMENT_MIME_EXT: Record<string, string> = {
   "application/zip": ".zip",
   "application/x-zip-compressed": ".zip",
 };
+const PRIVATE_TASK_ATTACHMENTS_DIR = path.join(path.dirname(DATA_ROOT), "private-task-attachments");
+function taskAttachmentDisplayName(originalName: string): string {
+  const normalized = normalizeAttachmentName(originalName).replace(/\\/g, "/");
+  return normalized.split("/").pop()?.slice(0, 255) || "attachment";
+}
 const taskAttachmentStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, STORAGE_PATHS.taskAttachments);
+  destination: (_req, _file, cb) => {
+    try {
+      fs.mkdirSync(PRIVATE_TASK_ATTACHMENTS_DIR, { recursive: true });
+      cb(null, PRIVATE_TASK_ATTACHMENTS_DIR);
+    } catch (error) {
+      cb(error as Error, "");
+    }
   },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const ext = TASK_ATTACHMENT_MIME_EXT[file.mimetype] || ".bin";
-    cb(null, `bo-task-${uniqueSuffix}${ext}`);
+  filename: (_req, file, cb) => {
+    const ext = TASK_ATTACHMENT_MIME_EXT[file.mimetype];
+    if (!ext) return cb(new Error("Invalid file type for attachment."), "");
+    cb(null, `${crypto.randomUUID()}${ext}`);
   },
 });
 const uploadTaskAttachment = multer({
   storage: taskAttachmentStorage,
-  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+  limits: { fileSize: TASK_ATTACHMENT_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     const allowed = [
       "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
@@ -744,6 +809,15 @@ const uploadTaskAttachment = multer({
     else cb(new Error("Invalid file type for attachment."));
   },
 });
+function handleTaskAttachmentUpload(req: Request, res: Response, next: NextFunction): void {
+  uploadTaskAttachment.single("file")(req, res, (error: any) => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "Task attachments must be 15 MB or smaller" });
+    }
+    return res.status(400).json({ error: error?.message || "Invalid task attachment upload" });
+  });
+}
 
 // Configure multer for CSV/Excel contact imports (memory storage)
 const uploadContactsFile = multer({
@@ -983,6 +1057,134 @@ type StatusListActionCtx = {
   userId: string;
   itemId?: string | null;
 };
+
+async function resolveStatusListTaskNotificationContext(
+  ccRow: any,
+  taskCustomerId: string | null,
+): Promise<string> {
+  try {
+    const nameParts: string[] = [];
+    if (taskCustomerId) {
+      const cuRes: any = await db.execute<any>(
+        sql`SELECT first_name, last_name FROM customers WHERE id = ${taskCustomerId} LIMIT 1`
+      );
+      const cu = cuRes?.rows?.[0];
+      const cn = cu ? `${cu.first_name || ""} ${cu.last_name || ""}`.trim() : "";
+      if (cn) nameParts.push(`Klient: ${cn}`);
+    }
+    let clinicNm = "";
+    let hospitalNm = "";
+    if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
+      const r: any = await db.execute<any>(sql`SELECT name FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`);
+      clinicNm = r?.rows?.[0]?.name || "";
+    } else if (ccRow?.contactType === "hospital" && ccRow.hospitalId) {
+      const r: any = await db.execute<any>(sql`SELECT name FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`);
+      hospitalNm = r?.rows?.[0]?.name || "";
+    }
+    if ((!clinicNm && !hospitalNm) && taskCustomerId) {
+      const r: any = await db.execute<any>(
+        sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${taskCustomerId} ORDER BY pc.created_at DESC LIMIT 1`
+      );
+      clinicNm = r?.rows?.[0]?.clinic_name || "";
+      hospitalNm = r?.rows?.[0]?.hospital_name || "";
+    }
+    if (clinicNm) nameParts.push(`Klinika: ${clinicNm}`);
+    if (hospitalNm) nameParts.push(`Nemocnica: ${hospitalNm}`);
+    return nameParts.join(" · ");
+  } catch (error) {
+    console.error("[assign_task] notif name resolution error:", error);
+    return "";
+  }
+}
+
+/**
+ * Shared legacy/engine executor. Conditions are evaluated with the existing
+ * Status List evaluator, and field snapshots are updated once after all sibling
+ * actions, including siblings whose condition did not match.
+ */
+async function executeStatusListItemAutomations(
+  context: {
+    campaignId: string;
+    campaignContactId: string;
+    itemId: string;
+    userId: string;
+    contactCountry: string | null;
+    contactId: string | null;
+    customerId: string | null;
+    ccRow: any;
+    callbackDate?: string | null;
+    callbackNote?: string | null;
+    boNotifContext: string;
+  },
+): Promise<void> {
+  const automations = await db.select().from(campaignStatusListAutomations)
+    .where(eq(campaignStatusListAutomations.statusListItemId, context.itemId));
+
+  const trackedFieldChanges = new Set<string>();
+  for (const automation of automations) {
+    if (!automation.conditionJson) continue;
+    try {
+      const parsed = JSON.parse(automation.conditionJson);
+      if (parsed.__type === "field_changed_to" && parsed.field) {
+        trackedFieldChanges.add(parsed.field as string);
+      }
+    } catch { /* malformed conditions retain the legacy evaluator behavior */ }
+  }
+
+  for (const automation of automations) {
+    const actionType = automation.actionType;
+    const conditionMet = await evaluateAutomationCondition(automation, {
+      contactId: context.contactId,
+      campaignId: context.campaignId,
+      agentId: context.userId,
+      contactCountry: context.contactCountry,
+    });
+    if (!conditionMet) continue;
+
+    try {
+      const actionContext = {
+        campaignContactId: context.campaignContactId,
+        campaignId: context.campaignId,
+        contactCountry: context.contactCountry,
+        userId: context.userId,
+        itemId: context.itemId,
+      };
+      if (actionType === "assign_task") {
+        await executeStatusListTaskAction(automation, {
+          ...actionContext,
+          contactId: context.contactId,
+          taskCustomerId: context.customerId,
+          ccRow: context.ccRow,
+          boNotifContext: context.boNotifContext,
+        });
+      } else if (actionType === "send_email_group" || actionType === "notify_email") {
+        await runStatusListEmailGroup(automation, actionContext);
+      } else if (actionType === "set_contact_status") {
+        await runStatusListSetStatus(automation, actionContext, context.callbackDate, context.callbackNote);
+      } else if (actionType === "set_callback") {
+        await runStatusListSetCallback(automation, actionContext, context.callbackDate, context.callbackNote);
+      } else if (actionType === "send_contact_email") {
+        await runStatusListContactEmail(automation, actionContext);
+      } else if (actionType === "send_sms") {
+        await runStatusListContactSms(automation, actionContext);
+      }
+    } catch (error) {
+      if (actionType === "assign_task") throw error;
+      console.error(`[status-list:${actionType}] firing failed:`, error);
+    }
+  }
+
+  if (context.contactId) {
+    for (const fieldName of trackedFieldChanges) {
+      await updateFieldSnapshot(context.contactId, context.campaignId, fieldName, {
+        contactId: context.contactId,
+        campaignId: context.campaignId,
+        agentId: context.userId,
+        contactCountry: context.contactCountry,
+      });
+    }
+  }
+}
 
 const SL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -2573,9 +2775,6 @@ export async function registerRoutes(
     }
   );
 
-  // Initialize WebSocket notification service
-  notificationService.initialize(httpServer);
-
   // Initialize inbound call WebSocket service
   const { inboundCallWs } = await import("./lib/inbound-call-ws");
   inboundCallWs.initialize(httpServer);
@@ -2686,8 +2885,7 @@ export async function registerRoutes(
     },
   });
   
-  app.use(
-    session({
+  const sharedSessionMiddleware = session({
       secret: process.env.SESSION_SECRET || "nexus-biolink-secret-key",
       resave: false,
       saveUninitialized: false,
@@ -2698,8 +2896,11 @@ export async function registerRoutes(
         sameSite: "lax",
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       },
-    })
-  );
+    });
+  app.use(sharedSessionMiddleware);
+  // Notifications use the same persisted Express session as HTTP routes; never
+  // derive a WebSocket identity from a query-string userId.
+  notificationService.initialize(httpServer, sharedSessionMiddleware as any);
 
   app.use((req, res, next) => {
     // Redact sensitive query params (handoff token, OAuth code) before logging.
@@ -4349,6 +4550,28 @@ export async function registerRoutes(
     try {
       const validatedData = insertCustomerSchema.parse(req.body);
       const customer = await storage.createCustomer(validatedData);
+
+      try {
+        const { emitEntityCreated } = await import("./lib/event-bus");
+        await emitEntityCreated("customer", "customer", customer.id, {
+          id: customer.id,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          status: customer.status,
+          clientStatus: customer.clientStatus,
+          country: customer.country,
+          newsletter: customer.newsletter,
+          useCorrespondenceAddress: customer.useCorrespondenceAddress,
+          assignedUserId: customer.assignedUserId,
+          leadScore: customer.leadScore,
+          leadScoreUpdatedAt: customer.leadScoreUpdatedAt,
+          leadStatus: customer.leadStatus,
+          serviceType: customer.serviceType,
+          registrationSource: customer.registrationSource,
+          registrationDate: customer.registrationDate,
+          createdAt: customer.createdAt,
+        }, req.session.user!.id, customer.country);
+      } catch (err) { console.error("[EventBus] customer create emit error:", err); }
       
       // Log activity
       await logActivity(
@@ -7508,14 +7731,50 @@ Always respond with valid JSON only, no markdown.`
                 }
               }
               
-              if (existingMetadata) {
-                await storage.updateEmailMetadata(existingMetadata.id, metadataData);
-              } else {
-                await storage.createEmailMetadata(metadataData);
-              }
+              const persistedEmailMetadata = existingMetadata
+                ? await storage.updateEmailMetadata(existingMetadata.id, metadataData)
+                : await storage.createEmailMetadata(metadataData);
               
               aiAnalysisResult = analysisResult;
               console.log(`[EmailRouter] AI analyzed email ${emailId}: sentiment=${analysisResult.sentiment}, alert=${analysisResult.alertLevel}, angry=${analysisResult.hasAngryTone}, rude=${analysisResult.hasRudeExpressions}, wantsCancel=${analysisResult.wantsToCancel}`);
+
+              const senderAddress = (email.from?.emailAddress?.address || "").toLowerCase().trim();
+              const mailboxAddress = (actualMailbox || "").toLowerCase().trim();
+              if (persistedEmailMetadata?.aiAnalyzed &&
+                  senderAddress && mailboxAddress && senderAddress !== mailboxAddress &&
+                  (persistedEmailMetadata.aiSentiment === "negative" || persistedEmailMetadata.aiSentiment === "angry" || persistedEmailMetadata.aiHasAngryTone)) {
+                try {
+                  const [canonicalMessage] = await db.select({
+                    id: communicationMessages.id,
+                    customerId: communicationMessages.customerId,
+                    campaignId: communicationMessages.campaignId,
+                    entityType: communicationMessages.entityType,
+                  }).from(communicationMessages)
+                    .where(and(
+                      eq(communicationMessages.externalId, emailId),
+                      eq(communicationMessages.direction, "inbound"),
+                      eq(communicationMessages.type, "email"),
+                      eq(communicationMessages.userId, userId),
+                    ))
+                    .limit(1);
+                  if (canonicalMessage) {
+                    // The detail path and mailbox monitor must publish the same
+                    // persisted analysis for the same canonical inbox message.
+                    const persistedMessage = await storage.updateCommunicationMessage(canonicalMessage.id, {
+                      aiAnalyzed: true,
+                      aiSentiment: persistedEmailMetadata.aiSentiment,
+                      aiHasAngryTone: persistedEmailMetadata.aiHasAngryTone,
+                      aiAnalyzedAt: persistedEmailMetadata.aiAnalyzedAt,
+                    });
+                    if (persistedMessage) {
+                      await (await import("./lib/inbound-communication-events"))
+                        .emitPersistedInboundEvent(canonicalMessage.id, "sentiment.negative");
+                    }
+                  }
+                } catch (canonicalUpdateError) {
+                  console.error("[EmailRouter] canonical message analysis update failed:", canonicalUpdateError);
+                }
+              }
               
               // Trigger notification for negative sentiment
               if (analysisResult.sentiment === "negative" || analysisResult.sentiment === "angry" || analysisResult.hasAngryTone) {
@@ -8839,7 +9098,79 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // ─── Task Groups API ─────────────────────────────────────────────────────
-  app.get("/api/task-groups", requireAuth, async (req, res) => {
+  const requireTaskSettingsAdmin = createRequirePersistedAdmin(storage);
+  app.get("/api/task-settings/access", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      res.json({ canManage: await isPersistedAdministrator(storage, req.session.user!.id) });
+    } catch (error) {
+      console.error("Error checking Tasks settings access:", error);
+      res.status(500).json({ error: "Failed to verify administrator access" });
+    }
+  });
+
+  const taskAssignmentSettingsResponse = async () => {
+    const policy = await taskAssignmentAllowlist(db);
+    const catalog = await db.select({
+      id: users.id, fullName: users.fullName, username: users.username,
+      email: users.email, avatarUrl: users.avatarUrl, isActive: users.isActive,
+    }).from(users).orderBy(users.fullName, users.username);
+    return {
+      configured: policy.configured,
+      allowedUserIds: policy.allowedUserIds,
+      users: catalog,
+      updatedAt: policy.updatedAt?.toISOString() ?? null,
+    };
+  };
+  app.get("/api/task-settings/users", requireAuth, requireTaskSettingsAdmin, async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      res.json(await taskAssignmentSettingsResponse());
+    } catch (error) {
+      console.error("Error fetching task assignment allowlist:", error);
+      res.status(500).json({ error: "Failed to fetch task assignment allowlist" });
+    }
+  });
+  app.put("/api/task-settings/users", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const body = req.body;
+    if (!body || typeof body !== "object" || Array.isArray(body)
+      || !Array.isArray(body.allowedUserIds)
+      || body.allowedUserIds.some((id: unknown) => typeof id !== "string" || !id.trim())
+      || (body.expectedUpdatedAt !== null && typeof body.expectedUpdatedAt !== "string")) {
+      return res.status(400).json({ error: "allowedUserIds and expectedUpdatedAt are required" });
+    }
+    const ids = body.allowedUserIds as string[];
+    if (new Set(ids).size !== ids.length) return res.status(400).json({ error: "allowedUserIds must contain distinct user IDs" });
+    try {
+      const outcome = await db.transaction(async tx => {
+        const activeUsers = ids.length
+          ? await tx.select({ id: users.id }).from(users)
+            .where(and(eq(users.isActive, true), inArray(users.id, ids))).for("share")
+          : [];
+        if (activeUsers.length !== ids.length) return "invalid" as const;
+        const [current] = await tx.select().from(taskAssignmentAccess)
+          .where(eq(taskAssignmentAccess.id, 1)).for("update").limit(1);
+        if (!taskAssignmentPolicyVersionMatches(body.expectedUpdatedAt, current?.updatedAt ?? null)) return "stale" as const;
+        const now = new Date();
+        await tx.insert(taskAssignmentAccess).values({
+          id: 1, allowedUserIds: ids, updatedAt: now,
+        }).onConflictDoUpdate({
+          target: taskAssignmentAccess.id,
+          set: { allowedUserIds: ids, updatedAt: now },
+        });
+        return "saved" as const;
+      });
+      if (outcome === "invalid") return res.status(400).json({ error: "allowedUserIds must reference existing active users" });
+      if (outcome === "stale") return res.status(409).json({ error: "Task assignment allowlist changed. Reload and try again." });
+      return res.json(await taskAssignmentSettingsResponse());
+    } catch (error) {
+      console.error("Error updating task assignment allowlist:", error);
+      return res.status(500).json({ error: "Failed to update task assignment allowlist" });
+    }
+  });
+
+  const listTaskGroups = async (req: Request, res: Response) => {
     try {
       const groups = await db.select().from(taskGroups).orderBy(taskGroups.sortOrder, taskGroups.name);
       // Attach member user IDs
@@ -8866,9 +9197,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       console.error("Error fetching task groups:", error);
       res.status(500).json({ error: "Failed to fetch task groups" });
     }
-  });
+  };
 
-  app.get("/api/task-groups/:id", requireAuth, async (req, res) => {
+  const getTaskGroup = async (req: Request, res: Response) => {
     try {
       const [group] = await db.select().from(taskGroups).where(eq(taskGroups.id, req.params.id)).limit(1);
       if (!group) return res.status(404).json({ error: "Task group not found" });
@@ -8885,53 +9216,63 @@ Return ONLY valid JSON, no markdown code blocks.`,
       console.error("Error fetching task group:", error);
       res.status(500).json({ error: "Failed to fetch task group" });
     }
-  });
+  };
 
-  app.post("/api/task-groups", requireAuth, async (req, res) => {
+  // Operational reads remain available for task queues, creation and
+  // reassignment. Settings clients must use the separately gated management
+  // endpoints (with separate query-cache keys).
+  app.get("/api/task-groups", requireAuth, listTaskGroups);
+  app.get("/api/task-groups/:id", requireAuth, getTaskGroup);
+  app.get("/api/task-settings/groups", requireAuth, requireTaskSettingsAdmin, listTaskGroups);
+  app.get("/api/task-settings/groups/:id", requireAuth, requireTaskSettingsAdmin, getTaskGroup);
+
+  app.post("/api/task-groups", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const { name, description, color, icon, memberUserIds } = req.body;
-      if (!name) return res.status(400).json({ error: "name is required" });
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
+      const { name, description, color, icon, memberUserIds, displayAlias } = req.body;
+      if (typeof name !== "string" || !name.trim()) return res.status(400).json({ error: "name is required" });
       const { isBackOffice } = req.body;
-      const [group] = await db.insert(taskGroups).values({ name, description, color, icon, isBackOffice: isBackOffice ?? false }).returning();
-      if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
-        await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: group.id, userId: uid })));
-      }
+      if (memberUserIds !== undefined && !Array.isArray(memberUserIds)) return res.status(400).json({ error: "memberUserIds must be an array" });
+      const group = await storage.createTaskGroupWithMembers({
+        name: name.trim(), description, color, icon, displayAlias: displayAlias ?? null,
+        isBackOffice: isBackOffice ?? false,
+      }, memberUserIds || []);
       res.json(group);
     } catch (error) {
+      if (error instanceof Error && /member|user|distinct|Inactive|Unknown/.test(error.message)) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Error creating task group:", error);
       res.status(500).json({ error: "Failed to create task group" });
     }
   });
 
-  app.put("/api/task-groups/:id", requireAuth, async (req, res) => {
+  app.put("/api/task-groups/:id", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { name, description, color, icon, memberUserIds, displayAlias, sortOrder, isBackOffice } = req.body;
-      const [group] = await db.update(taskGroups)
-        .set({ name, description, color, icon, displayAlias: displayAlias ?? null, ...(sortOrder !== undefined ? { sortOrder } : {}), ...(isBackOffice !== undefined ? { isBackOffice } : {}), updatedAt: new Date() })
-        .where(eq(taskGroups.id, req.params.id))
-        .returning();
+      if (memberUserIds !== undefined && !Array.isArray(memberUserIds)) return res.status(400).json({ error: "memberUserIds must be an array" });
+      if (name !== undefined && (typeof name !== "string" || !name.trim())) return res.status(400).json({ error: "name must be a non-empty string" });
+      const group = await storage.updateTaskGroupWithMembers(req.params.id, {
+        ...(name !== undefined ? { name: name.trim() } : {}),
+        ...(description !== undefined ? { description } : {}),
+        ...(color !== undefined ? { color } : {}),
+        ...(icon !== undefined ? { icon } : {}),
+        ...(displayAlias !== undefined ? { displayAlias } : {}),
+        ...(sortOrder !== undefined ? { sortOrder } : {}),
+        ...(isBackOffice !== undefined ? { isBackOffice } : {}),
+      }, memberUserIds);
       if (!group) return res.status(404).json({ error: "Task group not found" });
-      if (Array.isArray(memberUserIds)) {
-        await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
-        if (memberUserIds.length > 0) {
-          await db.insert(taskGroupMembers).values(memberUserIds.map((uid: string) => ({ groupId: req.params.id, userId: uid })));
-        }
-      }
       res.json(group);
     } catch (error) {
+      if (error instanceof Error && /member|user|distinct|Inactive|Unknown/.test(error.message)) {
+        return res.status(400).json({ error: error.message });
+      }
       console.error("Error updating task group:", error);
       res.status(500).json({ error: "Failed to update task group" });
     }
   });
 
-  app.delete("/api/task-groups/:id", requireAuth, async (req, res) => {
+  app.delete("/api/task-groups/:id", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       await db.delete(taskGroupMembers).where(eq(taskGroupMembers.groupId, req.params.id));
       await db.delete(taskGroups).where(eq(taskGroups.id, req.params.id));
       res.json({ success: true });
@@ -8941,10 +9282,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  app.put("/api/task-groups-reorder", requireAuth, async (req, res) => {
+  app.put("/api/task-groups-reorder", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { order } = req.body; // array of { id, sortOrder }
       if (!Array.isArray(order)) return res.status(400).json({ error: "order must be an array" });
       await Promise.all(order.map(({ id, sortOrder }: { id: string; sortOrder: number }) =>
@@ -8958,10 +9297,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Role-specific tab ordering
-  app.put("/api/task-groups-reorder-role", requireAuth, async (req, res) => {
+  app.put("/api/task-groups-reorder-role", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { role, order } = req.body; // role: string, order: { id, sortOrder }[]
       if (!role || !Array.isArray(order)) return res.status(400).json({ error: "role and order are required" });
       const validRoles = ["admin", "manager", "user"];
@@ -8987,10 +9324,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Clear role-specific ordering (revert to global)
-  app.delete("/api/task-groups-reorder-role/:role", requireAuth, async (req, res) => {
+  app.delete("/api/task-groups-reorder-role/:role", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       const { role } = req.params;
       const validRoles = ["admin", "manager", "user"];
       if (!validRoles.includes(role)) return res.status(400).json({ error: "Invalid role" });
@@ -9002,25 +9337,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  app.post("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
+  app.post("/api/task-groups/:id/members/:userId", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
-      const existing = await db.select().from(taskGroupMembers)
-        .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
-      if (existing.length === 0) {
-        await db.insert(taskGroupMembers).values({ groupId: req.params.id, userId: req.params.userId });
-      }
+      const added = await storage.addTaskGroupMember(req.params.id, req.params.userId);
+      if (!added) return res.status(404).json({ error: "Task group not found" });
       res.json({ success: true });
     } catch (error) {
+      if (error instanceof Error && /member|user|Inactive|Unknown/.test(error.message)) return res.status(400).json({ error: error.message });
       res.status(500).json({ error: "Failed to add member" });
     }
   });
 
-  app.delete("/api/task-groups/:id/members/:userId", requireAuth, async (req, res) => {
+  app.delete("/api/task-groups/:id/members/:userId", requireAuth, requireTaskSettingsAdmin, async (req, res) => {
     try {
-      const sessionRole = (req.session as any)?.user?.role;
-      if (!["admin", "manager"].includes(sessionRole)) return res.status(403).json({ error: "Admin or Manager role required" });
       await db.delete(taskGroupMembers)
         .where(and(eq(taskGroupMembers.groupId, req.params.id), eq(taskGroupMembers.userId, req.params.userId)));
       res.json({ success: true });
@@ -9030,17 +9359,324 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
 
+  // Shared policy for task listing, detail, mutation, and participant lookups.
+  // Every non-admin is country-scoped (country-less tasks are shared); managers
+  // see that country scope while ordinary users also need a task relationship.
+  async function taskAccessContext(user: any) {
+    const memberships = user.role === "admin" || user.role === "manager"
+      ? []
+      : await db.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers)
+        .where(eq(taskGroupMembers.userId, user.id));
+    return {
+      groupIds: new Set(memberships.map(member => member.groupId)),
+    };
+  }
+
+  function taskIsAccessibleToUser(user: any, task: any, context: { groupIds: Set<string> }): boolean {
+    return canAccessTaskByPolicy(user, task, context.groupIds);
+  }
+
+  async function canAccessTaskForMutation(user: any, task: any): Promise<boolean> {
+    return taskIsAccessibleToUser(user, task, await taskAccessContext(user));
+  }
+
+  async function getAuthorizedTasksForUser(user: any): Promise<any[]> {
+    const [allTasks, context] = await Promise.all([storage.getAllTasks(), taskAccessContext(user)]);
+    return allTasks.filter(task => taskIsAccessibleToUser(user, task, context));
+  }
+
+  function taskAttachmentResponse(upload: typeof taskAttachmentUploads.$inferSelect): TaskAttachment {
+    return {
+      id: upload.id,
+      name: upload.name,
+      url: `/api/tasks/attachments/${encodeURIComponent(upload.id)}`,
+      type: upload.type,
+      size: upload.size,
+    };
+  }
+
+  async function taskAttachmentIdsAlreadyOnTask(task: any): Promise<Set<string>> {
+    const ids = new Set<string>();
+    for (const attachment of Array.isArray(task?.attachments) ? task.attachments : []) {
+      if (typeof attachment?.id === "string") ids.add(attachment.id);
+    }
+    if (!task?.id) return ids;
+    const comments = await db.select({ metadata: taskComments.metadata }).from(taskComments)
+      .where(eq(taskComments.taskId, task.id));
+    for (const comment of comments) {
+      const attachments = (comment.metadata as any)?.attachments;
+      if (Array.isArray(attachments)) {
+        for (const attachment of attachments) {
+          if (typeof attachment?.id === "string") ids.add(attachment.id);
+        }
+      }
+    }
+    return ids;
+  }
+
+  async function resolveTaskAttachments(
+    requested: unknown,
+    user: any,
+    task?: any,
+    request?: any,
+  ): Promise<TaskAttachment[]> {
+    const ids = Array.isArray(requested)
+      ? requested.map((item: any) => item && typeof item === "object" && !Array.isArray(item) ? item.id : null)
+        .filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const registryRows = ids.length
+      ? await db.select().from(taskAttachmentUploads).where(inArray(taskAttachmentUploads.id, ids))
+      : [];
+    const history = registryRows.flatMap(upload => Array.isArray(upload.associationHistory) ? upload.associationHistory : []);
+    const historicalTaskIds = Array.from(new Set(history.map(item => item.taskId).filter(Boolean)));
+    const liveHistoricalTasks = historicalTaskIds.length
+      ? await db.select().from(tasks).where(inArray(tasks.id, historicalTaskIds))
+      : [];
+    const sourceTasksByUploadId = new Map(registryRows.map(upload => [
+      upload.id,
+      liveTaskAttachmentSources(
+        Array.isArray(upload.associationHistory) ? upload.associationHistory : [],
+        liveHistoricalTasks,
+      ),
+    ]));
+    const groupIds = (await taskAccessContext(user)).groupIds;
+    return resolveTaskAttachmentMetadata(
+      requested,
+      user.id,
+      task ? await taskAttachmentIdsAlreadyOnTask(task) : new Set<string>(),
+      registryRows,
+      upload => (sourceTasksByUploadId.get(upload.id) || []).some(sourceTask =>
+        canAccessTaskByPolicy(user, sourceTask, groupIds)
+        || (!!(sourceTask.tags || []).includes("back_office")
+          && !!request
+            && (canAccessBoTask(request, sourceTask) || sourceTask.createdByUserId === user.id))),
+    );
+  }
+
+  async function markTaskAttachmentsAssociated(tx: any, attachments: unknown, task: any): Promise<void> {
+    const ids = Array.isArray(attachments)
+      ? attachments.map((attachment: any) => attachment?.id)
+        .filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    if (ids.length) {
+      const snapshot = {
+        taskId: task.id,
+        country: task.country ?? null,
+        assignedUserId: task.assignedUserId ?? null,
+        createdByUserId: task.createdByUserId ?? null,
+        tags: task.tags ?? [],
+      };
+      const taskIdMatch = JSON.stringify([{ taskId: task.id }]);
+      const snapshotJson = JSON.stringify([snapshot]);
+      await tx.update(taskAttachmentUploads).set({
+        everAssociated: true,
+        associationHistory: sql`CASE
+          WHEN ${taskAttachmentUploads.associationHistory} @> ${taskIdMatch}::jsonb
+            THEN ${taskAttachmentUploads.associationHistory}
+          ELSE COALESCE(${taskAttachmentUploads.associationHistory}, '[]'::jsonb) || ${snapshotJson}::jsonb
+        END`,
+      })
+        .where(inArray(taskAttachmentUploads.id, ids));
+    }
+  }
+
+  // Uploads are staged here, without a task id, so the same creator-owned file
+  // can be referenced by several Pulse tasks in one operation.
+  app.post("/api/tasks/attachments", requireAuth, handleTaskAttachmentUpload, async (req, res) => {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "No file uploaded" });
+    try {
+      const [upload] = await db.insert(taskAttachmentUploads).values({
+        uploaderUserId: req.session.user!.id,
+        storageKey: file.filename,
+        name: taskAttachmentDisplayName(file.originalname),
+        type: file.mimetype,
+        size: file.size,
+      }).returning();
+      res.status(201).json(taskAttachmentResponse(upload));
+    } catch (error) {
+      try { fs.unlinkSync(file.path); } catch {}
+      console.error("Failed to register private task attachment:", error);
+      res.status(500).json({ error: "Failed to upload task attachment" });
+    }
+  });
+
+  app.get("/api/tasks/attachments/:id", requireAuth, async (req, res) => {
+    try {
+      const [upload] = await db.select().from(taskAttachmentUploads)
+        .where(eq(taskAttachmentUploads.id, req.params.id)).limit(1);
+      if (!upload) return res.status(404).json({ error: "Task attachment not found" });
+
+      const associatedResult = await pool.query<{ id: string }>(`
+        SELECT DISTINCT t.id
+        FROM tasks t
+        WHERE EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(COALESCE(t.attachments, '[]'::jsonb)) AS a
+          WHERE a->>'id' = $1
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM task_comments c
+          CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(c.metadata->'attachments') = 'array' THEN c.metadata->'attachments'
+              ELSE '[]'::jsonb
+            END
+          ) AS a
+          WHERE c.task_id = t.id AND a->>'id' = $1
+        )
+      `, [upload.id]);
+      const associatedTaskIds = Array.from(new Set([
+        ...associatedResult.rows.map(row => row.id),
+        ...(Array.isArray(upload.associationHistory) ? upload.associationHistory.map(item => item.taskId) : []),
+      ]));
+      const associatedTasks = associatedTaskIds.length
+        ? await db.select().from(tasks).where(inArray(tasks.id, associatedTaskIds))
+        : [];
+      const associatedPolicies = liveTaskAttachmentSources(
+        associatedTaskIds.map(taskId => ({ taskId })),
+        associatedTasks,
+      );
+      const user = req.session.user!;
+      const groupIds = (await taskAccessContext(user)).groupIds;
+      const canReadTaskAttachmentForTask = (task: any) =>
+        canAccessTaskByPolicy(user, task, groupIds)
+        || (!!(task.tags || []).includes("back_office")
+          && (canAccessBoTask(req, task) || task.createdByUserId === user.id));
+      if (!taskAttachmentReadAllowed(
+        user,
+        upload.uploaderUserId,
+        associatedPolicies,
+        groupIds,
+        upload.everAssociated,
+        canReadTaskAttachmentForTask,
+      )) {
+        return res.status(404).json({ error: "Task attachment not found" });
+      }
+
+      const storageRoot = path.resolve(PRIVATE_TASK_ATTACHMENTS_DIR);
+      const filePath = path.resolve(storageRoot, upload.storageKey);
+      if (path.basename(upload.storageKey) !== upload.storageKey || !filePath.startsWith(`${storageRoot}${path.sep}`)) {
+        return res.status(404).json({ error: "Task attachment not found" });
+      }
+      const preview = req.query.preview === "1";
+      if (preview && !taskAttachmentPreviewAllowed(upload.type)) {
+        return res.status(415).json({ error: "This task attachment type cannot be previewed" });
+      }
+      res.attachment(upload.name);
+      if (preview) {
+        const attachmentDisposition = String(res.getHeader("Content-Disposition") || "");
+        res.setHeader("Content-Disposition", attachmentDisposition.replace(/^attachment;/i, "inline;"));
+      }
+      res.setHeader("Content-Type", upload.type);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "private, no-store");
+      const stream = fs.createReadStream(filePath);
+      stream.on("error", error => {
+        if (res.headersSent) return res.destroy(error);
+        res.status(404).json({ error: "Task attachment not found" });
+      });
+      stream.pipe(res);
+    } catch (error) {
+      console.error("Failed to download task attachment:", error);
+      if (!res.headersSent) res.status(500).json({ error: "Failed to download task attachment" });
+    }
+  });
+
+  app.get("/api/tasks/assignment-options", requireAuth, async (req, res) => {
+    try {
+      const actor = req.session.user!;
+      const policy = await taskAssignmentAllowlist(db);
+      const candidates = await db.select({
+        id: users.id, fullName: users.fullName, username: users.username, email: users.email,
+        avatarUrl: users.avatarUrl, role: users.role, assignedCountries: users.assignedCountries,
+        isActive: users.isActive,
+      }).from(users).where(eq(users.isActive, true));
+      const eligible = candidates.filter(candidate =>
+        (!policy.configured || policy.allowedUserIds.includes(candidate.id))
+        && taskPeopleCandidateAllowed(actor.role, actor.assignedCountries, candidate.assignedCountries));
+      const eligibleIds = new Set(eligible.map(person => person.id));
+      const groups = await db.select().from(taskGroups);
+      const memberships = groups.length
+        ? await db.select({ groupId: taskGroupMembers.groupId, userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(inArray(taskGroupMembers.groupId, groups.map(group => group.id)))
+        : [];
+      const eligibleGroups = groups.flatMap(group => {
+        const memberCount = new Set(memberships.filter(member =>
+          member.groupId === group.id && eligibleIds.has(member.userId)).map(member => member.userId)).size;
+        return memberCount ? [{
+          id: group.id, name: group.name, description: group.description,
+          color: group.color, icon: group.icon, isBackOffice: group.isBackOffice,
+          memberCount,
+        }] : [];
+      });
+      res.json({
+        users: eligible.map(({ id, fullName, username, email, avatarUrl }) => ({ id, fullName, username, email, avatarUrl })),
+        groups: eligibleGroups,
+        canResolve: await isTaskAssignmentUserAllowed(db, actor.id),
+      });
+    } catch (error) {
+      console.error("Error fetching task assignment options:", error);
+      res.status(500).json({ error: "Failed to fetch task assignment options" });
+    }
+  });
+
+  app.get("/api/tasks/people", requireAuth, async (req, res) => {
+    try {
+      const user = req.session.user!;
+      const taskId = typeof req.query.taskId === "string" ? req.query.taskId : null;
+      const authorizedTasks = await getAuthorizedTasksForUser(user);
+      let tasksForParticipants = authorizedTasks;
+      if (taskId) {
+        const task = authorizedTasks.find(row => row.id === taskId);
+        if (!task) return res.status(404).json({ error: "Task not found" });
+        tasksForParticipants = [task];
+      }
+      const allGroupIds = tasksForParticipants
+        .flatMap(task => (task.tags || []).filter((tag: string) => tag.startsWith("group_id:")).map((tag: string) => tag.slice("group_id:".length)));
+      const groupIds = allGroupIds.filter((id: string, index: number) => allGroupIds.indexOf(id) === index);
+      let groupMemberIds: string[] = [];
+      if (groupIds.length) {
+        const groupMembers = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(inArray(taskGroupMembers.groupId, groupIds));
+        groupMemberIds = groupMembers.map(member => member.userId);
+      }
+      const participantIds = new Set(collectTaskParticipantIds(tasksForParticipants, groupMemberIds));
+
+      const activeCandidates = await db.select({
+        id: users.id,
+        assignedCountries: users.assignedCountries,
+      }).from(users).where(eq(users.isActive, true));
+      const candidateIds = activeCandidates
+        .filter(candidate => taskPeopleCandidateAllowed(user.role, user.assignedCountries, candidate.assignedCountries))
+        .map(candidate => candidate.id);
+      const peopleIds = Array.from(new Set([...Array.from(participantIds), ...candidateIds]));
+      if (!peopleIds.length) return res.json([]);
+      const people = await db.select({
+        id: users.id,
+        fullName: users.fullName,
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        isActive: users.isActive,
+      }).from(users).where(inArray(users.id, peopleIds));
+      res.json(people.filter(person => taskPeoplePersonVisible(person.isActive, participantIds.has(person.id))));
+    } catch (error) {
+      console.error("Error fetching task participants:", error);
+      res.status(500).json({ error: "Failed to fetch task participants" });
+    }
+  });
+
   // Tasks API (protected)
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {
+      const authorizedTasks = await getAuthorizedTasksForUser(req.session.user!);
       if (req.query.page || req.query.limit) {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-        const result = await storage.getAllTasksPaginated(page, limit);
-        return res.json(result);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
+        return res.json({ data: authorizedTasks.slice((page - 1) * limit, page * limit), total: authorizedTasks.length });
       }
-      const tasks = await storage.getAllTasks();
-      res.json(tasks);
+      res.json(authorizedTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -9049,14 +9685,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.get("/api/tasks/my", requireAuth, async (req, res) => {
     try {
+      const mine = (await getAuthorizedTasksForUser(req.session.user!))
+        .filter(task => task.assignedUserId === req.session.user!.id);
       if (req.query.page || req.query.limit) {
-        const page = parseInt(req.query.page as string) || 1;
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-        const result = await storage.getTasksByUserPaginated(req.session.user!.id, page, limit);
-        return res.json(result);
+        const page = Math.max(1, parseInt(req.query.page as string) || 1);
+        const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
+        return res.json({ data: mine.slice((page - 1) * limit, page * limit), total: mine.length });
       }
-      const tasks = await storage.getTasksByUser(req.session.user!.id);
-      res.json(tasks);
+      res.json(mine);
     } catch (error) {
       console.error("Error fetching user tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
@@ -9069,6 +9705,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       res.json(task);
     } catch (error) {
       console.error("Error fetching task:", error);
@@ -9076,26 +9713,208 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  const taskSourceEntityDependencies: TaskSourceEntityDependencies = {
+    getTask: async (id) => (await storage.getTask(id)) ?? null,
+    canAccessTask: async (user, id) => {
+      const task = await storage.getTask(id);
+      return !!task && !!user && canAccessTaskForMutation(user, task);
+    },
+    findLegacyConfirmations: async (statusListItemId, confirmedByUserId, taskCreatedAt) => {
+      const windowStart = new Date(taskCreatedAt.getTime() - 300_000);
+      const windowEnd = new Date(taskCreatedAt.getTime() + 300_000);
+      const result = await db.execute<any>(sql`
+        SELECT s.status_list_item_id AS "statusListItemId",
+               s.confirmed_by_user_id AS "confirmedByUserId",
+               s.confirmed_at AS "confirmedAt",
+               cc.contact_type AS "contactType",
+               cc.customer_id AS "customerId",
+               cc.clinic_id AS "clinicId",
+               cc.hospital_id AS "hospitalId",
+               cc.collaborator_id AS "collaboratorId"
+        FROM campaign_contact_status_list_state s
+        JOIN campaign_contacts cc ON cc.id = s.campaign_contact_id
+        WHERE s.status_list_item_id = ${statusListItemId}
+          AND s.confirmed_by_user_id = ${confirmedByUserId}
+          AND s.confirmed_at >= ${windowStart}
+          AND s.confirmed_at <= ${windowEnd}
+      `);
+      return result.rows ?? [];
+    },
+    entityExists: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({ id: customers.id }).from(customers)
+          .where(eq(customers.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ id: clinics.id }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return !!entity;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({ id: hospitals.id }).from(hospitals)
+          .where(eq(hospitals.id, id)).limit(1);
+        return !!entity;
+      }
+      const [entity] = await db.select({ id: collaborators.id }).from(collaborators)
+        .where(eq(collaborators.id, id)).limit(1);
+      return !!entity;
+    },
+    getEntityCountry: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({ country: customers.country }).from(customers)
+          .where(eq(customers.id, id)).limit(1);
+        return entity?.country ?? null;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ countryCode: clinics.countryCode }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return entity?.countryCode ?? null;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({ countryCode: hospitals.countryCode }).from(hospitals)
+          .where(eq(hospitals.id, id)).limit(1);
+        return entity?.countryCode ?? null;
+      }
+      const [entity] = await db.select({
+        countryCode: collaborators.countryCode,
+        countryCodes: collaborators.countryCodes,
+      }).from(collaborators).where(eq(collaborators.id, id)).limit(1);
+      return entity ? [entity.countryCode, ...(entity.countryCodes || [])] : null;
+    },
+    getEntityDisplayName: async (type, id) => {
+      if (type === "customer") {
+        const [entity] = await db.select({
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+        }).from(customers).where(eq(customers.id, id)).limit(1);
+        return entity ? `${entity.firstName} ${entity.lastName}` : null;
+      }
+      if (type === "clinic") {
+        const [entity] = await db.select({ name: clinics.name }).from(clinics)
+          .where(eq(clinics.id, id)).limit(1);
+        return entity?.name ?? null;
+      }
+      if (type === "hospital") {
+        const [entity] = await db.select({
+          fullName: hospitals.fullName,
+          name: hospitals.name,
+        }).from(hospitals).where(eq(hospitals.id, id)).limit(1);
+        return entity?.fullName || entity?.name || null;
+      }
+      const [entity] = await db.select({
+        titleBefore: collaborators.titleBefore,
+        firstName: collaborators.firstName,
+        lastName: collaborators.lastName,
+      }).from(collaborators).where(eq(collaborators.id, id)).limit(1);
+      return entity ? [entity.titleBefore, entity.firstName, entity.lastName].filter(Boolean).join(" ") : null;
+    },
+  };
+  registerTaskSourceEntityRoute(app, requireAuth, taskSourceEntityDependencies);
+
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
-      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags } = req.body;
-      if (!title || !assignedUserId) {
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags, pulseOrigin } = body;
+      if (!title || typeof assignedUserId !== "string" || !assignedUserId.trim()) {
         return res.status(400).json({ error: "Title and assignedUserId are required" });
+      }
+      if (!userMayAccessTaskCountry(req.session.user!.role, req.session.user!.assignedCountries, country)) {
+        return res.status(403).json({ error: "You are not authorized to create a task in this country" });
+      }
+      let manualPulseProvenanceValidated = false;
+      if (pulseOrigin !== undefined) {
+        if (
+          !pulseOrigin
+          || typeof pulseOrigin !== "object"
+          || Array.isArray(pulseOrigin)
+          || typeof pulseOrigin.missionId !== "string"
+          || !pulseOrigin.missionId.trim()
+          || typeof pulseOrigin.sessionId !== "string"
+          || !pulseOrigin.sessionId.trim()
+        ) {
+          return res.status(400).json({ error: "pulseOrigin must identify an active Mission session" });
+        }
+        const [activeSession] = await db.select({
+          id: agentSessions.id,
+          userId: agentSessions.userId,
+          campaignId: agentSessions.campaignId,
+          campaignIds: agentSessions.campaignIds,
+          endedAt: agentSessions.endedAt,
+        }).from(agentSessions).where(and(
+          eq(agentSessions.id, pulseOrigin.sessionId),
+          eq(agentSessions.userId, req.session.user!.id),
+          isNull(agentSessions.endedAt),
+        )).limit(1);
+        const authorizedMissionScope = await sanitizeAgentShiftScope(
+          req.session.user!.id,
+          req.session.user!.role,
+          {
+            name: "manual-pulse-task",
+            campaignIds: [pulseOrigin.missionId],
+            inboundQueueIds: [],
+            backOffice: false,
+          },
+        );
+        if (!isAuthorizedManualPulseTaskOrigin(
+          req.session.user!.id,
+          pulseOrigin,
+          activeSession,
+          authorizedMissionScope.campaignIds,
+        )) {
+          return res.status(403).json({ error: "Manual Nexus Pulse task provenance requires an active authorized Mission session" });
+        }
+        manualPulseProvenanceValidated = true;
+      }
+      const [assignee] = await db.select({ id: users.id, isActive: users.isActive }).from(users)
+        .where(eq(users.id, assignedUserId)).limit(1);
+      if (!assignee || !assignee.isActive) return res.status(400).json({ error: "assignedUserId must reference an active user" });
+      if (tags !== undefined && (!Array.isArray(tags) || tags.some((tag: unknown) => typeof tag !== "string"))) {
+        return res.status(400).json({ error: "tags must be an array of strings" });
+      }
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(body, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(body.attachments, req.session.user!, undefined, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const providedTags: string[] = Array.isArray(tags)
+        ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG)
+        : [];
+      const groupTags = providedTags.filter(tag => tag.startsWith("group_id:"));
+      if (groupTags.length > 1 || groupTags.some(tag => !tag.slice("group_id:".length).trim())) {
+        return res.status(400).json({ error: "tags may contain at most one valid group_id tag" });
+      }
+      if (groupTags.length) {
+        const groupId = groupTags[0].slice("group_id:".length);
+        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups)
+          .where(eq(taskGroups.id, groupId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Unknown task group" });
+        const [membership] = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, assignedUserId))).limit(1);
+        if (!membership) return res.status(400).json({ error: "The assigned user must be a member of the selected task group" });
       }
       const taskData: any = {
         title,
         priority: priority || "medium",
         assignedUserId,
         createdByUserId: req.session.user!.id,
+        attachments,
       };
       if (description) taskData.description = description;
       if (customerId) taskData.customerId = customerId;
-      if (relatedEntityType) taskData.relatedEntityType = relatedEntityType;
-      if (relatedEntityId) taskData.relatedEntityId = relatedEntityId;
+      if (relatedEntityType && relatedEntityType !== "status_list_item") taskData.relatedEntityType = relatedEntityType;
+      if (relatedEntityId && relatedEntityType !== "status_list_item") taskData.relatedEntityId = relatedEntityId;
       if (country) taskData.country = country;
       if (dueDate) taskData.dueDate = new Date(dueDate);
-      if (Array.isArray(tags) && tags.length > 0) taskData.tags = tags;
-      console.log("[CreateTask] payload:", JSON.stringify(taskData));
+      const persistedTags = manualPulseProvenanceValidated
+        ? [...providedTags, MANUAL_PULSE_TASK_TAG]
+        : providedTags;
+      if (persistedTags.length > 0) taskData.tags = persistedTags;
+      console.log("[CreateTask] creating task");
       const task = await storage.createTask(taskData);
       
       await logActivity(
@@ -9103,15 +9922,36 @@ Return ONLY valid JSON, no markdown code blocks.`,
         "create",
         "task",
         task.id,
-        task.title,
+        "Task",
         { priority: task.priority, assignedUserId: task.assignedUserId },
         req.ip
       );
 
       try {
-        const { emitEntityCreated } = await import("./lib/event-bus");
-        await emitEntityCreated("task", "task", task.id, task, req.session.user!.id, task.country);
+        const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+        const { emitEntityCreated, emitTaskAssigned, safeTaskEventValues } = await import("./lib/event-bus");
+        await emitEntityCreated("task", "task", task.id, safeTaskEventValues(task), req.session.user!.id, taskCustomer?.country || null);
+        await emitTaskAssigned(task, undefined, req.session.user!.id);
       } catch (err) { console.error("[EventBus] task create emit error:", err); }
+
+      void (async () => {
+        try {
+          const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+          const { analyzeAndEmitTaskNegativeSentiment } = await import("./lib/task-sentiment");
+          await analyzeAndEmitTaskNegativeSentiment(task, {
+            actorUserId: req.session.user!.id,
+            countryCode: taskCustomer?.country || task.country || null,
+            sensitiveValues: taskCustomer ? [
+              taskCustomer.firstName, taskCustomer.lastName, taskCustomer.maidenName,
+              taskCustomer.email, taskCustomer.email2, taskCustomer.phone, taskCustomer.mobile,
+              taskCustomer.mobile2, taskCustomer.nationalId, taskCustomer.idCardNumber,
+              taskCustomer.address, taskCustomer.city, taskCustomer.postalCode,
+            ].filter((value): value is string => typeof value === "string") : [],
+          });
+        } catch (err) {
+          console.error(`[TaskSentiment] Could not start analysis for task ${task.id} (${err instanceof Error ? err.name : "unknown error"})`);
+        }
+      })();
 
       try {
         const taskTags: string[] = task.tags || [];
@@ -9121,7 +9961,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
           const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
           const groupName = groupRow?.name ?? groupId;
-          const memberIds = groupMembersRows.map(m => m.userId);
+          const memberIds = await countryAuthorizedTaskRecipientIds(db, groupMembersRows.map(m => m.userId), task.country);
           if (memberIds.length > 0) {
             await notificationService.sendNotificationToUsers(memberIds, {
               type: "group_task_assigned",
@@ -9129,7 +9969,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               message: `Skupina: ${groupName}`,
               priority: "normal",
               entityType: "task",
-              metadata: { groupId, groupName, taskTitle: task.title },
+              metadata: { groupId, groupName, taskId: task.id, taskTitle: task.title },
             });
           }
         }
@@ -9137,6 +9977,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       res.status(201).json(task);
     } catch (error: any) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
       console.error("Error creating task:", error?.message || error);
       res.status(500).json({ error: error?.message || "Failed to create task" });
     }
@@ -9145,32 +9986,139 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.patch("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
       const oldTask = await storage.getTask(req.params.id);
-      const task = await storage.updateTask(req.params.id, req.body);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
+      if (!oldTask) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, oldTask)) return res.status(404).json({ error: "Task not found" });
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      if (Object.prototype.hasOwnProperty.call(body, "notifyAgent") && typeof body.notifyAgent !== "boolean") {
+        return res.status(400).json({ error: "notifyAgent must be a boolean" });
       }
+      const { notifyAgent: _notifyAgent, ...editableBody } = body;
+      let updateData: any;
+      try {
+        updateData = buildValidatedTaskPatch(editableBody, oldTask.tags || []);
+      } catch (error: any) {
+        return res.status(400).json({ error: error?.message || "Invalid task update" });
+      }
+      if (Object.prototype.hasOwnProperty.call(editableBody, "attachments")) {
+        try {
+          updateData.attachments = await resolveTaskAttachments(editableBody.attachments, req.session.user!, oldTask, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      if (pulseCompletionMissingResolution(
+        oldTask,
+        updateData.status === "completed" && oldTask.status !== "completed",
+        Object.prototype.hasOwnProperty.call(updateData, "resolution") ? updateData.resolution : undefined,
+      )) {
+        return res.status(400).json({ error: "Resolution text is required to complete a Pulse task" });
+      }
+      const assignmentChanged = !!updateData.assignedUserId && updateData.assignedUserId !== oldTask.assignedUserId;
+      if (assignmentChanged) {
+        const [assignee] = await db.select({ id: users.id }).from(users)
+          .where(and(eq(users.id, updateData.assignedUserId), eq(users.isActive, true))).limit(1);
+        if (!assignee) return res.status(400).json({ error: "Assigned user must be an active INDEXUS user" });
+      }
+      const groupTag = (updateData.tags || oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+      const oldGroupTag = (oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+      const groupAssignmentChanged = Object.prototype.hasOwnProperty.call(updateData, "tags") && groupTag !== oldGroupTag;
+      if (assignmentChanged && groupTag && !groupAssignmentChanged) {
+        const groupId = groupTag.slice("group_id:".length);
+        const [membership] = await db.select({ id: taskGroupMembers.id }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, updateData.assignedUserId))).limit(1);
+        if (!membership) {
+          updateData.tags = (updateData.tags || oldTask.tags || [])
+            .filter((tag: string) => !tag.startsWith("group_id:") && !tag.startsWith("group:") && tag !== "back_office");
+          updateData.boState = "received";
+        }
+      }
+      const effectiveGroupTag = (updateData.tags || oldTask.tags || []).find((tag: string) => tag.startsWith("group_id:"));
+      if ((groupAssignmentChanged || assignmentChanged) && effectiveGroupTag) {
+        const groupId = effectiveGroupTag.slice("group_id:".length);
+        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Task group does not exist" });
+        const assignedUserId = updateData.assignedUserId || oldTask.assignedUserId;
+        const [membership] = await db.select({ id: taskGroupMembers.id }).from(taskGroupMembers)
+          .where(and(eq(taskGroupMembers.groupId, groupId), eq(taskGroupMembers.userId, assignedUserId))).limit(1);
+        if (!membership) return res.status(400).json({ error: "Assigned user must belong to the selected task group" });
+      }
+      if (effectiveGroupTag && (groupAssignmentChanged || assignmentChanged)) {
+        const groupId = effectiveGroupTag.slice("group_id:".length);
+        const groupMembers = await db.select({
+          id: users.id, role: users.role, assignedCountries: users.assignedCountries, isActive: users.isActive,
+        }).from(taskGroupMembers).innerJoin(users, eq(users.id, taskGroupMembers.userId))
+          .where(eq(taskGroupMembers.groupId, groupId));
+        const countryEligibleIds = groupMembers.filter(person => person.isActive && person.role
+          && userMayAccessTaskCountry(person.role, person.assignedCountries, oldTask.country)).map(person => person.id);
+        if (!await hasAllowedTaskRecipient(db, countryEligibleIds)) {
+          return res.status(400).json({ error: "The task group has no approved active country-authorized recipients" });
+        }
+      }
+      const completionNotification = updateData.status === "completed" && shouldNotifyTaskCreator(oldTask, true, _notifyAgent)
+        ? async (completedTask: NonNullable<typeof oldTask>) => buildPulseCompletionNotification(
+            completedTask,
+            undefined,
+            await resolveTaskSourceEntityDisplayName(completedTask, taskSourceEntityDependencies) ?? undefined,
+          )
+        : undefined;
+      const updateResult = await storage.updateTaskWithActor(req.params.id, updateData, req.session.user!.id, completionNotification);
+      if (!updateResult) return res.status(404).json({ error: "Task not found" });
+      const { task, oldTask: previousTask, completedNow, notification } = updateResult;
       
       await logActivity(
         req.session.user!.id,
         "update",
         "task",
         task.id,
-        task.title,
-        req.body,
+        "Task",
+        { updatedFields: Object.keys(updateData).filter((field) => !["title", "description"].includes(field)) },
         req.ip
       );
 
       try {
-        const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
-        await emitEntityUpdated("task", "task", task.id, oldTask, task, req.session.user!.id, task.country);
-        if (oldTask && oldTask.status !== "completed" && task.status === "completed") {
-          await emitTaskCompleted(task.id, task, req.session.user!.id);
+        const { emitEntityUpdated, emitTaskCompleted, emitTaskAssigned } = await import("./lib/event-bus");
+        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
+        if (previousTask.assignedUserId !== task.assignedUserId) {
+          await emitTaskAssigned(task, previousTask, req.session.user!.id);
+        }
+        if (completedNow) {
+          await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
         }
       } catch (err) { console.error("[EventBus] task update emit error:", err); }
 
+      if (notification) {
+        try {
+          await notificationService.broadcastExistingNotification(notification);
+        } catch (error) { console.warn("[Tasks] Failed to send Pulse completion notification:", error); }
+      }
+
+      const textChanged =
+        (previousTask.title !== task.title || (previousTask.description || "") !== (task.description || ""));
+      if (textChanged) {
+        void (async () => {
+          try {
+            const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
+            const { analyzeAndEmitTaskNegativeSentiment } = await import("./lib/task-sentiment");
+            await analyzeAndEmitTaskNegativeSentiment(task, {
+              actorUserId: req.session.user!.id,
+              countryCode: taskCustomer?.country || task.country || null,
+              sensitiveValues: taskCustomer ? [
+                taskCustomer.firstName, taskCustomer.lastName, taskCustomer.maidenName,
+                taskCustomer.email, taskCustomer.email2, taskCustomer.phone, taskCustomer.mobile,
+                taskCustomer.mobile2, taskCustomer.nationalId, taskCustomer.idCardNumber,
+                taskCustomer.address, taskCustomer.city, taskCustomer.postalCode,
+              ].filter((value): value is string => typeof value === "string") : [],
+            });
+          } catch (err) {
+            console.error(`[TaskSentiment] Could not start analysis for task ${task.id} (${err instanceof Error ? err.name : "unknown error"})`);
+          }
+        })();
+      }
+
       try {
         const newTags: string[] = task.tags || [];
-        const oldTags: string[] = oldTask?.tags || [];
+        const oldTags: string[] = previousTask.tags || [];
         const newGroupIdTag = newTags.find((t: string) => t.startsWith("group_id:"));
         const oldGroupIdTag = oldTags.find((t: string) => t.startsWith("group_id:"));
         if (newGroupIdTag && newGroupIdTag !== oldGroupIdTag) {
@@ -9178,7 +10126,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
           const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
           const groupName = groupRow?.name ?? groupId;
-          const memberIds = groupMembersRows.map(m => m.userId);
+          const memberIds = await countryAuthorizedTaskRecipientIds(db, groupMembersRows.map(m => m.userId), task.country);
           if (memberIds.length > 0) {
             await notificationService.sendNotificationToUsers(memberIds, {
               type: "group_task_assigned",
@@ -9186,7 +10134,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               message: `Skupina: ${groupName}`,
               priority: "normal",
               entityType: "task",
-              metadata: { groupId, groupName, taskTitle: task.title },
+              metadata: { groupId, groupName, taskId: task.id, taskTitle: task.title },
             });
           }
         }
@@ -9194,6 +10142,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       res.json(task);
     } catch (error) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
+      if (error instanceof TaskInactiveCompletionError) {
+        return res.status(409).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof PulseChecklistCompletionError) {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          remainingCount: error.remainingCount,
+        });
+      }
+      if (error instanceof TaskCompletionNoticeAuthorizationError) {
+        return res.status(403).json({ error: error.message });
+      }
       console.error("Error updating task:", error);
       res.status(500).json({ error: "Failed to update task" });
     }
@@ -9205,6 +10167,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!task) {
         return res.status(404).json({ error: "Task not found" });
       }
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       
       const deleted = await storage.deleteTask(req.params.id);
       if (deleted) {
@@ -9229,15 +10192,26 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Resolve task with solution
   app.post("/api/tasks/:id/resolve", requireAuth, async (req, res) => {
     try {
-      const { resolution } = req.body;
-      if (!resolution) {
+      const { resolution, notifyAgent } = req.body || {};
+      if (typeof resolution !== "string" || !resolution.trim()) {
         return res.status(400).json({ error: "Resolution text is required" });
       }
-      
-      const task = await storage.resolveTask(req.params.id, resolution, req.session.user!.id);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
+      if (notifyAgent !== undefined && typeof notifyAgent !== "boolean") return res.status(400).json({ error: "notifyAgent must be a boolean" });
+      const oldTask = await storage.getTask(req.params.id);
+      if (!oldTask) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, oldTask)) return res.status(404).json({ error: "Task not found" });
+      const shouldNotifyCreator = shouldNotifyTaskCreator(oldTask, true, notifyAgent);
+      const completionNotification = shouldNotifyCreator
+        ? async (completedTask: NonNullable<typeof oldTask>) => buildPulseCompletionNotification(
+            completedTask,
+            undefined,
+            await resolveTaskSourceEntityDisplayName(completedTask, taskSourceEntityDependencies) ?? undefined,
+          )
+        : undefined;
+      const result = await storage.resolveTask(req.params.id, resolution.trim(), req.session.user!.id, completionNotification);
+      if (!result) return res.status(404).json({ error: "Task not found" });
+      const { task, oldTask: previousTask, completedNow, notification } = result;
+      if (!completedNow) return res.json(task);
       
       await logActivity(
         req.session.user!.id,
@@ -9245,58 +10219,84 @@ Return ONLY valid JSON, no markdown code blocks.`,
         "task",
         task.id,
         task.title,
-        { resolution },
+        { resolution: resolution.trim() },
         req.ip
       );
 
       try {
         const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
         // Emit a generic update so rules listening for status_changed/updated also fire
-        const oldSnap = { status: "open" };
-        await emitEntityUpdated("task", "task", task.id, oldSnap, task, req.session.user!.id, task.country);
-        await emitTaskCompleted(task.id, task, req.session.user!.id);
+        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
+        await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
       } catch (err) { console.error("[EventBus] task resolve emit error:", err); }
+
+      if (notification) {
+        try {
+          await notificationService.broadcastExistingNotification(notification);
+        } catch (error) { console.warn("[Tasks] Failed to send task resolution notification:", error); }
+      }
       
       res.json(task);
     } catch (error) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
+      if (error instanceof TaskInactiveCompletionError) {
+        return res.status(409).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof PulseChecklistCompletionError) {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          remainingCount: error.remainingCount,
+        });
+      }
+      if (error instanceof TaskCompletionNoticeAuthorizationError) {
+        return res.status(403).json({ error: error.message });
+      }
       console.error("Error resolving task:", error);
       res.status(500).json({ error: "Failed to resolve task" });
     }
   });
 
-  // Reassign task to another user
-  app.post("/api/tasks/:id/reassign", requireAuth, async (req, res) => {
-    try {
-      const { newAssignedUserId } = req.body;
-      if (!newAssignedUserId) {
-        return res.status(400).json({ error: "New assigned user ID is required" });
-      }
-      
-      const task = await storage.reassignTask(req.params.id, newAssignedUserId);
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      
-      await logActivity(
-        req.session.user!.id,
-        "reassign",
-        "task",
-        task.id,
-        task.title,
-        { newAssignedUserId },
-        req.ip
-      );
-      
-      res.json(task);
-    } catch (error) {
-      console.error("Error reassigning task:", error);
-      res.status(500).json({ error: "Failed to reassign task" });
-    }
+  registerTaskReassignmentRoutes(app, requireAuth, {
+    getTask: (id) => storage.getTask(id),
+    canAccessTask: canAccessTaskForMutation,
+    getTargets: (task, user) => storage.getTaskReassignmentTargets(task, user),
+    reassign: (id, target, user, expectedUpdatedAt) => storage.reassignTask(id, target, user, expectedUpdatedAt),
+    log: async ({ task, oldTask }, target, userId, ip) => {
+      await logActivity(userId, "reassign", "task", task.id, task.title, {
+        ...target,
+        oldAssignedUserId: oldTask.assignedUserId,
+        newAssignedUserId: task.assignedUserId,
+        oldTaskGroupId: taskReassignmentGroupId(oldTask) ?? null,
+        newTaskGroupId: taskReassignmentGroupId(task) ?? null,
+      }, ip);
+    },
+    emitUserAssignment: async ({ task, oldTask }, userId) => {
+      const { emitTaskAssigned } = await import("./lib/event-bus");
+      return emitTaskAssigned(task, oldTask, userId);
+    },
+    notifyGroup: async ({ task, group, recipientIds }) => {
+      if (!group || !recipientIds.length) return;
+      const eligibleRecipientIds = await countryAuthorizedTaskRecipientIds(db, Array.from(new Set(recipientIds)), task.country);
+      if (!eligibleRecipientIds.length) return;
+      await notificationService.sendNotificationToUsers(eligibleRecipientIds, {
+        type: "group_task_assigned",
+        title: `Máte novú skupinovú úlohu: ${task.title}`,
+        message: `Skupina: ${group.name}`,
+        priority: "normal",
+        entityType: "task",
+        entityId: task.id,
+        metadata: { groupId: group.id, groupName: group.name, taskId: task.id, taskTitle: task.title },
+      });
+    },
   });
 
   // Task Comments API
   app.get("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     try {
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
       const comments = await storage.getTaskComments(req.params.taskId);
       res.json(comments);
     } catch (error) {
@@ -9307,15 +10307,31 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.post("/api/tasks/:taskId/comments", requireAuth, async (req, res) => {
     try {
-      const { content } = req.body;
-      if (!content) {
-        return res.status(400).json({ error: "Comment content is required" });
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) return res.status(404).json({ error: "Task not found" });
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      if (body.content !== undefined && body.content !== null && typeof body.content !== "string") {
+        return res.status(400).json({ error: "Comment content must be a string" });
       }
-      
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(body, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const content = typeof body.content === "string" ? body.content : "";
+      if (!taskCommentHasContentOrAttachments(content, attachments.length)) {
+        return res.status(400).json({ error: "Comment content or at least one valid attachment is required" });
+      }
       const comment = await storage.createTaskComment({
         taskId: req.params.taskId,
         userId: req.session.user!.id,
         content,
+        metadata: attachments.length ? { attachments } : {},
       });
       
       res.status(201).json(comment);
@@ -9325,20 +10341,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  // Task checklist items — auth: assignee, creator, admin, or member of assignedDepartmentId
+  // Checklist routes share the same country/participant policy as task detail.
   async function canAccessTask(userId: string, role: string | undefined, taskId: string): Promise<{ ok: boolean; task?: any }> {
     const task = await storage.getTask(taskId);
     if (!task) return { ok: false };
-    if (role === "admin") return { ok: true, task };
-    if (task.assignedUserId === userId) return { ok: true, task };
-    if (task.createdByUserId === userId) return { ok: true, task };
-    if (task.assignedDepartmentId) {
-      try {
-        const me: any = await storage.getUser(userId);
-        if (me?.departmentId === task.assignedDepartmentId) return { ok: true, task };
-      } catch {}
-    }
-    return { ok: false, task };
+    const persistedUser: any = await storage.getUser(userId);
+    const user = { ...(persistedUser || {}), id: userId, role };
+    return { ok: await canAccessTaskForMutation(user, task), task };
   }
   async function canAccessChecklistItem(userId: string, role: string | undefined, itemId: string): Promise<{ ok: boolean; item?: any }> {
     const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId));
@@ -9346,6 +10355,44 @@ Return ONLY valid JSON, no markdown code blocks.`,
     const access = await canAccessTask(userId, role, item.taskId);
     return { ok: access.ok, item };
   }
+
+  registerTaskResolutionDraftRoute(app, requireAuth, {
+    getTask: (id) => storage.getTask(id),
+    canAccessTask: async (user, id) => (await canAccessTask(user.id, user.role, id)).ok,
+    getChecklist: (taskId) => db.select({
+      label: taskChecklistItems.label,
+      note: taskChecklistItems.note,
+      doneAt: taskChecklistItems.doneAt,
+    }).from(taskChecklistItems).where(eq(taskChecklistItems.taskId, taskId))
+      .orderBy(taskChecklistItems.position),
+  });
+
+  app.get("/api/tasks/:taskId/checklist/ai", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      res.json(await getTaskAiChecklistState(req.params.taskId));
+    } catch {
+      res.status(500).json({ error: "Failed to read AI checklist status" });
+    }
+  });
+
+  app.post("/api/tasks/:taskId/checklist/ai", requireAuth, async (req, res) => {
+    try {
+      const me = req.session.user!;
+      const access = await canAccessTask(me.id, me.role, req.params.taskId);
+      if (!access.task) return res.status(404).json({ error: "Task not found" });
+      if (!access.ok) return res.status(403).json({ error: "Not authorized" });
+      const state = await ensureTaskAiChecklist(req.params.taskId, {
+        retry: req.body?.retry === true,
+      });
+      return res.status(state.status === "generating" ? 202 : 200).json(state);
+    } catch {
+      res.status(500).json({ status: "failed", errorCode: "internal_error" });
+    }
+  });
 
   app.get("/api/tasks/:taskId/checklist", requireAuth, async (req, res) => {
     try {
@@ -9373,17 +10420,24 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
       const { label, required, position } = req.body || {};
       if (!label) return res.status(400).json({ error: "label required" });
-      const [item] = await db
-        .insert(taskChecklistItems)
-        .values({
+      const item = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, req.params.taskId)).for("update").limit(1);
+        if (!lockedTask) return null;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const [created] = await tx.insert(taskChecklistItems).values({
           taskId: req.params.taskId,
           label: String(label),
           required: required !== false,
           position: typeof position === "number" ? position : 0,
         })
         .returning();
+        await markTaskChecklistManuallyChanged(tx, req.params.taskId);
+        return created;
+      });
+      if (!item) return res.status(404).json({ error: "Task not found" });
       res.status(201).json(item);
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error creating checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to create item" });
     }
@@ -9396,21 +10450,39 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (!access.item) return res.status(404).json({ error: "Item not found" });
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
       const { done, label, note } = req.body || {};
-      const updates: any = {};
-      if (typeof done === "boolean") {
-        updates.doneAt = done ? new Date() : null;
-        updates.doneByUserId = done ? me.id : null;
+      if ((done !== undefined && typeof done !== "boolean") || (label !== undefined && typeof label !== "string") ||
+        (done === undefined && label === undefined && note === undefined)) {
+        return res.status(400).json({ error: "Supply a valid done, label or note update" });
       }
-      if (typeof label === "string") updates.label = label;
-      if (typeof note === "string") updates.note = note;
-      const [item] = await db
-        .update(taskChecklistItems)
-        .set(updates)
-        .where(eq(taskChecklistItems.id, req.params.id))
-        .returning();
+      if (note !== undefined && (typeof note !== "string" || note.length > 240)) {
+        return res.status(400).json({ error: "Checklist note must be a string of at most 240 characters" });
+      }
+      const item = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, access.item.taskId)).for("update").limit(1);
+        if (!lockedTask) return null;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const [lockedItem] = await tx.select().from(taskChecklistItems)
+          .where(and(eq(taskChecklistItems.id, req.params.id), eq(taskChecklistItems.taskId, access.item.taskId)))
+          .for("update").limit(1);
+        if (!lockedItem) return null;
+        const updates: any = {};
+        if (typeof done === "boolean" && done !== !!lockedItem.doneAt) {
+          updates.doneAt = done ? new Date() : null;
+          updates.doneByUserId = done ? me.id : null;
+        }
+        if (typeof label === "string") updates.label = label;
+        if (typeof note === "string") updates.note = note.trim() || null;
+        if (!Object.keys(updates).length) return lockedItem;
+        const [updated] = await tx.update(taskChecklistItems)
+          .set(updates)
+          .where(eq(taskChecklistItems.id, req.params.id))
+          .returning();
+        return updated;
+      });
       if (!item) return res.status(404).json({ error: "Item not found" });
       res.json(item);
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error updating checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to update item" });
     }
@@ -9422,9 +10494,19 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const access = await canAccessChecklistItem(me.id, me.role, req.params.id);
       if (!access.item) return res.status(404).json({ error: "Item not found" });
       if (!access.ok) return res.status(403).json({ error: "Not authorized" });
-      await db.delete(taskChecklistItems).where(eq(taskChecklistItems.id, req.params.id));
+      const deleted = await db.transaction(async (tx) => {
+        const [lockedTask] = await tx.select().from(tasks).where(eq(tasks.id, access.item.taskId)).for("update").limit(1);
+        if (!lockedTask) return false;
+        assertTaskChecklistEditableStatus(lockedTask.status);
+        const result = await tx.delete(taskChecklistItems)
+          .where(and(eq(taskChecklistItems.id, req.params.id), eq(taskChecklistItems.taskId, access.item.taskId)))
+          .returning({ id: taskChecklistItems.id });
+        return result.length > 0;
+      });
+      if (!deleted) return res.status(404).json({ error: "Item not found" });
       res.json({ success: true });
     } catch (error: any) {
+      if (error instanceof TaskChecklistInactiveError) return res.status(409).json({ error: "Task is inactive", code: "task_inactive" });
       console.error("Error deleting checklist item:", error);
       res.status(500).json({ error: error.message || "Failed to delete item" });
     }
@@ -9432,6 +10514,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
   app.delete("/api/tasks/:taskId/comments/:commentId", requireAuth, async (req, res) => {
     try {
+      const task = await storage.getTask(req.params.taskId);
+      if (!task) return res.status(404).json({ error: "Task not found" });
+      if (!await canAccessTaskForMutation(req.session.user!, task)) {
+        return res.status(403).json({ error: "Not authorized to access this task" });
+      }
       const comments = await storage.getTaskComments(req.params.taskId);
       const comment = comments.find((c: any) => c.id === req.params.commentId);
       if (!comment) {
@@ -15096,15 +16183,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       } else if (webhookData.type === "inbox") {
         // Store incoming SMS (status = 10)
-        const [incomingMessage] = await db.insert(communicationMessages).values({
+        const { storeInboundSmsOnce } = await import("./lib/inbound-sms");
+        const incomingMessage = await storeInboundSmsOnce("bulkgate", {
           type: "sms",
-          direction: "inbound",
           content: webhookData.text || "",
           senderPhone: webhookData.number,
           status: "received",
-          provider: "bulkgate",
           externalId: webhookData.smsId,
-        }).returning();
+        });
         if (!incomingMessage) {
           return res.json({ received: true, duplicate: true });
         }
@@ -15165,7 +16251,17 @@ Return ONLY valid JSON, no markdown code blocks.`,
             });
           }
         } // end phone-fallback block
-        
+
+        const emitInboundSmsEvent = async (eventType: "sms.received" | "sentiment.negative") => {
+          try {
+            await (await import("./lib/inbound-communication-events")).emitPersistedInboundEvent(
+              incomingMessage.id, eventType);
+          } catch (err) {
+            console.error("[EventBus] inbound SMS event emit error:", err);
+          }
+        };
+        await emitInboundSmsEvent("sms.received");
+
         // ── Always notify agents about new inbound SMS (direct push, no rule needed) ─
         try {
           let smsContactName: string | null = null;
@@ -15214,7 +16310,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           try {
             const aiResult = await analyzeSmsContent(webhookData.text);
             if (aiResult) {
-              await storage.updateCommunicationMessage(incomingMessage.id, {
+              const persistedAnalysis = await storage.updateCommunicationMessage(incomingMessage.id, {
                 aiAnalyzed: true,
                 aiSentiment: aiResult.sentiment,
                 aiAlertLevel: aiResult.alertLevel,
@@ -15226,6 +16322,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 aiAnalysisNote: aiResult.note,
                 aiAnalyzedAt: new Date(),
               });
+              if (persistedAnalysis?.aiAnalyzed &&
+                  (persistedAnalysis.aiSentiment === "negative" || persistedAnalysis.aiSentiment === "angry" || persistedAnalysis.aiHasAngryTone)) {
+                await emitInboundSmsEvent("sentiment.negative");
+              }
               console.log(`[BulkGate DLR] AI analysis complete for SMS ${incomingMessage.id}: sentiment=${aiResult.sentiment}, alert=${aiResult.alertLevel}`);
               
               // Additional notification for negative sentiment (higher priority alert)
@@ -15508,22 +16608,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       let inboundCreated = 0;
       let inboundDuplicates = 0;
       for (const incoming of incomingMessages) {
-        if (incoming.messageId) {
-          const [existing] = await db.select({ id: communicationMessages.id })
-            .from(communicationMessages)
-            .where(and(
-              eq(communicationMessages.provider, "smstools"),
-              eq(communicationMessages.direction, "inbound"),
-              eq(communicationMessages.externalId, incoming.messageId),
-            ))
-            .limit(1);
-          if (existing) {
-            inboundDuplicates += 1;
-            continue;
-          }
-        }
-
-        const [incomingMessage] = await db.insert(communicationMessages).values({
+        const incomingValues = {
           type: "sms",
           direction: "inbound",
           content: incoming.text,
@@ -15538,7 +16623,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
                 inReplyToExternalId: incoming.inReplyToMessageId,
               })
             : undefined,
-        }).onConflictDoNothing().returning();
+        };
+        let incomingMessage;
+        incomingMessage = await (await import("./lib/inbound-sms")).storeInboundSmsOnce("smstools", incomingValues);
         if (!incomingMessage) {
           inboundDuplicates += 1;
           continue;
@@ -15682,6 +16769,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
             entityType: linkedEntityType,
             entityId: linkedEntityId,
           });
+        }
+
+        try {
+          await (await import("./lib/inbound-communication-events")).emitPersistedInboundEvent(
+            incomingMessage.id, "sms.received");
+        } catch (eventError) {
+          console.error("[EventBus] SMSTOOLS inbound event emit error:", eventError);
         }
 
         try {
@@ -17796,9 +18890,39 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const limit = parseInt(req.query.limit as string) || 50;
       const includeRead = req.query.includeRead === "true";
       const includeDismissed = req.query.includeDismissed === "true";
+      const resolveTaskSourceTitles = req.query.resolveTaskSourceTitles === "true";
       
       const notificationsList = await storage.getNotifications(userId, { limit, includeRead, includeDismissed });
-      res.json(notificationsList);
+      // Older task completion notices saved the task title in `title`. Reuse
+      // the same fail-closed source resolver used when Pulse notices are
+      // created; ordinary Back Office completion notices appear in this inbox
+      // too. Resolve only for this recipient when they still have task access.
+      const sourceTitlesByTaskId = new Map<string, Promise<string | null>>();
+      const enrichedNotifications = await Promise.all(notificationsList.map(async (notification) => {
+        if (!resolveTaskSourceTitles) return notification;
+        const taskId = getTaskCompletionNoticeSourceLookupId(notification);
+        if (!taskId) return notification;
+
+        let sourceTitle = sourceTitlesByTaskId.get(taskId);
+        if (!sourceTitle) {
+          sourceTitle = (async () => {
+            try {
+              return await resolveAccessibleTaskSourceEntityDisplayName(
+                req.session.user!,
+                taskId,
+                taskSourceEntityDependencies,
+              );
+            } catch {
+              console.warn("[Notifications] Failed to resolve legacy task completion entity title");
+              return null;
+            }
+          })();
+          sourceTitlesByTaskId.set(taskId, sourceTitle);
+        }
+        const resolvedTitle = await sourceTitle;
+        return resolvedTitle ? { ...notification, title: resolvedTitle } : notification;
+      }));
+      res.json(enrichedNotifications);
     } catch (error) {
       console.error("Error fetching notifications:", error);
       res.status(500).json({ error: "Failed to fetch notifications" });
@@ -18908,6 +20032,35 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // An approved pair stops showing if its clinic link is removed or the
+  // latest Action is paid. A person without an Action remains eligible.
+  const activeRewardBadgeClinicLink = `(
+    EXISTS (
+      SELECT 1 FROM collaborators badge_person
+       WHERE badge_person.id = badge.collaborator_id
+         AND (badge_person.clinic_id = badge.clinic_id
+           OR badge.clinic_id = ANY(badge_person.clinic_ids))
+    )
+    OR EXISTS (
+      SELECT 1 FROM contact_assignments badge_assignment
+       WHERE badge_assignment.person_id = badge.collaborator_id
+         AND badge_assignment.entity_type = 'clinic'
+         AND badge_assignment.entity_id = badge.clinic_id
+         AND badge_assignment.is_active = true
+    )
+  ) AND NOT EXISTS (
+    SELECT 1 FROM collaborator_activities paid_badge_action
+     WHERE paid_badge_action.id = (
+       SELECT latest_badge_action.id FROM collaborator_activities latest_badge_action
+        WHERE latest_badge_action.collaborator_id = badge.collaborator_id
+        ORDER BY latest_badge_action.due_date DESC NULLS LAST,
+                 latest_badge_action.created_at DESC, latest_badge_action.id DESC
+        LIMIT 1
+     )
+       AND paid_badge_action.reward_paid = true
+       AND paid_badge_action.reward_paid_at IS NOT NULL
+  )`;
+
   // Resolve the warning for the entity that is actually open in the card.
   // Do not rely on optional campaign-contact enrichment: personnel drawers can
   // open independently and current Healthcare Facilities live in contact_assignments.
@@ -18919,52 +20072,20 @@ Return ONLY valid JSON, no markdown code blocks.`,
         return res.status(400).json({ error: "Unsupported entity type" });
       }
 
-      let personIds: string[] = [];
-      if (entityType === "collaborator") {
-        personIds = [entityId];
-      } else {
-        const assignmentRows = await db.select({ personId: contactAssignments.personId })
-          .from(contactAssignments)
-          .where(and(
-            eq(contactAssignments.entityType, entityType),
-            eq(contactAssignments.entityId, entityId),
-            eq(contactAssignments.isActive, true),
-          ));
-        const legacyRows = entityType === "clinic"
-          ? await db.select({ id: collaborators.id }).from(collaborators).where(or(
-              eq(collaborators.clinicId, entityId),
-              sql`${collaborators.clinicIds} @> ARRAY[${entityId}]::text[]`,
-            ))
-          : await db.select({ id: collaborators.id }).from(collaborators).where(or(
-              eq(collaborators.hospitalId, entityId),
-              sql`${collaborators.hospitalIds} @> ARRAY[${entityId}]::text[]`,
-            ));
-        personIds = [...new Set([
-          ...assignmentRows.map((row) => row.personId),
-          ...legacyRows.map((row) => row.id),
-        ])];
-      }
-
-      if (!personIds.length) return res.json({ unpaidRewardPersonCount: 0 });
-
-      const activityRows = await db.select().from(collaboratorActivities)
-        .where(inArray(collaboratorActivities.collaboratorId, personIds))
-        .orderBy(
-          sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
-          desc(collaboratorActivities.createdAt),
-          desc(collaboratorActivities.id),
-        );
-      const latestByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
-      for (const activity of activityRows) {
-        if (!latestByPerson.has(activity.collaboratorId)) {
-          latestByPerson.set(activity.collaboratorId, activity);
-        }
-      }
-      const unpaidRewardPersonCount = personIds.reduce((count, personId) => {
-        const latest = latestByPerson.get(personId);
-        return latest && !(latest.rewardPaid && latest.rewardPaidAt) ? count + 1 : count;
-      }, 0);
-      res.json({ unpaidRewardPersonCount });
+      // Only reviewed person-clinic pairs are shown. A person can be linked to
+      // other clinics without creating a badge on those clinics.
+      const badgeRows = entityType === "hospital" ? [] : (await pool.query<{ count: number }>(
+        `SELECT COUNT(DISTINCT badge.collaborator_id)::int AS count
+           FROM unpaid_reward_badge_clinic_pairs badge
+          WHERE badge.${entityType === "clinic" ? "clinic_id" : "collaborator_id"} = $1
+            AND ${activeRewardBadgeClinicLink}`,
+        [entityId],
+      )).rows;
+      const unpaidRewardPersonCount = badgeRows[0]?.count || 0;
+      res.json({
+        unpaidRewardPersonCount,
+        ...(entityType === "collaborator" ? { unpaidRewardBadgeEligible: unpaidRewardPersonCount > 0 } : {}),
+      });
     } catch (error: any) {
       console.error("[RewardReadiness] resolve error:", error?.message || error);
       res.status(500).json({ error: "Failed to resolve reward readiness" });
@@ -20884,14 +22005,25 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       }
 
       const callLogId = req.params.id;
+      const [previousCallLog] = await db.select().from(callLogs).where(and(
+        eq(callLogs.id, callLogId),
+        eq(callLogs.userId, tokenData.collaboratorId),
+      )).limit(1);
+      if (!previousCallLog) {
+        return res.status(404).json({ error: "Call log not found" });
+      }
       const result = await db.update(callLogs)
         .set({ durationSeconds: duration, status: 'completed', endedAt: new Date() })
         .where(and(eq(callLogs.id, callLogId), eq(callLogs.userId, tokenData.collaboratorId)))
-        .returning({ id: callLogs.id });
+        .returning();
 
       if (result.length === 0) {
         return res.status(404).json({ error: "Call log not found" });
       }
+
+      // Emit after the terminal status and end time are durably written.
+      const { emitOutboundCallLifecycle } = await import("./lib/outbound-call-automation");
+      await emitOutboundCallLifecycle(previousCallLog, result[0]);
 
       res.json({ success: true });
     } catch (error) {
@@ -26293,9 +27425,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         } catch (_e) {}
       }
 
-      // Reward readiness belongs to the newest Action of every person linked
-      // to the contact's clinic/hospital. Resolve it once for the whole Mission
-      // response so Priority Builder, Auto, and Next consume the same signal.
+       // The selected-person badge follows facility membership for the whole
+       // Mission response so Priority Builder, Auto, and Next agree.
       const rewardClinicIds = [...new Set(contacts.map((contact: any) => contact.clinicId).filter(Boolean))] as string[];
       const rewardHospitalIds = [...new Set(contacts.map((contact: any) => contact.hospitalId).filter(Boolean))] as string[];
       const rewardCollaboratorIds = [...new Set(contacts.map((contact: any) => contact.collaboratorId).filter(Boolean))] as string[];
@@ -26329,6 +27460,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinicIds: collaborators.clinicIds,
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
+          unpaidRewardBadgeEligible: collaborators.unpaidRewardBadgeEligible,
         }).from(collaborators).where(or(
           directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
@@ -26353,36 +27485,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         existing.push({ entityType: assignment.entityType, entityId: assignment.entityId });
         rewardAssignmentsByPerson.set(assignment.personId, existing);
       }
-      const latestRewardActivityByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
-      if (linkedRewardPersonIds.length) {
-        const activityRows = await db.select().from(collaboratorActivities)
-          .where(inArray(collaboratorActivities.collaboratorId, linkedRewardPersonIds))
-          .orderBy(
-            sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
-            desc(collaboratorActivities.createdAt),
-            desc(collaboratorActivities.id),
-          );
-        for (const activity of activityRows) {
-          if (!latestRewardActivityByPerson.has(activity.collaboratorId)) {
-            latestRewardActivityByPerson.set(activity.collaboratorId, activity);
-          }
-        }
-      }
       const unpaidRewardCountByClinic = new Map<string, number>();
       const unpaidRewardCountByHospital = new Map<string, number>();
       const unpaidRewardCollaboratorIds = new Set<string>();
-      for (const person of linkedRewardPeople) {
-        const latest = latestRewardActivityByPerson.get(person.id);
-        if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
-        unpaidRewardCollaboratorIds.add(person.id);
-        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
-        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
-        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
-        }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+      const rewardBadgePairs = rewardClinicIds.length || rewardCollaboratorIds.length
+        ? (await pool.query<{ collaborator_id: string; clinic_id: string }>(
+            `SELECT badge.collaborator_id, badge.clinic_id
+               FROM unpaid_reward_badge_clinic_pairs badge
+              WHERE (badge.clinic_id = ANY($1::text[]) OR badge.collaborator_id = ANY($2::text[]))
+                AND ${activeRewardBadgeClinicLink}`,
+            [rewardClinicIds, rewardCollaboratorIds],
+          )).rows : [];
+      for (const pair of rewardBadgePairs) {
+        unpaidRewardCollaboratorIds.add(pair.collaborator_id);
+        if (rewardClinicIds.includes(pair.clinic_id)) {
+          unpaidRewardCountByClinic.set(pair.clinic_id, (unpaidRewardCountByClinic.get(pair.clinic_id) || 0) + 1);
         }
       }
 
@@ -30445,9 +31562,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         contacts = await storage.getCampaignContacts(req.params.id);
       }
 
-      // Reward readiness is based on the newest Action of every person linked
-      // to the visible clinic/hospital/person. Keep it separate from the base
-      // contact fetch so optional ranking metadata cannot hide the queue.
+      // Badge membership is an explicit person-clinic selection, independent
+      // of Actions and payment state. Keep it separate from contact fetching.
       const rewardClinicIds = [...new Set(contacts.map((contact: any) => contact.clinicId).filter(Boolean))] as string[];
       const rewardHospitalIds = [...new Set(contacts.map((contact: any) => contact.hospitalId).filter(Boolean))] as string[];
       const rewardCollaboratorIds = [...new Set(contacts.map((contact: any) => contact.collaboratorId).filter(Boolean))] as string[];
@@ -30481,6 +31597,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           clinicIds: collaborators.clinicIds,
           hospitalId: collaborators.hospitalId,
           hospitalIds: collaborators.hospitalIds,
+          unpaidRewardBadgeEligible: collaborators.unpaidRewardBadgeEligible,
         }).from(collaborators).where(or(
           directlyRelevantRewardPersonIds.length ? inArray(collaborators.id, directlyRelevantRewardPersonIds) : sql`false`,
           rewardClinicIdArray ? sql`(${collaborators.clinicId} = ANY(${rewardClinicIdArray}) OR ${collaborators.clinicIds} && ${rewardClinicIdArray})` : sql`false`,
@@ -30505,36 +31622,21 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         existing.push({ entityType: assignment.entityType, entityId: assignment.entityId });
         rewardAssignmentsByPerson.set(assignment.personId, existing);
       }
-      const latestRewardActivityByPerson = new Map<string, typeof collaboratorActivities.$inferSelect>();
-      if (linkedRewardPersonIds.length) {
-        const activityRows = await db.select().from(collaboratorActivities)
-          .where(inArray(collaboratorActivities.collaboratorId, linkedRewardPersonIds))
-          .orderBy(
-            sql`${collaboratorActivities.dueDate} DESC NULLS LAST`,
-            desc(collaboratorActivities.createdAt),
-            desc(collaboratorActivities.id),
-          );
-        for (const activity of activityRows) {
-          if (!latestRewardActivityByPerson.has(activity.collaboratorId)) {
-            latestRewardActivityByPerson.set(activity.collaboratorId, activity);
-          }
-        }
-      }
       const unpaidRewardCountByClinic = new Map<string, number>();
       const unpaidRewardCountByHospital = new Map<string, number>();
       const unpaidRewardCollaboratorIds = new Set<string>();
-      for (const person of linkedRewardPeople) {
-        const latest = latestRewardActivityByPerson.get(person.id);
-        if (!latest || (latest.rewardPaid && latest.rewardPaidAt)) continue;
-        unpaidRewardCollaboratorIds.add(person.id);
-        const activeAssignments = rewardAssignmentsByPerson.get(person.id) || [];
-        const assignedClinicIds = activeAssignments.filter((assignment) => assignment.entityType === "clinic").map((assignment) => assignment.entityId);
-        const assignedHospitalIds = activeAssignments.filter((assignment) => assignment.entityType === "hospital").map((assignment) => assignment.entityId);
-        for (const clinicId of new Set([person.clinicId, ...(person.clinicIds || []), ...assignedClinicIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByClinic.set(clinicId, (unpaidRewardCountByClinic.get(clinicId) || 0) + 1);
-        }
-        for (const hospitalId of new Set([person.hospitalId, ...(person.hospitalIds || []), ...assignedHospitalIds].filter(Boolean) as string[])) {
-          unpaidRewardCountByHospital.set(hospitalId, (unpaidRewardCountByHospital.get(hospitalId) || 0) + 1);
+      const rewardBadgePairs = rewardClinicIds.length || rewardCollaboratorIds.length
+        ? (await pool.query<{ collaborator_id: string; clinic_id: string }>(
+            `SELECT badge.collaborator_id, badge.clinic_id
+               FROM unpaid_reward_badge_clinic_pairs badge
+              WHERE (badge.clinic_id = ANY($1::text[]) OR badge.collaborator_id = ANY($2::text[]))
+                AND ${activeRewardBadgeClinicLink}`,
+            [rewardClinicIds, rewardCollaboratorIds],
+          )).rows : [];
+      for (const pair of rewardBadgePairs) {
+        unpaidRewardCollaboratorIds.add(pair.collaborator_id);
+        if (rewardClinicIds.includes(pair.clinic_id)) {
+          unpaidRewardCountByClinic.set(pair.clinic_id, (unpaidRewardCountByClinic.get(pair.clinic_id) || 0) + 1);
         }
       }
 
@@ -30663,8 +31765,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
       }
       
-      // Resolve distinct entities in batches instead of one query per contact
-      // on every agent-workspace poll.
+      // Fetch each entity type once rather than issuing one database query per
+      // campaign contact on every agent-workspace poll.
       const hospitalEntityIds = new Set<string>();
       const clinicEntityIds = new Set<string>();
       const collaboratorEntityIds = new Set<string>();
@@ -30680,28 +31782,36 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           customerEntityIds.add(contact.customerId);
         }
       }
-      const [hospitalRows, clinicRows, collaboratorRows, customerRows] = await Promise.all([
-        hospitalEntityIds.size ? db.select().from(hospitals).where(inArray(hospitals.id, [...hospitalEntityIds])) : Promise.resolve([]),
-        clinicEntityIds.size ? db.select().from(clinics).where(inArray(clinics.id, [...clinicEntityIds])) : Promise.resolve([]),
-        collaboratorEntityIds.size ? db.select().from(collaborators).where(inArray(collaborators.id, [...collaboratorEntityIds])) : Promise.resolve([]),
-        customerEntityIds.size ? db.select().from(customers).where(inArray(customers.id, [...customerEntityIds])) : Promise.resolve([]),
+      const [hospitalEntities, clinicEntities, collaboratorEntities, customerEntities] = await Promise.all([
+        hospitalEntityIds.size
+          ? db.select().from(hospitals).where(inArray(hospitals.id, [...hospitalEntityIds]))
+          : Promise.resolve([]),
+        clinicEntityIds.size
+          ? db.select().from(clinics).where(inArray(clinics.id, [...clinicEntityIds]))
+          : Promise.resolve([]),
+        collaboratorEntityIds.size
+          ? db.select().from(collaborators).where(inArray(collaborators.id, [...collaboratorEntityIds]))
+          : Promise.resolve([]),
+        customerEntityIds.size
+          ? db.select().from(customers).where(inArray(customers.id, [...customerEntityIds]))
+          : Promise.resolve([]),
       ]);
-      const hospitalById = new Map(hospitalRows.map(row => [row.id, row]));
-      const clinicById = new Map(clinicRows.map(row => [row.id, row]));
-      const collaboratorById = new Map(collaboratorRows.map(row => [row.id, row]));
-      const customerById = new Map(customerRows.map(row => [row.id, row]));
+      const hospitalById = new Map(hospitalEntities.map(entity => [entity.id, entity]));
+      const clinicById = new Map(clinicEntities.map(entity => [entity.id, entity]));
+      const collaboratorById = new Map(collaboratorEntities.map(entity => [entity.id, entity]));
+      const customerById = new Map(customerEntities.map(entity => [entity.id, entity]));
 
       const enrichedContacts = contacts.map((contact) => {
+          const hasPrimaryEntity = (contact.contactType === "hospital" && !!contact.hospitalId)
+            || (contact.contactType === "clinic" && !!contact.clinicId)
+            || (contact.contactType === "collaborator" && !!contact.collaboratorId);
           const hospital = contact.contactType === "hospital" && contact.hospitalId
             ? hospitalById.get(contact.hospitalId) ?? null : null;
           const clinic = contact.contactType === "clinic" && contact.clinicId
             ? clinicById.get(contact.clinicId) ?? null : null;
           const collaborator = contact.contactType === "collaborator" && contact.collaboratorId
             ? collaboratorById.get(contact.collaboratorId) ?? null : null;
-          const customer = !(contact.contactType === "hospital" && contact.hospitalId)
-            && !(contact.contactType === "clinic" && contact.clinicId)
-            && !(contact.contactType === "collaborator" && contact.collaboratorId)
-            && contact.customerId
+          const customer = !hasPrimaryEntity && contact.customerId
             ? customerById.get(contact.customerId) ?? null : null;
           const hasReferral = contact.clinicId
             ? clinicReferralIds.has(contact.clinicId) || personReferrals.clinic.has(contact.clinicId)
@@ -32079,9 +33189,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns/:campaignId/status-list/:itemId/automations", requireAuth, async (req, res) => {
     try {
-      const { itemId } = req.params;
-      const validated = insertCampaignStatusListAutomationSchema.parse({ ...req.body, statusListItemId: itemId });
-      const [automation] = await db.insert(campaignStatusListAutomations).values(validated).returning();
+      const { campaignId, itemId } = req.params;
+      const parsed = insertCampaignStatusListAutomationSchema.safeParse({
+        ...req.body,
+        statusListItemId: itemId,
+        questionId: null,
+      });
+      if (!parsed.success) return res.status(400).json({ error: "Invalid Status List automation" });
+      const [automation] = await db.insert(campaignStatusListAutomations).values(parsed.data).returning();
       res.json(automation);
     } catch (error) {
       console.error("Failed to create automation:", error);
@@ -32091,10 +33206,38 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.put("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
     try {
-      const { autoId } = req.params;
+      const { campaignId, itemId, autoId } = req.params;
+      const parsed = insertCampaignStatusListAutomationSchema.partial().safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid Status List automation" });
+      const [existing] = await db.select().from(campaignStatusListAutomations)
+        .where(and(
+          eq(campaignStatusListAutomations.id, autoId),
+          eq(campaignStatusListAutomations.statusListItemId, itemId),
+        )).limit(1);
+      if (!existing) return res.status(404).json({ error: "Automation not found" });
+      if (existing.questionId) {
+        const [question] = await db.select({ id: campaignStatusListQuestions.id })
+          .from(campaignStatusListQuestions)
+          .where(and(
+            eq(campaignStatusListQuestions.id, existing.questionId),
+            eq(campaignStatusListQuestions.itemId, itemId),
+          )).limit(1);
+        if (!question) return res.status(404).json({ error: "Status List question not found" });
+      }
       const [updated] = await db.update(campaignStatusListAutomations)
-        .set({ ...req.body, updatedAt: new Date() })
-        .where(eq(campaignStatusListAutomations.id, autoId))
+        .set({
+          ...parsed.data,
+          statusListItemId: itemId,
+          questionId: existing.questionId,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(campaignStatusListAutomations.id, autoId),
+          eq(campaignStatusListAutomations.statusListItemId, itemId),
+          existing.questionId
+            ? eq(campaignStatusListAutomations.questionId, existing.questionId)
+            : isNull(campaignStatusListAutomations.questionId),
+        ))
         .returning();
       if (!updated) return res.status(404).json({ error: "Automation not found" });
       res.json(updated);
@@ -32106,8 +33249,29 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.delete("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
     try {
-      const { autoId } = req.params;
-      await db.delete(campaignStatusListAutomations).where(eq(campaignStatusListAutomations.id, autoId));
+      const { campaignId, itemId, autoId } = req.params;
+      const [existing] = await db.select().from(campaignStatusListAutomations)
+        .where(and(
+          eq(campaignStatusListAutomations.id, autoId),
+          eq(campaignStatusListAutomations.statusListItemId, itemId),
+        )).limit(1);
+      if (!existing) return res.status(404).json({ error: "Automation not found" });
+      if (existing.questionId) {
+        const [question] = await db.select({ id: campaignStatusListQuestions.id })
+          .from(campaignStatusListQuestions)
+          .where(and(
+            eq(campaignStatusListQuestions.id, existing.questionId),
+            eq(campaignStatusListQuestions.itemId, itemId),
+          )).limit(1);
+        if (!question) return res.status(404).json({ error: "Status List question not found" });
+      }
+      await db.delete(campaignStatusListAutomations).where(and(
+        eq(campaignStatusListAutomations.id, autoId),
+        eq(campaignStatusListAutomations.statusListItemId, itemId),
+        existing.questionId
+          ? eq(campaignStatusListAutomations.questionId, existing.questionId)
+          : isNull(campaignStatusListAutomations.questionId),
+      ));
       res.json({ ok: true });
     } catch (error) {
       console.error("Failed to delete automation:", error);
@@ -32500,13 +33664,14 @@ Respond ONLY with valid JSON in this exact format:
 
   app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/automations", requireAuth, async (req, res) => {
     try {
-      const { itemId, questionId } = req.params;
-      const validated = insertCampaignStatusListAutomationSchema.parse({
+      const { campaignId, itemId, questionId } = req.params;
+      const parsed = insertCampaignStatusListAutomationSchema.safeParse({
         ...req.body,
         statusListItemId: itemId,
         questionId,
       });
-      const [automation] = await db.insert(campaignStatusListAutomations).values(validated).returning();
+      if (!parsed.success) return res.status(400).json({ error: "Invalid Status List automation" });
+      const [automation] = await db.insert(campaignStatusListAutomations).values(parsed.data).returning();
       res.json(automation);
     } catch (error) {
       console.error("Failed to create question automation:", error);
@@ -32874,18 +34039,6 @@ Respond ONLY with valid JSON in this exact format:
     return task;
   }
 
-  // Keep only attachments whose URL we actually generated (defense against arbitrary
-  // url injection in the JSON body); cap the count and string lengths.
-  function sanitizeBoAttachments(raw: any): { name: string; url: string; size: number; type: string }[] {
-    if (!Array.isArray(raw)) return [];
-    return raw.slice(0, 10).map((a: any) => ({
-      name: String(a?.name ?? "file").slice(0, 200),
-      url: String(a?.url ?? ""),
-      size: Number.isFinite(Number(a?.size)) ? Number(a.size) : 0,
-      type: String(a?.type ?? "").slice(0, 120),
-    })).filter((a) => a.url.startsWith("/data/") || a.url.startsWith("/uploads/"));
-  }
-
   // Helper: normalized list of the session user's assigned countries (back-office authz)
   function boUserCountries(req: any): string[] {
     return (((req.session.user?.assignedCountries as string[]) || [])
@@ -32989,6 +34142,7 @@ Respond ONLY with valid JSON in this exact format:
       const { taskId } = req.params;
       const userId = req.session.user!.id;
       const { note, statusListItemId, campaignContactId, notifyAgent } = req.body;
+      if (notifyAgent !== undefined && typeof notifyAgent !== "boolean") return res.status(400).json({ error: "notifyAgent must be a boolean" });
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
@@ -33001,9 +34155,46 @@ Respond ONLY with valid JSON in this exact format:
       const validated = insertTaskBackOfficeConfirmationSchema.parse({
         taskId, confirmedByUserId: userId, note, statusListItemId, campaignContactId,
       });
-      const confirmation = await db.transaction(async (tx) => {
+      const transactionResult = await db.transaction(async (tx) => {
+        const [currentTask] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).for("update").limit(1);
+        if (!currentTask || !(currentTask.tags || []).includes("back_office")) {
+          return { confirmation: null, notification: undefined, alreadyDone: false };
+        }
+        if (currentTask.boState === "done" || currentTask.status === "completed") {
+          const [existing] = await tx.select().from(taskBackOfficeConfirmations)
+            .where(eq(taskBackOfficeConfirmations.taskId, taskId)).limit(1);
+          return { confirmation: existing || { ok: true, alreadyDone: true }, notification: undefined, alreadyDone: true };
+        }
+        await assertTaskResolverAllowed(tx, userId);
+        assertTaskCanBeCompletedStatus(currentTask.status);
+        if (notifyAgent) {
+          await assertTaskCompletionNoticeRecipient(currentTask, async (creatorId) => {
+            const [creator] = await tx.select({
+              role: users.role,
+              isActive: users.isActive,
+              assignedCountries: users.assignedCountries,
+            }).from(users).where(eq(users.id, creatorId)).for("share").limit(1);
+            return creator;
+          });
+        }
+        if (isPulseOriginTask(currentTask)) {
+          const checklistItems = await tx.select({ doneAt: taskChecklistItems.doneAt })
+            .from(taskChecklistItems)
+            .where(eq(taskChecklistItems.taskId, currentTask.id));
+          assertPulseTaskChecklistComplete(currentTask, checklistItems);
+        }
+        const completedAt = new Date();
+        const completedWorkTiming = transitionTaskWorkTiming(currentTask, "completed", completedAt);
         const [conf] = await tx.insert(taskBackOfficeConfirmations).values(validated).returning();
-        await tx.update(tasks).set({ status: "completed", boState: "done", resolvedAt: new Date(), resolvedByUserId: userId, resolution: note || "Confirmed by Back Office" }).where(eq(tasks.id, taskId));
+        const [completedTask] = await tx.update(tasks).set({
+          status: "completed",
+          boState: "done",
+          resolvedAt: completedAt,
+          resolvedByUserId: userId,
+          resolution: note || "Confirmed by Back Office",
+          ...completedWorkTiming,
+        }).where(eq(tasks.id, taskId)).returning();
+        if (!completedTask) throw new Error("Task disappeared during confirmation");
         await tx.insert(taskComments).values({
           taskId, userId, content: note || "Úloha vybavená", kind: "state_change",
           metadata: { toState: "done" } as any,
@@ -33019,10 +34210,7 @@ Respond ONLY with valid JSON in this exact format:
           const base = new Date(task.createdAt).getTime();
           const lo = new Date(base - TWIN_GAP_MS);
           const hi = new Date(base + TWIN_GAP_MS);
-          await tx.update(tasks).set({
-            status: "completed", boState: "done", resolvedAt: new Date(),
-            resolvedByUserId: userId, resolution: note || "Confirmed by Back Office (sibling)",
-          }).where(and(
+          const siblingCondition = and(
             sql`${tasks.tags} @> ARRAY['back_office']::text[]`,
             eq(tasks.relatedEntityType, "status_list_item"),
             eq(tasks.relatedEntityId, task.relatedEntityId),
@@ -33031,42 +34219,84 @@ Respond ONLY with valid JSON in this exact format:
             or(isNull(tasks.boState), ne(tasks.boState, "done")),
             task.customerId ? eq(tasks.customerId, task.customerId) : isNull(tasks.customerId),
             sql`${tasks.createdAt} BETWEEN ${lo} AND ${hi}`,
-          ));
+          );
+          const siblings = await tx.select().from(tasks).where(siblingCondition)
+            .orderBy(tasks.id).for("update");
+          for (const sibling of siblings) {
+            const siblingCompletedAt = new Date();
+            const siblingWorkTiming = transitionTaskWorkTiming(sibling, "completed", siblingCompletedAt);
+            await tx.update(tasks).set({
+              status: "completed", boState: "done", resolvedAt: siblingCompletedAt,
+              resolvedByUserId: userId, resolution: note || "Confirmed by Back Office (sibling)",
+              ...siblingWorkTiming,
+            }).where(eq(tasks.id, sibling.id));
+          }
         }
-        return conf;
+        let notification: any;
+        if (notifyAgent) {
+          const pulseTask = isPulseOriginTask(completedTask);
+          if (pulseTask) {
+            const recipientTitle = await resolveTaskSourceEntityDisplayName(
+              completedTask,
+              taskSourceEntityDependencies,
+            );
+            const pulseNotification = buildPulseCompletionNotification(
+              completedTask,
+              completedTask.resolution,
+              recipientTitle ?? undefined,
+            );
+            [notification] = await tx.insert(notifications).values({
+              userId: completedTask.createdByUserId!,
+              ...pulseNotification,
+              message: note || "Úloha bola vyriešená Back Office tímom",
+            }).returning();
+          } else {
+            [notification] = await tx.insert(notifications).values({
+              userId: completedTask.createdByUserId!,
+              type: "back_office_resolved",
+              title: completedTask.title,
+              message: note || "Úloha bola vyriešená Back Office tímom",
+              priority: "high",
+              entityType: "task",
+              entityId: taskId,
+              metadata: {
+                taskId,
+                taskTitle: completedTask.title,
+                source: "back_office",
+                resolution: completedTask.resolution || null,
+              },
+            }).returning();
+          }
+        }
+        return { confirmation: conf, notification, alreadyDone: false };
       });
-      // Notify originating agent that BO resolved their task.
-      if (notifyAgent && task.createdByUserId) {
-        let resolvedCustomerName: string | null = null;
-        if (task.customerId) {
-          try {
-            const [cu] = await db.select({ firstName: customers.firstName, lastName: customers.lastName })
-              .from(customers).where(eq(customers.id, task.customerId)).limit(1);
-            if (cu) resolvedCustomerName = `${cu.firstName || ""} ${cu.lastName || ""}`.trim() || null;
-          } catch {}
-        }
-        // For clinic/hospital tasks (customerId = null), recover entity name via enrichBoTask
-        if (!resolvedCustomerName) {
-          try {
-            const { clinic, hospital } = await enrichBoTask(task, null);
-            resolvedCustomerName = hospital?.name || clinic?.name || null;
-          } catch {}
-        }
+      if (!transactionResult.confirmation) return res.status(404).json({ error: "Task not found" });
+      // The in-app row commits atomically with the completion; WebSocket delivery
+      // is best-effort because clients hydrate persisted unread notices over HTTP.
+      if (transactionResult.notification) {
         try {
-          await notificationService.sendNotificationToUsers([task.createdByUserId], {
-            type: "back_office_resolved",
-            title: task.title,
-            message: note || "Úloha bola vyriešená Back Office tímom",
-            priority: "high",
-            metadata: { taskId, taskTitle: task.title, resolution: note || null, customerName: resolvedCustomerName },
-          });
+          await notificationService.broadcastExistingNotification(transactionResult.notification);
         } catch (e) {
-          console.warn("[BO] Failed to send resolution notification to agent:", e);
+          console.warn("[BO] Failed to push persisted resolution notification:", e);
         }
       }
 
-      res.json(confirmation);
+      res.json(transactionResult.confirmation);
     } catch (error) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
+      if (error instanceof TaskInactiveCompletionError) {
+        return res.status(409).json({ error: error.message, code: error.code });
+      }
+      if (error instanceof PulseChecklistCompletionError) {
+        return res.status(409).json({
+          error: error.message,
+          code: error.code,
+          remainingCount: error.remainingCount,
+        });
+      }
+      if (error instanceof TaskCompletionNoticeAuthorizationError) {
+        return res.status(403).json({ error: error.message });
+      }
       console.error("Failed to confirm BO task:", error);
       res.status(500).json({ error: "Failed to confirm BO task" });
     }
@@ -33127,19 +34357,45 @@ Respond ONLY with valid JSON in this exact format:
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
       if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
-      if (task.boState === "in_progress") return res.json({ ok: true, unchanged: true });
-      await db.transaction(async (tx) => {
+      const claimResult = await db.transaction(async (tx) => {
+        const [currentTask] = await tx.select().from(tasks)
+          .where(eq(tasks.id, taskId)).for("update").limit(1);
+        if (!currentTask) return { error: "missing" as const, updatedTask: null, unchanged: false };
+        if (currentTask.boState === "done" || currentTask.status === "completed") return { error: "done" as const, updatedTask: null, unchanged: false };
+        if (currentTask.boState === "in_progress") return { error: null, updatedTask: currentTask, unchanged: true };
+        await assertTaskRecipientAllowed(tx, userId, currentTask.country);
+        const now = new Date();
+        const workTiming = transitionTaskWorkTiming(currentTask, "in_progress", now);
         // Re-assign to the claimer: a back-office status-list task is created as a single
         // shared-queue row owned by a nominal member, so claiming must move ownership (and
         // thus per-user score attribution) to whoever actually picks it up.
-        await tx.update(tasks).set({ boState: "in_progress", status: "in_progress", assignedUserId: userId }).where(eq(tasks.id, taskId));
+        const [updated] = await tx.update(tasks)
+          .set({
+            boState: "in_progress", status: "in_progress", assignedUserId: userId,
+            ...workTiming, updatedAt: now,
+          })
+          .where(and(eq(tasks.id, taskId), ne(tasks.status, "completed"), sql`(${tasks.boState} IS DISTINCT FROM 'done')`))
+          .returning();
+        if (!updated) return { error: "done" as const, updatedTask: null, unchanged: false };
         await tx.insert(taskComments).values({
           taskId, userId, content: "Prevzaté do vybavovania", kind: "state_change",
           metadata: { toState: "in_progress" } as any,
         });
+        return { error: null, updatedTask: updated, unchanged: false };
       });
+      if (claimResult.error === "missing") return res.status(404).json({ error: "Task not found" });
+      if (claimResult.error === "done") return res.status(409).json({ error: "Task already completed" });
+      const updatedTask = claimResult.updatedTask!;
+      if (claimResult.unchanged) return res.json({ ok: true, unchanged: true });
+      if (updatedTask && task.assignedUserId !== updatedTask.assignedUserId) {
+        try {
+          const { emitTaskAssigned } = await import("./lib/event-bus");
+          await emitTaskAssigned(updatedTask, task, userId);
+        } catch (err) { console.error("[EventBus] back-office claim assignment emit error:", err); }
+      }
       res.json({ ok: true });
     } catch (error) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
       console.error("Failed to claim BO task:", error);
       res.status(500).json({ error: "Failed to claim task" });
     }
@@ -33173,19 +34429,43 @@ Respond ONLY with valid JSON in this exact format:
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Question content is required" });
       const highPriority = req.body?.highPriority === true;
-      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const task = await getBackOfficeTask(taskId);
       if (!task) return res.status(404).json({ error: "Task not found" });
       if (!canAccessBoTask(req, task)) return res.status(403).json({ error: "Access denied" });
-      if (task.boState === "done") return res.status(409).json({ error: "Task already completed" });
-      if (!task.createdByUserId) return res.status(400).json({ error: "Task has no originating agent" });
-      const comment = await db.transaction(async (tx) => {
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(req.body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
+      const askResult = await db.transaction(async (tx) => {
+        const [currentTask] = await tx.select().from(tasks)
+          .where(eq(tasks.id, taskId)).for("update").limit(1);
+        if (!currentTask || !(currentTask.tags || []).includes("back_office")) {
+          return { error: "missing" as const, comment: null };
+        }
+        if (currentTask.boState === "done" || currentTask.status === "completed") {
+          return { error: "done" as const, comment: null };
+        }
+        if (!currentTask.createdByUserId) return { error: "no_creator" as const, comment: null };
         const [c] = await tx.insert(taskComments).values({
           taskId, userId, content, kind: "question", metadata: { askedBy: userId, highPriority, attachments } as any,
         }).returning();
-        await tx.update(tasks).set({ boState: "waiting_agent", status: "in_progress" }).where(eq(tasks.id, taskId));
-        return c;
+        await markTaskAttachmentsAssociated(tx, attachments, currentTask);
+        const now = new Date();
+        const workTiming = transitionTaskWorkTiming(currentTask, "in_progress", now);
+        await tx.update(tasks).set({
+          boState: "waiting_agent", status: "in_progress", ...workTiming, updatedAt: now,
+        }).where(eq(tasks.id, taskId));
+        return { error: null, comment: c };
       });
+      if (askResult.error === "missing") return res.status(404).json({ error: "Task not found" });
+      if (askResult.error === "done") return res.status(409).json({ error: "Task already completed" });
+      if (askResult.error === "no_creator") return res.status(400).json({ error: "Task has no originating agent" });
+      const comment = askResult.comment!;
       let askCustomerName: string | null = null;
       if (task.customerId) {
         try {
@@ -33224,21 +34504,44 @@ Respond ONLY with valid JSON in this exact format:
   app.get("/api/back-office/forward-targets", requireAuth, async (req, res) => {
     try {
       const me = req.session.user!;
+      const taskId = typeof req.query.taskId === "string" ? req.query.taskId : null;
+      const scopedTask = taskId ? await getBackOfficeTask(taskId) : null;
+      if (taskId && (!scopedTask || !canAccessBoTask(req, scopedTask))) {
+        return res.status(404).json({ error: "Task not found" });
+      }
       const allUsers = await storage.getAllUsers() as any[];
       const roles = await storage.getAllRoles();
       const adminRole = roles.find(r => r.name === "Admin");
-      const admins = allUsers
-        .filter(u => (u.role === "admin" || (adminRole && u.roleId === adminRole.id)) && u.isActive !== false && u.id !== me.id)
-        .map(u => ({ id: u.id, name: u.fullName || u.username || u.email || "Admin" }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const adminCandidates = allUsers.filter(u =>
+        (u.role === "admin" || (adminRole && u.roleId === adminRole.id))
+        && u.isActive !== false && u.id !== me.id
+        && (scopedTask
+          ? userMayAccessTaskCountry(u.role, u.assignedCountries, scopedTask.country)
+          : taskPeopleCandidateAllowed(me.role, me.assignedCountries, u.assignedCountries)));
+      const admins = [];
+      for (const candidate of adminCandidates) {
+        if (await isTaskAssignmentUserAllowed(db, candidate.id)) {
+          admins.push({ id: candidate.id, name: candidate.fullName || candidate.username || candidate.email || "Admin" });
+        }
+      }
+      admins.sort((a, b) => a.name.localeCompare(b.name));
       const groups = await db.select().from(taskGroups);
-      const members = await db.select().from(taskGroupMembers);
+      const members = await db.select({
+        groupId: taskGroupMembers.groupId, userId: users.id,
+        role: users.role, assignedCountries: users.assignedCountries, isActive: users.isActive,
+      }).from(taskGroupMembers).innerJoin(users, eq(users.id, taskGroupMembers.userId));
       const memberCount = new Map<string, number>();
-      for (const m of members) memberCount.set(m.groupId, (memberCount.get(m.groupId) || 0) + 1);
-      const groupList = groups
-        .map(g => ({ id: g.id, name: g.name, isBackOffice: !!g.isBackOffice, memberCount: memberCount.get(g.id) || 0 }))
-        .filter(g => g.memberCount > 0)
-        .sort((a, b) => a.name.localeCompare(b.name));
+      for (const g of groups) {
+        const groupMembers = members.filter(m => m.groupId === g.id && m.isActive
+          && (scopedTask
+            ? userMayAccessTaskCountry(m.role, m.assignedCountries, scopedTask.country)
+            : taskPeopleCandidateAllowed(me.role, me.assignedCountries, m.assignedCountries)));
+        const eligibleIds = await countryAuthorizedTaskRecipientIds(db, groupMembers.map(m => m.userId), scopedTask?.country);
+        memberCount.set(g.id, eligibleIds.length);
+      }
+      const groupList = groups.map(g => ({
+        id: g.id, name: g.name, isBackOffice: !!g.isBackOffice, memberCount: memberCount.get(g.id) || 0,
+      })).filter(g => g.memberCount > 0).sort((a, b) => a.name.localeCompare(b.name));
       res.json({ admins, groups: groupList });
     } catch (error) {
       console.error("Failed to load forward targets:", error);
@@ -33268,49 +34571,69 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(409).json({ error: "Task already completed" });
       }
 
-      const currentTags: string[] = ((task.tags as string[]) || []).filter(Boolean);
-      // Strip the routing tags we manage; re-add below depending on the target.
-      const newTags = currentTags.filter(t => t !== "back_office" && !t.startsWith("group_id:"));
-
       let newAssignedUserId: string;
       let notifyIds: string[] = [];
       let targetName = "";
-
-      if (targetType === "admin") {
-        const allUsers = await storage.getAllUsers() as any[];
-        const roles = await storage.getAllRoles();
-        const adminRole = roles.find(r => r.name === "Admin");
-        const admin = allUsers.find(u => u.id === targetId && u.isActive !== false && (u.role === "admin" || (adminRole && u.roleId === adminRole.id)));
-        if (!admin) return res.status(400).json({ error: "Target admin not found" });
-        newAssignedUserId = admin.id;
-        targetName = admin.fullName || admin.username || admin.email || "Admin";
-        notifyIds = [admin.id];
-      } else {
-        const [group] = await db.select().from(taskGroups).where(eq(taskGroups.id, targetId)).limit(1);
-        if (!group) return res.status(400).json({ error: "Target group not found" });
-        const groupMembers = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, targetId));
-        if (groupMembers.length === 0) return res.status(400).json({ error: "Target group has no members" });
-        newAssignedUserId = groupMembers[0].userId;
-        targetName = group.name;
-        notifyIds = groupMembers.map(m => m.userId);
-        newTags.push(`group_id:${group.id}`);
-        if (group.isBackOffice) newTags.push("back_office");
-      }
-
-      await db.transaction(async (tx) => {
+      const forwardOutcome = await db.transaction(async (tx) => {
         // Guarded update: if the task was completed by someone else between our read
         // and now, this matches no row and we abort with 409 instead of resurrecting it.
+        const [currentTask] = await tx.select().from(tasks)
+          .where(eq(tasks.id, taskId)).for("update").limit(1);
+        if (!currentTask) return null;
+        if (currentTask.status === "completed" || currentTask.boState === "done") {
+          const conflict: any = new Error("Task already completed");
+          conflict.code = "BO_FORWARD_CONFLICT";
+          throw conflict;
+        }
+        const currentTags: string[] = (currentTask.tags || []).filter(Boolean);
+        const newTags = currentTags.filter(t => t !== "back_office" && !t.startsWith("group_id:") && !t.startsWith("group:"));
+        if (targetType === "admin") {
+          const allUsers = await storage.getAllUsers() as any[];
+          const roles = await storage.getAllRoles();
+          const adminRole = roles.find(r => r.name === "Admin");
+          const admin = allUsers.find(u => u.id === targetId && u.isActive !== false
+            && (u.role === "admin" || (adminRole && u.roleId === adminRole.id)));
+          if (!admin) return { error: "invalid_target" as const, task: null };
+          const [recipient] = await tx.select({
+            id: users.id, role: users.role, assignedCountries: users.assignedCountries,
+            isActive: users.isActive, fullName: users.fullName, username: users.username, email: users.email,
+          }).from(users).where(eq(users.id, targetId)).for("share").limit(1);
+          if (!recipient || !userMayAccessTaskCountry(recipient.role, recipient.assignedCountries, currentTask.country)) {
+            return { error: "ineligible_target" as const, task: null };
+          }
+          await assertTaskRecipientAllowed(tx, recipient.id, currentTask.country);
+          newAssignedUserId = recipient.id;
+          targetName = recipient.fullName || recipient.username || recipient.email || "Admin";
+          notifyIds = [recipient.id];
+        } else {
+          const [group] = await tx.select().from(taskGroups).where(eq(taskGroups.id, targetId)).for("share").limit(1);
+          if (!group) return { error: "invalid_target" as const, task: null };
+          const groupMembers = await tx.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+            .where(eq(taskGroupMembers.groupId, targetId)).for("share");
+          const eligibleIds = await countryAuthorizedTaskRecipientIds(tx, groupMembers.map(m => m.userId), currentTask.country);
+          if (!eligibleIds.length) return { error: "ineligible_target" as const, task: null };
+          // Preserve the existing nominal-owner convention: the first eligible
+          // current member owns the single shared group task.
+          newAssignedUserId = eligibleIds[0];
+          targetName = group.name;
+          notifyIds = eligibleIds;
+          newTags.push(`group_id:${group.id}`, `group:${group.name}`);
+          if (group.isBackOffice) newTags.push("back_office");
+        }
+        const now = new Date();
+        const workTiming = transitionTaskWorkTiming(currentTask, "pending", now);
         const updated = await tx.update(tasks).set({
           assignedUserId: newAssignedUserId,
           tags: newTags,
           boState: "received",
           status: "pending",
-          updatedAt: new Date(),
+          ...workTiming,
+          updatedAt: now,
         }).where(and(
           eq(tasks.id, taskId),
           ne(tasks.status, "completed"),
           sql`(${tasks.boState} IS DISTINCT FROM 'done')`,
-        )).returning({ id: tasks.id });
+        )).returning();
         if (updated.length === 0) {
           const conflict: any = new Error("Task already completed");
           conflict.code = "BO_FORWARD_CONFLICT";
@@ -33322,12 +34645,28 @@ Respond ONLY with valid JSON in this exact format:
           kind: "state_change",
           metadata: { forwardedTo: targetType, targetId, targetName, note: note || null, byUserId: userId } as any,
         });
+        return { error: null as null, task: updated[0] };
       });
+      if (!forwardOutcome) return res.status(404).json({ error: "Task not found" });
+      if (forwardOutcome.error === "invalid_target") return res.status(400).json({ error: targetType === "admin" ? "Target admin not found" : "Target group not found" });
+      if (forwardOutcome.error === "ineligible_target") return res.status(400).json({ error: "Target has no approved active country-authorized recipients" });
+      const forwardedTask = forwardOutcome.task!;
+
+      if (forwardedTask && task.assignedUserId !== forwardedTask.assignedUserId) {
+        try {
+          const { emitTaskAssigned } = await import("./lib/event-bus");
+          await emitTaskAssigned(forwardedTask, task, userId);
+        } catch (err) { console.error("[EventBus] back-office forward assignment emit error:", err); }
+      }
 
       try {
         const meUser = (await storage.getAllUsers() as any[]).find(u => u.id === userId);
         const byName = meUser?.fullName || meUser?.username || "Agent";
-        const recipients = Array.from(new Set(notifyIds)).filter(id => id && id !== userId);
+        const recipients = (await countryAuthorizedTaskRecipientIds(
+          db,
+          Array.from(new Set(notifyIds)).filter(Boolean),
+          forwardedTask.country,
+        )).filter(id => id !== userId);
         if (recipients.length) {
           await notificationService.sendNotificationToUsers(recipients, {
             type: "task_forwarded",
@@ -33345,6 +34684,7 @@ Respond ONLY with valid JSON in this exact format:
 
       res.json({ ok: true });
     } catch (error: any) {
+      if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
       if (error?.code === "BO_FORWARD_CONFLICT") {
         return res.status(409).json({ error: "Task already completed" });
       }
@@ -33454,17 +34794,26 @@ Respond ONLY with valid JSON in this exact format:
       const userId = req.session.user!.id;
       const content = (req.body?.content || "").toString().trim();
       if (!content) return res.status(400).json({ error: "Answer content is required" });
-      const attachments = sanitizeBoAttachments(req.body?.attachments);
       const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
       if (!task) return res.status(404).json({ error: "Task not found" });
       const taskTags: string[] = (task.tags as string[]) || [];
       if (!taskTags.includes("back_office")) return res.status(404).json({ error: "Task not found" });
       if (task.createdByUserId !== userId) return res.status(403).json({ error: "Not your question to answer" });
       if (task.boState !== "waiting_agent") return res.status(409).json({ error: "No pending question to answer" });
+      let attachments: TaskAttachment[] = [];
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, "attachments")) {
+        try {
+          attachments = await resolveTaskAttachments(req.body.attachments, req.session.user!, task, req);
+        } catch (error) {
+          if (error instanceof TaskAttachmentInputError) return res.status(400).json({ error: error.message });
+          throw error;
+        }
+      }
       const comment = await db.transaction(async (tx) => {
         const [c] = await tx.insert(taskComments).values({
           taskId, userId, content, kind: "answer", metadata: { answeredBy: userId, attachments } as any,
         }).returning();
+        await markTaskAttachmentsAssociated(tx, attachments, task);
         await tx.update(tasks).set({ boState: "in_progress" }).where(eq(tasks.id, taskId));
         return c;
       });
@@ -33491,7 +34840,7 @@ Respond ONLY with valid JSON in this exact format:
 
   // Upload a file attachment for a back-office task (used by BO question + agent answer).
   // Returns lightweight file metadata to embed in the comment's metadata.attachments[].
-  app.post("/api/back-office/tasks/:taskId/attachment", requireAuth, uploadTaskAttachment.single("file"), async (req, res) => {
+  app.post("/api/back-office/tasks/:taskId/attachment", requireAuth, handleTaskAttachmentUpload, async (req, res) => {
     try {
       const { taskId } = req.params;
       const userId = req.session.user!.id;
@@ -33502,12 +34851,14 @@ Respond ONLY with valid JSON in this exact format:
       // Allow either the back-office side (assignee/country access) or the originating agent.
       const allowed = canAccessBoTask(req, task) || task.createdByUserId === userId;
       if (!allowed) { try { fs.unlinkSync(file.path); } catch {} return res.status(403).json({ error: "Access denied" }); }
-      res.status(201).json({
-        name: file.originalname,
-        url: getPublicUrl(file.path),
-        size: file.size,
+      const [upload] = await db.insert(taskAttachmentUploads).values({
+        uploaderUserId: userId,
+        storageKey: file.filename,
+        name: taskAttachmentDisplayName(file.originalname),
         type: file.mimetype,
-      });
+        size: file.size,
+      }).returning();
+      res.status(201).json(taskAttachmentResponse(upload));
     } catch (error) {
       if (req.file) { try { fs.unlinkSync(req.file.path); } catch {} }
       console.error("Failed to upload task attachment:", error);
@@ -33516,18 +34867,6 @@ Respond ONLY with valid JSON in this exact format:
   });
 
   // ===== Status List State Routes (F7/F8/F9) =====
-
-  // Helper: parse relative due date offset strings like "+1h", "+4h", "+24h", "+2d", "+7d", "+14d"
-  function parseDueDate(str: string | null | undefined): Date {
-    const now = new Date();
-    if (!str) return new Date(now.getTime() + 86400000); // default +24h
-    const match = str.match(/^\+(\d+)([hd])$/);
-    if (!match) return new Date(now.getTime() + 86400000);
-    const amount = parseInt(match[1], 10);
-    const unit = match[2];
-    const ms = unit === "h" ? amount * 3600000 : amount * 86400000;
-    return new Date(now.getTime() + ms);
-  }
 
   // GET /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-state
   // Returns confirmed items for this campaign contact (existence-based: row present = confirmed)
@@ -33568,15 +34907,15 @@ Respond ONLY with valid JSON in this exact format:
       if (!campaignContactId || !itemId) return res.status(400).json({ error: "Invalid parameters" });
 
       const userId = req.session.user!.id;
-      const { confirm, contactCountry, overrideCallbackDate, overrideCallbackNote, skipAutomations, itemNote } = req.body as { confirm: boolean; contactCountry?: string; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean; itemNote?: string | null };
+      const { confirm, overrideCallbackDate, overrideCallbackNote, skipAutomations, itemNote } = req.body as { confirm: boolean; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean; itemNote?: string | null };
       // Bind both route resources before any state, automation, or history
       // writes.  A valid id from another campaign must never be usable through
       // this campaign-scoped endpoint.
-      const [routeContact] = await db.select({ campaignId: campaignContacts.campaignId })
+      const [ccRow] = await db.select()
         .from(campaignContacts)
         .where(eq(campaignContacts.id, campaignContactId))
         .limit(1);
-      if (!routeContact || routeContact.campaignId !== campaignId) {
+      if (!ccRow || ccRow.campaignId !== campaignId) {
         return res.status(404).json({ error: "Contact not found in campaign" });
       }
       const [itemRouteItem] = await db.select({
@@ -33592,481 +34931,61 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(404).json({ error: "Status-list item not found in campaign" });
       }
 
+      const [campaign] = await db.select({ countryCodes: campaigns.countryCodes })
+        .from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);
+      if (!campaign) return res.status(404).json({ error: "Mission not found" });
+      const missionCountries = ((campaign.countryCodes as string[]) || [])
+        .map(code => String(code || "").trim().toUpperCase()).filter(Boolean);
+      const contactCountry = await resolveCampaignContactCountry(ccRow) ||
+        (missionCountries.length === 1 ? missionCountries[0] : null);
+      const sessUser = req.session.user!;
+      const userCountries = ((sessUser.assignedCountries as string[]) || [])
+        .map(code => String(code || "").trim().toUpperCase()).filter(Boolean);
+      if (sessUser.role !== "admin" &&
+          (!contactCountry || !userCountries.includes(contactCountry))) {
+        return res.status(403).json({ error: "Forbidden: contact country is not authorized" });
+      }
+      const contactId: string | null = (ccRow.contactType === "clinic"
+        ? (ccRow.clinicId || ccRow.customerId)
+        : ccRow.contactType === "hospital"
+        ? (ccRow.hospitalId || ccRow.customerId)
+        : ccRow.contactType === "collaborator"
+        ? (ccRow.collaboratorId || ccRow.customerId)
+        : ccRow.customerId) ?? null;
+      // This column must always contain a customer ID, never a clinic/hospital ID.
+      const taskCustomerId: string | null = ccRow.customerId ?? null;
+
       if (confirm) {
-        // Check if already confirmed
+        let stateRow;
         const existing = await db.select()
           .from(campaignContactStatusListState)
           .where(and(
             eq(campaignContactStatusListState.campaignContactId, campaignContactId),
-            eq(campaignContactStatusListState.statusListItemId, itemId)
+            eq(campaignContactStatusListState.statusListItemId, itemId),
           ))
           .limit(1);
-
-        let stateRow;
         if (existing.length === 0) {
           const [inserted] = await db.insert(campaignContactStatusListState)
             .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? null })
             .returning();
           stateRow = inserted;
 
-          // Resolve the underlying contact entity id (customer/hospital/clinic/collaborator)
-          // from the campaign contact. Required by automation condition evaluation,
-          // task-description variable resolution, and field-change snapshots below.
-          // Without this, contactId is undefined and the handler throws AFTER the state row
-          // is inserted — so the step looks confirmed but no task is ever created.
-          const [ccRow] = await db.select()
-            .from(campaignContacts)
-            .where(eq(campaignContacts.id, campaignContactId))
-            .limit(1);
-          const contactId: string | null = ccRow
-            ? ((ccRow.contactType === "clinic"
-                ? (ccRow.clinicId || ccRow.customerId)
-                : ccRow.contactType === "hospital"
-                ? (ccRow.hospitalId || ccRow.customerId)
-                : ccRow.contactType === "collaborator"
-                ? (ccRow.collaboratorId || ccRow.customerId)
-                : ccRow.customerId) ?? null)
-            : null;
-
-          // For tasks.customerId we must store the CUSTOMER id specifically. contactId
-          // above resolves to a clinic/hospital/collaborator id for non-customer
-          // contacts — writing that into the customer column would create an invalid
-          // reference (broken deep-link / wrong customer lookup). Null is safe.
-          const taskCustomerId: string | null = ccRow?.customerId ?? null;
-
-          // Resolve human-readable names for the client / clinic / hospital ONCE per
-          // confirmation, reused by the assignment email & SMS so back-office staff see
-          // exactly which contact a task concerns. Per explicit product decision these names
-          // are included on external channels (email + SMS); see notification-pii memo.
-          let boNotifContext = "";
-          try {
-            const nameParts: string[] = [];
-            if (taskCustomerId) {
-              const cuRes: any = await db.execute<any>(
-                sql`SELECT first_name, last_name FROM customers WHERE id = ${taskCustomerId} LIMIT 1`
-              );
-              const cu = cuRes?.rows?.[0];
-              const cn = cu ? `${cu.first_name || ""} ${cu.last_name || ""}`.trim() : "";
-              if (cn) nameParts.push(`Klient: ${cn}`);
-            }
-            let clinicNm = "";
-            let hospitalNm = "";
-            if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
-              const r: any = await db.execute<any>(sql`SELECT name FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`);
-              clinicNm = r?.rows?.[0]?.name || "";
-            } else if (ccRow?.contactType === "hospital" && ccRow.hospitalId) {
-              const r: any = await db.execute<any>(sql`SELECT name FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`);
-              hospitalNm = r?.rows?.[0]?.name || "";
-            }
-            if ((!clinicNm && !hospitalNm) && taskCustomerId) {
-              const r: any = await db.execute<any>(
-                sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${taskCustomerId} ORDER BY pc.created_at DESC LIMIT 1`
-              );
-              clinicNm = r?.rows?.[0]?.clinic_name || "";
-              hospitalNm = r?.rows?.[0]?.hospital_name || "";
-            }
-            if (clinicNm) nameParts.push(`Klinika: ${clinicNm}`);
-            if (hospitalNm) nameParts.push(`Nemocnica: ${hospitalNm}`);
-            boNotifContext = nameParts.join(" · ");
-          } catch (nameErr) {
-            console.error("[assign_task] notif name resolution error:", nameErr);
-          }
-
           if (!skipAutomations) {
-          // Execute automations for this item (F8)
-          const automations = await db.select()
-            .from(campaignStatusListAutomations)
-            .where(eq(campaignStatusListAutomations.statusListItemId, itemId));
-
-          // Pre-scan: collect every field tracked by a field_changed_to condition.
-          // Snapshots are written for ALL of these after the loop — not only for ones
-          // that fired — so the "last seen value" stays current even when the field
-          // value does not match the target. This ensures a future re-entry correctly
-          // registers as a new change rather than being blocked by a stale snapshot.
-          const trackedFieldChanges = new Set<string>();
-          for (const a of automations) {
-            if (a.conditionJson) {
-              try {
-                const p = JSON.parse(a.conditionJson);
-                if (p.__type === "field_changed_to" && p.field) trackedFieldChanges.add(p.field as string);
-              } catch { /* ignore */ }
-            }
-          }
-
-          for (const automation of automations) {
-            // Check condition
-            const conditionMet = await evaluateAutomationCondition(automation, {
-              contactId: contactId ?? null,
-              campaignId: campaignId ?? null,
-              agentId: userId ?? null,
-              contactCountry: contactCountry ?? null,
+            const boNotifContext = await resolveStatusListTaskNotificationContext(ccRow, taskCustomerId);
+            await executeStatusListItemAutomations({
+              campaignId,
+              campaignContactId,
+              itemId,
+              userId,
+              contactCountry,
+              contactId,
+              customerId: taskCustomerId,
+              ccRow,
+              callbackDate: overrideCallbackDate ?? null,
+              callbackNote: overrideCallbackNote ?? null,
+              boNotifContext,
             });
-            if (!conditionMet) continue;
-
-            // Execute action
-            if (automation.actionType === "assign_task") {
-              const dueDate = parseDueDate(automation.taskDeadlineOffset);
-
-              // Fetch item label for task title
-              const [slItem] = await db.select()
-                .from(campaignStatusListItems)
-                .where(eq(campaignStatusListItems.id, itemId))
-                .limit(1);
-
-              const taskTitle = slItem
-                ? `SL: ${slItem.label}`
-                : `Status List Task (${itemId})`;
-
-              // Resolve description variables {{customer.name}}, {{campaign.name}}, {{agent.name}}, etc.
-              let resolvedDescription = automation.taskDescription || `Automaticky vytvorená úloha zo Status Listu. Kampaň ${campaignId}, kontakt ${campaignContactId}.`;
-              if (resolvedDescription.includes("{{")) {
-                try {
-                  // Resolve {{customer.*}} from the CUSTOMER id (taskCustomerId = ccRow.customerId),
-                  // NOT the polymorphic contactId — for clinic/hospital/collaborator contacts the
-                  // contactId is that entity's id and would query customers/potential_cases wrongly.
-                  // NOTE: node-postgres db.execute() returns { rows: [...] }, NOT an iterable.
-                  let contact: any = null;
-                  let pc: any = null;
-                  if (taskCustomerId) {
-                    const contactRes: any = await db.execute<any>(
-                      sql`SELECT first_name, last_name, email, phone FROM customers WHERE id = ${taskCustomerId} LIMIT 1`
-                    );
-                    contact = contactRes?.rows?.[0] as any;
-                    const pcRes: any = await db.execute<any>(
-                      sql`SELECT h.name AS hospital_name, c.name AS clinic_name FROM potential_cases pc LEFT JOIN hospitals h ON h.id = pc.hospital_id LEFT JOIN clinics c ON c.id = pc.clinic_id WHERE pc.customer_id = ${taskCustomerId} ORDER BY pc.created_at DESC LIMIT 1`
-                    );
-                    pc = pcRes?.rows?.[0] as any;
-                  }
-                  // When the campaign contact itself IS a clinic/hospital, resolve its name
-                  // directly from the entity — there may be no linked customer/potential_case.
-                  let directClinicName = "";
-                  let directHospitalName = "";
-                  if (ccRow?.contactType === "clinic" && ccRow.clinicId) {
-                    const clRes: any = await db.execute<any>(
-                      sql`SELECT name FROM clinics WHERE id = ${ccRow.clinicId} LIMIT 1`
-                    );
-                    directClinicName = clRes?.rows?.[0]?.name || "";
-                  } else if (ccRow?.contactType === "hospital" && ccRow.hospitalId) {
-                    const hoRes: any = await db.execute<any>(
-                      sql`SELECT name FROM hospitals WHERE id = ${ccRow.hospitalId} LIMIT 1`
-                    );
-                    directHospitalName = hoRes?.rows?.[0]?.name || "";
-                  }
-                  // Fetch campaign data
-                  const campaignRes: any = await db.execute<any>(
-                    sql`SELECT name FROM campaigns WHERE id = ${campaignId} LIMIT 1`
-                  );
-                  const campaign = campaignRes?.rows?.[0] as any;
-                  // Fetch agent data
-                  const agentRes: any = await db.execute<any>(
-                    sql`SELECT full_name, username FROM users WHERE id = ${userId} LIMIT 1`
-                  );
-                  const agent = agentRes?.rows?.[0] as any;
-                  resolvedDescription = resolvedDescription
-                    .replace(/\{\{customer\.name\}\}/g, contact ? `${contact.first_name || ""} ${contact.last_name || ""}`.trim() : "")
-                    .replace(/\{\{customer\.id\}\}/g, taskCustomerId ?? "")
-                    .replace(/\{\{customer\.phone\}\}/g, contact?.phone || "")
-                    .replace(/\{\{customer\.email\}\}/g, contact?.email || "")
-                    .replace(/\{\{campaign\.name\}\}/g, campaign?.name || "")
-                    .replace(/\{\{agent\.name\}\}/g, agent ? (agent.full_name || agent.username || "") : "")
-                    .replace(/\{\{clinic\.name\}\}/g, directClinicName || pc?.clinic_name || "")
-                    .replace(/\{\{hospital\.name\}\}/g, directHospitalName || pc?.hospital_name || "")
-                    .replace(/\{\{(reason|status\.label)\}\}/g, slItem?.label || "");
-                } catch (varErr) {
-                  console.error("[assign_task] Variable resolution error:", varErr);
-                }
-              }
-
-              // Determine assignees: task group or role-based routing (legacy)
-              const groupId = (automation as any).taskGroupId;
-              const targetRole: string = (automation as any).targetRole || "";
-              const taskTags = ["status_list"];
-
-              // Helper: extract role name from "role:back_office" → "back_office"
-              const roleName = targetRole.startsWith("role:") ? targetRole.slice(5) : targetRole;
-
-              // Collect assignees across all branches so a single notifier can dispatch
-              // push/email/sms AFTER the task rows are persisted.
-              let notifyAssignees: string[] = [];
-              let wasGroupPath = false;
-              let groupNameForNotif: string | null = null;
-              // Whether the created task lands in the Nexus Back Office board. Used only to
-              // tag the assignment notification so the client can play the BO sound alert.
-              let isBackOfficeTask = false;
-
-              if (groupId) {
-                // GROUP PATH: assign to all members of the group, tag with group + back_office for Nexus
-                const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
-                const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
-                if (groupRow) taskTags.push(`group:${groupRow.name}`);
-                taskTags.push(`group_id:${groupId}`);
-                // Only surface in the Nexus Puls → Back Office tab when the group is flagged as back office
-                if (groupRow?.isBackOffice) taskTags.push("back_office");
-                isBackOfficeTask = !!groupRow?.isBackOffice;
-                const assignees = groupMembersRows.length > 0 ? groupMembersRows.map(m => m.userId) : [userId];
-                // Back-office groups feed a SHARED claim queue (Nexus Puls → Back Office), so a
-                // single confirmation must create exactly ONE task — otherwise the same work
-                // shows up once per group member on the shared board. The nominal owner is the
-                // first member; claiming re-assigns it. Non-back-office groups keep the
-                // per-member model (personal assignment for the Task Groups feature).
-                const taskOwners = groupRow?.isBackOffice ? [assignees[0]] : assignees;
-                for (const assigneeId of taskOwners) {
-                  await db.insert(tasks).values({
-                    title: taskTitle,
-                    description: resolvedDescription,
-                    dueDate,
-                    priority: (automation.taskPriority as any) || "medium",
-                    status: "pending",
-                    assignedUserId: assigneeId,
-                    createdByUserId: userId,
-                    tags: taskTags,
-                    customerId: taskCustomerId,
-                    relatedEntityType: "status_list_item",
-                    relatedEntityId: itemId,
-                    country: contactCountry ?? null,
-                  });
-                }
-                notifyAssignees = assignees;
-                wasGroupPath = true;
-                groupNameForNotif = groupRow?.name ?? groupId;
-              } else if (roleName) {
-                // LEGACY ROLE PATH: find all users matching targetRole, assign one task per user
-                // Resolve assignees from the NEW roles system (user_roles + users.role_id)
-                // with a fallback to the legacy users.role string for backward compatibility
-                // with old saved automations (e.g. "role:back_office", "sys").
-                const roleUsers = await db.execute<any>(sql`
-                  WITH matching_roles AS (
-                    SELECT id, legacy_role FROM roles
-                    WHERE lower(name) = lower(${roleName}) OR legacy_role = ${roleName}
-                  )
-                  SELECT DISTINCT u.id
-                  FROM users u
-                  LEFT JOIN user_roles ur ON ur.user_id = u.id
-                  WHERE u.is_active = true AND (
-                    ur.role_id IN (SELECT id FROM matching_roles)
-                    OR u.role_id IN (SELECT id FROM matching_roles)
-                    OR u.role = ${roleName}
-                    OR u.role IN (SELECT legacy_role FROM matching_roles WHERE legacy_role IS NOT NULL)
-                  )
-                  LIMIT 20
-                `);
-                // node-postgres returns { rows: [...] }; guard for both shapes
-                const roleRows: any[] = (roleUsers as any)?.rows ?? (Array.isArray(roleUsers) ? roleUsers : []);
-                const roleUserIds: string[] = roleRows.length > 0
-                  ? roleRows.map((u: any) => u.id)
-                  : [userId]; // fallback to triggering agent if no role users found
-                const legacyTags = [...taskTags, roleName === "back_office" ? "back_office" : roleName];
-                isBackOfficeTask = roleName === "back_office";
-                for (const assigneeId of roleUserIds) {
-                  await db.insert(tasks).values({
-                    title: taskTitle,
-                    description: resolvedDescription,
-                    dueDate,
-                    priority: (automation.taskPriority as any) || "medium",
-                    status: "pending",
-                    assignedUserId: assigneeId,
-                    createdByUserId: userId,
-                    tags: legacyTags,
-                    customerId: taskCustomerId,
-                    relatedEntityType: "status_list_item",
-                    relatedEntityId: itemId,
-                    country: contactCountry ?? null,
-                  });
-                }
-                notifyAssignees = roleUserIds;
-              } else {
-                // FALLBACK: no group, no role → assign to triggering agent with back_office tag
-                await db.insert(tasks).values({
-                  title: taskTitle,
-                  description: resolvedDescription,
-                  dueDate,
-                  priority: (automation.taskPriority as any) || "medium",
-                  status: "pending",
-                  assignedUserId: userId,
-                  createdByUserId: userId,
-                  tags: [...taskTags, "back_office"],
-                  customerId: taskCustomerId,
-                  relatedEntityType: "status_list_item",
-                  relatedEntityId: itemId,
-                  country: contactCountry ?? null,
-                });
-                notifyAssignees = [userId];
-                isBackOfficeTask = true;
-              }
-
-              // ─── Assignment notification dispatch (push / email / sms) ───
-              // Channels are governed by the automation config. New/edited automations obey
-              // the assignNotify checkbox strictly; legacy group-path rows keep their original
-              // always-on in-app push. Every channel is best-effort: a failure here must never
-              // break task creation or the status-list response.
-              try {
-                const uniqueAssignees = Array.from(new Set(notifyAssignees)).filter(Boolean);
-                let channels: string[] = [];
-                if (automation.assignNotify) {
-                  channels = (automation.assignNotifyChannels && automation.assignNotifyChannels.length > 0)
-                    ? automation.assignNotifyChannels
-                    : ["push"];
-                } else if (wasGroupPath) {
-                  channels = ["push"]; // legacy back-compat: group path always pushed before
-                }
-
-                if (uniqueAssignees.length > 0 && channels.length > 0) {
-                  const wantPush = channels.includes("push");
-                  const wantEmail = channels.includes("email");
-                  const wantSms = channels.includes("sms");
-
-                  // Load contact details only when an email/sms channel is requested.
-                  let assigneeRows: { id: string; email: string | null; phone: string | null }[] = [];
-                  if (wantEmail || wantSms) {
-                    assigneeRows = await db.select({ id: users.id, email: users.email, phone: users.phone })
-                      .from(users).where(inArray(users.id, uniqueAssignees));
-                  }
-
-                  // PUSH (in-app + WebSocket, persisted). Payload kept minimal (no PII).
-                  if (wantPush) {
-                    try {
-                      await notificationService.sendNotificationToUsers(uniqueAssignees, {
-                        type: wasGroupPath ? "group_task_assigned" : "task_assigned",
-                        title: `Nová úloha: ${taskTitle}`,
-                        message: wasGroupPath && groupNameForNotif
-                          ? `Skupina: ${groupNameForNotif}`
-                          : "Bola vám pridelená nová úloha.",
-                        priority: "normal",
-                        entityType: "task",
-                        metadata: { taskTitle, ...(wasGroupPath ? { groupName: groupNameForNotif } : {}), ...(isBackOfficeTask ? { isBackOffice: true } : {}) },
-                      });
-                    } catch (e) { console.error("[assign_task] push notification failed:", e); }
-                  }
-
-                  // EMAIL — sent from the triggering user's connected MS365 mailbox. Best-effort:
-                  // skip silently if the triggering agent has no valid MS365 connection.
-                  if (wantEmail) {
-                    try {
-                      const ms365Connection = await storage.getUserMs365Connection(userId);
-                      if (ms365Connection && ms365Connection.isConnected) {
-                        const { decryptTokenSafe } = await import("./lib/token-crypto");
-                        const { getValidAccessToken, sendEmail } = await import("./lib/ms365");
-                        const accessTok = decryptTokenSafe(ms365Connection.accessToken);
-                        const refreshTok = ms365Connection.refreshToken ? decryptTokenSafe(ms365Connection.refreshToken) : null;
-                        const tokenResult = await getValidAccessToken(accessTok, ms365Connection.tokenExpiresAt, refreshTok);
-                        if (tokenResult) {
-                          // Per product decision the assignment email now includes the client /
-                          // clinic / hospital NAME so back-office staff can triage at a glance.
-                          // We still omit the full resolved description (phone/email/free-text);
-                          // richer detail stays behind CRM auth.
-                          const esc = (s: string) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                          const recipients = assigneeRows.filter(r => !!r.email);
-                          const ctxHtml = boNotifContext
-                            ? `<p>${boNotifContext.split(" · ").map(esc).join("<br/>")}</p>`
-                            : "";
-                          const bodyHtml = `<p>Bola vám pridelená nová úloha v INDEXUS CRM.</p>`
-                            + `<p><strong>${esc(taskTitle)}</strong></p>`
-                            + ctxHtml
-                            + `<p>Detaily nájdete v aplikácii INDEXUS CRM.</p>`;
-                          for (const r of recipients) {
-                            try {
-                              await sendEmail(tokenResult.accessToken, [r.email!], `Nová úloha: ${taskTitle}`, bodyHtml, true);
-                            } catch (e) { console.error("[assign_task] email send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
-                          }
-                        } else {
-                          console.warn("[assign_task] email channel skipped: MS365 token invalid for triggering user");
-                        }
-                      } else {
-                        console.warn("[assign_task] email channel skipped: triggering user has no MS365 connection");
-                      }
-                    } catch (e) { console.error("[assign_task] email channel error:", e); }
-                  }
-
-                  // SMS — the Mission provider is authoritative.
-                  if (wantSms) {
-                    try {
-                      const { sendSmsViaProvider } = await import("./lib/sms-provider");
-                      const smsRecipients = assigneeRows.filter(r => !!r.phone);
-                      const smsCtx = boNotifContext ? ` (${boNotifContext})` : "";
-                      for (const r of smsRecipients) {
-                        try {
-                          const notificationText = `INDEXUS: Nová úloha - ${taskTitle}${smsCtx}`;
-                          const communication = await storage.createCommunicationMessage({
-                            campaignId: campaignId || undefined,
-                            entityType: ccRow?.contactType || undefined,
-                            entityId: contactId || undefined,
-                            userId,
-                            type: "sms",
-                            direction: "outbound",
-                            content: notificationText,
-                            recipientPhone: r.phone!,
-                            status: "pending",
-                            metadata: JSON.stringify({
-                              purpose: "task_notification",
-                              campaignId: campaignId || null,
-                              entityId: contactId || null,
-                            }),
-                          });
-                          const result = await sendSmsViaProvider({
-                            number: r.phone!,
-                            text: notificationText,
-                            country: contactCountry ?? undefined,
-                            campaignId: campaignId || undefined,
-                            tag: communication.id,
-                          });
-                          await storage.updateCommunicationMessage(communication.id, {
-                            status: result.success ? "sent" : "failed",
-                            provider: result.provider,
-                            externalId: result.smsId,
-                            errorMessage: result.success ? undefined : result.error,
-                            sentAt: result.success ? new Date() : undefined,
-                            metadata: JSON.stringify({ batchId: result.batchId || null, purpose: "task_notification", campaignId: campaignId || null, entityId: contactId || null }),
-                          });
-                        } catch (e) { console.error("[assign_task] sms send failed for user", r.id, e instanceof Error ? e.message : String(e)); }
-                      }
-                      if (smsRecipients.length === 0) {
-                        console.warn("[assign_task] sms channel skipped: no recipient phone");
-                        }
-                    } catch (e) { console.error("[assign_task] sms channel error:", e); }
-                  }
-                }
-              } catch (notifyErr) {
-                console.error("[assign_task] notification dispatch error:", notifyErr);
-              }
-            } else if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
-              try {
-                await runStatusListEmailGroup(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
-              } catch (e) { console.error("[status-list:email_group] firing failed:", e); }
-            } else if (automation.actionType === "set_contact_status") {
-              try {
-                await runStatusListSetStatus(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null, overrideCallbackNote ?? null);
-              } catch (e) { console.error("[status-list:set_status] firing failed:", e); }
-            } else if (automation.actionType === "set_callback") {
-              try {
-                await runStatusListSetCallback(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId }, overrideCallbackDate ?? null, overrideCallbackNote ?? null);
-              } catch (e) { console.error("[status-list:set_callback] firing failed:", e); }
-            } else if (automation.actionType === "send_contact_email") {
-              try {
-                await runStatusListContactEmail(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
-              } catch (e) { console.error("[status-list:contact_email] firing failed:", e); }
-            } else if (automation.actionType === "send_sms") {
-              try {
-                await runStatusListContactSms(automation, { campaignContactId, campaignId: campaignId ?? null, contactCountry: contactCountry ?? null, userId, itemId });
-              } catch (e) { console.error("[status-list:contact_sms] firing failed:", e); }
-            }
-
           }
-
-          // Persist snapshots for every tracked field_changed_to field — done AFTER the
-          // loop so all sibling automations evaluate against the pre-event snapshot, and
-          // so that fields where the condition did NOT fire also get their snapshot updated
-          // (prevents a stale snapshot blocking a legitimate future re-entry).
-          if (contactId) {
-            for (const fieldName of trackedFieldChanges) {
-              await updateFieldSnapshot(contactId, campaignId ?? null, fieldName, {
-                contactId,
-                campaignId: campaignId ?? null,
-                agentId: userId ?? null,
-                contactCountry: contactCountry ?? null,
-              });
-            }
-          }
-          } // end if (!skipAutomations)
 
           // Write canonical clinic cooperation status if the confirmed item has one set.
           // Only applies when the campaign contact is a clinic — other contact types are skipped.
@@ -34223,7 +35142,7 @@ Respond ONLY with valid JSON in this exact format:
         await db.delete(campaignContactStatusListState)
           .where(and(
             eq(campaignContactStatusListState.campaignContactId, campaignContactId),
-            eq(campaignContactStatusListState.statusListItemId, itemId)
+            eq(campaignContactStatusListState.statusListItemId, itemId),
           ));
 
         // Log unconfirmation to history (F9)
@@ -34271,7 +35190,7 @@ Respond ONLY with valid JSON in this exact format:
   // POST /api/campaigns/:campaignId/contacts/:campaignContactId/status-list-actions/:automationId/run
   // Manual ("run now") trigger for a SINGLE configured status-list automation. Binds to a
   // specific automation id so the agent can only execute manager-configured actions (no
-  // arbitrary recipients/templates). Supports send_email_group / set_contact_status / set_callback.
+  // arbitrary recipients/templates). Task creation remains confirmation-only.
   app.post("/api/campaigns/:campaignId/contacts/:campaignContactId/status-list-actions/:automationId/run", requireAuth, async (req, res) => {
     try {
       const { campaignId, campaignContactId, automationId } = req.params;
@@ -34315,22 +35234,30 @@ Respond ONLY with valid JSON in this exact format:
       if (!isAdmin && country && !userCountries.includes(country)) {
         return res.status(403).json({ error: "Forbidden: contact is outside your assigned countries" });
       }
-      const ctx = { campaignContactId, campaignId, contactCountry: country, userId, itemId: automation.statusListItemId };
-
       if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
-        const r = await runStatusListEmailGroup(automation, ctx);
+        const r = await runStatusListEmailGroup(automation, {
+          campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
+        });
         return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
       } else if (automation.actionType === "set_contact_status") {
-        const r = await runStatusListSetStatus(automation, ctx, callbackDate ?? null, callbackNote ?? null);
+        const r = await runStatusListSetStatus(automation, {
+          campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
+        }, callbackDate ?? null, callbackNote ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null });
       } else if (automation.actionType === "set_callback") {
-        const r = await runStatusListSetCallback(automation, ctx, callbackDate ?? null, callbackNote ?? null);
+        const r = await runStatusListSetCallback(automation, {
+          campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
+        }, callbackDate ?? null, callbackNote ?? null);
         return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
       } else if (automation.actionType === "send_contact_email") {
-        const r = await runStatusListContactEmail(automation, ctx);
+        const r = await runStatusListContactEmail(automation, {
+          campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
+        });
         return res.json({ ok: r.ok, actionType: automation.actionType, provider: r.provider });
       } else if (automation.actionType === "send_sms") {
-        const r = await runStatusListContactSms(automation, ctx);
+        const r = await runStatusListContactSms(automation, {
+          campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
+        });
         return res.json({ ok: r.ok, actionType: automation.actionType });
       }
       return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });
@@ -38262,7 +39189,7 @@ Rules:
         });
 
         const analysisText = analysisResponse.choices[0]?.message?.content || "{}";
-        console.log(`[CallAnalysis] GPT-4o raw response for ${recordingId}: ${analysisText.substring(0, 500)}`);
+        // The raw response can contain customer speech or medical details; never log it.
         const analysis = JSON.parse(analysisText);
         if (isAgentOnlyRecording) {
           // Markers originate from activity detection, not a fabricated customer transcript.
@@ -38322,6 +39249,67 @@ Rules:
           } catch (metaErr: any) {
             console.error(`[CallAnalysis] Failed to store metadata in call_log:`, metaErr.message);
           }
+        }
+
+        // Emit from the persisted analysis/call association only. Event identity,
+        // direction and country authorization are all revalidated server-side.
+        try {
+          const [persistedRecording] = await db.select().from(callRecordings).where(eq(callRecordings.id, recordingId));
+          let authorizedCountry: string | null = null;
+          let persistedCallLog: typeof callLogs.$inferSelect | undefined;
+          if (persistedRecording?.callLogId) {
+            [persistedCallLog] = await db.select().from(callLogs).where(eq(callLogs.id, persistedRecording.callLogId));
+          }
+          if (
+            persistedRecording?.analysisStatus === "completed" &&
+            persistedRecording.analyzedAt &&
+            persistedCallLog &&
+            persistedCallLog.userId === persistedRecording.userId &&
+            persistedCallLog.campaignId === persistedRecording.campaignId &&
+            persistedCallLog.customerId === persistedRecording.customerId
+          ) {
+            const [owner] = await db.select({ assignedCountries: users.assignedCountries })
+              .from(users).where(eq(users.id, persistedCallLog.userId));
+            const assignedCountries = owner?.assignedCountries || [];
+            if (persistedCallLog.campaignId) {
+              const [mission] = await db.select({ countryCodes: campaigns.countryCodes })
+                .from(campaigns).where(eq(campaigns.id, persistedCallLog.campaignId));
+              authorizedCountry = mission
+                ? (await import("./lib/call-analysis-sentiment")).resolveCallAnalysisAuthorizedCountry({
+                  assignedCountries, missionCountryCodes: mission.countryCodes,
+                })
+                : null;
+            } else if (persistedCallLog.customerId) {
+              const [customer] = await db.select({ country: customers.country })
+                .from(customers).where(eq(customers.id, persistedCallLog.customerId));
+              authorizedCountry = (await import("./lib/call-analysis-sentiment")).resolveCallAnalysisAuthorizedCountry({
+                assignedCountries, customerCountry: customer?.country,
+              });
+            }
+          }
+          const sentimentModule = await import("./lib/call-analysis-sentiment");
+          const sentimentEvent = persistedRecording && persistedCallLog
+            ? sentimentModule.buildCallAnalysisSentimentEvent({
+              recordingId: persistedRecording.id,
+              callLogId: persistedCallLog.id,
+              customerId: persistedCallLog.customerId,
+              campaignId: persistedCallLog.campaignId,
+              direction: persistedCallLog.direction,
+              sentiment: persistedRecording.sentiment,
+              analysisStatus: persistedRecording.analysisStatus,
+              analyzedAt: persistedRecording.analyzedAt,
+              recordingMode: persistedRecording.recordingMode,
+              audioScope: (persistedRecording.analysisResult as any)?.audioScope,
+              authorized: !!authorizedCountry,
+              countryCode: authorizedCountry,
+            })
+            : null;
+          if (sentimentEvent) {
+            const { emitEventOnce } = await import("./lib/event-bus");
+            await emitEventOnce(sentimentEvent as any, sentimentEvent.idempotencyKey);
+          }
+        } catch (sentimentEventError: any) {
+          console.error(`[CallAnalysis] Negative sentiment event failed for ${recordingId}:`, sentimentEventError.message);
         }
 
         console.log(`[CallAnalysis] Analysis complete for ${recordingId}: sentiment=${sentimentVal}, score=${qualityScoreVal}, scriptScore=${scriptComplianceScoreVal || 'N/A'}, alerts=${allAlerts.length}`);

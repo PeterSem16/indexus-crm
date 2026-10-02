@@ -185,6 +185,17 @@ app.use((req, res, next) => {
   const { ensureForwardedCallSchema } = await import("./lib/forwarded-call-schema");
   await ensureForwardedCallSchema(pool);
 
+  // Standalone Automation tables and recurring-schedule claim metadata are
+  // runtime requirements for production deploys that skip drizzle db:push.
+  try {
+    const { ensureStandaloneAutomationSchema } = await import("./lib/standalone-automation-schema");
+    await ensureStandaloneAutomationSchema(pool);
+    console.log("[migration] standalone Automation schema ensured");
+  } catch (error) {
+    console.error("[migration] fatal standalone Automation schema error:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+
   // Mission SMS routing depends on these columns for provider/reply isolation.
   // Unlike best-effort legacy migrations below, startup must stop if they are
   // unavailable; running without them can disclose a reply to another Mission.
@@ -525,6 +536,26 @@ app.use((req, res, next) => {
     `);
     console.log('[migration] collaborator activity reward payment status ensured');
 
+    // Add with TRUE so existing collaborators retain the prior badge behavior
+    // until the operator applies the allowlist; switch the column default to
+    // FALSE so new collaborators are deny-by-default. SET DEFAULT changes no
+    // existing rows, and IF NOT EXISTS preserves allowlist values on reruns.
+    await pool.query(`
+      ALTER TABLE collaborators
+        ADD COLUMN IF NOT EXISTS unpaid_reward_badge_eligible boolean NOT NULL DEFAULT true;
+      ALTER TABLE collaborators
+        ALTER COLUMN unpaid_reward_badge_eligible SET DEFAULT false;
+    `);
+    console.log('[migration] collaborator unpaid reward badge eligibility ensured');
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS unpaid_reward_badge_clinic_pairs (
+        collaborator_id varchar NOT NULL REFERENCES collaborators(id) ON DELETE CASCADE,
+        clinic_id varchar NOT NULL REFERENCES clinics(id) ON DELETE CASCADE,
+        PRIMARY KEY (collaborator_id, clinic_id)
+      );
+    `);
+    console.log('[migration] unpaid reward badge clinic pairs ensured');
+
     await pool.query(`
       UPDATE customers 
       SET client_status = 'in_process', 
@@ -555,6 +586,13 @@ app.use((req, res, next) => {
         user_id varchar NOT NULL,
         created_at timestamp NOT NULL DEFAULT now()
       );
+      CREATE TABLE IF NOT EXISTS task_assignment_access (
+        id integer PRIMARY KEY CHECK (id = 1),
+        allowed_user_ids text[],
+        updated_at timestamp NOT NULL DEFAULT now()
+      );
+      INSERT INTO task_assignment_access (id, allowed_user_ids)
+        VALUES (1, NULL) ON CONFLICT (id) DO NOTHING;
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS task_group_id varchar;
       ALTER TABLE task_groups
@@ -575,6 +613,127 @@ app.use((req, res, next) => {
   } catch (e: any) {
     console.error('[migration] Error:', e.message);
   }
+
+  // Task uploads are private registry-backed files. Keep this migration outside
+  // the legacy best-effort migration block so startup cannot serve task APIs
+  // without the columns/table their authorization checks require.
+  await pool.query(`
+    ALTER TABLE tasks
+      ADD COLUMN IF NOT EXISTS attachments jsonb NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE tasks
+      ADD COLUMN IF NOT EXISTS work_started_at timestamp,
+      ADD COLUMN IF NOT EXISTS work_stopped_at timestamp;
+    CREATE TABLE IF NOT EXISTS task_checklist_items (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      task_id varchar NOT NULL,
+      position integer NOT NULL DEFAULT 0,
+      label text NOT NULL,
+      required boolean NOT NULL DEFAULT true,
+      done_at timestamp,
+      done_by_user_id varchar,
+      note text
+    );
+    ALTER TABLE task_checklist_items
+      ADD COLUMN IF NOT EXISTS task_id varchar,
+      ADD COLUMN IF NOT EXISTS position integer NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS label text,
+      ADD COLUMN IF NOT EXISTS required boolean NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS done_at timestamp,
+      ADD COLUMN IF NOT EXISTS done_by_user_id varchar,
+      ADD COLUMN IF NOT EXISTS note text;
+    ALTER TABLE task_checklist_items ALTER COLUMN task_id SET NOT NULL;
+    ALTER TABLE task_checklist_items ALTER COLUMN label SET NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_task_checklist_items_task_position
+      ON task_checklist_items (task_id, position);
+    CREATE INDEX IF NOT EXISTS idx_task_checklist_items_task_done_at
+      ON task_checklist_items (task_id, done_at);
+    CREATE TABLE IF NOT EXISTS task_ai_checklist_generations (
+      task_id varchar PRIMARY KEY REFERENCES tasks(id) ON DELETE CASCADE,
+      status text NOT NULL DEFAULT 'idle',
+      error_code text,
+      attempt_count integer NOT NULL DEFAULT 0,
+      attempt_token varchar,
+      fingerprint text,
+      generated_item_count integer NOT NULL DEFAULT 0,
+      created_at timestamp NOT NULL DEFAULT now(),
+      updated_at timestamp NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_ai_checklist_generations_status_updated
+      ON task_ai_checklist_generations (status, updated_at);
+    CREATE TABLE IF NOT EXISTS task_attachment_uploads (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      uploader_user_id varchar NOT NULL,
+      storage_key text NOT NULL UNIQUE,
+      name text NOT NULL,
+      type text NOT NULL,
+      size integer NOT NULL CHECK (size >= 0),
+      ever_associated boolean NOT NULL DEFAULT false,
+      association_history jsonb NOT NULL DEFAULT '[]'::jsonb,
+      created_at timestamp NOT NULL DEFAULT now()
+    );
+    ALTER TABLE task_attachment_uploads
+      ADD COLUMN IF NOT EXISTS ever_associated boolean NOT NULL DEFAULT false;
+    ALTER TABLE task_attachment_uploads
+      ADD COLUMN IF NOT EXISTS association_history jsonb NOT NULL DEFAULT '[]'::jsonb;
+    CREATE INDEX IF NOT EXISTS idx_task_attachment_uploads_uploader
+      ON task_attachment_uploads (uploader_user_id);
+    WITH attachment_task_links AS (
+      SELECT DISTINCT
+        u.id AS upload_id,
+        jsonb_build_object(
+          'taskId', t.id,
+          'country', t.country,
+          'assignedUserId', t.assigned_user_id,
+          'createdByUserId', t.created_by_user_id,
+          'tags', to_jsonb(t.tags)
+        ) AS policy
+      FROM task_attachment_uploads u
+      JOIN tasks t ON EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(COALESCE(t.attachments, '[]'::jsonb)) AS a
+        WHERE a->>'id' = u.id
+      )
+      UNION
+      SELECT DISTINCT
+        u.id AS upload_id,
+        jsonb_build_object(
+          'taskId', t.id,
+          'country', t.country,
+          'assignedUserId', t.assigned_user_id,
+          'createdByUserId', t.created_by_user_id,
+          'tags', to_jsonb(t.tags)
+        ) AS policy
+      FROM task_attachment_uploads u
+      JOIN tasks t ON EXISTS (
+        SELECT 1
+        FROM task_comments c
+        CROSS JOIN LATERAL jsonb_array_elements(
+          CASE
+            WHEN jsonb_typeof(c.metadata->'attachments') = 'array' THEN c.metadata->'attachments'
+            ELSE '[]'::jsonb
+          END
+        ) AS a
+        WHERE c.task_id = t.id AND a->>'id' = u.id
+      )
+    ), attachment_task_history AS (
+      SELECT upload_id, jsonb_agg(policy) AS history
+      FROM attachment_task_links
+      GROUP BY upload_id
+    )
+    UPDATE task_attachment_uploads u
+      SET ever_associated = true,
+          association_history = (
+            SELECT COALESCE(jsonb_agg(DISTINCT policy), '[]'::jsonb)
+            FROM (
+              SELECT jsonb_array_elements(COALESCE(u.association_history, '[]'::jsonb)) AS policy
+              UNION
+              SELECT jsonb_array_elements(h.history) AS policy
+            ) merged_history
+          )
+      FROM attachment_task_history h
+      WHERE h.upload_id = u.id;
+  `);
+  console.log('[migration] private task attachment storage ensured');
 
   // Agent-only recordings must be unique per call log across every writer.
   // This migration is intentionally fatal: starting the API without the

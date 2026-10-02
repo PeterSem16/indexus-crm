@@ -3,6 +3,8 @@ import { Server } from "http";
 import type { InsertNotification, Notification, NotificationRule } from "@shared/schema";
 import { storage } from "../storage";
 
+type SessionParser = (req: any, res: any, next: (error?: any) => void) => void;
+
 interface ConnectedClient {
   ws: WebSocket;
   userId: string;
@@ -13,26 +15,43 @@ class NotificationService {
   private wss: WebSocketServer | null = null;
   private clients: Map<string, ConnectedClient[]> = new Map();
 
-  initialize(server: Server) {
+  initialize(server: Server, sessionParser?: SessionParser) {
     this.wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
 
     server.on("upgrade", (req: any, socket: any, head: any) => {
       const pathname = req.url?.split("?")[0];
       if (pathname === "/ws/notifications") {
-        this.wss!.handleUpgrade(req, socket, head, (ws) => {
-          this.wss!.emit("connection", ws, req);
+        const reject = () => {
+          if (!socket.destroyed) {
+            socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
+            socket.destroy();
+          }
+        };
+        if (!sessionParser) return reject();
+        // Reuse the application's signed, persisted Express session. The query
+        // string is deliberately never used as an identity source.
+        const sessionResponse = {
+          writeHead() { return this; },
+          getHeader() { return undefined; },
+          setHeader() { return this; },
+          removeHeader() { return this; },
+          end() {},
+          write() { return true; },
+        };
+        sessionParser(req, sessionResponse, (error) => {
+          if (error || typeof req.session?.user?.id !== "string") return reject();
+          this.wss!.handleUpgrade(req, socket, head, (ws) => {
+            this.wss!.emit("connection", ws, req);
+          });
         });
-        socket.end = () => {};
-        socket.destroy = () => {};
       }
     });
 
     this.wss.on("connection", (ws, req) => {
-      const url = new URL(req.url || "", `http://${req.headers.host}`);
-      const userId = url.searchParams.get("userId");
+      const userId = (req as any).session?.user?.id;
 
       if (!userId) {
-        ws.close(1008, "User ID required");
+        ws.close(1008, "Authenticated session required");
         return;
       }
 
@@ -127,6 +146,11 @@ class NotificationService {
       notification
     });
     await this.sendUnreadCount(notification.userId);
+  }
+
+  /** Push an already-persisted notification without creating a duplicate row. */
+  async broadcastExistingNotification(notification: Notification) {
+    await this.sendNotification(notification);
   }
 
   async sendNotificationToUsers(userIds: string[], notification: Omit<InsertNotification, "userId">) {

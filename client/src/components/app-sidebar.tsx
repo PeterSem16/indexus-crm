@@ -14,6 +14,7 @@ import {
   Building2,
   Handshake,
   Cog,
+  Workflow,
   Megaphone,
   CheckSquare,
   FileSignature,
@@ -37,7 +38,6 @@ import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Task } from "@shared/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -58,6 +58,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { CountryFilter } from "./country-filter";
 import { UserSettingsDialog } from "./user-settings-dialog";
+import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
 
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
@@ -66,19 +67,14 @@ export function AppSidebar() {
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
 
-  const { data: tasks = [] } = useQuery<Task[]>({
-    queryKey: ["/api/tasks"],
-    enabled: !!user,
-  });
+  const { tasks: openTasks, isError: openTasksError } = useMyOpenTasks();
 
   const { data: sidebarRoles = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["/api/roles"],
     enabled: !!user,
   });
 
-  const pendingTasksCount = tasks.filter(
-    task => task.assignedUserId === user?.id && task.status === "pending"
-  ).length;
+  const openTasksCount = openTasks.length;
 
   const mainNavItems = [
     { title: t.nav.dashboard, url: "/", icon: LayoutDashboard, testId: "dashboard", moduleKey: "dashboard" },
@@ -119,7 +115,6 @@ export function AppSidebar() {
 
   const configNavSubItems = [
     { title: t.nav.konfigurator, url: "/configurator", testId: "konfigurator", moduleKey: "configurator" },
-    { title: "Automations", url: "/automations", testId: "automations", moduleKey: "configurator" },
     { title: t.nav.pricing, url: "/pricing", testId: "pricing", moduleKey: "pricing" },
   ];
 
@@ -311,10 +306,10 @@ export function AppSidebar() {
                   ))}
 
                   {configNavSubItems.some(i => canAccessModule(i.moduleKey)) && (
-                    <Collapsible defaultOpen={location === "/configurator" || location === "/automations"} className="group/collapsible-config">
+                    <Collapsible defaultOpen={location === "/configurator"} className="group/collapsible-config">
                       <SidebarMenuItem>
                         <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={location === "/configurator" || location === "/automations"}>
+                          <SidebarMenuButton isActive={location === "/configurator"}>
                             <Cog className="h-4 w-4" />
                             <span>Configuration</span>
                             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-config:rotate-180" />
@@ -336,6 +331,16 @@ export function AppSidebar() {
                       </SidebarMenuItem>
                     </Collapsible>
                   )}
+                  {canAccessModule("configurator") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/automations"}>
+                        <Link href="/automations" data-testid="nav-automations">
+                          <Workflow className="h-4 w-4" />
+                          <span>Automations</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -356,13 +361,27 @@ export function AppSidebar() {
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">{user.fullName}</span>
-                  {pendingTasksCount > 0 && (
-                    <Badge variant="destructive" className="text-xs px-1.5 py-0" data-testid="badge-pending-tasks">
-                      {pendingTasksCount}
-                    </Badge>
+                  {openTasksCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setLocation("/email?tab=tasks&filter=open&view=my")}
+                      aria-label={`${openTasksCount} ${t.tasks.openTasks}`}
+                      title={`${openTasksCount} ${t.tasks.openTasks}`}
+                      className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      data-testid="button-open-my-tasks"
+                    >
+                      <Badge variant="destructive" className="cursor-pointer text-xs px-1.5 py-0" data-testid="badge-pending-tasks">
+                        {openTasksCount}
+                      </Badge>
+                    </button>
                   )}
                 </div>
                 <span className="text-xs text-muted-foreground truncate">{user.role}</span>
+                {openTasksError && (
+                  <span role="alert" className="text-[10px] leading-tight text-destructive">
+                    {t.tasks.loadError}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-1">

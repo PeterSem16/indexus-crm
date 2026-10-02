@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +60,11 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { COUNTRIES } from "@shared/schema";
-import type { Customer, SafeUser } from "@shared/schema";
+import type { Customer } from "@shared/schema";
+import { TaskAttachmentPicker } from "@/components/tasks/task-attachments";
+import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import type { TaskAttachment } from "@shared/task-attachments";
+import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
 
 const quickContactSchema = z.object({
   firstName: z.string().min(1, "Required"),
@@ -97,20 +101,19 @@ export function QuickCreate() {
   const { onlineUsers, openChat, isConnected } = useChatContext();
   const [openDialog, setOpenDialog] = useState<"contact" | "task" | "note" | "chat" | null>(null);
   const [taskCustomerOpen, setTaskCustomerOpen] = useState(false);
+  const [taskAttachments, setTaskAttachments] = useState<TaskAttachment[]>([]);
+  const [taskAttachmentsBusy, setTaskAttachmentsBusy] = useState(false);
+  const [taskAttachmentSession, setTaskAttachmentSession] = useState(0);
   const [noteCustomerOpen, setNoteCustomerOpen] = useState(false);
   const [customerSearch, setCustomerSearch] = useState("");
-
-  const { data: users = [] } = useQuery<SafeUser[]>({
-    queryKey: ["/api/users"],
-  });
 
   const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers/lookup"],
   });
 
-  const { data: taskGroupsList = [] } = useQuery<any[]>({
-    queryKey: ["/api/task-groups"],
-  });
+  const { data: assignmentOptions, isSuccess: assignmentOptionsLoaded, isError: assignmentOptionsFailed, refetch: retryAssignmentOptions } = useTaskAssignmentOptions();
+  const assignmentUsers = assignmentOptions?.users || [];
+  const assignmentGroups = assignmentOptions?.groups || [];
 
   // Filter customers based on search
   const filteredCustomers = useMemo(() => {
@@ -155,6 +158,14 @@ export function QuickCreate() {
       content: "",
     },
   });
+
+  useEffect(() => {
+    if (!assignmentOptionsLoaded) return;
+    const currentAssignee = taskForm.getValues("assignedUserId");
+    if (!assignmentUsers.some(candidate => candidate.id === currentAssignee)) {
+      taskForm.setValue("assignedUserId", assignmentUsers[0]?.id || "");
+    }
+  }, [assignmentOptionsLoaded, assignmentUsers, taskForm]);
 
   // Watch contact form fields for duplicate detection
   const watchedLastName = contactForm.watch("lastName");
@@ -204,7 +215,7 @@ export function QuickCreate() {
     mutationFn: async (data: QuickTaskValues) => {
       const { groupId, ...rest } = data;
       const tags: string[] = groupId ? [`group_id:${groupId}`] : [];
-      return apiRequest("POST", "/api/tasks", { ...rest, tags });
+      return apiRequest("POST", "/api/tasks", { ...rest, tags, attachments: taskAttachments });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -214,6 +225,9 @@ export function QuickCreate() {
       });
       setOpenDialog(null);
       taskForm.reset();
+      setTaskAttachments([]);
+      setTaskAttachmentsBusy(false);
+      setTaskAttachmentSession((session) => session + 1);
     },
     onError: () => {
       toast({
@@ -257,6 +271,9 @@ export function QuickCreate() {
         country: user?.assignedCountries?.[0] || "SK",
       });
     } else if (dialog === "task") {
+      setTaskAttachments([]);
+      setTaskAttachmentsBusy(false);
+      setTaskAttachmentSession((session) => session + 1);
       taskForm.reset({
         title: "",
         description: "",
@@ -450,14 +467,34 @@ export function QuickCreate() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openDialog === "task"} onOpenChange={(open) => !open && setOpenDialog(null)}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={openDialog === "task"} onOpenChange={(open) => {
+        if (!open) {
+          setOpenDialog(null);
+          setTaskAttachments([]);
+          setTaskAttachmentsBusy(false);
+          setTaskAttachmentSession((session) => session + 1);
+        }
+      }}>
+        <DialogContent className="task-modern-modal sm:max-w-md" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="create" />
           <DialogHeader>
             <DialogTitle>{t.quickCreate.newTask}</DialogTitle>
             <DialogDescription>{t.quickCreate.newTaskDesc}</DialogDescription>
           </DialogHeader>
           <Form {...taskForm}>
             <form onSubmit={taskForm.handleSubmit((data) => createTaskMutation.mutate(data))} className="space-y-4">
+              <div className="task-modern-modal-body space-y-4">
+              {assignmentOptionsFailed && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="flex items-center justify-between gap-3">
+                    <span>{t.tasks.taskGroups.assignmentLoadFailed}</span>
+                    <Button type="button" size="sm" variant="outline" onClick={() => void retryAssignmentOptions()}>
+                      {t.tasks.taskGroups.assignmentRetry}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
               <FormField
                 control={taskForm.control}
                 name="title"
@@ -521,9 +558,9 @@ export function QuickCreate() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {users.filter(u => u.id).map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.fullName || u.username}
+                          {assignmentUsers.map((candidate) => (
+                            <SelectItem key={candidate.id} value={candidate.id}>
+                              {candidate.fullName || candidate.username}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -605,7 +642,7 @@ export function QuickCreate() {
                   );
                 }}
               />
-              {taskGroupsList.length > 0 && (
+              {assignmentGroups.length > 0 && (
                 <FormField
                   control={taskForm.control}
                   name="groupId"
@@ -620,7 +657,7 @@ export function QuickCreate() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="__none__">Bez skupiny</SelectItem>
-                          {taskGroupsList.map((g: any) => (
+                          {assignmentGroups.map((g) => (
                             <SelectItem key={g.id} value={g.id}>
                               {g.displayAlias || g.name}
                             </SelectItem>
@@ -632,11 +669,27 @@ export function QuickCreate() {
                   )}
                 />
               )}
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setOpenDialog(null)}>
+              <div>
+                <label className="mb-2 block text-sm font-medium">{t.backOffice.attachLabel}</label>
+                  <TaskAttachmentPicker
+                    key={taskAttachmentSession}
+                  attachments={taskAttachments}
+                  onChange={setTaskAttachments}
+                  onBusyChange={setTaskAttachmentsBusy}
+                  disabled={createTaskMutation.isPending}
+                />
+              </div>
+              </div>
+              <DialogFooter className="task-modern-modal-footer">
+                <Button type="button" variant="outline" onClick={() => {
+                  setOpenDialog(null);
+                  setTaskAttachments([]);
+                  setTaskAttachmentsBusy(false);
+                  setTaskAttachmentSession((session) => session + 1);
+                }}>
                   {t.common.cancel}
                 </Button>
-                <Button type="submit" disabled={createTaskMutation.isPending}>
+                <Button type="submit" disabled={createTaskMutation.isPending || taskAttachmentsBusy || !assignmentOptionsLoaded || assignmentOptionsFailed || assignmentUsers.length === 0}>
                   {createTaskMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   {t.common.save}
                 </Button>
