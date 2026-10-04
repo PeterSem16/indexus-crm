@@ -9,6 +9,7 @@ import { startScheduledReportRunner } from "./scheduled-report-runner";
 import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
+import { CLINIC_AGREEMENTS_MIGRATION } from "./lib/clinic-agreement-contract";
 import {
   JMHZ_EDUCATION_TO_CARD_VALUE,
   JMHZ_PROFESSION_TO_CARD_VALUE,
@@ -734,6 +735,8 @@ app.use((req, res, next) => {
       WHERE h.upload_id = u.id;
   `);
   console.log('[migration] private task attachment storage ensured');
+  await pool.query(CLINIC_AGREEMENTS_MIGRATION);
+  console.log('[migration] private clinic agreements ensured');
 
   // Agent-only recordings must be unique per call log across every writer.
   // This migration is intentionally fatal: starting the API without the

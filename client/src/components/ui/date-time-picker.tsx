@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { format, isValid, setHours, setMinutes, startOfDay } from "date-fns";
+import { format, isValid, parseISO, setHours, setMinutes, startOfDay } from "date-fns";
 import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
 import { Calendar as CalendarIcon, Clock, X } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/I18nProvider";
 
 function toLocalISOString(date: Date, includeTime: boolean): string {
   const y = date.getFullYear();
@@ -37,6 +38,14 @@ interface DateTimePickerProps {
   "data-testid"?: string;
   /** When set, dates before this date are disabled and past times on today are clamped to this moment. */
   minDate?: Date;
+  maxDate?: Date;
+  disabled?: boolean;
+  readOnly?: boolean;
+  id?: string;
+  name?: string;
+  required?: boolean;
+  onBlur?: () => void;
+  "aria-label"?: string;
 }
 
 export function DateTimePicker({
@@ -48,12 +57,21 @@ export function DateTimePicker({
   className,
   "data-testid": testId,
   minDate,
+  maxDate,
+  disabled = false,
+  readOnly = false,
+  id,
+  name,
+  required,
+  onBlur,
+  "aria-label": ariaLabel,
 }: DateTimePickerProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const locale = LOCALE_MAP[countryCode] || sk;
   const dateFormat = DATE_FORMAT_MAP[countryCode] || "dd.MM.yyyy";
 
-  const currentDate = value ? new Date(value) : undefined;
+  const currentDate = value ? parseISO(value) : undefined;
   const isValidDate = currentDate && isValid(currentDate);
 
   const [hours, setHoursState] = useState(isValidDate ? currentDate.getHours().toString().padStart(2, "0") : "00");
@@ -61,7 +79,7 @@ export function DateTimePicker({
 
   useEffect(() => {
     if (value) {
-      const d = new Date(value);
+      const d = parseISO(value);
       if (isValid(d)) {
         setHoursState(d.getHours().toString().padStart(2, "0"));
         setMinutesState(d.getMinutes().toString().padStart(2, "0"));
@@ -72,11 +90,12 @@ export function DateTimePicker({
   /** Clamp a candidate Date to minDate when it's in the past. Returns the (possibly clamped) Date. */
   const clampToMin = useCallback((candidate: Date): Date => {
     if (minDate && candidate < minDate) return new Date(minDate);
+    if (maxDate && candidate > maxDate) return new Date(maxDate);
     return candidate;
-  }, [minDate]);
+  }, [minDate, maxDate]);
 
   const handleDateSelect = useCallback((date: Date | undefined) => {
-    if (!date) return;
+    if (!date || disabled || readOnly) return;
     if (includeTime) {
       const h = parseInt(hours) || 0;
       const m = parseInt(minutes) || 0;
@@ -87,9 +106,10 @@ export function DateTimePicker({
     } else {
       onChange(toLocalISOString(date, false));
     }
-  }, [hours, minutes, includeTime, onChange, clampToMin]);
+  }, [hours, minutes, includeTime, onChange, clampToMin, disabled, readOnly]);
 
   const handleTimeChange = useCallback((newHours: string, newMinutes: string) => {
+    if (disabled || readOnly) return;
     const h = Math.min(23, Math.max(0, parseInt(newHours) || 0));
     const m = Math.min(59, Math.max(0, parseInt(newMinutes) || 0));
 
@@ -103,7 +123,7 @@ export function DateTimePicker({
       setHoursState(h.toString().padStart(2, "0"));
       setMinutesState(m.toString().padStart(2, "0"));
     }
-  }, [isValidDate, currentDate, onChange, clampToMin]);
+  }, [isValidDate, currentDate, onChange, clampToMin, disabled, readOnly]);
 
   const displayValue = isValidDate
     ? includeTime
@@ -112,9 +132,29 @@ export function DateTimePicker({
     : "";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open && !disabled && !readOnly} onOpenChange={next => { if (!disabled && !readOnly) setOpen(next); }}>
+      {(required || name) && <input
+        type={includeTime ? "datetime-local" : "date"}
+        className="sr-only"
+        tabIndex={-1}
+        aria-hidden="true"
+        name={name}
+        required={required}
+        disabled={disabled}
+        readOnly={readOnly}
+        value={isValidDate ? toLocalISOString(currentDate, includeTime) : ""}
+        min={minDate ? toLocalISOString(minDate, includeTime) : undefined}
+        max={maxDate ? toLocalISOString(maxDate, includeTime) : undefined}
+        onChange={event => onChange(event.target.value)}
+        onInvalid={event => { event.preventDefault(); setOpen(true); }}
+      />}
       <PopoverTrigger asChild>
         <Button
+          type="button"
+          id={id}
+          disabled={disabled || readOnly}
+          aria-label={ariaLabel}
+          onBlur={onBlur}
           variant="outline"
           className={cn(
             "w-full justify-start text-left font-normal",
@@ -124,12 +164,13 @@ export function DateTimePicker({
           data-testid={testId}
         >
           <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-          {displayValue || (placeholder || "Pick date...")}
+          {displayValue || (placeholder || t.datePicker.selectDate)}
           {value && (
             <span
               className="ml-auto"
               onClick={(e) => {
                 e.stopPropagation();
+                if (disabled || readOnly) return;
                 onChange("");
                 setHoursState("00");
                 setMinutesState("00");
@@ -140,14 +181,18 @@ export function DateTimePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="z-[10100] w-auto p-0" align="start">
         <Calendar
           mode="single"
           selected={isValidDate ? currentDate : undefined}
+          defaultMonth={isValidDate ? currentDate : undefined}
           onSelect={handleDateSelect}
           locale={locale}
           initialFocus
-          disabled={minDate ? { before: startOfDay(minDate) } : undefined}
+          disabled={[
+            ...(minDate ? [{ before: startOfDay(minDate) }] : []),
+            ...(maxDate ? [{ after: startOfDay(maxDate) }] : []),
+          ]}
         />
         {includeTime && (
           <div className="flex items-center gap-2 border-t p-3">
@@ -172,6 +217,7 @@ export function DateTimePicker({
               data-testid={testId ? `${testId}-minutes` : undefined}
             />
             <Button
+              type="button"
               variant="ghost"
               size="sm"
               onClick={() => {
@@ -181,7 +227,7 @@ export function DateTimePicker({
               }}
               data-testid={testId ? `${testId}-now` : undefined}
             >
-              Now
+              {t.datePicker.now}
             </Button>
           </div>
         )}

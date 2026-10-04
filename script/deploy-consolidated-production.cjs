@@ -12,7 +12,7 @@ const BACKUP = "/home/seman/indexus-backups/20261002T114842Z";
 const SOURCE_FP = "d0e1add5bcf9c38654376b342a543c42dce6924dde325e991a84723d7454aa9d";
 const PROCESS = "indexus-crm";
 const OMIT = ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads",
-  "artifacts", "design", "private-task-attachments", "mobile-app"];
+  "artifacts", "design", "private-task-attachments", "private-clinic-agreements", "mobile-app"];
 const DOCS = new Set(["docs/releases/indexus-consolidation.md"]);
 const approvedReleasePath = p => backup.approvedPath(p) || DOCS.has(p);
 function sha(s) { return crypto.createHash("sha256").update(s).digest("hex"); }
@@ -527,7 +527,7 @@ async function rollbackInternal(state, root, deps, healthPath = "/api/users") {
   const extract = path.join(runDir, "restore"); fs.mkdirSync(extract, { mode: 0o700 });
   phase = "extract_original";
   must(deps, "tar", ["-xzf", path.join(state.backup, "application.tar.gz"),
-    "--exclude=./mobile-app", "--exclude=./mobile-app/**", "--exclude=private-task-attachments",
+    "--exclude=./mobile-app", "--exclude=./mobile-app/**", "--exclude=private-task-attachments", "--exclude=private-clinic-agreements",
     "-C", extract], { cwd: root });
   for (const rel of [".git", "node_modules", "dist"]) {
     const p = path.join(extract, rel), s = fs.lstatSync(p);
@@ -543,7 +543,7 @@ async function rollbackInternal(state, root, deps, healthPath = "/api/users") {
   phase = "stop_process";
   if (deps.pm2Stop) deps.pm2Stop(PROCESS); else must(deps, "pm2", ["stop", PROCESS], { cwd: root });
   phase = "restore_files";
-  const excludes = ["--exclude=private-task-attachments", ...[".env", ".env.*", ...OMIT].flatMap(p => [`--exclude=/${p}`, `--exclude=/${p}/**`])];
+  const excludes = ["--exclude=private-task-attachments", "--exclude=private-clinic-agreements", ...[".env", ".env.*", ...OMIT].flatMap(p => [`--exclude=/${p}`, `--exclude=/${p}/**`])];
   must(deps, "rsync", ["-a", "--owner", "--group", "--delete", ...excludes, `${extract}/`, `${root}/`], { cwd: root });
   phase = "verify_restored_sources";
   if (git(root, ["rev-parse", "HEAD"], deps) !== HEAD || sourceFingerprint(root, deps).aggregate !== expected.aggregate)

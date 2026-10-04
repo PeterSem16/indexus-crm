@@ -272,6 +272,7 @@ async function deploymentFixture(t) {
         "/attached_assets", "/runtime", "/server/data", "/server/uploads", "/.env", "/.env.*"])
         assert(args.some(arg => arg === `--exclude=${excluded}`), `missing protective rsync exclusion ${excluded}`);
       assert(args.includes("--exclude=private-task-attachments"), "nested private storage must also be protected");
+      assert(args.includes("--exclude=private-clinic-agreements"), "nested private agreements must also be protected");
       restoreExceptRuntime(state.extract, root);
       state.currentHead = "b59f6e006cc2073cbb5ae909555c304cf0030903";
       return { status: 0, stdout: "" };
@@ -324,7 +325,7 @@ async function deploymentFixture(t) {
 function restoreExceptRuntime(from, to) {
   const preserve = (base, rel) => rel === ".env" || /^\.env\./.test(rel)
     || ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads",
-      "artifacts", "design", "private-task-attachments", "mobile-app"].includes(rel);
+      "artifacts", "design", "private-task-attachments", "private-clinic-agreements", "mobile-app"].includes(rel);
   const remove = (dir, rel = "") => {
     for (const name of fs.readdirSync(dir)) {
       const next = rel ? `${rel}/${name}` : name, full = path.join(dir, name);
@@ -509,7 +510,8 @@ test("restart waits for PM2 online even after HTTP is ready and preserves native
 test("rollback uses native rsync without touching independent mobile client or nested current documents", async t => {
   const f = await deploymentFixture(t);
   await deploy.prepare({ commit: f.commit, manifest: f.manifest, backup: f.backupDir }, f.deps);
-  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments"]) {
+  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments",
+    "private-clinic-agreements", "custom/private-clinic-agreements"]) {
     fs.mkdirSync(path.join(f.root, rel), { recursive: true });
     fs.writeFileSync(path.join(f.root, rel, "current.dat"), "current protected content");
   }
@@ -521,11 +523,13 @@ test("rollback uses native rsync without touching independent mobile client or n
     return { status: 0, stdout: "", stderr: "" };
   };
   await deploy.rollback({ maintenance: true, health_path: "/api/users" }, f.deps);
-  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments"])
+  for (const rel of ["mobile-app/node_modules/lightningcss-linux-x64-musl", "custom/private-task-attachments",
+    "private-clinic-agreements", "custom/private-clinic-agreements"])
     assert.equal(fs.readFileSync(path.join(f.root, rel, "current.dat"), "utf8"), "current protected content");
   assert.equal(f.state.stopped, false);
   const extraction = f.state.calls.find(([name, args]) => name === "tar" && args[0] === "-xzf")[1];
-  assert(extraction.includes("--exclude=./mobile-app") && extraction.includes("--exclude=private-task-attachments"));
+  assert(extraction.includes("--exclude=./mobile-app") && extraction.includes("--exclude=private-task-attachments")
+    && extraction.includes("--exclude=private-clinic-agreements"));
 });
 
 test("native failure details stay bounded and private while successful rollback retains diagnostics", async t => {

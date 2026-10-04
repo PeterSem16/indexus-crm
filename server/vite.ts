@@ -10,6 +10,7 @@ const viteLogger = createLogger();
 
 export async function setupVite(server: Server, app: Express) {
   const serverOptions = {
+    ...viteConfig.server,
     middlewareMode: true,
     hmr: { server, path: "/vite-hmr" },
     allowedHosts: true as const,
@@ -22,7 +23,9 @@ export async function setupVite(server: Server, app: Express) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
+        // A blocked filesystem request is a normal 403, not a server crash.
+        // Keep the existing fatal behavior for compilation/startup failures.
+        if (!msg.includes("outside of Vite serving allow list")) process.exit(1);
       },
     },
     server: serverOptions,

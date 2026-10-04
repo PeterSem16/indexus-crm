@@ -15,8 +15,8 @@ const CONFIG = [".gitignore", "package.json", "package-lock.json", "tsconfig.jso
   "components.json", "drizzle.config.ts", "webpack.config.js", "rollup.config.js", "esbuild.config.js"];
 const EXT = /\.(?:ts|tsx|js|jsx|cjs|mjs|css|scss|json|svg|sh|md)$/i;
 const OMIT = ["data", "uploads", "attached_assets", "runtime", "server/data", "server/uploads", "artifacts", "design",
-  "mobile-app", "private-task-attachments"];
-const RUNTIME_LIST = "data, uploads, attached_assets, runtime, server/data, server/uploads, artifacts, design, mobile-app, private-task-attachments";
+  "mobile-app", "private-task-attachments", "private-clinic-agreements"];
+const RUNTIME_LIST = "data, uploads, attached_assets, runtime, server/data, server/uploads, artifacts, design, mobile-app, private-task-attachments, private-clinic-agreements";
 const HASH = b => crypto.createHash("sha256").update(b).digest("hex");
 async function hashFile(file) {
   const hash = crypto.createHash("sha256");
@@ -40,7 +40,7 @@ async function buildFingerprint(root) {
 function approvedPath(p) {
   if (!p || p.includes("\\") || p.startsWith("/") || p.split("/").includes("..")) return false;
   if (/^(?:\.env(?:\.|$)|.*\/\.env(?:\.|$))/i.test(p) || /\.(?:pem|key|p12|pfx|crt|cer)$/i.test(p)) return false;
-  if (/(?:^|\/)(?:node_modules|dist|private-task-attachments)(?:\/|$)/.test(p)) return false;
+  if (/(?:^|\/)(?:node_modules|dist|private-task-attachments|private-clinic-agreements)(?:\/|$)/.test(p)) return false;
   if (OMIT.some(x => p === x || p.startsWith(`${x}/`))) return false;
   if (CONFIG.includes(p) || /^(?:tsconfig(?:\.[\w-]+)?\.json|(?:vite|tailwind|postcss|webpack|rollup|esbuild|drizzle)\.config\.[cm]?js|(?:vite|tailwind|drizzle)\.config\.ts)$/.test(p)) return true;
   return SRC.some(x => p.startsWith(`${x}/`)) && EXT.test(p);
@@ -187,7 +187,7 @@ async function createBackup(options = {}) {
       fs.copyFileSync(real, dest); fs.chmodSync(dest, 0o600);
     }
     const archive = path.join(dir, "application.tar.gz");
-    const excludes = ["--exclude=private-task-attachments", ...OMIT.flatMap(x => [`--exclude=./${x}`, `--exclude=./${x}/**`])];
+    const excludes = ["--exclude=private-task-attachments", "--exclude=private-clinic-agreements", ...OMIT.flatMap(x => [`--exclude=./${x}`, `--exclude=./${x}/**`])];
     const tr = run(deps, "tar", ["-czpf", archive, ...excludes, "-C", root, "."]);
     log("tar.log", tr);
     if (tr.status !== undefined && tr.status !== 0) throw new Error("archive failed");

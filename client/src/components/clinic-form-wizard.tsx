@@ -64,6 +64,7 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { PhoneNumberField } from "@/components/phone-number-field";
 import { Wand2 } from "lucide-react";
 import { PulseClinicDialButton } from "@/components/pulse-dial-button";
+import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
 
 interface ClinicFormData {
   name: string;
@@ -1088,6 +1089,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
     { key: "cooperation", icon: Handshake, label: tc.cooperationTab ?? "Cooperation" },
+    { key: "agreements", icon: FileSignature, label: tc.agreements.tab },
   ];
 
   // Phase display config for the cooperation history tab
@@ -2169,7 +2171,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
           })}
         </div>
 
-        <fieldset disabled={readOnly && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes || roEx.contactInfo)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
+        <fieldset disabled={readOnly && activeTab !== "agreements" && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes || roEx.contactInfo)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -2905,6 +2907,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               )}
             </div>
           )}
+          {activeTab === "agreements" && <ClinicAgreementsPanel key={String(initialData?.id || savedClinicId || "unsaved")} clinicId={initialData?.id ? String(initialData.id) : savedClinicId} readOnly={readOnly} countryCode={formData.countryCode || "SK"} />}
         </fieldset>
       </div>
 
@@ -3037,6 +3040,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
     { key: "representative", icon: UserCheck, label: t.representantPanel.tabLabel },
     { key: "cooperation", icon: Handshake, label: tc.cooperationTab ?? "Cooperation" },
+    { key: "agreements", icon: FileSignature, label: tc.agreements.tab },
   ];
 
   return (
@@ -3568,6 +3572,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   <p className="text-xs mt-1 max-w-xs">{tc.cooperationNoDataHint ?? "Records are created automatically when a coordinator confirms a status-list option with a canonical status set."}</p>
                 </div>
               )}
+              {activeTab === "agreements" && <ClinicAgreementsPanel key={String(savedClinicId || "unsaved")} clinicId={savedClinicId} readOnly={readOnly} countryCode={formData.countryCode || "SK"} />}
             </div>
           </div>
 

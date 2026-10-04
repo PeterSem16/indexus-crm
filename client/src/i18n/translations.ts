@@ -14,6 +14,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 };
 
 export interface Translations {
+  datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
   automationDraft: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationDraft>;
@@ -2206,6 +2207,14 @@ export interface Translations {
     cooperationNoDataHint: string;
     cooperationSaveFirst: string;
     cooperationPhaseNoRecord: string;
+    agreements: {
+      tab: string; title: string; description: string; saveFirstTitle: string; saveFirstDescription: string;
+      viewOnly: string; loadError: string; retry: string; emptyTitle: string; emptyDescription: string;
+      active: string; inactive: string; inValidity: string; expired: string; future: string;
+      contractNumber: string; validFrom: string; validTo: string; file: string; fileRules: string;
+      addAgreement: string; agreementTitle: string; download: string; edit: string; cancel: string; save: string;
+      endValidity: string; reactivate: string; uploading: string; upload: string; uploadError: string; saveError: string; invalidFile: string; fileTooLarge: string;
+    };
     csk_acquisition_contacted: string;
     csk_acquisition_interested: string;
     csk_acquisition_not_interested: string;
@@ -9147,6 +9156,7 @@ const inboundUiByLocale = {
 
 export const translations = {
   en: {
+    datePicker: { selectDate: 'Select date', now: 'Now', noTimeLimit: 'The agreement has no time limit' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'urgent',
@@ -11442,6 +11452,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Where they were placed',
       cooperationTab: 'Cooperation',
       cooperationHistoryTitle: 'Cooperation history',
+      agreements: { tab: 'Agreements', title: 'Clinic agreements', description: 'Files and validity periods attached to this clinic.', saveFirstTitle: 'Save clinic first', saveFirstDescription: 'Agreements can be added after the clinic has been saved.', viewOnly: 'View only', loadError: 'Agreements could not be loaded.', retry: 'Try again', emptyTitle: 'No agreements yet', emptyDescription: 'Add the signed agreement and its validity dates here.', active: 'Active', inactive: 'Inactive', inValidity: 'Within validity', expired: 'Expired', future: 'Starts in future', contractNumber: 'Contract number', validFrom: 'Valid from', validTo: 'Valid to', file: 'Agreement file', fileRules: 'PDF, DOC, DOCX, JPEG or PNG · up to 20 MB', addAgreement: 'Add agreement', agreementTitle: 'Agreement title', download: 'Download', edit: 'Edit details', cancel: 'Cancel edit', save: 'Save changes', endValidity: 'End validity', reactivate: 'Reactivate', uploading: 'Uploading…', upload: 'Upload agreement', uploadError: 'Upload failed. Your form is still here.', saveError: 'Could not save changes. Your draft is still here.', invalidFile: 'Choose a PDF, DOC, DOCX, JPEG, or PNG file.', fileTooLarge: 'The file must be no larger than 20 MB.' },
       cooperationHistoryDesc: 'Canonical cooperation statuses recorded during campaign status lists (KPI 3.4–3.7)',
       cooperationNoData: 'No cooperation records yet.',
       cooperationNoDataHint: 'Records are created automatically when a coordinator confirms a status-list option with a canonical status set.',
@@ -16998,6 +17009,7 @@ export const translations = {
 
   },
   sk: {
+    datePicker: { selectDate: 'Vyberte dátum', now: 'Teraz', noTimeLimit: 'Zmluva nemá časové obmedzenie platnosti' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'urgentné',
@@ -19269,6 +19281,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Kde boli umiestnené',
       cooperationTab: 'Spolupráca',
       cooperationHistoryTitle: 'História spolupráce',
+      agreements: { tab: 'Dohody', title: 'Dohody ambulancie', description: 'Súbory a obdobia platnosti priradené k ambulancii.', saveFirstTitle: 'Najprv uložte ambulanciu', saveFirstDescription: 'Dohody možno pridať po uložení ambulancie.', viewOnly: 'Iba na čítanie', loadError: 'Dohody sa nepodarilo načítať.', retry: 'Skúsiť znova', emptyTitle: 'Zatiaľ bez dohôd', emptyDescription: 'Pridajte podpísanú dohodu a jej obdobie platnosti.', active: 'Aktívna', inactive: 'Neaktívna', inValidity: 'V období platnosti', expired: 'Platnosť skončila', future: 'Platnosť začne neskôr', contractNumber: 'Číslo zmluvy', validFrom: 'Platná od', validTo: 'Platná do', file: 'Súbor dohody', fileRules: 'PDF, DOC, DOCX, JPEG alebo PNG · najviac 20 MB', addAgreement: 'Pridať dohodu', agreementTitle: 'Názov dohody', download: 'Stiahnuť', edit: 'Upraviť údaje', cancel: 'Zrušiť úpravy', save: 'Uložiť zmeny', endValidity: 'Ukončiť platnosť', reactivate: 'Znova aktivovať', uploading: 'Nahrávanie…', upload: 'Nahrať dohodu', uploadError: 'Nahratie zlyhalo. Vyplnené údaje zostali zachované.', saveError: 'Zmeny sa nepodarilo uložiť. Rozpracované údaje zostali zachované.', invalidFile: 'Vyberte súbor PDF, DOC, DOCX, JPEG alebo PNG.', fileTooLarge: 'Súbor môže mať najviac 20 MB.' },
       cooperationHistoryDesc: 'Kanonické statusy spolupráce zaznamenané počas status listov kampaní (KPI 3.4–3.7)',
       cooperationNoData: 'Zatiaľ žiadne záznamy spolupráce.',
       cooperationNoDataHint: 'Záznamy sa vytvárajú automaticky keď koordinátor potvrdí status-list možnosť s nastaveným kanonickým stavom.',
@@ -24845,6 +24858,7 @@ export const translations = {
 
   },
   cs: {
+    datePicker: { selectDate: 'Vyberte datum', now: 'Nyní', noTimeLimit: 'Smlouva nemá časové omezení platnosti' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'urgentní',
@@ -27116,6 +27130,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Kde byly umístěny',
       cooperationTab: 'Spolupráce',
       cooperationHistoryTitle: 'Historie spolupráce',
+      agreements: { tab: 'Dohody', title: 'Dohody ambulance', description: 'Soubory a období platnosti přiřazené k ambulanci.', saveFirstTitle: 'Nejprve uložte ambulanci', saveFirstDescription: 'Dohody lze přidat po uložení ambulance.', viewOnly: 'Pouze ke čtení', loadError: 'Dohody se nepodařilo načíst.', retry: 'Zkusit znovu', emptyTitle: 'Zatím žádné dohody', emptyDescription: 'Přidejte podepsanou dohodu a její období platnosti.', active: 'Aktivní', inactive: 'Neaktivní', inValidity: 'V době platnosti', expired: 'Platnost skončila', future: 'Platnost začne později', contractNumber: 'Číslo smlouvy', validFrom: 'Platná od', validTo: 'Platná do', file: 'Soubor dohody', fileRules: 'PDF, DOC, DOCX, JPEG nebo PNG · nejvýše 20 MB', addAgreement: 'Přidat dohodu', agreementTitle: 'Název dohody', download: 'Stáhnout', edit: 'Upravit údaje', cancel: 'Zrušit úpravy', save: 'Uložit změny', endValidity: 'Ukončit platnost', reactivate: 'Znovu aktivovat', uploading: 'Nahrávání…', upload: 'Nahrát dohodu', uploadError: 'Nahrání se nezdařilo. Vyplněné údaje zůstaly zachovány.', saveError: 'Změny se nepodařilo uložit. Rozpracované údaje zůstaly zachovány.', invalidFile: 'Vyberte soubor PDF, DOC, DOCX, JPEG nebo PNG.', fileTooLarge: 'Soubor může mít nejvýše 20 MB.' },
       cooperationHistoryDesc: 'Kanonické statusy spolupráce zaznamenané během status listů kampaní (KPI 3.4–3.7)',
       cooperationNoData: 'Zatím žádné záznamy spolupráce.',
       cooperationNoDataHint: 'Záznamy se vytvářejí automaticky když koordinátor potvrdí status-list možnost s nastaveným kanonickým stavem.',
@@ -32651,6 +32666,7 @@ export const translations = {
 
   },
   hu: {
+    datePicker: { selectDate: 'Válasszon dátumot', now: 'Most', noTimeLimit: 'A szerződés határozatlan ideig érvényes' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'sürgős',
@@ -34922,6 +34938,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Hol helyezték el',
       cooperationTab: 'Együttműködés',
       cooperationHistoryTitle: 'Együttműködési előzmények',
+      agreements: { tab: 'Megállapodások', title: 'Rendelői megállapodások', description: 'A rendelőhöz csatolt fájlok és érvényességi időszakok.', saveFirstTitle: 'Először mentse a rendelőt', saveFirstDescription: 'A megállapodásokat a rendelő mentése után adhatja hozzá.', viewOnly: 'Csak megtekintés', loadError: 'A megállapodások betöltése nem sikerült.', retry: 'Újra', emptyTitle: 'Még nincs megállapodás', emptyDescription: 'Adja hozzá az aláírt megállapodást és érvényességi dátumait.', active: 'Aktív', inactive: 'Inaktív', inValidity: 'Érvényességi időn belül', expired: 'Lejárt', future: 'Később lép életbe', contractNumber: 'Szerződésszám', validFrom: 'Érvényes ettől', validTo: 'Érvényes eddig', file: 'Megállapodás fájlja', fileRules: 'PDF, DOC, DOCX, JPEG vagy PNG · legfeljebb 20 MB', addAgreement: 'Megállapodás hozzáadása', agreementTitle: 'Megállapodás címe', download: 'Letöltés', edit: 'Adatok szerkesztése', cancel: 'Szerkesztés megszakítása', save: 'Módosítások mentése', endValidity: 'Érvényesség lezárása', reactivate: 'Újraaktiválás', uploading: 'Feltöltés…', upload: 'Megállapodás feltöltése', uploadError: 'A feltöltés nem sikerült. Az űrlap adatai megmaradtak.', saveError: 'A módosítások mentése nem sikerült. A piszkozat megmaradt.', invalidFile: 'PDF, DOC, DOCX, JPEG vagy PNG fájlt válasszon.', fileTooLarge: 'A fájl legfeljebb 20 MB lehet.' },
       cooperationHistoryDesc: 'Kampány állapotlisták során rögzített kanonikus együttműködési állapotok (KPI 3.4–3.7)',
       cooperationNoData: 'Még nincsenek együttműködési rekordok.',
       cooperationNoDataHint: 'A rekordok automatikusan létrejönnek, amikor egy koordinátor megerősít egy kanonikus állapottal ellátott állapotlista-opciót.',
@@ -40455,6 +40472,7 @@ export const translations = {
 
   },
   ro: {
+    datePicker: { selectDate: 'Selectați data', now: 'Acum', noTimeLimit: 'Contractul nu are termen de expirare' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'urgent',
@@ -42726,6 +42744,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Unde au fost plasate',
       cooperationTab: 'Cooperare',
       cooperationHistoryTitle: 'Istoricul cooperării',
+      agreements: { tab: 'Acorduri', title: 'Acordurile clinicii', description: 'Fișiere și perioade de valabilitate asociate clinicii.', saveFirstTitle: 'Salvați clinica mai întâi', saveFirstDescription: 'Acordurile pot fi adăugate după salvarea clinicii.', viewOnly: 'Doar vizualizare', loadError: 'Acordurile nu au putut fi încărcate.', retry: 'Încercați din nou', emptyTitle: 'Nu există încă acorduri', emptyDescription: 'Adăugați aici acordul semnat și datele sale de valabilitate.', active: 'Activ', inactive: 'Inactiv', inValidity: 'În perioada de valabilitate', expired: 'Expirat', future: 'Începe în viitor', contractNumber: 'Număr contract', validFrom: 'Valabil de la', validTo: 'Valabil până la', file: 'Fișierul acordului', fileRules: 'PDF, DOC, DOCX, JPEG sau PNG · maximum 20 MB', addAgreement: 'Adaugă acord', agreementTitle: 'Titlul acordului', download: 'Descarcă', edit: 'Editează detaliile', cancel: 'Anulează editarea', save: 'Salvează modificările', endValidity: 'Încheie valabilitatea', reactivate: 'Reactivează', uploading: 'Se încarcă…', upload: 'Încarcă acordul', uploadError: 'Încărcarea a eșuat. Formularul a fost păstrat.', saveError: 'Modificările nu au putut fi salvate. Ciorna a fost păstrată.', invalidFile: 'Alegeți un fișier PDF, DOC, DOCX, JPEG sau PNG.', fileTooLarge: 'Fișierul nu poate depăși 20 MB.' },
       cooperationHistoryDesc: 'Statusuri canonice de cooperare înregistrate în liste de status ale campaniilor (KPI 3.4–3.7)',
       cooperationNoData: 'Nicio înregistrare de cooperare încă.',
       cooperationNoDataHint: 'Înregistrările se creează automat când un coordonator confirmă o opțiune din lista de status cu un status canonic setat.',
@@ -48267,6 +48286,7 @@ export const translations = {
 
   },
   it: {
+    datePicker: { selectDate: 'Seleziona data', now: 'Adesso', noTimeLimit: 'Il contratto non ha limiti temporali di validità' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'urgente',
@@ -50538,6 +50558,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Dove sono stati posizionati',
       cooperationTab: 'Cooperazione',
       cooperationHistoryTitle: 'Cronologia cooperazione',
+      agreements: { tab: 'Accordi', title: 'Accordi della clinica', description: 'File e periodi di validità associati alla clinica.', saveFirstTitle: 'Salva prima la clinica', saveFirstDescription: 'Gli accordi possono essere aggiunti dopo aver salvato la clinica.', viewOnly: 'Sola visualizzazione', loadError: 'Impossibile caricare gli accordi.', retry: 'Riprova', emptyTitle: 'Nessun accordo', emptyDescription: 'Aggiungi qui l’accordo firmato e le relative date di validità.', active: 'Attivo', inactive: 'Inattivo', inValidity: 'Nel periodo di validità', expired: 'Scaduto', future: 'Valido in futuro', contractNumber: 'Numero contratto', validFrom: 'Valido dal', validTo: 'Valido fino al', file: 'File dell’accordo', fileRules: 'PDF, DOC, DOCX, JPEG o PNG · massimo 20 MB', addAgreement: 'Aggiungi accordo', agreementTitle: 'Titolo dell’accordo', download: 'Scarica', edit: 'Modifica dettagli', cancel: 'Annulla modifica', save: 'Salva modifiche', endValidity: 'Termina validità', reactivate: 'Riattiva', uploading: 'Caricamento…', upload: 'Carica accordo', uploadError: 'Caricamento non riuscito. I dati inseriti sono stati conservati.', saveError: 'Impossibile salvare le modifiche. La bozza è stata conservata.', invalidFile: 'Scegli un file PDF, DOC, DOCX, JPEG o PNG.', fileTooLarge: 'Il file non può superare 20 MB.' },
       cooperationHistoryDesc: 'Stati canonici di cooperazione registrati nelle liste di stato delle campagne (KPI 3.4–3.7)',
       cooperationNoData: 'Nessun record di cooperazione ancora.',
       cooperationNoDataHint: 'I record vengono creati automaticamente quando un coordinatore conferma un\'opzione della lista di stato con uno stato canonico impostato.',
@@ -56070,6 +56091,7 @@ export const translations = {
 
   },
   de: {
+    datePicker: { selectDate: 'Datum auswählen', now: 'Jetzt', noTimeLimit: 'Der Vertrag ist unbefristet gültig' },
     backOffice: {
       title: 'Back Office',
       urgentLabel: 'dringend',
@@ -58341,6 +58363,7 @@ export const translations = {
       flyersLocationPlaceholder: 'Wo sie platziert wurden',
       cooperationTab: 'Zusammenarbeit',
       cooperationHistoryTitle: 'Zusammenarbeitshistorie',
+      agreements: { tab: 'Vereinbarungen', title: 'Klinikvereinbarungen', description: 'Der Klinik zugeordnete Dateien und Gültigkeitszeiträume.', saveFirstTitle: 'Klinik zuerst speichern', saveFirstDescription: 'Vereinbarungen können nach dem Speichern der Klinik hinzugefügt werden.', viewOnly: 'Nur ansehen', loadError: 'Vereinbarungen konnten nicht geladen werden.', retry: 'Erneut versuchen', emptyTitle: 'Noch keine Vereinbarungen', emptyDescription: 'Fügen Sie hier die unterzeichnete Vereinbarung und ihre Gültigkeitsdaten hinzu.', active: 'Aktiv', inactive: 'Inaktiv', inValidity: 'Innerhalb der Gültigkeit', expired: 'Abgelaufen', future: 'Beginnt künftig', contractNumber: 'Vertragsnummer', validFrom: 'Gültig ab', validTo: 'Gültig bis', file: 'Vereinbarungsdatei', fileRules: 'PDF, DOC, DOCX, JPEG oder PNG · maximal 20 MB', addAgreement: 'Vereinbarung hinzufügen', agreementTitle: 'Titel der Vereinbarung', download: 'Herunterladen', edit: 'Details bearbeiten', cancel: 'Bearbeitung abbrechen', save: 'Änderungen speichern', endValidity: 'Gültigkeit beenden', reactivate: 'Reaktivieren', uploading: 'Wird hochgeladen…', upload: 'Vereinbarung hochladen', uploadError: 'Upload fehlgeschlagen. Ihre Eingaben bleiben erhalten.', saveError: 'Änderungen konnten nicht gespeichert werden. Ihr Entwurf bleibt erhalten.', invalidFile: 'Wählen Sie eine PDF-, DOC-, DOCX-, JPEG- oder PNG-Datei.', fileTooLarge: 'Die Datei darf höchstens 20 MB groß sein.' },
       cooperationHistoryDesc: 'Kanonische Kooperationsstatus aus Kampagnenstatuslisten (KPI 3.4–3.7)',
       cooperationNoData: 'Noch keine Zusammenarbeitseinträge.',
       cooperationNoDataHint: 'Einträge werden automatisch erstellt, wenn ein Koordinator eine Statuslistoption mit einem kanonischen Status bestätigt.',
