@@ -9,7 +9,7 @@ document.documentElement.setAttribute("data-agent-fullscreen", "true");
 function Fixture() {
   const [open, setOpen] = useState(true);
   return <I18nProvider>
-    <PulseDiagnostics open={open} required userId="readiness-fixture"
+    <PulseDiagnostics open={open} required autoStartRequest={new URLSearchParams(window.location.search).has("autostart") ? 1 : 0} userId="readiness-fixture"
       onClose={() => setOpen(false)} onExit={() => setOpen(false)}
       onReady={() => setOpen(false)} />
     {!open && <p data-testid="returned-to-indexus">Returned to INDEXUS</p>}

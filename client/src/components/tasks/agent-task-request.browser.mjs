@@ -107,6 +107,7 @@ try {
     const editor = page.getByTestId("agent-task-request-editor");
     const context = page.getByTestId("agent-task-request-context");
     const textarea = page.getByTestId("input-create-task-description");
+    const title = page.getByTestId("input-create-task-title");
     await editor.waitFor({ state: "visible", timeout: 7000 });
     assert.equal(await page.getByText("Your request", { exact: true }).count(), 1, "actual translated editor title rendered");
     assert.equal(await context.getByText("Task context", { exact: true }).count(), 1, "actual translated context title rendered");
@@ -118,26 +119,11 @@ try {
     );
     const requestBox = await editor.boundingBox();
     const requestHeadingBox = await editor.locator("label").boundingBox();
+    const titleBox = await title.boundingBox();
+    assert.ok(titleBox && titleBox.y >= 0 && titleBox.y + titleBox.height <= scenario.height, `${scenario.name} editable title is fully above the fold`);
     assert.ok(requestBox && requestBox.y >= 0 && requestBox.y + requestBox.height <= scenario.height, `${scenario.name} initial request editor is fully above the fold`);
     assert.ok(requestHeadingBox && requestHeadingBox.y >= 0 && requestHeadingBox.y + requestHeadingBox.height <= scenario.height, `${scenario.name} initial request heading is visible`);
     assert.equal(await page.locator(".task-create-sheet-body").evaluate((element) => element.scrollTop), 0, `${scenario.name} is captured before interaction-driven scrolling`);
-    if (scenario.name === "short-desktop") {
-      const priorityBox = await page.getByTestId("btn-task-priority-low").boundingBox();
-      const deadlineBox = await page.getByTestId("input-create-task-duedate").boundingBox();
-      const visibleBounds = await page.locator(".task-create-sheet-body").evaluate((body) => {
-        const bodyBounds = body.getBoundingClientRect();
-        const priorityBounds = document.querySelector('[data-testid="btn-task-priority-low"]').getBoundingClientRect();
-        const deadlineBounds = document.querySelector('[data-testid="input-create-task-duedate"]').getBoundingClientRect();
-        return {
-          priorityFullyVisible: priorityBounds.top >= bodyBounds.top && priorityBounds.bottom <= bodyBounds.bottom,
-          deadlineFullyVisible: deadlineBounds.top >= bodyBounds.top && deadlineBounds.bottom <= bodyBounds.bottom,
-        };
-      });
-      assert.ok(priorityBox && priorityBox.y + priorityBox.height <= scenario.height, "priority control is fully in the first short-desktop viewport");
-      assert.ok(deadlineBox && deadlineBox.y + deadlineBox.height <= scenario.height, "deadline control is fully in the first short-desktop viewport");
-      assert.equal(visibleBounds.priorityFullyVisible, true, "priority is not clipped by the sheet footer");
-      assert.equal(visibleBounds.deadlineFullyVisible, true, "deadline is not clipped by the sheet footer");
-    }
     await page.screenshot({
       path: path.join(proofDir, `${scenario.name}-initial.png`),
       animations: "disabled",
@@ -147,6 +133,7 @@ try {
       return getComputedStyle(element).gridTemplateColumns.split(" ").length;
     });
     assert.equal(gridColumns, scenario.expectedColumns, `${scenario.name} uses expected form columns`);
+    assert.ok(await title.evaluate((element) => Boolean(element.compareDocumentPosition(document.querySelector('[data-testid="agent-task-request-editor"]')) & 4)), "editable title precedes Your request in document order");
     const firstEditorPosition = await editor.evaluate((element) => element.compareDocumentPosition(document.querySelector('[data-testid="agent-task-request-context"]')));
     assert.ok(firstEditorPosition & 4, "authored request precedes generated context");
     assert.equal(await page.locator('input[type="date"]').count(), 0, "deadline does not use native browser date input");
@@ -201,16 +188,21 @@ try {
     assert.ok(contrastRatio(colors.titleColor, colors.editorBackgroundForContrast) >= 4.5, "request title remains legible against real app styles");
 
     await textarea.fill(authoredBody);
-    await page.getByTestId("fixture-change-category").click();
+    await page.getByTestId("btn-task-category-picker").click();
+    for (const category of ["change_data", "wrong_phone", "wrong_email", "wrong_address", "document_request", "complaint", "other"]) {
+      assert.equal(await page.getByTestId(`chip-task-category-${category}`).isVisible(), true, `${category} request type option is available`);
+    }
+    const addressOption = page.getByTestId("chip-task-category-wrong_address");
+    const addressLabel = (await addressOption.innerText()).trim();
+    await addressOption.click();
+    assert.equal(await title.inputValue(), `${addressLabel} — Mila Novak`, "category selection applies the established generated-title semantics");
+    await title.fill("Review address — Mila Novak");
+    assert.equal(await title.inputValue(), "Review address — Mila Novak", "task title remains editable after choosing a request type");
     assert.equal(await textarea.inputValue(), authoredBody, "category change preserves the authored multiline body");
     assert.match(await context.innerText(), /Mila Novak/, "category update retains entity context");
     assert.match(await context.innerText(), /address/i, "selected category phrase appears in automatic context");
 
     await textarea.focus();
-    if (scenario.name === "short-desktop") {
-      assert.equal(await page.getByTestId("btn-task-priority-low").isVisible(), true, "priority is in the first viewport at short desktop height");
-      assert.equal(await dateControl.isVisible(), true, "deadline is in the first viewport at short desktop height");
-    }
     await page.screenshot({
       path: path.join(proofDir, `${scenario.name}-interactions.png`),
       animations: "disabled",

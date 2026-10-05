@@ -33,7 +33,7 @@ import { getTaskAttachmentContextKey, TaskAttachmentPicker } from "@/components/
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import "@/components/tasks/task-modern-task-surfaces.css";
 import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
-import { TaskCreateDatePicker, TaskPriorityPicker, type TaskPriority } from "@/components/tasks/task-create-controls";
+import { TaskCategoryPicker, TaskCreateDatePicker, TaskPriorityPicker, type TaskPriority } from "@/components/tasks/task-create-controls";
 import { applyTaskRequestCategory, composeTaskRequestDescription } from "@/components/tasks/task-request-description";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17713,6 +17713,26 @@ function AgentWorkspacePageContent() {
             {(() => { const taskEnt = resolveTaskEntity(); return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
+            <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_230px] items-end gap-3">
+              <div className="space-y-1.5 min-w-0">
+                <label htmlFor="input-create-task-title" className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskTitle}</label>
+                <Input
+                  id="input-create-task-title"
+                  value={createTaskForm.title}
+                  onChange={(e) => setCreateTaskForm(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder={t.quickCreate.taskTitle}
+                  className="task-create-title-input rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
+                  data-testid="input-create-task-title"
+                />
+              </div>
+              <TaskCategoryPicker
+                value={createTaskForm.category}
+                options={taskCategoryOptions}
+                label={t.quickCreate.taskCategory}
+                onChange={applyTaskCategory}
+              />
+            </div>
+
             {/* The agent's authored request is the primary task content. */}
             <div className="md:col-span-2">
               <AgentTaskRequestEditor
@@ -17735,48 +17755,8 @@ function AgentWorkspacePageContent() {
               />
             </div>
 
-            {/* ── Left column ── */}
-            <div className="space-y-5 min-w-0">
-
-              {/* Category — request type picker */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskCategory}</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {taskCategoryOptions.map(({ id, label, Icon }) => {
-                    const selected = createTaskForm.category === id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => applyTaskCategory(id)}
-                         className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-[11px] font-medium text-left transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
-                        data-testid={`chip-task-category-${id}`}
-                      >
-                         <Icon className={`h-3.5 w-3.5 shrink-0 ${selected ? "text-white" : "text-[#2d6fba] dark:text-blue-300"}`} />
-                        <span className="truncate">{label}</span>
-                        {selected && <Check className="h-3 w-3 shrink-0 ml-auto" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Title */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.taskTitle}</label>
-                <Input
-                  value={createTaskForm.title}
-                  onChange={(e) => setCreateTaskForm({ ...createTaskForm, title: e.target.value })}
-                  placeholder={t.quickCreate.taskTitle}
-                   className="rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
-                  data-testid="input-create-task-title"
-                />
-              </div>
-
-            </div>
-
-            {/* ── Right column ── */}
-            <div className="space-y-5 min-w-0">
+            {/* ── Routing, timing, and ownership ── */}
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 min-w-0">
 
               {/* Priority — one coherent blue scale, with urgency as the only semantic accent. */}
               <div className="space-y-1.5">

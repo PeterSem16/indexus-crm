@@ -100,6 +100,8 @@ function RequiredPulseGate({ children }: Props) {
   const allowed = !!user && !isLoading && canAccessModule("nexusPulse");
   const key = pulseReadinessStorageKey(userKey(user));
   const [open, setOpen] = useState(false);
+  const diagnosticsOpenRef = useRef(open);
+  useLayoutEffect(() => { diagnosticsOpenRef.current = open; }, [open]);
   const [status, setStatus] = useState<Status>("checking");
   const [acknowledged, setAcknowledged] = useState(() => readStoredReadiness(key));
   const hasEnteredPulseRef = useRef(acknowledged);
@@ -283,14 +285,23 @@ function RequiredPulseGate({ children }: Props) {
       if (!workProtectedRef.current) requestInvalidation("network");
     };
     let deviceCheckInFlight = false;
+    let disposed = false;
     const checkAudioDevices = async () => {
       if (deviceCheckInFlight) return;
-      const baseline = parseAudioDeviceSnapshot(sessionStorage.getItem(pulseAudioDeviceBaselineStorageKey(userKey(user))));
+      const baselineKey = pulseAudioDeviceBaselineStorageKey(userKey(user));
+      const baselineValue = sessionStorage.getItem(baselineKey);
+      const baseline = parseAudioDeviceSnapshot(baselineValue);
       // A baseline is deliberately absent until a complete readiness run succeeds.
       if (!baseline) return;
       deviceCheckInFlight = true;
+      const generation = diagnosticsGenerationRef.current;
       try {
         const current = await readAudioDeviceSnapshot();
+        // Opening the mic can reveal permission-hidden devices and labels.
+        // A current diagnostic run owns that environment; an old observer
+        // must not remount it, or invalidate its freshly committed baseline.
+        if (disposed || diagnosticsOpenRef.current || generation !== diagnosticsGenerationRef.current
+          || baselineValue !== sessionStorage.getItem(baselineKey)) return;
         if (current && !audioDeviceSnapshotsEqual(baseline, current)) requestInvalidation("device");
       } finally {
         deviceCheckInFlight = false;
@@ -345,6 +356,7 @@ function RequiredPulseGate({ children }: Props) {
     // Polling is necessary on browsers which do not reliably emit devicechange.
     const lifecycleTimer = window.setInterval(lifecycleCheck, 15000);
     return () => {
+      disposed = true;
       window.removeEventListener("offline", offline);
       mediaDevices?.removeEventListener?.("devicechange", deviceChanged);
       window.removeEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
@@ -447,5 +459,12 @@ export function PulseHeaderButton() {
   if (!allowed) return null;
   const statusLabel = status === "ready" ? t.ready : status === "warning" ? t.warning : status === "blocked" ? t.blocked : t.working;
   const dotColor = status === "ready" ? "bg-emerald-500" : status === "warning" ? "bg-amber-500" : status === "blocked" ? "bg-destructive" : "bg-muted-foreground";
-  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workProtected) return; if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open && !workProtected} hasValidReadiness={readStoredReadiness(key, workProtected)} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { sessionStorage.setItem(key, "1"); void readAudioDeviceSnapshot().then((snapshot) => { if (snapshot) sessionStorage.setItem(pulseAudioDeviceBaselineStorageKey(userKey(user)), JSON.stringify(snapshot)); }); window.dispatchEvent(new Event("nexus-pulse-ready")); setOpen(false); setLocation("/agent-workspace"); }} />}</>;
+  return <><Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="relative" onClick={() => { if (workProtected) return; if (workspaceRoute) window.dispatchEvent(new Event("nexus-pulse-open")); else setOpen(true); }} aria-label={`${t.title}: ${statusLabel}`} data-testid="button-pulse-status"><Activity className="h-5 w-5" /><span aria-hidden="true" className={`absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-background ${dotColor}`} /></Button></TooltipTrigger><TooltipContent><p>{t.title}: {statusLabel}</p></TooltipContent></Tooltip>{!workspaceRoute && <PulseDiagnostics open={open && !workProtected} hasValidReadiness={readStoredReadiness(key, workProtected)} userId={userKey(user)} onClose={() => { setOpen(false); sync(); }} onReady={() => { void readAudioDeviceSnapshot().then((snapshot) => {
+    if (snapshot) sessionStorage.setItem(pulseAudioDeviceBaselineStorageKey(userKey(user)), JSON.stringify(snapshot));
+    // Publish readiness only once the matching device baseline is committed.
+    sessionStorage.setItem(key, "1");
+    window.dispatchEvent(new Event("nexus-pulse-ready"));
+    setOpen(false);
+    setLocation("/agent-workspace");
+  }); }} />}</>;
 }

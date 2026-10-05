@@ -1,6 +1,68 @@
 import { CalendarDays, ChevronDown, Flag, ArrowDown, ArrowUp, Zap, Check, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
+
+export type TaskCategoryOption = {
+  id: string;
+  label: string;
+  Icon: LucideIcon;
+};
+
+export function TaskCategoryPicker({
+  value,
+  options,
+  label,
+  onChange,
+}: {
+  value: string;
+  options: TaskCategoryOption[];
+  label: string;
+  onChange: (value: string) => void;
+}) {
+  const selected = options.find((option) => option.id === value);
+  const SelectedIcon = selected?.Icon;
+
+  return (
+    <div className="task-category-picker">
+      <span className="task-category-picker-label">{label}</span>
+      <details className="task-category-picker-menu">
+        <summary
+          className="task-category-picker-trigger"
+          aria-label={label}
+          data-testid="btn-task-category-picker"
+        >
+          {SelectedIcon ? <SelectedIcon className="task-category-picker-icon" aria-hidden="true" /> : null}
+          <span className="task-category-picker-value">{selected?.label || label}</span>
+          <ChevronDown className="task-category-picker-chevron" aria-hidden="true" />
+        </summary>
+        <div className="task-category-picker-options" role="listbox" aria-label={label}>
+          {options.map(({ id, label: optionLabel, Icon }) => {
+            const isSelected = value === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={(event) => {
+                  onChange(id);
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+                data-testid={`chip-task-category-${id}`}
+                className={`task-category-picker-option ${isSelected ? "is-selected" : ""}`}
+              >
+                <Icon className="task-category-picker-icon" aria-hidden="true" />
+                <span>{optionLabel}</span>
+                {isSelected && <Check className="task-category-picker-check" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      </details>
+    </div>
+  );
+}
 
 const PRIORITY_STYLES: Record<TaskPriority, { Icon: typeof Flag }> = {
   low: { Icon: ArrowDown },
