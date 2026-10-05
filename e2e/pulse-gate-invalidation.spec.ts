@@ -20,13 +20,14 @@ test("permission discovery and a stale device observer do not restart an active 
     localStorage.setItem("locale", "en");
     const w = window as any;
     w.deviceLabel = "Headset";
+    w.deviceId = "same-headset";
     w.deviceReads = 0;
     const baseline = { version: 1, devices: [{ kind: "audioinput", deviceId: "same-headset", groupId: "group", label: "" }] };
     sessionStorage.setItem("nexus-pulse-ready-v2:gate-test", "1");
     sessionStorage.setItem("nexus-pulse-audio-devices-v1:gate-test", JSON.stringify(baseline));
     navigator.mediaDevices.enumerateDevices = async () => {
       w.deviceReads++;
-      const devices = [{ kind: "audioinput", deviceId: "same-headset", groupId: "group", label: w.deviceLabel }] as MediaDeviceInfo[];
+      const devices = [{ kind: "audioinput", deviceId: w.deviceId, groupId: "group", label: w.deviceLabel }] as MediaDeviceInfo[];
       if (w.delayNextEnumeration) {
         w.delayNextEnumeration = false;
         return new Promise<MediaDeviceInfo[]>((resolve) => { w.resolveOldObservation = () => resolve(devices); });
@@ -62,7 +63,7 @@ test("permission discovery and a stale device observer do not restart an active 
   expect(await page.evaluate(() => sessionStorage.getItem("nexus-pulse-ready-v2:gate-test"))).toBe("1");
   // After the check closes, a genuinely new device still requires a new run.
   await page.evaluate(() => {
-    (window as any).deviceLabel = "Different headset";
+    (window as any).deviceId = "replacement-headset";
     navigator.mediaDevices.dispatchEvent(new Event("devicechange"));
   });
   await expect(page.getByTestId("nexus-pulse-recheck-intro")).toBeVisible();

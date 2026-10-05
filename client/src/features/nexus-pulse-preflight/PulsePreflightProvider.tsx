@@ -11,7 +11,8 @@ import { useCall } from "@/contexts/call-context";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { PulseDiagnostics } from "./PulseDiagnostics";
-import { audioDeviceSnapshotsEqual, isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, shouldPresentDeferredRecheck, shouldRetainStoredReadiness } from "./diagnostics";
+import { isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, type AudioDeviceSnapshot } from "./diagnostics";
+import { DEVICE_CHANGE_CONFIRM_MS, NETWORK_CHANGE_CONFIRM_MS, hasMeaningfulAudioDeviceChange, networkTransport } from "./recheck-policy";
 import { isPulseRecordingPlaybackActive } from "./recording-playback";
 import { pulseCopy } from "./translations";
 import { canUsePulseDevPreview, PULSE_DEV_PREVIEW_PARAM, pulseDevPreviewCopy } from "./dev-preview";
@@ -168,6 +169,11 @@ function RequiredPulseGate({ children }: Props) {
     window.dispatchEvent(new Event("nexus-pulse-invalidated"));
   }, [key]);
   const requestInvalidation = useCallback((reason = "environment") => {
+    if (!workProtectedRef.current && requiredRecheckPendingRef.current) return;
+    if (!deferredInvalidationReasons.current.has(reason)) {
+      // Deliberately log only the static reason, never device identifiers or call data.
+      console.info("[NexusPulse] Readiness recheck requested:", reason);
+    }
     if (workProtectedRef.current) {
       deferredInvalidation.current = true;
       deferredInvalidationReasons.current.add(reason);
@@ -286,13 +292,22 @@ function RequiredPulseGate({ children }: Props) {
     };
     let deviceCheckInFlight = false;
     let disposed = false;
+    let deviceCandidate: AudioDeviceSnapshot | null = null;
+    let deviceCandidateSince = 0;
+    let deviceConfirmTimer: number | undefined;
+    const clearDeviceCandidate = () => {
+      deviceCandidate = null;
+      deviceCandidateSince = 0;
+      window.clearTimeout(deviceConfirmTimer);
+      deviceConfirmTimer = undefined;
+    };
     const checkAudioDevices = async () => {
       if (deviceCheckInFlight) return;
       const baselineKey = pulseAudioDeviceBaselineStorageKey(userKey(user));
       const baselineValue = sessionStorage.getItem(baselineKey);
       const baseline = parseAudioDeviceSnapshot(baselineValue);
       // A baseline is deliberately absent until a complete readiness run succeeds.
-      if (!baseline) return;
+      if (!baseline) { clearDeviceCandidate(); return; }
       deviceCheckInFlight = true;
       const generation = diagnosticsGenerationRef.current;
       try {
@@ -301,15 +316,58 @@ function RequiredPulseGate({ children }: Props) {
         // A current diagnostic run owns that environment; an old observer
         // must not remount it, or invalidate its freshly committed baseline.
         if (disposed || diagnosticsOpenRef.current || generation !== diagnosticsGenerationRef.current
-          || baselineValue !== sessionStorage.getItem(baselineKey)) return;
-        if (current && !audioDeviceSnapshotsEqual(baseline, current)) requestInvalidation("device");
+          || baselineValue !== sessionStorage.getItem(baselineKey)) { clearDeviceCandidate(); return; }
+        if (!current || !hasMeaningfulAudioDeviceChange(baseline, current)) { clearDeviceCandidate(); return; }
+        if (deviceCandidate && !hasMeaningfulAudioDeviceChange(deviceCandidate, current)) {
+          const remaining = DEVICE_CHANGE_CONFIRM_MS - (performance.now() - deviceCandidateSince);
+          if (remaining <= 0) {
+            clearDeviceCandidate();
+            requestInvalidation("device");
+          } else if (deviceConfirmTimer === undefined) {
+            deviceConfirmTimer = window.setTimeout(() => {
+              deviceConfirmTimer = undefined;
+              void checkAudioDevices();
+            }, Math.ceil(remaining) + 1);
+          }
+        } else {
+          deviceCandidate = current;
+          deviceCandidateSince = performance.now();
+          window.clearTimeout(deviceConfirmTimer);
+          deviceConfirmTimer = window.setTimeout(() => {
+            deviceConfirmTimer = undefined;
+            void checkAudioDevices();
+          }, DEVICE_CHANGE_CONFIRM_MS + 1);
+        }
       } finally {
         deviceCheckInFlight = false;
       }
     };
     const deviceChanged = () => { void checkAudioDevices(); };
+    const connection = (navigator as any).connection;
+    let previousTransport = networkTransport(connection?.type);
+    let networkConfirmTimer: number | undefined;
     const connectionChanged = () => {
-      if (!workProtectedRef.current) requestInvalidation("network");
+      const currentTransport = networkTransport(connection?.type);
+      if (!currentTransport) return;
+      if (!previousTransport || diagnosticsOpenRef.current) {
+        previousTransport = currentTransport;
+        window.clearTimeout(networkConfirmTimer);
+        networkConfirmTimer = undefined;
+        return;
+      }
+      if (currentTransport === previousTransport) { window.clearTimeout(networkConfirmTimer); networkConfirmTimer = undefined; return; }
+      // Ignore fluctuating quality estimates and brief transport oscillations.
+      if (networkConfirmTimer !== undefined) return;
+      const generation = diagnosticsGenerationRef.current;
+      networkConfirmTimer = window.setTimeout(() => {
+        networkConfirmTimer = undefined;
+        const confirmedTransport = networkTransport(connection?.type);
+        if (disposed || diagnosticsOpenRef.current || generation !== diagnosticsGenerationRef.current) return;
+        if (confirmedTransport && confirmedTransport !== previousTransport) {
+          previousTransport = confirmedTransport;
+          if (!workProtectedRef.current) requestInvalidation("network");
+        }
+      }, NETWORK_CHANGE_CONFIRM_MS);
     };
     const mediaInterrupted = (event: Event) => {
       const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
@@ -348,7 +406,7 @@ function RequiredPulseGate({ children }: Props) {
     window.addEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
     window.addEventListener("nexus-pulse-media-critical", mediaCritical);
     window.addEventListener("nexus-pulse-media-recovered", mediaRecovered);
-    const connection = (navigator as any).connection; connection?.addEventListener?.("change", connectionChanged);
+    connection?.addEventListener?.("change", connectionChanged);
     const lifecycleCheck = () => { void checkAudioDevices(); };
     window.addEventListener("focus", lifecycleCheck);
     document.addEventListener("visibilitychange", lifecycleCheck);
@@ -357,6 +415,8 @@ function RequiredPulseGate({ children }: Props) {
     const lifecycleTimer = window.setInterval(lifecycleCheck, 15000);
     return () => {
       disposed = true;
+      clearDeviceCandidate();
+      window.clearTimeout(networkConfirmTimer);
       window.removeEventListener("offline", offline);
       mediaDevices?.removeEventListener?.("devicechange", deviceChanged);
       window.removeEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
