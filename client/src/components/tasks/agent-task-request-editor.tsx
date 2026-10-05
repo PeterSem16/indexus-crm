@@ -52,6 +52,7 @@ export interface AgentTaskRequestContextProps {
   entityTypeLabel?: string;
   entityName?: string;
   categoryPhrase?: string;
+  compact?: boolean;
 }
 
 export function AgentTaskRequestContext({
@@ -60,25 +61,26 @@ export function AgentTaskRequestContext({
   entityTypeLabel,
   entityName,
   categoryPhrase,
+  compact = false,
 }: AgentTaskRequestContextProps) {
   return (
     <section
       id="agent-task-request-context"
       data-testid="agent-task-request-context"
       aria-label={title}
-      className="rounded-xl border border-[#d7e3eb] bg-[#eef4f8] px-3.5 py-3 dark:border-slate-700 dark:bg-slate-800/60"
+      className={`rounded-xl border border-[#d7e3eb] bg-[#eef4f8] px-3.5 dark:border-slate-700 dark:bg-slate-800/60 ${compact ? "py-2" : "py-3"}`}
     >
       <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#e1ebf2] text-[#69839a] dark:bg-slate-700 dark:text-slate-300">
-          <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className={`mt-0.5 flex shrink-0 items-center justify-center rounded-lg bg-[#e1ebf2] text-[#69839a] dark:bg-slate-700 dark:text-slate-300 ${compact ? "h-6 w-6" : "h-7 w-7"}`}>
+          <ListChecks className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-[11px] font-semibold uppercase tracking-[0.11em] text-[#647b8f] dark:text-slate-300">
             {title}
           </h3>
-          <p className="mt-1 text-xs leading-relaxed text-[#8193a3] dark:text-slate-400">{hint}</p>
+          {!compact && <p className="mt-1 text-xs leading-relaxed text-[#8193a3] dark:text-slate-400">{hint}</p>}
           {(entityName || categoryPhrase) && (
-            <div className="mt-3 space-y-2 border-t border-[#dce6ed] pt-2.5 dark:border-slate-700">
+            <div className={`${compact ? "mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1" : "mt-3 space-y-2 border-t border-[#dce6ed] pt-2.5 dark:border-slate-700"}`}>
               {entityName && (
                 <p className="break-words text-xs leading-relaxed text-[#62788b] dark:text-slate-300">
                   {entityTypeLabel && <span className="font-medium">{entityTypeLabel}: </span>}

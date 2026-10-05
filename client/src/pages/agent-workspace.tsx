@@ -33,6 +33,7 @@ import { getTaskAttachmentContextKey, TaskAttachmentPicker } from "@/components/
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import "@/components/tasks/task-modern-task-surfaces.css";
 import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
+import { TaskCreateDatePicker, TaskPriorityPicker, type TaskPriority } from "@/components/tasks/task-create-controls";
 import { applyTaskRequestCategory, composeTaskRequestDescription } from "@/components/tasks/task-request-description";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17712,7 +17713,17 @@ function AgentWorkspacePageContent() {
             {(() => { const taskEnt = resolveTaskEntity(); return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
 
-            {/* Generated details stay visually secondary and never enter the editable body. */}
+            {/* The agent's authored request is the primary task content. */}
+            <div className="md:col-span-2">
+              <AgentTaskRequestEditor
+                value={createTaskForm.description}
+                onChange={(description) => setCreateTaskForm(prev => ({ ...prev, description }))}
+                agentTitle={t.tasks.taskAgentRequestTitle}
+                agentHint={t.tasks.taskAgentRequestHint}
+              />
+            </div>
+
+            {/* Generated details stay compact and secondary to the request. */}
             <div className="md:col-span-2">
               <AgentTaskRequestContext
                 title={t.tasks.taskRequestContextTitle}
@@ -17720,6 +17731,7 @@ function AgentWorkspacePageContent() {
                 entityTypeLabel={taskEnt ? taskEntityTypeLabel(taskEnt.type) : undefined}
                 entityName={taskEnt?.name || undefined}
                 categoryPhrase={taskCategoryOptions.find(category => category.id === createTaskForm.category)?.phrase}
+                compact
               />
             </div>
 
@@ -17761,56 +17773,37 @@ function AgentWorkspacePageContent() {
                 />
               </div>
 
-              <AgentTaskRequestEditor
-                value={createTaskForm.description}
-                onChange={(description) => setCreateTaskForm(prev => ({ ...prev, description }))}
-                agentTitle={t.tasks.taskAgentRequestTitle}
-                agentHint={t.tasks.taskAgentRequestHint}
-              />
             </div>
 
             {/* ── Right column ── */}
             <div className="space-y-5 min-w-0">
 
-              {/* Priority — playful segmented picker */}
+              {/* Priority — one coherent blue scale, with urgency as the only semantic accent. */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.priority}</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { value: "low", label: t.quickCreate.priorityLow, Icon: ArrowDown, active: "bg-emerald-500 border-emerald-500 text-white shadow-md", dot: "text-emerald-500" },
-                    { value: "medium", label: t.quickCreate.priorityMedium, Icon: Flag, active: "bg-amber-500 border-amber-500 text-white shadow-md", dot: "text-amber-500" },
-                     { value: "high", label: t.quickCreate.priorityHigh, Icon: ArrowUp, active: "bg-orange-500 border-orange-500 text-white shadow-md", dot: "text-orange-500" },
-                    { value: "urgent", label: t.quickCreate.priorityUrgent, Icon: Zap, active: "bg-red-600 border-red-600 text-white shadow-md", dot: "text-red-600" },
-                  ].map(({ value, label, Icon, active, dot }) => {
-                    const selected = createTaskForm.priority === value;
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setCreateTaskForm({ ...createTaskForm, priority: value })}
-                        className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition-all ${selected ? active : "bg-white dark:bg-stone-900 border-stone-300/70 dark:border-stone-700 text-stone-600 dark:text-stone-300 hover:border-stone-400 dark:hover:border-stone-500"}`}
-                        data-testid={`btn-task-priority-${value}`}
-                      >
-                        <Icon className={`h-4 w-4 ${selected ? "text-white" : dot}`} />
-                        <span className="truncate max-w-full">{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <TaskPriorityPicker
+                  value={createTaskForm.priority}
+                  ariaLabel={t.quickCreate.priority}
+                  labels={{
+                    low: t.quickCreate.priorityLow,
+                    medium: t.quickCreate.priorityMedium,
+                    high: t.quickCreate.priorityHigh,
+                    urgent: t.quickCreate.priorityUrgent,
+                  }}
+                  onChange={(priority: TaskPriority) => setCreateTaskForm(prev => ({ ...prev, priority }))}
+                />
               </div>
 
               {/* Deadline — date + quick chips */}
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.tasks?.deadline || "Termín"}</label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="date"
-                    value={createTaskForm.dueDate}
-                    onChange={(e) => setCreateTaskForm({ ...createTaskForm, dueDate: e.target.value })}
-                     className="h-9 flex-1 rounded-xl bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 shadow-sm focus-visible:ring-2 focus-visible:ring-[#2d6fba]/35 focus-visible:border-[#2d6fba]/60"
-                    data-testid="input-create-task-duedate"
-                  />
-                </div>
+                <TaskCreateDatePicker
+                  clearLabel={t.common.clear}
+                  value={createTaskForm.dueDate}
+                  onChange={(dueDate) => setCreateTaskForm(prev => ({ ...prev, dueDate }))}
+                  locale={locale}
+                  label={t.tasks?.deadline || "Termín"}
+                />
                 <div className="flex items-center flex-wrap gap-1.5">
                   {[
                     { label: t.quickCreate.dueToday, date: format(new Date(), "yyyy-MM-dd"), testid: "chip-due-today" },

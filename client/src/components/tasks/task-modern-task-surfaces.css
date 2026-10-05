@@ -12,13 +12,19 @@
   overflow: hidden !important;
   border: 1px solid hsl(var(--border) / .92) !important;
   border-radius: 22px !important;
-  background: hsl(var(--background)) !important;
-  box-shadow: 0 28px 90px hsl(220 30% 12% / .27) !important;
+  background: #f8fbfd !important;
+  color: #18354f;
+  box-shadow: 0 28px 90px hsl(213 36% 18% / .24) !important;
 }
 
 .task-create-sheet-header {
   border-bottom: 1px solid hsl(var(--border) / .75);
   text-align: left;
+}
+
+/* Keep the request above the fold instead of spending space on artwork. */
+.task-create-sheet > .task-modal-artwork {
+  display: none;
 }
 
 .task-create-sheet-body {
@@ -47,19 +53,137 @@
 }
 
 .task-create-sheet .task-create-submit {
-  background: linear-gradient(180deg, hsl(var(--destructive) / .9), hsl(var(--destructive))) !important;
-  box-shadow: 0 5px 13px hsl(var(--destructive) / .18);
+  background: linear-gradient(180deg, #3984c9, #2869aa) !important;
+  box-shadow: 0 5px 13px hsl(210 56% 42% / .2);
 }
 
-.task-create-sheet button[class*="bg-[#2d6fba]"] {
-  border-color: hsl(var(--destructive)) !important;
-  background-color: hsl(var(--destructive)) !important;
-  color: hsl(var(--destructive-foreground)) !important;
+.task-create-sheet .task-create-submit:hover:not(:disabled) {
+  background: #205b96 !important;
 }
 
-.task-create-sheet button[class*="text-[#2d6fba]"] {
-  color: hsl(var(--destructive)) !important;
+.task-create-sheet [data-testid="agent-task-request-editor"] {
+  border-color: #a9c8df;
+  background: #fffefa;
 }
+
+.task-create-sheet #input-create-task-description {
+  min-height: 128px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.task-create-sheet .task-priority-choice {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d1e0eb;
+  border-radius: 12px;
+  background: #fff;
+  color: #52718c;
+  padding: 7px 5px;
+  font-size: 11px;
+  font-weight: 650;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, transform .16s ease;
+}
+
+.task-create-sheet .task-priority-choice:hover { border-color: #79a9cd; transform: translateY(-1px); }
+.task-create-sheet .task-priority-choice:focus-visible { outline: 2px solid #4d8fc8; outline-offset: 2px; }
+.task-create-sheet .task-priority-icon {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid #d5e5f1;
+  border-radius: 8px;
+  background: #edf5fb;
+  color: #377bb6;
+}
+.task-create-sheet .task-priority-icon svg { width: 14px; height: 14px; stroke-width: 2.2; }
+.task-create-sheet .task-priority-choice.is-selected {
+  border-color: #79a9cd;
+  background: #eaf3fa;
+  color: #1d5789;
+  box-shadow: inset 0 0 0 1px #c8deee;
+}
+.task-create-sheet .task-priority-choice.is-selected .task-priority-icon { background: #d9eaf6; border-color: #bdd6e8; }
+.task-create-sheet .task-priority-choice.is-urgent .task-priority-icon { color: #bd4a42; background: #fff0ed; border-color: #f0c7c0; }
+.task-create-sheet .task-priority-choice.is-urgent.is-selected { border-color: #d99287; background: #fff5f2; color: #9c4037; box-shadow: inset 0 0 0 1px #f2d0ca; }
+.task-create-sheet .task-priority-choice.is-urgent.is-selected .task-priority-icon { background: #fbe3df; border-color: #efc3bc; }
+.task-create-sheet .task-priority-check { position: absolute; right: 5px; top: 5px; width: 11px; height: 11px; color: #347bb5; }
+.task-create-sheet .task-priority-choice.is-urgent.is-selected .task-priority-check { color: #b74d43; }
+
+.task-create-sheet .task-create-date-control {
+  display: flex;
+  min-width: 0;
+  height: 42px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #a8c9df;
+  border-radius: 11px;
+  background: #eaf3fa;
+  color: #1c568f;
+  padding: 0 9px;
+}
+.task-create-sheet .task-create-date-icon { width: 15px; height: 15px; flex: 0 0 auto; color: #2d6fba; }
+.task-create-sheet .task-create-date-control select {
+  min-width: 0;
+  flex: 1 1 0;
+  appearance: none;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent;
+  color: #1c568f;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  outline: none;
+}
+.task-create-sheet .task-create-date-control select:nth-of-type(2) { flex-grow: 1.45; }
+.task-create-sheet .task-create-date-control.is-empty select { color: #8096a8; }
+.task-create-sheet .task-create-date-control select:focus-visible { outline: 2px solid #4d8fc8; outline-offset: 1px; border-radius: 4px !important; }
+.task-create-sheet .task-date-divider { height: 20px; width: 1px; flex: 0 0 auto; background: #b9d8ed; }
+.task-create-sheet .task-create-date-chevron { width: 13px; height: 13px; flex: 0 0 auto; color: #7891a5; pointer-events: none; }
+.task-create-sheet .task-date-clear {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 6px;
+  color: #69849b;
+}
+.task-create-sheet .task-date-clear:hover { background: #dceaf4; color: #235c8c; }
+.task-create-sheet .task-date-clear svg { width: 13px; height: 13px; }
+
+.task-create-sheet [data-testid="agent-task-request-context"] {
+  border-color: #d9e5ed;
+  background: #f0f5f8;
+}
+
+.task-create-sheet [data-testid="agent-task-request-context"] { padding-top: 6px; padding-bottom: 6px; }
+
+.dark .task-create-sheet {
+  background: #111f2c !important;
+  color: #e1eaf1;
+}
+.dark .task-create-sheet [data-testid="agent-task-request-editor"] { border-color: #3b586d; background: #152432; }
+.dark .task-create-sheet [data-testid="agent-task-request-context"] { border-color: #344b5d; background: #1a2a38; }
+.dark .task-create-sheet .task-priority-choice { border-color: #3a5265; background: #172938; color: #c0d1df; }
+.dark .task-create-sheet .task-priority-choice.is-selected { border-color: #5285ad; background: #1b3a53; color: #d9eaf6; box-shadow: inset 0 0 0 1px #2e5977; }
+.dark .task-create-sheet .task-priority-icon { border-color: #36566f; background: #213c51; color: #8dc0e5; }
+.dark .task-create-sheet .task-priority-choice.is-urgent .task-priority-icon { border-color: #704b4b; background: #3b292b; color: #f09b8e; }
+.dark .task-create-sheet .task-priority-choice.is-urgent.is-selected { border-color: #9d615b; background: #38282b; color: #ffd1c9; }
+.dark .task-create-sheet .task-priority-choice.is-urgent.is-selected .task-priority-icon { border-color: #8c5550; background: #513235; }
+.dark .task-create-sheet .task-create-date-control { border-color: #456983; background: #182e40; color: #c8e0f1; }
+.dark .task-create-sheet .task-create-date-control select { color: #c8e0f1; }
+.dark .task-create-sheet .task-create-date-control.is-empty select { color: #8298aa; }
+.dark .task-create-sheet .task-date-divider { background: #39566e; }
+.dark .task-create-sheet .task-date-clear { color: #aac2d4; }
 
 body:has(.task-create-sheet[data-state="open"]) [data-radix-dialog-overlay] {
   background: hsl(222 25% 18% / .4) !important;
@@ -126,13 +250,23 @@ body:has(.task-create-sheet[data-state="open"]) [data-radix-dialog-overlay] {
     max-height: calc(100dvh - 24px);
     border-radius: 18px !important;
   }
+
+  .task-create-sheet .task-priority-choice { gap: 4px; font-size: 10px; }
+  .task-create-sheet .task-priority-icon { width: 23px; height: 23px; }
 }
 
 @media (max-height: 700px) {
   .task-create-sheet-header {
-    padding-top: 12px !important;
-    padding-bottom: 12px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
   }
+
+  .task-create-sheet > .task-modal-artwork--compact { display: none; }
+  .task-create-sheet #input-create-task-description { min-height: 94px; }
+  .task-create-sheet .task-create-sheet-body { padding-top: 12px; padding-bottom: 12px; }
+  .task-create-sheet .task-create-sheet-body > div > div { row-gap: 12px; }
+  .task-create-sheet .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px !important; }
+  .task-create-sheet [data-testid="input-task-user-search"] + div { max-height: 96px; }
 
   .task-bo-recap-content {
     max-height: calc(100dvh - 24px);

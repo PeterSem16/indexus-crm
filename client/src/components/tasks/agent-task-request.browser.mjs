@@ -47,6 +47,7 @@ const html = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="/fixture.css" />
     <title>Pulse task request editor regression</title>
   </head>
   <body><div id="root"></div><script src="/fixture.js"></script></body>
@@ -57,6 +58,9 @@ const server = createServer(async (request, response) => {
   if (pathname === "/fixture.js") {
     response.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
     response.end(await readFile(bundlePath));
+  } else if (pathname === "/fixture.css") {
+    response.writeHead(200, { "content-type": "text/css; charset=utf-8" });
+    response.end(await readFile(path.join(proofDir, "fixture.css")));
   } else if (pathname === "/theme.css") {
     response.writeHead(200, { "content-type": "text/css; charset=utf-8" });
     response.end(await readFile(cssPath));
@@ -112,11 +116,72 @@ try {
       0,
       "automatic context is not editable",
     );
+    const requestBox = await editor.boundingBox();
+    const requestHeadingBox = await editor.locator("label").boundingBox();
+    assert.ok(requestBox && requestBox.y >= 0 && requestBox.y + requestBox.height <= scenario.height, `${scenario.name} initial request editor is fully above the fold`);
+    assert.ok(requestHeadingBox && requestHeadingBox.y >= 0 && requestHeadingBox.y + requestHeadingBox.height <= scenario.height, `${scenario.name} initial request heading is visible`);
+    assert.equal(await page.locator(".task-create-sheet-body").evaluate((element) => element.scrollTop), 0, `${scenario.name} is captured before interaction-driven scrolling`);
+    if (scenario.name === "short-desktop") {
+      const priorityBox = await page.getByTestId("btn-task-priority-low").boundingBox();
+      const deadlineBox = await page.getByTestId("input-create-task-duedate").boundingBox();
+      const visibleBounds = await page.locator(".task-create-sheet-body").evaluate((body) => {
+        const bodyBounds = body.getBoundingClientRect();
+        const priorityBounds = document.querySelector('[data-testid="btn-task-priority-low"]').getBoundingClientRect();
+        const deadlineBounds = document.querySelector('[data-testid="input-create-task-duedate"]').getBoundingClientRect();
+        return {
+          priorityFullyVisible: priorityBounds.top >= bodyBounds.top && priorityBounds.bottom <= bodyBounds.bottom,
+          deadlineFullyVisible: deadlineBounds.top >= bodyBounds.top && deadlineBounds.bottom <= bodyBounds.bottom,
+        };
+      });
+      assert.ok(priorityBox && priorityBox.y + priorityBox.height <= scenario.height, "priority control is fully in the first short-desktop viewport");
+      assert.ok(deadlineBox && deadlineBox.y + deadlineBox.height <= scenario.height, "deadline control is fully in the first short-desktop viewport");
+      assert.equal(visibleBounds.priorityFullyVisible, true, "priority is not clipped by the sheet footer");
+      assert.equal(visibleBounds.deadlineFullyVisible, true, "deadline is not clipped by the sheet footer");
+    }
+    await page.screenshot({
+      path: path.join(proofDir, `${scenario.name}-initial.png`),
+      animations: "disabled",
+    });
 
     const gridColumns = await page.getByTestId("fixture-form-grid").evaluate((element) => {
       return getComputedStyle(element).gridTemplateColumns.split(" ").length;
     });
     assert.equal(gridColumns, scenario.expectedColumns, `${scenario.name} uses expected form columns`);
+    const firstEditorPosition = await editor.evaluate((element) => element.compareDocumentPosition(document.querySelector('[data-testid="agent-task-request-context"]')));
+    assert.ok(firstEditorPosition & 4, "authored request precedes generated context");
+    assert.equal(await page.locator('input[type="date"]').count(), 0, "deadline does not use native browser date input");
+    const dateControl = page.getByTestId("input-create-task-duedate");
+    assert.equal(await dateControl.locator("select").count(), 3, "deadline uses day / month / year selectors");
+    assert.ok(await dateControl.locator('[data-testid="input-create-task-duedate-day"] option').count() >= 28, "deadline allows all calendar days, including weekends");
+
+    await page.getByTestId("btn-task-priority-urgent").click();
+    assert.equal(await page.getByTestId("btn-task-priority-urgent").getAttribute("aria-pressed"), "true", "urgent priority selection works");
+    const priorityStyles = await page.locator(".task-priority-choice").evaluateAll((buttons) => buttons.map((button) => ({
+      className: button.className,
+      iconColor: getComputedStyle(button.querySelector(".task-priority-icon")).color,
+    })));
+    assert.ok(priorityStyles.slice(0, 3).every((priority) => !priority.className.includes("is-urgent")), "non-urgent priorities share the same toned treatment");
+    assert.notEqual(priorityStyles[3].iconColor, priorityStyles[0].iconColor, "urgent retains a distinct semantic accent");
+
+    const daySelect = page.getByTestId("input-create-task-duedate-day");
+    const dateMonth = page.getByTestId("input-create-task-duedate-month");
+    const yearSelect = page.getByTestId("input-create-task-duedate-year");
+    const weekend = await daySelect.locator("option").evaluateAll((options) => options.map((option) => Number(option.value)).find((day) => {
+      const date = new Date(Number((document.querySelector('[data-testid="input-create-task-duedate-year"]')).value), Number((document.querySelector('[data-testid="input-create-task-duedate-month"]')).value) - 1, day);
+      return date.getDay() === 0 || date.getDay() === 6;
+    }));
+    assert.ok(weekend, "a weekend day is available in the selected month");
+    await daySelect.selectOption(String(weekend));
+    const chosenMonth = await dateMonth.inputValue();
+    const chosenYear = await yearSelect.inputValue();
+    assert.equal(await dateControl.getAttribute("data-value"), `${chosenYear}-${String(chosenMonth).padStart(2, "0")}-${String(weekend).padStart(2, "0")}`, "weekend deadline date is preserved");
+    await page.getByRole("button", { name: /clear/i }).click();
+    assert.equal(await dateControl.getAttribute("data-value"), "", "deadline can be cleared to empty");
+    assert.deepEqual(
+      await dateControl.locator("select").evaluateAll((selects) => selects.map((select) => select.value)),
+      ["", "", ""],
+      "an empty deadline shows empty day, month, and year controls rather than today's date",
+    );
 
     const colors = await page.evaluate(() => {
       const request = document.querySelector('[data-testid="agent-task-request-editor"]');
@@ -142,8 +207,12 @@ try {
     assert.match(await context.innerText(), /address/i, "selected category phrase appears in automatic context");
 
     await textarea.focus();
+    if (scenario.name === "short-desktop") {
+      assert.equal(await page.getByTestId("btn-task-priority-low").isVisible(), true, "priority is in the first viewport at short desktop height");
+      assert.equal(await dateControl.isVisible(), true, "deadline is in the first viewport at short desktop height");
+    }
     await page.screenshot({
-      path: path.join(proofDir, `${scenario.name}.png`),
+      path: path.join(proofDir, `${scenario.name}-interactions.png`),
       animations: "disabled",
     });
 
