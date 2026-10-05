@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/contexts/auth-context";
+import { canEditClinicAgreements } from "@shared/clinic-agreement-permissions";
 
 type ClinicAgreement = {
   id: string; clinicId: string; title: string; contractNumber: string | null;
@@ -17,7 +18,8 @@ type ClinicAgreement = {
 };
 type AgreementResponse = { agreements: ClinicAgreement[]; canManage: boolean };
 type AgreementDraft = { title: string; contractNumber: string; validFrom: string; validTo: string; active: boolean };
-const queryKey = (id: string, userId: string) => ["/api/clinics", id, "agreements", userId] as const;
+const queryKey = (id: string, userId: string, campaignId?: string, readOnly = false, allowReadOnlyEdit = false) =>
+  ["/api/clinics", id, "agreements", userId, campaignId || null, readOnly, allowReadOnlyEdit] as const;
 
 async function checkedJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -42,7 +44,7 @@ function bratislavaDateKey() {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
-export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode = "SK" }: { clinicId?: string | null; readOnly?: boolean; countryCode?: string }) {
+export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnlyEdit = false, campaignId, countryCode = "SK" }: { clinicId?: string | null; readOnly?: boolean; allowReadOnlyEdit?: boolean; campaignId?: string; countryCode?: string }) {
   const { t } = useI18n();
   const { user } = useAuth();
   const tx = { ...t.clinics.agreements, noTimeLimit: t.datePicker.noTimeLimit };
@@ -60,22 +62,26 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode 
   const busyRef = useRef(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AgreementDraft | null>(null);
+  const scopedKey = queryKey(clinicId || "unsaved", userId, campaignId, readOnly, allowReadOnlyEdit);
+  const agreementUrl = (agreementId?: string) =>
+    `/api/clinics/${encodeURIComponent(clinicId!)}/agreements${agreementId ? `/${encodeURIComponent(agreementId)}` : ""}${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}`;
   const { data, isLoading, isError, refetch } = useQuery<AgreementResponse>({
-    queryKey: queryKey(clinicId || "unsaved", userId),
+    queryKey: scopedKey,
     enabled: !!clinicId,
     staleTime: 0,
     refetchOnMount: "always",
-    queryFn: async () => checkedJson<AgreementResponse>(await fetch(`/api/clinics/${encodeURIComponent(clinicId!)}/agreements`, { credentials: "include" })),
+    queryFn: async () => checkedJson<AgreementResponse>(await fetch(agreementUrl(), { credentials: "include" })),
   });
-  const canManage = !!data?.canManage && !readOnly;
-  const invalidate = async () => { if (clinicId) await queryClient.invalidateQueries({ queryKey: queryKey(clinicId, userId), exact: true }); };
+  const canManage = canEditClinicAgreements(data?.canManage, readOnly, allowReadOnlyEdit);
+  const invalidate = async () => { if (clinicId) await queryClient.invalidateQueries({ queryKey: ["/api/clinics", clinicId, "agreements", userId] }); };
   const startEdit = (row: ClinicAgreement) => {
+    if (!canManage) return;
     setError(""); setEditingId(row.id);
     setEditUnlimited(!row.validTo);
     setDraft({ title: row.title, contractNumber: row.contractNumber || "", validFrom: row.validFrom || "", validTo: row.validTo || "", active: row.active });
   };
   const patch = async (row: ClinicAgreement, values: Partial<AgreementDraft>) => {
-    if (!clinicId) return;
+    if (!clinicId || !canManage) return;
     const payload: Partial<AgreementDraft> = {};
     (Object.keys(values) as Array<keyof AgreementDraft>).forEach(key => {
       const current = key === "contractNumber" ? (row.contractNumber || "") : key === "validFrom" ? (row.validFrom || "") : key === "validTo" ? (row.validTo || "") : row[key];
@@ -86,7 +92,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode 
     busyRef.current = true;
     setError(""); setBusyId(row.id);
     try {
-      await checkedJson(await fetch(`/api/clinics/${encodeURIComponent(clinicId)}/agreements/${encodeURIComponent(row.id)}`, {
+      await checkedJson(await fetch(agreementUrl(row.id), {
         method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
       }));
       await invalidate();
@@ -97,7 +103,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode 
   const upload = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (!clinicId || !file || !newTitle.trim() || (!newUnlimited && !newTo) || busyId) return;
+    if (!canManage || !clinicId || !file || !newTitle.trim() || (!newUnlimited && !newTo) || busyId) return;
     const extension = file.name.split(".").pop()?.toLowerCase();
     if (!["pdf", "doc", "docx", "jpg", "jpeg", "png"].includes(extension || "")) { setError(tx.invalidFile); return; }
     if (file.size > 20 * 1024 * 1024) { setError(tx.fileTooLarge); return; }
@@ -111,7 +117,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode 
     if (newTo && !newUnlimited) form.append("validTo", newTo);
     form.append("active", "true");
     try {
-      await checkedJson(await fetch(`/api/clinics/${encodeURIComponent(clinicId)}/agreements`, { method: "POST", credentials: "include", body: form }));
+      await checkedJson(await fetch(agreementUrl(), { method: "POST", credentials: "include", body: form }));
       await invalidate();
       setFile(null); setNewTitle(""); setNewNumber(""); setNewFrom(bratislavaDateKey()); setNewTo(""); setNewUnlimited(false);
       const input = document.getElementById(`agreement-file-${clinicId}`) as HTMLInputElement | null;
@@ -159,7 +165,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, countryCode 
             <div className="flex min-w-0 items-start gap-3">
               <div className="mt-0.5 rounded-lg bg-primary/10 p-2 text-primary"><FileText className="h-4 w-4" /></div>
               <div className="min-w-0">
-                {editingId === row.id && draft ? (
+                {canManage && editingId === row.id && draft ? (
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2"><Label htmlFor={`title-${row.id}`}>{tx.agreementTitle}</Label><Input disabled={isBusy} id={`title-${row.id}`} value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} /></div>
                     <div><Label htmlFor={`number-${row.id}`}>{tx.contractNumber}</Label><Input disabled={isBusy} id={`number-${row.id}`} value={draft.contractNumber} onChange={e => setDraft({ ...draft, contractNumber: e.target.value })} /></div>

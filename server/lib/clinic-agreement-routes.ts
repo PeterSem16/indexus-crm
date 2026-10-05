@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "../db";
 import { DATA_ROOT } from "../config/storage-paths";
+import { missionAllowsClinicAgreementEditing } from "../../shared/clinic-agreement-permissions";
 import {
   AGREEMENT_MAX_BYTES, agreementCreateSchema, agreementPatchSchema,
   agreementDatesValid, agreementFileExtension, agreementFilename,
@@ -18,7 +19,7 @@ const projection = `id, clinic_id AS "clinicId", title, contract_number AS "cont
   file_size AS "fileSize", created_at AS "createdAt", updated_at AS "updatedAt"`;
 
 /** Private documents: country + module/assigned Mission authorization, before parsing files. */
-export async function clinicAgreementAccess(userId: string, clinicId: string) {
+export async function clinicAgreementAccess(userId: string, clinicId: string, campaignId?: string) {
   const { rows } = await pool.query(`
     SELECT u.role, u.role_id, u.assigned_countries, c.country_code,
       EXISTS (SELECT 1 FROM role_module_permissions p WHERE p.role_id=u.role_id
@@ -26,9 +27,14 @@ export async function clinicAgreementAccess(userId: string, clinicId: string) {
       EXISTS (SELECT 1 FROM role_module_permissions p WHERE p.role_id=u.role_id
         AND p.module_key='hospitals' AND p.access='visible' AND p.can_edit) AS module_edit,
       EXISTS (SELECT 1 FROM campaign_contacts cc JOIN campaign_agents ca ON ca.campaign_id=cc.campaign_id
-        WHERE cc.clinic_id=c.id AND ca.user_id=u.id) AS mission_read
+         WHERE cc.clinic_id=c.id AND ca.user_id=u.id) AS mission_read,
+      (SELECT m.settings FROM campaigns m
+        JOIN campaign_agents ca ON ca.campaign_id=m.id AND ca.user_id=u.id
+        WHERE m.id=$3 AND EXISTS (SELECT 1 FROM campaign_contacts cc
+          WHERE cc.campaign_id=m.id AND cc.clinic_id=c.id)
+        LIMIT 1) AS mission_settings
     FROM users u CROSS JOIN clinics c WHERE u.id=$1 AND u.is_active AND c.id=$2
-  `, [userId, clinicId]);
+  `, [userId, clinicId, campaignId || null]);
   if (!rows.length) return { canRead: false, canManage: false };
   const row = rows[0];
   const admin = row.role === "admin";
@@ -36,7 +42,8 @@ export async function clinicAgreementAccess(userId: string, clinicId: string) {
   const legacyManager = row.role === "manager" && !row.role_id;
   return {
     canRead: country && (admin || legacyManager || row.module_read || row.mission_read),
-    canManage: country && (admin || legacyManager || row.module_edit),
+    canManage: country && (admin || legacyManager || row.module_edit ||
+      missionAllowsClinicAgreementEditing(row.mission_settings)),
   };
 }
 
@@ -44,7 +51,10 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
   const collection = "/api/clinics/:id/agreements";
   const access = (manage: boolean) => async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const permission = await clinicAgreementAccess(req.session.user!.id, req.params.id);
+      const campaignId = req.query.campaignId;
+      if (campaignId !== undefined && (typeof campaignId !== "string" || !campaignId.trim() || campaignId.length > 128))
+        return res.status(400).json({ error: "Invalid Mission context" });
+      const permission = await clinicAgreementAccess(req.session.user!.id, req.params.id, campaignId as string | undefined);
       if (!(manage ? permission.canManage : permission.canRead))
         return res.status(403).json({ error: "Forbidden" });
       res.locals.clinicAgreementPermission = permission;

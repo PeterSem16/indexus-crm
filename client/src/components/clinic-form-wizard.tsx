@@ -285,7 +285,8 @@ interface ClinicFormSheetProps {
   onCreated?: (clinic: { id: string; name: string; doctorTitle?: string | null; doctorFirstName?: string | null; doctorLastName?: string | null; doctorName?: string | null }) => void | Promise<void>;
   sheetContentClassName?: string;
   readOnly?: boolean;
-  readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean };
+  readOnlyExceptions?: { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean; agreements?: boolean };
+  campaignId?: string;
   headerBadge?: ReactNode;
 }
 
@@ -454,7 +455,7 @@ export function ClinicFormWizard({ initialData, onSuccess, onCancel }: { initial
   );
 }
 
-export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, onPersonnelCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions, headerBadge }: ClinicFormSheetProps) {
+export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, onPhoneChange, onCallPhone, onPersonnelCallPhone, mode = "sheet", prefillData, onCreated, sheetContentClassName, readOnly = false, readOnlyExceptions, campaignId, headerBadge }: ClinicFormSheetProps) {
   const roEx = readOnlyExceptions || {};
   const callButtonsEnabled = !readOnly || !!roEx.callButtons;
   const { t } = useI18n();
@@ -2907,7 +2908,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               )}
             </div>
           )}
-          {activeTab === "agreements" && <ClinicAgreementsPanel key={String(initialData?.id || savedClinicId || "unsaved")} clinicId={initialData?.id ? String(initialData.id) : savedClinicId} readOnly={readOnly} countryCode={formData.countryCode || "SK"} />}
+          {activeTab === "agreements" && <ClinicAgreementsPanel key={String(initialData?.id || savedClinicId || "unsaved")} clinicId={initialData?.id ? String(initialData.id) : savedClinicId} readOnly={readOnly} allowReadOnlyEdit={roEx.agreements === true} campaignId={campaignId} countryCode={formData.countryCode || "SK"} />}
         </fieldset>
       </div>
 
@@ -3572,7 +3573,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   <p className="text-xs mt-1 max-w-xs">{tc.cooperationNoDataHint ?? "Records are created automatically when a coordinator confirms a status-list option with a canonical status set."}</p>
                 </div>
               )}
-              {activeTab === "agreements" && <ClinicAgreementsPanel key={String(savedClinicId || "unsaved")} clinicId={savedClinicId} readOnly={readOnly} countryCode={formData.countryCode || "SK"} />}
+              {activeTab === "agreements" && <ClinicAgreementsPanel key={String(savedClinicId || "unsaved")} clinicId={savedClinicId} readOnly={readOnly} allowReadOnlyEdit={roEx.agreements === true} campaignId={campaignId} countryCode={formData.countryCode || "SK"} />}
             </div>
           </div>
 

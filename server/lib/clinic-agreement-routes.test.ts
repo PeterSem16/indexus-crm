@@ -27,15 +27,15 @@ test("real clinic agreement APIs preserve clinic workflows and enforce private d
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${(server.address() as any).port}/api/clinics`;
   const request = (url: string, user = ids.admin, init: RequestInit = {}) => fetch(base + url, { ...init, headers: { "x-fixture-user": user, ...init.headers } });
-  const patch = (id: string, value: object, user = ids.admin) => request(`/${ids.clinic}/agreements/${id}`, user, {
+  const patch = (id: string, value: object, user = ids.admin, campaignId?: string) => request(`/${ids.clinic}/agreements/${id}${campaignId ? `?campaignId=${campaignId}` : ""}`, user, {
     method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value),
   });
-  const upload = async (user = ids.admin, fields: Record<string, string> = {}, bytes = Buffer.from("%PDF-1.4\nfixture-only\n"), type = "application/pdf") => {
+  const upload = async (user = ids.admin, fields: Record<string, string> = {}, bytes = Buffer.from("%PDF-1.4\nfixture-only\n"), type = "application/pdf", campaignId?: string) => {
     const body = new FormData();
     body.set("file", new Blob([new Uint8Array(bytes)], { type }), "fixture.pdf");
     body.set("title", "Clinic agreement");
     for (const [key, value] of Object.entries(fields)) body.set(key, value);
-    return request(`/${ids.clinic}/agreements`, user, { method: "POST", body });
+    return request(`/${ids.clinic}/agreements${campaignId ? `?campaignId=${campaignId}` : ""}`, user, { method: "POST", body });
   };
   try {
     await pool.query("INSERT INTO roles(id,name) VALUES($1,$2)", [ids.role, "Agreement fixture " + ids.role]);
@@ -80,6 +80,37 @@ test("real clinic agreement APIs preserve clinic workflows and enforce private d
       assert.equal((await patch(first.id, { active: false }, ids.agent)).status, 403);
       assert.equal((await upload(ids.agent)).status, 403);
       assert.equal((await request(`/${ids.second}/agreements`, ids.agent)).status, 403);
+    });
+    await t.test("read-only Mission agreement exception grants only the exact assigned clinic/Mission", async () => {
+      const settings = { readOnlyContactCards: true, readOnlyExceptions: { agreements: true } };
+      await pool.query("UPDATE campaigns SET settings=$2 WHERE id=$1", [ids.campaign, JSON.stringify(settings)]);
+      const listing = await (await request(`/${ids.clinic}/agreements?campaignId=${ids.campaign}`, ids.agent)).json();
+      assert.equal(listing.canManage, true);
+      assert.equal((await patch(first.id, { title: "Agent agreement" }, ids.agent, ids.campaign)).status, 200);
+      assert.equal((await upload(ids.agent, {}, undefined, undefined, ids.campaign)).status, 201);
+      assert.equal((await patch(first.id, { title: "No context" }, ids.agent)).status, 403);
+      assert.equal((await patch(first.id, { title: "Wrong context" }, ids.agent, randomUUID())).status, 403);
+      assert.equal((await patch(first.id, { title: "Unassigned user" }, ids.custom, ids.campaign)).status, 403);
+      assert.equal((await request(`/${ids.second}/agreements?campaignId=${ids.campaign}`, ids.agent)).status, 403);
+      assert.equal((await upload(ids.other, {}, undefined, undefined, ids.campaign)).status, 403);
+      assert.equal((await request(`/${ids.clinic}/agreements?campaignId[]=bad`, ids.agent)).status, 400);
+      for (const value of [
+        { ...settings, readOnlyExceptions: { agreements: false } },
+        { ...settings, readOnlyContactCards: false },
+        { ...settings, readOnlyExceptions: { agreements: "true" } },
+        {},
+        "{",
+        "null",
+      ]) {
+        await pool.query("UPDATE campaigns SET settings=$2 WHERE id=$1", [ids.campaign, typeof value === "string" ? value : JSON.stringify(value)]);
+        assert.equal((await patch(first.id, { title: "Denied" }, ids.agent, ids.campaign)).status, 403);
+        assert.equal((await upload(ids.agent, {}, undefined, undefined, ids.campaign)).status, 403);
+      }
+      await pool.query("UPDATE campaigns SET settings=$2 WHERE id=$1", [ids.campaign, JSON.stringify(settings)]);
+      await pool.query("DELETE FROM campaign_agents WHERE campaign_id=$1 AND user_id=$2", [ids.campaign, ids.agent]);
+      assert.equal((await patch(first.id, { title: "Assignment revoked" }, ids.agent, ids.campaign)).status, 403);
+      await pool.query("INSERT INTO campaign_agents(campaign_id,user_id) VALUES($1,$2)", [ids.campaign, ids.agent]);
+      await pool.query("UPDATE campaigns SET settings=NULL WHERE id=$1", [ids.campaign]);
     });
     await t.test("custom roles require explicit visible hospitals permissions and edit grant", async () => {
       assert.equal((await upload(ids.custom)).status, 403);

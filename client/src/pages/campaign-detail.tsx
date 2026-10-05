@@ -6819,6 +6819,7 @@ export default function CampaignDetailPage() {
                               ["referral", t.campaigns.detail.readOnlyExReferral],
                               ["contactType", t.campaigns.detail.readOnlyExContactType],
                               ["contactInfo", t.campaigns.detail.readOnlyExContactInfo],
+                              ["agreements", t.campaigns.detail.readOnlyExAgreements],
                             ];
                             return (
                               <div className="mt-4 border-t pt-3 space-y-2">

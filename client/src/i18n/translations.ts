@@ -3662,6 +3662,7 @@ export interface Translations {
       readOnlyExReferral: string;
       readOnlyExContactType: string;
       readOnlyExContactInfo: string;
+      readOnlyExAgreements: string;
       workflowModeTitle: string;
       workflowModeDesc: string;
       workflowModeDisposition: string;
@@ -12730,6 +12731,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Contact type",
         readOnlyExContactInfo: "Phone numbers & email (customer & clinic card)",
+        readOnlyExAgreements: "Adding and editing agreements (clinic card)",
         workflowModeTitle: "Workflow mode",
         workflowModeDesc: "How agents record contact outcomes - via the classic Disposition or via the Status List (steps with automations).",
         workflowModeDisposition: "Disposition",
@@ -20567,6 +20569,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Typ kontaktu (Contact type)",
         readOnlyExContactInfo: "Telefónne čísla a email (karta zákazníka a kliniky)",
+        readOnlyExAgreements: "Pridávanie a úprava zmlúv (karta kliniky)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Ako agenti zaznamenávajú výsledky kontaktov - cez klasickú Disposíciu alebo cez Status List (kroky s automatizáciami).",
         workflowModeDisposition: "Disposícia",
@@ -28416,6 +28419,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Typ kontaktu (Contact type)",
         readOnlyExContactInfo: "Telefonní čísla a email (karta zákazníka a kliniky)",
+        readOnlyExAgreements: "Přidávání a úprava smluv (karta kliniky)",
         workflowModeTitle: "Režim workflow",
         workflowModeDesc: "Jak agenti zaznamenávají výsledky kontaktů - přes klasickou Dispozici nebo přes Status List (kroky s automatizacemi).",
         workflowModeDisposition: "Dispozice",
@@ -36266,6 +36270,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Kapcsolattípus (Contact type)",
         readOnlyExContactInfo: "Telefonszámok és email (ügyfél- és klinikakártya)",
+        readOnlyExAgreements: "Szerződések hozzáadása és szerkesztése (klinikakártya)",
         workflowModeTitle: "Munkafolyamat mód",
         workflowModeDesc: "Hogyan rögzítik az operátorok a kapcsolatok eredményét - klasszikus Diszpozícióval vagy Status List-tel (lépések automatizálásokkal).",
         workflowModeDisposition: "Diszpozíció",
@@ -44072,6 +44077,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Tip de contact (Contact type)",
         readOnlyExContactInfo: "Numere de telefon și email (fișa clientului și clinicii)",
+        readOnlyExAgreements: "Adăugarea și editarea contractelor (fișa clinicii)",
         workflowModeTitle: "Mod flux de lucru",
         workflowModeDesc: "Cum înregistrează agenții rezultatele contactelor - prin Dispoziția clasică sau prin Status List (pași cu automatizări).",
         workflowModeDisposition: "Dispoziție",
@@ -51886,6 +51892,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Tipo di contatto (Contact type)",
         readOnlyExContactInfo: "Numeri di telefono ed email (scheda cliente e clinica)",
+        readOnlyExAgreements: "Aggiunta e modifica dei contratti (scheda clinica)",
         workflowModeTitle: "Modalità workflow",
         workflowModeDesc: "Come gli operatori registrano gli esiti dei contatti - tramite la Disposizione classica o tramite la Status List (passi con automazioni).",
         workflowModeDisposition: "Disposizione",
@@ -59691,6 +59698,7 @@ export const translations = {
         readOnlyExReferral: "Referral & Conference",
         readOnlyExContactType: "Kontakttyp (Contact type)",
         readOnlyExContactInfo: "Telefonnummern & E-Mail (Kunden- und Klinikkarte)",
+        readOnlyExAgreements: "Verträge hinzufügen und bearbeiten (Klinikkarte)",
         workflowModeTitle: "Workflow-Modus",
         workflowModeDesc: "Wie Agenten Kontaktergebnisse erfassen - über die klassische Disposition oder über die Status List (Schritte mit Automatisierungen).",
         workflowModeDisposition: "Disposition",

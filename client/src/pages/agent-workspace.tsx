@@ -3609,7 +3609,7 @@ export function CommunicationCanvas({
   const cardsReadOnlyExceptions = useMemo(() => {
     try {
       const ex = JSON.parse(campaign?.settings || "{}").readOnlyExceptions;
-      return (ex && typeof ex === "object") ? ex as { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean } : {};
+      return (ex && typeof ex === "object") ? ex as { callButtons?: boolean; notes?: boolean; personnel?: boolean; referral?: boolean; contactType?: boolean; contactInfo?: boolean; agreements?: boolean } : {};
     } catch { return {}; }
   }, [campaign?.settings]);
 
@@ -4897,6 +4897,7 @@ export function CommunicationCanvas({
                     mode="inline"
                     readOnly={cardsReadOnly}
                     readOnlyExceptions={cardsReadOnlyExceptions}
+                    campaignId={campaign?.id}
                   />
                 </div>
               ) : contactType === "collaborator" && collaboratorData ? (
