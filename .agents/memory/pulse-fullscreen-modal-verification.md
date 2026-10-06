@@ -32,3 +32,17 @@ Graduation must preserve the entire approved shell, not merely add search and so
 **Why:** Functionally correct toolbar changes still left the wrong palette, dimensions, filter hierarchy and rows. Checking navigation alone missed that the user was seeing an unapproved design; an empty Calls tab also concealed pending messages.
 
 **How to apply:** Compare populated and genuinely empty production dialogs to the unchanged approved reference. Use real App/provider tests with intercepted APIs, check cross-channel defaults, and inspect screenshots for occlusion: an element can pass isVisible while a high-z-index preview notice covers its title.
+
+Responsive communication layouts must follow the card's available width,
+not merely the browser width. Desktop workspace sidebars can leave a very
+narrow conversation card even at a nominal desktop viewport.
+
+**Why:** Window-only breakpoints let form sidebars squeeze conversation text
+and the SMS textarea into narrow columns while send controls were clipped.
+The mobile workspace is a separate interface; shrinking a desktop test below
+its breakpoint can unmount the communication card rather than test its layout.
+
+**How to apply:** Use card/container-aware layout, test compact desktop cards
+with both workspace sidebars visible, and separately test portalled dialogs
+on phones. Modal max-height and vertical position must both account for the
+development preview banner; shifting the center alone still clips tall dialogs.
