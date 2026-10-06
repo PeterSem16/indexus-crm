@@ -30,6 +30,7 @@ import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
 import { AgentBreakDialog } from "@/components/agent/AgentBreakDialog";
 import { Button } from "@/components/ui/button";
 import { getTaskAttachmentContextKey, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
+import { TaskAssignmentPicker } from "@/components/tasks/task-assignment-picker";
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import "@/components/tasks/task-modern-task-surfaces.css";
 import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
@@ -10683,9 +10684,9 @@ function AgentWorkspacePageContent() {
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserIds: [] as string[], dueDate: "", groupId: "", category: "" });
+  const [taskAssignmentMode, setTaskAssignmentMode] = useState<"group" | "people">("group");
   const [createTaskAttachments, setCreateTaskAttachments] = useState<TaskAttachment[]>([]);
   const [createTaskAttachmentsBusy, setCreateTaskAttachmentsBusy] = useState(false);
-  const [taskUserSearch, setTaskUserSearch] = useState("");
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
   const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
@@ -11303,8 +11304,12 @@ function AgentWorkspacePageContent() {
         throw new Error("An active Mission session is required to create a Nexus Pulse task.");
       }
       const pulseOrigin = { missionId: selectedCampaignId, sessionId };
-      const assignees = data.assignedUserIds.length > 0 ? data.assignedUserIds : [];
-      return Promise.all(assignees.map(uid => createAgentWorkspaceTask(data, uid, pulseOrigin)));
+      if (data.groupId) {
+        return createAgentWorkspaceTask(data, undefined, pulseOrigin);
+      }
+      return Promise.all(data.assignedUserIds.map(uid =>
+        createAgentWorkspaceTask({ ...data, groupId: undefined }, uid, pulseOrigin),
+      ));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -11313,6 +11318,7 @@ function AgentWorkspacePageContent() {
       setCreateTaskAttachments([]);
       setCreateTaskAttachmentsBusy(false);
       setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
+      setTaskAssignmentMode("group");
     },
     onError: (e: any) => {
       console.error("[CreateTask] Error:", e);
@@ -14113,11 +14119,12 @@ function AgentWorkspacePageContent() {
             title: ent?.name.trim() || "",
             description: "",
             priority: "medium",
-            assignedUserIds: user?.id ? [user.id] : [],
+            assignedUserIds: [],
             dueDate: "",
             groupId: "",
             category: "",
           });
+          setTaskAssignmentMode("group");
           setCreateTaskDialogOpen(true);
         }
         break;
@@ -16360,6 +16367,7 @@ function AgentWorkspacePageContent() {
                   groupId: "",
                   category: "",
                 });
+                setTaskAssignmentMode("group");
                 setCreateTaskDialogOpen(true);
               }}
               slCallbackDate={currentCampaignContact?.callbackDate ?? null}
@@ -17800,10 +17808,11 @@ function AgentWorkspacePageContent() {
       <Sheet open={createTaskDialogOpen} onOpenChange={(open) => {
         setCreateTaskDialogOpen(open);
         if (open) {
+          setTaskAssignmentMode("group");
+          setCreateTaskForm(prev => ({ ...prev, assignedUserIds: [], groupId: "" }));
           setCreateTaskAttachments([]);
           setCreateTaskAttachmentsBusy(false);
         } else {
-          setTaskUserSearch("");
           setCreateTaskAttachments([]);
           setCreateTaskAttachmentsBusy(false);
           setCreateTaskForm(prev => ({ ...prev, description: "" }));
@@ -17916,98 +17925,41 @@ function AgentWorkspacePageContent() {
                 </div>
               </div>
 
-              {/* Group — playful chip picker (first) */}
-              {taskGroupsForCreate.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignToGroup}</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: "" })}
-                       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${!createTaskForm.groupId ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-sm" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca]"}`}
-                      data-testid="chip-task-group-none"
-                    >
-                      {t.quickCreate.noGroup}
-                    </button>
-                    {taskGroupsForCreate.map((g: any) => {
-                      const selected = createTaskForm.groupId === g.id;
-                      return (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => setCreateTaskForm({ ...createTaskForm, groupId: selected ? "" : g.id })}
-                           className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-white dark:bg-slate-900 border-[#c7d8e7] dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#5a94ca] hover:shadow-sm"}`}
-                          data-testid={`chip-task-group-${g.id}`}
-                        >
-                          <Users className="h-3 w-3" />
-                          <span className="truncate max-w-[140px]">{g.displayAlias || g.name}</span>
-                          {selected && <Check className="h-3 w-3 shrink-0" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Assigned To — multi-select avatar picker */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400">{t.quickCreate.assignedTo}</label>
-                  {createTaskForm.assignedUserIds.length > 0 && (
-                     <span className="text-[10px] font-semibold text-[#2d6fba] dark:text-blue-300 bg-[#e5f0fa] dark:bg-blue-950 rounded-full px-1.5 py-0.5" data-testid="text-assignee-count">{createTaskForm.assignedUserIds.length}</span>
-                  )}
-                </div>
-                <p className="text-[10px] text-stone-400 dark:text-stone-500 -mt-0.5">{t.quickCreate.assignedToHint}</p>
-                 <div className="rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                  <div className="relative border-b border-stone-200 dark:border-stone-800">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
-                    <input
-                      type="text"
-                      value={taskUserSearch}
-                      onChange={(e) => setTaskUserSearch(e.target.value)}
-                      placeholder={t.quickCreate.searchUser}
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-transparent outline-none placeholder:text-stone-400 dark:placeholder:text-stone-500"
-                      data-testid="input-task-user-search"
-                    />
-                  </div>
-                  <div className="max-h-[168px] overflow-y-auto p-2 flex flex-wrap gap-1.5">
-                    {(() => {
-                      const palette = [
-                         "from-[#2d6fba] to-[#1c568f]",
-                        "from-amber-500 to-orange-600",
-                        "from-emerald-500 to-teal-600",
-                        "from-sky-500 to-blue-600",
-                        "from-violet-500 to-purple-600",
-                        "from-rose-500 to-pink-600",
-                      ];
-                      const filtered = allUsersForTasks.filter((u: any) => u.id && (u.fullName || u.username || "").toLowerCase().includes(taskUserSearch.trim().toLowerCase()));
-                      if (filtered.length === 0) {
-                        return <span className="text-xs text-stone-400 dark:text-stone-500 px-1 py-2">{t.quickCreate.noUsersFound}</span>;
-                      }
-                      return filtered.map((u: any) => {
-                        const name = u.fullName || u.username;
-                        const initials = String(name).split(/\s+/).map((p: string) => p[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
-                        const hash = String(u.id).split("").reduce((acc: number, ch: string) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 0);
-                        const selected = createTaskForm.assignedUserIds.includes(u.id);
-                        return (
-                          <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => setCreateTaskForm(prev => ({ ...prev, assignedUserIds: selected ? prev.assignedUserIds.filter(id => id !== u.id) : [...prev.assignedUserIds, u.id] }))}
-                             className={`inline-flex items-center gap-1.5 rounded-full border pl-1 pr-2.5 py-1 text-[11px] font-medium transition-all ${selected ? "bg-[#2d6fba] border-[#2d6fba] text-white shadow-md scale-[1.03]" : "bg-[#f7fbfe] dark:bg-slate-800 border-[#dce8f2] dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[#5a94ca] hover:shadow-sm"}`}
-                            data-testid={`chip-task-user-${u.id}`}
-                          >
-                            <span className={`h-5 w-5 rounded-full bg-gradient-to-br ${palette[hash % palette.length]} text-white text-[8px] font-bold flex items-center justify-center shrink-0 ${selected ? "ring-2 ring-white/60" : ""}`}>
-                              {initials}
-                            </span>
-                            <span className="truncate max-w-[120px]">{name}</span>
-                            {selected && <Check className="h-3 w-3 shrink-0" />}
-                          </button>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
+              <div className="md:col-span-2">
+                <TaskAssignmentPicker
+                  mode={taskAssignmentMode}
+                  onModeChange={(mode) => {
+                    setTaskAssignmentMode(mode);
+                    setCreateTaskForm((prev) => mode === "group"
+                      ? { ...prev, assignedUserIds: [] }
+                      : { ...prev, groupId: "" });
+                  }}
+                  groups={taskGroupsForCreate}
+                  users={allUsersForTasks}
+                  selectedGroupId={createTaskForm.groupId}
+                  selectedUserIds={createTaskForm.assignedUserIds}
+                  onGroupChange={(groupId) => setCreateTaskForm((prev) => ({ ...prev, groupId, assignedUserIds: [] }))}
+                  onUserToggle={(userId) => setCreateTaskForm((prev) => ({
+                    ...prev,
+                    groupId: "",
+                    assignedUserIds: prev.assignedUserIds.includes(userId)
+                      ? prev.assignedUserIds.filter((id) => id !== userId)
+                      : [...prev.assignedUserIds, userId],
+                  }))}
+                  labels={{
+                    assignedTo: t.quickCreate.assignedTo,
+                    assignToGroup: t.quickCreate.assignToGroup,
+                    searchUser: t.quickCreate.searchUser,
+                    noUsersFound: t.quickCreate.noUsersFound,
+                    groupMode: t.quickCreate.groupMode,
+                    peopleMode: t.quickCreate.peopleMode,
+                    groupModeHint: t.quickCreate.groupModeHint,
+                    peopleModeHint: t.quickCreate.peopleModeHint,
+                    groupEmpty: t.quickCreate.groupEmpty,
+                    groupPrompt: t.quickCreate.groupPrompt,
+                    peoplePrompt: t.quickCreate.peoplePrompt,
+                  }}
+                />
               </div>
             </div>
             <div className="md:col-span-2 rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 p-3">
@@ -18036,10 +17988,10 @@ function AgentWorkspacePageContent() {
             </Button>
             <Button
               onClick={() => {
-                const assignees = createTaskForm.assignedUserIds.length > 0
-                  ? createTaskForm.assignedUserIds
-                  : (createTaskForm.groupId && user?.id ? [user.id] : []);
-                if (!createTaskForm.title.trim() || assignees.length === 0) return;
+                const hasAssignment = taskAssignmentMode === "group"
+                  ? Boolean(createTaskForm.groupId)
+                  : createTaskForm.assignedUserIds.length > 0;
+                if (!createTaskForm.title.trim() || !hasAssignment) return;
                 const ent = resolveTaskEntity();
                 const selectedCategory = taskCategoryOptions.find(category => category.id === createTaskForm.category);
                 createTaskMutation.mutate({
@@ -18050,17 +18002,17 @@ function AgentWorkspacePageContent() {
                     createTaskForm.description,
                   ),
                   priority: createTaskForm.priority,
-                  assignedUserIds: assignees,
+                  assignedUserIds: taskAssignmentMode === "people" ? createTaskForm.assignedUserIds : [],
                   customerId: ent?.type === "customer" ? ent.id : undefined,
                   relatedEntityType: ent?.type || undefined,
                   relatedEntityId: ent?.id || undefined,
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
-                  groupId: createTaskForm.groupId || undefined,
+                  groupId: taskAssignmentMode === "group" ? createTaskForm.groupId || undefined : undefined,
                   attachments: createTaskAttachments,
                 });
               }}
-              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || (createTaskForm.assignedUserIds.length === 0 && !createTaskForm.groupId)}
+              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || (taskAssignmentMode === "group" ? !createTaskForm.groupId : createTaskForm.assignedUserIds.length === 0)}
                 className="task-create-submit rounded-xl px-5 font-semibold text-white border-0 disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >

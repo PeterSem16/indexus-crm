@@ -10,9 +10,10 @@ const user = {
 };
 const at = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
 
-async function installFixture(page: Page, empty = false) {
+async function installFixture(page: Page, empty = false, taskScenario = false) {
   const errors: string[] = [];
   const writes: string[] = [];
+  const taskRequests: Record<string, any>[] = [];
   const calls = empty ? [] : [
     { id: "call-iris", callerNumber: "+421900000101", customerName: "Ambulancia Iris",
       status: "timeout", queueName: "Medical partners", enteredQueueAt: at(12),
@@ -69,6 +70,11 @@ async function installFixture(page: Page, empty = false) {
     let body: unknown = [];
     if (!["GET", "HEAD"].includes(req.method())) {
       if (path === "/api/auth/heartbeat" || path === "/api/wallboard/presence") body = { success: true };
+      else if (taskScenario && path === "/api/tasks" && req.method() === "POST") {
+        const task = req.postDataJSON();
+        taskRequests.push(task);
+        body = { ...task, id: `test-task-${taskRequests.length}` };
+      }
       else if (path === "/api/agent/missed-messages/sms-jana/handled") {
         writes.push(path);
         messages.find(item => item.id === "sms-jana")!.handledAt = at(0) as any;
@@ -94,6 +100,14 @@ async function installFixture(page: Page, empty = false) {
     else if (path === "/api/clinics/iris") body = clinic;
     else if (path === "/api/clinics/iris/contact-history") body = communicationHistory;
     else if (path === "/api/agent/today-activity") body = activities;
+    else if (taskScenario && path === "/api/task-groups") body = [
+      { id: "it", name: "IT", members: [{ userId: "person-b" }] },
+      { id: "bo", name: "Back Office", displayAlias: "BO", members: [{ userId: "person-a" }] },
+    ];
+    else if (taskScenario && path === "/api/users") body = [
+      { id: "person-a", username: "anna", fullName: "Anna Test" },
+      { id: "person-b", username: "boris", fullName: "Boris Test" },
+    ];
     else if (path.includes("/unread-count") || path.includes("/count")) body = { count: 0 };
     else if (path.includes("/settings") || path.includes("/preferences") || path.includes("/configuration")) body = {};
     await route.fulfill({ status: 200, json: body });
@@ -106,7 +120,7 @@ async function installFixture(page: Page, empty = false) {
   });
   await page.goto("/agent-workspace?pulse-ui-preview=1");
   await expect(page.getByTestId("pulse-dev-preview-banner")).toBeVisible({ timeout: 60_000 });
-  return { errors, writes };
+  return { errors, writes, taskRequests };
 }
 
 async function assertDialogBounds(page: Page, dialog: Locator) {
@@ -492,6 +506,59 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
       await assertActions("sms");
       if (width === 820) await page.setViewportSize({ width: 1024, height });
       await page.getByTestId("tab-email").click();
+    }
+    expect(fixture.errors).toEqual([]);
+    expect(fixture.writes).toEqual([]);
+  });
+
+  test("task assignment defaults to groups and never submits mixed group/person targets", async ({ page }) => {
+    const fixture = await installFixture(page, false, true);
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    await page.getByTestId("missed-message-mail-iris").click();
+    await page.getByTestId("history-detail-dialog").getByTestId("btn-email-reply").click();
+    await page.getByTestId("btn-quick-task").click();
+    const send = page.getByTestId("btn-submit-create-task");
+    await expect(page.getByTestId("task-assignment-group-mode")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("chip-task-group-it")).toBeVisible();
+    await expect(page.getByTestId("chip-task-user-person-a")).toHaveCount(0);
+    await page.getByTestId("input-create-task-title").fill("Correct the clinic information");
+    await expect(send).toBeDisabled();
+    await page.getByTestId("chip-task-group-it").click();
+    await expect(send).toBeEnabled();
+    await page.getByTestId("task-assignment-people-mode").click();
+    await expect(page.getByTestId("chip-task-group-it")).toHaveCount(0);
+    await expect(send).toBeDisabled();
+    await page.getByTestId("chip-task-user-person-a").click();
+    await expect(send).toBeEnabled();
+    await page.getByTestId("task-assignment-group-mode").click();
+    await expect(page.getByTestId("chip-task-group-it")).toHaveAttribute("aria-pressed", "false");
+    await expect(send).toBeDisabled();
+    await page.getByTestId("chip-task-group-it").click();
+    await page.getByTestId("chip-task-group-it").click();
+    await expect(send).toBeDisabled();
+    await page.getByTestId("chip-task-group-it").click();
+    await page.screenshot({ path: "/tmp/pulse-task-group-assignment.png" });
+    await send.click();
+    await expect.poll(() => fixture.taskRequests.length).toBe(1);
+    expect(fixture.taskRequests[0].groupId).toBe("it");
+    expect(fixture.taskRequests[0]).not.toHaveProperty("assignedUserId");
+    expect(fixture.taskRequests[0]).not.toHaveProperty("tags");
+    expect(fixture.taskRequests[0].pulseOrigin).toEqual({ missionId: "mission", sessionId: "preview-session" });
+    await expect(page.getByTestId("task-assignment-group-mode")).toHaveCount(0);
+    await page.getByTestId("btn-quick-task").click();
+    await expect(page.getByTestId("task-assignment-group-mode")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("input-create-task-title").fill("Personal request");
+    await expect(send).toBeDisabled();
+    await page.getByTestId("task-assignment-people-mode").click();
+    await page.getByTestId("chip-task-user-person-a").click();
+    await page.getByTestId("chip-task-user-person-b").click();
+    await page.screenshot({ path: "/tmp/pulse-task-person-assignment.png" });
+    await send.click();
+    await expect.poll(() => fixture.taskRequests.length).toBe(3);
+    expect(fixture.taskRequests.slice(1).map(task => task.assignedUserId).sort()).toEqual(["person-a", "person-b"]);
+    for (const task of fixture.taskRequests.slice(1)) {
+      expect(task).not.toHaveProperty("groupId");
+      expect(task).not.toHaveProperty("tags");
     }
     expect(fixture.errors).toEqual([]);
     expect(fixture.writes).toEqual([]);

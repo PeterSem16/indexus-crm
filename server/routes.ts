@@ -54,6 +54,7 @@ import {
 import { registerTaskResolutionDraftRoute } from "./lib/task-resolution-draft-route";
 import { registerTaskReassignmentRoutes } from "./lib/task-reassignment-route";
 import { taskReassignmentGroupId } from "./lib/task-reassignment";
+import { parseTaskCreateAssignment, taskGroupNominalOwner, TaskCreateAssignmentError } from "./lib/task-create-assignment";
 import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/admin-authorization";
 import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
 import { transitionTaskWorkTiming } from "./lib/task-work-timing";
@@ -9817,12 +9818,25 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
       const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
-      const { title, description, priority, assignedUserId, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags, pulseOrigin } = body;
-      if (!title || typeof assignedUserId !== "string" || !assignedUserId.trim()) {
-        return res.status(400).json({ error: "Title and assignedUserId are required" });
-      }
+      const { title, description, priority, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags, pulseOrigin } = body;
+      if (!title) return res.status(400).json({ error: "Title is required" });
       if (!userMayAccessTaskCountry(req.session.user!.role, req.session.user!.assignedCountries, country)) {
         return res.status(403).json({ error: "You are not authorized to create a task in this country" });
+      }
+      const assignment = parseTaskCreateAssignment(body);
+      let assignedUserId: string;
+      if (assignment.kind === "group") {
+        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups)
+          .where(eq(taskGroups.id, assignment.groupId)).limit(1);
+        if (!group) return res.status(400).json({ error: "Unknown task group" });
+        const members = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+          .where(eq(taskGroupMembers.groupId, assignment.groupId));
+        // The database requires an owner. Resolve it on the server from approved
+        // active members; the agent chooses ONLY the group, never an owner too.
+        assignedUserId = taskGroupNominalOwner(req.session.user!.id,
+          await countryAuthorizedTaskRecipientIds(db, members.map(member => member.userId), country));
+      } else {
+        assignedUserId = assignment.assignedUserId;
       }
       let manualPulseProvenanceValidated = false;
       if (pulseOrigin !== undefined) {
@@ -9886,6 +9900,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const providedTags: string[] = Array.isArray(tags)
         ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG)
         : [];
+      if (assignment.kind === "group") providedTags.push(`group_id:${assignment.groupId}`);
       const groupTags = providedTags.filter(tag => tag.startsWith("group_id:"));
       if (groupTags.length > 1 || groupTags.some(tag => !tag.slice("group_id:".length).trim())) {
         return res.status(400).json({ error: "tags may contain at most one valid group_id tag" });
@@ -9979,6 +9994,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       
       res.status(201).json(task);
     } catch (error: any) {
+      if (error instanceof TaskCreateAssignmentError) return res.status(400).json({ error: error.message });
       if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
       console.error("Error creating task:", error?.message || error);
       res.status(500).json({ error: error?.message || "Failed to create task" });

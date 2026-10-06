@@ -17,7 +17,7 @@ export interface AgentWorkspaceTaskCreateInput {
 
 export function buildAgentWorkspaceTaskCreatePayload(
   task: AgentWorkspaceTaskCreateInput,
-  assignedUserId: string,
+  assignedUserId: string | undefined,
   pulseOrigin: ManualPulseTaskOriginRequest,
 ) {
   return {
@@ -29,16 +29,15 @@ export function buildAgentWorkspaceTaskCreatePayload(
     ...(task.relatedEntityType ? { relatedEntityType: task.relatedEntityType } : {}),
     ...(task.relatedEntityId ? { relatedEntityId: task.relatedEntityId } : {}),
     ...(task.country ? { country: task.country } : {}),
-    ...(task.groupId ? { tags: [`group_id:${task.groupId}`] } : {}),
+    ...(task.groupId ? { groupId: task.groupId } : { assignedUserId }),
     attachments: task.attachments,
-    assignedUserId,
     pulseOrigin,
   };
 }
 
 export function createAgentWorkspaceTask(
   task: AgentWorkspaceTaskCreateInput,
-  assignedUserId: string,
+  assignedUserId: string | undefined,
   pulseOrigin: ManualPulseTaskOriginRequest,
 ) {
   return apiRequest(
