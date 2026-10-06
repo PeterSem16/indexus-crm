@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { normalizeAudioDeviceSnapshot as snapshot } from "./diagnostics";
-import { hasMeaningfulAudioDeviceChange as changed, networkTransport } from "./recheck-policy";
+import { hasMeaningfulAudioDeviceChange as changed, hasCriticalAudioDeviceLoss as lost, networkTransport } from "./recheck-policy";
 
 const headset = [
   { kind: "audioinput" as const, deviceId: "mic", groupId: "usb", label: "Headset microphone" },
@@ -27,4 +27,14 @@ assert.equal(networkTransport("4g"), null);
 assert.equal(networkTransport("unknown"), null);
 assert.equal(networkTransport("wifi"), "wifi");
 assert.equal(networkTransport("ethernet"), "ethernet");
+assert.equal(lost(baseline, snapshot([...headset, { kind: "audioinput", deviceId: "camera", groupId: "cam", label: "Camera" } as const])), false);
+assert.equal(lost(baseline, snapshot(headset.filter(device => device.deviceId !== "desk"))), false, "Removing an unused speaker is not fatal");
+assert.equal(lost(baseline, snapshot(headset.map(device => device.deviceId === "default" ? { ...device, groupId: "desk", label: "Desk speaker" } : device))), false, "A healthy default switch is not fatal");
+assert.equal(lost(baseline, snapshot(headset.filter(device => device.deviceId !== "mic"))), true);
+assert.equal(lost(baseline, snapshot(headset.filter(device => device.deviceId !== "speaker"))), true, "Loss of the known default target is fatal");
+assert.equal(lost(baseline, snapshot([])), true);
+assert.equal(lost(baseline, null), false);
+assert.equal(lost(baseline, snapshot(headset.map(device => ({ ...device, deviceId: "", label: "", groupId: "" })))), false);
+assert.equal(lost(defaultBefore, defaultAfter), false, "Alias-only metadata cannot prove physical loss");
+assert.equal(lost(snapshot(headset.filter(device => device.deviceId !== "desk")), baseline), false);
 console.log("Pulse recheck policy: stable/hidden metadata, real devices/default output and physical transport checks passed.");

@@ -35,6 +35,7 @@ import "@/components/tasks/task-modern-task-surfaces.css";
 import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
 import { TaskCategoryPicker, TaskCreateDatePicker, TaskPriorityPicker, type TaskPriority } from "@/components/tasks/task-create-controls";
 import { applyTaskRequestCategory, composeTaskRequestDescription } from "@/components/tasks/task-request-description";
+import "@/components/nexus/pulse-communications.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -4649,8 +4650,8 @@ export function CommunicationCanvas({
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "email"
-                ? "border-[#c2673a] text-[#c2673a]"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "pulse-channel-active border-[#c2673a] text-[#c2673a]"
+                : "pulse-channel-idle border-transparent text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => onChannelChange("email")}
             data-testid="tab-email"
@@ -4661,8 +4662,8 @@ export function CommunicationCanvas({
           <button
             className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
               activeChannel === "sms"
-                ? "border-orange-500 text-orange-600 dark:text-orange-400"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+                ? "pulse-channel-active border-orange-500 text-orange-600 dark:text-orange-400"
+                : "pulse-channel-idle border-transparent text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => onChannelChange("sms")}
             data-testid="tab-sms"
@@ -4961,10 +4962,10 @@ export function CommunicationCanvas({
       )}
 
       {activeChannel === "email" && (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="pulse-communications pulse-email-layout flex-1 flex overflow-hidden">
 
           {/* ── RIGHT: Email history bubbles (top) + compose card (bottom) ── */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3 gap-2">
+          <div className="pulse-email-main flex-1 flex flex-col min-h-0 min-w-0 p-3 gap-2">
 
             {/* ── Email history bubbles (SMS style) ── */}
             {(() => {
@@ -4977,7 +4978,7 @@ export function CommunicationCanvas({
               const inboundInitial = (inboundName[0] || "?").toUpperCase();
               const inboundFirstName = inboundName.split(" ")[0] || "?";
               return (
-                <div className="shrink-0 flex flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#eae7e2] dark:bg-stone-950" style={{ maxHeight: "42%" }}>
+                <div className="pulse-email-history shrink-0 flex flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#eae7e2] dark:bg-stone-950" style={{ maxHeight: "42%" }}>
                   {/* panel header */}
                   <div className="flex items-center justify-between px-3 py-1.5 bg-white/70 dark:bg-stone-900/60 border-b border-stone-200 dark:border-stone-700 shrink-0">
                     <div className="flex items-center gap-1.5">
@@ -4993,7 +4994,7 @@ export function CommunicationCanvas({
                     )}
                   </div>
                   {/* bubbles */}
-                  <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-[80px]">
+                  <div className="pulse-history-scroll flex-1 overflow-y-auto px-3 py-2 space-y-1.5 min-h-[80px]">
                     {emailItems.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full gap-1 text-stone-400 dark:text-stone-600 py-3">
                         <Mail className="h-5 w-5 opacity-25" />
@@ -5012,7 +5013,7 @@ export function CommunicationCanvas({
                         <div key={entry.id || idx}>
                           {showDateSep && (
                             <div className="flex justify-center my-2">
-                              <span className="text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
+                              <span className="pulse-date-chip text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
                                 {format(new Date(entry.timestamp), "d. M. yyyy, HH:mm", { locale: sk })}
                               </span>
                             </div>
@@ -5021,7 +5022,7 @@ export function CommunicationCanvas({
                             {!isOut && (
                               <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
                                 <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-stone-700 shadow-sm">
-                                  <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-white">
+                                  <AvatarFallback className="pulse-contact-avatar text-[10px] font-bold bg-gradient-to-br from-amber-400 to-orange-500 text-white">
                                     {inboundInitial}
                                   </AvatarFallback>
                                 </Avatar>
@@ -5033,7 +5034,7 @@ export function CommunicationCanvas({
                                 if (!isOut) setReadEmailIds(prev => { const next = new Set(prev); next.add(String(entry.id)); return next; });
                                 onOpenHistoryDetail?.(entry as any);
                               }}
-                              className={`max-w-[70%] px-4 py-2.5 text-left hover:opacity-90 active:scale-[0.98] transition-all ${
+                              className={`pulse-history-bubble ${isOut ? "pulse-history-bubble-outbound" : "pulse-history-bubble-inbound"} max-w-[70%] px-4 py-2.5 text-left hover:opacity-90 active:scale-[0.98] transition-all ${
                                 isOut
                                   ? "bg-gradient-to-br from-[#c2673a] to-[#a8502a] rounded-2xl rounded-br-none shadow-md"
                                   : `bg-white dark:bg-stone-800 rounded-2xl rounded-bl-none shadow-md border-l-[3px] ${isUnread ? "border-red-400 ring-1 ring-red-200 dark:ring-red-900" : "border-[#c2673a]/70 dark:border-[#c2673a]/50"}`
@@ -5057,7 +5058,7 @@ export function CommunicationCanvas({
                                   {entry.agentName === (user?.name || user?.username) && user?.avatarUrl && (
                                     <AvatarImage src={user.avatarUrl} alt={agentFirstName} />
                                   )}
-                                  <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
+                                  <AvatarFallback className="pulse-agent-avatar text-[10px] font-bold bg-gradient-to-br from-[#c2673a] to-[#a8502a] text-white">
                                     {agentInitial}
                                   </AvatarFallback>
                                 </Avatar>
@@ -5075,10 +5076,10 @@ export function CommunicationCanvas({
             })()}
 
             {/* ── Compose card (flex-1, template visible) ── */}
-            <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
+            <div className="pulse-compose-card flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
 
             {/* Email-client header bar */}
-            <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+            <div className="pulse-compose-header bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                 <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
               </div>
@@ -5101,8 +5102,8 @@ export function CommunicationCanvas({
               </div>
               {emailIsHtml && (
                 <div className="flex items-center gap-0.5 shrink-0 bg-muted rounded-lg p-0.5">
-                  <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.preview || "Preview"}</button>
-                  <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.editHtml || "Edit HTML"}</button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${!emailHtmlEditMode ? "pulse-html-mode-active bg-[#c2673a] text-white shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.preview || "Preview"}</button>
+                  <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${emailHtmlEditMode ? "pulse-html-mode-active bg-background text-foreground shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.editHtml || "Edit HTML"}</button>
                 </div>
               )}
               <button type="button" onClick={() => setEmailPreviewExpanded(true)} className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0" title={t.customers?.details?.fullscreen || "View fullscreen"} data-testid="btn-email-preview-expand">
@@ -5150,7 +5151,7 @@ export function CommunicationCanvas({
             </div>
 
             {/* Bottom action bar */}
-            <div className="shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="pulse-compose-footer shrink-0 border-t border-border bg-card px-4 py-2.5 flex items-center justify-between gap-3">
               <div className="text-[11px] space-y-0.5">
                 {selectedEmails.length === 0 && <div className="text-destructive">• {t.customers?.details?.selectEmail || "Select at least one email"}</div>}
                 {!emailSubject && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterSubject || "Enter a subject"}</div>}
@@ -5175,7 +5176,7 @@ export function CommunicationCanvas({
                 }} data-testid="button-cancel-email">
                   {t.common?.cancel || "Cancel"}
                 </Button>
-                <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} className="h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
+                <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} className="pulse-send-button h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
                   {isSendingEmail ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
                   {t.customers?.details?.sendEmail || "Send Email"}
                 </Button>
@@ -5187,19 +5188,19 @@ export function CommunicationCanvas({
             {/* Expanded dialog */}
             {emailPreviewExpanded && (
               <Dialog open={emailPreviewExpanded} onOpenChange={setEmailPreviewExpanded}>
-                <DialogContent className="max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0 overflow-hidden rounded-xl">
-                  <div className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
+                <DialogContent className="pulse-communications-dialog max-w-5xl w-full h-[90vh] !flex !flex-col p-0 gap-0 overflow-hidden rounded-xl" data-testid="email-expanded-preview-dialog">
+                  <div className="pulse-compose-header flex items-center gap-3 px-4 py-3 bg-card border-b border-border flex-shrink-0">
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                       <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
                     </div>
-                <span className="text-sm font-semibold flex-1 truncate text-foreground">{emailSubject || t.customers?.details?.preview || "Email preview"}</span>
+                <h2 className="text-sm font-semibold flex-1 min-w-0 truncate text-foreground">{emailSubject || t.customers?.details?.preview || "Email preview"}</h2>
                     <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
-                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "bg-[#c2673a] text-white shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.preview || "Preview"}</button>
-                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:bg-background hover:text-foreground"}`}>{t.customers?.details?.editHtml || "Edit HTML"}</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "pulse-html-mode-active bg-[#c2673a] text-white shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`} data-testid="btn-email-expanded-preview">{t.customers?.details?.preview || "Preview"}</button>
+                      <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "pulse-html-mode-active bg-background text-foreground shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`} data-testid="btn-email-expanded-edit-html">{t.customers?.details?.editHtml || "Edit HTML"}</button>
                     </div>
                   </div>
-                  <div className="flex-1 min-h-0 overflow-hidden bg-stone-100 dark:bg-stone-950 p-3">
-                    <div className="h-full rounded-xl overflow-hidden shadow-lg border border-stone-200/60 dark:border-stone-700/60">
+                  <div className="pulse-expanded-preview-surface flex-1 min-h-0 overflow-hidden bg-stone-100 dark:bg-stone-950 p-3">
+                    <div className="pulse-expanded-preview-frame h-full rounded-xl overflow-hidden shadow-lg border border-stone-200/60 dark:border-stone-700/60">
                       {emailHtmlEditMode ? (
                         <textarea
                           className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300"
@@ -5209,6 +5210,7 @@ export function CommunicationCanvas({
                             setEmailMessage(e.target.value);
                           }}
                           spellCheck={false}
+                          data-testid="textarea-email-html-expanded-edit"
                         />
                       ) : (
                         <EditableEmailFrame
@@ -5228,7 +5230,7 @@ export function CommunicationCanvas({
           </div>
 
           {/* ── LEFT: Compact form sidebar ── */}
-          <div className="w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
+          <div className="pulse-communication-sidebar w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
             <div className="p-4 space-y-4">
 
               {/* FROM ACCOUNT */}
@@ -5312,7 +5314,7 @@ export function CommunicationCanvas({
                     type="button"
                     onClick={() => setEmailIsHtml(v => !v)}
                     data-testid="btn-toggle-html"
-                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${emailIsHtml ? "bg-[#c2673a] text-white border-[#c2673a]" : "bg-white dark:bg-stone-800 text-stone-500 border-stone-300 dark:border-stone-600 hover:bg-stone-100"}`}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-colors ${emailIsHtml ? "pulse-html-mode-active bg-[#c2673a] text-white border-[#c2673a]" : "pulse-html-mode-idle bg-white dark:bg-stone-800 text-stone-500 border-stone-300 dark:border-stone-600 hover:bg-stone-100"}`}
                     title={emailIsHtml ? "Prepnúť na plain text" : "Prepnúť na HTML editor"}
                   >
                     <Code2 className="h-3 w-3" />
@@ -5320,19 +5322,19 @@ export function CommunicationCanvas({
                   </button>
                 </div>
                 <div className="flex items-center gap-0.5 flex-wrap">
-                  {[
-                    { code: "sk", flag: "🇸🇰" },
-                    { code: "cs", flag: "🇨🇿" },
-                    { code: "en", flag: "🇬🇧" },
-                    { code: "hu", flag: "🇭🇺" },
-                    { code: "ro", flag: "🇷🇴" },
-                    { code: "it", flag: "🇮🇹" },
-                    { code: "de", flag: "🇩🇪" },
-                  ].map(({ code, flag }) => (
+                    {[
+                    { code: "sk", label: "SK" },
+                    { code: "cs", label: "CZ" },
+                    { code: "en", label: "EN" },
+                    { code: "hu", label: "HU" },
+                    { code: "ro", label: "RO" },
+                    { code: "it", label: "IT" },
+                    { code: "de", label: "DE" },
+                  ].map(({ code, label }) => (
                     <button
                       key={code}
                       type="button"
-                      className={`text-base px-1 py-0.5 rounded border transition-all ${emailTemplateLangs.has(code) ? "border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                      className={`pulse-language-pill text-[10px] font-semibold min-w-7 px-1.5 py-1 rounded-md border transition-all ${emailTemplateLangs.has(code) ? "pulse-language-pill-active border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-50 hover:opacity-80"}`}
                       onClick={() => {
                         setEmailTemplateLangs(prev => {
                           const next = new Set(prev);
@@ -5344,7 +5346,7 @@ export function CommunicationCanvas({
                       title={code.toUpperCase()}
                       data-testid={`email-lang-flag-${code}`}
                     >
-                      {flag}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -5559,14 +5561,14 @@ export function CommunicationCanvas({
       )}
 
       {activeChannel === "sms" && (
-        <div className="flex-1 flex overflow-hidden">
+        <div className="pulse-communications pulse-sms-layout flex-1 flex overflow-hidden">
 
           {/* ── RIGHT: SMS preview + compose ── */}
-          <div className="flex-1 flex flex-col min-h-0 min-w-0 p-3">
-            <div className="flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
+          <div className="pulse-sms-main flex-1 flex flex-col min-h-0 min-w-0 p-3">
+            <div className="pulse-sms-card flex-1 min-h-0 flex flex-col rounded-xl overflow-hidden shadow-sm border border-border">
 
               {/* SMS header bar */}
-              <div className="bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
+              <div className="pulse-sms-header bg-card border-b border-border px-4 py-2.5 flex items-center gap-3 shrink-0">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                   <MessageSquare className="h-3.5 w-3.5 text-[#c2673a]" />
                 </div>
@@ -5589,7 +5591,7 @@ export function CommunicationCanvas({
               </div>
 
               {/* SMS Chat Timeline */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
+              <div className="pulse-sms-thread flex-1 min-h-0 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
                 {/* Search bar */}
                 <div className="shrink-0 px-3 pt-2.5 pb-1.5">
                   <div className="relative">
@@ -5599,7 +5601,7 @@ export function CommunicationCanvas({
                       value={smsSearch}
                       onChange={e => setSmsSearch(e.target.value)}
                       placeholder={t.customers?.details?.searchMessagesPlaceholder || "Search messages..."}
-                      className="w-full pl-9 pr-8 py-2 text-[12px] rounded-xl bg-white dark:bg-stone-800 border border-stone-300/70 dark:border-stone-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 placeholder:text-stone-400 dark:placeholder:text-stone-500 transition-all"
+                      className="pulse-search w-full pl-9 pr-8 py-2 text-[12px] rounded-xl bg-white dark:bg-stone-800 border border-stone-300/70 dark:border-stone-700 shadow-sm outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 placeholder:text-stone-400 dark:placeholder:text-stone-500 transition-all"
                       data-testid="input-sms-search"
                     />
                     {smsSearch && (
@@ -5689,7 +5691,7 @@ export function CommunicationCanvas({
                         <div key={msg.id || idx}>
                           {showDateSep && !msg._draft && (
                             <div className="flex justify-center my-2">
-                              <span className="text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
+                              <span className="pulse-date-chip text-[10px] font-medium text-stone-500 dark:text-stone-400 bg-white/80 dark:bg-stone-800/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm">
                                 {format(new Date(msg.date), "d. M. yyyy, HH:mm", { locale: sk })}
                               </span>
                             </div>
@@ -5698,7 +5700,7 @@ export function CommunicationCanvas({
                             {!isOut && (
                               <div className="flex flex-col items-center gap-0.5 shrink-0 mb-1">
                                 <Avatar className={`h-7 w-7 ring-2 shadow-sm ${isNegativeSent ? "ring-red-300 dark:ring-red-700" : "ring-white dark:ring-stone-700"}`}>
-                                  <AvatarFallback className={`text-[10px] font-bold text-white ${isNegativeSent ? "bg-gradient-to-br from-red-400 to-rose-500" : "bg-gradient-to-br from-emerald-400 to-teal-500"}`}>
+                                  <AvatarFallback className={`pulse-contact-avatar text-[10px] font-bold text-white ${isNegativeSent ? "bg-gradient-to-br from-red-400 to-rose-500" : "bg-gradient-to-br from-emerald-400 to-teal-500"}`}>
                                     {inboundInitial}
                                   </AvatarFallback>
                                 </Avatar>
@@ -5711,7 +5713,7 @@ export function CommunicationCanvas({
                               className={`max-w-[70%] cursor-default ${!isOut ? "cursor-pointer hover:opacity-95 active:scale-[0.99] transition-all" : ""}`}
                               onClick={!isOut && !msg._draft ? () => setReadSmsIds(prev => new Set([...prev, String(msg.id)])) : undefined}
                             >
-                            <div className={`${
+                            <div className={`pulse-history-bubble ${isOut ? (msg._draft ? "pulse-history-bubble-draft" : "pulse-history-bubble-outbound") : `pulse-history-bubble-inbound ${isNegativeSent ? "pulse-history-bubble-negative" : ""}`} ${
                               isOut
                                 ? msg._draft
                                   ? "px-4 py-2.5 bg-white/90 border-2 border-dashed border-blue-300 dark:bg-stone-800/80 dark:border-blue-700 rounded-2xl rounded-br-none shadow-sm"
@@ -5759,7 +5761,7 @@ export function CommunicationCanvas({
                                     {isCurrentUser && user?.avatarUrl && (
                                       <AvatarImage src={user.avatarUrl} alt={user?.name || user?.username || ""} />
                                     )}
-                                    <AvatarFallback className="text-[10px] font-bold bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
+                                  <AvatarFallback className="pulse-agent-avatar text-[10px] font-bold bg-gradient-to-br from-blue-400 to-indigo-500 text-white">
                                       {agentInitial}
                                     </AvatarFallback>
                                   </Avatar>
@@ -5779,7 +5781,7 @@ export function CommunicationCanvas({
               </div>
 
               {/* Compose + action bar */}
-              <div className="shrink-0 border-t-2 border-[#c2673a]/25 bg-gradient-to-r from-[#c2673a]/[0.07] via-card to-card px-4 py-3 flex items-end gap-3">
+              <div className="pulse-sms-composer shrink-0 border-t-2 border-[#c2673a]/25 bg-gradient-to-r from-[#c2673a]/[0.07] via-card to-card px-4 py-3 flex items-end gap-3">
                 <div className="flex-1 min-w-0 relative">
                   <Textarea
                     ref={smsTextareaRef}
@@ -5789,7 +5791,7 @@ export function CommunicationCanvas({
                     rows={2}
                     maxLength={160}
                     disabled={isSendingSms}
-                    className="text-sm leading-relaxed resize-none rounded-xl border-[#c2673a]/30 bg-white dark:bg-stone-900 shadow-sm pr-4 pb-6 focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60 placeholder:text-muted-foreground/50 transition-all"
+                    className="pulse-search text-sm leading-relaxed resize-none rounded-xl border-[#c2673a]/30 bg-white dark:bg-stone-900 shadow-sm pr-4 pb-6 focus-visible:ring-2 focus-visible:ring-[#c2673a]/35 focus-visible:border-[#c2673a]/60 placeholder:text-muted-foreground/50 transition-all"
                     style={{ minHeight: 60, maxHeight: 180, overflowY: "auto" }}
                     data-testid="input-sms-message"
                   />
@@ -5819,7 +5821,7 @@ export function CommunicationCanvas({
                   <Button
                     onClick={handleSendSms}
                     disabled={(selectedPhones.length === 0 && !smsCc.trim()) || !smsMessage || isSendingSms}
-                    className="h-9 px-5 text-xs font-semibold rounded-lg bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
+                    className="pulse-send-button h-9 px-5 text-xs font-semibold rounded-lg bg-gradient-to-b from-[#d0764a] to-[#c2673a] hover:from-[#c2673a] hover:to-[#a8502a] text-white border-0 shadow-md disabled:opacity-40 transition-all"
                     data-testid="btn-send-sms"
                   >
                     {isSendingSms ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
@@ -5832,7 +5834,7 @@ export function CommunicationCanvas({
           </div>
 
           {/* ── LEFT: Compact form sidebar ── */}
-          <div className="w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
+          <div className="pulse-communication-sidebar w-[290px] shrink-0 flex flex-col order-first border-r border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-900/60 overflow-y-auto">
             <div className="p-4 space-y-4">
 
               {/* Template */}
@@ -5841,19 +5843,19 @@ export function CommunicationCanvas({
                   {t.configuration?.messageTemplates || "Template"}
                 </Label>
                 <div className="flex items-center gap-1 flex-wrap">
-                  {[
-                    { code: "sk", flag: "🇸🇰" },
-                    { code: "cs", flag: "🇨🇿" },
-                    { code: "en", flag: "🇬🇧" },
-                    { code: "hu", flag: "🇭🇺" },
-                    { code: "ro", flag: "🇷🇴" },
-                    { code: "it", flag: "🇮🇹" },
-                    { code: "de", flag: "🇩🇪" },
-                  ].map(({ code, flag }) => (
+                    {[
+                    { code: "sk", label: "SK" },
+                    { code: "cs", label: "CZ" },
+                    { code: "en", label: "EN" },
+                    { code: "hu", label: "HU" },
+                    { code: "ro", label: "RO" },
+                    { code: "it", label: "IT" },
+                    { code: "de", label: "DE" },
+                  ].map(({ code, label }) => (
                     <button
                       key={code}
                       type="button"
-                      className={`text-base px-1 py-0.5 rounded border transition-all ${smsTemplateLangs.has(code) ? "border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-40 hover:opacity-70"}`}
+                      className={`pulse-language-pill text-[10px] font-semibold min-w-7 px-1.5 py-1 rounded-md border transition-all ${smsTemplateLangs.has(code) ? "pulse-language-pill-active border-[#c2673a] bg-[#c2673a]/10 shadow-sm" : "border-transparent opacity-50 hover:opacity-80"}`}
                       onClick={() => {
                         setSmsTemplateLangs(prev => {
                           const next = new Set(prev);
@@ -5865,7 +5867,7 @@ export function CommunicationCanvas({
                       title={code.toUpperCase()}
                       data-testid={`sms-lang-flag-${code}`}
                     >
-                      {flag}
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -18088,7 +18090,7 @@ function AgentWorkspacePageContent() {
       </Dialog>
 
       <Dialog open={!!historyDetailModal} onOpenChange={(open) => { if (!open) { setHistoryDetailModal(null); setEmailReplyOpen(false); setEmailReplyText(""); setEmailReplySignature(null); } }}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col p-0">
+        <DialogContent className="pulse-communications-dialog sm:max-w-5xl max-h-[90vh] flex flex-col p-0" data-testid="history-detail-dialog">
           {historyDetailModal && (() => {
             const entry = historyDetailModal;
             const isEmail = (entry as any).type === "email" || !!(entry as any).htmlBody;
@@ -18116,7 +18118,7 @@ function AgentWorkspacePageContent() {
 
             return (
               <>
-                <div className="px-5 pt-4 pb-3 border-b bg-background rounded-t-lg">
+                <div className="pulse-detail-header px-5 pt-4 pb-3 border-b bg-background rounded-t-lg">
                   <div className="flex items-center gap-3">
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isEmail ? "bg-indigo-50 dark:bg-indigo-900/30" : "bg-sky-50 dark:bg-sky-900/30"}`}>
                       {isEmail ? (
@@ -18299,7 +18301,7 @@ function AgentWorkspacePageContent() {
                   </div>
                 </div>
 
-                <div className="flex-1 min-h-0 overflow-auto" style={{ maxHeight: emailReplyOpen ? "35vh" : "60vh" }}>
+                <div className="pulse-detail-content flex-1 min-h-0 overflow-auto" style={{ maxHeight: emailReplyOpen ? "35vh" : "60vh" }}>
                   {(entry as any).remoteEmailError && (
                     <div className="mx-4 mt-3 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200">
                       {t.email?.loadError || "The full email could not be loaded; showing the saved preview."}
@@ -18340,7 +18342,7 @@ function AgentWorkspacePageContent() {
                     </div>
                   ) : (
                     <div className="p-6">
-                      <div className={`rounded-lg p-4 ${direction === "outbound" ? "bg-primary/5 border border-primary/10" : "bg-muted/30 border border-border/30"}`}>
+                      <div className={`pulse-detail-message rounded-lg p-4 ${direction === "outbound" ? "pulse-history-bubble-outbound" : "pulse-history-bubble-inbound"} ${direction === "outbound" ? "bg-primary/5 border border-primary/10" : "bg-muted/30 border border-border/30"}`}>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="text-history-detail-content">
                           {isSms ? fullContent : (entry as any).content || ""}
                         </p>
@@ -18350,7 +18352,7 @@ function AgentWorkspacePageContent() {
                 </div>
 
                 {isEmail && direction === "inbound" && emailReplyOpen && (
-                  <div className="border-t flex-shrink-0 bg-background flex flex-col">
+                  <div className="pulse-detail-reply border-t flex-shrink-0 bg-background flex flex-col">
                     <div className="flex items-center gap-2 px-4 py-2 border-b bg-muted/20">
                       <CornerUpLeft className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
                       <span className="text-xs font-medium text-foreground">Re: {subject}</span>

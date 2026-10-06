@@ -1,7 +1,8 @@
 import type { AudioDeviceSnapshot } from "./diagnostics";
 
-export const DEVICE_CHANGE_CONFIRM_MS = 1200;
-export const NETWORK_CHANGE_CONFIRM_MS = 1200;
+export const DEVICE_CHANGE_CONFIRM_MS = 3000;
+export const NETWORK_CHANGE_CONFIRM_MS = 30000;
+export const REGISTRATION_LOSS_CONFIRM_MS = 30000;
 
 const aliases = new Set(["default", "communications"]);
 type AudioDevice = AudioDeviceSnapshot["devices"][number];
@@ -38,6 +39,31 @@ export function hasMeaningfulAudioDeviceChange(
     const before = aliasTarget(previous, baseline.devices);
     const after = aliasTarget(next, current.devices);
     if (before && after && before !== after) return true;
+  }
+  return false;
+}
+
+/** Rechecks are for loss of usable audio, not additions, renamed devices or a
+ * healthy default-device switch. Missing/permission-hidden observations do not
+ * identify the selected device. All audio loss remains a critical observation.
+ */
+export function hasCriticalAudioDeviceLoss(
+  baseline: AudioDeviceSnapshot | null,
+  current: AudioDeviceSnapshot | null,
+) {
+  if (!baseline || !current || baseline.version !== current.version) return false;
+  if ([...baseline.devices, ...current.devices].some(device => !device.deviceId)) return false;
+  for (const kind of ["audioinput", "audiooutput"] as const) {
+    const before = baseline.devices.filter(device => device.kind === kind);
+    const now = current.devices.filter(device => device.kind === kind);
+    if (before.length && !now.length) return true;
+    const defaultDevice = before.find(device => device.deviceId === "default");
+    const physical = before.filter(device => !aliases.has(device.deviceId));
+    const selected = defaultDevice ? aliasTarget(defaultDevice, before) : null;
+    const selectedId = selected?.startsWith("device:")
+      ? selected.slice("device:".length)
+      : !defaultDevice && physical.length === 1 ? physical[0].deviceId : null;
+    if (selectedId && !now.some(device => device.deviceId === selectedId)) return true;
   }
   return false;
 }

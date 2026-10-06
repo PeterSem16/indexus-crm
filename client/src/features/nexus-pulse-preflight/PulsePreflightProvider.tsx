@@ -12,7 +12,7 @@ import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { PulseDiagnostics } from "./PulseDiagnostics";
 import { isPulseReadinessEnvironmentValid, isPulseSessionProtected, normalizeAudioDeviceSnapshot, parseAudioDeviceSnapshot, pulseAudioDeviceBaselineStorageKey, pulseReadinessStorageKey, shouldPresentDeferredRecheck, shouldRetainStoredReadiness, type AudioDeviceSnapshot } from "./diagnostics";
-import { DEVICE_CHANGE_CONFIRM_MS, NETWORK_CHANGE_CONFIRM_MS, hasMeaningfulAudioDeviceChange, networkTransport } from "./recheck-policy";
+import { DEVICE_CHANGE_CONFIRM_MS, NETWORK_CHANGE_CONFIRM_MS, REGISTRATION_LOSS_CONFIRM_MS, hasCriticalAudioDeviceLoss, hasMeaningfulAudioDeviceChange } from "./recheck-policy";
 import { isPulseRecordingPlaybackActive } from "./recording-playback";
 import { pulseCopy } from "./translations";
 import { canUsePulseDevPreview, PULSE_DEV_PREVIEW_PARAM, pulseDevPreviewCopy } from "./dev-preview";
@@ -24,7 +24,9 @@ function userKey(user: any) { return String(user?.id ?? user?.userId ?? user?.us
 
 function readStoredReadiness(key: string, workProtected = false) {
   const hasStoredReadiness = !!sessionStorage.getItem(key);
-  if (shouldRetainStoredReadiness(hasStoredReadiness, isPulseReadinessEnvironmentValid(), workProtected)) return true;
+  // A transient offline flag is handled by the confirmed-loss observer below.
+  // Focus/navigation must not silently discard a valid run before that deadline.
+  if (shouldRetainStoredReadiness(hasStoredReadiness, isPulseReadinessEnvironmentValid(undefined, undefined, undefined, true), workProtected)) return true;
   if (!hasStoredReadiness) return false;
   sessionStorage.removeItem(key);
   return false;
@@ -213,18 +215,17 @@ function RequiredPulseGate({ children }: Props) {
     if (!allowed || !acknowledged || isRegistered) return;
     setStatus("warning");
     const timer = window.setTimeout(() => {
-      if (!isRegisteredRef.current) requestInvalidation("registration");
-    }, 14000);
+      if (!isRegisteredRef.current && !diagnosticsOpenRef.current) requestInvalidation("registration");
+    }, REGISTRATION_LOSS_CONFIRM_MS);
     return () => window.clearTimeout(timer);
   }, [allowed, acknowledged, isRegistered, requestInvalidation]);
-  useEffect(() => {
-    if (
-      !isRegistered ||
-      !deferredInvalidation.current ||
-      !validatedMediaEpisodeRef.current ||
-      deferredMediaEpisodeRef.current !== validatedMediaEpisodeRef.current
-    ) return;
-    deferredInvalidationReasons.current.delete("registration");
+  const reconcileRecoveredConnection = useCallback((reason: "registration" | "network") => {
+    if (!deferredInvalidation.current) return;
+    // During a media incident, connection recovery alone does not prove that
+    // the call can be heard. Wait for this session's validated bidirectional RTP.
+    if (deferredMediaEpisodeRef.current &&
+      deferredMediaEpisodeRef.current !== validatedMediaEpisodeRef.current) return;
+    deferredInvalidationReasons.current.delete(reason);
     if (deferredInvalidationReasons.current.size > 0) return;
     deferredInvalidation.current = false;
     deferredMediaEpisodeRef.current = null;
@@ -234,7 +235,14 @@ function RequiredPulseGate({ children }: Props) {
     setAcknowledged(storedReady);
     setStatus(storedReady ? "ready" : "blocked");
     if (storedReady) window.dispatchEvent(new Event("nexus-pulse-ready"));
-  }, [isRegistered, key]);
+  }, [key]);
+  useEffect(() => {
+    if (isRegistered) {
+      reconcileRecoveredConnection("registration");
+      if (navigator.onLine !== false) reconcileRecoveredConnection("network");
+      if (!deferredInvalidation.current && readStoredReadiness(key)) setStatus("ready");
+    }
+  }, [isRegistered, key, reconcileRecoveredConnection]);
   useEffect(() => {
     if (!shouldPresentDeferredRecheck(workProtected, deferredInvalidation.current)) return;
     const timer = window.setTimeout(() => {
@@ -287,8 +295,18 @@ function RequiredPulseGate({ children }: Props) {
   }, [allowed, ready, showDeferredRecheckIntro, workProtected]);
   useEffect(() => {
     if (!allowed) return;
+    let offlineConfirmTimer: number | undefined;
     const offline = () => {
-      if (!workProtectedRef.current) requestInvalidation("network");
+      if (navigator.onLine !== false || offlineConfirmTimer !== undefined || diagnosticsOpenRef.current) return;
+      offlineConfirmTimer = window.setTimeout(() => {
+        offlineConfirmTimer = undefined;
+        if (navigator.onLine === false && !diagnosticsOpenRef.current) requestInvalidation("network");
+      }, NETWORK_CHANGE_CONFIRM_MS);
+    };
+    const online = () => {
+      window.clearTimeout(offlineConfirmTimer);
+      offlineConfirmTimer = undefined;
+      if (navigator.onLine !== false) reconcileRecoveredConnection("network");
     };
     let deviceCheckInFlight = false;
     let disposed = false;
@@ -317,7 +335,15 @@ function RequiredPulseGate({ children }: Props) {
         // must not remount it, or invalidate its freshly committed baseline.
         if (disposed || diagnosticsOpenRef.current || generation !== diagnosticsGenerationRef.current
           || baselineValue !== sessionStorage.getItem(baselineKey)) { clearDeviceCandidate(); return; }
-        if (!current || !hasMeaningfulAudioDeviceChange(baseline, current)) { clearDeviceCandidate(); return; }
+        if (!current || !hasCriticalAudioDeviceLoss(baseline, current)) {
+          clearDeviceCandidate();
+          // Adopt healthy additions/switches so loss of the new default is
+          // checked against the current environment, not an obsolete headset.
+          if (current && hasMeaningfulAudioDeviceChange(baseline, current)) {
+            sessionStorage.setItem(baselineKey, JSON.stringify(current));
+          }
+          return;
+        }
         if (deviceCandidate && !hasMeaningfulAudioDeviceChange(deviceCandidate, current)) {
           const remaining = DEVICE_CHANGE_CONFIRM_MS - (performance.now() - deviceCandidateSince);
           if (remaining <= 0) {
@@ -343,37 +369,12 @@ function RequiredPulseGate({ children }: Props) {
       }
     };
     const deviceChanged = () => { void checkAudioDevices(); };
-    const connection = (navigator as any).connection;
-    let previousTransport = networkTransport(connection?.type);
-    let networkConfirmTimer: number | undefined;
-    const connectionChanged = () => {
-      const currentTransport = networkTransport(connection?.type);
-      if (!currentTransport) return;
-      if (!previousTransport || diagnosticsOpenRef.current) {
-        previousTransport = currentTransport;
-        window.clearTimeout(networkConfirmTimer);
-        networkConfirmTimer = undefined;
-        return;
-      }
-      if (currentTransport === previousTransport) { window.clearTimeout(networkConfirmTimer); networkConfirmTimer = undefined; return; }
-      // Ignore fluctuating quality estimates and brief transport oscillations.
-      if (networkConfirmTimer !== undefined) return;
-      const generation = diagnosticsGenerationRef.current;
-      networkConfirmTimer = window.setTimeout(() => {
-        networkConfirmTimer = undefined;
-        const confirmedTransport = networkTransport(connection?.type);
-        if (disposed || diagnosticsOpenRef.current || generation !== diagnosticsGenerationRef.current) return;
-        if (confirmedTransport && confirmedTransport !== previousTransport) {
-          previousTransport = confirmedTransport;
-          if (!workProtectedRef.current) requestInvalidation("network");
-        }
-      }, NETWORK_CHANGE_CONFIRM_MS);
-    };
     const mediaInterrupted = (event: Event) => {
       const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
       if (!episodeId) return;
       deferredMediaEpisodeRef.current = episodeId;
-      requestInvalidation("network");
+      // An interruption starts recovery, not a mandatory test. Only the call
+      // monitor's confirmed critical failure below can require a recheck.
     };
     const mediaCritical = (event: Event) => {
       const episodeId = (event as CustomEvent<{ episodeId?: string }>).detail?.episodeId;
@@ -403,11 +404,22 @@ function RequiredPulseGate({ children }: Props) {
     };
     const mediaDevices = navigator.mediaDevices;
     window.addEventListener("offline", offline); mediaDevices?.addEventListener?.("devicechange", deviceChanged);
+    window.addEventListener("online", online);
+    offline();
+    let microphonePermission: PermissionStatus | undefined;
+    const permissionChanged = () => {
+      if (!diagnosticsOpenRef.current && microphonePermission?.state === "denied") requestInvalidation("device");
+    };
+    void navigator.permissions?.query({ name: "microphone" as PermissionName }).then(permission => {
+      if (disposed) return;
+      microphonePermission = permission;
+      permission.addEventListener("change", permissionChanged);
+      if (sessionStorage.getItem(key)) permissionChanged();
+    }).catch(() => { /* Unsupported permission queries are not evidence of failure. */ });
     window.addEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
     window.addEventListener("nexus-pulse-media-critical", mediaCritical);
     window.addEventListener("nexus-pulse-media-recovered", mediaRecovered);
-    connection?.addEventListener?.("change", connectionChanged);
-    const lifecycleCheck = () => { void checkAudioDevices(); };
+    const lifecycleCheck = () => { void checkAudioDevices(); offline(); };
     window.addEventListener("focus", lifecycleCheck);
     document.addEventListener("visibilitychange", lifecycleCheck);
     window.addEventListener("pageshow", lifecycleCheck);
@@ -416,19 +428,20 @@ function RequiredPulseGate({ children }: Props) {
     return () => {
       disposed = true;
       clearDeviceCandidate();
-      window.clearTimeout(networkConfirmTimer);
+      window.clearTimeout(offlineConfirmTimer);
       window.removeEventListener("offline", offline);
+      window.removeEventListener("online", online);
+      microphonePermission?.removeEventListener("change", permissionChanged);
       mediaDevices?.removeEventListener?.("devicechange", deviceChanged);
       window.removeEventListener("nexus-pulse-media-interrupted", mediaInterrupted);
       window.removeEventListener("nexus-pulse-media-critical", mediaCritical);
       window.removeEventListener("nexus-pulse-media-recovered", mediaRecovered);
-      connection?.removeEventListener?.("change", connectionChanged);
       window.removeEventListener("focus", lifecycleCheck);
       document.removeEventListener("visibilitychange", lifecycleCheck);
       window.removeEventListener("pageshow", lifecycleCheck);
       window.clearInterval(lifecycleTimer);
     };
-  }, [allowed, key, requestInvalidation]);
+  }, [allowed, key, reconcileRecoveredConnection, requestInvalidation]);
   if (isLoading) return <div className="flex min-h-[60dvh] items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />{copy.working}</div>;
   if (!user || !allowed) return <>{children}</>;
   const roleLandingPage = (user as any)?.roleLandingPage || "/";

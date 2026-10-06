@@ -27,7 +27,7 @@ async function installFixture(page: Page, empty = false) {
       sender: "iris@example.test", senderEmail: "iris@example.test",
       entityId: "iris", contactType: "clinic", campaignId: "mission", campaignName: "Partner enquiries",
       subject: "Potvrdenie termínu", content: "<p>Prosím potvrďte návštevu.</p>",
-      createdAt: at(24), handledAt: null },
+      createdAt: at(24), handledAt: at(2) },
     { id: "sms-jana", type: "sms", contactName: "Jana Test",
       sender: "+421900000103", senderPhone: "+421900000103",
       entityId: "jana", contactType: "customer", campaignId: "mission", campaignName: "Partner enquiries",
@@ -48,13 +48,27 @@ async function installFixture(page: Page, empty = false) {
     { id: "session-activity", itemType: "session", startedAt: at(120), sortTime: at(120),
       endedAt: null, campaignName: "Morning shift" },
   ];
+  const clinic = {
+    id: "iris", name: "Centrum Iris", clinicName: "Centrum Iris",
+    doctorName: "MUDr. Jana Iris", email: "iris@example.test", phone: "+421900000201",
+    countryCode: "SK", country: "SK",
+  };
+  const communicationHistory = [
+    { id: "history-email-iris", type: "email", direction: "inbound", timestamp: at(24),
+      content: "Consultation follow-up", details: "<p>Please confirm the consultation time.</p>",
+      sender: "iris@example.test", agentName: "Preview Agent", campaignId: "mission" },
+    { id: "history-sms-in-iris", type: "sms", direction: "inbound", timestamp: at(6),
+      content: "We can see the patient on Thursday.", agentName: "Jana Iris", sentiment: "positive" },
+    { id: "history-sms-out-iris", type: "sms", direction: "outbound", timestamp: at(4),
+      content: "Thursday at 14:30 is confirmed.", agentName: "Preview Agent", status: "delivered" },
+  ];
   page.on("pageerror", e => errors.push(e.message));
   await page.route("**/api/**", async route => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
     let body: unknown = [];
     if (!["GET", "HEAD"].includes(req.method())) {
-      if (path === "/api/auth/heartbeat") body = { success: true };
+      if (path === "/api/auth/heartbeat" || path === "/api/wallboard/presence") body = { success: true };
       else if (path === "/api/agent/missed-messages/sms-jana/handled") {
         writes.push(path);
         messages.find(item => item.id === "sms-jana")!.handledAt = at(0) as any;
@@ -72,11 +86,13 @@ async function installFixture(page: Page, empty = false) {
     else if (path === "/api/agent-sessions/active") body = {
       id: "preview-session", userId: user.id, status: "available", startedAt: at(120),
       endedAt: null, totalCallTime: 1, totalEmailTime: 1, totalSmsTime: 1,
-      contactsHandled: 0, totalBreakTime: 900, totalWorkTime: 7200,
-      campaignIds: [], inboundQueueIds: [],
+    contactsHandled: 0, totalBreakTime: 900, totalWorkTime: 7200,
+    campaignIds: ["mission"], inboundQueueIds: [],
     };
     else if (path === "/api/agent/abandoned-calls") body = calls;
     else if (path === "/api/agent/missed-messages") body = messages;
+    else if (path === "/api/clinics/iris") body = clinic;
+    else if (path === "/api/clinics/iris/contact-history") body = communicationHistory;
     else if (path === "/api/agent/today-activity") body = activities;
     else if (path.includes("/unread-count") || path.includes("/count")) body = { count: 0 };
     else if (path.includes("/settings") || path.includes("/preferences") || path.includes("/configuration")) body = {};
@@ -200,6 +216,110 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await assertDialogBounds(page, page.getByTestId("my-shift-unified-dialog"));
     await page.screenshot({ path: "/tmp/pulse-unified-shift-mobile.png" });
+    expect(fixture.errors).toEqual([]);
+  });
+
+  test("email detail and reply controls stay within desktop and phone viewports", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const fixture = await installFixture(page);
+    await page.evaluate(() => document.documentElement.setAttribute("data-agent-fullscreen", "true"));
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    const missedEmail = page.getByTestId("missed-message-mail-iris");
+    await expect(missedEmail).toBeVisible();
+    await missedEmail.click();
+
+    const detail = page.getByTestId("history-detail-dialog");
+    await expect(detail).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(detail.getByTestId("text-history-detail-title")).toContainText("Potvrdenie termínu");
+    await expect(detail.getByTestId("iframe-email-content")).toHaveAttribute("sandbox", "allow-same-origin");
+    await expect(detail).toHaveCSS("background-color", "rgb(251, 253, 255)");
+    await assertDialogBounds(page, detail);
+    expect(await detail.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + 35);
+      return !!hit && el.contains(hit);
+    })).toBe(true);
+    await page.screenshot({ path: "/tmp/pulse-email-detail-1024.png", animations: "disabled" });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertDialogBounds(page, detail);
+    await expect(detail.getByTestId("btn-email-reply")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/pulse-email-detail-phone.png", animations: "disabled" });
+    await page.keyboard.press("Escape");
+    await expect(detail).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("missed-unified-dialog")).toHaveCount(0);
+
+    // At desktop width the real Reply action resolves the linked clinic and
+    // returns the agent to its populated email conversation without sending.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    await page.getByTestId("missed-message-mail-iris").click();
+    const linkedDetail = page.getByTestId("history-detail-dialog");
+    await expect(linkedDetail).toBeVisible();
+    await linkedDetail.getByTestId("btn-email-reply").click();
+    await expect(linkedDetail).toHaveCount(0);
+    await expect(page.getByTestId("missed-unified-dialog")).toHaveCount(0);
+    await expect.poll(() => page.locator(".pulse-email-history .pulse-history-bubble").count()).toBe(1);
+    await page.locator(".pulse-email-history .pulse-history-bubble").click();
+    const emailHistoryDetail = page.getByTestId("history-detail-dialog");
+    await expect(emailHistoryDetail.getByTestId("text-history-detail-title")).toContainText("Consultation follow-up");
+    await expect(emailHistoryDetail.getByTestId("iframe-email-content")).toHaveAttribute("sandbox", "allow-same-origin");
+    await assertDialogBounds(page, emailHistoryDetail);
+    await emailHistoryDetail.getByTestId("btn-email-reply").click();
+    await expect(emailHistoryDetail.getByTestId("input-email-reply-text")).toBeVisible();
+    await expect(emailHistoryDetail.getByTestId("btn-send-reply")).toBeDisabled();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertDialogBounds(page, emailHistoryDetail);
+    await expect(emailHistoryDetail.getByTestId("btn-cancel-reply")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/pulse-email-history-reply-phone.png", animations: "disabled" });
+    await emailHistoryDetail.getByTestId("btn-cancel-reply").click();
+    await expect(emailHistoryDetail.getByTestId("input-email-reply-text")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(emailHistoryDetail).toHaveCount(0);
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.getByTestId("tab-sms").click();
+    await expect(page.locator(".pulse-sms-card .pulse-history-bubble")).toHaveCount(2);
+    await expect(page.getByTestId("input-sms-message")).toBeVisible();
+    await expect(page.getByTestId("btn-send-sms")).toBeVisible();
+    await page.screenshot({ path: "/tmp/pulse-sms-conversation-1024.png", animations: "disabled" });
+    await expect(page.locator(".pulse-sms-card .pulse-history-bubble-inbound")).toContainText("We can see the patient on Thursday");
+    // The desktop communication card is replaced by a different mobile
+    // workspace below 768px. Verify the real compact desktop card here; the
+    // portalled email-detail and preview dialogs are tested at 390px separately.
+    await page.setViewportSize({ width: 820, height: 768 });
+    await expect(page.getByTestId("input-sms-message")).toBeInViewport();
+    await expect(page.getByTestId("btn-send-sms")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/pulse-sms-conversation-compact.png", animations: "disabled" });
+
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.getByTestId("tab-email").click();
+    await expect(page.getByTestId("btn-email-preview-expand")).toBeVisible();
+    const htmlModeToggle = page.getByTestId("btn-toggle-html");
+    if (!(await htmlModeToggle.evaluate(el => el.classList.contains("pulse-html-mode-active")))) {
+      await htmlModeToggle.click();
+    }
+    await page.getByTestId("btn-email-preview-expand").click();
+    const expanded = page.getByTestId("email-expanded-preview-dialog");
+    await expect(expanded).toBeVisible();
+    await expect(expanded).toHaveCSS("background-color", "rgb(251, 253, 255)");
+    await expect(expanded.getByTestId("btn-email-expanded-preview")).toHaveCSS("background-color", "rgb(52, 124, 175)");
+    await assertDialogBounds(page, expanded);
+    await page.screenshot({ path: "/tmp/pulse-expanded-email-preview-1024.png", animations: "disabled" });
+    // Expanded compose belongs to the desktop card, unlike the global email
+    // detail dialog which remains available in the separate mobile workspace.
+    await page.setViewportSize({ width: 820, height: 768 });
+    await assertDialogBounds(page, expanded);
+    await expect(expanded.getByTestId("btn-email-expanded-preview")).toBeInViewport();
+    await expect(expanded.getByTestId("btn-email-expanded-edit-html")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/pulse-expanded-email-preview-compact.png", animations: "disabled" });
+    await expanded.getByTestId("btn-email-expanded-edit-html").click();
+    await expect(expanded.getByTestId("textarea-email-html-expanded-edit")).toBeVisible();
+    await expanded.getByTestId("btn-email-expanded-preview").click();
+    await expect(expanded.locator("iframe").first()).toBeVisible();
+    expect(fixture.writes).toEqual([]);
     expect(fixture.errors).toEqual([]);
   });
 });

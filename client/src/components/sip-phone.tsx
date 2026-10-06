@@ -3098,7 +3098,9 @@ export function SipPhone({
               if (!initialNoFlowWarningShown) {
                 initialNoFlowWarningShown = true;
                 reportNoFlowFailure(deltaHealth as Exclude<AudioRtpHealth, "healthy">);
-                markMediaCritical(session);
+                // Startup/no-flow advice is not a confirmed broken call. Keep
+                // the visible warning without latching a mandatory readiness run.
+                // Terminal transport and failed recovery still call showFailure.
                 console.warn("[SIP-MEDIA] Initial incomplete RTP reported without renegotiating the call");
               }
               unhealthyDeltaSamples = 0;

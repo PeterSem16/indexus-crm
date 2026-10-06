@@ -1,0 +1,380 @@
+/* Focused Pulse communication surfaces. Kept local to the calling workspace so
+   other mail and chat experiences retain their own visual language. */
+.pulse-communications {
+  container-type: inline-size;
+  --pulse-blue-50: #f2f8fc;
+  --pulse-blue-100: #e6f1f9;
+  --pulse-blue-200: #c9dfef;
+  --pulse-blue-500: #4b91c8;
+  --pulse-blue-600: #347caf;
+  --pulse-blue-700: #286998;
+  --pulse-ink: #263b50;
+  --pulse-muted: #6d8294;
+}
+
+.pulse-email-layout,
+.pulse-sms-layout {
+  flex-wrap: wrap;
+}
+
+.pulse-communications .pulse-email-history,
+.pulse-communications .pulse-sms-card {
+  border-color: #cfdeea !important;
+  background: #f0f5f8 !important;
+  border-radius: 17px !important;
+  box-shadow: 0 5px 18px rgba(57, 94, 124, .07) !important;
+}
+
+.pulse-communications .pulse-email-history > :first-child,
+.pulse-communications .pulse-compose-header,
+.pulse-communications .pulse-sms-header {
+  color: var(--pulse-ink);
+  background: #fbfdff !important;
+  border-color: #dce8f0 !important;
+}
+
+.pulse-communications .pulse-email-history > :first-child svg,
+.pulse-communications .pulse-compose-header svg,
+.pulse-communications .pulse-sms-header svg {
+  color: var(--pulse-blue-600) !important;
+}
+
+.pulse-communications .pulse-email-history > :first-child > div > span:first-of-type {
+  color: var(--pulse-blue-600) !important;
+}
+
+.pulse-communications .pulse-email-history > :first-child > div > div:first-child,
+.pulse-communications .pulse-compose-header > div:first-child,
+.pulse-communications .pulse-sms-header > div:first-child {
+  background: #e6f1f9 !important;
+}
+
+.pulse-communications .pulse-html-mode-active,
+.pulse-communications-dialog .pulse-html-mode-active {
+  color: #fff !important;
+  background: var(--pulse-blue-600) !important;
+  border-color: var(--pulse-blue-600) !important;
+}
+
+.pulse-communications .pulse-html-mode-idle,
+.pulse-communications-dialog .pulse-html-mode-idle {
+  color: #5e7890 !important;
+  border-color: #cddce7 !important;
+}
+
+.pulse-communications .pulse-html-mode-idle:hover,
+.pulse-communications-dialog .pulse-html-mode-idle:hover {
+  background: #edf5fa !important;
+}
+
+.pulse-communications .pulse-language-pill {
+  color: #60788d !important;
+}
+
+.pulse-communications .pulse-language-pill-active {
+  color: #2d6f9f !important;
+  background: #e6f1f9 !important;
+  border-color: #a9cbe3 !important;
+}
+
+.pulse-channel-active {
+  border-bottom-color: #5598cb !important;
+  color: #347caf !important;
+}
+
+.pulse-channel-idle:hover {
+  color: #347caf !important;
+}
+
+.pulse-communications .pulse-history-scroll,
+.pulse-communications .pulse-sms-thread {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.78), transparent 58%),
+    #edf3f6 !important;
+  scrollbar-color: #b9cddd transparent;
+}
+
+.pulse-communications .pulse-date-chip {
+  color: #60788d !important;
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid #dce8f0;
+  box-shadow: 0 2px 7px rgba(52, 89, 119, .07) !important;
+}
+
+.pulse-communications .pulse-contact-avatar {
+  background: linear-gradient(145deg, #9cc9e8, #5b9ac7) !important;
+}
+
+.pulse-communications .pulse-agent-avatar {
+  background: linear-gradient(145deg, #78b2dc, #367db4) !important;
+}
+
+.pulse-communications .pulse-history-bubble {
+  border: 1px solid #d8e5ee !important;
+  border-radius: 17px !important;
+  box-shadow: 0 3px 10px rgba(48, 82, 109, .09) !important;
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.pulse-communications .pulse-history-bubble:hover {
+  box-shadow: 0 6px 15px rgba(48, 82, 109, .13) !important;
+  transform: translateY(-1px);
+}
+
+.pulse-communications .pulse-history-bubble-inbound {
+  color: #2d4357 !important;
+  background: #fff !important;
+  border-left: 3px solid #82b5d9 !important;
+}
+
+.pulse-communications .pulse-history-bubble-negative {
+  color: #7b3a40 !important;
+  background: #fff8f7 !important;
+  border-left-color: #dc9295 !important;
+}
+
+.pulse-communications .pulse-history-bubble-outbound {
+  color: #fff !important;
+  background: linear-gradient(145deg, #579bd0, #347fb7) !important;
+  border-color: #4f91c2 !important;
+}
+
+.pulse-communications .pulse-history-bubble-draft {
+  color: #376d98 !important;
+  background: #f9fcfe !important;
+  border: 1px dashed #91bada !important;
+}
+
+.pulse-communications .pulse-sms-card {
+  border-radius: 18px !important;
+}
+
+.pulse-communications .pulse-sms-thread {
+  border-top: 1px solid #e0eaf1;
+}
+
+.pulse-communications .pulse-search {
+  border-color: #d2e0ea !important;
+  background: #fff !important;
+  color: #344d62 !important;
+  box-shadow: 0 2px 6px rgba(48, 82, 109, .04) !important;
+}
+
+.pulse-communications .pulse-search:focus {
+  border-color: #85b6d8 !important;
+  box-shadow: 0 0 0 3px rgba(91, 154, 199, .15) !important;
+}
+
+.pulse-communications .pulse-compose-card {
+  border-color: #cfdeea !important;
+  border-radius: 17px !important;
+  box-shadow: 0 5px 20px rgba(57, 94, 124, .07) !important;
+  background: #fff !important;
+}
+
+.pulse-communications .pulse-compose-header {
+  min-height: 56px;
+}
+
+.pulse-communications .pulse-compose-footer,
+.pulse-communications .pulse-sms-composer {
+  border-color: #dce8f0 !important;
+  background: #f8fbfd !important;
+}
+
+.pulse-communications .pulse-communication-sidebar {
+  background: #f6f9fb !important;
+  border-color: #d7e3ec !important;
+}
+
+.pulse-communications .pulse-communication-sidebar input,
+.pulse-communications .pulse-communication-sidebar [role="combobox"],
+.pulse-communications .pulse-compose-card textarea,
+.pulse-communications .pulse-sms-composer textarea {
+  border-color: #d0dfe9 !important;
+  border-radius: 11px !important;
+}
+
+.pulse-communications .pulse-communication-sidebar input:focus,
+.pulse-communications .pulse-compose-card textarea:focus,
+.pulse-communications .pulse-sms-composer textarea:focus {
+  border-color: #80b2d5 !important;
+  box-shadow: 0 0 0 3px rgba(91, 154, 199, .14) !important;
+}
+
+.pulse-communications .pulse-send-button,
+.pulse-communications-dialog [data-testid="btn-send-reply"] {
+  background: linear-gradient(180deg, #5598cb, #347caf) !important;
+  color: #fff !important;
+  border: 0 !important;
+  box-shadow: 0 3px 9px rgba(52, 124, 175, .2) !important;
+}
+
+.pulse-communications .pulse-send-button:hover:not(:disabled),
+.pulse-communications-dialog [data-testid="btn-send-reply"]:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4389be, #286d9f) !important;
+}
+
+/* The calling workspace has sidebars: a 1024px viewport can leave the
+   communication card only 480px wide. Respond to that card, not the window. */
+@container (max-width: 620px) {
+  .pulse-communication-sidebar {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    height: 152px;
+    max-height: 152px;
+    order: -1;
+    border-right: 0 !important;
+    border-bottom: 1px solid #d7e3ec;
+  }
+  .pulse-communication-sidebar > div {
+    padding: 12px;
+  }
+  .pulse-email-main,
+  .pulse-sms-main {
+    flex: 1 1 100% !important;
+    width: 100%;
+    height: calc(100% - 152px);
+    min-height: 0;
+    padding: 10px;
+  }
+  .pulse-sms-composer {
+    flex-wrap: wrap;
+    gap: 8px !important;
+    padding: 10px !important;
+  }
+  .pulse-sms-composer > .relative {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .pulse-sms-composer > .flex {
+    margin-left: auto;
+  }
+  .pulse-compose-footer {
+    flex-wrap: wrap;
+  }
+}
+
+.pulse-communications-dialog {
+  --pulse-blue-600: #347caf;
+  --pulse-ink: #263b50;
+  border: 1px solid #cfdeea !important;
+  border-radius: 20px !important;
+  background: #fbfdff !important;
+  box-shadow: 0 24px 70px rgba(37, 62, 89, .22) !important;
+  max-width: min(1024px, calc(100vw - 24px)) !important;
+  max-height: calc(100dvh - var(--pulse-ui-preview-top, 0px) - 32px) !important;
+}
+
+.pulse-communications-dialog .pulse-compose-header {
+  padding-right: 3.5rem;
+}
+
+html[data-agent-fullscreen="true"] .pulse-communications-dialog {
+  top: calc((100dvh + var(--pulse-ui-preview-top, 0px)) / 2) !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+.pulse-communications-dialog .pulse-detail-header {
+  background: #f3f8fc !important;
+  border-color: #dce8f0 !important;
+  flex-wrap: wrap;
+}
+
+.pulse-communications-dialog .pulse-compose-header {
+  color: var(--pulse-ink);
+  background: #fbfdff !important;
+  border-color: #dce8f0 !important;
+}
+
+.pulse-communications-dialog .pulse-compose-header svg {
+  color: var(--pulse-blue-600) !important;
+}
+
+.pulse-communications-dialog .pulse-expanded-preview-surface {
+  background: #edf3f6 !important;
+}
+
+.pulse-communications-dialog .pulse-expanded-preview-frame {
+  border-color: #cfdeea !important;
+  box-shadow: 0 8px 24px rgba(48, 82, 109, .1) !important;
+}
+
+.pulse-communications-dialog .pulse-detail-message {
+  color: #2d4357 !important;
+  background: #fff !important;
+  border: 1px solid #d8e5ee !important;
+  border-left: 3px solid #82b5d9 !important;
+}
+
+.pulse-communications-dialog .pulse-detail-message.pulse-history-bubble-outbound {
+  color: #fff !important;
+  background: linear-gradient(145deg, #579bd0, #347fb7) !important;
+  border: 1px solid #4f91c2 !important;
+}
+
+.pulse-communications-dialog .pulse-detail-content {
+  background: #f5f9fc !important;
+}
+
+.pulse-communications-dialog .pulse-detail-content > div {
+  border-radius: 15px !important;
+}
+
+.pulse-communications-dialog .pulse-detail-reply {
+  border-color: #dce8f0 !important;
+  background: #fbfdff !important;
+}
+
+@media (max-width: 767px) {
+  .pulse-communications .pulse-email-layout,
+  .pulse-communications .pulse-sms-layout {
+    flex-direction: column !important;
+  }
+
+  .pulse-communications .pulse-communication-sidebar {
+    order: -1 !important;
+    width: 100% !important;
+    max-height: 33dvh;
+    flex-shrink: 0;
+    border-right: 0 !important;
+    border-bottom: 1px solid #d7e3ec;
+  }
+
+  .pulse-communications .pulse-email-main,
+  .pulse-communications .pulse-sms-main {
+    min-height: 0;
+    flex: 1 1 0%;
+  }
+
+  .pulse-communications .pulse-email-history {
+    max-height: 34% !important;
+  }
+
+  .pulse-communications .pulse-email-history .pulse-history-scroll {
+    min-height: 58px !important;
+  }
+
+  .pulse-communications .pulse-compose-footer,
+  .pulse-communications .pulse-sms-composer {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .pulse-communications .pulse-compose-footer > div:first-child {
+    max-width: 44%;
+  }
+
+  .pulse-communications-dialog {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: calc(100dvh - var(--pulse-ui-preview-top, 0px) - 32px) !important;
+    border-radius: 17px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-communications .pulse-history-bubble {
+    transition: none;
+  }
+}

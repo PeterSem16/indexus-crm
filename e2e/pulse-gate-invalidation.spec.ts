@@ -69,7 +69,7 @@ test("permission discovery and a stale device observer do not restart an active 
   await expect(page.getByTestId("nexus-pulse-recheck-intro")).toBeVisible();
 });
 
-test("network invalidation discards a completed run and requires a fresh test without replacing workspace", async ({ page }) => {
+test("critical media failure discards a completed run and requires a fresh test without replacing workspace", async ({ page }) => {
   await page.route("**/contexts/auth-context.tsx*", route => route.fulfill({
     contentType: "application/javascript",
     body: 'const user={id:"gate-test",role:"admin"};export function useAuth(){return {user}}',
@@ -109,7 +109,7 @@ test("network invalidation discards a completed run and requires a fresh test wi
   await page.evaluate(() => window.dispatchEvent(new Event("nexus-pulse-open")));
   await page.getByRole("button", { name: "Complete fixture test" }).click();
   await expect(page.getByTestId("test-diagnostics")).toHaveCount(0);
-  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("nexus-pulse-media-critical", { detail: { episodeId: "fatal-incident" } })));
   await expect(page.getByTestId("nexus-pulse-recheck-intro")).toBeVisible();
   await expect(page.getByText("OLD READY", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("test-diagnostics")).toHaveCount(0);
@@ -121,7 +121,7 @@ test("network invalidation discards a completed run and requires a fresh test wi
   // Repeated observer reports while testing must not reopen the gate/remount.
   await page.evaluate(() => {
     document.querySelector('[data-testid="test-diagnostics"]')!.setAttribute("data-original-run", "yes");
-    for (let i = 0; i < 4; i++) window.dispatchEvent(new Event("offline"));
+    for (let i = 0; i < 4; i++) window.dispatchEvent(new CustomEvent("nexus-pulse-media-critical", { detail: { episodeId: "fatal-incident" } }));
   });
   await expect(page.getByTestId("nexus-pulse-recheck-intro")).toHaveCount(0);
   await expect(page.getByTestId("test-diagnostics")).toHaveAttribute("data-original-run", "yes");
