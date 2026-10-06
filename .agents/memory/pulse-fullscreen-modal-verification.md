@@ -46,3 +46,31 @@ its breakpoint can unmount the communication card rather than test its layout.
 with both workspace sidebars visible, and separately test portalled dialogs
 on phones. Modal max-height and vertical position must both account for the
 development preview banner; shifting the center alone still clips tall dialogs.
+
+Verify the complete bounds of bottom compose actions, not just viewport intersection.
+Also wait for the desktop canvas to become visible after resizing back from phone
+width before asserting restored focus.
+
+**Why:** A partially clipped Send button passes `toBeInViewport`; the preview notice
+can leave a full-height workspace taller than the remaining viewport. Responsive
+canvas visibility settles independently of the portalled dialog.
+
+**How to apply:** Compare the button's bottom edge against viewport height and
+exercise realistic short windows. Keep the preview notice accounted for without
+changing production sizing when no notice exists.
+
+When compact communication panels lose their footer, inspect the flex line's
+cross-axis height as well as the editor's own height. An overflowing form sidebar
+can make the entire wrapped line taller than its frame, clipping a correctly
+configured editor. Constrain both form and composer to the frame. For an outer
+canvas that should never scroll, `overflow: hidden` still permits browser-driven
+scrolling when an input is focused; use non-scrollable clipping to keep the
+visible column stable as widths change.
+
+**Why:** A long HTML compose exposed a hidden footer despite an apparently
+bounded editor. Narrow-viewport focus then shifted an overflow-hidden ancestor
+horizontally, cutting off SMS actions even after the height was corrected.
+
+**How to apply:** Test a populated HTML body and SMS draft at wide and compact
+desktop widths, including resizing between them. Check every action's full
+rectangle against clipping ancestors and hit-testing, not just visibility.
