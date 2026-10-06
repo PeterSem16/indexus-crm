@@ -4485,7 +4485,7 @@ export function CommunicationCanvas({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-background dark:bg-slate-900">
+    <div className="flex-1 flex flex-col min-w-0 overflow-clip relative bg-background dark:bg-slate-900">
       <div className="h-12 border-b bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 shrink-0 relative z-10">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="flex items-center gap-2 shrink-0">

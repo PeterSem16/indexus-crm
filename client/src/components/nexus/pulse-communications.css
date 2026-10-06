@@ -23,6 +23,16 @@
   flex-wrap: wrap;
 }
 
+.pulse-email-main,
+.pulse-sms-main,
+.pulse-communication-sidebar {
+  /* Constrain the flex line to the available frame, not the sidebar's
+     intrinsic form height. Otherwise the entire compose footer is clipped
+     by the layout even though the editor itself has min-height: 0. */
+  height: 100%;
+  max-height: 100%;
+}
+
 .pulse-communications .pulse-email-history,
 .pulse-communications .pulse-sms-card {
   border-color: #cfdeea !important;
@@ -247,7 +257,24 @@
   .pulse-sms-composer {
     flex-wrap: wrap;
     gap: 8px !important;
-    padding: 10px !important;
+    padding: 8px !important;
+  }
+  .pulse-sms-header {
+    flex-wrap: wrap;
+    gap: 8px !important;
+  }
+  .pulse-sms-header > div:nth-child(2) {
+    flex: 1 1 calc(100% - 44px);
+  }
+  .pulse-sms-header .pulse-history-launcher {
+    flex: 1;
+    min-width: 0;
+  }
+  .pulse-sms-header .pulse-history-launcher > span:first-of-type {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .pulse-sms-composer > .relative {
     flex: 1 1 100%;

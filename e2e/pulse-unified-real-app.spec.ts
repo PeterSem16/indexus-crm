@@ -430,4 +430,70 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
     expect(fixture.errors).toEqual([]);
     expect(fixture.writes).toEqual([]);
   });
+
+  test("long HTML compose keeps complete send controls inside every clipping ancestor", async ({ page }) => {
+    const fixture = await installFixture(page);
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    await page.getByTestId("missed-message-mail-iris").click();
+    await page.getByTestId("history-detail-dialog").getByTestId("btn-email-reply").click();
+    await page.getByTestId("input-email-subject").fill("Consultation follow-up");
+    await page.getByTestId("btn-toggle-html").click();
+    await page.locator(".pulse-compose-header button").filter({ hasText: /Edit HTML|Upraviť HTML/ }).click();
+    await page.getByTestId("textarea-email-html-edit").fill(
+      `<h1>Consultation template</h1>${"<p>Long clinical information and cooperation conditions.</p>".repeat(80)}<p>Final signature</p>`
+    );
+    await page.locator(".pulse-compose-header button").filter({ hasText: /Preview|Náhľad/ }).click();
+    const assertActions = async (channel: string) => {
+      for (const id of [`btn-send-${channel}`, `button-cancel-${channel}`]) {
+        const button = page.getByTestId(id);
+        const reachable = await button.evaluate(el => {
+          const r = el.getBoundingClientRect();
+          if (r.top < 0 || r.bottom > innerHeight || r.left < 0 || r.right > innerWidth) return false;
+          for (let p = el.parentElement; p; p = p.parentElement) {
+            const box = p.getBoundingClientRect();
+            const style = getComputedStyle(p);
+            if (/hidden|auto|scroll|clip/.test(style.overflowY) && (r.top < box.top - 1 || r.bottom > box.bottom + 1)) return false;
+            if (/hidden|auto|scroll|clip/.test(style.overflowX) && (r.left < box.left - 1 || r.right > box.right + 1)) return false;
+          }
+          // Bounds alone cannot catch an overlay covering the action.
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return !!hit && el.contains(hit);
+        });
+        if (!reachable) {
+          console.log(id, JSON.stringify(await button.evaluate(el => {
+            const rect = el.getBoundingClientRect();
+            return { rect: rect.toJSON(), ancestors: Array.from((function* () {
+              for (let p = el.parentElement; p; p = p.parentElement) yield p;
+            })()).map(p => ({ cls: p.className, x: p.getBoundingClientRect().x, right: p.getBoundingClientRect().right,
+              scrollLeft: p.scrollLeft, scrollWidth: p.scrollWidth, clientWidth: p.clientWidth, overflow: getComputedStyle(p).overflow })) };
+          })));
+          await page.screenshot({ path: "/tmp/pulse-compose-clipped-action.png", animations: "disabled" });
+        }
+        expect(reachable, `${id} must be fully reachable`).toBe(true);
+      }
+    };
+    for (const [width, height] of [[1440, 550], [1920, 650], [1024, 650], [820, 650]]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(350);
+      await assertActions("email");
+      const frame = page.getByTestId("wysiwyg-email-message").locator("iframe");
+      await expect(frame).toBeVisible();
+      await frame.evaluate(el => {
+        const doc = (el as HTMLIFrameElement).contentDocument!;
+        doc.scrollingElement!.scrollTop = doc.scrollingElement!.scrollHeight;
+      });
+      await expect.poll(() => frame.evaluate(el => (el as HTMLIFrameElement).contentDocument!.scrollingElement!.scrollTop)).toBeGreaterThan(0);
+      await assertActions("email");
+      await page.screenshot({ path: `/tmp/pulse-html-compose-${width}.png`, animations: "disabled" });
+      if (width === 820) await page.setViewportSize({ width: 1024, height });
+      await page.getByTestId("tab-sms").click();
+      if (width === 820) await page.setViewportSize({ width, height });
+      await page.getByTestId("input-sms-message").fill("Test SMS stays in its composer");
+      await assertActions("sms");
+      if (width === 820) await page.setViewportSize({ width: 1024, height });
+      await page.getByTestId("tab-email").click();
+    }
+    expect(fixture.errors).toEqual([]);
+    expect(fixture.writes).toEqual([]);
+  });
 });
