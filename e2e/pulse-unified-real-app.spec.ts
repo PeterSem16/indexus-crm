@@ -322,4 +322,49 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
     expect(fixture.writes).toEqual([]);
     expect(fixture.errors).toEqual([]);
   });
+
+  test("opening long communication history does not scroll its header under the tabs", async ({ page }) => {
+    const fixture = await installFixture(page);
+    await page.route("**/api/clinics/iris/contact-history", route => route.fulfill({
+      status: 200,
+      json: [
+        ...Array.from({ length: 20 }, (_, index) => ({
+          id: `frame-email-${index}`, type: "email", direction: index % 2 ? "inbound" : "outbound",
+          timestamp: at(120 - index * 5), content: `History message ${index}`,
+          details: "<p>Test conversation.</p>", sender: "iris@example.test",
+          agentName: "Preview Agent", campaignId: "mission",
+        })),
+        ...Array.from({ length: 20 }, (_, index) => ({
+          id: `frame-sms-${index}`, type: "sms", direction: index % 2 ? "inbound" : "outbound",
+          timestamp: at(120 - index * 5), content: `SMS message ${index}`, agentName: "Preview Agent",
+        })),
+      ],
+    }));
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    await page.getByTestId("missed-message-mail-iris").click();
+    await page.getByTestId("history-detail-dialog").getByTestId("btn-email-reply").click();
+    await page.setViewportSize({ width: 1024, height: 650 });
+
+    for (const channel of ["email", "sms"]) {
+      await page.getByTestId(`tab-${channel}`).click();
+      const card = page.locator(channel === "email" ? ".pulse-email-history" : ".pulse-sms-card");
+      const list = card.locator(channel === "email" ? ".pulse-history-scroll" : ".pulse-sms-thread > .overflow-y-auto");
+      await expect(card.locator(".pulse-history-bubble")).toHaveCount(20);
+      await expect.poll(() => list.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      await page.waitForTimeout(400); // Native smooth scrolling must finish.
+      const tab = await page.getByTestId(`tab-${channel}`).boundingBox();
+      const header = await card.locator(":scope > div").first().boundingBox();
+      expect(header!.y).toBeGreaterThanOrEqual(tab!.y + tab!.height);
+      expect(await card.evaluate(el => {
+        for (let parent = el.parentElement; parent; parent = parent.parentElement) {
+          if (getComputedStyle(parent).overflowY === "hidden" && parent.scrollTop > 0) return false;
+        }
+        return true;
+      })).toBe(true);
+    }
+    await page.getByTestId("tab-email").click();
+    await page.screenshot({ path: "/tmp/pulse-email-header-within-frame.png", animations: "disabled" });
+    expect(fixture.errors).toEqual([]);
+    expect(fixture.writes).toEqual([]);
+  });
 });

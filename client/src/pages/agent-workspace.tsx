@@ -2842,13 +2842,17 @@ export function CommunicationCanvas({
 
   useEffect(() => {
     if (activeChannel === "sms") {
-      smsChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      const thread = smsChatEndRef.current?.parentElement;
+      thread?.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
     }
   }, [contactHistory?.length, customerMessages?.length, activeChannel]);
 
   useEffect(() => {
     if (activeChannel === "email") {
-      emailChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      // scrollIntoView also scrolls overflow-hidden ancestors, clipping the
+      // history header beneath the channel tabs. Only move the message list.
+      const history = emailChatEndRef.current?.parentElement;
+      history?.scrollTo({ top: history.scrollHeight, behavior: "smooth" });
     }
   }, [contactHistory?.length, timeline?.length, activeChannel]);
   const [emailSubject, setEmailSubject] = useState("");
