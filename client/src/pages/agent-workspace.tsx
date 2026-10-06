@@ -2650,6 +2650,8 @@ export function CommunicationCanvas({
   contact,
   campaign,
   activeChannel,
+  historyDialogChannel,
+  onHistoryDialogChannelChange,
   onChannelChange,
   timeline,
   onSendEmail,
@@ -2712,6 +2714,8 @@ export function CommunicationCanvas({
   contact: Customer | null;
   campaign: Campaign | null;
   activeChannel: string;
+  historyDialogChannel?: "email" | "sms" | null;
+  onHistoryDialogChannelChange?: (channel: "email" | "sms" | null) => void;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
   onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => Promise<boolean> | boolean | void;
@@ -2838,23 +2842,33 @@ export function CommunicationCanvas({
   const { toast } = usePulseToast();
   const smsChatEndRef = useRef<HTMLDivElement>(null);
   const emailChatEndRef = useRef<HTMLDivElement>(null);
+  const emailHistoryTriggerRef = useRef<HTMLButtonElement>(null);
+  const smsHistoryTriggerRef = useRef<HTMLButtonElement>(null);
   const [smsSearch, setSmsSearch] = useState("");
+  const emailHistoryOpen = historyDialogChannel === "email";
+  const smsHistoryOpen = historyDialogChannel === "sms";
+  const setEmailHistoryOpen = (open: boolean) => onHistoryDialogChannelChange?.(open ? "email" : null);
+  const setSmsHistoryOpen = (open: boolean) => onHistoryDialogChannelChange?.(open ? "sms" : null);
 
   useEffect(() => {
-    if (activeChannel === "sms") {
+    if (activeChannel === "sms" && smsHistoryOpen) {
       const thread = smsChatEndRef.current?.parentElement;
       thread?.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
     }
-  }, [contactHistory?.length, customerMessages?.length, activeChannel]);
+  }, [contactHistory?.length, customerMessages?.length, activeChannel, smsHistoryOpen]);
 
   useEffect(() => {
-    if (activeChannel === "email") {
-      // scrollIntoView also scrolls overflow-hidden ancestors, clipping the
-      // history header beneath the channel tabs. Only move the message list.
+    if (activeChannel === "email" && emailHistoryOpen) {
+      // Scroll only the modal's message list. scrollIntoView can move the
+      // workspace's overflow-hidden ancestors and clip the dialog.
       const history = emailChatEndRef.current?.parentElement;
       history?.scrollTo({ top: history.scrollHeight, behavior: "smooth" });
     }
-  }, [contactHistory?.length, timeline?.length, activeChannel]);
+  }, [contactHistory?.length, timeline?.length, activeChannel, emailHistoryOpen]);
+  useEffect(() => {
+    onHistoryDialogChannelChange?.(null);
+    setSmsSearch("");
+  }, [contactType, contact?.id, clinicData?.id, hospitalData?.id, collaboratorData?.id, activeChannel, onHistoryDialogChannelChange]);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
@@ -4982,12 +4996,48 @@ export function CommunicationCanvas({
               const inboundInitial = (inboundName[0] || "?").toUpperCase();
               const inboundFirstName = inboundName.split(" ")[0] || "?";
               return (
-                <div className="pulse-email-history shrink-0 flex flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#eae7e2] dark:bg-stone-950" style={{ maxHeight: "42%" }}>
+                <>
+                  <button
+                    type="button"
+                    ref={emailHistoryTriggerRef}
+                    onClick={() => setEmailHistoryOpen(true)}
+                    className="pulse-history-launcher inline-flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left shadow-sm transition-colors"
+                    data-testid="btn-email-history"
+                    aria-haspopup="dialog"
+                  >
+                    <span className="inline-flex items-center gap-2 min-w-0">
+                      <Mail className="h-4 w-4 shrink-0" />
+                      <span className="text-xs font-semibold truncate">{t.customers?.details?.emailHistoryTitle || "Email history"}</span>
+                      <span className="pulse-history-count text-[11px] tabular-nums">({emailItems.length})</span>
+                    </span>
+                    <span className="inline-flex items-center gap-2 shrink-0">
+                      {unreadEmailCount > 0 && (
+                        <span className="pulse-history-unread inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse inline-block" />
+                          {unreadEmailCount} {unreadEmailCount === 1 ? t.agentWorkspace.myShiftEmailNew1 : t.agentWorkspace.myShiftEmailNew234}
+                        </span>
+                      )}
+                      <History className="h-3.5 w-3.5" />
+                    </span>
+                  </button>
+                  <Dialog open={emailHistoryOpen} onOpenChange={setEmailHistoryOpen}>
+                    <DialogContent className="pulse-communications-dialog pulse-history-dialog pulse-email-history-dialog flex flex-col p-3 sm:p-4" data-testid="email-history-dialog"
+                      aria-describedby={undefined}
+                      onOpenAutoFocus={() => requestAnimationFrame(() => {
+                        const list = emailChatEndRef.current?.parentElement;
+                        list?.scrollTo({ top: list.scrollHeight });
+                      })}
+                      onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        emailHistoryTriggerRef.current?.focus({ preventScroll: true });
+                      }}
+                    >
+                <div className="pulse-email-history flex min-h-0 flex-1 flex-col rounded-xl overflow-hidden border border-stone-200 dark:border-stone-700 bg-[#eae7e2] dark:bg-stone-950">
                   {/* panel header */}
                   <div className="flex items-center justify-between px-3 py-1.5 bg-white/70 dark:bg-stone-900/60 border-b border-stone-200 dark:border-stone-700 shrink-0">
                     <div className="flex items-center gap-1.5">
                       <Mail className="h-3 w-3 text-[#c2673a]" />
-                      <span className="text-[10px] font-semibold text-[#c2673a]">{t.customers?.details?.emailHistoryTitle || "Email history"}</span>
+                      <DialogTitle className="text-[10px] font-semibold text-[#c2673a]">{t.customers?.details?.emailHistoryTitle || "Email history"}</DialogTitle>
                       {emailItems.length > 0 && <span className="text-[10px] text-muted-foreground">({emailItems.length})</span>}
                     </div>
                     {unreadEmailCount > 0 && (
@@ -5036,7 +5086,11 @@ export function CommunicationCanvas({
                             <button
                               onClick={() => {
                                 if (!isOut) setReadEmailIds(prev => { const next = new Set(prev); next.add(String(entry.id)); return next; });
-                                onOpenHistoryDetail?.(entry as any);
+                                setEmailHistoryOpen(false);
+                                // Let the history dialog dismiss before opening
+                                // the existing detail/reply dialog to avoid two
+                                // modal focus traps competing during transition.
+                                window.setTimeout(() => onOpenHistoryDetail?.(entry as any), 180);
                               }}
                               className={`pulse-history-bubble ${isOut ? "pulse-history-bubble-outbound" : "pulse-history-bubble-inbound"} max-w-[70%] px-4 py-2.5 text-left hover:opacity-90 active:scale-[0.98] transition-all ${
                                 isOut
@@ -5076,6 +5130,9 @@ export function CommunicationCanvas({
                     <div ref={emailChatEndRef} />
                   </div>
                 </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
               );
             })()}
 
@@ -5588,6 +5645,28 @@ export function CommunicationCanvas({
                     )}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  ref={smsHistoryTriggerRef}
+                  onClick={() => setSmsHistoryOpen(true)}
+                  className="pulse-history-launcher inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold shadow-sm transition-colors shrink-0"
+                  data-testid="btn-sms-history"
+                  aria-haspopup="dialog"
+                >
+                  <History className="h-3.5 w-3.5" />
+                      <span>{t.customers?.details?.messageHistory || "SMS history"}</span>
+                  <span className="pulse-history-count tabular-nums">
+                    ({(() => {
+                      const saved = (contactHistory || []).filter((h: any) => h.type === "sms");
+                      const savedIds = new Set(saved.map((h: any) => String(h.id).replace(/^msg-/, "")));
+                      const fresh = (customerMessages || []).filter((m: any) =>
+                        m.type === "sms" && !savedIds.has(String(m.id))
+                      );
+                      return saved.length + fresh.length;
+                    })()})
+                  </span>
+                  {unreadSmsCount > 0 && <span className="pulse-history-unread rounded-full px-1.5 py-0.5 text-[10px] tabular-nums">{unreadSmsCount}</span>}
+                </button>
                 <span className={`text-[11px] font-mono shrink-0 tabular-nums ${smsMessage.length >= 160 ? 'text-destructive font-semibold' : smsMessage.length > 130 ? 'text-amber-500' : 'text-muted-foreground/60'}`}>
                   {smsCharCount}/160
                   {smsCount > 1 && <span className="ml-1 text-[10px] text-muted-foreground/40">×{smsCount}</span>}
@@ -5595,7 +5674,25 @@ export function CommunicationCanvas({
               </div>
 
               {/* SMS Chat Timeline */}
-              <div className="pulse-sms-thread flex-1 min-h-0 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
+              <Dialog open={smsHistoryOpen} onOpenChange={setSmsHistoryOpen}>
+              <DialogContent className="pulse-communications-dialog pulse-history-dialog pulse-sms-history-dialog flex flex-col p-3 sm:p-4" data-testid="sms-history-dialog"
+                aria-describedby={undefined}
+                onOpenAutoFocus={() => requestAnimationFrame(() => {
+                  const list = smsChatEndRef.current?.parentElement;
+                  list?.scrollTo({ top: list.scrollHeight });
+                })}
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  smsHistoryTriggerRef.current?.focus({ preventScroll: true });
+                }}
+              >
+              <DialogHeader className="shrink-0 px-1 pb-2 pr-12">
+                <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <MessageSquare className="h-4 w-4 text-[#347caf]" />
+                  {t.customers?.details?.messageHistory || "SMS history"}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="pulse-sms-thread min-h-0 flex-1 overflow-hidden flex flex-col bg-[#eae7e2] dark:bg-stone-950">
                 {/* Search bar */}
                 <div className="shrink-0 px-3 pt-2.5 pb-1.5">
                   <div className="relative">
@@ -5646,10 +5743,8 @@ export function CommunicationCanvas({
                     const smsThread = [...historySms, ...freshSms]
                       .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
+                    // Keep unsent content in the composer, never in history.
                     const items: any[] = [...smsThread];
-                    if (smsMessage) {
-                      items.push({ _draft: true, id: "draft", direction: "outbound", date: new Date().toISOString(), fullContent: smsMessage, content: smsMessage });
-                    }
 
                     // Derive inbound contact display name from contactType
                     const inboundName =
@@ -5670,7 +5765,7 @@ export function CommunicationCanvas({
                       return (
                         <div className="flex flex-col items-center justify-center h-full gap-2 text-stone-400 dark:text-stone-600">
                           <MessageSquare className="h-7 w-7 opacity-30" />
-                          <p className="text-[11px]">{t.customers?.details?.writeSmsPlaceholder || "Write your SMS message..."}</p>
+                          <p className="text-[11px]">{t.customers?.details?.noMessages || "No messages"}</p>
                         </div>
                       );
                     }
@@ -5783,6 +5878,8 @@ export function CommunicationCanvas({
                   <div ref={smsChatEndRef} />
                 </div>
               </div>
+              </DialogContent>
+              </Dialog>
 
               {/* Compose + action bar */}
               <div className="pulse-sms-composer shrink-0 border-t-2 border-[#c2673a]/25 bg-gradient-to-r from-[#c2673a]/[0.07] via-card to-card px-4 py-3 flex items-end gap-3">
@@ -10487,6 +10584,7 @@ function AgentWorkspacePageContent() {
   const [disposedContactIds, setDisposedContactIds] = useState<Set<string>>(new Set());
   const [sessionLoginOpen, setSessionLoginOpen] = useState(true);
   const [activeChannel, setActiveChannel] = useState("phone");
+  const [communicationHistoryChannel, setCommunicationHistoryChannel] = useState<"email" | "sms" | null>(null);
   // Missed-message reply opens the entity asynchronously. Keep the requested
   // channel until the new contact has committed, then switch after one more
   // task turn so CommunicationCanvas can remount with the right contact.
@@ -14794,7 +14892,7 @@ function AgentWorkspacePageContent() {
   const activeBreakName = activeBreakTypeObj?.name || (agentSession.activeBreak as any)?.breakTypeName || (agentSession.activeBreak ? t.agentSession.statusBreak : null);
 
   return (
-    <div className={`flex flex-col ${agentSession.isSessionActive ? "h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
+    <div className={`flex flex-col ${agentSession.isSessionActive ? "pulse-active-workspace h-screen" : "h-[calc(100vh-8rem)] -m-6"}`}>
       <InboundCallPopup
         inboundCalls={inboundCalls}
         onAccept={(call) => handleAcceptInboundCall(call)}
@@ -16005,7 +16103,7 @@ function AgentWorkspacePageContent() {
           </div>
         )}
 
-        {!isMobile && (() => {
+        {(!isMobile || communicationHistoryChannel !== null) && (() => {
           const parsedPhone = parseInboundPhone(pendingUnknownCaller?.phone || "");
           if (createFromCallType !== null) {
             /* ── Inline create form — shown in CENTER panel ── */
@@ -16096,10 +16194,13 @@ function AgentWorkspacePageContent() {
             );
           }
           return (
+            <div style={{ display: isMobile ? "none" : "contents" }}>
             <CommunicationCanvas
               contact={currentContact}
               campaign={selectedCampaign}
               activeChannel={activeChannel}
+              historyDialogChannel={communicationHistoryChannel}
+              onHistoryDialogChannelChange={setCommunicationHistoryChannel}
               onChannelChange={setActiveChannel}
               timeline={timeline}
               onSendEmail={handleSendEmail}
@@ -16264,6 +16365,7 @@ function AgentWorkspacePageContent() {
               slCallbackDate={currentCampaignContact?.callbackDate ?? null}
               slCallbackActive={currentCampaignContact?.status === 'callback_scheduled'}
             />
+            </div>
           );
         })()}
 

@@ -261,6 +261,8 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
     await linkedDetail.getByTestId("btn-email-reply").click();
     await expect(linkedDetail).toHaveCount(0);
     await expect(page.getByTestId("missed-unified-dialog")).toHaveCount(0);
+    await page.getByTestId("btn-email-history").click();
+    await expect(page.getByTestId("email-history-dialog")).toBeVisible();
     await expect.poll(() => page.locator(".pulse-email-history .pulse-history-bubble").count()).toBe(1);
     await page.locator(".pulse-email-history .pulse-history-bubble").click();
     const emailHistoryDetail = page.getByTestId("history-detail-dialog");
@@ -281,11 +283,16 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
 
     await page.setViewportSize({ width: 1024, height: 768 });
     await page.getByTestId("tab-sms").click();
-    await expect(page.locator(".pulse-sms-card .pulse-history-bubble")).toHaveCount(2);
+    await expect(page.locator(".pulse-sms-card .pulse-history-bubble")).toHaveCount(0);
     await expect(page.getByTestId("input-sms-message")).toBeVisible();
     await expect(page.getByTestId("btn-send-sms")).toBeVisible();
+    await page.getByTestId("btn-sms-history").click();
+    const smsHistory = page.getByTestId("sms-history-dialog");
+    await expect(smsHistory.locator(".pulse-history-bubble")).toHaveCount(2);
     await page.screenshot({ path: "/tmp/pulse-sms-conversation-1024.png", animations: "disabled" });
-    await expect(page.locator(".pulse-sms-card .pulse-history-bubble-inbound")).toContainText("We can see the patient on Thursday");
+    await expect(smsHistory.locator(".pulse-history-bubble-inbound")).toContainText("We can see the patient on Thursday");
+    await page.keyboard.press("Escape");
+    await expect(smsHistory).toHaveCount(0);
     // The desktop communication card is replaced by a different mobile
     // workspace below 768px. Verify the real compact desktop card here; the
     // portalled email-detail and preview dialogs are tested at 390px separately.
@@ -323,8 +330,9 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
     expect(fixture.errors).toEqual([]);
   });
 
-  test("opening long communication history does not scroll its header under the tabs", async ({ page }) => {
+  test("on-demand communication histories scroll inside bounded modals and leave compose controls visible", async ({ page }) => {
     const fixture = await installFixture(page);
+    await page.evaluate(() => document.documentElement.setAttribute("data-agent-fullscreen", "true"));
     await page.route("**/api/clinics/iris/contact-history", route => route.fulfill({
       status: 200,
       json: [
@@ -347,23 +355,78 @@ test.describe("Approved Unified dialogs in the real workspace", () => {
 
     for (const channel of ["email", "sms"]) {
       await page.getByTestId(`tab-${channel}`).click();
-      const card = page.locator(channel === "email" ? ".pulse-email-history" : ".pulse-sms-card");
-      const list = card.locator(channel === "email" ? ".pulse-history-scroll" : ".pulse-sms-thread > .overflow-y-auto");
+      await expect(page.locator(".pulse-email-history, .pulse-sms-thread")).toHaveCount(0);
+      if (channel === "sms") {
+        await page.getByTestId("input-sms-message").fill("Unsent draft stays outside history");
+        await expect(page.getByTestId("btn-send-sms")).toBeInViewport();
+        await expect(page.getByTestId("button-cancel-sms")).toBeInViewport();
+      } else {
+        await expect(page.getByTestId("btn-send-email")).toBeInViewport();
+      }
+      const send = page.getByTestId(`btn-send-${channel}`);
+      const sendBox = await send.boundingBox();
+      expect(sendBox!.y + sendBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+      await page.getByTestId(`btn-${channel}-history`).click();
+      const dialog = page.getByTestId(`${channel}-history-dialog`);
+      await expect(dialog).toBeVisible();
+      const card = dialog.locator(channel === "email" ? ".pulse-email-history" : ".pulse-sms-thread");
+      const list = card.locator(channel === "email" ? ".pulse-history-scroll" : ":scope > .overflow-y-auto");
       await expect(card.locator(".pulse-history-bubble")).toHaveCount(20);
+      await expect(dialog).not.toContainText("Unsent draft stays outside history");
       await expect.poll(() => list.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
       await page.waitForTimeout(400); // Native smooth scrolling must finish.
-      const tab = await page.getByTestId(`tab-${channel}`).boundingBox();
-      const header = await card.locator(":scope > div").first().boundingBox();
-      expect(header!.y).toBeGreaterThanOrEqual(tab!.y + tab!.height);
+      await assertDialogBounds(page, dialog);
+      await expect(dialog.getByRole("heading")).toBeInViewport();
+      await expect(dialog.getByRole("button", { name: "Close", exact: true })).toBeInViewport();
       expect(await card.evaluate(el => {
         for (let parent = el.parentElement; parent; parent = parent.parentElement) {
           if (getComputedStyle(parent).overflowY === "hidden" && parent.scrollTop > 0) return false;
         }
         return true;
       })).toBe(true);
+      await page.screenshot({ path: `/tmp/pulse-${channel}-history-modal-desktop.png`, animations: "disabled" });
+      if (channel === "sms") {
+        const search = dialog.locator("input");
+        await search.fill("SMS message 19");
+        await expect(card.locator(".pulse-history-bubble")).toHaveCount(1);
+        await search.fill("");
+        await expect(card.locator(".pulse-history-bubble")).toHaveCount(20);
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
+      await assertDialogBounds(page, dialog);
+      await page.screenshot({ path: `/tmp/pulse-${channel}-history-modal-phone.png`, animations: "disabled" });
+      await page.setViewportSize({ width: 1024, height: 650 });
+      await expect(page.getByTestId(`btn-${channel}-history`)).toBeInViewport();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(page.getByTestId(`btn-${channel}-history`)).toBeFocused();
+      if (channel === "sms") {
+        await expect(page.getByTestId("input-sms-message")).toHaveValue("Unsent draft stays outside history");
+      }
     }
     await page.getByTestId("tab-email").click();
-    await page.screenshot({ path: "/tmp/pulse-email-header-within-frame.png", animations: "disabled" });
+    await page.screenshot({ path: "/tmp/pulse-email-compose-with-history-link.png", animations: "disabled" });
+    expect(fixture.errors).toEqual([]);
+    expect(fixture.writes).toEqual([]);
+  });
+
+  test("empty communication history still opens and closes without altering the draft", async ({ page }) => {
+    const fixture = await installFixture(page);
+    await page.route("**/api/clinics/iris/contact-history", route => route.fulfill({ status: 200, json: [] }));
+    await page.getByTestId("btn-open-abandoned-calls").click();
+    await page.getByTestId("missed-message-mail-iris").click();
+    await page.getByTestId("history-detail-dialog").getByTestId("btn-email-reply").click();
+    for (const channel of ["email", "sms"]) {
+      await page.getByTestId(`tab-${channel}`).click();
+      await expect(page.getByTestId(`btn-${channel}-history`)).toContainText("(0)");
+      await page.getByTestId(`btn-${channel}-history`).click();
+      const dialog = page.getByTestId(`${channel}-history-dialog`);
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator(".pulse-history-bubble")).toHaveCount(0);
+      await expect(dialog.locator(channel === "email" ? ".pulse-history-scroll p" : ".pulse-sms-thread p")).toHaveText(/\S+/);
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await expect(dialog).toHaveCount(0);
+    }
     expect(fixture.errors).toEqual([]);
     expect(fixture.writes).toEqual([]);
   });
