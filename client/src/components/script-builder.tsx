@@ -1982,7 +1982,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
         </div>
 
         <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
-          <SheetContent side="right" className="w-[400px] sm:w-[450px] z-[9995] shadow-2xl border-l flex flex-col" hideOverlay>
+          <SheetContent side="right" drawerWidth="compact" className="w-[400px] sm:w-[450px] z-[9995] shadow-2xl border-l flex flex-col" hideOverlay>
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 <Settings2 className="h-4 w-4 text-primary" />
@@ -2039,7 +2039,7 @@ export function ScriptBuilder({ script, onChange, onSave, onPreview, isSaving, c
       {builderContent}
 
       <Sheet open={propertiesOpen} onOpenChange={(open) => { setPropertiesOpen(open); if (!open) setSelectedElementId(null); }} modal={false}>
-        <SheetContent side="right" className="w-[400px] sm:w-[450px] shadow-2xl border-l flex flex-col" hideOverlay>
+        <SheetContent side="right" drawerWidth="compact" className="w-[400px] sm:w-[450px] shadow-2xl border-l flex flex-col" hideOverlay>
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
               <Settings2 className="h-4 w-4 text-primary" />

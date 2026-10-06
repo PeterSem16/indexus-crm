@@ -374,6 +374,7 @@ function PrimaryContactCard({ clinicDoctor, entityId, categories, locale, mpnT, 
               className={inlinePortalTarget
                 ? "absolute inset-0 z-[51] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
                 : "fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}
+              data-fluid-drawer-width={inlinePortalTarget ? undefined : "wide"}
               data-testid="save-person-drawer"
             >
               <CollaboratorFormWizard
@@ -1493,7 +1494,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
               onClick={closeCollaboratorDrawer}
               data-testid="collaborator-drawer-backdrop"
             />
-            <div className={inlinePortalTarget
+            <div data-fluid-drawer-width={inlinePortalTarget ? undefined : "wide"} className={inlinePortalTarget
               ? "absolute inset-0 z-[61] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
               : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
               <CollaboratorFormWizard
@@ -1526,7 +1527,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
               onClick={() => setNestedNewPersonOpen(false)}
               data-testid="nested-add-person-backdrop"
             />
-            <div className={inlinePortalTarget
+            <div data-fluid-drawer-width={inlinePortalTarget ? undefined : "wide"} className={inlinePortalTarget
               ? "absolute inset-0 z-[61] bg-background shadow-2xl animate-in fade-in duration-200 flex flex-col"
               : "fixed inset-y-0 right-0 z-[61] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col"}>
               <CollaboratorFormWizard

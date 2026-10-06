@@ -1343,6 +1343,7 @@ export function BackOfficeTaskDrawer({ taskId, open, onClose, elevated = false }
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="right"
+        drawerWidth="wide"
         hideOverlay={elevated}
         onCloseAutoFocus={elevated ? (e) => e.preventDefault() : undefined}
         className={`w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col ${elevated ? "z-[10020]" : ""}`}

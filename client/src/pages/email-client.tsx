@@ -6814,6 +6814,7 @@ export default function EmailClientPage() {
               data-testid="smart-search-overlay"
             />
             <div
+              data-fluid-drawer-width="compact"
               className="fixed inset-y-0 right-0 z-[61] w-[520px] max-w-[95vw] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
               data-testid="smart-search-panel"
             >
@@ -7811,7 +7812,7 @@ export default function EmailClientPage() {
             onClick={() => setSignatureDialogOpen(false)}
             data-testid="settings-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-61 w-[720px] max-w-[90vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="standard" className="fixed inset-y-0 right-0 z-61 w-[720px] max-w-[90vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">

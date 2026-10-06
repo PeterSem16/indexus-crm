@@ -53,12 +53,13 @@ interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   hideOverlay?: boolean;
+  drawerWidth?: "compact" | "standard" | "wide" | "none";
 }
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, onInteractOutside, hideOverlay, ...props }, ref) => {
+>(({ side = "right", className, children, onInteractOutside, hideOverlay, drawerWidth = "standard", ...props }, ref) => {
   const handleInteractOutside = (event: CustomEvent) => {
     const target = event.target as HTMLElement;
     const callBar = document.querySelector('[data-testid="call-bar"]');
@@ -77,6 +78,8 @@ const SheetContent = React.forwardRef<
       <SheetPrimitive.Content
         ref={ref}
         className={cn(sheetVariants({ side }), className)}
+        data-drawer-side={side}
+        data-drawer-width={drawerWidth === "none" ? undefined : drawerWidth}
         onInteractOutside={handleInteractOutside}
         {...props}
       >

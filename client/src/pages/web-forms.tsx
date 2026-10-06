@@ -1917,7 +1917,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
   if (detailLoading || !hydrated) {
     return (
       <Sheet open onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="sm:max-w-[1100px]">
+        <SheetContent drawerWidth="wide" className="sm:max-w-[1100px]">
           <div className="flex items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
         </SheetContent>
       </Sheet>
@@ -1926,7 +1926,7 @@ function FormEditorSheet({ form, onClose }: { form: WebForm; onClose: () => void
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="sm:max-w-[1200px] overflow-y-auto">
+      <SheetContent drawerWidth="wide" className="sm:max-w-[1200px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t.webForms.editFormTitle} {form.name}</SheetTitle>
         </SheetHeader>
@@ -2575,7 +2575,7 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="sm:max-w-[800px] overflow-y-auto">
+      <SheetContent drawerWidth="wide" className="sm:max-w-[800px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t.webForms.formSubmissions} ({submissions.length})</SheetTitle>
         </SheetHeader>

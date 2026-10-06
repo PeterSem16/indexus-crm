@@ -16853,6 +16853,7 @@ function AgentWorkspacePageContent() {
       <Sheet open={dispositionModalOpen} onOpenChange={(open) => { if (!open && mandatoryDisposition) return; if (open && !dispositionOpenedAt) setDispositionOpenedAt(Date.now()); setDispositionModalOpen(open); if (!open) { setModalSelectedParent(null); setModalCallbackDate(""); setModalCallbackTime("09:00"); setModalCallbackAssign("me"); setModalCallbackNote(""); setDispositionChannelFilter(null); setActiveDispCategory("__all__"); setMultiSelectMode(false); setMultiSelectedCodes([]); setChecklistParentId(null); setChecklistSelectedCodes([]); setChecklistCallbackAssign("me"); setIsNonMissionInboundDisposition(false); } }}>
         <SheetContent
           side="right"
+          drawerWidth="wide"
           className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
           style={STONE_TERRACOTTA_VARS}
           onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
@@ -17700,7 +17701,7 @@ function AgentWorkspacePageContent() {
           setCreateTaskForm(prev => ({ ...prev, description: "" }));
         }
       }}>
-        <SheetContent side="right" className="task-create-sheet w-full sm:max-w-[860px] p-0 flex flex-col gap-0">
+        <SheetContent side="right" drawerWidth="wide" className="task-create-sheet w-full sm:max-w-[860px] p-0 flex flex-col gap-0">
 
           <TaskModalArtwork variant="create" compact />
           <SheetHeader className="task-create-sheet-header shrink-0 px-6 pb-4 space-y-1">

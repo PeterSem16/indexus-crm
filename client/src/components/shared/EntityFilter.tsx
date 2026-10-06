@@ -734,6 +734,7 @@ export function EntityFilter({
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent
           side="right"
+          drawerWidth="compact"
           className="w-[420px] sm:w-[460px] sm:max-w-[460px] flex flex-col p-0"
           data-testid={`${testId}-drawer`}
         >

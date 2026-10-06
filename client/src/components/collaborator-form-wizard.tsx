@@ -694,7 +694,7 @@ function MedicalNetworkContent({ personId, personName }: { personId: string; per
 
       {entityDrawer && entityLoading && (
         <Sheet open={true} onOpenChange={() => setEntityDrawer(null)}>
-          <SheetContent className="sm:max-w-xl">
+          <SheetContent drawerWidth="wide" className="sm:max-w-xl">
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
@@ -5851,7 +5851,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
 
       {nestedPersonForm && (
         <Sheet open={true} onOpenChange={(open) => { if (!open) setNestedPersonForm(null); }}>
-          <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+          <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-3xl p-0 overflow-hidden">
             <SheetHeader className="px-6 py-4 border-b">
               <SheetTitle>{(t.clinics as any).addNewDoctor || "Add new"}</SheetTitle>
             </SheetHeader>

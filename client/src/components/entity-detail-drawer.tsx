@@ -57,6 +57,7 @@ function InstitutionDetailDrawer({ entity, onClose }: { entity: InstitutionRef; 
       <Sheet open onOpenChange={(o) => { if (!o) onClose(); }}>
         <SheetContent
           side="right"
+          drawerWidth="wide"
           className="w-full sm:max-w-md overflow-y-auto z-[9994]"
           data-testid="entity-detail-drawer"
         >
@@ -123,7 +124,7 @@ function CollaboratorFullCardDrawer({ collaboratorId, onClose }: { collaboratorI
   });
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-5xl p-0 gap-0 overflow-y-auto z-[9994]" data-testid="drawer-collaborator-full">
+      <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-3xl lg:max-w-5xl p-0 gap-0 overflow-y-auto z-[9994]" data-testid="drawer-collaborator-full">
         <SheetHeader className="px-5 py-4 border-b">
           <SheetTitle>{t.mpn.collaborator}</SheetTitle>
         </SheetHeader>
@@ -151,6 +152,7 @@ function CustomerFullCardDrawer({ customerId, onClose }: { customerId: string | 
     <Sheet open={!!customerId} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="right"
+        drawerWidth="wide"
         className="w-full sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl p-0 gap-0 overflow-hidden flex flex-col z-[9994]"
         data-testid="drawer-customer-full"
       >

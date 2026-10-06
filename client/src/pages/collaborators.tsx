@@ -3270,7 +3270,7 @@ export function CollaboratorsContent({ embedded = false, positionScope, excludeS
             onClick={() => setIsFormOpen(false)}
             data-testid="collaborator-form-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="wide" className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             {editingCollaboratorId && editingDetailLoading ? (
               <div className="flex-1 flex items-center justify-center gap-3 text-muted-foreground">
                 <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />

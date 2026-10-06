@@ -303,7 +303,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
   const drawerContent = (
     <>
       <div className={cn("fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200", backdropClassName)} onClick={onClose} data-testid="hospital-edit-backdrop" />
-      <div className={cn("fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col", panelClassName)}>
+      <div data-fluid-drawer-width="wide" className={cn("fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col", panelClassName)}>
         <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -640,7 +640,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] animate-in fade-in duration-200" onClick={handleAttemptClose} data-testid="hospital-add-backdrop" />
-      <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+      <div data-fluid-drawer-width="wide" className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
         <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">

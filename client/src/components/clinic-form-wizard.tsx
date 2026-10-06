@@ -2935,7 +2935,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         {mapDialog}
         {nestedClinicForm && (
           <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
-            <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+            <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-3xl p-0 overflow-hidden">
               <SheetHeader className="px-6 py-4 border-b">
                 <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
               </SheetHeader>
@@ -2958,7 +2958,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     return (
       <>
         <Sheet open={open} onOpenChange={onOpenChange}>
-          <SheetContent className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
+          <SheetContent drawerWidth="wide" className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
@@ -3014,7 +3014,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         {mapDialog}
         {nestedClinicForm && (
           <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
-            <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+            <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-3xl p-0 overflow-hidden">
               <SheetHeader className="px-6 py-4 border-b">
                 <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
               </SheetHeader>
@@ -3047,7 +3047,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   return (
     <>
       <Sheet open={open} onOpenChange={handleAddModeOpenChange}>
-        <SheetContent className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
+        <SheetContent drawerWidth="wide" className={cn("w-[900px] sm:max-w-[900px] p-0 [&>button]:hidden", sheetContentClassName)} style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="shrink-0 border-b px-5 py-3 flex items-center justify-between bg-muted/30">
             <div className="flex items-center gap-2.5">
               <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-primary/10">
@@ -3603,7 +3603,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       )}
       {nestedClinicForm && (
         <Sheet open={true} onOpenChange={(o) => { if (!o) setNestedClinicForm(null); }}>
-          <SheetContent side="right" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+          <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-3xl p-0 overflow-hidden">
             <SheetHeader className="px-6 py-4 border-b">
               <SheetTitle>{(t.clinics as any).addNewDoctor || (t.collaborators as any).addPerson || "Add new doctor"}</SheetTitle>
             </SheetHeader>

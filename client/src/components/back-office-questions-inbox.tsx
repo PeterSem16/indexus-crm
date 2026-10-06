@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
-import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle, CheckCircle2, Sparkles, X } from "lucide-react";
+import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle, CheckCircle2, Sparkles, X, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { Timeline, BoAttachmentComposer, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
 import { SendProcessingOverlay } from "./send-processing-animation";
@@ -563,6 +563,7 @@ export function BackOfficeQuestionsInbox() {
       <Sheet open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
         <SheetContent
           side="right"
+          drawerWidth="wide"
           className="w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col"
           data-testid="drawer-bo-question-detail"
         >

@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fluid width policy for right/left drawer sheets.
+   Explicit Tailwind width/max-width classes remain in markup for intent and
+   fallback, while this scoped rule keeps the live drawer responsive. */
+[data-drawer-side="left"][data-drawer-width="compact"],
+[data-drawer-side="right"][data-drawer-width="compact"],
+[data-fluid-drawer-width="compact"] {
+  width: min(100vw, clamp(480px, 40vw, 720px)) !important;
+  max-width: 100vw !important;
+}
+
+[data-drawer-side="left"][data-drawer-width="standard"],
+[data-drawer-side="right"][data-drawer-width="standard"],
+[data-fluid-drawer-width="standard"] {
+  width: min(100vw, clamp(720px, 72vw, 1200px)) !important;
+  max-width: 100vw !important;
+}
+
+[data-drawer-side="left"][data-drawer-width="wide"],
+[data-drawer-side="right"][data-drawer-width="wide"],
+[data-fluid-drawer-width="wide"] {
+  width: min(100vw, clamp(900px, 80vw, 1600px)) !important;
+  max-width: 100vw !important;
+}
+
+@media (max-width: 767px) {
+  [data-drawer-side="left"][data-drawer-width]:not([data-drawer-width="none"]),
+  [data-drawer-side="right"][data-drawer-width]:not([data-drawer-width="none"]),
+  [data-fluid-drawer-width] {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+}
+
 @keyframes nexus-pulse-progress {
   0% {
     transform: translateX(-120%);

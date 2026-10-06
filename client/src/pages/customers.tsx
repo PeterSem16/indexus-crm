@@ -7451,7 +7451,7 @@ export default function CustomersPage() {
             onClick={() => setIsFormOpen(false)}
             data-testid="customer-form-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="wide" className="fixed inset-y-0 right-0 z-[51] w-[820px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             {useWizardForm ? (
               <CustomerFormWizard
                 onSubmit={(data) => createMutation.mutate(data as CustomerFormData)}
@@ -7476,7 +7476,7 @@ export default function CustomersPage() {
             onClick={() => setEditingCustomer(null)}
             data-testid="customer-edit-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="wide" className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -7600,7 +7600,7 @@ export default function CustomersPage() {
             onClick={() => setViewingCustomer(null)}
             data-testid="customer-view-backdrop"
           />
-          <div className="fixed inset-y-0 right-0 z-[51] w-[720px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="standard" className="fixed inset-y-0 right-0 z-[51] w-[720px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">

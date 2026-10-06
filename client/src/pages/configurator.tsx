@@ -12705,7 +12705,7 @@ function MessageTemplatesTab() {
 
       {/* Test Email Dialog — tabbed preview + send */}
       <Sheet open={isTestEmailOpen} onOpenChange={(open) => { if (!testEmailSending) { setIsTestEmailOpen(open); setSendStep(null); setSendErrorMsg(""); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-[1200px] flex flex-col p-0 gap-0 [&>button]:hidden overflow-hidden">
+        <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-[1200px] flex flex-col p-0 gap-0 [&>button]:hidden overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-3.5 border-b shrink-0 bg-background">
             <div className="flex items-center gap-3">
@@ -12938,7 +12938,7 @@ function MessageTemplatesTab() {
 
       {/* Template Drawer — 3-column: settings | editor | variables */}
       <Sheet open={isTemplateDialogOpen} onOpenChange={(open) => { setIsTemplateDialogOpen(open); if (!open) { setVarsSearch(""); setOpenVarGroup(null); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-[1300px] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-[1300px] flex flex-col p-0 gap-0 [&>button]:hidden">
           {/* Drawer Header */}
           <div className="flex items-center justify-between px-6 py-3.5 border-b shrink-0 bg-background">
             <div>
@@ -20300,7 +20300,7 @@ function LeadSearchTab() {
       </div>
 
       <Sheet open={!!selectedJobId} onOpenChange={(o) => { if (!o) setSelectedJobId(null); }}>
-        <SheetContent side="right" className="w-screen sm:max-w-none sm:w-[95vw] overflow-y-auto p-0">
+        <SheetContent side="right" drawerWidth="wide" className="w-screen sm:max-w-none sm:w-[95vw] overflow-y-auto p-0">
           <div className="p-6">
         <Card>
           <CardHeader className="pb-3">

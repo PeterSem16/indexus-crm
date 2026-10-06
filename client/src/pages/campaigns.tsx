@@ -2211,7 +2211,7 @@ export default function CampaignsPage() {
           setSelectedTemplate(null);
         }
       }}>
-        <SheetContent className="w-[900px] sm:max-w-[900px] p-0 flex flex-col" data-testid="sheet-campaign-edit">
+        <SheetContent drawerWidth="wide" className="w-[900px] sm:max-w-[900px] p-0 flex flex-col" data-testid="sheet-campaign-edit">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0">
             <SheetTitle>
               {t.campaigns.addCampaign}
