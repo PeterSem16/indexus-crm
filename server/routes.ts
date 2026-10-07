@@ -59,6 +59,7 @@ import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/adm
 import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
 import { transitionTaskWorkTiming } from "./lib/task-work-timing";
 import { validTaskMessageTemplate } from "./lib/task-message-templates";
+import { validMessageTemplateCountries } from "./lib/message-template-countries";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
 import { registerAgentShiftLoginSetRoutes, sanitizeAgentShiftScope } from "./agent-shift-login-set-routes";
 import { registerWallboardRoutes } from "./wallboard-routes";
@@ -54639,6 +54640,8 @@ Return ONLY the JSON object.`
     try {
       const userId = req.session.user?.id;
       const { attachments: _stripAtt, ...safeBody } = req.body;
+      if (safeBody.countryCodes !== undefined && !validMessageTemplateCountries(safeBody.countryCodes))
+        return res.status(400).json({ error: "Invalid template countries" });
       if (!["email", "sms", "task"].includes(safeBody.type))
         return res.status(400).json({ error: "Unknown template type" });
       if (safeBody.type === "task" && !validTaskMessageTemplate(safeBody))
@@ -54659,6 +54662,8 @@ Return ONLY the JSON object.`
     try {
       const userId = req.session.user?.id;
       const { attachments: _stripAtt2, ...safeBody2 } = req.body;
+      if (safeBody2.countryCodes !== undefined && !validMessageTemplateCountries(safeBody2.countryCodes))
+        return res.status(400).json({ error: "Invalid template countries" });
       const existing = await storage.getMessageTemplate(req.params.id);
       if (!existing) return res.status(404).json({ error: "Message template not found" });
       if (safeBody2.type !== undefined && !["email", "sms", "task"].includes(safeBody2.type))
@@ -54763,6 +54768,7 @@ Return ONLY the JSON object.`
         contentHtml: contentHtml || undefined,
         categoryId: source.categoryId || undefined,
         language: targetLanguage,
+        countryCodes: source.countryCodes || [],
         tags: source.tags || [],
         isDefault: false,
         isActive: source.isActive,
@@ -55221,7 +55227,22 @@ Return ONLY the JSON object.`
             contentBase64: att.contentBase64 || att.contentBytes || "",
           }))
         : undefined;
-      await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml, undefined, mappedAttachments);
+      if (isHtml && /cid:indexus-automation-/i.test(finalBody)) {
+        const { automationEmailInlineAttachments } = await import("./lib/automation-email-assets");
+        const { sendAutomationGraphEmail } = await import("./lib/automation-email-graph");
+        const inline = await automationEmailInlineAttachments(finalBody);
+        await sendAutomationGraphEmail(tokenResult.accessToken, {
+          message: { subject: finalSubject, body: { contentType: "HTML", content: finalBody },
+            toRecipients: [{ emailAddress: { address: to } }],
+            attachments: [...inline, ...(mappedAttachments || []).map((attachment: any) => ({
+              "@odata.type": "#microsoft.graph.fileAttachment", name: attachment.name,
+              contentType: attachment.contentType, contentBytes: attachment.contentBase64,
+            }))] },
+          saveToSentItems: true,
+        });
+      } else {
+        await sendEmail(tokenResult.accessToken, [to], finalSubject, finalBody, isHtml, undefined, mappedAttachments);
+      }
       res.json({ success: true, message: "Test email sent successfully" });
     } catch (error: any) {
       console.error("[send-test-email] Error:", error);

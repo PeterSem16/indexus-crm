@@ -28,6 +28,7 @@ import { AutomationRuleBasics } from "@/components/automation-rule-basics";
 import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
 import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
+import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
@@ -607,7 +608,7 @@ function RuleEditor({
     const next: RuleDraft = {
       ...EMPTY_DRAFT(), module,
       trigger: { type: "event", entityType: module, eventType },
-      actions: [{ type: service, config: {} }],
+      actions: [{ type: service, config: service === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : {} }],
     };
     setDraft(next);
     setJsonText(JSON.stringify(next, null, 2));
@@ -868,6 +869,32 @@ function RuleEditor({
       (schedulePreview.matchedCount ?? 0) > (schedulePreview.maxMatches ?? 0));
   const scheduleUnsafe = onceCountryUnsafe || onceConditionsUnsafe || perRecordUnsafe;
 
+  const emailActionInvalid = (candidate: RuleDraft) => {
+    const eventType = candidate.trigger?.type === "event" ? candidate.trigger.eventType : "schedule.tick";
+    const fields = [
+      ...(catalog.fields?.[candidate.module] || []),
+      ...(catalog.fieldsByEvent?.[candidate.module]?.[eventType] || []),
+      ...taskSalutationFields(candidate.module, eventType),
+    ];
+    const supportedFields = new Set(fields.map((field) => field.value.replace(/^{{|}}$/g, "")));
+    const supportedRecipients = new Set((catalog.recipientTemplatesByEvent?.[candidate.module]?.[eventType] || [])
+      .map((field: string) => field.replace(/^{{|}}$/g, "")));
+    const checkTokens = (content: string, supported: Set<string>) => {
+      const matcher = /{{\s*([^{}]+?)\s*}}/g;
+      let match: RegExpExecArray | null;
+      while ((match = matcher.exec(content)) !== null) if (!supported.has(match[1].trim())) return false;
+      return true;
+    };
+    return (candidate.actions || []).some((action) => {
+      if (action.type !== "send_email" || action.config?.emailActionVersion !== 2) return false;
+      const config = action.config || {};
+      if (!String(config.subject ?? "").trim() || !String(config.body ?? "").trim()) return true;
+      return !checkTokens(`${config.subject}\n${config.body}`, supportedFields) ||
+        !["to", "cc", "bcc"].every((field) => checkTokens(String(config[field] ?? ""), supportedRecipients));
+    });
+  };
+  const emailActionsInvalid = emailActionInvalid(draft);
+
   const submit = () => {
     let payload = draft;
     if (tab === "json") {
@@ -882,6 +909,7 @@ function RuleEditor({
       const parsed = readSentimentSources(payload.conditions as AutomationCondition | null);
       if (parsed.editable) payload = { ...payload, conditions: withSentimentSources(parsed.channels, parsed.extra) as ConditionNode };
     }
+    if (emailActionInvalid(payload)) return;
     if (payload.trigger?.type === "schedule") {
       const mode = payload.trigger.mode || "once";
       if (mode !== "once" && mode !== "per_record") {
@@ -1166,6 +1194,7 @@ function RuleEditor({
                         recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
                         availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
                         users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
+                        countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])} ruleId={rule?.id}
                         onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
                         onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
                     </div>
@@ -1483,6 +1512,8 @@ function RuleEditor({
                     departments={departments || []}
                     taskGroups={taskGroups}
                     roles={roles}
+                    countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
+                    ruleId={rule?.id}
                     onChange={(updated) => {
                       const next = [...draft.actions];
                       next[i] = updated;
@@ -1556,7 +1587,7 @@ function RuleEditor({
           </Button>
           <div className="flex-1" />
           <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
-          <Button onClick={submit} disabled={saving || scheduleUnsafe || incompatible} data-testid="button-save-rule">
+          <Button onClick={submit} disabled={saving || scheduleUnsafe || incompatible || emailActionsInvalid} data-testid="button-save-rule">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {t.automationServices.workspace.save}
           </Button>
@@ -2027,6 +2058,8 @@ function ActionEditor({
   departments,
   taskGroups,
   roles,
+  countryCodes,
+  ruleId,
   onChange,
   onRemove,
 }: {
@@ -2040,6 +2073,8 @@ function ActionEditor({
   departments?: Array<{ id: string; name: string }>;
   taskGroups: TaskGroupOpt[];
   roles: RoleOpt[];
+  countryCodes: string[];
+  ruleId?: string;
   onChange: (a: ActionNode) => void;
   onRemove: () => void;
 }) {
@@ -2068,7 +2103,7 @@ function ActionEditor({
         {(() => { const visual = serviceVisual(action.type); const Icon = visual.icon; return (
           <span className={`rounded-md p-1.5 ${visual.tile} ${visual.accent}`}><Icon className="h-4 w-4" /></span>
         ); })()}
-        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: {} })}>
+        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : {} })}>
           <SelectTrigger aria-label={t.automationServices.conditionEditor.action}
             className="h-9 w-56 max-w-full min-w-0 text-xs [&>span]:truncate" data-testid={`select-action-type-${index}`}>
             <SelectValue />
@@ -2138,24 +2173,18 @@ function ActionEditor({
         />
       )}
 
-      {action.type === "send_email" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <RecipientTargetSelect mode="email" config={action.config} userOptions={[]}
-            groups={taskGroups} roles={roles} onChange={(config) => onChange({ ...action, config })} index={index} />
-          {!action.config.taskGroupId && !action.config.targetRole && <div>
-            <Label className="text-xs">To (email or template)</Label>
-            <Input className="h-8 text-xs" value={action.config.to || ""} onChange={(e) => setCfg("to", e.target.value)} placeholder="{{newValues.email}}" />
-          </div>}
-          <div>
-            <Label className="text-xs">Subject</Label>
-            <Input className="h-8 text-xs" value={action.config.subject || ""} onChange={(e) => setCfg("subject", e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Body</Label>
-            <Textarea rows={4} className="text-xs" value={action.config.body || ""} onChange={(e) => setCfg("body", e.target.value)} />
-          </div>
-        </div>
-      )}
+      {action.type === "send_email" && <AutomationSendEmailAction
+        config={action.config}
+        onChange={(config) => onChange({ ...action, config })}
+        users={users}
+        groups={taskGroups}
+        roles={roles}
+        countryCodes={countryCodes}
+        ruleId={ruleId}
+        availableVariables={availableVariables}
+        recipientTemplates={recipientTemplates}
+        testId={`send-email-action-${index}`}
+      />}
 
       {action.type === "send_sms" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">

@@ -6045,6 +6045,7 @@ export const messageTemplates = pgTable("message_templates", {
   
   // Language
   language: varchar("language", { length: 10 }).default("sk"), // sk, cs, hu, de, it, ro, en
+  countryCodes: text("country_codes").array().notNull().default(sql`ARRAY[]::text[]`), // Empty = global
   
   // Default and priority settings
   isDefault: boolean("is_default").default(false), // Default template for category

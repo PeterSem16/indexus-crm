@@ -157,7 +157,7 @@ export async function acquireTokenByCode(code: string, codeVerifier: string): Pr
  * Refresh access token using refresh token via direct OAuth2 token endpoint
  * This bypasses MSAL cache and works after server restarts
  */
-export async function refreshAccessToken(refreshToken: string): Promise<{
+export async function refreshAccessToken(refreshToken: string, options?: { quiet?: boolean }): Promise<{
   accessToken: string;
   refreshToken: string;
   expiresOn: Date;
@@ -184,11 +184,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
+      signal: options?.quiet ? AbortSignal.timeout(15000) : undefined,
     });
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('[MS365] Token refresh failed:', errorData);
+      if (!options?.quiet) console.error('[MS365] Token refresh failed:', errorData);
       return null;
     }
     
@@ -200,7 +201,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
       expiresOn: new Date(Date.now() + (data.expires_in * 1000)),
     };
   } catch (error) {
-    console.error('[MS365] Token refresh error:', error);
+    if (!options?.quiet) console.error('[MS365] Token refresh error:', error);
     return null;
   }
 }
@@ -221,7 +222,8 @@ export function isTokenExpiringSoon(expiresAt: Date | null): boolean {
 export async function getValidAccessToken(
   storedAccessToken: string | null,
   tokenExpiresAt: Date | null,
-  storedRefreshToken: string | null
+  storedRefreshToken: string | null,
+  options?: { quiet?: boolean }
 ): Promise<{ accessToken: string; refreshToken?: string; expiresOn: Date | null; refreshed: boolean } | null> {
   // If we have a valid token that's not expiring soon, use it
   if (storedAccessToken && tokenExpiresAt && !isTokenExpiringSoon(tokenExpiresAt)) {
@@ -230,7 +232,7 @@ export async function getValidAccessToken(
   
   // Try to refresh using the refresh token
   if (storedRefreshToken) {
-    const freshToken = await refreshAccessToken(storedRefreshToken);
+    const freshToken = await refreshAccessToken(storedRefreshToken, options);
     if (freshToken) {
       return { 
         accessToken: freshToken.accessToken, 

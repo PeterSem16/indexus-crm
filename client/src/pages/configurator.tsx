@@ -11569,6 +11569,7 @@ interface MessageTemplate {
   contentHtml?: string;
   categoryId?: string;
   language: string;
+  countryCodes?: string[];
   tags?: string[];
   isDefault: boolean;
   isActive: boolean;
@@ -11752,6 +11753,11 @@ const TEMPLATE_LANGUAGES = [
   { code: "de", name: "Deutsch" },
 ];
 
+const rewriteEmailArtworkPreview = (html: string) => html.replace(
+  /cid:indexus-automation-(task|attention|success|deadline)/gi,
+  (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
+);
+
 function MessageTemplatesTab() {
   const { t, locale } = useI18n();
   const taskCopy = getTaskActionCopy(locale);
@@ -11807,6 +11813,7 @@ function MessageTemplatesTab() {
   const quillRef = useRef<ReactQuill>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [templateLanguage, setTemplateLanguage] = useState("sk");
+  const [templateCountryCodes, setTemplateCountryCodes] = useState<string[]>([]);
   const [templateTags, setTemplateTags] = useState("");
   const [templateIsDefault, setTemplateIsDefault] = useState(false);
   const [templateIsActive, setTemplateIsActive] = useState(true);
@@ -12023,6 +12030,7 @@ function MessageTemplatesTab() {
     setHtmlSourceMode(false);
     setTemplateCategoryId("");
     setTemplateLanguage("sk");
+    setTemplateCountryCodes([]);
     setTemplateTags("");
     setTemplateIsDefault(false);
     setTemplateIsActive(true);
@@ -12085,6 +12093,7 @@ function MessageTemplatesTab() {
       const res = await apiRequest("POST", `/api/message-templates/${copySourceTemplate.id}/copy-translate`, {
         targetLanguage: copyTargetLanguage,
         translate: copyWithTranslation,
+        countryCodes: copySourceTemplate.countryCodes || [],
       });
       if (!res.ok) throw new Error("Failed to copy template");
       queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
@@ -12264,6 +12273,7 @@ function MessageTemplatesTab() {
       setHtmlSourceMode(hasComplexHtml);
       setTemplateCategoryId(template.categoryId || "");
       setTemplateLanguage(template.language);
+      setTemplateCountryCodes(template.countryCodes || []);
       setTemplateTags((template.tags || []).join(", "));
       setTemplateIsDefault(template.isDefault);
       setTemplateIsActive(template.isActive);
@@ -12304,6 +12314,7 @@ function MessageTemplatesTab() {
       contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
       categoryId: templateCategoryId || undefined,
       language: templateLanguage,
+      countryCodes: templateCountryCodes,
       tags: tags.length > 0 ? tags : undefined,
       isDefault: templateIsDefault,
       isActive: templateIsActive,
@@ -12334,6 +12345,7 @@ function MessageTemplatesTab() {
         contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
         categoryId: templateCategoryId || undefined,
         language: templateLanguage,
+        countryCodes: templateCountryCodes,
         tags: tags.length > 0 ? tags : undefined,
         isDefault: templateIsDefault,
         isActive: templateIsActive,
@@ -12779,10 +12791,10 @@ function MessageTemplatesTab() {
                 ) : templateFormat === "html" && templateContentHtml ? (
                   <div className="rounded-xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700 bg-white">
                     <iframe
-                      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#1a1a1a;background:#fff;}</style></head><body>${interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/on\w+\s*=/gi,"data-blocked=")}</body></html>`}
+                      srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#1a1a1a;background:#fff;}</style></head><body>${rewriteEmailArtworkPreview(interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/on\w+\s*=/gi,"data-blocked="))}</body></html>`}
                       className="w-full border-0"
                       style={{ minHeight: "500px", height: "100%" }}
-                      sandbox="allow-same-origin"
+                      sandbox=""
                       title="Email náhľad"
                     />
                   </div>
@@ -13087,6 +13099,25 @@ function MessageTemplatesTab() {
                   </Select>
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.sendEmailAction.countryScope}</Label>
+                  <p className="text-[11px] text-muted-foreground">{templateCountryCodes.length
+                    ? templateCountryCodes.join(", ")
+                    : t.sendEmailAction.allCountriesGlobal}</p>
+                  <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border bg-background p-2">
+                    {COUNTRIES.map((country) => <label key={country.code} className="flex cursor-pointer items-center gap-2 py-0.5 text-xs">
+                      <Checkbox checked={templateCountryCodes.includes(country.code)} onCheckedChange={(checked) => {
+                        setTemplateCountryCodes((current) => checked
+                          ? Array.from(new Set([...current, country.code]))
+                          : current.filter((code) => code !== country.code));
+                      }} data-testid={`checkbox-template-country-${country.code}`} />
+                      <span>{country.name} ({country.code})</span>
+                    </label>)}
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                    onClick={() => setTemplateCountryCodes([])}>{t.sendEmailAction.allCountriesGlobal}</Button>
+                </div>
+
                 {/* Category */}
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateCategory}</Label>
@@ -13347,10 +13378,10 @@ function MessageTemplatesTab() {
                           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">Náhľad</p>
                           <div className="border rounded-xl overflow-hidden bg-gray-50">
                             <iframe
-                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;}</style></head><body>${templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked=")}</body></html>`}
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;}</style></head><body>${rewriteEmailArtworkPreview(templateContentHtml.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/on\w+\s*=/gi, "data-blocked="))}</body></html>`}
                               className="w-full border-0"
                               style={{ minHeight: "280px" }}
-                              sandbox="allow-same-origin"
+                              sandbox=""
                               title="Email náhľad"
                               data-testid="iframe-template-preview"
                             />

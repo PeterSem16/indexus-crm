@@ -14,7 +14,7 @@ export type AutomationRecipientTarget = {
 export async function resolveAutomationRecipientTarget(config: {
   taskGroupId?: string;
   targetRole?: string;
-}): Promise<AutomationRecipientTarget> {
+}, options: { purpose?: "task" | "email" } = {}): Promise<AutomationRecipientTarget> {
   if (config.taskGroupId && config.targetRole) throw new Error("Choose either a task group or a role");
   if (config.taskGroupId) {
     const [group] = await db.select().from(taskGroups).where(eq(taskGroups.id, config.taskGroupId)).limit(1);
@@ -23,7 +23,7 @@ export async function resolveAutomationRecipientTarget(config: {
       .innerJoin(users, eq(users.id, taskGroupMembers.userId))
       .where(and(eq(taskGroupMembers.groupId, group.id), eq(users.isActive, true)));
     const selected = await Promise.all(members.map(async member =>
-      await isTaskAssignmentUserAllowed(db, member.id) ? member.id : null
+      options.purpose === "email" || await isTaskAssignmentUserAllowed(db, member.id) ? member.id : null
     ));
     const userIds = [...new Set(selected.filter((id): id is string => !!id))].sort();
     if (!userIds.length) throw new Error("Task group has no active members");
@@ -56,7 +56,7 @@ export async function resolveAutomationRecipientTarget(config: {
       ORDER BY u.id LIMIT 101
     `);
     const selected = await Promise.all(result.rows.map(async row =>
-      await isTaskAssignmentUserAllowed(db, row.id) ? row.id : null
+      options.purpose === "email" || await isTaskAssignmentUserAllowed(db, row.id) ? row.id : null
     ));
     const userIds = selected.filter((id): id is string => !!id);
     if (!userIds.length) throw new Error("Role has no active members");

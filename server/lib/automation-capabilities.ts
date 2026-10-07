@@ -2,6 +2,7 @@ import { taskSalutationFields } from "../../shared/task-template-variables";
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
+import { emailActionIssues } from "@shared/automation-email-action";
 
 /** Executable event and action capabilities of the standalone Automation Engine. */
 export const MODULE_EVENTS: Record<string, string[]> = {
@@ -516,7 +517,7 @@ export function validateRuleCapabilities(rule: {
       if (hasTemplate(config)) fail(`${path}.config`, "One-shot schedules cannot use record templates");
     }
     const groupTarget = specified(config.taskGroupId) || specified(config.targetRole);
-    if (specified(config.taskGroupId) && specified(config.targetRole))
+    if (specified(config.taskGroupId) && specified(config.targetRole) && !(a.type === "send_email" && config.emailActionVersion === 2))
       fail(`${path}.config`, "Choose either a task group or a role");
     if (groupTarget && !["create_task", "notify_user", "send_email"].includes(a.type))
       fail(`${path}.config`, "This service does not support a group or role recipient");
@@ -563,9 +564,21 @@ export function validateRuleCapabilities(rule: {
         fail(`${path}.config`, "Choose only one notification recipient");
     }
     if (a.type === "send_email") {
-      if (!specified(config.to) && !groupTarget)
+      if (config.emailActionVersion === 2) {
+        for (const message of emailActionIssues(config)) fail(`${path}.config`, message);
+        const variables = new Set([
+          ...fieldsForEvent(rule.module, event).map(field => field.value),
+          ...taskSalutationFields(rule.module, event).map(field => field.value),
+          "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
+        ]);
+        for (const key of ["subject", "body"]) {
+          if (typeof config[key] !== "string") continue;
+          for (const match of config[key].matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g))
+            if (!variables.has(match[1].trim())) fail(`${path}.config.${key}`, `Unavailable email variable: ${match[1]}`);
+        }
+      } else if (!specified(config.to) && !groupTarget)
         fail(`${path}.config.to`, "Email address, task group or role is required");
-      if (groupTarget && specified(config.to))
+      if (config.emailActionVersion !== 2 && groupTarget && specified(config.to))
         fail(`${path}.config`, "Choose either an email address or a group/role");
     }
     if (a.type === "send_sms" && !specified(config.to))
@@ -578,7 +591,10 @@ export function validateRuleCapabilities(rule: {
           return null;
         return values.flatMap(item => String(item).split(/[,;\s]+/).filter(Boolean)).length;
       };
-      if (a.type === "send_email" && !groupTarget) {
+      if (a.type === "send_email" && config.emailActionVersion === 2) {
+        const lists = ["to", "cc", "bcc"].map(key => explicitCount(config[key] || ""));
+        if (lists.every(count => count != null)) staticallyKnownDeliveries += lists.reduce<number>((sum, count) => sum + (count || 0), 0);
+      } else if (a.type === "send_email" && !groupTarget) {
         const toCount = explicitCount(config.to);
         const ccCount = config.cc == null ? 0 : explicitCount(config.cc);
         const bccCount = config.bcc == null ? 0 : explicitCount(config.bcc);

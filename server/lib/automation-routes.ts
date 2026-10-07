@@ -25,6 +25,8 @@ import {
   SCHEDULE_RECORD_MODULES, SCHEDULE_MAX_MATCHES,
 } from "./automation-capabilities";
 import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
+import { storage } from "../storage";
+import { resolve } from "node:path";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -54,6 +56,34 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  // Static, non-personal artwork only; this allow-list cannot serve uploads.
+  app.get("/api/automation/email-artwork/:name", (req, res) => {
+    if (!["task", "attention", "success", "deadline"].includes(req.params.name))
+      return res.status(404).end();
+    res.type("image/gif").set("Cache-Control", "public, max-age=86400");
+    res.sendFile(resolve(process.cwd(), "server/assets/automation-email", `automation-${req.params.name}.gif`));
+  });
+  app.get("/api/automation/email-mailboxes", requireAutomationAdmin, async (req, res) => {
+    try {
+      const ruleId = typeof req.query.ruleId === "string" ? req.query.ruleId : undefined;
+      const [rule] = ruleId ? await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId)).limit(1) : [];
+      if (ruleId && !rule) return res.status(404).json({ error: "Rule not found" });
+      const authorId = rule ? rule.createdByUserId : getSessionUser(req)!.id;
+      const personal = authorId ? await storage.getUserMs365Connection(authorId) : undefined;
+      const system = await Promise.all(COUNTRIES.map(async country => {
+        const [mailbox, settings] = await Promise.all([
+          storage.getSystemMs365Connection(country.code),
+          storage.getCountrySystemSettingsByCountry(country.code),
+        ]);
+        return { countryCode: country.code, connected: !!mailbox?.isConnected,
+          email: mailbox?.email || null,
+          displayName: settings?.systemEmailDisplayName || mailbox?.displayName || "",
+          hasSignature: !!settings?.systemEmailSignature?.trim() };
+      }));
+      res.json({ personal: { connected: !!personal?.isConnected,
+        email: personal?.email || null, displayName: personal?.displayName || "" }, system });
+    } catch { res.status(500).json({ error: "Cannot load email mailbox readiness" }); }
+  });
   // This assistant only drafts proposals against generic, emitted workflow
   // events. It never edits saved rules or Status List automations.
   // The central assistant also accepts other real workflow event sources.
@@ -161,6 +191,8 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   app.patch("/api/automation/rules/:id", requireAutomationAdmin, async (req, res) => {
+    if ("createdByUserId" in req.body)
+      return res.status(400).json({ error: "The rule author cannot be changed" });
     const partial = insertWorkflowRuleSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "Invalid", details: partial.error.errors });
     if ("countryCodes" in partial.data && partial.data.countryCodes === null) partial.data.countryCode = null;
@@ -561,7 +593,7 @@ export function registerAutomationRoutes(app: Express) {
       const { users } = await import("@shared/schema");
       const rows = await db
         .select({ id: users.id, fullName: users.fullName, email: users.email, role: users.role })
-        .from(users);
+        .from(users).where(eq(users.isActive, true));
       res.json(rows);
     } catch (e: any) {
       res.status(500).json({ error: e?.message || "Failed to load users" });

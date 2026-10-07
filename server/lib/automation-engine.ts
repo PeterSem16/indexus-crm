@@ -38,6 +38,8 @@ import { planTaskActionRecipients, type TaskCreationAssignment } from "./automat
 import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
+import { deliverAutomationEmail, planAutomationEmailRecipients } from "./automation-email-delivery";
+import { renderEmailAddressConfig } from "./automation-email-policy";
 import { assertTaskRecipientAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds } from "./task-assignment-access";
 import { userMayAccessTaskCountry } from "./task-contract";
 import {
@@ -415,6 +417,7 @@ async function applyMessageTemplate(
 }
 
 async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
+  if (config?.emailActionVersion === 2) return deliverAutomationEmail(config, ctx);
   const scheduled = ctx.event?.source === "schedule";
   try {
     config = await applyMessageTemplate(config, "email", scheduled);
@@ -1126,6 +1129,7 @@ async function countScheduledDeliveries(rule: WorkflowRule, candidates: Schedule
   for (const candidate of candidates) {
     const event = scheduledEvent(rule, candidate, onceCountry);
     const ctx = {
+      rule,
       event,
       newValues: event.newValues || {},
       oldValues: {},
@@ -1135,13 +1139,23 @@ async function countScheduledDeliveries(rule: WorkflowRule, candidates: Schedule
     };
     for (const action of (rule.actions as any[]) || []) {
       if (!["send_email", "send_sms"].includes(action?.type)) continue;
-      const rendered = renderTemplate(action.config || {}, ctx);
+      const config = action.config || {};
+      const rendered = action.type === "send_email" && config.emailActionVersion === 2
+        ? renderEmailAddressConfig(config, taskTemplateContext(ctx, config.templateLanguage))
+        : renderTemplate(config, ctx);
       if (action.type === "send_sms") {
         const recipients = scheduleRecipients(rendered.to);
         if (recipients.length !== 1 || hasUnresolvedTemplate(recipients))
           throw new Error("Scheduled SMS recipient fanout cannot be safely determined");
         total++;
       } else {
+        if (rendered.emailActionVersion === 2) {
+          const resolved = await planAutomationEmailRecipients(rendered);
+          total += resolved.count;
+          if (total > SCHEDULE_MAX_DELIVERIES)
+            throw new Error("Scheduled email exceeds the delivery safety limit; no actions were run");
+          continue;
+        }
         const grouped = rendered.taskGroupId || rendered.targetRole;
         let recipients: string[];
         if (grouped) {
@@ -1438,6 +1452,7 @@ export async function runRule(
 ): Promise<void> {
   const scheduled = event.source === "schedule";
   const ctx = {
+    rule,
     event,
     newValues: event.newValues || {},
     oldValues: event.oldValues || {},
