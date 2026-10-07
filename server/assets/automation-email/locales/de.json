@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMATISIERUNG",
+  "linkTitle": "Öffnen Sie den entsprechenden Datensatz in INDEXUS",
+  "email": {
+    "new-task": {
+      "name": "Neue Aufgabe",
+      "subject": "Eine neue Aufgabe ist bereit",
+      "artworkAlt": "Illustration einer Aufgabenübergabe",
+      "texts": [
+        "Neue Aufgabe zur Übernahme",
+        "Eine neue Aufgabe ist bereit. Prüfen Sie die Zusammenfassung und bestätigen Sie die Übernahme in INDEXUS.",
+        "AUFGABE",
+        "Neue Zuweisung",
+        "Eine neue Aufgabe ist bereit",
+        "Die Aufgabe wurde Ihrer Arbeitsliste hinzugefügt. Prüfen Sie vor dem Fortfahren die Aufgabenbeschreibung und den nächsten Schritt.",
+        "Kurzübersicht",
+        "Öffnen Sie die Aufgabe",
+        "Lesen Sie die Aufgabenbeschreibung und den Kontext in INDEXUS.",
+        "Fahren Sie mit dem nächsten Schritt fort",
+        "Prüfen Sie die Aufgabenbeschreibung und dokumentieren Sie Ihren Fortschritt.",
+        "Aufgabe in INDEXUS öffnen"
+      ]
+    },
+    "action-needed": {
+      "name": "Aktion erforderlich",
+      "subject": "Ein weiterer Schritt ist erforderlich",
+      "artworkAlt": "Illustration eines Hinweises auf eine erforderliche Aktion",
+      "texts": [
+        "Ein weiterer Schritt ist erforderlich",
+        "Zur Fortsetzung der Aufgabe ist Ihre Aktion erforderlich. Prüfen Sie die Anfrage und bestätigen Sie den nächsten Schritt in INDEXUS.",
+        "ERFORDERLICHER SCHRITT",
+        "Kurzer Hinweis",
+        "Bestätigen Sie zuerst den nächsten Schritt",
+        "Eine Ihrer Aufgaben wartet auf eine Prüfung. Nehmen Sie sich einen Moment zur Überprüfung und bestätigen Sie, wie der Prozess fortgesetzt werden soll.",
+        "Was jetzt zu tun ist",
+        "Öffnen Sie die entsprechende Aufgabe in INDEXUS, prüfen Sie die Anfrage und bestätigen Sie das weitere Vorgehen.",
+        "Prüfen und fortfahren",
+        "PRÜFUNG",
+        "Prüfen Sie die Aufgabenbeschreibung und die verfügbaren Informationen.",
+        "BESTÄTIGUNG",
+        "Speichern Sie Ihre Auswahl im Arbeitsablauf."
+      ]
+    },
+    "completed": {
+      "name": "Erfolgreich abgeschlossen",
+      "subject": "Die Aufgabe ist abgeschlossen",
+      "artworkAlt": "Illustration einer erfolgreich abgeschlossenen Verwaltungsaufgabe",
+      "texts": [
+        "Die Automatisierung hat die Aufgabe abgeschlossen",
+        "Die Aufgabe wurde abgeschlossen. Öffnen Sie INDEXUS und prüfen Sie das dokumentierte Ergebnis.",
+        "ERGEBNIS · ABGESCHLOSSEN",
+        "Die Aufgabe ist abgeschlossen",
+        "Die Automatisierung hat den Abschluss des geplanten Schrittes dokumentiert.",
+        "ERGEBNISÜBERSICHT",
+        "Aufgabenstatus: abgeschlossen",
+        "Das dokumentierte Ergebnis ist in INDEXUS verfügbar.",
+        "Nächster Schritt",
+        "Das Ergebnis und die zugehörigen Informationen finden Sie sicher in INDEXUS.",
+        "Ergebnis in INDEXUS ansehen"
+      ]
+    },
+    "deadline": {
+      "name": "Terminerinnerung",
+      "subject": "Der geplante Termin rückt näher",
+      "artworkAlt": "Illustration eines Kalenders und eines Verwaltungstermins",
+      "texts": [
+        "Erinnerung an den Aufgabentermin",
+        "Der Aufgabentermin rückt näher. Prüfen Sie den Status und legen Sie den nächsten Schritt in INDEXUS fest.",
+        "TERMINERINNERUNG",
+        "Der Aufgabentermin rückt näher",
+        "Der geplante Termin erfordert eine kurze Prüfung. Achten Sie auf den Zeitpunkt und den nächsten Schritt.",
+        "TERMIN",
+        "DATUM",
+        "ZEITPUNKT",
+        "Termin in INDEXUS",
+        "Das aktuelle Datum und die Uhrzeit finden Sie im Datensatz.",
+        "NÄCHSTER SCHRITT",
+        "Öffnen Sie die Aufgabe und prüfen Sie ihren Status.",
+        "Falls weitere Maßnahmen erforderlich sind, dokumentieren Sie diese im entsprechenden Datensatz in INDEXUS.",
+        "Aufgabe und Termin öffnen"
+      ]
+    },
+    "data-change": {
+      "name": "Datenänderung",
+      "subject": "Der Datensatz in INDEXUS wurde aktualisiert",
+      "artworkAlt": "Illustration einer Datensatzänderung",
+      "texts": [
+        "Datenänderung in INDEXUS",
+        "In INDEXUS wurde eine Datenänderung erfasst. Die Einzelheiten können Sie nach der sicheren Anmeldung einsehen; sensible Werte werden nicht per E-Mail versendet.",
+        "DATENSATZ",
+        "Datenänderung · Benachrichtigung",
+        "Der Datensatz wurde aktualisiert",
+        "In INDEXUS wurde eine Datenänderung erfasst. Die E-Mail enthält keine konkreten Werte vor oder nach der Änderung.",
+        "Datenschutz hat Vorrang",
+        "Prüfen Sie die Einzelheiten sicher nach der Anmeldung in INDEXUS. Wenn Sie diesen Link nicht erwartet haben, öffnen Sie das System über Ihre gespeicherte Adresse.",
+        "Geschützten Datensatz öffnen"
+      ]
+    },
+    "information": {
+      "name": "Wichtige Information",
+      "subject": "Neu in INDEXUS: eine übersichtlichere Betriebsübersicht",
+      "artworkAlt": "Illustration einer betrieblichen Neuerung",
+      "texts": [
+        "Neu in INDEXUS",
+        "Sehen Sie sich die aktualisierte INDEXUS-Betriebsübersicht an und orientieren Sie sich schneller im Arbeitsalltag.",
+        "NEUERUNG",
+        "KLEINE ÄNDERUNG, BESSERE ÜBERSICHT",
+        "Betrieb. Einen Schritt übersichtlicher.",
+        "Die Betriebsübersicht in INDEXUS ist jetzt klarer gegliedert. Informationen für den Arbeitsalltag finden Sie schneller — ohne unnötiges Wechseln.",
+        "Wie geht es weiter?",
+        "Öffnen Sie die neue Übersicht und sehen Sie sich die Änderungen an.",
+        "Aktualisierte Übersicht ansehen  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Daten prüfen", "Prüfe die Richtigkeit und Vollständigkeit der Daten. Ergänze fehlende Informationen."],
+    "contact-verify": ["Kontakt aufnehmen und prüfen", "Kontaktiere die betreffende Person, prüfe den aktuellen Status und dokumentiere das Ergebnis."],
+    "complete-documents": ["Unterlagen ergänzen", "Fordere die fehlenden Unterlagen an und füge sie dem Datensatz bei."],
+    "response-needed": ["Reaktion erforderlich", "Der Datensatz wartet auf eine Reaktion. Prüfe die letzte Kommunikation und veranlasse den nächsten Schritt."],
+    "overdue": ["Termin überschritten", "Der Termin wurde überschritten. Prüfe die Ursache und veranlasse die Behebung."],
+    "urgent-review": ["Dringende Prüfung", "Die Situation erfordert eine vorrangige Prüfung. Dokumentiere die Feststellungen und die ergriffenen Maßnahmen."],
+    "handover": ["Zur Bearbeitung übergeben", "Ergänze einen kurzen Kontext und übergib den Fall an das zuständige Team. Prüfe die Übernahme."]
+  }
+}

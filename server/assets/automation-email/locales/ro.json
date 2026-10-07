@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMATIZARE",
+  "linkTitle": "Deschideți înregistrarea relevantă în INDEXUS",
+  "email": {
+    "new-task": {
+      "name": "Sarcină nouă",
+      "subject": "O sarcină nouă este pregătită",
+      "artworkAlt": "Ilustrație a predării unei sarcini",
+      "texts": [
+        "Sarcină nouă de preluat",
+        "O sarcină nouă este pregătită. Verificați rezumatul și confirmați preluarea în INDEXUS.",
+        "SARCINĂ",
+        "Atribuire nouă",
+        "O sarcină nouă este pregătită",
+        "Sarcina a fost adăugată în lista dumneavoastră de lucru. Înainte de a continua, verificați instrucțiunile și pasul următor.",
+        "Prezentare rapidă",
+        "Deschideți sarcina",
+        "Citiți instrucțiunile și contextul în INDEXUS.",
+        "Continuați cu pasul următor",
+        "Verificați instrucțiunile și înregistrați progresul.",
+        "Deschideți sarcina în INDEXUS"
+      ]
+    },
+    "action-needed": {
+      "name": "Acțiune necesară",
+      "subject": "Este necesar un pas suplimentar",
+      "artworkAlt": "Ilustrație a unei atenționări privind o acțiune necesară",
+      "texts": [
+        "Este necesar un pas suplimentar",
+        "Pentru continuarea sarcinii este necesară o acțiune din partea dumneavoastră. Verificați solicitarea și confirmați pasul următor în INDEXUS.",
+        "PAS NECESAR",
+        "Scurtă atenționare",
+        "Confirmați mai întâi pasul următor",
+        "Una dintre sarcinile dumneavoastră așteaptă verificarea. Acordați un moment verificării și confirmați cum trebuie să continue procesul.",
+        "Ce trebuie făcut acum",
+        "Deschideți sarcina relevantă în INDEXUS, verificați solicitarea și confirmați continuarea acesteia.",
+        "Verificați și continuați",
+        "VERIFICARE",
+        "Verificați instrucțiunile și informațiile disponibile.",
+        "CONFIRMARE",
+        "Salvați opțiunea în fluxul de lucru."
+      ]
+    },
+    "completed": {
+      "name": "Finalizat cu succes",
+      "subject": "Sarcina este finalizată",
+      "artworkAlt": "Ilustrație a unei sarcini administrative finalizate cu succes",
+      "texts": [
+        "Automatizarea a finalizat sarcina",
+        "Sarcina a fost finalizată. Deschideți INDEXUS și verificați rezultatul înregistrat.",
+        "REZULTAT · FINALIZAT",
+        "Sarcina este finalizată",
+        "Automatizarea a înregistrat finalizarea pasului planificat.",
+        "REZULTAT PE SCURT",
+        "Starea sarcinii: finalizată",
+        "Rezultatul înregistrat este disponibil în INDEXUS.",
+        "Pasul următor",
+        "Rezultatul și informațiile asociate sunt disponibile în siguranță în INDEXUS.",
+        "Vedeți rezultatul în INDEXUS"
+      ]
+    },
+    "deadline": {
+      "name": "Memento privind termenul",
+      "subject": "Termenul planificat se apropie",
+      "artworkAlt": "Ilustrație a unui calendar și a unui termen administrativ",
+      "texts": [
+        "Memento privind termenul sarcinii",
+        "Termenul sarcinii se apropie. Verificați starea acesteia și stabiliți pasul următor în INDEXUS.",
+        "MEMENTO PRIVIND TERMENUL",
+        "Termenul sarcinii se apropie",
+        "Termenul planificat necesită o scurtă verificare. Acordați atenție momentului stabilit și pasului următor.",
+        "TERMEN",
+        "DATĂ",
+        "MOMENT",
+        "Termen în INDEXUS",
+        "Data și ora actuale sunt disponibile în înregistrare.",
+        "PASUL URMĂTOR",
+        "Deschideți sarcina și verificați starea acesteia.",
+        "Dacă este necesară o acțiune suplimentară, înregistrați-o în înregistrarea relevantă din INDEXUS.",
+        "Deschideți sarcina și termenul"
+      ]
+    },
+    "data-change": {
+      "name": "Modificarea datelor",
+      "subject": "Înregistrarea din INDEXUS a fost actualizată",
+      "artworkAlt": "Ilustrație a modificării unei înregistrări",
+      "texts": [
+        "Modificarea datelor în INDEXUS",
+        "În INDEXUS a fost înregistrată o modificare a datelor. Detaliile sunt disponibile după autentificarea securizată; valorile sensibile nu sunt trimise prin e-mail.",
+        "ÎNREGISTRARE",
+        "Modificarea datelor · notificare",
+        "Înregistrarea a fost actualizată",
+        "În INDEXUS a fost înregistrată o modificare a datelor. E-mailul nu conține valorile concrete de dinaintea sau de după modificare.",
+        "Confidențialitatea pe primul loc",
+        "Verificați detaliile în siguranță după autentificarea în INDEXUS. Dacă nu așteptați acest link, deschideți sistemul folosind adresa salvată.",
+        "Deschideți înregistrarea securizată"
+      ]
+    },
+    "information": {
+      "name": "Informație importantă",
+      "subject": "Noutate în INDEXUS: o imagine mai clară a operațiunilor",
+      "artworkAlt": "Ilustrație a unei noutăți operaționale",
+      "texts": [
+        "Noutate în INDEXUS",
+        "Consultați prezentarea operațională actualizată din INDEXUS și orientați-vă mai rapid în activitatea de zi cu zi.",
+        "NOUTATE",
+        "MICĂ SCHIMBARE, MAI MULTĂ CLARITATE",
+        "Operațiuni. Cu un pas mai clare.",
+        "Prezentarea operațională din INDEXUS are acum o organizare mai clară. Găsiți mai rapid informațiile de zi cu zi — fără treceri inutile între secțiuni.",
+        "Ce urmează?",
+        "Deschideți noua prezentare și vedeți ce s-a schimbat.",
+        "Vedeți prezentarea actualizată  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Verificarea datelor", "Verifică exactitatea și completitudinea datelor. Completează informațiile lipsă."],
+    "contact-verify": ["Contactare și verificare", "Contactează persoana relevantă, verifică starea actuală și înregistrează rezultatul."],
+    "complete-documents": ["Completarea documentelor", "Solicită documentele lipsă și atașează-le la înregistrare."],
+    "response-needed": ["Răspuns necesar", "Înregistrarea așteaptă un răspuns. Verifică ultima comunicare și asigură pasul următor."],
+    "overdue": ["Termen depășit", "Termenul a fost depășit. Verifică motivul și asigură remedierea."],
+    "urgent-review": ["Verificare urgentă", "Situația necesită o verificare prioritară. Înregistrează constatările și măsurile luate."],
+    "handover": ["Predare pentru soluționare", "Adaugă un scurt context și predă cazul echipei responsabile. Verifică preluarea acestuia."]
+  }
+}

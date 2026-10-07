@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMATION",
+  "linkTitle": "Open the relevant record in INDEXUS",
+  "email": {
+    "new-task": {
+      "name": "New task",
+      "subject": "A new task is ready",
+      "artworkAlt": "Illustration of a task handover",
+      "texts": [
+        "New task to accept",
+        "A new task is ready. Review its summary and confirm acceptance in INDEXUS.",
+        "TASK",
+        "New assignment",
+        "A new task is ready",
+        "The task has been added to your work list. Before proceeding, check the instructions and the next step.",
+        "Quick overview",
+        "Open the task",
+        "Read its instructions and context in INDEXUS.",
+        "Continue with the next step",
+        "Check the instructions and record your progress.",
+        "Open the task in INDEXUS"
+      ]
+    },
+    "action-needed": {
+      "name": "Action required",
+      "subject": "A further step is required",
+      "artworkAlt": "Illustration of an action-required alert",
+      "texts": [
+        "A further step is required",
+        "Your action is needed to continue the task. Review the request and confirm the next step in INDEXUS.",
+        "REQUIRED STEP",
+        "Brief reminder",
+        "Confirm the next step first",
+        "One of your tasks is awaiting review. Take a moment to check it and confirm how the process should continue.",
+        "What to do now",
+        "Open the relevant task in INDEXUS, review the request and confirm how to proceed.",
+        "Review and continue",
+        "REVIEW",
+        "Check the instructions and available information.",
+        "CONFIRMATION",
+        "Save your choice in the workflow."
+      ]
+    },
+    "completed": {
+      "name": "Successfully completed",
+      "subject": "The task is complete",
+      "artworkAlt": "Illustration of a successfully completed administrative task",
+      "texts": [
+        "Automation completed the task",
+        "The task has been completed. Open INDEXUS and review the recorded result.",
+        "RESULT · COMPLETED",
+        "The task is complete",
+        "Automation has recorded completion of the scheduled step.",
+        "RESULT SUMMARY",
+        "Task status: completed",
+        "The result record is available in INDEXUS.",
+        "Next step",
+        "You can securely find the result and related information in INDEXUS.",
+        "View the result in INDEXUS"
+      ]
+    },
+    "deadline": {
+      "name": "Deadline reminder",
+      "subject": "The scheduled deadline is approaching",
+      "artworkAlt": "Illustration of a calendar and an administrative deadline",
+      "texts": [
+        "Task deadline reminder",
+        "The task deadline is approaching. Check its status and determine the next step in INDEXUS.",
+        "DEADLINE REMINDER",
+        "The task deadline is approaching",
+        "The scheduled deadline needs a brief review. Pay attention to the timing and the next step.",
+        "DEADLINE",
+        "DATE",
+        "TIME",
+        "Deadline in INDEXUS",
+        "The current date and time are available in the record.",
+        "NEXT STEP",
+        "Open the task and check its status.",
+        "If further action is needed, record it in the relevant INDEXUS record.",
+        "Open the task and deadline"
+      ]
+    },
+    "data-change": {
+      "name": "Data change",
+      "subject": "The INDEXUS record has been updated",
+      "artworkAlt": "Illustration of a record update",
+      "texts": [
+        "Data change in INDEXUS",
+        "A data change has been recorded in INDEXUS. View the details after signing in securely; sensitive values are not sent by email.",
+        "RECORD",
+        "Data change · notification",
+        "The record has been updated",
+        "A data change has been recorded in INDEXUS. This email does not contain specific values from before or after the change.",
+        "Privacy first",
+        "Review the details securely after signing in to INDEXUS. If you were not expecting this link, open the system using your saved address.",
+        "Open the secure record"
+      ]
+    },
+    "information": {
+      "name": "Important information",
+      "subject": "New in INDEXUS: a clearer operations overview",
+      "artworkAlt": "Illustration of an operations update",
+      "texts": [
+        "New in INDEXUS",
+        "Explore the updated INDEXUS operations overview and find your way around day-to-day operations more quickly.",
+        "UPDATE",
+        "SMALL CHANGE, CLEARER OVERVIEW",
+        "Operations. One step clearer.",
+        "The INDEXUS operations overview now has a clearer layout. Find everyday information more quickly — without unnecessary switching.",
+        "What next?",
+        "Open the new overview and see what has changed.",
+        "View the updated overview  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Check data", "Verify that the data is correct and complete. Add any missing information."],
+    "contact-verify": ["Contact and verify", "Contact the relevant person, verify the current status and record the result."],
+    "complete-documents": ["Complete supporting documents", "Request the missing supporting documents and attach them to the record."],
+    "response-needed": ["Response required", "The record is awaiting a response. Review the latest communication and arrange the next step."],
+    "overdue": ["Deadline exceeded", "The deadline has been exceeded. Verify the cause and take corrective action."],
+    "urgent-review": ["Urgent review", "The situation requires priority review. Record your findings and the measures taken."],
+    "handover": ["Hand over for resolution", "Add a brief context and hand the case over to the responsible team. Verify that it has been accepted."]
+  }
+}

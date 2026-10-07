@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMATIZÁLÁS",
+  "linkTitle": "Nyissa meg a megfelelő rekordot az INDEXUS rendszerben",
+  "email": {
+    "new-task": {
+      "name": "Új feladat",
+      "subject": "Új feladat vár Önre",
+      "artworkAlt": "Feladatátadás illusztrációja",
+      "texts": [
+        "Átvehető új feladat",
+        "Új feladat vár Önre. Tekintse át a rövid összefoglalót, és erősítse meg az átvételt az INDEXUS rendszerben.",
+        "FELADAT",
+        "Új hozzárendelés",
+        "Új feladat vár Önre",
+        "A feladat bekerült az Ön munkalistájába. A folytatás előtt ellenőrizze a feladat leírását és a következő lépést.",
+        "Gyors áttekintés",
+        "Nyissa meg a feladatot",
+        "Olvassa el a feladat leírását és hátterét az INDEXUS rendszerben.",
+        "Folytassa a következő lépéssel",
+        "Ellenőrizze a feladat leírását, és rögzítse az előrehaladást.",
+        "Feladat megnyitása az INDEXUS rendszerben"
+      ]
+    },
+    "action-needed": {
+      "name": "Intézkedés szükséges",
+      "subject": "További lépés szükséges",
+      "artworkAlt": "Szükséges intézkedésre figyelmeztető illusztráció",
+      "texts": [
+        "További lépés szükséges",
+        "A feladat folytatásához az Ön intézkedése szükséges. Ellenőrizze a kérést, és erősítse meg a következő lépést az INDEXUS rendszerben.",
+        "SZÜKSÉGES LÉPÉS",
+        "Rövid figyelmeztetés",
+        "Először erősítse meg a következő lépést",
+        "Az egyik feladata ellenőrzésre vár. Szánjon egy percet az ellenőrzésre, és erősítse meg, hogyan folytatódjon a folyamat.",
+        "Mi a teendő most?",
+        "Nyissa meg a megfelelő feladatot az INDEXUS rendszerben, ellenőrizze a kérést, és erősítse meg a további teendőket.",
+        "Ellenőrzés és folytatás",
+        "ELLENŐRZÉS",
+        "Ellenőrizze a feladat leírását és a rendelkezésre álló információkat.",
+        "MEGERŐSÍTÉS",
+        "Mentse a választását a munkafolyamatban."
+      ]
+    },
+    "completed": {
+      "name": "Sikeresen befejezve",
+      "subject": "A feladat befejeződött",
+      "artworkAlt": "Sikeresen befejezett adminisztratív feladat illusztrációja",
+      "texts": [
+        "Az automatizálás befejezte a feladatot",
+        "A feladat befejeződött. Nyissa meg az INDEXUS rendszert, és ellenőrizze a rögzített eredményt.",
+        "EREDMÉNY · BEFEJEZVE",
+        "A feladat befejeződött",
+        "Az automatizálás rögzítette az ütemezett lépés befejezését.",
+        "RÖVID EREDMÉNY",
+        "Feladat állapota: befejezve",
+        "Az eredmény az INDEXUS rendszerben érhető el.",
+        "Következő lépés",
+        "Az eredményt és a kapcsolódó információkat biztonságosan megtalálja az INDEXUS rendszerben.",
+        "Eredmény megtekintése az INDEXUS rendszerben"
+      ]
+    },
+    "deadline": {
+      "name": "Határidő-emlékeztető",
+      "subject": "Közeledik az ütemezett határidő",
+      "artworkAlt": "Naptár és adminisztratív határidő illusztrációja",
+      "texts": [
+        "Emlékeztető a feladat határidejére",
+        "Közeledik a feladat határideje. Ellenőrizze az állapotát, és határozza meg a következő lépést az INDEXUS rendszerben.",
+        "HATÁRIDŐ-EMLÉKEZTETŐ",
+        "Közeledik a feladat határideje",
+        "Az ütemezett határidő rövid ellenőrzést igényel. Figyeljen az időzítésre és a következő lépésre.",
+        "HATÁRIDŐ",
+        "DÁTUM",
+        "IDŐPONT",
+        "Határidő az INDEXUS rendszerben",
+        "Az aktuális dátumot és időpontot a rekordban találja.",
+        "KÖVETKEZŐ LÉPÉS",
+        "Nyissa meg a feladatot, és ellenőrizze az állapotát.",
+        "Ha további intézkedés szükséges, rögzítse azt a megfelelő INDEXUS-rekordban.",
+        "Feladat és határidő megnyitása"
+      ]
+    },
+    "data-change": {
+      "name": "Adatváltozás",
+      "subject": "Frissült az INDEXUS-rekord",
+      "artworkAlt": "Rekordváltozás illusztrációja",
+      "texts": [
+        "Adatváltozás az INDEXUS rendszerben",
+        "Az INDEXUS rendszerben adatváltozást rögzítettek. A részleteket biztonságos bejelentkezés után tekintheti meg; érzékeny adatokat nem küldünk e-mailben.",
+        "REKORD",
+        "Adatváltozás · értesítés",
+        "A rekord frissült",
+        "Az INDEXUS rendszerben adatváltozást rögzítettek. Az e-mail nem tartalmazza a változás előtti vagy utáni konkrét értékeket.",
+        "Az adatvédelem az első",
+        "Bejelentkezés után biztonságosan ellenőrizheti a részleteket az INDEXUS rendszerben. Ha nem várt ilyen hivatkozást, a mentett címen keresztül nyissa meg a rendszert.",
+        "Biztonságos rekord megnyitása"
+      ]
+    },
+    "information": {
+      "name": "Fontos információ",
+      "subject": "Újdonság az INDEXUS rendszerben: áttekinthetőbb működés",
+      "artworkAlt": "Működési újdonság illusztrációja",
+      "texts": [
+        "Újdonság az INDEXUS rendszerben",
+        "Tekintse meg az INDEXUS frissített működési áttekintését, és igazodjon el gyorsabban a mindennapi munkában.",
+        "ÚJDONSÁG",
+        "KIS VÁLTOZÁS, JOBB ÁTTEKINTÉS",
+        "Működés. Egy lépéssel áttekinthetőbb.",
+        "Az INDEXUS működési áttekintése világosabb elrendezést kapott. A mindennapi információkat gyorsabban megtalálja — felesleges váltogatás nélkül.",
+        "Mi a következő lépés?",
+        "Nyissa meg az új áttekintést, és nézze meg, mi változott.",
+        "Frissített áttekintés megtekintése  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Adatok ellenőrzése", "Ellenőrizd az adatok helyességét és teljességét. Pótold a hiányzó információkat."],
+    "contact-verify": ["Kapcsolatfelvétel és ellenőrzés", "Vedd fel a kapcsolatot az érintett személlyel, ellenőrizd az aktuális állapotot, és rögzítsd az eredményt."],
+    "complete-documents": ["Dokumentumok pótlása", "Kérd be a hiányzó dokumentumokat, és csatold őket a rekordhoz."],
+    "response-needed": ["Válasz szükséges", "A rekord válaszra vár. Ellenőrizd a legutóbbi kommunikációt, és gondoskodj a következő lépésről."],
+    "overdue": ["Lejárt határidő", "A határidő lejárt. Ellenőrizd az okát, és gondoskodj a probléma megoldásáról."],
+    "urgent-review": ["Sürgős ellenőrzés", "A helyzet soron kívüli ellenőrzést igényel. Rögzítsd a megállapításokat és a megtett intézkedéseket."],
+    "handover": ["Átadás megoldásra", "Adj meg rövid háttérinformációt, és add át az ügyet a felelős csapatnak. Ellenőrizd az átvételt."]
+  }
+}

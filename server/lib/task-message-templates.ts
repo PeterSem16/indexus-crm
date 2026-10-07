@@ -1,3 +1,5 @@
+import { loadAutomationTemplateLocales, localizedTaskDefaults } from "./automation-template-locales";
+
 export const DEFAULT_TASK_MESSAGE_TEMPLATES = [
   ["check-data", "Skontrolovať údaje", "Over správnosť a úplnosť údajov. Chýbajúce informácie doplň."],
   ["contact-verify", "Kontaktovať a overiť", "Kontaktuj príslušnú osobu, over aktuálny stav a zapíš výsledok."],
@@ -10,23 +12,33 @@ export const DEFAULT_TASK_MESSAGE_TEMPLATES = [
 
 export async function ensureTaskMessageTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
   const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
-  const values = DEFAULT_TASK_MESSAGE_TEMPLATES.map(([key, title, body]) =>
-    `(${literal(`indexus-task-template-${key}`)}, ${literal(title)}, ${literal(body)})`).join(",\n");
-  // The persistent seed marker respects later edits and deletions. One batch
-  // makes the marker and all defaults atomic, including simultaneous starts.
-  await pool.query(`
+  const locales = await loadAutomationTemplateLocales();
+  const batches = [
+    { id: "task-templates", language: "sk", templates: DEFAULT_TASK_MESSAGE_TEMPLATES },
+    ...locales.map(locale => ({
+      id: `task-templates-${locale.language}`, language: locale.language,
+      templates: localizedTaskDefaults(DEFAULT_TASK_MESSAGE_TEMPLATES, locale),
+    })),
+  ];
+  for (const batch of batches) {
+    const values = batch.templates.map(([key, title, body]) =>
+      `(${literal(`indexus-task-template-${key}${batch.language === "sk" ? "" : `-${batch.language}`}`)}, ${literal(title)}, ${literal(body)})`).join(",\n");
+    // Each language has its own persistent marker. Never restore edited or
+    // deleted defaults, including SK, when adding another language.
+    await pool.query(`
     CREATE TABLE IF NOT EXISTS automation_template_seeds (
       id text PRIMARY KEY, created_at timestamptz NOT NULL DEFAULT now()
     );
     WITH seed AS (
-      INSERT INTO automation_template_seeds (id) VALUES ('task-templates')
+      INSERT INTO automation_template_seeds (id) VALUES (${literal(batch.id)})
       ON CONFLICT (id) DO NOTHING RETURNING id
     ), defaults (id, title, body) AS (VALUES ${values})
     INSERT INTO message_templates (id, name, type, format, subject, content, language, is_active)
-      SELECT defaults.id, defaults.title, 'task', 'text', defaults.title, defaults.body, 'sk', true
+      SELECT defaults.id, defaults.title, 'task', 'text', defaults.title, defaults.body, ${literal(batch.language)}, true
       FROM defaults CROSS JOIN seed
     ON CONFLICT (id) DO NOTHING;
   `);
+  }
 }
 
 /** Task templates contain plain text and a task title, never sendable HTML. */

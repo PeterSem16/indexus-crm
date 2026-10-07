@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMAZIONE",
+  "linkTitle": "Apri il record pertinente in INDEXUS",
+  "email": {
+    "new-task": {
+      "name": "Nuova attività",
+      "subject": "Una nuova attività è pronta",
+      "artworkAlt": "Illustrazione del passaggio di un'attività",
+      "texts": [
+        "Nuova attività da prendere in carico",
+        "Una nuova attività è pronta. Controlla il riepilogo e conferma la presa in carico in INDEXUS.",
+        "ATTIVITÀ",
+        "Nuova assegnazione",
+        "Una nuova attività è pronta",
+        "L'attività è stata aggiunta al tuo elenco di lavoro. Prima di proseguire, verifica le istruzioni e il passaggio successivo.",
+        "Panoramica rapida",
+        "Apri l'attività",
+        "Leggi le istruzioni e il contesto in INDEXUS.",
+        "Prosegui con il passaggio successivo",
+        "Controlla le istruzioni e registra i tuoi progressi.",
+        "Apri l'attività in INDEXUS"
+      ]
+    },
+    "action-needed": {
+      "name": "Azione richiesta",
+      "subject": "È necessario un ulteriore passaggio",
+      "artworkAlt": "Illustrazione di un avviso relativo a un'azione richiesta",
+      "texts": [
+        "È necessario un ulteriore passaggio",
+        "Per proseguire con l'attività è necessario il tuo intervento. Controlla la richiesta e conferma il passaggio successivo in INDEXUS.",
+        "PASSAGGIO NECESSARIO",
+        "Breve avviso",
+        "Conferma prima il passaggio successivo",
+        "Una delle tue attività è in attesa di verifica. Dedica un momento al controllo e conferma come deve proseguire il processo.",
+        "Cosa fare adesso",
+        "Apri l'attività pertinente in INDEXUS, controlla la richiesta e conferma come proseguire.",
+        "Controlla e prosegui",
+        "VERIFICA",
+        "Verifica le istruzioni e le informazioni disponibili.",
+        "CONFERMA",
+        "Salva la tua scelta nel flusso di lavoro."
+      ]
+    },
+    "completed": {
+      "name": "Completata con successo",
+      "subject": "L'attività è completata",
+      "artworkAlt": "Illustrazione di un'attività amministrativa completata con successo",
+      "texts": [
+        "L'automazione ha completato l'attività",
+        "L'attività è stata completata. Apri INDEXUS e controlla il risultato registrato.",
+        "RISULTATO · COMPLETATO",
+        "L'attività è completata",
+        "L'automazione ha registrato il completamento del passaggio pianificato.",
+        "RISULTATO IN BREVE",
+        "Stato dell'attività: completata",
+        "Il risultato registrato è disponibile in INDEXUS.",
+        "Passaggio successivo",
+        "Puoi trovare il risultato e le informazioni correlate in modo sicuro in INDEXUS.",
+        "Visualizza il risultato in INDEXUS"
+      ]
+    },
+    "deadline": {
+      "name": "Promemoria della scadenza",
+      "subject": "La scadenza pianificata si avvicina",
+      "artworkAlt": "Illustrazione di un calendario e di una scadenza amministrativa",
+      "texts": [
+        "Promemoria della scadenza dell'attività",
+        "La scadenza dell'attività si avvicina. Controlla il suo stato e stabilisci il passaggio successivo in INDEXUS.",
+        "PROMEMORIA DELLA SCADENZA",
+        "La scadenza dell'attività si avvicina",
+        "La scadenza pianificata richiede una breve verifica. Presta attenzione ai tempi e al passaggio successivo.",
+        "SCADENZA",
+        "DATA",
+        "ORARIO",
+        "Scadenza in INDEXUS",
+        "La data e l'ora attuali sono disponibili nel record.",
+        "PASSAGGIO SUCCESSIVO",
+        "Apri l'attività e controlla il suo stato.",
+        "Se è necessario un ulteriore intervento, registralo nel record pertinente in INDEXUS.",
+        "Apri l'attività e la scadenza"
+      ]
+    },
+    "data-change": {
+      "name": "Modifica dei dati",
+      "subject": "Il record in INDEXUS è stato aggiornato",
+      "artworkAlt": "Illustrazione della modifica di un record",
+      "texts": [
+        "Modifica dei dati in INDEXUS",
+        "È stata registrata una modifica dei dati in INDEXUS. I dettagli sono disponibili dopo l'accesso sicuro; i valori sensibili non vengono inviati via email.",
+        "RECORD",
+        "Modifica dei dati · notifica",
+        "Il record è stato aggiornato",
+        "È stata registrata una modifica dei dati in INDEXUS. L'email non contiene i valori specifici precedenti o successivi alla modifica.",
+        "La privacy al primo posto",
+        "Verifica i dettagli in modo sicuro dopo l'accesso a INDEXUS. Se non ti aspettavi questo collegamento, apri il sistema usando l'indirizzo salvato.",
+        "Apri il record protetto"
+      ]
+    },
+    "information": {
+      "name": "Informazione importante",
+      "subject": "Novità in INDEXUS: una panoramica operativa più chiara",
+      "artworkAlt": "Illustrazione di una novità operativa",
+      "texts": [
+        "Novità in INDEXUS",
+        "Consulta la panoramica operativa aggiornata di INDEXUS e orientati più rapidamente nelle attività quotidiane.",
+        "NOVITÀ",
+        "PICCOLO CAMBIAMENTO, MAGGIORE CHIAREZZA",
+        "Operatività. Un passo verso la chiarezza.",
+        "La panoramica operativa di INDEXUS ha una disposizione più chiara. Trova più rapidamente le informazioni quotidiane — senza passaggi inutili.",
+        "E adesso?",
+        "Apri la nuova panoramica e scopri cosa è cambiato.",
+        "Visualizza la panoramica aggiornata  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Controllare i dati", "Verifica la correttezza e la completezza dei dati. Aggiungi le informazioni mancanti."],
+    "contact-verify": ["Contattare e verificare", "Contatta la persona interessata, verifica lo stato attuale e registra il risultato."],
+    "complete-documents": ["Completare la documentazione", "Richiedi i documenti mancanti e allegali al record."],
+    "response-needed": ["Risposta necessaria", "Il record è in attesa di una risposta. Controlla l'ultima comunicazione e predisponi il passaggio successivo."],
+    "overdue": ["Scadenza superata", "La scadenza è stata superata. Verifica la causa e provvedi a risolvere il problema."],
+    "urgent-review": ["Verifica urgente", "La situazione richiede una verifica prioritaria. Registra quanto rilevato e le misure adottate."],
+    "handover": ["Passare per la gestione", "Aggiungi un breve contesto e passa il caso al team responsabile. Verifica la presa in carico."]
+  }
+}

@@ -109,7 +109,7 @@ test("Graph receives one mixed-recipient message and redacts vendor failures", a
 test("approved defaults use a persistent seed marker and portable inline assets", async () => {
   const queries: string[] = [];
   await ensureAutomationEmailTemplates({ query: async sql => { queries.push(sql); } });
-  assert.equal(queries.length, 2);
+  assert.equal(queries.length, 8);
   assert.match(queries[0], /ON CONFLICT \(id\) DO NOTHING RETURNING id/);
   assert.match(queries[0], /country_codes/);
   assert.doesNotMatch(queries[0], /indexus-automation-email-(data-change|information)/);

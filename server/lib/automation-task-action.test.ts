@@ -103,7 +103,7 @@ test("approved default templates seed only once and do not restore later deletio
   const queries: string[] = [];
   await ensureTaskMessageTemplates({ query: async sql => queries.push(sql) });
   assert.equal(DEFAULT_TASK_MESSAGE_TEMPLATES.length, 7);
-  assert.equal(queries.length, 1);
+  assert.equal(queries.length, 7);
   assert.match(queries[0], /automation_template_seeds/);
   assert.match(queries[0], /ON CONFLICT \(id\) DO NOTHING RETURNING id/);
   assert.match(queries[0], /CROSS JOIN seed/);

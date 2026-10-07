@@ -1,0 +1,125 @@
+{
+  "automationLabel": "AUTOMATIZACE",
+  "linkTitle": "Otevřete příslušný záznam v INDEXUS",
+  "email": {
+    "new-task": {
+      "name": "Nový úkol",
+      "subject": "Je připraven nový úkol",
+      "artworkAlt": "Ilustrace předání úkolu",
+      "texts": [
+        "Nový úkol k převzetí",
+        "Je připraven nový úkol. Zkontrolujte jeho stručný přehled a potvrďte převzetí v INDEXUS.",
+        "ÚKOL",
+        "Nové přidělení",
+        "Je připraven nový úkol",
+        "Úkol byl přidán do vašeho pracovního seznamu. Než budete pokračovat, ověřte zadání a navazující krok.",
+        "Rychlý přehled",
+        "Otevřete úkol",
+        "Přečtěte si jeho zadání a kontext v INDEXUS.",
+        "Pokračujte dalším krokem",
+        "Zkontrolujte zadání a zaznamenejte svůj postup.",
+        "Otevřít úkol v INDEXUS"
+      ]
+    },
+    "action-needed": {
+      "name": "Potřebná akce",
+      "subject": "Je potřebný další krok",
+      "artworkAlt": "Ilustrace upozornění na potřebnou akci",
+      "texts": [
+        "Je vyžadován další krok",
+        "K pokračování úkolu je potřebná vaše akce. Zkontrolujte požadavek a potvrďte další krok v INDEXUS.",
+        "POTŘEBNÝ KROK",
+        "Krátké upozornění",
+        "Nejprve potvrďte další krok",
+        "Jeden z vašich úkolů čeká na kontrolu. Věnujte chvíli ověření a potvrďte, jak má proces pokračovat.",
+        "Co udělat nyní",
+        "Otevřete příslušný úkol v INDEXUS, zkontrolujte požadavek a potvrďte jeho další postup.",
+        "Zkontrolovat a pokračovat",
+        "KONTROLA",
+        "Ověřte zadání a dostupné informace.",
+        "POTVRZENÍ",
+        "Uložte volbu v pracovním postupu."
+      ]
+    },
+    "completed": {
+      "name": "Úspěšně dokončeno",
+      "subject": "Úkol je dokončen",
+      "artworkAlt": "Ilustrace úspěšně dokončeného administrativního úkolu",
+      "texts": [
+        "Automatizace dokončila úkol",
+        "Úkol byl dokončen. Otevřete INDEXUS a zkontrolujte zaznamenaný výsledek.",
+        "VÝSLEDEK · DOKONČENO",
+        "Úkol je dokončen",
+        "Automatizace zaznamenala dokončení naplánovaného kroku.",
+        "STRUČNÝ VÝSLEDEK",
+        "Stav úkolu: dokončen",
+        "Záznam výsledku je dostupný v INDEXUS.",
+        "Další krok",
+        "Výsledek i související informace najdete bezpečně v INDEXUS.",
+        "Zobrazit výsledek v INDEXUS"
+      ]
+    },
+    "deadline": {
+      "name": "Připomínka termínu",
+      "subject": "Naplánovaný termín se blíží",
+      "artworkAlt": "Ilustrace kalendáře a administrativního termínu",
+      "texts": [
+        "Připomínka termínu úkolu",
+        "Blíží se termín úkolu. Zkontrolujte jeho stav a určete další krok v INDEXUS.",
+        "PŘIPOMÍNKA TERMÍNU",
+        "Termín úkolu se blíží",
+        "Naplánovaný termín vyžaduje krátkou kontrolu. Věnujte pozornost času a následujícímu kroku.",
+        "TERMÍN",
+        "DATUM",
+        "ČASOVÝ BOD",
+        "Termín v INDEXUS",
+        "Aktuální datum a čas najdete v záznamu.",
+        "NÁSLEDUJÍCÍ KROK",
+        "Otevřete úkol a zkontrolujte jeho stav.",
+        "Je-li potřebný další postup, zaznamenejte jej v příslušném záznamu v INDEXUS.",
+        "Otevřít úkol a termín"
+      ]
+    },
+    "data-change": {
+      "name": "Změna údajů",
+      "subject": "Záznam v INDEXUS byl aktualizován",
+      "artworkAlt": "Ilustrace změny záznamu",
+      "texts": [
+        "Změna údajů v INDEXUS",
+        "V INDEXUS byla zaznamenána změna údajů. Podrobnosti zobrazíte po bezpečném přihlášení; citlivé hodnoty e-mailem neposíláme.",
+        "ZÁZNAM",
+        "Změna údajů · oznámení",
+        "Záznam byl aktualizován",
+        "V INDEXUS byla zaznamenána změna údajů. E-mail neobsahuje konkrétní hodnoty před změnou ani po ní.",
+        "Soukromí na prvním místě",
+        "Podrobnosti si bezpečně ověřte po přihlášení do INDEXUS. Pokud odkaz neočekáváte, otevřete systém přes svou uloženou adresu.",
+        "Otevřít zabezpečený záznam"
+      ]
+    },
+    "information": {
+      "name": "Důležitá informace",
+      "subject": "Novinka v INDEXUS: přehled provozu je jasnější",
+      "artworkAlt": "Ilustrace nové provozní novinky",
+      "texts": [
+        "Novinka v INDEXUS",
+        "Prohlédněte si aktualizovaný provozní přehled INDEXUS a zorientujte se rychleji v každodenním provozu.",
+        "NOVINKA",
+        "MALÁ ZMĚNA, LEPŠÍ PŘEHLED",
+        "Provoz. O krok přehlednější.",
+        "Přehled provozu v INDEXUS získal jasnější uspořádání. Každodenní informace najdete rychleji — bez zbytečného přeskakování.",
+        "Co dál?",
+        "Otevřete nový přehled a podívejte se, co se změnilo.",
+        "Zobrazit aktualizovaný přehled  →"
+      ]
+    }
+  },
+  "task": {
+    "check-data": ["Zkontrolovat údaje", "Ověř správnost a úplnost údajů. Chybějící informace doplň."],
+    "contact-verify": ["Kontaktovat a ověřit", "Kontaktuj příslušnou osobu, ověř aktuální stav a zapiš výsledek."],
+    "complete-documents": ["Doplnit podklady", "Vyžádej chybějící podklady a přilož je k záznamu."],
+    "response-needed": ["Potřebná reakce", "Záznam čeká na reakci. Zkontroluj poslední komunikaci a zajisti další krok."],
+    "overdue": ["Termín překročen", "Termín byl překročen. Ověř příčinu a zajisti nápravu."],
+    "urgent-review": ["Urgentní prověření", "Situace vyžaduje přednostní prověření. Zapiš zjištění a přijatá opatření."],
+    "handover": ["Předat k řešení", "Doplň stručný kontext a předej případ odpovědnému týmu. Ověř jeho převzetí."]
+  }
+}
