@@ -30,6 +30,7 @@ import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
 import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
+import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
@@ -1024,6 +1025,7 @@ function RuleEditor({
                           ? eventLabel(eventsForModule.find(event => event.value === selectedEvent) || eventsForModule[0] || { value: selectedEvent, label: selectedEvent, availableIn: [], changeSnapshot: false })
                           : t.automationServices.workspace.scheduleModeLabel}</p>
                       </button>
+                    <AutomationStepHelp step="when" copy={t.automationEditorHelp} />
                     <div className="automation-trigger-switch" role="group" aria-label={t.automationServices.workspace.triggerType}>
                       <button type="button" className={draft.trigger.type === "event" ? "active" : ""} aria-pressed={draft.trigger.type === "event"}
                         onClick={() => {
@@ -1155,6 +1157,7 @@ function RuleEditor({
                           ? t.automationServices.workspace.conditionsAdded
                           : t.automationServices.workspace.noConditions}</p>
                       </button>
+                      <AutomationStepHelp step="if" copy={t.automationEditorHelp} />
                       {scheduleMode === "once" && draft.trigger.type === "schedule"
                         ? <>{draft.conditions && <Button size="sm" variant="ghost" onClick={() => updateConditions(null)}>
                             <X className="h-3.5 w-3.5 mr-1" />{t.automationServices.workspace.remove}
@@ -1188,6 +1191,7 @@ function RuleEditor({
                         aria-controls="automation-step-then-body" onClick={() => setExpandedStep(expandedStep === 2 ? null : 2)}>
                         <h2>{t.automationServices.workspace.then}</h2><p>{draft.actions.length} · {t.automationServices.workspace.actionCount}</p>
                       </button>
+                      <AutomationStepHelp step="then" copy={t.automationEditorHelp} />
                       <Button size="sm" variant="outline" onClick={() => {
                         setDraft({ ...draft, actions: [...draft.actions, { type: "notify_user", config: {} }] });
                         setExpandedStep(2);

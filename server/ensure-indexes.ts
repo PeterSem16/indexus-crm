@@ -18,6 +18,9 @@ import type { PoolClient } from "pg";
 type IndexDef = { name: string; table: string; columns: string };
 
 const INDEXES: IndexDef[] = [
+  // Admission counts started runs for one rule/status/time window, not skipped history.
+  { name: "idx_workflow_runs_quota", table: "workflow_runs", columns: "rule_id, status, started_at" },
+
   // campaign_contacts — agent queues, campaign detail lists, entity timelines
   { name: "idx_campaign_contacts_campaign_status", table: "campaign_contacts", columns: "campaign_id, status" },
   { name: "idx_campaign_contacts_customer", table: "campaign_contacts", columns: "customer_id" },

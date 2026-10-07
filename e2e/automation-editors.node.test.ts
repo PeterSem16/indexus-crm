@@ -38,7 +38,7 @@ test("automation editors preserve multiline checklist drafts and recipient selec
             <AutomationSendEmailAction config={email} onChange={setEmail} users={users} groups={groups} roles={roles}
               countryCodes={countries} ruleId="fixture-rule" availableVariables={[{value:"newValues.email",label:"E-mail klienta"}]}
               recipientTemplates={["newValues.email"]} testId="email-action" onDraftValidityChange={setDraftInvalid}/>
-            <button data-testid="save-fixture-email" disabled={draftInvalid || emailActionIssues(email).length>0} onClick={()=>setSaved(email)}>Save fixture email</button>
+             <button style={{position:"fixed",bottom:24,right:24,zIndex:100}} data-testid="save-fixture-email" disabled={draftInvalid || emailActionIssues(email).length>0} onClick={()=>setSaved(email)}>Save fixture email</button>
             <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} data-testid="email-state">{JSON.stringify(email)}</pre>
             <pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}} data-testid="saved-email-state">{JSON.stringify(saved)}</pre>
           </main>;
@@ -121,13 +121,17 @@ test("automation editors preserve multiline checklist drafts and recipient selec
     await page.locator("#email-action-cc-address").fill("");
     await page.getByTestId("save-fixture-email").click();
     await expect(page.getByTestId("save-fixture-email")).toBeEnabled();
-    await emailRoot.getByRole("combobox").filter({ hasText: "Vlastný text" }).click();
+    await page.getByTestId("email-action-open-editor").click();
+    await page.getByTestId("email-action-editor-template-language").click();
+    await page.getByRole("option", { name: "Všetky jazyky", exact: true }).click();
+    await page.getByTestId("email-action-editor-template").click();
     const choices = await page.getByRole("option").allTextContents();
     assert.ok(choices.findIndex(value => value.includes("Zmena údajov")) < choices.findIndex(value => value.includes("A generic email")));
     assert.ok(choices.findIndex(value => value.includes("Ručná automatizácia")) < choices.findIndex(value => value.includes("A generic email")));
     assert.equal(choices.some(value => value.includes("Italian automation")), false);
     await page.getByRole("option").filter({ hasText: "Zmena údajov" }).click();
     assert.equal(JSON.parse(await page.getByTestId("email-state").innerText()).templateSnapshot, true);
+    await page.getByTestId("email-action-editor-close").click();
     await page.setViewportSize({ width: 390, height: 900 });
     const widths = await page.evaluate(() => ({ viewport: innerWidth, body: document.body.scrollWidth }));
     assert.ok(widths.body <= widths.viewport, "recipient editor must not overflow on a phone");

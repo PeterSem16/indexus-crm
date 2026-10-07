@@ -10,6 +10,13 @@
 .automation-create-task__fields label, .automation-create-task__variable-heading { color: hsl(var(--foreground)); font-size: 12px; font-weight: 650; }
 .automation-create-task__fields input, .automation-create-task__fields textarea { font-size: 13px; }
 .automation-create-task__recipient { padding: 13px; border: 1px solid hsl(var(--border)); border-radius: 11px; background: hsl(var(--background) / .7); }
+.automation-create-task__recipient-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.automation-create-task__recipient-summary { display: flex; width: 100%; min-height: 46px; min-width: 0; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--background)); color: hsl(var(--foreground)); text-align: left; cursor: pointer; }
+.automation-create-task__recipient-summary:hover { border-color: hsl(var(--primary) / .45); background: hsl(var(--primary) / .035); }
+.automation-create-task__recipient-count { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 8px; background: hsl(var(--primary) / .1); color: hsl(var(--primary)); font-size: 12px; font-weight: 700; }
+.automation-create-task__recipient-summary-text { color: hsl(var(--foreground)); font-size: 12px; font-weight: 600; }
+.automation-create-task__recipient-selected { min-width: 0; overflow: hidden; color: hsl(var(--muted-foreground)); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.automation-create-task__recipient-summary-action { margin-left: auto; flex: 0 0 auto; color: hsl(var(--primary)); font-size: 11px; font-weight: 600; }
 .automation-create-task__legacy { display: flex; align-items: center; gap: 6px; padding: 8px 9px; border-radius: 8px; background: hsl(var(--muted) / .55); color: hsl(var(--muted-foreground)); font-size: 11px; }
 .automation-create-task__legacy svg { width: 14px; height: 14px; }
 .automation-create-task__chips { display: flex; flex-wrap: wrap; gap: 6px; }

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Check, ChevronDown, Clock3, Search, UsersRound, X } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Clock3, UsersRound } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { useI18n } from "@/i18n";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
+import { AutomationTaskRecipientDialog, type TaskRecipient } from "./automation-task-recipient-dialog";
+import automationEditorHelpTranslations from "@/i18n/automation-editor-help-translations";
 import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
 import "./automation-create-task-action.css";
 
@@ -36,7 +38,9 @@ export function AutomationCreateTaskAction({
 }) {
   const { locale } = useI18n();
   const copy = getTaskActionCopy(locale);
-  const [recipientSearch, setRecipientSearch] = useState("");
+  const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
+  const [templateLanguage, setTemplateLanguage] = useState<string>(locale);
+  useEffect(() => setTemplateLanguage(locale), [locale]);
   const [activeTextField, setActiveTextField] = useState<"title" | "description" | "taskText">("taskText");
   const [deadlineMode, setDeadlineMode] = useState<"none" | "relative" | "fixed">(
     config.dueAt ? "fixed" : config.dueInHours != null ? "relative" : "none",
@@ -86,23 +90,13 @@ export function AutomationCreateTaskAction({
       ? groups.find((group) => group.id === recipient.id)?.displayAlias || groups.find((group) => group.id === recipient.id)?.name || recipient.id
       : roles.find((role) => role.id === recipient.id || role.name === recipient.id)?.name || recipient.id;
 
-  const options: Recipient[] = [
-    ...users.map((item) => ({ kind: "user" as const, id: item.id })),
-    ...groups.map((item) => ({ kind: "group" as const, id: item.id })),
-    ...roles.filter((item) => item.isActive !== false).map((item) => ({ kind: "role" as const, id: item.id })),
-  ];
-  const filteredOptions = options.filter((item) =>
-    recipientName(item).toLocaleLowerCase().includes(recipientSearch.trim().toLocaleLowerCase()),
-  );
   const legacyDepartment = config.assignedDepartmentId
     ? config.assignedDepartmentName || String(config.assignedDepartmentId)
     : null;
 
-  const toggleRecipient = (item: Recipient) => {
-    const exists = recipients.some((recipient) => recipient.kind === item.kind && recipient.id === item.id);
-    const next = exists
-      ? recipients.filter((recipient) => recipient.kind !== item.kind || recipient.id !== item.id)
-      : [...recipients, item];
+  const applyRecipients = (next: TaskRecipient[]) => {
+    const identity = (items: TaskRecipient[]) => items.map(item => `${item.kind}:${item.id}`).sort().join("|");
+    if (identity(next) === identity(recipients)) return;
     const nextConfig = { ...config };
     ["assignedUserId", "assignee_user_id", "assignedDepartmentId", "assignee_department_id", "assignedDepartmentName",
       "userId", "userIds", "taskGroupId", "targetRole"].forEach((key) => delete nextConfig[key]);
@@ -140,6 +134,25 @@ export function AutomationCreateTaskAction({
     const date = new Date(config.dueAt);
     return Number.isNaN(date.getTime()) ? "" : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   })() : "";
+  const editorCopy = automationEditorHelpTranslations[locale];
+  const localeCode = (value?: string) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    const aliases: Record<string, string> = { english: "en", slovak: "sk", slovenčina: "sk", czech: "cs", čeština: "cs", hungarian: "hu", magyar: "hu", romanian: "ro", română: "ro", italian: "it", italiano: "it", german: "de", deutsch: "de" };
+    return aliases[normalized] || normalized.split(/[-_]/)[0];
+  };
+  const templates = templateQuery.data || [];
+  const matchingTemplates = templates.filter(template =>
+    templateLanguage === "all" || localeCode(template.language) === localeCode(templateLanguage));
+  const visibleTemplates = matchingTemplates.filter(template => template.isActive !== false || template.id === config.templateId);
+  const currentTemplate = config.templateId
+    ? templates.find(template => template.id === config.templateId) || {
+      id: String(config.templateId), name: config.templateName || config.title || editorCopy.currentSnapshot,
+      type: "task" as const, language: config.templateLanguage, subject: config.title, content: config.taskText, isActive: false,
+    }
+    : undefined;
+  const templateLanguages = Array.from(new Set([locale, ...templates.map(template => template.language).filter(Boolean) as string[]]))
+    .filter((language, index, all) => all.findIndex(candidate => localeCode(candidate) === localeCode(language)) === index);
+  const languageName = (code: string) => ({ en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch" }[localeCode(code)] || code);
   return (
     <section className="automation-create-task" data-testid={testId}>
       <div className="automation-create-task__intro">
@@ -160,29 +173,27 @@ export function AutomationCreateTaskAction({
         </div>
 
         <div className="automation-create-task__recipient automation-create-task__span">
-          <Label>{copy.recipients}</Label>
+          <div className="automation-create-task__recipient-heading"><Label>{copy.recipients}</Label></div>
           {legacyDepartment && <div className="automation-create-task__legacy"><UsersRound />{copy.legacyDepartment}: {legacyDepartment}</div>}
-          {recipients.length > 0 && <div className="automation-create-task__chips" aria-label={copy.selected}>
-            {recipients.map((item) => <span className={`automation-create-task__chip is-${item.kind}`} key={`${item.kind}:${item.id}`}>
-              <span>{recipientName(item)}</span><button type="button" onClick={() => toggleRecipient(item)} aria-label={`${copy.clear}: ${recipientName(item)}`}><X /></button>
-            </span>)}
-          </div>}
-          <div className="automation-create-task__search"><Search aria-hidden="true" /><input value={recipientSearch}
-            onChange={(event) => setRecipientSearch(event.target.value)} placeholder={copy.searchRecipients} aria-label={copy.searchRecipients} /></div>
-          <div className="automation-create-task__options" role="group" aria-label={copy.recipients}>
-            {!filteredOptions.length && <p className="automation-create-task__empty">{copy.noRecipients}</p>}
-            {filteredOptions.map((item) => {
-              const selected = recipients.some((recipient) => recipient.kind === item.kind && recipient.id === item.id);
-              return <button type="button" role="checkbox" aria-checked={selected} aria-label={recipientName(item)}
-                key={`${item.kind}:${item.id}`} onClick={() => toggleRecipient(item)}
-                className={`automation-create-task__option ${selected ? "is-selected" : ""}`}>
-                <span className={`automation-create-task__kind is-${item.kind}`}>{item.kind === "user" ? "P" : item.kind === "group" ? "G" : "R"}</span>
-                <span className="automation-create-task__option-name">{recipientName(item)}</span>
-                <span className="automation-create-task__option-kind">{item.kind === "user" ? copy.users : item.kind === "group" ? copy.groups : copy.roles}</span>
-                {selected && <Check aria-hidden="true" />}
-              </button>;
-            })}
-          </div>
+          <button type="button" className="automation-create-task__recipient-summary" onClick={() => setRecipientDialogOpen(true)}
+            data-testid="button-edit-task-recipients"
+            aria-label={`${copy.recipients}: ${recipients.length ? recipients.map(recipientName).join(", ") : copy.noRecipients}`}>
+            {recipients.length ? <>
+              <span className="automation-create-task__recipient-count">{recipients.length}</span>
+              <span className="automation-create-task__recipient-summary-text">
+                {[
+                  recipients.filter(item => item.kind === "group").length ? `${recipients.filter(item => item.kind === "group").length} ${copy.groups.toLocaleLowerCase()}` : "",
+                  recipients.filter(item => item.kind === "user").length ? `${recipients.filter(item => item.kind === "user").length} ${copy.users.toLocaleLowerCase()}` : "",
+                  recipients.filter(item => item.kind === "role").length ? `${recipients.filter(item => item.kind === "role").length} ${copy.roles.toLocaleLowerCase()}` : "",
+                ].filter(Boolean).join(" · ")}
+              </span>
+              <span className="automation-create-task__recipient-selected">{recipients.slice(0, 2).map(recipientName).join(", ")}{recipients.length > 2 ? ` +${recipients.length - 2}` : ""}</span>
+            </> : <span className="automation-create-task__recipient-summary-text">{copy.noRecipients}</span>}
+            <span className="automation-create-task__recipient-summary-action">{editorCopy.chooseRecipients}</span>
+          </button>
+          <AutomationTaskRecipientDialog open={recipientDialogOpen} onOpenChange={setRecipientDialogOpen}
+            recipients={recipients} users={users} groups={groups} roles={roles}
+            copy={editorCopy} onApply={applyRecipients} />
         </div>
 
         <div>
@@ -250,17 +261,24 @@ export function AutomationCreateTaskAction({
           <div className="automation-create-task__template-heading"><Label>{copy.template}</Label>
             {config.templateId && <button type="button" onClick={() => onChange({ ...config, templateId: undefined })}>{copy.customText}</button>}
           </div>
-          <Select value={(templateQuery.data || []).some(template => template.id === config.templateId && template.isActive !== false)
-            ? config.templateId : "custom"} onValueChange={(value) => {
+          <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
+            <SelectTrigger aria-label={editorCopy.language} data-testid="select-task-template-language"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="all">{editorCopy.allLanguages}</SelectItem>
+              {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={currentTemplate?.id || "custom"} onValueChange={(value) => {
             if (value === "custom") { set("templateId", undefined); return; }
-            const template = templateQuery.data?.find((item) => item.id === value);
+            const template = templates.find((item) => item.id === value);
               if (template) onChange({ ...config, templateId: template.id, templateLanguage: template.language,
                 title: template.subject || config.title || template.name, taskText: template.content || "" });
           }}>
             <SelectTrigger data-testid="select-task-action-template"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="custom">{copy.customText}</SelectItem>
-              {(templateQuery.data || []).filter((template) => template.isActive !== false).map((template) => <SelectItem key={template.id} value={template.id}>{template.name}{template.language ? ` · ${template.language}` : ""}</SelectItem>)}
+              {currentTemplate && !visibleTemplates.some(template => template.id === currentTemplate.id) &&
+                <SelectItem value={currentTemplate.id}>{currentTemplate.name} · {editorCopy.currentSnapshot}</SelectItem>}
+              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}</SelectItem>)}
             </SelectContent>
           </Select>
           {templateQuery.isError && <p className="automation-create-task__error" role="status">{copy.templateLoadError}</p>}

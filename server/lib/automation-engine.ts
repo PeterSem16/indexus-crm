@@ -1,7 +1,8 @@
-import { db } from "../db";
+import { db, pool } from "../db";
+import { admitAutomationRun } from "./automation-run-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
-import { eq, and, gte, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   workflowRules,
   workflowEvents,
@@ -1435,16 +1436,6 @@ export async function claimScheduledRuleDue(rule: WorkflowRule, intervalMs: numb
   return claimed.length > 0;
 }
 
-async function rateLimitOk(rule: WorkflowRule): Promise<boolean> {
-  if (!rule.rateLimitPerHour || rule.rateLimitPerHour <= 0) return true;
-  const since = new Date(Date.now() - 3600_000);
-  const rows = await db
-    .select({ id: workflowRuns.id })
-    .from(workflowRuns)
-    .where(and(eq(workflowRuns.ruleId, rule.id), gte(workflowRuns.startedAt, since)));
-  return rows.length < rule.rateLimitPerHour;
-}
-
 export async function runRule(
   rule: WorkflowRule,
   event: WorkflowEvent,
@@ -1491,31 +1482,14 @@ export async function runRule(
     return;
   }
 
-  // Rate limit
-  if (!(await rateLimitOk(rule))) {
-    await db.insert(workflowRuns).values({
-      ruleId: rule.id,
-      eventId: event.id,
-      status: "skipped",
-      skippedReason: "rate_limit",
-      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
-        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
-      causationChain,
-      finishedAt: new Date(),
-    });
-    return;
-  }
-
-  const [run] = await db
-    .insert(workflowRuns)
-    .values({
-      ruleId: rule.id, eventId: scheduled ? null : event.id, status: "running",
-      payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
-        entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
-      causationChain,
-    })
-    .returning();
-  if (!run) return;
+  const reservation = await admitAutomationRun(pool, {
+    ruleId: rule.id, eventId: scheduled ? null : event.id,
+    payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
+      entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
+    causationChain,
+  });
+  if (!reservation.admitted) return;
+  const run = { id: reservation.runId };
 
   const actions = (rule.actions as any[]) || [];
   const results: any[] = [];

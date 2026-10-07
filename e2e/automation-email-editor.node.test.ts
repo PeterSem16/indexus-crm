@@ -9,6 +9,7 @@ import tailwindcss from "tailwindcss";
 import loadConfig from "tailwindcss/loadConfig";
 import editorCopy from "../client/src/i18n/send-email-editor-translations";
 import executionCopy from "../client/src/i18n/automation-execution-settings-translations";
+import assistanceCopy from "../client/src/i18n/automation-editor-help-translations";
 
 test("automation email modal edits the real rule draft safely, preserves recipients and fits desktop/mobile", async () => {
   const translationSource = ts.createSourceFile("translations.ts", await readFile("client/src/i18n/translations.ts", "utf8"), ts.ScriptTarget.Latest, true);
@@ -17,6 +18,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
   assert.ok(emailCopy);
   for (const copy of Object.values(editorCopy)) assert.deepEqual(Object.keys(copy), Object.keys(editorCopy.en));
   for (const copy of Object.values(executionCopy)) assert.deepEqual(Object.keys(copy), Object.keys(executionCopy.en));
+  for (const copy of Object.values(assistanceCopy)) assert.deepEqual(Object.keys(copy), Object.keys(assistanceCopy.en));
   const result = await build({
     stdin: { contents: `
       import React,{useState} from "react";
@@ -54,8 +56,8 @@ test("automation email modal edits the real rule draft safely, preserves recipie
       setup(builder) {
         builder.onResolve({ filter: /^@\/i18n$/ }, () => ({ path: "language", namespace: "fixture" }));
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
-           contents: `import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; ${emailCopy.getText(translationSource)}
-             export const useI18n=()=>({t:{sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,common:{close:"Zavrieť"}}});`,
+           contents: `import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; import assistanceCopy from "./client/src/i18n/automation-editor-help-translations"; ${emailCopy.getText(translationSource)}
+              export const useI18n=()=>({locale:"sk",t:{sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,automationEditorHelp:assistanceCopy.sk,common:{close:"Zavrieť"}}});`,
           resolveDir: process.cwd(), loader: "ts",
         }));
       },
@@ -65,7 +67,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
   });
   const styles = await postcss([tailwindcss({ ...loadConfig(`${process.cwd()}/tailwind.config.ts`), content: [
     "client/src/components/automation-email-content-editor.tsx", "client/src/components/automation-send-email-action.tsx",
-    "client/src/components/automation-rule-execution-settings.tsx",
+     "client/src/components/automation-rule-execution-settings.tsx",
     "client/src/components/ui/{dialog,input,textarea,button,tabs,badge,select,label,popover,switch}.tsx",
   ] })]).process(await readFile("client/src/index.css", "utf8"), { from: `${process.cwd()}/client/src/index.css` });
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });

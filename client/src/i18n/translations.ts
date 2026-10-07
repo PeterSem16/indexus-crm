@@ -3,6 +3,7 @@ import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action
 import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
 import automationExecutionSettingsTranslations from "./automation-execution-settings-translations";
+import automationEditorHelpTranslations, { type AutomationEditorCopy } from "./automation-editor-help-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -53,6 +54,7 @@ export interface Translations {
   personEmail: typeof personEmailTranslations.en;
   sendEmailEditor: typeof sendEmailEditorTranslations.en;
   automationExecutionSettings: typeof automationExecutionSettingsTranslations.en;
+  automationEditorHelp: AutomationEditorCopy;
   taskAction: TaskActionCopy;
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
@@ -64011,4 +64013,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].personEmail = personEmailTranslations[locale];
   translations[locale].sendEmailEditor = sendEmailEditorTranslations[locale];
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
+  translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
 }

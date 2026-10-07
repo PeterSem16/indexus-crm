@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Check, Mail, Plus, X } from "lucide-react";
 import { useI18n } from "@/i18n";
@@ -51,13 +52,15 @@ export function AutomationSendEmailAction({
   testId: string;
   onDraftValidityChange?: (invalid: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const copy = t.sendEmailAction;
   const [addressDraft, setAddressDraft] = useState<Record<RecipientField, string>>({ to: "", cc: "", bcc: "" });
   const ownConfig = useRef(config);
   const [activeRecipient, setActiveRecipient] = useState<RecipientField>("to");
   const [activeField, setActiveField] = useState<"subject" | "body">("body");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [templateLanguage, setTemplateLanguage] = useState<string>(locale);
+  useEffect(() => setTemplateLanguage(locale), [locale]);
   const selectionsRef = useRef<EmailEditorSelections>({
     subject: { start: String(config.subject ?? "").length, end: String(config.subject ?? "").length },
     body: { start: String(config.body ?? "").length, end: String(config.body ?? "").length },
@@ -155,6 +158,18 @@ export function AutomationSendEmailAction({
       return aAutomation - bAutomation;
     });
   }, [templatesQuery.data, countryCodes, automationCategoryIds]);
+  const languageCode = (value?: string) => {
+    const normalized = String(value || "").trim().toLowerCase();
+    const aliases: Record<string, string> = { english: "en", slovak: "sk", slovenčina: "sk", czech: "cs", čeština: "cs", hungarian: "hu", magyar: "hu", romanian: "ro", română: "ro", italian: "it", italiano: "it", german: "de", deutsch: "de" };
+    return aliases[normalized] || normalized.split(/[-_]/)[0];
+  };
+  const templateLanguages = Array.from(new Set([locale, ...templates.map(template => template.language).filter(Boolean) as string[]]))
+    .filter((language, index, all) => all.findIndex(candidate => languageCode(candidate) === languageCode(language)) === index);
+  const filteredTemplates = templates.filter(template =>
+    templateLanguage === "all" || languageCode(template.language) === languageCode(templateLanguage));
+  const selectedTemplate = templates.find(template => template.id === config.templateId);
+  const showSavedSnapshotOption = Boolean(config.templateId && (!filteredTemplates.some(template => template.id === config.templateId)));
+  const languageLabel = (code: string) => ({ en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch" }[languageCode(code)] || code);
   const addTarget = (field: RecipientField, value: string) => {
     if (!value) return;
     const [kind, ...parts] = value.split(":");
@@ -247,7 +262,9 @@ export function AutomationSendEmailAction({
   const commitDraft = (field: RecipientField) => {
     const draft = addressDraft[field];
     if (!draft.trim()) return;
-    addAddresses(field, draft);
+    // A following Save click must see the complete address committed by blur,
+    // not the previous parent draft from the same browser interaction.
+    flushSync(() => addAddresses(field, draft));
   };
   const changeRecipientTab = (field: string) => {
     if (field === activeRecipient) return;
@@ -321,8 +338,15 @@ export function AutomationSendEmailAction({
   const personal = mailbox?.personal;
   const selectedSystem = mailbox?.system?.filter((item) => countryCodes.includes(item.countryCode)) || [];
   const automationCategoryName = categoriesQuery.data?.find((category) => category.id === AUTOMATION_CATEGORY_ID)?.name || copy.automationCategory;
-  const templatePicker = <div className="space-y-1.5">
+  const templatePicker = <div className="space-y-2">
     <Label htmlFor={`${testId}-editor-template`}>{copy.template}</Label>
+    <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
+      <SelectTrigger aria-label={t.automationEditorHelp.language} data-testid={`${testId}-editor-template-language`}><SelectValue /></SelectTrigger>
+      <SelectContent className="z-[10041]">
+        <SelectItem value="all">{t.automationEditorHelp.allLanguages}</SelectItem>
+        {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageLabel(language)}</SelectItem>)}
+      </SelectContent>
+    </Select>
     <Select value={config.templateId || "__custom"} onValueChange={(value) => {
       if (value === "__custom") {
         update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
@@ -346,13 +370,13 @@ export function AutomationSendEmailAction({
       </SelectTrigger>
       <SelectContent className="z-[10041]">
         <SelectItem value="__custom">{copy.customText}</SelectItem>
-        {config.templateId && !templates.some((item) => item.id === config.templateId) &&
-          <SelectItem value={config.templateId}>{config.templateName || copy.savedSnapshot}</SelectItem>}
-        {templates.map((template, index) => <SelectItem key={template.id} value={template.id}>
-          {index === 0 || templates[index - 1].categoryId !== template.categoryId
+        {showSavedSnapshotOption &&
+          <SelectItem value={config.templateId}>{config.templateName || selectedTemplate?.name || copy.savedSnapshot} · {t.automationEditorHelp.currentSnapshot}</SelectItem>}
+        {filteredTemplates.map((template, index) => <SelectItem key={template.id} value={template.id}>
+          {index === 0 || filteredTemplates[index - 1].categoryId !== template.categoryId
             ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
             : ""}
-          {template.name}{template.language ? ` · ${template.language}` : ""}
+          {template.name}{template.language ? ` · ${languageLabel(template.language)}` : ""}
         </SelectItem>)}
       </SelectContent>
     </Select>
