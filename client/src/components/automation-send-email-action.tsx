@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Check, ChevronDown, Mail, Plus, X } from "lucide-react";
+import { AlertCircle, Check, Mail, Plus, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/components/automation-email-content-editor";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -57,6 +57,11 @@ export function AutomationSendEmailAction({
   const ownConfig = useRef(config);
   const [activeRecipient, setActiveRecipient] = useState<RecipientField>("to");
   const [activeField, setActiveField] = useState<"subject" | "body">("body");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const selectionsRef = useRef<EmailEditorSelections>({
+    subject: { start: String(config.subject ?? "").length, end: String(config.subject ?? "").length },
+    body: { start: String(config.body ?? "").length, end: String(config.body ?? "").length },
+  });
   useEffect(() => {
     if (config !== ownConfig.current) {
       ownConfig.current = config;
@@ -222,15 +227,23 @@ export function AutomationSendEmailAction({
   };
   const hasInvalidRecipientVariable = (field: RecipientField) => {
     const allowed = new Set(recipientChoices.map((item) => item.value));
-    const matches = String(config[field] ?? "").matchAll(/{{\s*([^{}]+?)\s*}}/g);
-    for (const match of matches) if (!allowed.has(match[1].trim())) return true;
+    const matcher = /{{\s*([^{}]+?)\s*}}/g;
+    let recipientMatch: RegExpExecArray | null;
+    while ((recipientMatch = matcher.exec(String(config[field] ?? ""))) !== null) {
+      if (!allowed.has(recipientMatch[1].trim())) return true;
+    }
     return false;
   };
   const mailbox = mailboxQuery.data;
-  const insertVariable = (value: string) => {
-    const field = activeField;
-    update({ [field]: `${String(config[field] ?? "")}${config[field] ? " " : ""}{{${cleanVariable(value)}}}` });
-  };
+  const subject = String(config.subject ?? "");
+  const body = String(config.body ?? "");
+  const supported = new Set(availableVariables.map((item) => cleanVariable(item.value)));
+  const allText = `${subject}\n${body}`;
+  const used: string[] = [];
+  const matcher = /{{\s*([^{}]+?)\s*}}/g;
+  let match: RegExpExecArray | null;
+  while ((match = matcher.exec(allText)) !== null) used.push(match[1].trim());
+  const unsupported = Array.from(new Set(used.filter((variable) => !supported.has(variable))));
   const commitDraft = (field: RecipientField) => {
     const draft = addressDraft[field];
     if (!draft.trim()) return;
@@ -398,31 +411,58 @@ export function AutomationSendEmailAction({
       {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
     </div>
     <div className="space-y-3">
-      <div><Label htmlFor={`${testId}-subject`}>{copy.subject}</Label><Input id={`${testId}-subject`} required aria-invalid={!String(config.subject ?? "").trim()} value={config.subject ?? ""} onFocus={() => setActiveField("subject")} onChange={(event) => update({ subject: event.target.value })} />
+      <div><Label htmlFor={`${testId}-subject`}>{copy.subject}</Label><Input id={`${testId}-subject`} required aria-invalid={!subject.trim()} value={subject}
+        onFocus={(event) => {
+          setActiveField("subject");
+          const cursor = event.currentTarget.selectionStart ?? subject.length;
+          selectionsRef.current.subject = { start: cursor, end: event.currentTarget.selectionEnd ?? cursor };
+        }}
+        onSelect={(event) => {
+          const target = event.currentTarget;
+          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
+        }}
+        onClick={(event) => {
+          const target = event.currentTarget;
+          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
+        }}
+        onKeyUp={(event) => {
+          const target = event.currentTarget;
+          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
+        }}
+        onChange={(event) => {
+          const target = event.target;
+          selectionsRef.current.subject = { start: target.selectionStart ?? target.value.length, end: target.selectionEnd ?? target.value.length };
+          update({ subject: target.value });
+        }} data-testid={`${testId}-subject`} />
         {!String(config.subject ?? "").trim() && <p className="mt-1 text-xs text-destructive">{copy.subjectRequired}</p>}</div>
-      <div><Label htmlFor={`${testId}-body`}>{copy.body}</Label><Textarea id={`${testId}-body`} required aria-invalid={!String(config.body ?? "").trim()} rows={6} value={config.body ?? ""} onFocus={() => setActiveField("body")} onChange={(event) => update({ body: event.target.value })} />
-        {!String(config.body ?? "").trim() && <p className="mt-1 text-xs text-destructive">{copy.bodyRequired}</p>}</div>
-      {(() => {
-        const supported = new Set(availableVariables.map((item) => cleanVariable(item.value)));
-        const allText = `${String(config.subject ?? "")}\n${String(config.body ?? "")}`;
-        const used: string[] = [];
-        const matcher = /{{\s*([^{}]+?)\s*}}/g;
-        let match: RegExpExecArray | null;
-        while ((match = matcher.exec(allText)) !== null) used.push(match[1].trim());
-        const unsupported = Array.from(new Set(used.filter((variable) => !supported.has(variable))));
-        return unsupported.length ? <p className="text-xs text-destructive">{copy.unsupportedVariables}: {unsupported.map((item) => `{{${item}}}`).join(", ")}</p> : null;
-      })()}
-      {availableVariables.length > 0 && <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">{copy.insertVariable}</p>
-        <div className="flex flex-wrap gap-1.5">{availableVariables.map((variable) => <Button key={variable.value} type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => insertVariable(variable.value)}>{variable.label}</Button>)}</div>
-      </div>}
+      {!String(config.body ?? "").trim() && <p className="text-xs text-destructive">{copy.bodyRequired}</p>}
+      {unsupported.length > 0 && <p className="text-xs text-destructive">{copy.unsupportedVariables}: {unsupported.map((item) => `{{${item}}}`).join(", ")}</p>}
       {recipientChoices.length > 0 && <p className="text-xs text-muted-foreground">{copy.recipientVariableNote}</p>}
-      <details className="rounded-lg border bg-muted/20 p-3">
-        <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium"><ChevronDown className="h-4 w-4" />{copy.preview}</summary>
-        <div className="mt-3 rounded-md border bg-background p-2">
-          <iframe title={copy.preview} sandbox="" srcDoc={rewriteArtworkForPreview(String(config.body ?? ""))} className="h-56 w-full rounded" />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{t.sendEmailEditor.contentReady}</p>
+          <p className="truncate text-xs text-muted-foreground">{body ? body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : copy.bodyRequired}</p>
         </div>
-      </details>
+        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => setEditorOpen(true)} data-testid={`${testId}-open-editor`}>
+          {t.sendEmailEditor.openEditor}
+        </Button>
+      </div>
+      <AutomationEmailContentEditor
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        subject={subject}
+        body={body}
+        onChange={(patch) => update(patch)}
+        availableVariables={availableVariables}
+        activeField={activeField}
+        onActiveFieldChange={setActiveField}
+        selectionsRef={selectionsRef}
+        rewriteArtworkForPreview={rewriteArtworkForPreview}
+        subjectRequired={copy.subjectRequired}
+        bodyRequired={copy.bodyRequired}
+        unsupportedWarning={unsupported.length ? `${copy.unsupportedVariables}: ${unsupported.map((item) => `{{${item}}}`).join(", ")}` : undefined}
+        testId={testId}
+      />
     </div>
   </section>;
 }

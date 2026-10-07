@@ -1,0 +1,60 @@
+const sendEmailEditorTranslations = {
+  en: {
+    openEditor: "Edit HTML and preview", title: "Email content editor",
+    description: "Edit the subject and HTML on the left. The safe preview updates on the right.",
+    htmlSource: "HTML / email text", livePreview: "Live preview", variables: "Event variables",
+    variableHelp: "Click a variable to insert it at the cursor in the subject or email text.",
+    draftHint: "Changes stay in the rule draft. Save the rule to apply them. No email is sent here.",
+    contentReady: "Email content is ready. Open the editor to make changes.",
+  },
+  sk: {
+    openEditor: "Upraviť HTML a náhľad", title: "Editor obsahu e-mailu",
+    description: "Vľavo upravujte predmet a HTML. Vpravo sa priebežne aktualizuje bezpečný náhľad.",
+    htmlSource: "HTML / text e-mailu", livePreview: "Živý náhľad", variables: "Premenné udalosti",
+    variableHelp: "Kliknutím vložíte premennú na pozíciu kurzora v predmete alebo texte e-mailu.",
+    draftHint: "Zmeny zostávajú v návrhu pravidla. Použijú sa po uložení pravidla. Tu sa e-mail neodosiela.",
+    contentReady: "Obsah e-mailu je pripravený. Upravíte ho v editore.",
+  },
+  cs: {
+    openEditor: "Upravit HTML a náhled", title: "Editor obsahu e-mailu",
+    description: "Vlevo upravujte předmět a HTML. Vpravo se průběžně aktualizuje bezpečný náhled.",
+    htmlSource: "HTML / text e-mailu", livePreview: "Živý náhled", variables: "Proměnné události",
+    variableHelp: "Kliknutím vložíte proměnnou na pozici kurzoru v předmětu nebo textu e-mailu.",
+    draftHint: "Změny zůstávají v návrhu pravidla. Použijí se po uložení pravidla. Zde se e-mail neodesílá.",
+    contentReady: "Obsah e-mailu je připravený. Upravíte ho v editoru.",
+  },
+  hu: {
+    openEditor: "HTML szerkesztése és előnézet", title: "E-mail-tartalom szerkesztő",
+    description: "Bal oldalon szerkessze a tárgyat és a HTML-t. Jobb oldalon frissül a biztonságos előnézet.",
+    htmlSource: "HTML / e-mail szövege", livePreview: "Élő előnézet", variables: "Eseményváltozók",
+    variableHelp: "Kattintással illessze be a változót a kurzorhoz a tárgyban vagy az e-mail szövegében.",
+    draftHint: "A módosítások a szabály tervezetében maradnak. Mentse a szabályt az alkalmazásukhoz. Itt nem küldünk e-mailt.",
+    contentReady: "Az e-mail tartalma kész. A szerkesztőben módosíthatja.",
+  },
+  ro: {
+    openEditor: "Editează HTML și previzualizează", title: "Editor de conținut e-mail",
+    description: "Editează subiectul și HTML-ul în stânga. Previzualizarea sigură se actualizează în dreapta.",
+    htmlSource: "HTML / text e-mail", livePreview: "Previzualizare live", variables: "Variabile de eveniment",
+    variableHelp: "Apasă o variabilă pentru a o insera la cursor în subiect sau în textul e-mailului.",
+    draftHint: "Modificările rămân în ciorna regulii. Salvează regula pentru a le aplica. Aici nu se trimite niciun e-mail.",
+    contentReady: "Conținutul e-mailului este pregătit. Deschide editorul pentru modificări.",
+  },
+  it: {
+    openEditor: "Modifica HTML e anteprima", title: "Editor del contenuto email",
+    description: "Modifica oggetto e HTML a sinistra. L'anteprima sicura si aggiorna a destra.",
+    htmlSource: "HTML / testo email", livePreview: "Anteprima live", variables: "Variabili dell'evento",
+    variableHelp: "Fai clic su una variabile per inserirla al cursore nell'oggetto o nel testo dell'email.",
+    draftHint: "Le modifiche restano nella bozza della regola. Salva la regola per applicarle. Qui non viene inviata alcuna email.",
+    contentReady: "Il contenuto dell'email è pronto. Apri l'editor per modificarlo.",
+  },
+  de: {
+    openEditor: "HTML bearbeiten und Vorschau", title: "Editor für E-Mail-Inhalte",
+    description: "Bearbeiten Sie Betreff und HTML links. Die sichere Vorschau wird rechts aktualisiert.",
+    htmlSource: "HTML / E-Mail-Text", livePreview: "Live-Vorschau", variables: "Ereignisvariablen",
+    variableHelp: "Klicken Sie auf eine Variable, um sie am Cursor im Betreff oder E-Mail-Text einzufügen.",
+    draftHint: "Änderungen bleiben im Regelentwurf. Speichern Sie die Regel, um sie anzuwenden. Hier wird keine E-Mail versendet.",
+    contentReady: "Der E-Mail-Inhalt ist vorbereitet. Öffnen Sie den Editor zum Bearbeiten.",
+  },
+};
+export type SendEmailEditorCopy = typeof sendEmailEditorTranslations.en;
+export default sendEmailEditorTranslations;
