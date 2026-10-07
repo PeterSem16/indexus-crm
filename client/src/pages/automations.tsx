@@ -26,6 +26,8 @@ import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import { AutomationRuleBasics } from "@/components/automation-rule-basics";
 import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
+import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
+import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
 
@@ -1161,6 +1163,7 @@ function RuleEditor({
                       {draft.actions.map((action, index) => <ActionEditor key={index} action={action} index={index}
                         actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
                         recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
+                        availableVariables={fieldsForConditions.map(({ value, label }) => ({ value, label }))}
                         users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
                         onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
                         onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
@@ -1474,6 +1477,7 @@ function RuleEditor({
                     actionTypes={catalog.actionTypes}
                     supportedActions={actionsForModule.map(a => a.value)}
                     recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
+                    availableVariables={fieldsForConditions.map(({ value, label }) => ({ value, label }))}
                     users={users}
                     departments={departments || []}
                     taskGroups={taskGroups}
@@ -1725,7 +1729,7 @@ function ConditionsEditor({
   onChange: (n: ConditionNode) => void;
   depth?: number;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const copy = t.automationServices.conditionEditor;
   const isGroup = "all" in (node as any) || "any" in (node as any);
   const isNot = "not" in (node as any);
@@ -1903,11 +1907,19 @@ function ConditionsEditor({
               <SelectItem value="false">{t.automationServices.editor.no}</SelectItem>
             </SelectContent>
           </Select>
+        ) : fieldMeta?.type === "date" && !["in", "not_in"].includes(selectedOp) ? (
+          <TaskCreateDatePicker
+            value={String(leaf.value ?? "")}
+            onChange={setValue}
+            locale={locale}
+            label={copy.value}
+            clearLabel={t.common.clear}
+          />
         ) : (
           <Input
             aria-label={copy.value}
             className="h-9 w-44 text-xs"
-            type={["in", "not_in"].includes(selectedOp) ? "text" : fieldMeta?.type === "number" ? "number" : fieldMeta?.type === "date" ? "date" : "text"}
+            type={["in", "not_in"].includes(selectedOp) ? "text" : fieldMeta?.type === "number" ? "number" : "text"}
             value={Array.isArray(leaf.value) ? leaf.value.join(", ") : String(leaf.value ?? "")}
             onChange={(e) => setValue(["in", "not_in"].includes(selectedOp)
               ? e.target.value.split(",").map(v => v.trim()).filter(Boolean)
@@ -2009,6 +2021,7 @@ function ActionEditor({
   actionTypes,
   supportedActions,
   recipientTemplates,
+  availableVariables,
   users,
   departments,
   taskGroups,
@@ -2021,6 +2034,7 @@ function ActionEditor({
   actionTypes: Catalog["actionTypes"];
   supportedActions: string[];
   recipientTemplates: string[];
+  availableVariables: Array<{ value: string; label: string }>;
   users: UserOpt[];
   departments?: Array<{ id: string; name: string }>;
   taskGroups: TaskGroupOpt[];
@@ -2112,49 +2126,15 @@ function ActionEditor({
       )}
 
       {action.type === "create_task" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div className="md:col-span-2">
-            <Label className="text-xs">Task title</Label>
-            <Input className="h-8 text-xs" value={action.config.title || ""} onChange={(e) => setCfg("title", e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Description</Label>
-            <Textarea rows={2} className="text-xs" value={action.config.description || ""} onChange={(e) => setCfg("description", e.target.value)} />
-          </div>
-          <RecipientTargetSelect mode="task" config={action.config} userOptions={userOptions}
-            departments={departments} groups={taskGroups} roles={roles}
-            onChange={(config) => onChange({ ...action, config })} index={index} />
-          <div>
-            <Label className="text-xs">Priority</Label>
-            <Select value={action.config.priority || "medium"} onValueChange={(v) => setCfg("priority", v)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent className="automation-rule-select-content">
-                <SelectItem value="low">low</SelectItem>
-                <SelectItem value="medium">medium</SelectItem>
-                <SelectItem value="high">high</SelectItem>
-                <SelectItem value="urgent">urgent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Due in (hours)</Label>
-            <Input
-              type="number"
-              className="h-8 text-xs"
-              value={action.config.dueInHours ?? ""}
-              onChange={(e) => setCfg("dueInHours", e.target.value ? Number(e.target.value) : undefined)}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Checklist (one item per line)</Label>
-            <Textarea
-              rows={3}
-              className="text-xs font-mono"
-              value={Array.isArray(action.config.checklist) ? action.config.checklist.map((c: any) => typeof c === "string" ? c : c.label).join("\n") : ""}
-              onChange={(e) => setCfg("checklist", e.target.value.split("\n").map((s) => s.trim()).filter(Boolean))}
-            />
-          </div>
-        </div>
+        <AutomationCreateTaskAction
+          config={action.config}
+          onChange={(config) => onChange({ ...action, config })}
+          users={users.map((user) => ({ id: user.id, label: `${user.fullName} (${user.email})` }))}
+          groups={taskGroups}
+          roles={roles}
+          availableVariables={availableVariables}
+          testId={`create-task-action-${index}`}
+        />
       )}
 
       {action.type === "send_email" && (

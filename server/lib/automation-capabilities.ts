@@ -1,5 +1,6 @@
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
+import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
 
 /** Executable event and action capabilities of the standalone Automation Engine. */
 export const MODULE_EVENTS: Record<string, string[]> = {
@@ -520,11 +521,35 @@ export function validateRuleCapabilities(rule: {
       fail(`${path}.config`, "This service does not support a group or role recipient");
     if (a.type === "create_task") {
       if (!specified(config.title)) fail(`${path}.config.title`, "Task title is required");
+      const multiple = config.recipients !== undefined;
+      if (multiple && !validTaskActionRecipients(config.recipients))
+        fail(`${path}.config.recipients`, "Choose between 1 and 100 unique user, group or role recipients");
+      if (multiple && [config.assignedUserId, config.assignedDepartmentId, config.assignee_user_id,
+          config.assignee_department_id, config.taskGroupId, config.targetRole].some(specified))
+        fail(`${path}.config.recipients`, "Multiple recipients cannot be mixed with legacy assignment fields");
       if (!specified(config.assignedUserId) && !specified(config.assignedDepartmentId) &&
-          !specified(config.assignee_user_id) && !specified(config.assignee_department_id) && !groupTarget)
+          !specified(config.assignee_user_id) && !specified(config.assignee_department_id) && !groupTarget && !multiple)
         fail(`${path}.config.assignedUserId`, "Choose a user, department, task group or role");
       if (groupTarget && [config.assignedUserId, config.assignedDepartmentId, config.assignee_user_id, config.assignee_department_id].some(specified))
         fail(`${path}.config`, "Choose only one task recipient");
+      try { taskActionDeadline(config, new Date()); }
+      catch (error) { fail(`${path}.config.dueAt`, (error as Error).message); }
+      if (specified(config.priority) && !TASK_PRIORITIES.some(priority => priority.value === config.priority))
+        fail(`${path}.config.priority`, "Unknown task priority");
+      if (config.taskText !== undefined) {
+        const variables = new Set([
+          ...fieldsForEvent(rule.module, event).map(field => field.value),
+          "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
+        ]);
+        for (const key of ["title", "description", "taskText"]) {
+          if (config[key] != null && typeof config[key] !== "string")
+            fail(`${path}.config.${key}`, "Task text fields must be strings");
+          if (typeof config[key] !== "string") continue;
+          for (const match of config[key].matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)) {
+            if (!variables.has(match[1])) fail(`${path}.config.${key}`, `Unavailable task variable: ${match[1]}`);
+          }
+        }
+      }
     }
     if (a.type === "notify_user") {
       if (!specified(config.userId) && !specified(config.userIds) && !groupTarget)

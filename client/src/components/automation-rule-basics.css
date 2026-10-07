@@ -1,10 +1,10 @@
 .automation-rule-basics {
   display: grid;
-  grid-template-columns: minmax(180px, 0.85fr) minmax(230px, 1.15fr) minmax(260px, 1.4fr);
+  grid-template-columns: minmax(0, 1.65fr) minmax(220px, 0.65fr);
   align-items: start;
-  gap: 12px;
+  gap: 16px 20px;
   min-width: 0;
-  padding: 12px;
+  padding: 18px;
   border: 1px solid hsl(var(--border));
   border-radius: 12px;
   background: hsl(var(--card));
@@ -16,6 +16,8 @@
   flex-direction: column;
   gap: 5px;
 }
+
+.automation-rule-basics__field:last-child { grid-column: 1 / -1; }
 
 .automation-rule-basics__label {
   color: hsl(var(--muted-foreground));
@@ -39,9 +41,12 @@
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.automation-rule-basics__input {
-  height: 34px;
-  padding: 0 10px;
+.automation-rule-basics .automation-rule-basics__input {
+  height: 46px;
+  padding: 0 13px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.015em;
 }
 
 .task-modern-modal .automation-rule-basics .automation-rule-basics__description {
@@ -55,7 +60,7 @@
 
 .automation-rule-basics__trigger {
   display: flex;
-  height: 34px;
+  height: 46px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;

@@ -8,10 +8,10 @@
   --aw-plum: hsl(var(--primary));
   --aw-peach: hsl(var(--primary));
   display: flex !important;
-  width: min(1060px, calc(100vw - 24px)) !important;
-  max-width: 1060px !important;
-  height: min(88vh, 840px);
-  max-height: min(88vh, 840px) !important;
+  width: min(90vw, 1440px) !important;
+  max-width: 1440px !important;
+  height: min(90dvh, 980px);
+  max-height: 90dvh !important;
   flex-direction: column;
   gap: 0 !important;
   overflow-x: hidden !important;
@@ -178,10 +178,10 @@
   --aw-then: hsl(var(--primary));
   --aw-orange: hsl(var(--primary));
   --aw-orange-dark: hsl(var(--primary));
-  width: min(1120px, calc(100vw - 24px)) !important;
-  max-width: 1120px !important;
-  height: min(850px, 88vh);
-  max-height: min(850px, 88vh) !important;
+  width: min(90vw, 1440px) !important;
+  max-width: 1440px !important;
+  height: min(90dvh, 980px);
+  max-height: 90dvh !important;
   border-color: var(--aw-line) !important;
   border-radius: 17px !important;
   background:
@@ -853,7 +853,7 @@
 /* Rule editor: retain the Tasks modal frame, but give the actual rule controls
    the same calm, readable rhythm as native task forms. */
 .task-modern-modal.automation-editor-dialog {
-  width: min(1040px, calc(100vw - 32px)) !important;
+  width: min(1440px, 90vw) !important;
   height: min(90dvh, 900px);
   max-height: min(90dvh, 900px) !important;
   background: hsl(var(--background)) !important;
@@ -1039,6 +1039,40 @@
   background: hsl(var(--muted) / .28);
 }
 
+.automation-rule-dialog .task-create-date-control {
+  display: flex;
+  min-width: 0;
+  height: 42px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 9px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+.automation-rule-dialog .task-create-date-icon { width: 15px; height: 15px; flex: 0 0 auto; color: hsl(var(--primary)); }
+.automation-rule-dialog .task-create-date-control select {
+  min-width: 0;
+  height: 32px;
+  flex: 1 1 0;
+  appearance: none;
+  border: 0 !important;
+  background: transparent;
+  color: hsl(var(--foreground));
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+.automation-rule-dialog .task-create-date-control select:nth-of-type(2) { flex-grow: 1.4; }
+.automation-rule-dialog .task-create-date-control.is-empty select { color: hsl(var(--muted-foreground)); }
+.automation-rule-dialog .task-date-divider { width: 1px; height: 19px; flex: 0 0 auto; background: hsl(var(--border)); }
+.automation-rule-dialog .task-create-date-chevron { width: 13px; height: 13px; flex: 0 0 auto; color: hsl(var(--muted-foreground)); pointer-events: none; }
+.automation-rule-dialog .task-date-clear { display: grid; width: 22px; height: 22px; flex: 0 0 auto; place-items: center; border: 0; border-radius: 6px; background: transparent; color: hsl(var(--muted-foreground)); }
+.automation-rule-dialog .task-date-clear svg { width: 13px; height: 13px; }
+.automation-rule-dialog > .flex.flex-col.space-y-1\.5 { position: sticky; top: 0; }
+.automation-rule-dialog > .automation-dialog-footer { position: sticky; bottom: 0; z-index: 12; }
+
 .automation-dialog-footer > [data-testid="button-save-rule"] {
   color: hsl(var(--primary-foreground)) !important;
   background: hsl(var(--primary)) !important;
@@ -1050,6 +1084,7 @@
 }
 
 @media (max-width: 680px) {
+  .task-modern-modal.automation-editor-dialog.automation-rule-dialog { width: 100vw !important; max-width: 100vw !important; height: 100dvh !important; max-height: 100dvh !important; border-radius: 0 !important; }
   .task-modern-modal.automation-editor-dialog {
     width: calc(100vw - 16px) !important;
     height: calc(100dvh - 16px);

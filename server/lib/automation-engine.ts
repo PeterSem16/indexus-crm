@@ -32,6 +32,8 @@ import { permitsSentimentSource } from "./sentiment-source-guard";
 import { taskAssignmentTriggerMatches, taskAutomationListMatches } from "@shared/task-automation";
 import { resolveAutomationRecipientTarget } from "./automation-recipient-target";
 import { taskOwnersForTarget } from "./automation-recipient-policy";
+import { taskActionContent, taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
+import { planTaskActionRecipients, type TaskCreationAssignment } from "./automation-task-plan";
 import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
@@ -169,28 +171,42 @@ async function verifiedInboundAgentRecipient(raw: unknown, recipientId: string, 
 
 async function actionCreateTask(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
+    // New task text must never silently lose unavailable template variables.
+    if (config.taskText !== undefined) {
+      for (const value of [config.title, config.description, config.taskText]) {
+        if (typeof value !== "string") continue;
+        for (const match of value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)) {
+          if (getPath(ctx, match[1]) == null) throw new Error(`Task variable is unavailable: ${match[1]}`);
+        }
+      }
+    }
     const rendered = renderTemplate(config, ctx);
     const assignedUserId = rendered.assignedUserId || rendered.assignee_user_id || null;
     const assignedDepartmentId = rendered.assignedDepartmentId || rendered.assignee_department_id || null;
     const grouped = rendered.taskGroupId || rendered.targetRole;
+    const multiple = rendered.recipients !== undefined;
+    if (multiple && (!validTaskActionRecipients(rendered.recipients) ||
+        assignedUserId || assignedDepartmentId || grouped)) {
+      throw new Error("Choose valid task recipients without conflicting legacy targets");
+    }
     if (grouped && (assignedUserId || assignedDepartmentId)) {
       return { ok: false, error: "Choose one task recipient: user, department, group or role" };
     }
-    if (!assignedUserId && !assignedDepartmentId && !grouped) {
+    if (!multiple && !assignedUserId && !assignedDepartmentId && !grouped) {
       return { ok: false, error: "create_task requires a user, department, task group or role" };
     }
     if (!(await verifiedInboundAgentRecipient(config.assignedUserId || config.assignee_user_id, assignedUserId, ctx))) {
       return { ok: false, error: "Inbound task recipient is not an authorized call agent" };
     }
-    if (ctx.event?.module === "call" && (assignedDepartmentId || grouped) &&
+    if (ctx.event?.module === "call" && (assignedDepartmentId || grouped ||
+        rendered.recipients?.some((recipient: any) => recipient.kind !== "user")) &&
         (!ctx.newValues?.campaignId || !ctx.event?.countryCode)) {
       return { ok: false, error: "Inbound group task requires a verified Mission and queue country" };
     }
     if (ctx.event?.module === "call" && rendered.country && rendered.country !== ctx.event?.countryCode) {
       return { ok: false, error: "Inbound task country must match the persisted call queue" };
     }
-    const dueInHours = Number(rendered.dueInHours || 0);
-    const dueDate = dueInHours > 0 ? new Date(Date.now() + dueInHours * 3600_000) : null;
+    const dueDate = taskActionDeadline(rendered, new Date());
     let target = grouped ? await resolveAutomationRecipientTarget(rendered) : null;
     const taskCountry = ctx.event?.module === "call" ? ctx.event.countryCode || null : rendered.country || ctx.event?.countryCode || null;
     if (target) {
@@ -206,6 +222,21 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
       target = { ...target, userIds: eligibleIds };
       if (!target.userIds.length) throw new Error("The task target has no approved active country-authorized recipients");
     }
+    const multipleAssignments = multiple ? await planTaskActionRecipients(rendered.recipients, async recipient => {
+      if (recipient.kind === "user") {
+        const raw = config.recipients.find((item: any) => item.kind === "user" &&
+          renderTemplate(item.id, ctx) === recipient.id)?.id;
+        if (!await verifiedInboundAgentRecipient(raw, recipient.id, ctx))
+          throw new Error("Inbound task recipient is not an authorized call agent");
+        const ids = await countryAuthorizedTaskRecipientIds(db, [recipient.id], taskCountry);
+        if (!ids.length) throw new Error("Task user is unavailable or not authorized");
+        return { userIds: ids, tags: [], isBackOffice: false };
+      }
+      const resolved = await resolveAutomationRecipientTarget(recipient.kind === "group"
+        ? { taskGroupId: recipient.id } : { targetRole: recipient.id });
+      const ids = await countryAuthorizedTaskRecipientIds(db, resolved.userIds, taskCountry);
+      return { ...resolved, userIds: ids };
+    }) : null;
     const taskIds = await db.transaction(async tx => {
       let owners = target ? taskOwnersForTarget(target) : [assignedUserId || "system"];
       const groupId = target?.tags.find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
@@ -218,11 +249,21 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
         owners = taskOwnersForTarget({ ...target, userIds: eligibleIds });
       }
       const ids: string[] = [];
-      for (const owner of owners) {
+      const assignments: TaskCreationAssignment[] = multipleAssignments ||
+        owners.map(owner => ({ owner, tags: target?.tags || [] }));
+      for (const assignment of assignments) {
+        let owner = assignment.owner;
+        if (assignment.groupId) {
+          const members = await tx.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
+            .where(eq(taskGroupMembers.groupId, assignment.groupId)).for("share");
+          const authorized = await countryAuthorizedTaskRecipientIds(tx, members.map(row => row.userId), taskCountry);
+          owner = assignment.eligibleIds!.find(id => authorized.includes(id)) || "";
+          if (!owner) throw new Error("The task group has no authorized active members");
+        }
         await assertTaskRecipientAllowed(tx, owner, taskCountry);
         const [task] = await tx.insert(tasks).values({
         title: String(rendered.title || "Automation task"),
-        description: rendered.description || null,
+        description: taskActionContent(rendered),
         priority: rendered.priority || "medium",
         status: "pending",
         assignedUserId: owner,
@@ -238,7 +279,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
           ? ctx.event?.entityId || null
           : rendered.relatedEntityId || ctx.event?.entityId || null,
         country: taskCountry,
-        tags: target?.tags || [],
+        tags: assignment.tags,
         dueDate,
         sourceRunId: runId,
         }).returning();

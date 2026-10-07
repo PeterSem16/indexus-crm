@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validTaskActionRecipients } from "@shared/automation-task-action";
 
 export type AutomationActionRisk = "internal" | "state_change" | "external_message" | "external_system";
 
@@ -6,17 +7,30 @@ const nonempty = z.string().trim().min(1);
 const createTaskDraft = z.object({
   title: nonempty,
   description: z.string().optional(),
+  taskText: z.string().optional(),
+  templateId: nonempty.optional(),
+  recipients: z.array(z.object({
+    kind: z.enum(["user", "group", "role"]),
+    id: nonempty.max(200),
+  }).strict()).refine(validTaskActionRecipients, "Choose unique task recipients").optional(),
   assignedUserId: nonempty.optional(),
   assignedDepartmentId: nonempty.optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-  dueInHours: z.number().finite().min(0).optional(),
+  dueInHours: z.number().finite().min(0).max(24 * 3650).optional(),
+  dueAt: z.string().datetime({ offset: true }).optional(),
   checklist: z.array(z.union([
     nonempty,
     z.object({ label: nonempty, required: z.boolean().optional() }).strict(),
   ])).optional(),
 }).strict().refine(
-  (config) => Boolean(config.assignedUserId || config.assignedDepartmentId),
+  (config) => Boolean(config.assignedUserId || config.assignedDepartmentId || config.recipients?.length),
   "A task needs an assigned user or department",
+).refine(
+  config => !(config.recipients && (config.assignedUserId || config.assignedDepartmentId)),
+  "Multiple recipients cannot be mixed with legacy assignment fields",
+).refine(
+  config => !(config.dueAt && config.dueInHours !== undefined),
+  "Choose a relative or fixed task deadline",
 );
 
 const notifyUserDraft = z.object({

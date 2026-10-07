@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ReactQuill from "react-quill";
+import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
 import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -11560,7 +11561,7 @@ interface MessageTemplate {
   id: string;
   name: string;
   description?: string;
-  type: "email" | "sms";
+  type: "email" | "sms" | "task";
   format: "text" | "html";
   subject?: string;
   content?: string;
@@ -11751,7 +11752,8 @@ const TEMPLATE_LANGUAGES = [
 ];
 
 function MessageTemplatesTab() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const taskCopy = getTaskActionCopy(locale);
   const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<"templates" | "categories">("templates");
   
@@ -11764,7 +11766,7 @@ function MessageTemplatesTab() {
   const [editingCategory, setEditingCategory] = useState<TemplateCategory | null>(null);
   
   // Filter state
-  const [filterType, setFilterType] = useState<"all" | "email" | "sms">("all");
+  const [filterType, setFilterType] = useState<"all" | "email" | "sms" | "task">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
 
@@ -11776,7 +11778,21 @@ function MessageTemplatesTab() {
   // Template form state
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  const [templateType, setTemplateType] = useState<"email" | "sms">("email");
+  const [templateType, setTemplateType] = useState<"email" | "sms" | "task">("email");
+  const { data: taskTemplateCatalog } = useQuery<any>({
+    queryKey: ["/api/automation/catalog"],
+    enabled: templateType === "task",
+  });
+  const templateVariables = templateType === "task" ? Object.fromEntries(
+    Object.entries(taskTemplateCatalog?.fields || {}).map(([module, fields]) => [module, {
+      label: (taskTemplateCatalog?.moduleLabels || {})[module] || module,
+      description: taskCopy.taskVariablesHint,
+      color: "bg-blue-500",
+      vars: (fields as Array<{ value: string; label: string }>).map(field => ({
+        key: field.value, label: field.label, example: `{{${field.value}}}`,
+      })),
+    }]),
+  ) : SYSTEM_VARIABLES;
   const [templateFormat, setTemplateFormat] = useState<"text" | "html">("text");
   const [htmlSourceMode, setHtmlSourceMode] = useState(false);
   const [templateSubject, setTemplateSubject] = useState("");
@@ -12280,7 +12296,7 @@ function MessageTemplatesTab() {
       description: templateDescription || undefined,
       type: templateType,
       format: templateFormat,
-      subject: templateType === "email" ? templateSubject : undefined,
+      subject: templateType !== "sms" ? templateSubject : undefined,
       content: contentValue,
       contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
       categoryId: templateCategoryId || undefined,
@@ -12310,7 +12326,7 @@ function MessageTemplatesTab() {
         description: templateDescription || undefined,
         type: templateType,
         format: templateFormat,
-        subject: templateType === "email" ? templateSubject : undefined,
+        subject: templateType !== "sms" ? templateSubject : undefined,
         content: contentValue,
         contentHtml: templateFormat === "html" ? templateContentHtml : undefined,
         categoryId: templateCategoryId || undefined,
@@ -12473,7 +12489,7 @@ function MessageTemplatesTab() {
         <TabsContent value="templates" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={filterType} onValueChange={(v) => { setFilterType(v as "all" | "email" | "sms"); setMsgTemplatePage(1); }}>
+              <Select value={filterType} onValueChange={(v) => { setFilterType(v as "all" | "email" | "sms" | "task"); setMsgTemplatePage(1); }}>
                 <SelectTrigger className="w-32" data-testid="select-filter-type">
                   <SelectValue placeholder={t.konfigurator.templateType} />
                 </SelectTrigger>
@@ -12481,6 +12497,7 @@ function MessageTemplatesTab() {
                   <SelectItem value="all">{(t.konfigurator as any).filterAllTypes || "Všetky typy"}</SelectItem>
                   <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
                   <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
+                  <SelectItem value="task">{taskCopy.taskType}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setMsgTemplatePage(1); }}>
@@ -12584,8 +12601,8 @@ function MessageTemplatesTab() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           <Badge variant={template.type === "email" ? "default" : "secondary"}>
-                            {template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
-                            {template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
+                            {template.type === "task" ? <ClipboardList className="h-3 w-3 mr-1" /> : template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
+                            {template.type === "task" ? taskCopy.taskType : template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
                           </Badge>
                           {(template as any).attachments?.length > 0 && (
                             <Badge variant="outline" className="text-[9px] h-5 gap-0.5" title={`${(template as any).attachments.length} attachment(s)`}>
@@ -12965,7 +12982,7 @@ function MessageTemplatesTab() {
               <Button
                 size="sm"
                 onClick={handleSaveTemplate}
-                disabled={!templateName || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                disabled={!templateName.trim() || (templateType === "task" && !templateContent.trim()) || createTemplateMutation.isPending || updateTemplateMutation.isPending}
                 data-testid="button-save-template"
                 className="h-8"
               >
@@ -13016,6 +13033,14 @@ function MessageTemplatesTab() {
                       data-testid="toggle-type-sms"
                     >
                       <Smartphone className="h-3 w-3" /> SMS
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "task" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => { setTemplateType("task"); setTemplateFormat("text"); setTemplateContentHtml(""); }}
+                      data-testid="toggle-type-task"
+                    >
+                      <ClipboardList className="h-3 w-3" /> {taskCopy.taskType}
                     </button>
                   </div>
                 </div>
@@ -13227,14 +13252,14 @@ function MessageTemplatesTab() {
             <div className="flex-1 flex flex-col overflow-hidden min-h-0">
 
               {/* Subject row (email only) */}
-              {templateType === "email" && (
+              {templateType !== "sms" && (
                 <div className="px-5 py-2.5 border-b shrink-0 bg-background">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-14 shrink-0">{t.konfigurator.templateSubject}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24 shrink-0">{templateType === "task" ? taskCopy.taskTitle : t.konfigurator.templateSubject}</span>
                     <Input
                       value={templateSubject}
                       onChange={(e) => setTemplateSubject(e.target.value)}
-                      placeholder={`${t.konfigurator.templateSubject}...`}
+                      placeholder={`${templateType === "task" ? taskCopy.taskTitle : t.konfigurator.templateSubject}...`}
                       className="h-8 text-sm flex-1"
                       data-testid="input-template-subject"
                     />
@@ -13472,7 +13497,7 @@ function MessageTemplatesTab() {
                 {varsSearch ? (
                   // Flat filtered search results
                   <div className="px-2 space-y-0.5">
-                    {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
+                    {Object.entries(templateVariables).flatMap(([, group]) =>
                       group.vars.filter(v =>
                         v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
                         v.key.toLowerCase().includes(varsSearch.toLowerCase())
@@ -13489,7 +13514,7 @@ function MessageTemplatesTab() {
                         </button>
                       ))
                     )}
-                    {Object.entries(SYSTEM_VARIABLES).flatMap(([, group]) =>
+                    {Object.entries(templateVariables).flatMap(([, group]) =>
                       group.vars.filter(v =>
                         v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
                         v.key.toLowerCase().includes(varsSearch.toLowerCase())
@@ -13501,7 +13526,7 @@ function MessageTemplatesTab() {
                 ) : (
                   // Grouped view
                   <div className="px-2 space-y-0.5">
-                    {Object.entries(SYSTEM_VARIABLES).map(([catKey, group]) => {
+                    {Object.entries(templateVariables).map(([catKey, group]) => {
                       const vg = (t.konfigurator as any).varGroups;
                       const locLabel = vg?.[catKey]?.label || group.label;
                       const locDesc = vg?.[catKey]?.desc || group.description;
@@ -13546,7 +13571,7 @@ function MessageTemplatesTab() {
               {/* Variables footer hint */}
               <div className="px-3 py-2 border-t shrink-0 bg-background/50">
                 <p className="text-[9px] text-muted-foreground leading-relaxed">
-                  {(t.konfigurator as any).variableInsertFooter || "Kliknite na premennú pre vloženie do šablóny."}
+                  {templateType === "task" ? taskCopy.taskVariablesHint : (t.konfigurator as any).variableInsertFooter || "Kliknite na premennú pre vloženie do šablóny."}
                 </p>
               </div>
             </div>

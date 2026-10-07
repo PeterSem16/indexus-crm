@@ -58,6 +58,7 @@ import { parseTaskCreateAssignment, taskGroupNominalOwner, TaskCreateAssignmentE
 import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/admin-authorization";
 import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
 import { transitionTaskWorkTiming } from "./lib/task-work-timing";
+import { validTaskMessageTemplate } from "./lib/task-message-templates";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
 import { registerAgentShiftLoginSetRoutes, sanitizeAgentShiftScope } from "./agent-shift-login-set-routes";
 import { registerWallboardRoutes } from "./wallboard-routes";
@@ -54638,6 +54639,10 @@ Return ONLY the JSON object.`
     try {
       const userId = req.session.user?.id;
       const { attachments: _stripAtt, ...safeBody } = req.body;
+      if (!["email", "sms", "task"].includes(safeBody.type))
+        return res.status(400).json({ error: "Unknown template type" });
+      if (safeBody.type === "task" && !validTaskMessageTemplate(safeBody))
+        return res.status(400).json({ error: "Task templates require a name and plain-text content" });
       const template = await storage.createMessageTemplate({
         ...safeBody,
         createdBy: userId,
@@ -54654,6 +54659,16 @@ Return ONLY the JSON object.`
     try {
       const userId = req.session.user?.id;
       const { attachments: _stripAtt2, ...safeBody2 } = req.body;
+      const existing = await storage.getMessageTemplate(req.params.id);
+      if (!existing) return res.status(404).json({ error: "Message template not found" });
+      if (safeBody2.type !== undefined && !["email", "sms", "task"].includes(safeBody2.type))
+        return res.status(400).json({ error: "Unknown template type" });
+      if ((safeBody2.type || existing.type) === "task") {
+        if (!validTaskMessageTemplate({ ...existing, ...safeBody2 }))
+          return res.status(400).json({ error: "Task templates require a name and plain-text content" });
+        if (existing.attachments?.length)
+          return res.status(400).json({ error: "Remove message attachments before converting to a Task template" });
+      }
       const template = await storage.updateMessageTemplate(req.params.id, {
         ...safeBody2,
         updatedBy: userId,

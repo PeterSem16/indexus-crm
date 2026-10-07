@@ -1,4 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -14,6 +15,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 };
 
 export interface Translations {
+  taskAction: TaskActionCopy;
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
@@ -63966,4 +63968,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationServices = restored.automationServices;
   translations[locale].automationCatalog = restored.automationCatalog;
   translations[locale].automationDraft = restored.automationDraft;
+  translations[locale].taskAction = getTaskActionCopy(locale);
 }

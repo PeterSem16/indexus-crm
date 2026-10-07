@@ -40,7 +40,7 @@ export async function resolveAutomationRecipientTarget(config: {
     const [role] = await db.select({
       id: roles.id, name: roles.name, legacyRole: roles.legacyRole,
     }).from(roles).where(and(eq(roles.isActive, true), sql`(
-      lower(${roles.name}) = lower(${roleName}) OR ${roles.legacyRole} = ${roleName}
+      ${roles.id} = ${roleName} OR lower(${roles.name}) = lower(${roleName}) OR ${roles.legacyRole} = ${roleName}
     )`)).limit(1);
     if (!role) throw new Error("Role no longer exists or is inactive");
     // Match both new Roles assignments and legacy users.role, as Status List does.

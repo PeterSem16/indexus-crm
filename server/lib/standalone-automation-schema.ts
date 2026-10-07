@@ -1,3 +1,5 @@
+import { ensureTaskMessageTemplates } from "./task-message-templates";
+
 /** Additive production bootstrap; no data rewrite, removal, or Status List cutover. */
 export const STANDALONE_AUTOMATION_SCHEMA = `
 CREATE TABLE IF NOT EXISTS workflow_rules (
@@ -68,4 +70,5 @@ export async function ensureStandaloneAutomationSchema(pool: {
   // One simple-query batch is transactional in PostgreSQL: failed validation
   // does not leave half a bootstrap. Let the caller fail startup before routes.
   await pool.query(STANDALONE_AUTOMATION_SCHEMA);
+  await ensureTaskMessageTemplates(pool);
 }

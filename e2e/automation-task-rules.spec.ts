@@ -9,10 +9,16 @@ const rule = {
   updatedAt: "2026-10-07T09:00:00.000Z",
 };
 
-async function fixture(page: Page) {
+async function fixture(page: Page, taskAction = false) {
   const requests: any[] = [];
   const errors: string[] = [];
   let savedRule: any = structuredClone(rule);
+  if (taskAction) savedRule.actions = [{ type: "create_task", config: { title: "Review record", assignedUserId: "anna" } }];
+  let templates = [{
+    id: "task-review", type: "task", name: "Review template", subject: "Check record",
+    content: "Check the record and write the result.", language: "en", isActive: true,
+    createdAt: "2026-10-07T09:00:00.000Z", updatedAt: "2026-10-07T09:00:00.000Z",
+  }];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -27,6 +33,23 @@ async function fixture(page: Page) {
     if (request.method() === "POST" && path === "/api/automation/rules") {
       requests.push(request.postDataJSON());
       return route.fulfill({ status: 201, json: { ...request.postDataJSON(), id: "created-rule" } });
+    }
+    if (request.method() === "POST" && path === "/api/message-templates") {
+      const body = request.postDataJSON();
+      requests.push(body);
+      const created = { ...body, id: "created-task-template", createdAt: "2026-10-07T09:00:00.000Z", updatedAt: "2026-10-07T09:00:00.000Z" };
+      templates.push(created);
+      return route.fulfill({ status: 201, json: created });
+    }
+    if (path === "/api/message-templates/created-task-template" && request.method() === "PATCH") {
+      const body = request.postDataJSON();
+      requests.push(body);
+      templates = templates.map(template => template.id === "created-task-template" ? { ...template, ...body } : template);
+      return route.fulfill({ json: templates.find(template => template.id === "created-task-template") });
+    }
+    if (path === "/api/message-templates/created-task-template" && request.method() === "DELETE") {
+      templates = templates.filter(template => template.id !== "created-task-template");
+      return route.fulfill({ status: 204 });
     }
     if (!["GET", "HEAD"].includes(request.method())) {
       if (path === "/api/auth/heartbeat") return route.fulfill({ json: { success: true } });
@@ -48,6 +71,8 @@ async function fixture(page: Page) {
       { id: "bo", name: "Back Office", displayAlias: "BO", members: [{ userId: "boris" }] },
     ];
     else if (path === "/api/departments") data = [{ id: "support", name: "Customer Support" }];
+    else if (path.startsWith("/api/roles")) data = [{ id: "manager-role", name: "Manager", legacyRole: "manager", isActive: true }];
+    else if (path === "/api/message-templates") data = templates;
     else if (path.includes("/count") || path.includes("/unread-count")) data = { count: 0 };
     else if (path.includes("/preferences") || path.includes("/settings") || path.includes("/configuration")) data = {};
     await route.fulfill({ json: data });
@@ -209,9 +234,10 @@ test.describe("Task automation editor in the real App", () => {
     await page.getByTestId("button-edit-test-rule").click();
     await page.locator('button[aria-controls="automation-step-if-body"]').click();
     await chooseField(page, "Resolved at");
-    const value = page.locator('input[aria-label="Value"]');
-    await expect(value).toHaveAttribute("type", "date");
-    await value.fill("2026-10-07");
+    await expect(page.locator('input[type="date"],input[type="datetime-local"]')).toHaveCount(0);
+    await page.getByTestId("input-create-task-duedate-year").selectOption("2026");
+    await page.getByTestId("input-create-task-duedate-month").selectOption("10");
+    await page.getByTestId("input-create-task-duedate-day").selectOption("7");
     await page.getByTestId("button-save-rule").click();
     await expect.poll(() => state.requests.length).toBe(2);
     expect(state.requests[1].conditions.all[0]).toMatchObject({ field: "newValues.resolvedAt", value: "2026-10-07" });
@@ -229,6 +255,114 @@ test.describe("Task automation editor in the real App", () => {
     await page.getByTestId("select-country-scope").click();
     await expect(page.getByTestId("select-country-all")).toBeVisible();
     await page.screenshot({ path: "/tmp/automation-task-mobile.png" });
+    expect(state.errors).toEqual([]);
+  });
+
+  test("THEN supports mixed recipients, compact text and relative minute deadlines", async ({ page }) => {
+    const state = await fixture(page, true);
+    await page.locator('button[aria-controls="automation-step-then-body"]').click();
+    await page.getByTestId("input-task-action-title").fill("Follow up");
+    await page.getByTestId("input-task-action-description").fill("Short context");
+    await page.getByTestId("textarea-task-action-text").fill("Check the data.");
+    await page.getByRole("checkbox", { name: /Boris Test/ }).click();
+    await page.getByRole("checkbox", { name: "BO", exact: true }).click();
+    await page.getByRole("checkbox", { name: "Manager", exact: true }).click();
+    await page.getByRole("button", { name: "After trigger", exact: true }).click();
+    await page.getByRole("button", { name: "30 min", exact: true }).click();
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => state.requests.length).toBe(1);
+    const config = state.requests[0].actions[0].config;
+    expect(config).toMatchObject({ title: "Follow up", description: "Short context", taskText: "Check the data.", dueInHours: 0.5 });
+    expect(config.recipients).toEqual(expect.arrayContaining([
+      { kind: "user", id: "anna" }, { kind: "user", id: "boris" },
+      { kind: "group", id: "bo" }, { kind: "role", id: "manager-role" },
+    ]));
+    expect(config.assignedUserId).toBeUndefined();
+    expect(state.errors).toEqual([]);
+  });
+
+  test("a Task template copies text into the rule and can be edited without modifying the template", async ({ page }) => {
+    const state = await fixture(page, true);
+    await page.locator('button[aria-controls="automation-step-then-body"]').click();
+    await page.getByTestId("select-task-action-template").click();
+    await page.getByRole("option", { name: /^Review template/ }).click();
+    await expect(page.getByTestId("input-task-action-title")).toHaveValue("Check record");
+    await expect(page.getByTestId("textarea-task-action-text")).toHaveValue("Check the record and write the result.");
+    await page.getByTestId("textarea-task-action-text").fill("Custom instructions");
+    await page.getByRole("button", { name: "{{newValues.title}}", exact: true }).click();
+    await expect(page.getByTestId("textarea-task-action-text")).toHaveValue("Custom instructions {{newValues.title}}");
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => state.requests.length).toBe(1);
+    expect(state.requests[0].actions[0].config).toMatchObject({
+      templateId: "task-review", title: "Check record", taskText: "Custom instructions {{newValues.title}}",
+    });
+    await page.getByTestId("button-edit-test-rule").click();
+    await page.locator('button[aria-controls="automation-step-then-body"]').click();
+    await expect(page.getByTestId("textarea-task-action-text")).toHaveValue("Custom instructions {{newValues.title}}");
+    expect(state.errors).toEqual([]);
+  });
+
+  test("fixed task deadlines reuse the Nexus Pulse date control and allow a weekend", async ({ page }) => {
+    const state = await fixture(page, true);
+    await page.locator('button[aria-controls="automation-step-then-body"]').click();
+    await page.getByRole("button", { name: "On a date", exact: true }).click();
+    await page.getByTestId("input-create-task-duedate-year").selectOption("2026");
+    await page.getByTestId("input-create-task-duedate-month").selectOption("10");
+    await page.getByTestId("input-create-task-duedate-day").selectOption("10");
+    await expect(page.locator('input[type="date"],input[type="datetime-local"]')).toHaveCount(0);
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => state.requests.length).toBe(1);
+    expect(state.requests[0].actions[0].config.dueAt).toMatch(/^2026-10-10T/);
+    expect(state.requests[0].actions[0].config.dueInHours).toBeUndefined();
+    expect(state.errors).toEqual([]);
+  });
+
+  test("expanded THEN retains save controls on desktop and a short mobile viewport", async ({ page }) => {
+    const state = await fixture(page, true);
+    await page.locator('button[aria-controls="automation-step-then-body"]').click();
+    await expect(page.getByTestId("button-save-rule")).toBeInViewport();
+    expect(await page.getByRole("dialog").evaluate(element => element.getBoundingClientRect().width))
+      .toBeGreaterThanOrEqual(Math.min(page.viewportSize()!.width * 0.88, 1420));
+    await page.screenshot({ path: "/tmp/automation-task-then-desktop.png" });
+    await page.setViewportSize({ width: 390, height: 740 });
+    await expect(page.getByTestId("button-save-rule")).toBeInViewport();
+    const dialog = page.getByRole("dialog");
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await page.getByTestId("textarea-task-action-text").scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("textarea-task-action-text")).toBeInViewport();
+    await expect(page.getByTestId("button-save-rule")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/automation-task-then-mobile.png" });
+    expect(state.errors).toEqual([]);
+  });
+
+  test("Configurator creates, edits and deletes Task templates without offering email sending", async ({ page }) => {
+    const state = await fixture(page);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.goto("/configurator");
+    await page.getByTestId("tab-email-router").click();
+    await page.getByTestId("subtab-templates").click();
+    await page.getByTestId("button-add-template").click();
+    await page.getByTestId("toggle-type-task").click();
+    await page.getByTestId("input-template-name").fill("Test task template");
+    await page.getByTestId("input-template-subject").fill("Review requested");
+    await expect(page.getByTestId("button-save-template")).toBeDisabled();
+    await page.getByTestId("input-template-content").fill("Review the information.");
+    await expect(page.getByTestId("button-open-test-email")).toHaveCount(0);
+    await page.getByTestId("button-save-template").click();
+    await expect.poll(() => state.requests.length).toBe(1);
+    expect(state.requests[0]).toMatchObject({
+      type: "task", format: "text", subject: "Review requested", content: "Review the information.",
+    });
+    await page.getByTestId("select-filter-type").click();
+    await page.getByRole("option", { name: "Task", exact: true }).click();
+    await page.getByTestId("button-edit-template-created-task-template").click();
+    await expect(page.getByTestId("input-template-subject")).toHaveValue("Review requested");
+    await page.getByTestId("input-template-content").fill("Updated instructions.");
+    await page.getByTestId("button-save-template").click();
+    await expect.poll(() => state.requests.length).toBe(2);
+    expect(state.requests[1].content).toBe("Updated instructions.");
+    await page.getByTestId("button-delete-template-created-task-template").click();
+    await expect(page.getByTestId("button-edit-template-created-task-template")).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
 });

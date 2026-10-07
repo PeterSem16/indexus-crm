@@ -6031,11 +6031,11 @@ export const messageTemplates = pgTable("message_templates", {
   description: text("description"),
   
   // Type and format
-  type: varchar("type", { length: 20 }).notNull(), // email, sms
+  type: varchar("type", { length: 20 }).notNull(), // email, sms, task
   format: varchar("format", { length: 20 }).notNull().default("text"), // text, html
   
   // Content
-  subject: text("subject"), // For emails only
+  subject: text("subject"), // Email subject or task title
   content: text("content").notNull(), // Template content with {{variables}}
   contentHtml: text("content_html"), // HTML version for rich emails
   
