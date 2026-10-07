@@ -1,4 +1,5 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
+import { emailActionIssues } from "@shared/automation-email-action";
 import { useState, useMemo, useEffect, Fragment, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -568,6 +569,7 @@ function RuleEditor({
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const countryNames = useMemo(() => new Intl.DisplayNames([locale], { type: "region" }), [locale]);
+  const [emailDraftInvalidByAction, setEmailDraftInvalidByAction] = useState<Record<number, boolean>>({});
   const [draft, setDraft] = useState<RuleDraft>(() =>
     rule
       ? {
@@ -888,12 +890,17 @@ function RuleEditor({
     return (candidate.actions || []).some((action) => {
       if (action.type !== "send_email" || action.config?.emailActionVersion !== 2) return false;
       const config = action.config || {};
+      if (emailActionIssues(config).length) return true;
       if (!String(config.subject ?? "").trim() || !String(config.body ?? "").trim()) return true;
       return !checkTokens(`${config.subject}\n${config.body}`, supportedFields) ||
         !["to", "cc", "bcc"].every((field) => checkTokens(String(config[field] ?? ""), supportedRecipients));
     });
   };
-  const emailActionsInvalid = emailActionInvalid(draft);
+  const hasInvalidEmailDraft = tab !== "json" && draft.actions.some((action, index) =>
+    action.type === "send_email" && emailDraftInvalidByAction[index]);
+  const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
+  const recordEmailDraftValidity = (index: number, invalid: boolean) =>
+    setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
 
   const submit = () => {
     let payload = draft;
@@ -909,7 +916,7 @@ function RuleEditor({
       const parsed = readSentimentSources(payload.conditions as AutomationCondition | null);
       if (parsed.editable) payload = { ...payload, conditions: withSentimentSources(parsed.channels, parsed.extra) as ConditionNode };
     }
-    if (emailActionInvalid(payload)) return;
+    if (emailActionInvalid(payload) || hasInvalidEmailDraft) return;
     if (payload.trigger?.type === "schedule") {
       const mode = payload.trigger.mode || "once";
       if (mode !== "once" && mode !== "per_record") {
@@ -1195,6 +1202,7 @@ function RuleEditor({
                         availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
                         users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
                         countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])} ruleId={rule?.id}
+                        onEmailDraftValidityChange={invalid => recordEmailDraftValidity(index, invalid)}
                         onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
                         onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
                     </div>
@@ -1513,6 +1521,7 @@ function RuleEditor({
                     taskGroups={taskGroups}
                     roles={roles}
                     countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
+                    onEmailDraftValidityChange={invalid => recordEmailDraftValidity(i, invalid)}
                     ruleId={rule?.id}
                     onChange={(updated) => {
                       const next = [...draft.actions];
@@ -2062,6 +2071,7 @@ function ActionEditor({
   ruleId,
   onChange,
   onRemove,
+  onEmailDraftValidityChange,
 }: {
   action: ActionNode;
   index: number;
@@ -2077,6 +2087,7 @@ function ActionEditor({
   ruleId?: string;
   onChange: (a: ActionNode) => void;
   onRemove: () => void;
+  onEmailDraftValidityChange?: (invalid: boolean) => void;
 }) {
   const { t } = useI18n();
   const setCfg = (k: string, v: any) => onChange({ ...action, config: { ...action.config, [k]: v } });
@@ -2174,6 +2185,7 @@ function ActionEditor({
       )}
 
       {action.type === "send_email" && <AutomationSendEmailAction
+        onDraftValidityChange={onEmailDraftValidityChange}
         config={action.config}
         onChange={(config) => onChange({ ...action, config })}
         users={users}

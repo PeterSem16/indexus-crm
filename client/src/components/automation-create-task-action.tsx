@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { useI18n } from "@/i18n";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
+import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
 import "./automation-create-task-action.css";
 
 type Recipient = { kind: "user" | "group" | "role"; id: string };
@@ -289,8 +290,8 @@ export function AutomationCreateTaskAction({
         <details className="automation-create-task__checklist automation-create-task__span">
           <summary><span>{copy.checklist}</span><ChevronDown aria-hidden="true" /></summary>
           <p>{copy.checklistHint}</p>
-          <Textarea rows={3} value={Array.isArray(config.checklist) ? config.checklist.map((item: any) => typeof item === "string" ? item : item.label).join("\n") : ""}
-            onChange={(event) => set("checklist", event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} />
+          <AutomationTaskChecklistEditor checklist={config.checklist}
+            onChange={items => set("checklist", items)} label={copy.checklist} testId={`${testId}-checklist`} />
         </details>
       </div>
     </section>

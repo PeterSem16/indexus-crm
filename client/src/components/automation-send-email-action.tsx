@@ -1,30 +1,43 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, Mail, Plus, X } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, Mail, Plus, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
+type RecipientField = "to" | "cc" | "bcc";
 type UserOption = { id: string; fullName: string; email: string };
 type GroupOption = { id: string; name: string; displayAlias?: string | null };
 type RoleOption = { id: string; name: string; isActive?: boolean };
 type EmailTemplate = {
-  id: string; name: string; language?: string; subject?: string; content?: string; contentHtml?: string;
+  id: string;
+  name: string;
+  language?: string;
+  subject?: string;
+  content?: string;
+  contentHtml?: string;
   countryCodes?: string[];
+  categoryId?: string | null;
 };
+type TemplateCategory = { id: string; name: string };
 type Mailbox = { connected: boolean; email?: string; displayName?: string; hasSignature?: boolean };
+
+const AUTOMATION_CATEGORY_ID = "indexus-automation-email-category";
 const rewriteArtworkForPreview = (html: string) => html.replace(
   /cid:indexus-automation-(task|attention|success|deadline)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
+const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();
+const emailPattern = /^[^@\s<>,;{}]+@[^@\s<>,;{}]+\.[^@\s<>,;{}]+$/;
 
 export function AutomationSendEmailAction({
-  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId,
+  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange,
 }: {
   config: any;
   onChange: (config: any) => void;
@@ -36,11 +49,22 @@ export function AutomationSendEmailAction({
   availableVariables: Array<{ value: string; label: string }>;
   recipientTemplates: string[];
   testId: string;
+  onDraftValidityChange?: (invalid: boolean) => void;
 }) {
   const { t } = useI18n();
   const copy = t.sendEmailAction;
-  const [addressDraft, setAddressDraft] = useState<Record<string, string>>({});
+  const [addressDraft, setAddressDraft] = useState<Record<RecipientField, string>>({ to: "", cc: "", bcc: "" });
+  const ownConfig = useRef(config);
+  const [activeRecipient, setActiveRecipient] = useState<RecipientField>("to");
   const [activeField, setActiveField] = useState<"subject" | "body">("body");
+  useEffect(() => {
+    if (config !== ownConfig.current) {
+      ownConfig.current = config;
+      setAddressDraft({ to: "", cc: "", bcc: "" });
+      setActiveRecipient("to");
+    }
+  }, [config]);
+
   const mailboxQuery = useQuery<{ personal: Mailbox; system: Array<Mailbox & { countryCode: string }> }>({
     queryKey: ["/api/automation/email-mailboxes", ruleId],
     queryFn: async () => {
@@ -57,9 +81,17 @@ export function AutomationSendEmailAction({
       return response.json();
     },
   });
-  const targetsFor = (field: "to" | "cc" | "bcc"): Target[] => {
-    const key = `${field}Targets`;
-    const targets = Array.isArray(config[key]) ? config[key] : [];
+  const categoriesQuery = useQuery<TemplateCategory[]>({
+    queryKey: ["/api/template-categories"],
+    queryFn: async () => {
+      const response = await fetch("/api/template-categories", { credentials: "include" });
+      if (!response.ok) throw new Error("template categories");
+      return response.json();
+    },
+  });
+
+  const targetsFor = (field: RecipientField): Target[] => {
+    const targets = Array.isArray(config[`${field}Targets`]) ? config[`${field}Targets`] : [];
     const legacy: Target[] = [];
     if (field === "to" && !targets.length) {
       if (config.taskGroupId) legacy.push({ kind: "group", id: String(config.taskGroupId) });
@@ -97,85 +129,185 @@ export function AutomationSendEmailAction({
     };
     delete next.taskGroupId;
     delete next.targetRole;
+    ownConfig.current = next;
     onChange(next);
   };
-  const templates = useMemo(() => (templatesQuery.data || []).filter((template) => {
-    const countries = template.countryCodes || [];
-    return !countries.length || !countryCodes.length || countries.some((code) => countryCodes.includes(code));
-  }), [templatesQuery.data, countryCodes]);
-  const addTarget = (field: "to" | "cc" | "bcc", value: string) => {
+
+  const automationCategoryIds = useMemo(() => new Set([
+    AUTOMATION_CATEGORY_ID,
+    ...(categoriesQuery.data || []).filter(category =>
+      ["automatizacia", "automation"].includes(category.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase())
+    ).map(category => category.id),
+  ]), [categoriesQuery.data]);
+  const templates = useMemo(() => {
+    const available = (templatesQuery.data || []).filter((template) => {
+      const countries = template.countryCodes || [];
+      return !countries.length || !countryCodes.length || countries.some((code) => countryCodes.includes(code));
+    });
+    return available.sort((a, b) => {
+      const aAutomation = automationCategoryIds.has(a.categoryId || "") ? 0 : 1;
+      const bAutomation = automationCategoryIds.has(b.categoryId || "") ? 0 : 1;
+      return aAutomation - bAutomation;
+    });
+  }, [templatesQuery.data, countryCodes, automationCategoryIds]);
+  const addTarget = (field: RecipientField, value: string) => {
     if (!value) return;
     const [kind, ...parts] = value.split(":");
     const id = parts.join(":");
     const current = targetsFor(field);
     update({ [`${field}Targets`]: current.some((item) => item.kind === kind && item.id === id) ? current : [...current, { kind, id }] });
   };
-  const removeTarget = (field: "to" | "cc" | "bcc", target: Target) =>
+  const removeTarget = (field: RecipientField, target: Target) =>
     update({ [`${field}Targets`]: targetsFor(field).filter((item) => item.kind !== target.kind || item.id !== target.id) });
   const targetLabel = (target: Target) => target.kind === "user"
     ? users.find((item) => item.id === target.id)?.fullName || target.id
     : target.kind === "group"
       ? groups.find((item) => item.id === target.id)?.displayAlias || groups.find((item) => item.id === target.id)?.name || target.id
       : roles.find((item) => item.name === target.id)?.name || target.id;
-  const options = (field: "to" | "cc" | "bcc") => [
+  const options = () => [
     ...users.map((item) => ({ value: `user:${item.id}`, label: `${item.fullName} · ${item.email}` })),
     ...groups.map((item) => ({ value: `group:${item.id}`, label: `${item.displayAlias || item.name} · ${copy.group}` })),
     ...roles.filter((item) => item.isActive !== false).map((item) => ({ value: `role:${item.name}`, label: `${item.name} · ${copy.role}` })),
   ];
-  const recipientVariables = new Set(recipientTemplates.map((item) => item.replace(/^{{|}}$/g, "")));
-  const hasInvalidRecipientVariable = (field: "to" | "cc" | "bcc") => {
-    const matcher = /{{\s*([^{}]+?)\s*}}/g;
-    const value = String(config[field] ?? "");
-    let match: RegExpExecArray | null;
-    while ((match = matcher.exec(value)) !== null) if (!recipientVariables.has(match[1].trim())) return true;
+
+  const recipientChoices = useMemo(() => {
+    const labels = new Map(availableVariables.map((item) => [cleanVariable(item.value), item.label]));
+    const seen = new Set<string>();
+    return recipientTemplates.flatMap((raw) => {
+      const value = cleanVariable(raw);
+      const identity = value.toLowerCase();
+      if (seen.has(identity)) return [];
+      if (!/email$/.test(identity)) return [];
+      let label: string | undefined = labels.get(value);
+      if (!label && /(^|\.)(creator|createdby|created_by|author|ruleauthor)(\.|$)/.test(identity)) label = copy.creatorEmail;
+      else if (/(^|\.)(agent|assignedagent|assigneduser|assignee|triggeringuser)(\.|$)/.test(identity)) label = copy.agentEmail;
+      else if (/(^|\.)(customer|contact|client)(\.|$)/.test(identity)) label = copy.customerEmail;
+      else if (!label && identity === "newvalues.email") label = copy.customerEmail;
+      if (!label) return [];
+      seen.add(identity);
+      return [{ value, label: labels.get(value) || label }];
+    });
+  }, [availableVariables, recipientTemplates, copy]);
+  const hasInvalidDraft = Object.values(addressDraft).some(draft =>
+    draft.split(/[;,\s]+/).filter(Boolean).some(part =>
+      !emailPattern.test(part) && !recipientChoices.some(item => part === `{{${item.value}}}`)));
+  useEffect(() => {
+    onDraftValidityChange?.(hasInvalidDraft);
+  }, [hasInvalidDraft, onDraftValidityChange]);
+  const recipientValueLabel = (raw: string) => {
+    const value = cleanVariable(raw);
+    return recipientChoices.find((choice) => choice.value === value)?.label || value;
+  };
+  const addressesFor = (field: RecipientField) =>
+    String(config[field] ?? "").split(/[;,]/).map((address) => address.trim()).filter(Boolean);
+  const addressCount = (field: RecipientField) => addressesFor(field).length + targetsFor(field).length;
+  const addAddresses = (field: RecipientField, value = addressDraft[field]) => {
+    const pieces = value.split(/[;,\s]+/).map((part) => part.trim()).filter(Boolean);
+    if (!pieces.length) return { invalid: false };
+    const current = addressesFor(field);
+    const accepted = pieces.filter((part) => emailPattern.test(part) || recipientChoices.some((item) => part === `{{${item.value}}}`));
+    const invalid = pieces.some((part) => !accepted.includes(part));
+    if (accepted.length) {
+      update({ [field]: Array.from(new Set([...current, ...accepted])).join(", ") });
+      const remainder = pieces.filter((part) => !accepted.includes(part)).join(", ");
+      setAddressDraft((previous) => ({ ...previous, [field]: remainder }));
+    }
+    return { invalid };
+  };
+  const removeAddress = (field: RecipientField, address: string) =>
+    update({ [field]: addressesFor(field).filter((item) => item !== address).join(", ") });
+  const insertRecipient = (field: RecipientField, value: string) => {
+    const token = `{{${value}}}`;
+    if (!addressesFor(field).includes(token)) update({ [field]: [...addressesFor(field), token].join(", ") });
+  };
+  const hasInvalidRecipientVariable = (field: RecipientField) => {
+    const allowed = new Set(recipientChoices.map((item) => item.value));
+    const matches = String(config[field] ?? "").matchAll(/{{\s*([^{}]+?)\s*}}/g);
+    for (const match of matches) if (!allowed.has(match[1].trim())) return true;
     return false;
   };
   const mailbox = mailboxQuery.data;
   const insertVariable = (value: string) => {
     const field = activeField;
-    update({ [field]: `${String(config[field] ?? "")}${config[field] ? " " : ""}{{${value.replace(/^{{|}}$/g, "")}}}` });
+    update({ [field]: `${String(config[field] ?? "")}${config[field] ? " " : ""}{{${cleanVariable(value)}}}` });
   };
-  const addAddresses = (field: "to" | "cc" | "bcc") => {
-    const draft = (addressDraft[field] || "").trim();
-    if (!draft) return;
-    const current = String(config[field] || "").split(/[;,]/).map((item: string) => item.trim()).filter(Boolean);
-    update({ [field]: Array.from(new Set([...current, ...draft.split(/[;,\s]+/).map((item) => item.trim()).filter(Boolean)])).join(", ") });
-    setAddressDraft((previous) => ({ ...previous, [field]: "" }));
+  const commitDraft = (field: RecipientField) => {
+    const draft = addressDraft[field];
+    if (!draft.trim()) return;
+    addAddresses(field, draft);
   };
-  const recipientField = (field: "to" | "cc" | "bcc", title: string) => (
-    <section className="space-y-2 rounded-lg border bg-background/70 p-3" key={field}>
-      <div className="flex items-center justify-between">
-        <Label>{title}</Label>
-        <Badge variant="outline">{targetsFor(field).length} {copy.targets}</Badge>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {targetsFor(field).map((target) => <Badge key={`${target.kind}:${target.id}`} variant="secondary" className="gap-1">
-          <span>{targetLabel(target)}</span><button type="button" aria-label={`${copy.remove} ${targetLabel(target)}`} onClick={() => removeTarget(field, target)}><X className="h-3 w-3" /></button>
-        </Badge>)}
-      </div>
-      <div className="flex gap-2">
-        <Select value="" onValueChange={(value) => addTarget(field, value)}>
-          <SelectTrigger className="h-9 min-w-0 flex-1 text-xs"><SelectValue placeholder={copy.addRecipient} /></SelectTrigger>
-          <SelectContent className="max-h-64">
-            {options(field).map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Input aria-label={copy.directAddresses} value={addressDraft[field] || ""} className="h-9 min-w-0 flex-1 text-xs"
-          placeholder={copy.addressPlaceholder} onChange={(event) => setAddressDraft((previous) => ({ ...previous, [field]: event.target.value }))}
-          onKeyDown={(event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addAddresses(field); } }} />
-        <Button type="button" size="icon" variant="outline" className="h-9 w-9 shrink-0" onClick={() => addAddresses(field)} aria-label={copy.addAddress}><Plus className="h-4 w-4" /></Button>
-      </div>
-      <Input aria-label={copy.directAddresses} className="h-8 text-xs" value={config[field] ?? ""}
-        placeholder={copy.directAddresses} onChange={(event) => update({ [field]: event.target.value })} />
-      {recipientTemplates.length > 0 && <div className="flex flex-wrap gap-1">
-        {recipientTemplates.map((variable) => <Button key={variable} type="button" size="sm" variant="ghost" className="h-6 px-1.5 font-mono text-[10px]"
-          onClick={() => update({ [field]: `${String(config[field] || "")}${config[field] ? ", " : ""}{{${variable}}}` })}>{`{{${variable}}}`}</Button>)}
-      </div>}
-      {hasInvalidRecipientVariable(field) && <p className="text-xs text-destructive">{copy.unsupportedVariables}</p>}
-    </section>
+  const changeRecipientTab = (field: string) => {
+    if (field === activeRecipient) return;
+    // Preserve invalid/incomplete text in its own draft while committing every complete address.
+    commitDraft(activeRecipient);
+    setActiveRecipient(field as RecipientField);
+  };
+  const recipientPanel = (field: RecipientField, title: string, description: string) => (
+    <TabsContent value={field} className="mt-3 focus-visible:outline-none">
+      <section className="space-y-3 rounded-lg border bg-background/70 p-3" aria-label={title}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><h3 className="text-sm font-medium">{title}</h3><p className="text-xs text-muted-foreground">{description}</p></div>
+          <Badge variant="outline">{addressCount(field)} {copy.recipientsCount}</Badge>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {targetsFor(field).map((target) => <Badge key={`${target.kind}:${target.id}`} variant="secondary" className="gap-1">
+            <span>{targetLabel(target)}</span>
+            <button type="button" aria-label={`${copy.remove} ${targetLabel(target)}`} onClick={() => removeTarget(field, target)}><X className="h-3 w-3" /></button>
+          </Badge>)}
+          {addressesFor(field).map((address, index) => {
+            const variable = /^\{\{/.test(address);
+            const label = variable ? recipientValueLabel(address) : address;
+            return <Badge key={`${field}-${address}-${index}`} variant={variable ? "outline" : "secondary"} className="gap-1">
+              <span>{label}</span>
+              <button type="button" aria-label={`${copy.remove} ${label}`} onClick={() => removeAddress(field, address)}><X className="h-3 w-3" /></button>
+            </Badge>;
+          })}
+          {addressCount(field) === 0 && <p className="text-xs text-muted-foreground">{copy.noRecipients}</p>}
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <Select value="" onValueChange={(value) => addTarget(field, value)}>
+            <SelectTrigger className="min-w-0"><SelectValue placeholder={copy.choosePerson} /></SelectTrigger>
+            <SelectContent className="max-h-64">
+              {options().map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${testId}-${field}-address`}>{copy.emailAddress}</Label>
+          <div className="flex gap-2">
+            <Input id={`${testId}-${field}-address`} type="text" inputMode="email" autoComplete="email"
+              value={addressDraft[field]} className="min-w-0 flex-1"
+              placeholder={copy.addressPlaceholder}
+              aria-describedby={`${testId}-${field}-address-help`}
+              onChange={(event) => setAddressDraft((previous) => ({ ...previous, [field]: event.target.value }))}
+              onBlur={() => commitDraft(field)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addAddresses(field);
+                }
+              }} />
+            <Button type="button" variant="outline" onClick={() => addAddresses(field)} className="shrink-0">
+              <Plus className="mr-1.5 h-4 w-4" />{copy.addEmail}
+            </Button>
+          </div>
+          <p id={`${testId}-${field}-address-help`} className="text-xs text-muted-foreground">{copy.addressHelp}</p>
+          {addressDraft[field].trim() && <p role="status" className="text-xs text-amber-700">{copy.addressPending}</p>}
+        </div>
+        {recipientChoices.length > 0 && <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">{copy.eventRecipients}</p>
+          <div className="flex flex-wrap gap-1.5">{recipientChoices.map((choice) =>
+            <Button key={choice.value} type="button" size="sm" variant="outline" className="h-7 text-xs"
+              onClick={() => insertRecipient(field, choice.value)}>{choice.label}</Button>)}</div>
+        </div>}
+        {hasInvalidRecipientVariable(field) && <p role="alert" className="text-xs text-destructive">{copy.unsupportedVariables}</p>}
+      </section>
+    </TabsContent>
   );
+
   const personal = mailbox?.personal;
   const selectedSystem = mailbox?.system?.filter((item) => countryCodes.includes(item.countryCode)) || [];
+  const automationCategoryName = categoriesQuery.data?.find((category) => category.id === AUTOMATION_CATEGORY_ID)?.name || copy.automationCategory;
   return <section className="space-y-4" data-testid={testId}>
     <div className="flex items-start gap-3 rounded-lg border bg-muted/20 p-3">
       <span className="rounded-md bg-primary/10 p-2 text-primary"><Mail className="h-4 w-4" /></span>
@@ -183,7 +315,28 @@ export function AutomationSendEmailAction({
       {mailboxQuery.isLoading ? <span className="text-xs text-muted-foreground">{copy.loading}</span>
         : mailboxQuery.isError ? <button type="button" className="text-xs text-destructive" onClick={() => mailboxQuery.refetch()}>{copy.retry}</button> : null}
     </div>
-    {(["to", "cc", "bcc"] as const).map((field) => recipientField(field, field.toUpperCase()))}
+    <div className="space-y-2">
+      <div><h2 className="text-sm font-semibold">{copy.recipientsHeading}</h2><p className="text-xs text-muted-foreground">{copy.recipientsDescription}</p></div>
+      <Tabs value={activeRecipient} onValueChange={changeRecipientTab}>
+        <TabsList className="grid h-auto w-full grid-cols-3">
+          {([
+            ["to", copy.toTab, copy.toExplanation],
+            ["cc", copy.ccTab, copy.ccExplanation],
+            ["bcc", copy.bccTab, copy.bccExplanation],
+          ] as const).map(([field, title, description]) =>
+            <TabsTrigger key={field} value={field} className="flex min-w-0 flex-col gap-0.5 py-2">
+              <span className="flex items-center gap-1.5">{title}<Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{addressCount(field)}</Badge>
+                {addressDraft[field].trim() && <span title={copy.addressPending} aria-label={copy.addressPending}>
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-700" />
+                </span>}</span>
+              <span className="hidden text-[10px] font-normal text-muted-foreground sm:block">{description}</span>
+            </TabsTrigger>)}
+        </TabsList>
+        {recipientPanel("to", copy.toTab, copy.toExplanation)}
+        {recipientPanel("cc", copy.ccTab, copy.ccExplanation)}
+        {recipientPanel("bcc", copy.bccTab, copy.bccExplanation)}
+      </Tabs>
+    </div>
     <div className="grid gap-3 md:grid-cols-2">
       <div className="space-y-1.5">
         <Label>{copy.sender}</Label>
@@ -234,7 +387,12 @@ export function AutomationSendEmailAction({
           <SelectItem value="__custom">{copy.customText}</SelectItem>
           {config.templateId && !templates.some((item) => item.id === config.templateId) &&
             <SelectItem value={config.templateId}>{config.templateName || copy.savedSnapshot}</SelectItem>}
-          {templates.map((template) => <SelectItem key={template.id} value={template.id}>{template.name}{template.language ? ` · ${template.language}` : ""}</SelectItem>)}
+          {templates.map((template, index) => <SelectItem key={template.id} value={template.id}>
+            {index === 0 || templates[index - 1].categoryId !== template.categoryId
+              ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
+              : ""}
+            {template.name}{template.language ? ` · ${template.language}` : ""}
+          </SelectItem>)}
         </SelectContent>
       </Select>
       {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
@@ -245,7 +403,7 @@ export function AutomationSendEmailAction({
       <div><Label htmlFor={`${testId}-body`}>{copy.body}</Label><Textarea id={`${testId}-body`} required aria-invalid={!String(config.body ?? "").trim()} rows={6} value={config.body ?? ""} onFocus={() => setActiveField("body")} onChange={(event) => update({ body: event.target.value })} />
         {!String(config.body ?? "").trim() && <p className="mt-1 text-xs text-destructive">{copy.bodyRequired}</p>}</div>
       {(() => {
-        const supported = new Set(availableVariables.map((item) => item.value.replace(/^{{|}}$/g, "")));
+        const supported = new Set(availableVariables.map((item) => cleanVariable(item.value)));
         const allText = `${String(config.subject ?? "")}\n${String(config.body ?? "")}`;
         const used: string[] = [];
         const matcher = /{{\s*([^{}]+?)\s*}}/g;
@@ -258,10 +416,7 @@ export function AutomationSendEmailAction({
         <p className="text-xs font-medium text-muted-foreground">{copy.insertVariable}</p>
         <div className="flex flex-wrap gap-1.5">{availableVariables.map((variable) => <Button key={variable.value} type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => insertVariable(variable.value)}>{variable.label}</Button>)}</div>
       </div>}
-      {recipientTemplates.length > 0 && <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">{copy.recipientVariables}</p>
-        <div className="flex flex-wrap gap-1.5">{recipientTemplates.map((variable) => <Badge key={variable} variant="outline" className="font-mono">{`{{${variable}}}`}</Badge>)}</div>
-      </div>}
+      {recipientChoices.length > 0 && <p className="text-xs text-muted-foreground">{copy.recipientVariableNote}</p>}
       <details className="rounded-lg border bg-muted/20 p-3">
         <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium"><ChevronDown className="h-4 w-4" />{copy.preview}</summary>
         <div className="mt-3 rounded-md border bg-background p-2">
