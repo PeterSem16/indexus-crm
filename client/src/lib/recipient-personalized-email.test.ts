@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft, sendRecipientCopies } from "./recipient-personalized-email";
+import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft, sendRecipientCopies,
+  recipientSelection, recipientEmailOptions } from "./recipient-personalized-email";
 
 const people = [
   { id: "a", email: "anna@example.test", firstName: "Anna", lastName: "Nováková", titleBefore: "MUDr.", titleAfter: "" },
@@ -37,6 +38,51 @@ test("recipient context changes names but never institution identity or unrelate
 });
 test("ambiguous shared email identities fail explicitly", () => {
   assert.throws(() => recipientContext(base, people[0].email, [people[0], { ...people[1], email: people[0].email }]), /ambiguous/);
+});
+const primaryCollisionPeople = [
+  ...people,
+  { ...people[0], id: "legacy-primary", email: "CLINIC@example.test" },
+  { ...people[1], id: "duplicate-primary", email: " clinic@example.test " },
+];
+test("direct clinic address retains the clinic doctor despite conflicting personnel records", () => {
+  const state = recipientSelection(base, [base.clinic.email], "", primaryCollisionPeople);
+  assert.deepEqual(state.ambiguousEmails, []);
+  assert.equal(state.previewContext, base);
+  assert.equal(recipientContext(base, " CLINIC@EXAMPLE.TEST ", primaryCollisionPeople), base);
+});
+test("both addresses remain sendable and preview the independently selected recipient", () => {
+  const selected = [base.clinic.email, people[0].email];
+  const primary = recipientSelection(base, selected, base.clinic.email, primaryCollisionPeople);
+  const person = recipientSelection(base, selected, people[0].email, primaryCollisionPeople);
+  assert.deepEqual(primary.ambiguousEmails, []);
+  assert.deepEqual(person.ambiguousEmails, []);
+  assert.equal(primary.previewContext!.clinic.doctorFirstName, "Primary");
+  assert.equal(person.previewContext!.clinic.doctorFirstName, "Anna");
+  assert.equal(person.previewContext!.clinic.id, base.clinic.id);
+  const single = recipientSelection(base, [people[0].email], "", primaryCollisionPeople);
+  assert.deepEqual(single.ambiguousEmails, []);
+  assert.equal(single.previewContext!.clinic.doctorFirstName, "Anna");
+});
+test("recipient list and identity lookup share normalized direct-address precedence", () => {
+  const aliases = { ...base, clinic: { ...base.clinic, email2: "CLINIC@EXAMPLE.TEST", email3: "alias@example.test" } };
+  const options = recipientEmailOptions(aliases, primaryCollisionPeople);
+  assert.deepEqual(options.map(option => option.email), ["clinic@example.test", "alias@example.test", "anna@example.test", "peter@example.test"]);
+  assert.equal(options[0].name, "");
+  assert.equal(options[2].name, "MUDr. Anna Nováková");
+  assert.equal(recipientContext(aliases, "ALIAS@example.test", [{ ...people[0], email: "alias@example.test" }]), aliases);
+});
+test("a genuinely ambiguous personal address does not replace another recipient's preview", () => {
+  const shared = [...people, { ...people[1], id: "shared", email: people[0].email }];
+  const valid = recipientSelection(base, [people[0].email, people[1].email], people[1].email, shared);
+  assert.deepEqual(valid.ambiguousEmails, [people[0].email]);
+  assert.equal(valid.previewContext!.clinic.doctorFirstName, "Peter");
+  const invalid = recipientSelection(base, [people[0].email, people[1].email], people[0].email, shared);
+  assert.equal(invalid.previewContext, undefined);
+});
+test("hospital direct addresses also retain their own contact person", () => {
+  const hospitalBase = { hospital: { id: "hospital", email: "clinic@example.test", contactPerson: "Original hospital contact" } };
+  assert.equal(recipientContext(hospitalBase, "clinic@example.test", primaryCollisionPeople), hospitalBase);
+  assert.equal(recipientContext(hospitalBase, people[0].email, primaryCollisionPeople).hospital.contactPerson, "MUDr. Anna Nováková");
 });
 test("editing ordinary text preserves personalized fields; manual name edits stay literal", () => {
   const draft = "{{clinic.doctorFullName}}\nOriginal text";

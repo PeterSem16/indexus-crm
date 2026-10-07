@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { EditableEmailFrame } from "@/components/editable-email-frame";
 import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft,
-  recipientEditorHtml, readRecipientEditorHtml, sendRecipientCopies, normalizeRecipientEmail, uniqueRecipientEmails } from "@/lib/recipient-personalized-email";
+  recipientEditorHtml, readRecipientEditorHtml, sendRecipientCopies, normalizeRecipientEmail, uniqueRecipientEmails,
+  recipientSelection, recipientEmailOptions } from "@/lib/recipient-personalized-email";
 import { MissedCommunicationsUnified as MissedUnifiedDialog } from "@/components/agent/MissedCommunicationsUnified";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -4155,20 +4156,18 @@ export function CommunicationCanvas({
 
   const templateLangRef = useRef<string>("sk");
   const personalizeInstitutionEmail = contactType === "clinic" || contactType === "hospital";
-  const previewRecipient = selectedEmails.includes(emailPreviewRecipient) ? emailPreviewRecipient : selectedEmails[0] || "";
   const recipientBaseContext = {
     contact, user, clinic: clinicData, hospital: hospitalData, collaborator: collaboratorData,
     fromEmail: allEmailAccounts.find(a => a.id === selectedFromAccount)?.email,
     lang: templateLangRef.current || "sk",
   };
-  const ambiguousRecipient = selectedEmails.some(email => {
-    try { recipientContext(recipientBaseContext, email, personnelRecipients); return false; }
-    catch { return true; }
-  });
+  const { previewRecipient, previewContext, ambiguousEmails } = recipientSelection(
+    recipientBaseContext, selectedEmails, emailPreviewRecipient, personalizeInstitutionEmail ? personnelRecipients : []);
+  const ambiguousRecipient = ambiguousEmails.length > 0;
   const resolveRecipientToken = (email: string, token: string) => applyTemplateVars(token,
     personalizeInstitutionEmail ? recipientContext(recipientBaseContext, email, personnelRecipients) : recipientBaseContext);
-  const resolvePreviewToken = (token: string) => ambiguousRecipient
-    ? applyTemplateVars(token, recipientBaseContext) : resolveRecipientToken(previewRecipient, token);
+  const resolvePreviewToken = (token: string) => previewContext
+    ? applyTemplateVars(token, previewContext) : token;
   const previewEmailSubject = renderRecipientDraft(emailSubject, resolvePreviewToken);
   const previewEmailMessage = renderRecipientDraft(emailMessage, resolvePreviewToken, emailIsHtml);
   const editableRecipientHtml = emailIsHtml && activeChannel === "email"
@@ -5562,28 +5561,7 @@ export function CommunicationCanvas({
                   {t.customers?.details?.to || "TO"}
                 </Label>
                 <div className="space-y-1.5">
-                  {(() => {
-                    const recipientEmails = new Map<string, string>();
-                    [
-                        contact?.email,
-                        (contact as any)?.email2,
-                        (contact as any)?.email3,
-                        (clinicData as any)?.email,
-                        (clinicData as any)?.email2,
-                        (clinicData as any)?.email3,
-                        (hospitalData as any)?.email,
-                        (hospitalData as any)?.email2,
-                        (hospitalData as any)?.email3,
-                        (collaboratorData as any)?.email,
-                        (collaboratorData as any)?.email2,
-                        (collaboratorData as any)?.email3,
-                    ]
-                      .filter((e): e is string => typeof e === "string" && e.trim() !== "")
-                      .forEach(email => recipientEmails.set(email.trim(), ""));
-                    personnelRecipients.forEach(person => {
-                      if (person.email && !recipientEmails.has(person.email)) recipientEmails.set(person.email, person.name);
-                    });
-                    return Array.from(recipientEmails.entries()).map(([em, personName], i) => (
+                  {recipientEmailOptions(recipientBaseContext, personnelRecipients).map(({ email: em, name: personName }, i) => (
                       <div key={em} className="flex min-w-0 items-start gap-2">
                         <Checkbox
                           id={`aw-email-${i}`}
@@ -5600,8 +5578,7 @@ export function CommunicationCanvas({
                           {em}{personName ? ` — ${personName} (${t.agentWorkspace.personRecipientSuffix})` : ""}
                         </Label>
                       </div>
-                    ));
-                  })()}
+                    ))}
                 </div>
               </div>
 

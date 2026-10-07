@@ -5,6 +5,32 @@ export type EmailPerson = {
 export const normalizeRecipientEmail = (email: string) => email.trim().toLowerCase();
 export const uniqueRecipientEmails = (emails: string[]) =>
   Array.from(new Map(emails.map(value => [normalizeRecipientEmail(value), value])).values());
+type EmailRecipientBase = { contact?: any; clinic?: any; hospital?: any; collaborator?: any };
+
+const directRecipientEmails = (base: EmailRecipientBase): string[] =>
+  [base.contact, base.clinic, base.hospital, base.collaborator].flatMap(entity =>
+    [entity?.email, entity?.email2, entity?.email3]
+      .filter((email): email is string => typeof email === "string" && email.trim() !== ""));
+
+/** Direct card addresses keep card identity, even when personnel also use them. */
+export function recipientEmailOptions(base: EmailRecipientBase, people: EmailPerson[]) {
+  const choices = new Map<string, { email: string; name: string }>();
+  for (const email of directRecipientEmails(base)) {
+    const key = normalizeRecipientEmail(email);
+    if (!choices.has(key)) choices.set(key, { email: email.trim(), name: "" });
+  }
+  const directKeys = new Set(choices.keys());
+  for (const person of people) {
+    if (!person.email.trim()) continue;
+    const key = normalizeRecipientEmail(person.email);
+    if (directKeys.has(key)) continue;
+    const name = [person.titleBefore, person.firstName, person.lastName, person.titleAfter].filter(Boolean).join(" ");
+    const existing = choices.get(key);
+    if (!existing) choices.set(key, { email: person.email.trim(), name });
+    else if (name && existing.name !== name) existing.name = [existing.name, name].filter(Boolean).join(" / ");
+  }
+  return Array.from(choices.values());
+}
 const fields = new Set([
   "clinic.doctorName", "clinic.doctorTitle", "clinic.doctorFirstName", "clinic.doctorLastName",
   "clinic.doctorFullName", "clinic.doctorSalutation", "clinic.doctorSalutationFull", "clinic.doctorSalutationDoc", "clinic.email",
@@ -30,9 +56,11 @@ export function preserveRecipientFields(source: string, resolveCommon: (value: s
   return resolved;
 }
 
-export function recipientContext<T extends { contact?: any; clinic?: any; hospital?: any }>(
+export function recipientContext<T extends EmailRecipientBase>(
   base: T, email: string, people: EmailPerson[],
 ): T {
+  const key = normalizeRecipientEmail(email);
+  if (directRecipientEmails(base).some(address => normalizeRecipientEmail(address) === key)) return base;
   const matches = people.filter(person => normalizeRecipientEmail(person.email) === normalizeRecipientEmail(email));
   const identities = new Set(matches.map(person => JSON.stringify([person.firstName, person.lastName, person.titleBefore, person.titleAfter])));
   if (identities.size > 1) throw new Error("ambiguous_recipient_identity");
@@ -45,6 +73,24 @@ export function recipientContext<T extends { contact?: any; clinic?: any; hospit
     clinic: base.clinic ? { ...base.clinic, doctorTitle: person.titleBefore,
       doctorFirstName: person.firstName, doctorLastName: person.lastName, doctorTitleAfter: person.titleAfter, email } : base.clinic,
     hospital: base.hospital ? { ...base.hospital, contactPerson: name, email } : base.hospital,
+  };
+}
+
+/** A conflict on another selected address must not change this recipient's preview. */
+export function recipientSelection<T extends EmailRecipientBase>(
+  base: T, selectedEmails: string[], requestedPreview: string, people: EmailPerson[],
+) {
+  const previewRecipient = selectedEmails.find(email =>
+    normalizeRecipientEmail(email) === normalizeRecipientEmail(requestedPreview)) || selectedEmails[0] || "";
+  const contexts = new Map<string, T>();
+  const ambiguousEmails: string[] = [];
+  for (const email of uniqueRecipientEmails(selectedEmails)) {
+    try { contexts.set(normalizeRecipientEmail(email), recipientContext(base, email, people)); }
+    catch { ambiguousEmails.push(email); }
+  }
+  return {
+    previewRecipient, ambiguousEmails,
+    previewContext: previewRecipient ? contexts.get(normalizeRecipientEmail(previewRecipient)) : base,
   };
 }
 
