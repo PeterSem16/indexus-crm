@@ -1,8 +1,10 @@
 import type { Locale } from "./translations";
+import { taskAutomationTranslations, type TaskAutomationCopy } from "./task-automation-translations";
 
 // Exact completed Automation copy; independently typed in all seven locales.
 export interface RestoredAutomationNamespaces {
 automationServices: {
+    taskRules: TaskAutomationCopy;
     editor: {
       allCountries: string; countryScope: string; countryScopeHelp: string; whenServiceRuns: string;
       sourceLabel: string; sourceHelp: string; eventLabel: string; eventHelp: string;
@@ -156,6 +158,7 @@ export type LocalizedAutomationShape<T> = T;
 const copy: Record<Locale, RestoredAutomationNamespaces> = {
 en: {
 automationServices: {
+      taskRules: taskAutomationTranslations.en,
       back: 'Back',
       selected: 'Selected',
       conditionEditor: {
@@ -229,6 +232,7 @@ automationDraft: {
 },
 sk: {
 automationServices: {
+      taskRules: taskAutomationTranslations.sk,
       back: "Späť",
       selected: "vybraných",
       conditionEditor: {
@@ -302,6 +306,7 @@ automationDraft: {
 },
 cs: {
 automationServices: {
+      taskRules: taskAutomationTranslations.cs,
       back: "Zpět",
       selected: "vybraných",
       conditionEditor: {
@@ -375,6 +380,7 @@ automationDraft: {
 },
 hu: {
 automationServices: {
+      taskRules: taskAutomationTranslations.hu,
       back: 'Vissza',
       selected: 'kiválasztva',
       conditionEditor: {
@@ -448,6 +454,7 @@ automationDraft: {
 },
 ro: {
 automationServices: {
+      taskRules: taskAutomationTranslations.ro,
       back: 'Înapoi',
       selected: 'selectate',
       conditionEditor: {
@@ -521,6 +528,7 @@ automationDraft: {
 },
 it: {
 automationServices: {
+      taskRules: taskAutomationTranslations.it,
       back: "Indietro",
       selected: "Selezionato",
       conditionEditor: {
@@ -594,6 +602,7 @@ automationDraft: {
 },
 de: {
 automationServices: {
+      taskRules: taskAutomationTranslations.de,
       back: "Zurück",
       selected: "Ausgewählt",
       conditionEditor: {

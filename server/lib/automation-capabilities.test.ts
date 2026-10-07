@@ -131,9 +131,9 @@ assert.deepEqual(paths(rule("call", "call.answered", {
 })), ["conditions.field"]);
 assert.deepEqual(paths(rule("task", "status_changed", {
   conditions: { field: "newValues.priority", op: "eq", value: "high" },
-})), ["conditions.field"]);
+})), []);
 assert.deepEqual(paths(rule("task", "updated", {
-  conditions: { not: { any: [{ field: "newValues.status", op: "eq", value: "done" }] } },
+  conditions: { not: { any: [{ field: "newValues.status", op: "eq", value: "completed" }] } },
 })), []);
 assert.deepEqual(paths(rule("task", "updated", {
   conditions: { all: [] },
@@ -323,7 +323,7 @@ for (const recipient of RECIPIENT_CAPABILITIES) {
 }
 assert.throws(() => validateEventDraftInput({
   module: "task", eventType: "status_changed", countryCode: "SK",
-  conditionField: "newValues.priority", conditionValue: "high",
+  conditionField: "newValues.description", conditionValue: "high",
   instruction: "Notify my agent when this changes",
 }, { role: "admin" }), /Unsupported condition field/);
 console.log("Automation capability catalog tests passed");

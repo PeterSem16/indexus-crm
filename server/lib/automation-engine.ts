@@ -29,6 +29,7 @@ import {
   validateRuleCapabilities,
 } from "./automation-capabilities";
 import { permitsSentimentSource } from "./sentiment-source-guard";
+import { taskAssignmentTriggerMatches, taskAutomationListMatches } from "@shared/task-automation";
 import { resolveAutomationRecipientTarget } from "./automation-recipient-target";
 import { taskOwnersForTarget } from "./automation-recipient-policy";
 import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
@@ -93,8 +94,8 @@ function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
     case "gte": return compareOrderedValues(v, c.value, "gte");
     case "lt": return compareOrderedValues(v, c.value, "lt");
     case "lte": return compareOrderedValues(v, c.value, "lte");
-    case "in": return Array.isArray(c.value) && c.value.some((item: unknown) => conditionValuesEqual(v, item));
-    case "not_in": return Array.isArray(c.value) && !c.value.some((item: unknown) => conditionValuesEqual(v, item));
+    case "in": return Array.isArray(v) ? taskAutomationListMatches(v, c.value) : Array.isArray(c.value) && c.value.some((item: unknown) => conditionValuesEqual(v, item));
+    case "not_in": return Array.isArray(v) ? Array.isArray(c.value) && !taskAutomationListMatches(v, c.value) : Array.isArray(c.value) && !c.value.some((item: unknown) => conditionValuesEqual(v, item));
     case "contains": return typeof v === "string" && v.includes(String(c.value));
     case "starts_with": return typeof v === "string" && v.startsWith(String(c.value));
     case "is_null": return v == null;
@@ -1403,7 +1404,7 @@ export async function runRule(
   };
 
   // Skip if conditions not met
-  if (!permitsSentimentSource(rule.conditions, event) || !evalCondition(rule.conditions as any, ctx)) {
+  if (!taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) || !permitsSentimentSource(rule.conditions, event) || !evalCondition(rule.conditions as any, ctx)) {
     await db.insert(workflowRuns).values({
       ruleId: rule.id,
       eventId: event.id,
@@ -1627,7 +1628,7 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
   };
-  const conditionMet = evalCondition(rule.conditions as any, ctx);
+  const conditionMet = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && evalCondition(rule.conditions as any, ctx);
   const renderedActions = (rule.actions as any[]).map((a) => ({
     type: a.type,
     rendered: renderTemplate(a.config || {}, ctx),

@@ -22,7 +22,8 @@ test("standalone Automation exposes its supported generic modules and service fa
   assert.match(engine, /validateRuleCapabilities/);
   assert.match(engine, /scheduleNextDueAt/);
   assert.match(source("shared/schema.ts"), /scheduleInterval: text\("schedule_interval"\)/);
-  assert.match(source("server/index.ts"), /ADD COLUMN IF NOT EXISTS schedule_next_due_at/);
+  assert.match(source("server/index.ts"), /ensureStandaloneAutomationSchema/);
+  assert.match(source("server/lib/standalone-automation-schema.ts"), /ADD COLUMN IF NOT EXISTS schedule_next_due_at/);
   assert.doesNotMatch(capabilities, /nexus_pulse|card\.opened|schedule_callback|status_list/);
   assert.doesNotMatch(routes, /PROPOSED_PULSE|statusListServices|STATUS_LIST_SERVICES/);
 });

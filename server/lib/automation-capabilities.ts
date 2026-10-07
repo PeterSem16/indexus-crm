@@ -1,4 +1,5 @@
-import { COUNTRIES } from "@shared/schema";
+import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
+import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 
 /** Executable event and action capabilities of the standalone Automation Engine. */
 export const MODULE_EVENTS: Record<string, string[]> = {
@@ -117,16 +118,18 @@ export const FIELD_OPTIONS: Record<string, { value: string; label: string; type:
   task: [
     { value: "newValues.id", label: "Task ID", type: "string" },
     { value: "newValues.title", label: "Title", type: "string" },
-    { value: "newValues.priority", label: "Priority", type: "string" },
-    { value: "newValues.status", label: "Status", type: "string" },
+    { value: "newValues.priority", label: "Priority", type: "enum", options: TASK_PRIORITIES.map(option => option.value) },
+    { value: "newValues.status", label: "Status", type: "enum", options: TASK_STATUSES.map(option => option.value) },
     { value: "newValues.assignedUserId", label: "Assignee", type: "string" },
     { value: "newValues.assignedDepartmentId", label: "Assigned department", type: "string" },
+    { value: "newValues.taskGroupIds", label: "Assigned task group", type: "list" },
     { value: "newValues.createdByUserId", label: "Creator", type: "string" },
     { value: "newValues.dueDate", label: "Due date", type: "date" },
     { value: "newValues.customerId", label: "Linked customer ID", type: "string" },
     { value: "newValues.relatedEntityType", label: "Related record type", type: "string" },
     { value: "newValues.relatedEntityId", label: "Related record ID", type: "string" },
     { value: "newValues.resolvedByUserId", label: "Resolved by", type: "string" },
+    { value: "newValues.resolvedByGroupIds", label: "Resolver task group", type: "list" },
     { value: "newValues.resolvedAt", label: "Resolved at", type: "date" },
     { value: "newValues.boState", label: "Back Office state", type: "string" },
     { value: "newValues.createdAt", label: "Created at", type: "date" },
@@ -335,7 +338,7 @@ export function fieldsForEvent(module: string, event: string) {
       "newValues.leadScoreUpdatedAt", "newValues.leadStatus", "newValues.serviceType",
       "newValues.registrationSource", "newValues.registrationDate", "newValues.createdAt",
     ].includes(f.value));
-  if (event === "status_changed") return fields.filter(f => f.value === "newValues.status");
+  if (event === "status_changed" && module !== "task") return fields.filter(f => f.value === "newValues.status");
   return fields;
 }
 
@@ -352,6 +355,7 @@ export function matchesRuleCountryScope(
 
 export function operatorsForEvent(event: string, fieldType?: string) {
   return OPERATORS.filter(op =>
+    (fieldType !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
     (!op.value.startsWith("changed") || hasChangeSnapshot(event)) &&
     (!["gt", "gte", "lt", "lte"].includes(op.value) || fieldType === "number" || fieldType === "date") &&
     (!["in", "not_in"].includes(op.value) || fieldType !== "boolean") &&
@@ -415,6 +419,10 @@ export function validateRuleCapabilities(rule: {
     event = trigger.eventType;
     if (trigger.entityType !== rule.module) fail("trigger.entityType", "Entity must match module");
     if (!events?.includes(event)) fail("trigger.eventType", "Event is not emitted by this module");
+    if (trigger.assignmentTarget != null &&
+      (rule.module !== "task" || event !== "task.assigned" || !isTaskAssignmentTriggerTarget(trigger.assignmentTarget))) {
+      fail("trigger.assignmentTarget", "Assignment target must select task groups or users for task.assigned");
+    }
   } else if (trigger.type === "schedule") {
     event = "schedule.tick";
     if (!SCHEDULE_INTERVALS.includes(trigger.interval)) fail("trigger.interval", "Unsupported schedule interval");

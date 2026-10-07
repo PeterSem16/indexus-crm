@@ -1,0 +1,180 @@
+.automation-rule-basics {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(230px, 1.15fr) minmax(260px, 1.4fr);
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+
+.automation-rule-basics__field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.automation-rule-basics__label {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: 0.035em;
+}
+
+.automation-rule-basics__input,
+.automation-rule-basics__description,
+.automation-rule-basics__trigger {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid hsl(var(--input));
+  border-radius: 8px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.automation-rule-basics__input {
+  height: 34px;
+  padding: 0 10px;
+}
+
+.task-modern-modal .automation-rule-basics .automation-rule-basics__description {
+  height: 52px;
+  min-height: 52px;
+  max-height: 88px;
+  resize: vertical;
+  padding: 7px 10px;
+  line-height: 1.4;
+}
+
+.automation-rule-basics__trigger {
+  display: flex;
+  height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 9px 0 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.automation-rule-basics__trigger:hover,
+.automation-rule-basics__input:hover,
+.automation-rule-basics__description:hover {
+  border-color: hsl(var(--primary) / 0.42);
+}
+
+.automation-rule-basics__trigger:focus-visible,
+.automation-rule-basics__input:focus-visible,
+.automation-rule-basics__description:focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.14);
+}
+
+.automation-rule-basics__summary {
+  overflow: hidden;
+  color: hsl(var(--foreground));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-rule-basics__chevron {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: hsl(var(--muted-foreground));
+  transition: transform 140ms ease;
+}
+
+.automation-rule-basics__trigger[aria-expanded="true"] .automation-rule-basics__chevron {
+  transform: rotate(180deg);
+}
+
+.automation-rule-basics__popover {
+  z-index: 10000;
+  width: min(320px, calc(100vw - 28px));
+  max-height: min(360px, calc(100dvh - 36px));
+  overflow: hidden;
+  padding: 7px;
+  border-color: hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--popover));
+  box-shadow: 0 12px 32px hsl(var(--foreground) / 0.16), 0 2px 6px hsl(var(--foreground) / 0.08);
+}
+
+.automation-rule-basics__country-list {
+  display: flex;
+  max-height: min(346px, calc(100dvh - 50px));
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.automation-rule-basics__option {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.automation-rule-basics__option:hover {
+  background: hsl(var(--accent));
+}
+
+.automation-rule-basics__option--all {
+  margin-bottom: 4px;
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 7px 7px 0 0;
+  color: hsl(var(--primary));
+  font-weight: 650;
+}
+
+.automation-rule-basics__checkbox {
+  width: 15px;
+  height: 15px;
+  border-color: hsl(var(--input));
+  border-radius: 4px;
+}
+
+.automation-rule-basics__country-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 767px) {
+  .automation-rule-basics {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 11px;
+  }
+
+  .task-modern-modal .automation-rule-basics .automation-rule-basics__description {
+    min-height: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .automation-rule-basics__trigger,
+  .automation-rule-basics__input,
+  .automation-rule-basics__description,
+  .automation-rule-basics__chevron {
+    transition: none;
+  }
+}

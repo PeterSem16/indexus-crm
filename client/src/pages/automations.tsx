@@ -23,6 +23,10 @@ import { SentimentSourcePicker } from "@/components/sentiment-source-picker";
 import { AutomationTriggerContext, triggerPresetIcons } from "@/components/automation-trigger-context";
 import { NotificationRulesManager } from "@/components/notification-center";
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
+import { AutomationRuleBasics } from "@/components/automation-rule-basics";
+import { AutomationChoicePicker } from "@/components/automation-choice-picker";
+import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
+import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
 
 const AlertRulesManager = lazy(() => import("@/components/automation-alert-rules").then(m => ({ default: m.AlertRulesManager })));
@@ -112,6 +116,7 @@ type TaskGroupOpt = { id: string; name: string; displayAlias?: string | null; co
 type RoleOpt = { id: string; name: string; description?: string | null; isActive?: boolean };
 
 type LeafCondition = { field: string; op: string; value?: any };
+type ConditionField = Catalog["fields"][string][number] & { optionLabels?: Record<string, string>; help?: string };
 type GroupCondition = { all?: ConditionNode[]; any?: ConditionNode[]; not?: ConditionNode };
 type ConditionNode = LeafCondition | GroupCondition;
 const hasChannelCondition = (node: ConditionNode | null): boolean => {
@@ -132,7 +137,7 @@ type RuleDraft = {
   countryCodes: string[] | null;
   enabled: boolean;
   trigger:
-    | { type: "event"; entityType: string; eventType: string }
+    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget }
     | { type: "schedule"; interval: string; mode?: "once" | "per_record" };
   conditions: ConditionNode | null;
   actions: ActionNode[];
@@ -604,7 +609,7 @@ function RuleEditor({
     setDraft(next);
     setJsonText(JSON.stringify(next, null, 2));
     setSelectedService(service);
-    setExpandedStep(2);
+    setExpandedStep(0);
   };
 
   useEffect(() => {
@@ -702,9 +707,32 @@ function RuleEditor({
       ? t.automationServices.triggerPresets.labels[AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value)!.id]
       : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
   const eventDescription = (event: Catalog["eventTypes"][number]) =>
+    (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
   const fieldLabel = (field: { value: string; label: string }) =>
+    (draft.module === "task" ? t.automationServices.taskRules.fieldLabels[field.value] : undefined) ||
     t.automationServices.editorCatalog.fieldLabels[field.value] || field.label;
+  const conditionFields: ConditionField[] = fieldsForConditions.map(field => {
+    const localized: ConditionField = { ...field, label: fieldLabel(field) };
+    if (draft.module !== "task") return localized;
+    if (["newValues.assignedUserId", "newValues.createdByUserId", "newValues.resolvedByUserId"].includes(field.value)) {
+      return { ...localized, type: "enum", options: users.map(user => user.id),
+        optionLabels: Object.fromEntries(users.map(user => [user.id, user.fullName || user.email || user.id])) };
+    }
+    if (field.value === "newValues.assignedDepartmentId") {
+      return { ...localized, type: "enum", options: (departments || []).map(department => department.id),
+        optionLabels: Object.fromEntries((departments || []).map(department => [department.id, department.name])) };
+    }
+    if (["newValues.taskGroupIds", "newValues.resolvedByGroupIds"].includes(field.value)) {
+      return { ...localized, options: taskGroups.map(group => group.id),
+        optionLabels: Object.fromEntries(taskGroups.map(group => [group.id, group.displayAlias || group.name])),
+        help: field.value === "newValues.resolvedByGroupIds" ? t.automationServices.taskRules.resolverGroupHint : undefined };
+    }
+    if (field.value === "newValues.priority") return { ...localized, optionLabels: t.tasks.priorities };
+    if (field.value === "newValues.status") return { ...localized, optionLabels: t.tasks.statuses };
+    if (field.value === "newValues.resolvedAt") localized.help = t.automationServices.taskRules.resolvedAtHint;
+    return localized;
+  });
   const triggerTypeControl = (
     <div>
       <Label>Trigger type</Label>
@@ -810,6 +838,7 @@ function RuleEditor({
     const leaf = node as LeafCondition;
     const field = fieldsForModule.find(f => f.value === leaf.field);
     return !field || !catalog.operators.some(op => op.value === leaf.op && op.availableIn.includes(draft.module) &&
+      (field.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)) &&
       (!["gt", "gte", "lt", "lte"].includes(op.value) || ["date", "number"].includes(field.type)) &&
       (!["in", "not_in"].includes(op.value) || field.type !== "boolean") &&
@@ -823,6 +852,8 @@ function RuleEditor({
   };
   const draftEventType = draft.trigger.type === "event" ? draft.trigger.eventType : null;
   const incompatible = draft.actions.some(a => !actionsForModule.some(option => option.value === a.type)) ||
+    (draft.trigger.type === "event" && draft.trigger.assignmentTarget != null &&
+      !isTaskAssignmentTriggerTarget(draft.trigger.assignmentTarget)) ||
     (draftEventType !== null && !eventsForModule.some(e => e.value === draftEventType)) ||
     invalidCondition(draft.conditions);
   const hasExternalSend = draft.actions.some(action => action.type.startsWith("send_"));
@@ -936,37 +967,11 @@ function RuleEditor({
           <TabsContent value="builder" className="space-y-4 pt-4">
             <div className="automation-workspace" data-testid="automation-workspace">
               <div className="automation-workspace-main">
-                <section className="automation-basics">
-                  <div className="automation-name-field">
-                    <Label>{t.automationServices.workspace.ruleName}</Label>
-                    <Input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} data-testid="input-rule-name" />
-                  </div>
-                  <div>
-                    <Label>{t.automationServices.editor.countryScope}</Label>
-                    <div className="automation-country-list">
-                      <Button type="button" size="sm" variant={!draft.countryCodes?.length ? "secondary" : "outline"} aria-pressed={!draft.countryCodes?.length}
-                        onClick={() => setDraft({ ...draft, countryCode: null, countryCodes: null })} data-testid="select-country-all">
-                        {t.automationServices.editor.allCountries}
-                      </Button>
-                      {catalog.countries.map(country => {
-                        const selected = draft.countryCodes?.includes(country.value) ?? false;
-                        const region = country.value.trim().toUpperCase();
-                        const localized = countryNames.of(region);
-                        return <Button key={country.value} type="button" size="sm" variant={selected ? "secondary" : "outline"} aria-pressed={selected}
-                          onClick={() => {
-                            const next = selected ? (draft.countryCodes || []).filter(code => code !== country.value) : [...(draft.countryCodes || []), country.value];
-                            setDraft({ ...draft, countryCode: null, countryCodes: next.length ? next : null });
-                          }} data-testid={`select-country-${country.value}`}>
-                          {localized && localized.toUpperCase() !== region ? localized : country.label}
-                        </Button>;
-                      })}
-                    </div>
-                  </div>
-                  <div className="automation-description">
-                    <Label>{t.automationServices.workspace.description}</Label>
-                    <Textarea value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} rows={2} data-testid="textarea-rule-description" />
-                  </div>
-                </section>
+                <AutomationRuleBasics name={draft.name} description={draft.description}
+                  countryCodes={draft.countryCodes} countries={catalog.countries}
+                  onNameChange={name => setDraft({ ...draft, name })}
+                  onDescriptionChange={description => setDraft({ ...draft, description })}
+                  onCountriesChange={countryCodes => setDraft({ ...draft, countryCode: null, countryCodes })} />
 
                 <div className="automation-flow">
                   <div className="automation-flow-spine" aria-hidden="true" />
@@ -1017,31 +1022,22 @@ function RuleEditor({
                           setDraft({ ...draft, conditions: null, trigger: { type: "event", entityType: draft.module, eventType } });
                         }}>
                           <SelectTrigger data-testid="select-event"><SelectValue /></SelectTrigger>
-                          <SelectContent className="automation-rule-select-content">{eventsForModule.map(event => <SelectItem key={event.value} value={event.value} data-testid={`select-event-${event.value}`}>{eventLabel(event)}</SelectItem>)}</SelectContent>
+                          <SelectContent className="automation-rule-select-content">{eventsForModule.map(event => {
+                            const Icon = triggerEventIcons[event.value] || Bell;
+                            return <SelectItem key={event.value} value={event.value} textValue={eventLabel(event)} data-testid={`select-event-${event.value}`}>
+                              <span className="flex items-center gap-2"><Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />{eventLabel(event)}</span>
+                            </SelectItem>;
+                          })}</SelectContent>
                         </Select>
+                        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground" data-testid="task-event-description">
+                          {eventDescription(eventsForModule.find(event => event.value === selectedEvent) || { value: selectedEvent, label: selectedEvent, availableIn: [], changeSnapshot: false })}
+                        </p>
                       </div>
-                      <div className="automation-suggestion">
-                        <Label>{t.automationServices.workspace.suggestions}</Label>
-                        <Select value={selectedPreset?.id || "none"} onValueChange={id => {
-                          const preset = AUTOMATION_TRIGGER_PRESETS.find(item => item.id === id);
-                          if (!preset) return;
-                          const next = chooseTriggerPreset(draft, preset);
-                          if (preset.id !== "negativeSentiment" && draft.conditions &&
-                            (draft.module !== preset.module || selectedEvent !== preset.eventType)) {
-                            setSourceResetNotice(true);
-                            next.conditions = null;
-                          }
-                          setDraft(next);
-                        }}>
-                          <SelectTrigger data-testid="select-trigger-suggestion"><SelectValue /></SelectTrigger>
-                          <SelectContent className="automation-rule-select-content">
-                            <SelectItem value="none">{t.automationServices.workspace.noSuggestion}</SelectItem>
-                            {AUTOMATION_TRIGGER_PRESETS.filter(preset =>
-                              catalog.eventTypes.some(event => event.value === preset.eventType && event.availableIn.includes(preset.module))
-                            ).map(preset => <SelectItem key={preset.id} value={preset.id} data-testid={`select-trigger-preset-${preset.id}`}>{t.automationServices.triggerPresets.labels[preset.id]}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {draft.module === "task" && selectedEvent === "task.assigned" && <AutomationTaskAssignmentFilter
+                        target={draft.trigger.assignmentTarget}
+                        groups={taskGroups.map(group => ({ value: group.id, label: group.displayAlias || group.name }))}
+                        users={users.map(user => ({ value: user.id, label: user.fullName || user.email || user.id }))}
+                        onChange={assignmentTarget => setDraft({ ...draft, trigger: { type: "event", entityType: "task", eventType: "task.assigned", assignmentTarget } })} />}
                     </div>
                   ) : (
                     <div className="automation-trigger-controls automation-schedule-controls">
@@ -1138,7 +1134,7 @@ function RuleEditor({
                       {scheduleMode === "per_record" && !hasConditionLeaf(draft.conditions) && <p className="automation-validation">{t.automationServices.workspace.conditionsRequired}</p>}
                       {visibleConditions && <ConditionsEditor
                         node={visibleConditions}
-                        fields={fieldsForConditions.map(field => ({ ...field, label: fieldLabel(field) }))}
+                        fields={conditionFields}
                         operators={catalog.operators.filter(op => op.availableIn.includes(draft.module) &&
                           (!op.value.startsWith("changed") || eventsForModule.some(event => event.value === selectedEvent && event.changeSnapshot)))}
                         onChange={updateConditions}
@@ -1437,7 +1433,7 @@ function RuleEditor({
                 <CardContent>
                   <ConditionsEditor
                       node={visibleConditions!}
-                    fields={fieldsForConditions.map(field => ({ ...field, label: fieldLabel(field) }))}
+                    fields={conditionFields}
                     operators={catalog.operators.filter(op =>
                       op.availableIn.includes(draft.module) &&
                       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)))}
@@ -1724,7 +1720,7 @@ function ConditionsEditor({
   depth = 0,
 }: {
   node: ConditionNode;
-  fields: { value: string; label: string; type: string; options?: string[] }[];
+  fields: ConditionField[];
   operators: Catalog["operators"];
   onChange: (n: ConditionNode) => void;
   depth?: number;
@@ -1825,8 +1821,9 @@ function ConditionsEditor({
   const fieldMeta = fields.find((f) => f.value === leaf.field);
   const eligibleOperators = operators.filter(o => {
     const type = fieldMeta?.type || "";
-    return (!["gt", "gte", "lt", "lte"].includes(o.value) || ["date", "number"].includes(type)) &&
-      (!["in", "not_in"].includes(o.value) || type !== "boolean") &&
+    return (type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(o.value)) &&
+      (!["gt", "gte", "lt", "lte"].includes(o.value) || ["date", "number"].includes(type)) &&
+      (!["in", "not_in"].includes(o.value) || !["boolean", "date"].includes(type)) &&
       (!["contains", "starts_with"].includes(o.value) || type === "string" || (type === "list" && o.value === "contains"));
   });
   const selectedOp = eligibleOperators.some(operator => operator.value === leaf.op)
@@ -1836,8 +1833,9 @@ function ConditionsEditor({
   const chooseField = (value: string) => {
     const nextField = fields.find(field => field.value === value);
     const nextOperators = operators.filter(operator =>
+      (nextField?.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(operator.value)) &&
       (!["gt", "gte", "lt", "lte"].includes(operator.value) || ["date", "number"].includes(nextField?.type || "")) &&
-      (!["in", "not_in"].includes(operator.value) || nextField?.type !== "boolean") &&
+      (!["in", "not_in"].includes(operator.value) || !["boolean", "date"].includes(nextField?.type || "")) &&
       (!["contains", "starts_with"].includes(operator.value) || nextField?.type === "string" || (nextField?.type === "list" && operator.value === "contains")));
     const nextOp = nextOperators.some(operator => operator.value === leaf.op) ? leaf.op : nextOperators[0]?.value || "eq";
     onChange({ field: value, op: nextOp, value: nextField?.type === "boolean" ? false : ["in", "not_in"].includes(nextOp) || nextField?.type === "list" ? [] : "" });
@@ -1884,39 +1882,16 @@ function ConditionsEditor({
         </SelectContent>
       </Select>
       {opMeta && opMeta.arity > 0 && (
-        fieldMeta?.type === "list" && fieldMeta.options ? (
-          <div className="flex min-w-48 flex-wrap gap-1.5" role="group" aria-label={fieldMeta.label}>
-            {fieldMeta.options.map((option) => {
-              const checked = listValue.includes(option);
-              return (
-                <Button key={option} type="button" size="sm" variant={checked ? "secondary" : "outline"}
-                  aria-pressed={checked}
-                  onClick={() => setValue(checked ? listValue.filter(value => value !== option) : [...listValue, option])}>
-                  {option}
-                </Button>
-              );
-            })}
-          </div>
-        ) : fieldMeta?.type === "enum" && fieldMeta.options && ["in", "not_in"].includes(selectedOp) ? (
-          <div className="flex min-w-48 flex-wrap gap-1.5" role="group" aria-label={fieldMeta.label}>
-            {fieldMeta.options.map((option) => {
-              const selectedValues = Array.isArray(leaf.value) ? leaf.value.map(String) : [];
-              const checked = selectedValues.includes(option);
-              return (
-                <Button key={option} type="button" size="sm" variant={checked ? "secondary" : "outline"}
-                  aria-pressed={checked}
-                  onClick={() => setValue(checked ? selectedValues.filter(value => value !== option) : [...selectedValues, option])}>
-                  {option}
-                </Button>
-              );
-            })}
-          </div>
+        fieldMeta?.options && (fieldMeta.type === "list" || ["in", "not_in"].includes(selectedOp)) ? (
+          <AutomationChoicePicker
+            options={fieldMeta.options.map(value => ({ value, label: fieldMeta.optionLabels?.[value] || value }))}
+            values={listValue} onChange={setValue} label={copy.value} placeholder={copy.chooseValue} />
         ) : fieldMeta?.type === "enum" && fieldMeta.options ? (
           <Select value={String(leaf.value ?? "")} onValueChange={(v) => onChange({ ...leaf, value: v })}>
             <SelectTrigger aria-label={copy.value} className="h-9 w-44 text-xs"><SelectValue placeholder={copy.chooseValue} /></SelectTrigger>
-            <SelectContent className="automation-rule-select-content max-h-80">
+            <SelectContent className="automation-rule-select-content max-h-80 z-[10050]">
               {fieldMeta.options.map((o) => (
-                <SelectItem key={o} value={o}>{o}</SelectItem>
+                <SelectItem key={o} value={o}>{fieldMeta.optionLabels?.[o] || o}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -1942,6 +1917,7 @@ function ConditionsEditor({
           />
         )
       )}
+      {fieldMeta?.help && <p className="w-full text-xs leading-relaxed text-muted-foreground">{fieldMeta.help}</p>}
     </div>
   );
 }

@@ -314,7 +314,7 @@ async function routeFixture(run: (request: (method: string, body?: unknown, auth
   }
 }
 
-test("HTTP group handoff and repeat preserve identity/history, dedupe group recipients, and emit no unrelated user automation", async () => {
+test("HTTP group handoff emits one assignment event even when its nominal owner is unchanged", async () => {
   await routeFixture(async (request, state) => {
     const targets = await request("GET");
     assert.equal(targets.status, 200);
@@ -325,7 +325,7 @@ test("HTTP group handoff and repeat preserve identity/history, dedupe group reci
     assert.equal(state.storage.history.length, 1);
     assert.equal(state.notifications.length, 1);
     assert.deepEqual(state.notifications[0].recipientIds, ["actor", "new-member", "new-second"]);
-    assert.equal(state.events.length, 0);
+    assert.equal(state.events.length, 1);
     assert.equal(state.logs.length, 1);
     assert.ok(state.storage.current().tags.includes("group_id:new"));
     assert.ok(!state.storage.current().tags.includes("group_id:old"));
@@ -344,7 +344,7 @@ test("HTTP user handoff permits outside-group recipients and removes shared rout
       new Set(["actor", "new-member", "new-second", "old-member", "outside", "owner"]));
     assert.equal((await request("POST", { newAssignedUserId: "owner" })).status, 200);
     assert.ok(!state.storage.current().tags.some((tag: string) => tag.startsWith("group_id:")));
-    assert.equal(state.events.length, 2);
+    assert.equal(state.events.length, 3);
   });
 });
 

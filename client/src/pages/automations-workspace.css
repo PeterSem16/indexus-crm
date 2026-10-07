@@ -68,7 +68,7 @@
 .automation-trigger-switch { display: flex; gap: 3px; margin-left: auto; padding: 3px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--card)); }
 .automation-trigger-switch button { height: 26px; padding: 0 9px; border: 0; border-radius: 7px; color: hsl(var(--foreground)); background: transparent; font-size: 10px; font-weight: 700; cursor: pointer; }
 .automation-trigger-switch button.active { color: hsl(var(--foreground)); background: hsl(var(--card)); box-shadow: 0 1px 3px hsl(var(--foreground) / .08); }
-.automation-trigger-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 12px 0 0 39px; }
+.automation-trigger-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 12px 0 0 39px; }
 .automation-trigger-controls > div { min-width: 0; }
 .automation-trigger-controls [role="combobox"] { height: 34px; margin-top: 5px; }
 .automation-step-when [data-testid^="trigger-context-"] { margin-top: 20px; }

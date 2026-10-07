@@ -52,10 +52,8 @@ export function registerTaskReassignmentRoutes(app: Express, requireAuth: Reques
       if (!result) return res.status(404).json({ error: "Task not found" });
       if (result.changed) {
         await dependencies.log(result, target, user.id, req.ip);
-        if (result.oldTask.assignedUserId !== result.task.assignedUserId) {
-          try { await dependencies.emitUserAssignment(result, user.id); }
-          catch (error) { console.error("[EventBus] task reassignment emit error:", error); }
-        }
+        try { await dependencies.emitUserAssignment(result, user.id); }
+        catch (error) { console.error("[EventBus] task reassignment emit error:", error); }
         if (result.group && taskReassignmentGroupId(result.oldTask) !== result.group.id) {
           try { await dependencies.notifyGroup(result); }
           catch (error) { console.error("[Tasks] group reassignment notification error:", error); }

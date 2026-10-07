@@ -1,5 +1,6 @@
 import { db } from "../db";
-import { customers, tasks, workflowEvents } from "@shared/schema";
+import { customers, tasks, taskGroupMembers, workflowEvents } from "@shared/schema";
+import { taskAutomationGroupIds } from "@shared/task-automation";
 import { and, eq, sql } from "drizzle-orm";
 import { taskTextContentIdentity } from "./task-text-identity";
 
@@ -48,6 +49,7 @@ export function safeTaskEventValues(task: any) {
     status: task.status,
     assignedUserId: task.assignedUserId,
     assignedDepartmentId: task.assignedDepartmentId,
+    taskGroupIds: taskAutomationGroupIds(task),
     createdByUserId: task.createdByUserId,
     customerId: task.customerId,
     relatedEntityType: task.relatedEntityType,
@@ -63,6 +65,18 @@ export function safeTaskEventValues(task: any) {
 
 export async function emitEvent(input: EventInput): Promise<string | null> {
   try {
+    if (input.module === "task") {
+      const withRouting = async (values: any) => {
+        if (!values || typeof values !== "object") return values;
+        const resolverGroups = values.resolvedByUserId
+          ? await db.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers)
+            .where(eq(taskGroupMembers.userId, values.resolvedByUserId))
+          : [];
+        return { ...values, taskGroupIds: taskAutomationGroupIds(values),
+          resolvedByGroupIds: [...new Set(resolverGroups.map(row => row.groupId))] };
+      };
+      input = { ...input, oldValues: await withRouting(input.oldValues), newValues: await withRouting(input.newValues) };
+    }
     const changedFields = diffChangedFields(input.oldValues, input.newValues);
     const [row] = await db
       .insert(workflowEvents)
@@ -234,7 +248,7 @@ export async function emitEntityUpdated(
       entityType,
       entityId,
       eventType: "status_changed",
-      oldValues: { status: oldValues.status },
+      oldValues: module === "task" ? oldValues : { status: oldValues.status },
       newValues: { status: newValues.status, ...newValues },
       actorUserId,
       countryCode,
@@ -272,14 +286,16 @@ export async function emitTaskCompleted(
 /** Emit assignment only when a task is newly assigned or its owner changes. */
 export async function emitTaskAssigned(task: any, oldTask?: any, actorUserId?: string | null) {
   if (!task?.id || !task.assignedUserId) return null;
-  if (oldTask && oldTask.assignedUserId === task.assignedUserId) return null;
-  let verifiedCountry: string | null = null;
+  if (oldTask && oldTask.assignedUserId === task.assignedUserId &&
+    JSON.stringify(taskAutomationGroupIds(oldTask)) === JSON.stringify(taskAutomationGroupIds(task)) &&
+    oldTask.assignedDepartmentId === task.assignedDepartmentId) return null;
+  let verifiedCountry: string | null = task.country || null;
   if (task.customerId) {
     const [customer] = await db.select({ country: customers.country })
       .from(customers)
       .where(eq(customers.id, task.customerId))
       .limit(1);
-    verifiedCountry = customer?.country || null;
+    verifiedCountry = customer?.country || verifiedCountry;
   }
   return emitEvent({
     module: "task",

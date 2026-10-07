@@ -10097,9 +10097,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       try {
         const { emitEntityUpdated, emitTaskCompleted, emitTaskAssigned } = await import("./lib/event-bus");
         await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
-        if (previousTask.assignedUserId !== task.assignedUserId) {
-          await emitTaskAssigned(task, previousTask, req.session.user!.id);
-        }
+        await emitTaskAssigned(task, previousTask, req.session.user!.id);
         if (completedNow) {
           await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
         }
