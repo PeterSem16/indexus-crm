@@ -5,6 +5,8 @@ import { planTaskActionRecipients } from "./automation-task-plan";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import { validateAutomationActions } from "./automation-action-policy";
 import { DEFAULT_TASK_MESSAGE_TEMPLATES, ensureTaskMessageTemplates, validTaskMessageTemplate } from "./task-message-templates";
+import { taskTemplateContext } from "./task-template-variables";
+import { templateVariableToken, taskSalutationFields } from "../../shared/task-template-variables";
 
 test("mixed recipient selection is bounded, unique and cannot contain arbitrary metadata", () => {
   assert.equal(validTaskActionRecipients([{ kind: "user", id: "a" }, { kind: "group", id: "a" }, { kind: "role", id: "r" }]), true);
@@ -109,4 +111,34 @@ test("approved default templates seed only once and do not restore later deletio
   for (const body of [{ name: "", content: "Text" }, { name: "Task", content: "" },
     { name: "Task", content: "Text", format: "html" }, { name: "Task", content: "Text", contentHtml: "<p>Text</p>" }])
     assert.equal(validTaskMessageTemplate(body), false);
+});
+
+test("catalog paths and existing message keys insert exactly one pair of braces", () => {
+  for (const value of ["newValues.firstName", "{{newValues.firstName}}", "{{{{newValues.firstName}}}}"])
+    assert.equal(templateVariableToken(value), "{{newValues.firstName}}");
+  assert.equal(templateVariableToken("{{customer.salutation}}"), "{{customer.salutation}}");
+});
+
+test("Task salutations use event names, template language and no fabricated identity", () => {
+  const ctx = { event: { module: "customer", countryCode: "SK" }, newValues: { firstName: "Anna", lastName: "Nováková" } };
+  assert.equal(taskTemplateContext(ctx).newValues.salutationFull, "Vážená pani");
+  assert.equal(taskTemplateContext(ctx, "en").newValues.salutationFull, "Dear Ms.");
+  assert.equal(taskTemplateContext(ctx, "cs").newValues.salutationDoc, "Vážená paní doktorko");
+  assert.equal(ctx.newValues.hasOwnProperty("salutation"), false);
+  assert.equal(taskTemplateContext({ event: { module: "clinic" }, newValues: {
+    doctorFirstName: "Peter", doctorLastName: "Novák",
+  } }).newValues.salutationDoc, "Vážený pán doktor");
+  assert.equal(taskTemplateContext({ event: { module: "collaborator" }, newValues: {} }).newValues.salutation, "");
+  for (const language of ["en", "sk", "cs", "hu", "ro", "it", "de"])
+    assert.ok(taskTemplateContext(ctx, language).newValues.salutationFull);
+  assert.equal(taskSalutationFields("task").length, 0);
+  assert.equal(taskSalutationFields("customer", "schedule.tick").length, 0);
+});
+
+test("salutation variables are accepted only in supported event contexts", () => {
+  const config = { title: "Contact", taskText: "{{newValues.salutationFull}}", assignedUserId: "u", templateLanguage: "sk" };
+  for (const module of ["customer", "clinic", "collaborator"])
+    assert.deepEqual(validateRuleCapabilities(rule(config, module)), []);
+  assert.ok(validateRuleCapabilities(rule(config, "task")).length);
+  assert.ok(validateRuleCapabilities(rule({ ...config, templateLanguage: "bad" }, "customer")).length);
 });

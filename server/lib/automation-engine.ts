@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
+import { taskTemplateContext } from "./task-template-variables";
 import { eq, and, gte, inArray, sql } from "drizzle-orm";
 import {
   workflowRules,
@@ -171,6 +172,7 @@ async function verifiedInboundAgentRecipient(raw: unknown, recipientId: string, 
 
 async function actionCreateTask(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
+    ctx = taskTemplateContext(ctx, config.templateLanguage);
     // New task text must never silently lose unavailable template variables.
     if (config.taskText !== undefined) {
       for (const value of [config.title, config.description, config.taskText]) {

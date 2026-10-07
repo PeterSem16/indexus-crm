@@ -365,4 +365,67 @@ test.describe("Task automation editor in the real App", () => {
     await expect(page.getByTestId("button-edit-template-created-task-template")).toHaveCount(0);
     expect(state.errors).toEqual([]);
   });
+
+  test("Back to service selection has padded scrollable cards on a short desktop and phone", async ({ page }) => {
+    const state = await fixture(page);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByTestId("button-create-rule").click();
+    await page.getByTestId("choose-service-create_task").click();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    const catalogPanel = dialog.getByTestId("automation-service-catalog");
+    await page.setViewportSize({ width: 1280, height: 650 });
+    await expect(catalogPanel).toBeVisible();
+    const metrics = await catalogPanel.evaluate(element => ({
+      padding: parseFloat(getComputedStyle(element).paddingLeft),
+      overflow: getComputedStyle(element).overflowY,
+      top: element.getBoundingClientRect().top,
+      bottom: element.getBoundingClientRect().bottom,
+      height: window.innerHeight,
+    }));
+    expect(metrics.padding).toBeGreaterThanOrEqual(16);
+    expect(metrics.overflow).toBe("auto");
+    expect(metrics.top).toBeGreaterThan(0);
+    expect(metrics.bottom).toBeLessThanOrEqual(metrics.height);
+    await page.screenshot({ path: "/tmp/automation-service-return-desktop.png" });
+    await catalogPanel.getByTestId("choose-service-remove_tag").scrollIntoViewIfNeeded();
+    await expect(catalogPanel.getByTestId("choose-service-remove_tag")).toBeInViewport();
+    await page.setViewportSize({ width: 390, height: 740 });
+    expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    await catalogPanel.getByTestId("choose-service-create_task").scrollIntoViewIfNeeded();
+    await expect(catalogPanel.getByTestId("choose-service-create_task")).toBeInViewport();
+    await page.screenshot({ path: "/tmp/automation-service-return-mobile.png" });
+    await catalogPanel.getByTestId("choose-service-create_task").click();
+    await expect(page.getByTestId("select-module")).toBeVisible();
+    expect(state.errors).toEqual([]);
+  });
+
+  test("Task template variables insert braces and expose salutations with translated Configurator tabs", async ({ page }) => {
+    const state = await fixture(page);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.goto("/configurator");
+    await expect(page.getByTestId("tab-email-router")).toHaveText("Email & GSM & Task");
+    await page.getByTestId("tab-email-router").click();
+    await expect(page.getByTestId("subtab-templates")).toHaveText("Templates");
+    await page.getByTestId("subtab-templates").click();
+    await page.getByTestId("button-add-template").click();
+    await page.getByTestId("toggle-type-task").click();
+    await page.getByTestId("input-template-name").fill("Variable test");
+    await page.getByTestId("input-template-subject").fill("Contact review");
+    const text = page.getByTestId("input-template-content");
+    await text.fill("Review ");
+    const search = page.getByTestId("input-template-variable-search");
+    await search.fill("newValues.firstName");
+    await page.getByTestId("button-variable-{{newValues.firstName}}").first().click();
+    await expect(text).toHaveValue("Review {{newValues.firstName}}");
+    await search.fill("salutationFull");
+    await page.getByTestId("button-variable-{{newValues.salutationFull}}").first().click();
+    await expect(text).toHaveValue("Review {{newValues.firstName}}{{newValues.salutationFull}}");
+    await search.fill("salutationDoc");
+    await expect(page.getByTestId("button-variable-{{newValues.salutationDoc}}").first()).toBeVisible();
+    await page.getByTestId("button-save-template").click();
+    await expect.poll(() => state.requests.length).toBe(1);
+    expect(state.requests[0].content).toBe("Review {{newValues.firstName}}{{newValues.salutationFull}}");
+    expect(state.errors).toEqual([]);
+  });
 });

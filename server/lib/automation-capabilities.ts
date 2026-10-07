@@ -1,3 +1,4 @@
+import { taskSalutationFields } from "../../shared/task-template-variables";
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
@@ -537,8 +538,12 @@ export function validateRuleCapabilities(rule: {
       if (specified(config.priority) && !TASK_PRIORITIES.some(priority => priority.value === config.priority))
         fail(`${path}.config.priority`, "Unknown task priority");
       if (config.taskText !== undefined) {
+        if (config.templateLanguage !== undefined &&
+            !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
+          fail(`${path}.config.templateLanguage`, "Unsupported Task template language");
         const variables = new Set([
           ...fieldsForEvent(rule.module, event).map(field => field.value),
+          ...taskSalutationFields(rule.module, event).map(field => field.value),
           "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
         ]);
         for (const key of ["title", "description", "taskText"]) {

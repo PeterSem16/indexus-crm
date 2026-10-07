@@ -1,6 +1,8 @@
 import type { Locale } from "./translations";
 
 export interface TaskActionCopy {
+  templatesLabel: string;
+  salutationLabels: Record<string, string>;
   taskType: string;
   taskTitle: string;
   explanation: string;
@@ -42,6 +44,8 @@ export interface TaskActionCopy {
 
 const taskActionCopy: Record<Locale, TaskActionCopy> = {
   en: {
+    templatesLabel: "Templates",
+    salutationLabels: { salutation: "Salutation", salutationFull: "Full salutation", salutationDoc: "Doctor salutation" },
     taskType: "Task", taskTitle: "Task title", taskVariablesHint: "Select a field to insert it in the focused title, description, or task text.", explanation: "Create a task when this rule matches. Groups receive one shared task; people and roles create personal tasks.",
     title: "Task title", description: "Short description (optional)", recipients: "Assign to", searchRecipients: "Search people, groups, or roles…",
     noRecipients: "No matching recipients", selected: "Selected recipients", users: "People", groups: "Groups", roles: "Roles",
@@ -54,6 +58,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Low", medium: "Medium", high: "High", urgent: "Urgent" },
   },
   sk: {
+    templatesLabel: "Šablóny",
+    salutationLabels: { salutation: "Oslovenie", salutationFull: "Plné oslovenie", salutationDoc: "Oslovenie lekára" },
     taskType: "Úloha", taskTitle: "Názov úlohy", taskVariablesHint: "Vyberte pole a vložte ho do aktívneho názvu, opisu alebo textu úlohy.", explanation: "Vytvorí úlohu pri zhode pravidla. Skupiny dostanú jednu spoločnú úlohu; ľudia a roly osobné úlohy.",
     title: "Názov úlohy", description: "Krátky opis (nepovinné)", recipients: "Priradiť komu", searchRecipients: "Hľadať ľudí, skupiny alebo roly…",
     noRecipients: "Nenašli sa príjemcovia", selected: "Vybraní príjemcovia", users: "Ľudia", groups: "Skupiny", roles: "Roly",
@@ -66,6 +72,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Nízka", medium: "Stredná", high: "Vysoká", urgent: "Urgentná" },
   },
   cs: {
+    templatesLabel: "Šablony",
+    salutationLabels: { salutation: "Oslovení", salutationFull: "Plné oslovení", salutationDoc: "Oslovení lékaře" },
     taskType: "Úkol", taskTitle: "Název úkolu", taskVariablesHint: "Vyberte pole a vložte ho do aktivního názvu, popisu nebo textu úkolu.", explanation: "Při shodě pravidla vytvoří úkol. Skupiny dostanou jeden sdílený úkol; lidé a role osobní úkoly.",
     title: "Název úkolu", description: "Krátký popis (volitelné)", recipients: "Přiřadit komu", searchRecipients: "Hledat osoby, skupiny nebo role…",
     noRecipients: "Žádní odpovídající příjemci", selected: "Vybraní příjemci", users: "Osoby", groups: "Skupiny", roles: "Role",
@@ -78,6 +86,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Nízká", medium: "Střední", high: "Vysoká", urgent: "Naléhavá" },
   },
   hu: {
+    templatesLabel: "Sablonok",
+    salutationLabels: { salutation: "Megszólítás", salutationFull: "Teljes megszólítás", salutationDoc: "Orvos megszólítása" },
     taskType: "Feladat", taskTitle: "Feladat címe", taskVariablesHint: "Válasszon mezőt a beszúráshoz az aktív címbe, leírásba vagy feladatszövegbe.", explanation: "Feladatot hoz létre, ha a szabály egyezik. A csoportok egy közös, a személyek és szerepkörök személyes feladatot kapnak.",
     title: "Feladat címe", description: "Rövid leírás (nem kötelező)", recipients: "Felelősök", searchRecipients: "Személyek, csoportok vagy szerepkörök keresése…",
     noRecipients: "Nincs egyező címzett", selected: "Kiválasztott címzettek", users: "Személyek", groups: "Csoportok", roles: "Szerepkörök",
@@ -90,6 +100,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Alacsony", medium: "Közepes", high: "Magas", urgent: "Sürgős" },
   },
   ro: {
+    templatesLabel: "Șabloane",
+    salutationLabels: { salutation: "Formulă de adresare", salutationFull: "Formulă completă de adresare", salutationDoc: "Adresare către medic" },
     taskType: "Sarcină", taskTitle: "Titlul sarcinii", taskVariablesHint: "Selectați un câmp pentru a-l insera în titlul, descrierea sau textul activ.", explanation: "Creează o sarcină când regula se potrivește. Grupurile primesc o sarcină comună; persoanele și rolurile primesc sarcini personale.",
     title: "Titlul sarcinii", description: "Descriere scurtă (opțional)", recipients: "Atribuie către", searchRecipients: "Caută persoane, grupuri sau roluri…",
     noRecipients: "Nu există destinatari potriviți", selected: "Destinatari selectați", users: "Persoane", groups: "Grupuri", roles: "Roluri",
@@ -102,6 +114,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Scăzută", medium: "Medie", high: "Ridicată", urgent: "Urgentă" },
   },
   it: {
+    templatesLabel: "Modelli",
+    salutationLabels: { salutation: "Formula di saluto", salutationFull: "Formula di saluto completa", salutationDoc: "Saluto al medico" },
     taskType: "Attività", taskTitle: "Titolo dell’attività", taskVariablesHint: "Seleziona un campo per inserirlo nel titolo, nella descrizione o nel testo attivo.", explanation: "Crea un’attività quando la regola corrisponde. I gruppi ricevono un’attività condivisa; persone e ruoli attività personali.",
     title: "Titolo dell’attività", description: "Descrizione breve (facoltativa)", recipients: "Assegna a", searchRecipients: "Cerca persone, gruppi o ruoli…",
     noRecipients: "Nessun destinatario corrispondente", selected: "Destinatari selezionati", users: "Persone", groups: "Gruppi", roles: "Ruoli",
@@ -114,6 +128,8 @@ const taskActionCopy: Record<Locale, TaskActionCopy> = {
     priorityLabels: { low: "Bassa", medium: "Media", high: "Alta", urgent: "Urgente" },
   },
   de: {
+    templatesLabel: "Vorlagen",
+    salutationLabels: { salutation: "Anrede", salutationFull: "Vollständige Anrede", salutationDoc: "Ärztliche Anrede" },
     taskType: "Aufgabe", taskTitle: "Aufgabentitel", taskVariablesHint: "Feld auswählen, um es in Titel, Beschreibung oder Aufgabentext einzufügen.", explanation: "Erstellt bei passender Regel eine Aufgabe. Gruppen erhalten eine gemeinsame Aufgabe; Personen und Rollen persönliche Aufgaben.",
     title: "Aufgabentitel", description: "Kurze Beschreibung (optional)", recipients: "Zuweisen an", searchRecipients: "Personen, Gruppen oder Rollen suchen…",
     noRecipients: "Keine passenden Empfänger", selected: "Ausgewählte Empfänger", users: "Personen", groups: "Gruppen", roles: "Rollen",

@@ -9,6 +9,7 @@ const createTaskDraft = z.object({
   description: z.string().optional(),
   taskText: z.string().optional(),
   templateId: nonempty.optional(),
+  templateLanguage: z.enum(["en", "sk", "cs", "cz", "hu", "ro", "it", "de"]).optional(),
   recipients: z.array(z.object({
     kind: z.enum(["user", "group", "role"]),
     id: nonempty.max(200),

@@ -253,7 +253,8 @@ export function AutomationCreateTaskAction({
             ? config.templateId : "custom"} onValueChange={(value) => {
             if (value === "custom") { set("templateId", undefined); return; }
             const template = templateQuery.data?.find((item) => item.id === value);
-              if (template) onChange({ ...config, templateId: template.id, title: template.subject || config.title || template.name, taskText: template.content || "" });
+              if (template) onChange({ ...config, templateId: template.id, templateLanguage: template.language,
+                title: template.subject || config.title || template.name, taskText: template.content || "" });
           }}>
             <SelectTrigger data-testid="select-task-action-template"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -272,7 +273,8 @@ export function AutomationCreateTaskAction({
           <div className="automation-create-task__variable-heading"><strong>{copy.variables}</strong><span>{availableVariables.length}</span></div>
           <p className="automation-create-task__variables-hint">{copy.taskVariablesHint}</p>
           <div className="automation-create-task__variable-list">
-            {availableVariables.map((variable) => <button type="button" key={variable.value} title={variable.label}
+            {availableVariables.map((variable) => <button type="button" key={variable.value}
+              title={copy.salutationLabels[variable.value.split(".").pop() || ""] || variable.label}
               onClick={() => insertVariable(variable.value)}>{`{{${variable.value}}}`}</button>)}
             {!availableVariables.length && <span>—</span>}
           </div>

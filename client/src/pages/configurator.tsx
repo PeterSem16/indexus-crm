@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ReactQuill from "react-quill";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
+import { taskSalutationFields, templateVariableToken } from "@shared/task-template-variables";
 import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -11788,8 +11789,10 @@ function MessageTemplatesTab() {
       label: (taskTemplateCatalog?.moduleLabels || {})[module] || module,
       description: taskCopy.taskVariablesHint,
       color: "bg-blue-500",
-      vars: (fields as Array<{ value: string; label: string }>).map(field => ({
-        key: field.value, label: field.label, example: `{{${field.value}}}`,
+      vars: [...fields as Array<{ value: string; label: string }>, ...taskSalutationFields(module)].map(field => ({
+        key: templateVariableToken(field.value),
+        label: taskCopy.salutationLabels[field.value.split(".").pop() || ""] || field.label,
+        example: templateVariableToken(field.value),
       })),
     }]),
   ) : SYSTEM_VARIABLES;
@@ -12371,6 +12374,7 @@ function MessageTemplatesTab() {
   };
 
   const insertVariable = (variable: string) => {
+    variable = templateVariableToken(variable);
     if (templateFormat === "html") {
       // Insert at cursor position in Quill editor
       const quill = quillRef.current?.getEditor();
@@ -13406,6 +13410,7 @@ function MessageTemplatesTab() {
                   <Input
                     value={varsSearch}
                     onChange={(e) => setVarsSearch(e.target.value)}
+                     data-testid="input-template-variable-search"
                     placeholder={(t.konfigurator as any).searchVariablePlaceholder || "Hľadať premennú..."}
                     className="h-7 text-xs pl-6 pr-2 bg-muted/30"
                   />
@@ -13497,20 +13502,20 @@ function MessageTemplatesTab() {
                 {varsSearch ? (
                   // Flat filtered search results
                   <div className="px-2 space-y-0.5">
-                    {Object.entries(templateVariables).flatMap(([, group]) =>
+                    {Object.entries(templateVariables).flatMap(([module, group]) =>
                       group.vars.filter(v =>
                         v.label.toLowerCase().includes(varsSearch.toLowerCase()) ||
                         v.key.toLowerCase().includes(varsSearch.toLowerCase())
                       ).map(v => (
                         <button
-                          key={v.key}
+                          key={`${module}:${v.key}`}
                           onClick={() => insertVariable(v.key)}
                           title={`Príklad: ${v.example}`}
                           className="flex flex-col items-start w-full text-left px-2.5 py-2 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors group border border-transparent hover:border-primary/20"
                           data-testid={`button-variable-${v.key}`}
                         >
                           <span className="text-xs font-medium leading-tight">{v.label}</span>
-                          <span className="font-mono text-[9px] text-muted-foreground group-hover:text-primary/70 mt-0.5">{`{{${v.key}}}`}</span>
+                          <span className="font-mono text-[9px] text-muted-foreground group-hover:text-primary/70 mt-0.5">{templateVariableToken(v.key)}</span>
                         </button>
                       ))
                     )}
@@ -13556,7 +13561,7 @@ function MessageTemplatesTab() {
                                 data-testid={`button-variable-${v.key}`}
                               >
                                 <span className="text-xs leading-tight">{v.label}</span>
-                                <span className="font-mono text-[9px] text-muted-foreground/60 group-hover:text-primary/60 mt-0.5">{`{{${v.key}}}`}</span>
+                                <span className="font-mono text-[9px] text-muted-foreground/60 group-hover:text-primary/60 mt-0.5">{templateVariableToken(v.key)}</span>
                               </button>
                             ))}
                           </div>
@@ -21413,7 +21418,7 @@ const HTML_TEMPLATES = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ConfiguratorPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -21445,7 +21450,7 @@ export default function ConfiguratorPage() {
           </TabsTrigger>
           <TabsTrigger value="email-router" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-email-router">
             <Mail className="h-4 w-4 shrink-0" />
-            <span className="hidden md:inline">Email & GSM</span>
+            <span className="hidden md:inline">Email & GSM & Task</span>
           </TabsTrigger>
           <TabsTrigger value="api-keys" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-api-keys">
             <Key className="h-4 w-4 shrink-0" />
@@ -21581,7 +21586,7 @@ export default function ConfiguratorPage() {
         <TabsContent value="email-router">
           <Card>
             <CardHeader>
-              <CardTitle>Email & GSM Router</CardTitle>
+              <CardTitle>Email & GSM & Task</CardTitle>
               <CardDescription>Konfigurácia pravidiel pre spracovanie emailov a SMS správ</CardDescription>
             </CardHeader>
             <CardContent>
@@ -21597,7 +21602,7 @@ export default function ConfiguratorPage() {
                   </TabsTrigger>
                   <TabsTrigger value="templates" data-testid="subtab-templates">
                     <FileText className="h-4 w-4 mr-2" />
-                    Šablóny
+                    {getTaskActionCopy(locale).templatesLabel}
                   </TabsTrigger>
                   <TabsTrigger value="mailchimp" data-testid="subtab-mailchimp">
                     <Mail className="h-4 w-4 mr-2" />

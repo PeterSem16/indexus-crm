@@ -1,3 +1,4 @@
+import { taskSalutationFields } from "@shared/task-template-variables";
 import { useState, useMemo, useEffect, Fragment, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -930,7 +931,7 @@ function RuleEditor({
   if (!rule && !initialDraft && !selectedService) {
     return (
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="task-modern-modal automation-service-dialog max-w-5xl max-h-[90vh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+        <DialogContent className="task-modern-modal automation-service-dialog" overlayClassName="task-modern-modal-overlay">
           <TaskModalArtwork variant="create" />
           <DialogHeader><DialogTitle>{t.automationServices.choose}</DialogTitle></DialogHeader>
           <AutomationServiceCatalog catalog={catalog} compact onSelect={selectService} />
@@ -1163,7 +1164,7 @@ function RuleEditor({
                       {draft.actions.map((action, index) => <ActionEditor key={index} action={action} index={index}
                         actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
                         recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
-                        availableVariables={fieldsForConditions.map(({ value, label }) => ({ value, label }))}
+                        availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
                         users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
                         onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
                         onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
@@ -1477,7 +1478,7 @@ function RuleEditor({
                     actionTypes={catalog.actionTypes}
                     supportedActions={actionsForModule.map(a => a.value)}
                     recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
-                    availableVariables={fieldsForConditions.map(({ value, label }) => ({ value, label }))}
+                    availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
                     users={users}
                     departments={departments || []}
                     taskGroups={taskGroups}
