@@ -109,10 +109,18 @@ test("Graph receives one mixed-recipient message and redacts vendor failures", a
 test("approved defaults use a persistent seed marker and portable inline assets", async () => {
   const queries: string[] = [];
   await ensureAutomationEmailTemplates({ query: async sql => { queries.push(sql); } });
+  assert.equal(queries.length, 2);
   assert.match(queries[0], /ON CONFLICT \(id\) DO NOTHING RETURNING id/);
   assert.match(queries[0], /country_codes/);
+  assert.doesNotMatch(queries[0], /indexus-automation-email-(data-change|information)/);
+  assert.match(queries[1], /approved-automation-emails-non-task/);
+  assert.match(queries[1], /indexus-automation-email-data-change/);
+  assert.match(queries[1], /indexus-automation-email-information/);
+  assert.doesNotMatch(queries[1], /indexus-automation-email-(new-task|action-needed|completed|deadline)/);
+  assert.match(queries[1], /ON CONFLICT \(id\) DO NOTHING RETURNING id/);
   const templates = JSON.parse(await readFile("server/assets/automation-email/templates.json", "utf8"));
-  assert.equal(templates.length, 4);
+  assert.equal(templates.length, 6);
+  assert.equal(new Set(templates.map((template: any) => template.id)).size, 6);
   for (const template of templates) {
     assert.match(template.contentHtml, /cid:indexus-automation-/);
     assert.doesNotMatch(template.contentHtml, /\/__mockup\/|9. októbra 2026|SYSTEM_SIGNATURE_START|Slovensko · systémová schránka/);
