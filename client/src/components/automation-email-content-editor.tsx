@@ -103,6 +103,7 @@ export function AutomationEmailContentEditor({
             variant="ghost"
             size="icon"
             className="absolute right-0 top-0 h-8 w-8 shrink-0 rounded-full p-0"
+            style={{ position: "absolute", right: 0, top: 0 }}
             aria-label={t.common.close}
             title={t.common.close}
             onClick={() => onOpenChange(false)}

@@ -8,6 +8,7 @@ import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import loadConfig from "tailwindcss/loadConfig";
 import editorCopy from "../client/src/i18n/send-email-editor-translations";
+import executionCopy from "../client/src/i18n/automation-execution-settings-translations";
 
 test("automation email modal edits the real rule draft safely, preserves recipients and fits desktop/mobile", async () => {
   const translationSource = ts.createSourceFile("translations.ts", await readFile("client/src/i18n/translations.ts", "utf8"), ts.ScriptTarget.Latest, true);
@@ -15,12 +16,14 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     node.declarationList.declarations.some(decl => ts.isIdentifier(decl.name) && decl.name.text === "sendEmailActionTranslations"))!;
   assert.ok(emailCopy);
   for (const copy of Object.values(editorCopy)) assert.deepEqual(Object.keys(copy), Object.keys(editorCopy.en));
+  for (const copy of Object.values(executionCopy)) assert.deepEqual(Object.keys(copy), Object.keys(executionCopy.en));
   const result = await build({
     stdin: { contents: `
       import React,{useState} from "react";
       import {createRoot} from "react-dom/client";
       import {QueryClient,QueryClientProvider} from "@tanstack/react-query";
       import {AutomationSendEmailAction} from "./client/src/components/automation-send-email-action";
+      import {AutomationRuleExecutionSettings} from "./client/src/components/automation-rule-execution-settings";
       import {Dialog,DialogContent,DialogTitle,DialogDescription} from "./client/src/components/ui/dialog";
       const client=new QueryClient({defaultOptions:{queries:{staleTime:Infinity,retry:false}}});
       client.setQueryData(["/api/automation/email-mailboxes",undefined],{personal:{connected:true,email:"author@example.test"},system:[]});
@@ -29,13 +32,16 @@ test("automation email modal edits the real rule draft safely, preserves recipie
       client.setQueryData(["/api/template-categories"],[]);
       function Fixture(){
         const [parentOpen,setParentOpen]=useState(true);
-        const [config,setConfig]=useState({subject:"Initial subject",body:'<p>Initial body</p>',senderMode:"personal",to:"contact@example.test",templateId:"saved-template",templateSnapshot:true,templateName:"Saved copy",customSetting:"keep"});
+        const [config,setConfig]=useState({subject:"Initial subject",body:'<p>Initial body</p>',senderMode:"personal",to:"contact@example.test",templateId:"saved-template",templateSnapshot:true,templateName:"Saved copy",customSetting:"keep",rateLimitPerHour:10,enabled:true});
         return <QueryClientProvider client={client}>
           <Dialog open={parentOpen} onOpenChange={setParentOpen}>
             <DialogContent className="task-modern-modal automation-rule-dialog overflow-y-auto" overlayClassName="task-modern-modal-overlay" data-testid="parent-rule">
               <DialogTitle>Rule editor</DialogTitle><DialogDescription>Existing rule draft</DialogDescription>
               <div className="overflow-y-auto p-4"><AutomationSendEmailAction config={config} onChange={setConfig} users={[]} groups={[]} roles={[]} countryCodes={[]}
-                availableVariables={[{value:"newValues.firstName",label:"Contact name"}]} recipientTemplates={[]} testId="mail"/></div>
+                availableVariables={[{value:"newValues.firstName",label:"Contact name"}]} recipientTemplates={[]} testId="mail"/>
+                <section className="automation-advanced"><AutomationRuleExecutionSettings rateLimit={config.rateLimitPerHour} enabled={config.enabled}
+                  onRateLimitChange={rateLimitPerHour=>setConfig({...config,rateLimitPerHour})} onEnabledChange={enabled=>setConfig({...config,enabled})}/></section>
+              </div>
             </DialogContent>
           </Dialog>
           <pre data-testid="config">{JSON.stringify(config)}</pre>
@@ -48,8 +54,8 @@ test("automation email modal edits the real rule draft safely, preserves recipie
       setup(builder) {
         builder.onResolve({ filter: /^@\/i18n$/ }, () => ({ path: "language", namespace: "fixture" }));
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
-          contents: `import editorCopy from "./client/src/i18n/send-email-editor-translations"; ${emailCopy.getText(translationSource)}
-            export const useI18n=()=>({t:{sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,common:{close:"Zavrieť"}}});`,
+           contents: `import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; ${emailCopy.getText(translationSource)}
+             export const useI18n=()=>({t:{sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,common:{close:"Zavrieť"}}});`,
           resolveDir: process.cwd(), loader: "ts",
         }));
       },
@@ -59,8 +65,9 @@ test("automation email modal edits the real rule draft safely, preserves recipie
   });
   const styles = await postcss([tailwindcss({ ...loadConfig(`${process.cwd()}/tailwind.config.ts`), content: [
     "client/src/components/automation-email-content-editor.tsx", "client/src/components/automation-send-email-action.tsx",
-    "client/src/components/ui/{dialog,input,textarea,button,tabs,badge,select,label}.tsx",
-  ] })]).process("@tailwind base; @tailwind components; @tailwind utilities;", { from: undefined });
+    "client/src/components/automation-rule-execution-settings.tsx",
+    "client/src/components/ui/{dialog,input,textarea,button,tabs,badge,select,label,popover,switch}.tsx",
+  ] })]).process(await readFile("client/src/index.css", "utf8"), { from: `${process.cwd()}/client/src/index.css` });
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
@@ -76,6 +83,20 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     await expect(page.locator("textarea")).toHaveCount(0);
     await expect(page.getByTestId("mail-subject")).toHaveCount(0);
     await expect(page.getByTestId("mail-editor-template")).toHaveCount(0);
+    await page.getByTestId("rate-limit-help").click();
+    await expect(page.getByTestId("rate-limit-help-content")).toContainText(executionCopy.sk.rateLimitExample);
+    await expect(page.getByTestId("rate-limit-help-content")).toContainText(executionCopy.sk.rateLimitCount);
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("parent-rule")).toBeVisible();
+    await page.getByTestId("enabled-help").click();
+    await expect(page.getByTestId("enabled-help-content")).toContainText(executionCopy.sk.enabledDetails);
+    await page.keyboard.press("Escape");
+    await page.getByTestId("input-rate-limit").fill("");
+    assert.equal(JSON.parse(await page.getByTestId("config").innerText()).rateLimitPerHour, null);
+    await page.getByTestId("input-rate-limit").fill("0");
+    assert.equal(JSON.parse(await page.getByTestId("config").innerText()).rateLimitPerHour, 0);
+    await page.getByTestId("switch-enabled").click();
+    assert.equal(JSON.parse(await page.getByTestId("config").innerText()).enabled, false);
     await page.getByLabel("E-mailová adresa", { exact: true }).fill("incomplete@");
     await page.getByTestId("mail-open-editor").click();
     const dialog = page.getByTestId("mail-content-editor");
@@ -87,6 +108,8 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     const dialogBounds = await dialog.boundingBox();
     assert.ok(closeBounds && dialogBounds && closeBounds.width <= 40 && closeBounds.height <= 40 &&
       closeBounds.x > dialogBounds.x + dialogBounds.width - 80);
+    assert.ok(closeBounds.y < dialogBounds.y + 60);
+    assert.equal(await page.getByTestId("mail-editor-close").evaluate(element => getComputedStyle(element).position), "absolute");
     assert.equal(await page.getByTestId("mail-editor-close").innerText(), "");
     assert.ok(await dialog.evaluate(element => Number(getComputedStyle(element).zIndex)) >
       await page.getByTestId("parent-rule").evaluate(element => Number(getComputedStyle(element).zIndex)));
@@ -127,6 +150,9 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     await expect(dialog).toHaveCount(0);
     await expect(page.getByTestId("parent-rule")).toBeVisible();
     await expect(page.getByLabel("E-mailová adresa", { exact: true })).toHaveValue("incomplete@");
+    await page.getByTestId("rate-limit-help").click();
+    await expect(page.getByTestId("rate-limit-help-content")).toBeInViewport();
+    await page.keyboard.press("Escape");
     await page.getByTestId("mail-open-editor").click();
     await expect(subject).toHaveValue("Hello {{newValues.firstName}} person");
     await expect(body).toHaveValue(config.body);

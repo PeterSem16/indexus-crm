@@ -13,7 +13,7 @@ export type AutomationEmailDefault = {
 };
 type EmailCopy = { name: string; subject: string; artworkAlt: string; texts: string[] };
 export type AutomationTemplateLocale = {
-  language: AutomationTranslationLanguage;
+  language: AutomationTranslationLanguage | "sk";
   automationLabel: string;
   linkTitle: string;
   email: Record<string, EmailCopy>;

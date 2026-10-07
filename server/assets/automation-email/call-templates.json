@@ -1,0 +1,72 @@
+{
+  "sk": {
+    "badge": "HOVOR", "detailHeading": "Podrobnosti v INDEXUS", "detailText": "Históriu hovoru a ďalší postup si overte po prihlásení do INDEXUS. Telefónne čísla ani osobné údaje v tomto e-maile neposielame.",
+    "openCall": "Otvoriť záznam hovoru v INDEXUS", "linkTitle": "Otvorte príslušný záznam v INDEXUS", "artworkAlt": "Ilustrácia kontroly záznamu hovoru",
+    "variants": [
+      {"key":"inbound","name":"Prichádzajúci hovor","emailBody":"Skontrolujte záznam prichádzajúceho hovoru v INDEXUS. Overte požiadavku volajúceho a zaznamenajte ďalší postup.","taskName":"Preveriť prichádzajúci hovor","taskBody":"Skontroluj históriu prichádzajúceho hovoru, over požiadavku volajúceho a doplň výsledok alebo ďalší postup v INDEXUS."},
+      {"key":"inbound-missed","name":"Zmeškaný prichádzajúci hovor","emailBody":"Prichádzajúci hovor zostal neprijatý. Overte jeho záznam v INDEXUS a podľa potreby zabezpečte spätné kontaktovanie.","taskName":"Vrátiť zmeškaný prichádzajúci hovor","taskBody":"Over záznam zmeškaného prichádzajúceho hovoru a podľa potreby kontaktuj volajúceho späť. Zapíš výsledok alebo dohodni ďalší termín."},
+      {"key":"outbound","name":"Výsledok odchádzajúceho hovoru","emailBody":"Skontrolujte výsledok odchádzajúceho hovoru v INDEXUS. Overte záznam komunikácie a potvrďte nadväzujúci krok.","taskName":"Preveriť výsledok odchádzajúceho hovoru","taskBody":"Skontroluj výsledok odchádzajúceho hovoru a doplň záznam komunikácie. Potvrď ďalší krok alebo dohodnutý termín."},
+      {"key":"outbound-unanswered","name":"Odchádzajúci hovor bez spojenia","emailBody":"Odchádzajúci pokus neviedol k spojeniu. Skontrolujte dôvod v INDEXUS a podľa potreby naplánujte ďalší pokus.","taskName":"Zopakovať odchádzajúci pokus","taskBody":"Over dôvod neúspešného odchádzajúceho pokusu a správnosť kontaktných údajov. Podľa potreby dohodni alebo naplánuj ďalší pokus a zapíš postup."}
+    ]
+  },
+  "en": {
+    "badge":"CALL", "detailHeading":"Details in INDEXUS", "detailText":"Review the call history and next steps after signing in to INDEXUS. Phone numbers and personal details are not sent in this email.",
+    "openCall":"Open the call record in INDEXUS", "linkTitle":"Open the relevant record in INDEXUS", "artworkAlt":"Illustration of call record review",
+    "variants":[
+      {"key":"inbound","name":"Inbound call","emailBody":"Review the inbound call record in INDEXUS. Check the caller’s request and record the next steps.","taskName":"Review the inbound call","taskBody":"Review the inbound call history, verify the caller’s request and add the outcome or next steps in INDEXUS."},
+      {"key":"inbound-missed","name":"Missed inbound call","emailBody":"An inbound call was not answered. Review its record in INDEXUS and arrange a return call if needed.","taskName":"Return the missed inbound call","taskBody":"Review the missed inbound call record and call back if needed. Record the outcome or agree on a follow-up time."},
+      {"key":"outbound","name":"Outbound call result","emailBody":"Review the outbound call result in INDEXUS. Check the communication record and confirm the next step.","taskName":"Review the outbound call result","taskBody":"Review the outbound call result and complete the communication record. Confirm the next step or agreed follow-up time."},
+      {"key":"outbound-unanswered","name":"Outbound call without connection","emailBody":"The outbound attempt did not connect. Review the reason in INDEXUS and schedule another attempt if needed.","taskName":"Retry the outbound call","taskBody":"Check why the outbound attempt failed and verify the contact details. If needed, agree on or schedule another attempt and record the next steps."}
+    ]
+  },
+  "cs": {
+    "badge":"HOVOR", "detailHeading":"Podrobnosti v INDEXUS", "detailText":"Historii hovoru a další postup si ověřte po přihlášení do INDEXUS. Telefonní čísla ani osobní údaje v tomto e-mailu neposíláme.",
+    "openCall":"Otevřít záznam hovoru v INDEXUS", "linkTitle":"Otevřete příslušný záznam v INDEXUS", "artworkAlt":"Ilustrace kontroly záznamu hovoru",
+    "variants":[
+      {"key":"inbound","name":"Příchozí hovor","emailBody":"Zkontrolujte záznam příchozího hovoru v INDEXUS. Ověřte požadavek volajícího a zaznamenejte další postup.","taskName":"Prověřit příchozí hovor","taskBody":"Zkontroluj historii příchozího hovoru, ověř požadavek volajícího a doplň výsledek nebo další postup v INDEXUS."},
+      {"key":"inbound-missed","name":"Zmeškaný příchozí hovor","emailBody":"Příchozí hovor zůstal nepřijatý. Ověřte jeho záznam v INDEXUS a podle potřeby zajistěte zpětné kontaktování.","taskName":"Vrátit zmeškaný příchozí hovor","taskBody":"Ověř záznam zmeškaného příchozího hovoru a podle potřeby kontaktuj volajícího zpět. Zapiš výsledek nebo dohodni další termín."},
+      {"key":"outbound","name":"Výsledek odchozího hovoru","emailBody":"Zkontrolujte výsledek odchozího hovoru v INDEXUS. Ověřte záznam komunikace a potvrďte navazující krok.","taskName":"Prověřit výsledek odchozího hovoru","taskBody":"Zkontroluj výsledek odchozího hovoru a doplň záznam komunikace. Potvrď další krok nebo dohodnutý termín."},
+      {"key":"outbound-unanswered","name":"Odchozí hovor bez spojení","emailBody":"Odchozí pokus nevedl ke spojení. Zkontrolujte důvod v INDEXUS a podle potřeby naplánujte další pokus.","taskName":"Zopakovat odchozí pokus","taskBody":"Ověř důvod neúspěšného odchozího pokusu a správnost kontaktních údajů. Podle potřeby dohodni nebo naplánuj další pokus a zapiš postup."}
+    ]
+  },
+  "hu": {
+    "badge":"HÍVÁS", "detailHeading":"Részletek az INDEXUS rendszerben", "detailText":"Bejelentkezés után ellenőrizze a híváselőzményeket és a következő lépéseket az INDEXUS rendszerben. Telefonszámokat és személyes adatokat nem küldünk ebben az e-mailben.",
+    "openCall":"Hívásrekord megnyitása az INDEXUS rendszerben", "linkTitle":"Nyissa meg a megfelelő rekordot az INDEXUS rendszerben", "artworkAlt":"Hívásrekord ellenőrzésének illusztrációja",
+    "variants":[
+      {"key":"inbound","name":"Bejövő hívás","emailBody":"Ellenőrizze a bejövő hívás rekordját az INDEXUS rendszerben. Tekintse át a hívó kérését, és rögzítse a következő lépéseket.","taskName":"Bejövő hívás ellenőrzése","taskBody":"Ellenőrizd a bejövő hívás előzményeit és a hívó kérését. Rögzítsd az eredményt vagy a következő lépéseket az INDEXUS rendszerben."},
+      {"key":"inbound-missed","name":"Nem fogadott bejövő hívás","emailBody":"Egy bejövő hívás nem került fogadásra. Ellenőrizze a rekordját az INDEXUS rendszerben, és szükség esetén gondoskodjon a visszahívásról.","taskName":"Nem fogadott hívás visszahívása","taskBody":"Ellenőrizd a nem fogadott bejövő hívás rekordját, és szükség esetén hívd vissza a hívót. Rögzítsd az eredményt, vagy egyeztess új időpontot."},
+      {"key":"outbound","name":"Kimenő hívás eredménye","emailBody":"Ellenőrizze a kimenő hívás eredményét az INDEXUS rendszerben. Tekintse át a kommunikációs rekordot, és erősítse meg a következő lépést.","taskName":"Kimenő hívás eredményének ellenőrzése","taskBody":"Ellenőrizd a kimenő hívás eredményét, és egészítsd ki a kommunikációs rekordot. Erősítsd meg a következő lépést vagy az egyeztetett időpontot."},
+      {"key":"outbound-unanswered","name":"Kimenő hívás kapcsolat nélkül","emailBody":"A kimenő hívási kísérlet nem vezetett kapcsolathoz. Ellenőrizze az okát az INDEXUS rendszerben, és szükség esetén ütemezzen újabb kísérletet.","taskName":"Kimenő hívás megismétlése","taskBody":"Ellenőrizd a sikertelen kimenő hívás okát és a kapcsolati adatok helyességét. Szükség esetén egyeztess vagy ütemezz újabb kísérletet, és rögzítsd a teendőket."}
+    ]
+  },
+  "ro": {
+    "badge":"APEL", "detailHeading":"Detalii în INDEXUS", "detailText":"Verificați istoricul apelului și pașii următori după autentificarea în INDEXUS. Numerele de telefon și datele personale nu sunt trimise în acest e-mail.",
+    "openCall":"Deschideți înregistrarea apelului în INDEXUS", "linkTitle":"Deschideți înregistrarea relevantă în INDEXUS", "artworkAlt":"Ilustrație a verificării înregistrării unui apel",
+    "variants":[
+      {"key":"inbound","name":"Apel primit","emailBody":"Verificați înregistrarea apelului primit în INDEXUS. Analizați solicitarea apelantului și înregistrați pașii următori.","taskName":"Verificarea apelului primit","taskBody":"Verifică istoricul apelului primit și solicitarea apelantului. Completează rezultatul sau pașii următori în INDEXUS."},
+      {"key":"inbound-missed","name":"Apel primit nepreluat","emailBody":"Un apel primit nu a fost preluat. Verificați înregistrarea în INDEXUS și asigurați reapelarea dacă este necesar.","taskName":"Reapelarea unui apel nepreluat","taskBody":"Verifică înregistrarea apelului primit nepreluat și sună apelantul înapoi dacă este necesar. Înregistrează rezultatul sau stabilește un nou termen."},
+      {"key":"outbound","name":"Rezultatul apelului efectuat","emailBody":"Verificați rezultatul apelului efectuat în INDEXUS. Analizați înregistrarea comunicării și confirmați pasul următor.","taskName":"Verificarea rezultatului apelului efectuat","taskBody":"Verifică rezultatul apelului efectuat și completează înregistrarea comunicării. Confirmă pasul următor sau termenul convenit."},
+      {"key":"outbound-unanswered","name":"Apel efectuat fără conectare","emailBody":"Încercarea de apel nu a dus la conectare. Verificați motivul în INDEXUS și programați o nouă încercare dacă este necesar.","taskName":"Repetarea încercării de apel","taskBody":"Verifică motivul încercării de apel nereușite și corectitudinea datelor de contact. Dacă este necesar, stabilește sau programează o nouă încercare și înregistrează pașii următori."}
+    ]
+  },
+  "it": {
+    "badge":"CHIAMATA", "detailHeading":"Dettagli in INDEXUS", "detailText":"Controlla la cronologia della chiamata e i passaggi successivi dopo l'accesso a INDEXUS. Numeri di telefono e dati personali non vengono inviati in questa email.",
+    "openCall":"Apri il record della chiamata in INDEXUS", "linkTitle":"Apri il record pertinente in INDEXUS", "artworkAlt":"Illustrazione della verifica di un record di chiamata",
+    "variants":[
+      {"key":"inbound","name":"Chiamata in entrata","emailBody":"Controlla il record della chiamata in entrata in INDEXUS. Verifica la richiesta del chiamante e registra i passaggi successivi.","taskName":"Verificare la chiamata in entrata","taskBody":"Controlla la cronologia della chiamata in entrata e la richiesta del chiamante. Aggiungi il risultato o i passaggi successivi in INDEXUS."},
+      {"key":"inbound-missed","name":"Chiamata in entrata persa","emailBody":"Una chiamata in entrata non ha ricevuto risposta. Controlla il record in INDEXUS e predisponi una richiamata se necessario.","taskName":"Richiamare dopo una chiamata persa","taskBody":"Controlla il record della chiamata in entrata persa e richiama se necessario. Registra il risultato o concorda un nuovo appuntamento."},
+      {"key":"outbound","name":"Esito della chiamata in uscita","emailBody":"Controlla l'esito della chiamata in uscita in INDEXUS. Verifica il record della comunicazione e conferma il passaggio successivo.","taskName":"Verificare l'esito della chiamata in uscita","taskBody":"Controlla l'esito della chiamata in uscita e completa il record della comunicazione. Conferma il passaggio successivo o l'appuntamento concordato."},
+      {"key":"outbound-unanswered","name":"Chiamata in uscita senza collegamento","emailBody":"Il tentativo di chiamata non ha stabilito un collegamento. Controlla il motivo in INDEXUS e pianifica un altro tentativo se necessario.","taskName":"Ripetere il tentativo di chiamata","taskBody":"Verifica il motivo del tentativo non riuscito e la correttezza dei recapiti. Se necessario, concorda o pianifica un altro tentativo e registra i passaggi successivi."}
+    ]
+  },
+  "de": {
+    "badge":"ANRUF", "detailHeading":"Details in INDEXUS", "detailText":"Prüfen Sie den Anrufverlauf und die nächsten Schritte nach der Anmeldung in INDEXUS. Telefonnummern und persönliche Daten werden nicht in dieser E-Mail versendet.",
+    "openCall":"Anrufdatensatz in INDEXUS öffnen", "linkTitle":"Öffnen Sie den entsprechenden Datensatz in INDEXUS", "artworkAlt":"Illustration der Prüfung eines Anrufdatensatzes",
+    "variants":[
+      {"key":"inbound","name":"Eingehender Anruf","emailBody":"Prüfen Sie den Datensatz des eingehenden Anrufs in INDEXUS. Klären Sie das Anliegen des Anrufers und dokumentieren Sie die nächsten Schritte.","taskName":"Eingehenden Anruf prüfen","taskBody":"Prüfe den Verlauf des eingehenden Anrufs und das Anliegen des Anrufers. Ergänze das Ergebnis oder die nächsten Schritte in INDEXUS."},
+      {"key":"inbound-missed","name":"Verpasster eingehender Anruf","emailBody":"Ein eingehender Anruf wurde nicht angenommen. Prüfen Sie den Datensatz in INDEXUS und veranlassen Sie bei Bedarf einen Rückruf.","taskName":"Verpassten Anruf zurückrufen","taskBody":"Prüfe den Datensatz des verpassten eingehenden Anrufs und rufe bei Bedarf zurück. Dokumentiere das Ergebnis oder vereinbare einen neuen Termin."},
+      {"key":"outbound","name":"Ergebnis des ausgehenden Anrufs","emailBody":"Prüfen Sie das Ergebnis des ausgehenden Anrufs in INDEXUS. Kontrollieren Sie den Kommunikationsdatensatz und bestätigen Sie den nächsten Schritt.","taskName":"Ergebnis des ausgehenden Anrufs prüfen","taskBody":"Prüfe das Ergebnis des ausgehenden Anrufs und ergänze den Kommunikationsdatensatz. Bestätige den nächsten Schritt oder den vereinbarten Termin."},
+      {"key":"outbound-unanswered","name":"Ausgehender Anruf ohne Verbindung","emailBody":"Der ausgehende Anrufversuch hat keine Verbindung hergestellt. Prüfen Sie den Grund in INDEXUS und planen Sie bei Bedarf einen weiteren Versuch.","taskName":"Ausgehenden Anruf erneut versuchen","taskBody":"Prüfe den Grund des erfolglosen ausgehenden Anrufversuchs und die Richtigkeit der Kontaktdaten. Vereinbare oder plane bei Bedarf einen weiteren Versuch und dokumentiere das Vorgehen."}
+    ]
+  }
+}

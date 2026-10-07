@@ -30,6 +30,7 @@ import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
 import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
+import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
@@ -1213,13 +1214,9 @@ function RuleEditor({
                 </div>
                 {onceCountryUnsafe && <p className="automation-validation" role="alert">{t.automationServices.workspace.onceCountryRequired}</p>}
                 <section className="automation-advanced">
-                  <div><Label>{t.automationServices.workspace.rateLimit}</Label><Input type="number" value={draft.rateLimitPerHour ?? ""}
-                    onChange={e => setDraft({ ...draft, rateLimitPerHour: e.target.value ? Number(e.target.value) : null })} data-testid="input-rate-limit" /></div>
-                  <div className="automation-enabled-setting">
-                    <Switch checked={draft.enabled} disabled={scheduleUnsafe || incompatible}
-                      onCheckedChange={enabled => setDraft({ ...draft, enabled })} data-testid="switch-enabled" />
-                    <Label>{t.automationServices.workspace.enabled}</Label>
-                  </div>
+                  <AutomationRuleExecutionSettings rateLimit={draft.rateLimitPerHour} enabled={draft.enabled} disabled={scheduleUnsafe || incompatible}
+                    onRateLimitChange={rateLimitPerHour => setDraft({ ...draft, rateLimitPerHour })}
+                    onEnabledChange={enabled => setDraft({ ...draft, enabled })} />
                 </section>
               </div>
               <details className="automation-preview-panel" data-testid="automation-preview-panel">
@@ -1543,26 +1540,9 @@ function RuleEditor({
             <Card>
               <CardHeader className="pb-3"><CardTitle className="text-sm">Advanced</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <Label>Rate limit per hour (optional)</Label>
-                  <Input
-                    type="number"
-                    value={draft.rateLimitPerHour ?? ""}
-                    onChange={(e) =>
-                      setDraft({ ...draft, rateLimitPerHour: e.target.value ? Number(e.target.value) : null })
-                    }
-                    placeholder="unlimited"
-                    data-testid="input-rate-limit"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-6">
-                  <Switch
-                    checked={draft.enabled}
-                    onCheckedChange={(v) => setDraft({ ...draft, enabled: v })}
-                    data-testid="switch-enabled"
-                  />
-                  <Label>Enabled</Label>
-                </div>
+                <AutomationRuleExecutionSettings rateLimit={draft.rateLimitPerHour} enabled={draft.enabled}
+                  onRateLimitChange={rateLimitPerHour => setDraft({ ...draft, rateLimitPerHour })}
+                  onEnabledChange={enabled => setDraft({ ...draft, enabled })} />
               </CardContent>
             </Card>
             </div>}

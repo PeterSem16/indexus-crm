@@ -10,6 +10,7 @@ import { DEFAULT_TASK_MESSAGE_TEMPLATES, ensureTaskMessageTemplates } from "./ta
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
 import { automationEmailInlineAttachments } from "./automation-email-assets";
 import { sanitizeAutomationEmail } from "./automation-email-policy";
+import { ensureAutomationCallTemplates, loadAutomationCallTemplates, CALL_TEMPLATE_KEYS } from "./automation-call-templates";
 
 const sources = async (): Promise<AutomationEmailDefault[]> =>
   JSON.parse(await readFile("server/assets/automation-email/templates.json", "utf8"));
@@ -77,6 +78,26 @@ test("missing copy, SK layout drift and dropped event variables fail visibly", a
   assert.throws(() => localizedTaskDefaults(DEFAULT_TASK_MESSAGE_TEMPLATES, { ...locale, task: {} }), /Missing Task template/);
 });
 
+test("call catalog supplies four email and four Task variants in all seven languages using the approved design", async () => {
+  const batches = await loadAutomationCallTemplates();
+  const source = (await sources()).find(item => item.id.endsWith("data-change"))!;
+  assert.equal(batches.length, 7);
+  const ids = new Set<string>();
+  for (const { language, templates } of batches) {
+    assert.equal(templates.length, CALL_TEMPLATE_KEYS.length);
+    for (const { email, task } of templates) {
+      assert.equal(email.language, language);
+      assert.equal(task.language, language);
+      assert.equal(skeleton(email.contentHtml), skeleton(source.contentHtml));
+      assert.ok(task.content.trim() && task.name.trim());
+      assert.doesNotMatch(email.contentHtml + task.content, /{{|<script|\/__mockup/);
+      for (const id of [email.id, task.id]) { assert.ok(!ids.has(id)); ids.add(id); }
+      assert.equal((await automationEmailInlineAttachments(email.contentHtml)).length, 1);
+    }
+  }
+  assert.equal(ids.size, 56);
+});
+
 test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy templates and rule snapshots", async () => {
   const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
@@ -99,18 +120,21 @@ test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy
     const seed = async () => {
       await ensureTaskMessageTemplates(client);
       await ensureAutomationEmailTemplates(client);
+      await ensureAutomationCallTemplates(client);
     };
     await seed();
     const counts = (await client.query(`SELECT type,language,count(*)::int AS count FROM message_templates
       WHERE id <> 'legacy-email' GROUP BY type,language ORDER BY type,language`)).rows;
     assert.equal(counts.length, 14);
-    for (const row of counts) assert.equal(row.count, row.type === "email" ? 6 : 7, `${row.type}/${row.language}`);
-    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 15);
+    for (const row of counts) assert.equal(row.count, row.type === "email" ? 10 : 11, `${row.type}/${row.language}`);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 22);
     assert.equal((await client.query("SELECT content FROM message_templates WHERE id='indexus-task-template-check-data-en'")).rows[0].content, "Edited body");
     await client.query(`UPDATE message_templates SET content='Manager edit',subject='Manager subject'
       WHERE id IN ('indexus-automation-email-completed-de','indexus-task-template-check-data');
       DELETE FROM message_templates WHERE id IN ('indexus-automation-email-new-task-en','indexus-task-template-handover-ro');
       DELETE FROM message_templates WHERE id='indexus-automation-email-deadline';
+      UPDATE message_templates SET content='Call manager edit' WHERE id='indexus-task-template-call-inbound-de';
+      DELETE FROM message_templates WHERE id='indexus-automation-email-call-outbound-en';
       UPDATE template_categories SET name='Manager category',is_active=false;
     `);
     const before = (await client.query("SELECT * FROM message_templates ORDER BY id")).rows;
@@ -119,7 +143,7 @@ test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy
     assert.deepEqual((await client.query("SELECT * FROM message_templates ORDER BY id")).rows, before);
     assert.deepEqual((await client.query("SELECT * FROM workflow_rules ORDER BY id")).rows, rules);
     assert.equal((await client.query("SELECT name FROM template_categories")).rows[0].name, "Manager category");
-    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 15);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 22);
   } finally {
     await client.query("ROLLBACK");
     client.release();

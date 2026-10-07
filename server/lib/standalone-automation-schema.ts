@@ -1,5 +1,6 @@
 import { ensureTaskMessageTemplates } from "./task-message-templates";
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
+import { ensureAutomationCallTemplates } from "./automation-call-templates";
 
 /** Additive production bootstrap; no data rewrite, removal, or Status List cutover. */
 export const STANDALONE_AUTOMATION_SCHEMA = `
@@ -73,4 +74,5 @@ export async function ensureStandaloneAutomationSchema(pool: {
   await pool.query(STANDALONE_AUTOMATION_SCHEMA);
   await ensureTaskMessageTemplates(pool);
   await ensureAutomationEmailTemplates(pool);
+  await ensureAutomationCallTemplates(pool);
 }

@@ -4,8 +4,9 @@ import { readFile } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "../server/lib/automation-template-locales";
 import { automationEmailInlineAttachments } from "../server/lib/automation-email-assets";
+import { loadAutomationCallTemplates } from "../server/lib/automation-call-templates";
 
-test("all 36 localized email designs retain working artwork and fit desktop and mobile", async () => {
+test("all localized default and call email designs retain working artwork and fit desktop and mobile", async () => {
   const sources: AutomationEmailDefault[] = JSON.parse(await readFile("server/assets/automation-email/templates.json", "utf8"));
   const locales = await loadAutomationTemplateLocales();
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
@@ -13,6 +14,24 @@ test("all 36 localized email designs retain working artwork and fit desktop and 
     const page = await browser.newPage();
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
+    const calls = await loadAutomationCallTemplates();
+    for (const { language, templates } of calls) {
+      for (const { email } of templates) {
+        const image = (await automationEmailInlineAttachments(email.contentHtml))[0];
+        const html = email.contentHtml.replace(`cid:${image.contentId}`, `data:${image.contentType};base64,${image.contentBytes}`);
+        for (const width of [760, 390]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.setContent(html);
+          await expect(page.locator("h1")).toHaveText(email.name);
+          assert.equal(await page.locator("html").getAttribute("lang"), language);
+          assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `${email.id}/${width}`);
+          await page.waitForFunction(() => [...document.images].every(image => image.complete && image.naturalWidth > 0));
+          if (language === "sk" && email.id.endsWith("inbound-missed") && width === 760) {
+            await page.screenshot({ path: "/tmp/automation-email-call-sk-desktop.png", fullPage: true });
+          }
+        }
+      }
+    }
     for (const locale of locales) {
       for (const source of sources) {
         const template = localizeAutomationEmail(source, locale);
