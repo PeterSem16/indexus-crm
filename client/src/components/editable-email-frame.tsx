@@ -2,10 +2,11 @@ import { useEffect, useRef } from "react";
 import { sanitizeSignatureHtml } from "@/lib/sanitize-html";
 
 /** Isolated HTML editor; local input must not reload the iframe and lose its caret. */
-export function EditableEmailFrame({ value, onChange, title }: {
+export function EditableEmailFrame({ value, onChange, title, disabled = false }: {
   value: string;
   onChange: (html: string) => void;
   title: string;
+  disabled?: boolean;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const lastValue = useRef(value);
@@ -14,6 +15,12 @@ export function EditableEmailFrame({ value, onChange, title }: {
   const initialValue = useRef(sanitizeSignatureHtml(value));
   const changeHandler = useRef(onChange);
   changeHandler.current = onChange;
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+  useEffect(() => {
+    const body = frame.current?.contentDocument?.body;
+    if (body) body.contentEditable = disabled ? "false" : "true";
+  }, [disabled]);
 
   useEffect(() => {
     if (value === lastValue.current) return;
@@ -32,7 +39,7 @@ export function EditableEmailFrame({ value, onChange, title }: {
       const doc = frame.current?.contentDocument;
       if (!doc?.body) return;
       doc.body.innerHTML = sanitizeSignatureHtml(lastValue.current);
-      doc.body.contentEditable = "true";
+      doc.body.contentEditable = disabledRef.current ? "false" : "true";
       doc.body.style.minHeight = "calc(100vh - 32px)";
       doc.body.style.padding = "8px";
       doc.body.style.outline = "none";
@@ -40,6 +47,7 @@ export function EditableEmailFrame({ value, onChange, title }: {
       doc.body.setAttribute("aria-label", title);
       doc.body.setAttribute("aria-multiline", "true");
       doc.body.oninput = () => {
+        if (disabledRef.current) return;
         const html = doc.body.innerHTML;
         lastValue.current = html;
         changeHandler.current(html);

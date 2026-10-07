@@ -1,5 +1,6 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
+import personEmailTranslations from "./person-email-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -47,6 +48,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 
 export interface Translations {
   sendEmailAction: typeof sendEmailActionTranslations.en;
+  personEmail: typeof personEmailTranslations.en;
   taskAction: TaskActionCopy;
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
@@ -64002,4 +64004,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationDraft = restored.automationDraft;
   translations[locale].taskAction = getTaskActionCopy(locale);
   translations[locale].sendEmailAction = sendEmailActionTranslations[locale] as unknown as Translations["sendEmailAction"];
+  translations[locale].personEmail = personEmailTranslations[locale];
 }

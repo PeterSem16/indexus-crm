@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { EditableEmailFrame } from "@/components/editable-email-frame";
+import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft,
+  recipientEditorHtml, readRecipientEditorHtml, sendRecipientCopies, normalizeRecipientEmail, uniqueRecipientEmails } from "@/lib/recipient-personalized-email";
 import { MissedCommunicationsUnified as MissedUnifiedDialog } from "@/components/agent/MissedCommunicationsUnified";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -966,7 +968,7 @@ function applyTemplateVars(
   const collab = ctx.collaborator as any;
   const userPhone = user?.phone ? `${user?.phonePrefix || ""}${user.phone}` : "";
   const now = new Date();
-  const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""}`.replace(/\s+/g, " ").trim() : "";
+  const doctorFullName = cl ? `${cl.doctorTitle || ""} ${cl.doctorFirstName || ""} ${cl.doctorLastName || ""} ${cl.doctorTitleAfter || ""}`.replace(/\s+/g, " ").trim() : "";
   const salLang = ctx.lang || "sk";
   const clinicSal = computeSalutations(cl?.doctorFirstName || "", cl?.doctorLastName || "", salLang);
   const customerSal = computeSalutations(contact?.firstName || "", contact?.lastName || "", salLang);
@@ -2719,7 +2721,7 @@ export function CommunicationCanvas({
   onHistoryDialogChannelChange?: (channel: "email" | "sms" | null) => void;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
-  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }) => Promise<boolean> | boolean | void;
+  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean }) => Promise<boolean> | boolean | void;
   onSendSms: (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
@@ -2831,6 +2833,10 @@ export function CommunicationCanvas({
       return true;
     }).map((person: any) => ({
       id: String(person.person_id),
+      firstName: person.first_name || "",
+      lastName: person.last_name || "",
+      titleBefore: person.title_before || "",
+      titleAfter: person.title_after || "",
       name: [person.title_before, person.first_name, person.last_name, person.title_after].filter(Boolean).join(" "),
       email: typeof person.email === "string" ? person.email.trim() : "",
       phones: [person.phone, person.mobile, person.mobile2]
@@ -2873,6 +2879,11 @@ export function CommunicationCanvas({
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [emailIsHtml, setEmailIsHtml] = useState(false);
+  const [emailPreviewRecipient, setEmailPreviewRecipient] = useState("");
+  const [emailBatchSending, setEmailBatchSending] = useState(false);
+  const emailSendingRef = useRef(false);
+  const emailComposeIdentityRef = useRef("");
+  emailComposeIdentityRef.current = JSON.stringify([campaign?.id, contactType, contact?.id, clinicData?.id, hospitalData?.id, activeChannel]);
   // A signature is system-owned only until the agent edits the body.  Keeping
   // this outside React state lets async mailbox/account responses reconcile an
   // untouched compose without overwriting a draft.
@@ -3709,6 +3720,7 @@ export function CommunicationCanvas({
 
   useEffect(() => {
     setPhoneSubTab("card");
+    setEmailPreviewRecipient("");
     setSelectedEmails(contact?.email ? [contact.email] : []);
     setSelectedPhones(contact?.phone ? [contact.phone] : []);
     setEmailSubject("");
@@ -4142,6 +4154,27 @@ export function CommunicationCanvas({
   });
 
   const templateLangRef = useRef<string>("sk");
+  const personalizeInstitutionEmail = contactType === "clinic" || contactType === "hospital";
+  const previewRecipient = selectedEmails.includes(emailPreviewRecipient) ? emailPreviewRecipient : selectedEmails[0] || "";
+  const recipientBaseContext = {
+    contact, user, clinic: clinicData, hospital: hospitalData, collaborator: collaboratorData,
+    fromEmail: allEmailAccounts.find(a => a.id === selectedFromAccount)?.email,
+    lang: templateLangRef.current || "sk",
+  };
+  const ambiguousRecipient = selectedEmails.some(email => {
+    try { recipientContext(recipientBaseContext, email, personnelRecipients); return false; }
+    catch { return true; }
+  });
+  const resolveRecipientToken = (email: string, token: string) => applyTemplateVars(token,
+    personalizeInstitutionEmail ? recipientContext(recipientBaseContext, email, personnelRecipients) : recipientBaseContext);
+  const resolvePreviewToken = (token: string) => ambiguousRecipient
+    ? applyTemplateVars(token, recipientBaseContext) : resolveRecipientToken(previewRecipient, token);
+  const previewEmailSubject = renderRecipientDraft(emailSubject, resolvePreviewToken);
+  const previewEmailMessage = renderRecipientDraft(emailMessage, resolvePreviewToken, emailIsHtml);
+  const editableRecipientHtml = emailIsHtml && activeChannel === "email"
+    ? recipientEditorHtml(emailMessage, resolvePreviewToken) : previewEmailMessage;
+  const updateEmailText = (value: string) =>
+    setEmailMessage(editRecipientDraft(emailMessage, value, resolvePreviewToken, emailIsHtml));
   const replaceTemplateVars = useCallback((content: string): string => {
     const selectedAccount = allEmailAccounts.find(a => a.id === selectedFromAccount);
     return applyTemplateVars(content, {
@@ -4185,14 +4218,16 @@ export function CommunicationCanvas({
 
   const applyEmailTemplate = useCallback((template: any) => {
     templateLangRef.current = template.language || "sk";
-    const subject = replaceTemplateVars(template.subject || "");
+    const subject = personalizeInstitutionEmail
+      ? preserveRecipientFields(template.subject || "", replaceTemplateVars) : replaceTemplateVars(template.subject || "");
     const hasHtmlContent = !!(template.contentHtml && template.contentHtml.trim().length > 0);
     const contentLooksLikeHtml = !!(template.content && /<[a-zA-Z][^>]*>/.test(template.content));
     const formatIsHtml = !!(template.format && template.format.toLowerCase() === "html");
     const isHtml = formatIsHtml || hasHtmlContent || contentLooksLikeHtml;
     // Prefer contentHtml if present; otherwise fall back to content (may contain HTML tags)
     const rawContent = isHtml ? (template.contentHtml || template.content || "") : (template.content || "");
-    const content = replaceTemplateVars(rawContent);
+    const content = personalizeInstitutionEmail
+      ? preserveRecipientFields(rawContent, replaceTemplateVars) : replaceTemplateVars(rawContent);
     setEmailSubject(subject);
     setEmailMessage(content);
     setEmailIsHtml(isHtml);
@@ -4215,7 +4250,7 @@ export function CommunicationCanvas({
     } else {
       setTemplateAttachments([]);
     }
-  }, [replaceTemplateVars]);
+  }, [replaceTemplateVars, personalizeInstitutionEmail]);
 
   useEffect(() => {
     if (activeChannel !== "email" && activeChannel !== "sms") return;
@@ -4306,10 +4341,22 @@ export function CommunicationCanvas({
   }, [timeline.length]);
 
   const handleSendEmail = async () => {
+    if (emailSendingRef.current || isSendingEmail) return;
+    if (ambiguousRecipient) {
+      toast({ title: t.common.error, description: t.personEmail.ambiguous, variant: "destructive" });
+      return;
+    }
     if (selectedEmails.length === 0 || !emailSubject || !emailMessage) {
       toast({ title: t.common.error, description: t.customers?.details?.fillAllFields || "Vyplňte všetky povinné polia", variant: "destructive" });
       return;
     }
+    emailSendingRef.current = true;
+    setEmailBatchSending(true);
+    const sendingIdentity = emailComposeIdentityRef.current;
+    const sendFromOriginalContact = onSendEmail;
+    const recipientsToSend = uniqueRecipientEmails(selectedEmails);
+    const lastRecipient = normalizeRecipientEmail(recipientsToSend[recipientsToSend.length - 1]);
+    try {
     let pcAttachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
     if (emailAttachment) {
       const fileBuffer = await emailAttachment.arrayBuffer();
@@ -4321,19 +4368,33 @@ export function CommunicationCanvas({
     }
     const compositionDurationSeconds = emailOpenedAt ? Math.round((Date.now() - emailOpenedAt) / 1000) : null;
     try {
-      const sent = await onSendEmail({
-        to: selectedEmails,
-        subject: emailSubject,
-        body: emailMessage,
+      const sendCopy = (to: string[], recipient: string) => {
+        if (emailComposeIdentityRef.current !== sendingIdentity) return false;
+        return sendFromOriginalContact({
+        to,
+        subject: renderRecipientDraft(emailSubject, token => resolveRecipientToken(recipient, token)),
+        body: renderRecipientDraft(emailMessage, token => resolveRecipientToken(recipient, token), emailIsHtml),
         mailboxId: activeFromAccount === "personal" ? null : activeFromAccount || null,
         cc: emailCc.trim() || undefined,
         documentIds: selectedDocuments.length > 0 ? selectedDocuments : undefined,
         attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
         compositionDurationSeconds,
-      });
+        deferDisposition: personalizeInstitutionEmail && normalizeRecipientEmail(recipient) !== lastRecipient,
+        });
+      };
+      const sent = personalizeInstitutionEmail
+        ? await sendRecipientCopies(recipientsToSend, async email => {
+          const result = await sendCopy([email], email);
+          return result === false ? false : undefined;
+        }, email => {
+          if (emailComposeIdentityRef.current === sendingIdentity)
+            setSelectedEmails(current => current.filter(value =>
+              normalizeRecipientEmail(value) !== normalizeRecipientEmail(email)));
+        })
+        : await sendCopy(selectedEmails, previewRecipient);
       // Quota/contact guards return false without sending.  Keep the draft in
       // that case; only a confirmed mutation resets the composer.
-      if (sent === false) return;
+      if (sent === false || emailComposeIdentityRef.current !== sendingIdentity) return;
     } catch {
       // The mutation owns the error toast; preserve the draft for retry.
       return;
@@ -4352,6 +4413,13 @@ export function CommunicationCanvas({
     setSelectedEmailTemplateName("");
     setEmailHtmlEditMode(false);
     setEmailOpenedAt(null);
+    setEmailPreviewRecipient("");
+    } catch {
+      toast({ title: t.common.error, description: t.agentWorkspace.emailSendError, variant: "destructive" });
+    } finally {
+      emailSendingRef.current = false;
+      setEmailBatchSending(false);
+    }
   };
 
   const handleSendSms = async () => {
@@ -5147,7 +5215,7 @@ export function CommunicationCanvas({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-foreground font-semibold text-sm truncate leading-tight">
-                  {emailSubject || <span className="text-muted-foreground font-normal italic">— {t.customers?.details?.subject || "Subject"} —</span>}
+                  {previewEmailSubject || <span className="text-muted-foreground font-normal italic">— {t.customers?.details?.subject || "Subject"} —</span>}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {selectedEmails.length > 0 ? (
@@ -5173,26 +5241,39 @@ export function CommunicationCanvas({
               </button>
             </div>
 
+            {personalizeInstitutionEmail && selectedEmails.length > 1 && <div className="border-b px-3 py-2 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Label className="text-xs shrink-0">{t.personEmail.preview}</Label>
+                <Select value={previewRecipient} onValueChange={setEmailPreviewRecipient}>
+                  <SelectTrigger className="h-8 min-w-0 text-xs" aria-label={t.personEmail.preview} data-testid="select-email-preview-recipient"><SelectValue /></SelectTrigger>
+                  <SelectContent>{selectedEmails.map(email => <SelectItem key={email} value={email}>{email}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{t.personEmail.separate}</p>
+            </div>}
+            {ambiguousRecipient && <p role="alert" className="px-3 py-2 text-xs text-destructive">{t.personEmail.ambiguous}</p>}
             {/* Email body — template/plain text editor visible */}
             <div className="flex-1 min-h-0 overflow-hidden" data-testid="wysiwyg-email-message">
               {emailIsHtml ? (
                 emailHtmlEditMode ? (
                   <textarea
                     className="w-full h-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-slate-950 text-slate-200"
-                    value={emailMessage}
+                    value={previewEmailMessage}
                     onChange={(e) => {
                       emailBodyDirtyRef.current = true;
-                      setEmailMessage(e.target.value);
+                      updateEmailText(e.target.value);
                     }}
                     spellCheck={false}
+                    disabled={emailBatchSending || isSendingEmail}
                     data-testid="textarea-email-html-edit"
                   />
                 ) : (
                   <EditableEmailFrame
-                    value={emailMessage}
+                    disabled={emailBatchSending || isSendingEmail}
+                    value={editableRecipientHtml}
                     onChange={(html) => {
                       emailBodyDirtyRef.current = true;
-                      setEmailMessage(html);
+                      setEmailMessage(readRecipientEditorHtml(html));
                     }}
                     title="Email preview"
                   />
@@ -5200,13 +5281,13 @@ export function CommunicationCanvas({
               ) : (
                 <textarea
                   className="w-full h-full px-4 py-4 text-sm resize-none focus-visible:outline-none bg-white dark:bg-card text-foreground leading-relaxed"
-                  value={emailMessage}
+                  value={previewEmailMessage}
                   onChange={(e) => {
                     emailBodyDirtyRef.current = true;
-                    setEmailMessage(e.target.value);
+                    updateEmailText(e.target.value);
                   }}
                   placeholder={t.customers?.details?.writeEmailPlaceholder || "Write your email..."}
-                  disabled={isSendingEmail}
+                  disabled={isSendingEmail || emailBatchSending}
                   data-testid="textarea-email-message"
                 />
               )}
@@ -5220,7 +5301,7 @@ export function CommunicationCanvas({
                 {!emailMessage && <div className="text-amber-600 dark:text-amber-500">• {t.customers?.details?.enterMessage || "Enter a message"}</div>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button variant="outline" size="sm" className="text-xs h-8" onClick={() => {
+                <Button variant="outline" size="sm" className="text-xs h-8" disabled={emailBatchSending || isSendingEmail} onClick={() => {
                   setEmailSubject("");
                   setEmailMessage(configuredEmailBody);
                   setEmailIsHtml(!!configuredEmailBody);
@@ -5235,10 +5316,11 @@ export function CommunicationCanvas({
                   setShowCcField(false);
                   setSelectedDocuments([]);
                   setSelectedEmailTemplateName("");
+                  setEmailPreviewRecipient("");
                 }} data-testid="button-cancel-email">
                   {t.common?.cancel || "Cancel"}
                 </Button>
-                <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail} className="pulse-send-button h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
+                <Button onClick={handleSendEmail} disabled={selectedEmails.length === 0 || !emailSubject || !emailMessage || isSendingEmail || emailBatchSending || ambiguousRecipient} className="pulse-send-button h-8 px-4 text-xs font-semibold bg-[#c2673a] hover:bg-[#a8502a] text-white border-0 shadow-sm disabled:opacity-40" data-testid="btn-send-email">
                   {isSendingEmail ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
                   {t.customers?.details?.sendEmail || "Send Email"}
                 </Button>
@@ -5255,7 +5337,7 @@ export function CommunicationCanvas({
                     <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#c2673a]/15 shrink-0">
                       <Mail className="h-3.5 w-3.5 text-[#c2673a]" />
                     </div>
-                <h2 className="text-sm font-semibold flex-1 min-w-0 truncate text-foreground">{emailSubject || t.customers?.details?.preview || "Email preview"}</h2>
+                <h2 className="text-sm font-semibold flex-1 min-w-0 truncate text-foreground">{previewEmailSubject || t.customers?.details?.preview || "Email preview"}</h2>
                     <div className="flex items-center gap-0.5 bg-muted rounded-lg p-0.5">
                       <button type="button" onClick={() => setEmailHtmlEditMode(false)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${!emailHtmlEditMode ? "pulse-html-mode-active bg-[#c2673a] text-white shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`} data-testid="btn-email-expanded-preview">{t.customers?.details?.preview || "Preview"}</button>
                       <button type="button" onClick={() => setEmailHtmlEditMode(true)} className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${emailHtmlEditMode ? "pulse-html-mode-active bg-background text-foreground shadow-sm" : "pulse-html-mode-idle text-muted-foreground hover:bg-background hover:text-foreground"}`} data-testid="btn-email-expanded-edit-html">{t.customers?.details?.editHtml || "Edit HTML"}</button>
@@ -5266,20 +5348,22 @@ export function CommunicationCanvas({
                       {emailHtmlEditMode ? (
                         <textarea
                           className="h-full w-full px-4 py-3 text-xs font-mono resize-none focus-visible:outline-none bg-[#1a1a1a] text-stone-300"
-                          value={emailMessage}
+                          value={previewEmailMessage}
                           onChange={(e) => {
                             emailBodyDirtyRef.current = true;
-                            setEmailMessage(e.target.value);
+                            updateEmailText(e.target.value);
                           }}
                           spellCheck={false}
+                          disabled={emailBatchSending || isSendingEmail}
                           data-testid="textarea-email-html-expanded-edit"
                         />
                       ) : (
                         <EditableEmailFrame
-                          value={emailMessage}
+                          disabled={emailBatchSending || isSendingEmail}
+                          value={editableRecipientHtml}
                           onChange={(html) => {
                             emailBodyDirtyRef.current = true;
-                            setEmailMessage(html);
+                            setEmailMessage(readRecipientEditorHtml(html));
                           }}
                           title="Email preview expanded"
                         />
@@ -5355,10 +5439,10 @@ export function CommunicationCanvas({
                   {t.customers?.details?.subject || "SUBJECT"}
                 </Label>
                 <Input
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
+                  value={previewEmailSubject}
+                  onChange={(e) => setEmailSubject(editRecipientDraft(emailSubject, e.target.value, resolvePreviewToken))}
                   placeholder={t.customers?.details?.emailSubjectPlaceholder || "Email subject..."}
-                  disabled={isSendingEmail}
+                  disabled={isSendingEmail || emailBatchSending}
                   data-testid="input-email-subject"
                   className="h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-sm"
                 />
@@ -5428,7 +5512,7 @@ export function CommunicationCanvas({
                   )}
                   <Popover open={emailTemplatePopoverOpen} onOpenChange={setEmailTemplatePopoverOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700" data-testid="select-email-template" disabled={emailTemplates.length === 0}>
+                      <Button variant="outline" role="combobox" className="w-full justify-between text-sm font-normal h-9 bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700" data-testid="select-email-template" disabled={emailTemplates.length === 0 || emailBatchSending || isSendingEmail}>
                         <span className="truncate">{selectedEmailTemplateName || (emailTemplates.length === 0 ? (t.konfigurator?.noMessageTemplates || "No templates") : (t.configuration?.selectTemplate || "Select template"))}</span>
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
@@ -5503,6 +5587,7 @@ export function CommunicationCanvas({
                       <div key={em} className="flex min-w-0 items-start gap-2">
                         <Checkbox
                           id={`aw-email-${i}`}
+                          disabled={emailBatchSending || isSendingEmail}
                            className="mt-0.5 shrink-0"
                           checked={selectedEmails.includes(em)}
                           onCheckedChange={(checked) => {
@@ -13078,7 +13163,7 @@ function AgentWorkspacePageContent() {
   ]);
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean; deferDisposition?: boolean; campaignId?: string }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
@@ -13124,7 +13209,8 @@ function AgentWorkspacePageContent() {
         queryClient.invalidateQueries({ queryKey: ["/api/customers", variables.customerId, "activity-logs"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entity-history", variables.customerId] });
       }
-      if (!variables.isReply && currentCampaignContactId && selectedCampaignId) {
+      if (!variables.isReply && !variables.deferDisposition && variables.customerId === currentContact?.id &&
+        (!variables.campaignId || variables.campaignId === selectedCampaignId) && currentCampaignContactId && selectedCampaignId) {
         const campaignSettings = selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings) : {};
         if (campaignSettings.dispositionMode === "script" || campaignSettings.skipEmailSmsDisposition === true) {
           // disposition is controlled by call script or disabled for email/SMS
@@ -13594,7 +13680,7 @@ function AgentWorkspacePageContent() {
     }
   };
 
-  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null }): Promise<boolean> => {
+  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean }): Promise<boolean> => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return false;
@@ -13643,6 +13729,8 @@ function AgentWorkspacePageContent() {
       attachments: data.attachments,
       customerId: currentContact.id,
       contactType: currentContactType || "customer",
+      campaignId: selectedCampaignId || undefined,
+      deferDisposition: data.deferDisposition,
       compositionDurationSeconds: data.compositionDurationSeconds,
     });
     return true;
