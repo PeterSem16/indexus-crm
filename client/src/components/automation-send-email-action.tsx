@@ -321,6 +321,43 @@ export function AutomationSendEmailAction({
   const personal = mailbox?.personal;
   const selectedSystem = mailbox?.system?.filter((item) => countryCodes.includes(item.countryCode)) || [];
   const automationCategoryName = categoriesQuery.data?.find((category) => category.id === AUTOMATION_CATEGORY_ID)?.name || copy.automationCategory;
+  const templatePicker = <div className="space-y-1.5">
+    <Label htmlFor={`${testId}-editor-template`}>{copy.template}</Label>
+    <Select value={config.templateId || "__custom"} onValueChange={(value) => {
+      if (value === "__custom") {
+        update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
+        return;
+      }
+      const template = templates.find((item) => item.id === value);
+      if (!template) return;
+      const nextSubject = template.subject ?? "";
+      const nextBody = template.contentHtml ?? template.content ?? "";
+      selectionsRef.current = {
+        subject: { start: nextSubject.length, end: nextSubject.length },
+        body: { start: nextBody.length, end: nextBody.length },
+      };
+      update({
+        templateId: template.id, templateSnapshot: true, templateName: template.name, templateLanguage: template.language,
+        subject: nextSubject, body: nextBody,
+      });
+    }}>
+      <SelectTrigger id={`${testId}-editor-template`} data-testid={`${testId}-editor-template`}>
+        <SelectValue placeholder={copy.chooseTemplate} />
+      </SelectTrigger>
+      <SelectContent className="z-[10041]">
+        <SelectItem value="__custom">{copy.customText}</SelectItem>
+        {config.templateId && !templates.some((item) => item.id === config.templateId) &&
+          <SelectItem value={config.templateId}>{config.templateName || copy.savedSnapshot}</SelectItem>}
+        {templates.map((template, index) => <SelectItem key={template.id} value={template.id}>
+          {index === 0 || templates[index - 1].categoryId !== template.categoryId
+            ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
+            : ""}
+          {template.name}{template.language ? ` · ${template.language}` : ""}
+        </SelectItem>)}
+      </SelectContent>
+    </Select>
+    {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
+  </div>;
   return <section className="space-y-4" data-testid={testId}>
     <div className="flex items-start gap-3 rounded-lg border bg-muted/20 p-3">
       <span className="rounded-md bg-primary/10 p-2 text-primary"><Mail className="h-4 w-4" /></span>
@@ -382,59 +419,8 @@ export function AutomationSendEmailAction({
         </label>}
       </div>
     </div>
-    <div className="space-y-1.5">
-      <Label>{copy.template}</Label>
-      <Select value={config.templateId || "__custom"} onValueChange={(value) => {
-        if (value === "__custom") {
-          update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
-          return;
-        }
-        const template = templates.find((item) => item.id === value);
-        if (!template) return;
-        update({
-          templateId: template.id, templateSnapshot: true, templateName: template.name, templateLanguage: template.language,
-          subject: template.subject ?? "", body: template.contentHtml ?? template.content ?? "",
-        });
-      }}>
-        <SelectTrigger><SelectValue placeholder={copy.chooseTemplate} /></SelectTrigger><SelectContent>
-          <SelectItem value="__custom">{copy.customText}</SelectItem>
-          {config.templateId && !templates.some((item) => item.id === config.templateId) &&
-            <SelectItem value={config.templateId}>{config.templateName || copy.savedSnapshot}</SelectItem>}
-          {templates.map((template, index) => <SelectItem key={template.id} value={template.id}>
-            {index === 0 || templates[index - 1].categoryId !== template.categoryId
-              ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
-              : ""}
-            {template.name}{template.language ? ` · ${template.language}` : ""}
-          </SelectItem>)}
-        </SelectContent>
-      </Select>
-      {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
-    </div>
     <div className="space-y-3">
-      <div><Label htmlFor={`${testId}-subject`}>{copy.subject}</Label><Input id={`${testId}-subject`} required aria-invalid={!subject.trim()} value={subject}
-        onFocus={(event) => {
-          setActiveField("subject");
-          const cursor = event.currentTarget.selectionStart ?? subject.length;
-          selectionsRef.current.subject = { start: cursor, end: event.currentTarget.selectionEnd ?? cursor };
-        }}
-        onSelect={(event) => {
-          const target = event.currentTarget;
-          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
-        }}
-        onClick={(event) => {
-          const target = event.currentTarget;
-          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
-        }}
-        onKeyUp={(event) => {
-          const target = event.currentTarget;
-          selectionsRef.current.subject = { start: target.selectionStart ?? subject.length, end: target.selectionEnd ?? subject.length };
-        }}
-        onChange={(event) => {
-          const target = event.target;
-          selectionsRef.current.subject = { start: target.selectionStart ?? target.value.length, end: target.selectionEnd ?? target.value.length };
-          update({ subject: target.value });
-        }} data-testid={`${testId}-subject`} />
-        {!String(config.subject ?? "").trim() && <p className="mt-1 text-xs text-destructive">{copy.subjectRequired}</p>}</div>
+      {!subject.trim() && <p className="text-xs text-destructive">{copy.subjectRequired}</p>}
       {!String(config.body ?? "").trim() && <p className="text-xs text-destructive">{copy.bodyRequired}</p>}
       {unsupported.length > 0 && <p className="text-xs text-destructive">{copy.unsupportedVariables}: {unsupported.map((item) => `{{${item}}}`).join(", ")}</p>}
       {recipientChoices.length > 0 && <p className="text-xs text-muted-foreground">{copy.recipientVariableNote}</p>}
@@ -462,6 +448,7 @@ export function AutomationSendEmailAction({
         bodyRequired={copy.bodyRequired}
         unsupportedWarning={unsupported.length ? `${copy.unsupportedVariables}: ${unsupported.map((item) => `{{${item}}}`).join(", ")}` : undefined}
         testId={testId}
+        templatePicker={templatePicker}
       />
     </div>
   </section>;

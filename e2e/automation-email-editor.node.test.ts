@@ -24,7 +24,8 @@ test("automation email modal edits the real rule draft safely, preserves recipie
       import {Dialog,DialogContent,DialogTitle,DialogDescription} from "./client/src/components/ui/dialog";
       const client=new QueryClient({defaultOptions:{queries:{staleTime:Infinity,retry:false}}});
       client.setQueryData(["/api/automation/email-mailboxes",undefined],{personal:{connected:true,email:"author@example.test"},system:[]});
-      client.setQueryData(["/api/message-templates","email",true],[]);
+      client.setQueryData(["/api/message-templates","email",true],[{id:"editor-template",name:"Editor template",language:"sk",
+        categoryId:"indexus-automation-email-category",subject:"Template subject",contentHtml:'<p id="template-body">Template body</p>'}]);
       client.setQueryData(["/api/template-categories"],[]);
       function Fixture(){
         const [parentOpen,setParentOpen]=useState(true);
@@ -73,12 +74,20 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     await page.addScriptTag({ content: result.outputFiles[0].text });
     await expect(page.locator("iframe")).toHaveCount(0);
     await expect(page.locator("textarea")).toHaveCount(0);
+    await expect(page.getByTestId("mail-subject")).toHaveCount(0);
+    await expect(page.getByTestId("mail-editor-template")).toHaveCount(0);
     await page.getByLabel("E-mailová adresa", { exact: true }).fill("incomplete@");
     await page.getByTestId("mail-open-editor").click();
     const dialog = page.getByTestId("mail-content-editor");
     const body = page.getByTestId("mail-editor-body"), subject = page.getByTestId("mail-editor-subject");
     const frame = page.frameLocator('[data-testid="mail-editor-preview"]');
     await expect(dialog).toBeVisible();
+    await expect(page.getByTestId("mail-editor-template")).toBeVisible();
+    const closeBounds = await page.getByTestId("mail-editor-close").boundingBox();
+    const dialogBounds = await dialog.boundingBox();
+    assert.ok(closeBounds && dialogBounds && closeBounds.width <= 40 && closeBounds.height <= 40 &&
+      closeBounds.x > dialogBounds.x + dialogBounds.width - 80);
+    assert.equal(await page.getByTestId("mail-editor-close").innerText(), "");
     assert.ok(await dialog.evaluate(element => Number(getComputedStyle(element).zIndex)) >
       await page.getByTestId("parent-rule").evaluate(element => Number(getComputedStyle(element).zIndex)));
     await expect(page.getByTestId("mail-editor-preview")).toHaveAttribute("sandbox", "");
@@ -135,10 +144,21 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     assert.ok(mobileBody && mobilePreview && mobilePreview.y > mobileBody.y);
     const variablesBounds = await page.getByText(editorCopy.sk.variables, { exact: true }).boundingBox();
     assert.ok(mobileBody && variablesBounds && mobileBody.y + mobileBody.height <= variablesBounds.y);
+    const sourceBounds = await page.getByRole("region", { name: editorCopy.sk.htmlSource, exact: true }).boundingBox();
+    const previewSectionBounds = await page.getByRole("region", { name: editorCopy.sk.livePreview, exact: true }).boundingBox();
+    assert.ok(sourceBounds && previewSectionBounds && previewSectionBounds.y >= sourceBounds.y + sourceBounds.height);
     assert.equal(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
+    await page.getByTestId("mail-editor-template").click();
+    await page.getByRole("option", { name: /Editor template/ }).click();
+    await expect(subject).toHaveValue("Template subject");
+    await expect(body).toHaveValue('<p id="template-body">Template body</p>');
+    await expect(frame.locator("#template-body")).toHaveText("Template body");
     await page.getByTestId("mail-editor-close").click();
     await expect(dialog).toHaveCount(0);
     await expect(page.getByTestId("parent-rule")).toBeVisible();
+    await expect(page.getByTestId("mail-editor-template")).toHaveCount(0);
+    await expect(page.getByTestId("mail-subject")).toHaveCount(0);
+    await expect(page.getByLabel("E-mailová adresa", { exact: true })).toHaveValue("incomplete@");
     assert.deepEqual(errors, []);
     assert.deepEqual(writes, []);
   } finally { await browser.close(); }

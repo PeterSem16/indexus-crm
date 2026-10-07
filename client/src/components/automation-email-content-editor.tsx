@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type ReactNode } from "react";
 import { Code2, Eye, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ type Props = {
   bodyRequired: string;
   unsupportedWarning?: string;
   testId: string;
+  templatePicker: ReactNode;
 };
 
 export function AutomationEmailContentEditor({
@@ -43,6 +44,7 @@ export function AutomationEmailContentEditor({
   bodyRequired,
   unsupportedWarning,
   testId,
+  templatePicker,
 }: Props) {
   const { t } = useI18n();
   const copy = t.sendEmailEditor;
@@ -90,7 +92,7 @@ export function AutomationEmailContentEditor({
           event.preventDefault();
         }}
       >
-        <DialogHeader className="relative pr-10 text-left">
+        <DialogHeader className="relative pr-12 text-left">
           <div className="flex items-center gap-2 text-primary">
             <span className="rounded-md bg-primary/10 p-2"><Code2 className="h-4 w-4" /></span>
             <DialogTitle>{copy.title}</DialogTitle>
@@ -98,18 +100,21 @@ export function AutomationEmailContentEditor({
           <DialogDescription>{copy.description}</DialogDescription>
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="absolute right-0 top-0"
+            variant="ghost"
+            size="icon"
+            className="absolute right-0 top-0 h-8 w-8 shrink-0 rounded-full p-0"
+            aria-label={t.common.close}
+            title={t.common.close}
             onClick={() => onOpenChange(false)}
             data-testid={`${testId}-editor-close`}
           >
-            <X className="mr-1.5 h-4 w-4" />{t.common.close}
+            <X className="h-4 w-4" />
           </Button>
         </DialogHeader>
 
-        <div className="grid min-h-0 grid-cols-1 gap-4 overflow-y-auto lg:grid-cols-2 lg:overflow-hidden">
+        <div className="grid min-h-0 auto-rows-max grid-cols-1 gap-4 overflow-y-auto lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
           <section className="flex h-fit min-h-[480px] min-w-0 flex-col gap-3 rounded-lg border bg-muted/10 p-3 sm:p-4 lg:h-full lg:min-h-0 lg:overflow-y-auto" aria-label={copy.htmlSource}>
+            <div className="shrink-0">{templatePicker}</div>
             <div className="shrink-0 space-y-1.5">
               <Label htmlFor={`${testId}-editor-subject`}>{t.sendEmailAction.subject}</Label>
               <Input
