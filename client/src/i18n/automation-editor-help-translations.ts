@@ -1,6 +1,7 @@
 import type { Locale } from "./translations";
+import callWebhookHelp, { type CallWebhookHelpCopy } from "./automation-call-webhook-help";
 
-export type AutomationEditorCopy = {
+export type AutomationEditorCopy = CallWebhookHelpCopy & {
   help: string;
   whenTitle: string;
   when: string[];
@@ -28,6 +29,7 @@ export type AutomationEditorCopy = {
 
 const copy: Record<Locale, AutomationEditorCopy> = {
   en: {
+    ...callWebhookHelp.en,
     notifyTitle: "Notify a user — internal notification",
     notify: [
       "Creates an internal INDEXUS notification. It appears under the bell in the top bar (if enabled for the user) and in the notification centre. The bell shows the unread count.",
@@ -48,6 +50,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     allLanguages: "All languages", currentSnapshot: "Current saved snapshot",
   },
   sk: {
+    ...callWebhookHelp.sk,
     notifyTitle: "Upozorniť používateľa — interná notifikácia",
     notify: [
       "Vytvorí interné upozornenie v INDEXUS. Zobrazí sa pod zvončekom v hornej lište (ak ho má používateľ zapnutý) a v centre notifikácií. Zvonček ukazuje počet neprečítaných upozornení.",
@@ -63,6 +66,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     language: "Jazyk šablóny", allLanguages: "Všetky jazyky", currentSnapshot: "Aktuálna uložená kópia",
   },
   cs: {
+    ...callWebhookHelp.cs,
     notifyTitle: "Upozornit uživatele — interní notifikace",
     notify: [
       "Vytvoří interní upozornění v INDEXUS. Zobrazí se pod zvonkem v horní liště (pokud ho má uživatel zapnutý) a v centru notifikací. Zvonek ukazuje počet nepřečtených upozornění.",
@@ -78,6 +82,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     language: "Jazyk šablony", allLanguages: "Všechny jazyky", currentSnapshot: "Aktuální uložená kopie",
   },
   hu: {
+    ...callWebhookHelp.hu,
     notifyTitle: "Felhasználó értesítése — belső értesítés",
     notify: [
       "Belső INDEXUS-értesítést hoz létre. A felső sáv harangja alatt (ha a felhasználónál engedélyezett) és az értesítési központban jelenik meg. A harang az olvasatlan értesítések számát mutatja.",
@@ -93,6 +98,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     language: "Sablon nyelve", allLanguages: "Minden nyelv", currentSnapshot: "Jelenlegi mentett példány",
   },
   ro: {
+    ...callWebhookHelp.ro,
     notifyTitle: "Notifică un utilizator — notificare internă",
     notify: [
       "Creează o notificare internă în INDEXUS. Apare sub clopoțelul din bara de sus (dacă este activat pentru utilizator) și în centrul de notificări. Clopoțelul arată numărul notificărilor necitite.",
@@ -108,6 +114,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     language: "Limba șablonului", allLanguages: "Toate limbile", currentSnapshot: "Instantaneul salvat curent",
   },
   it: {
+    ...callWebhookHelp.it,
     notifyTitle: "Notifica un utente — notifica interna",
     notify: [
       "Crea una notifica interna in INDEXUS. Appare sotto la campanella nella barra superiore (se abilitata per l’utente) e nel centro notifiche. La campanella mostra il numero di notifiche non lette.",
@@ -123,6 +130,7 @@ const copy: Record<Locale, AutomationEditorCopy> = {
     language: "Lingua del modello", allLanguages: "Tutte le lingue", currentSnapshot: "Snapshot salvato corrente",
   },
   de: {
+    ...callWebhookHelp.de,
     notifyTitle: "Benutzer benachrichtigen — interne Benachrichtigung",
     notify: [
       "Erstellt eine interne INDEXUS-Benachrichtigung. Sie erscheint unter der Glocke in der oberen Leiste (falls für den Benutzer aktiviert) und im Benachrichtigungszentrum. Die Glocke zeigt die Anzahl ungelesener Benachrichtigungen.",

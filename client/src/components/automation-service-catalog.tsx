@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useI18n } from "@/i18n";
 import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
+import { AutomationStepHelp } from "@/components/automation-step-help";
 import { useAuth } from "@/contexts/auth-context";
 import { Link } from "wouter";
 import { serviceVisual } from "./automation-service-visuals";
@@ -88,7 +89,9 @@ export function AutomationServiceCatalog({
                 <div className="flex items-start gap-3">
                   <span className={`rounded-xl p-2.5 shrink-0 ${visual.tile} ${visual.accent}`}><Icon className="h-5 w-5" /></span>
                   <div>
-                    <h3 className="font-semibold leading-6">{id === "send_sms" ? smsCopy.heading : copy.names[id] || service.label}</h3>
+                    <h3 className="font-semibold leading-6 flex items-center gap-1">{id === "send_sms" ? smsCopy.heading : copy.names[id] || service.label}
+                      {id === "webhook" && <AutomationStepHelp step="webhook" copy={t.automationEditorHelp} />}
+                    </h3>
                     <Badge variant="secondary" className="mt-1 text-[10px]">{copy.available}</Badge>
                   </div>
                 </div>
@@ -164,7 +167,7 @@ export function AutomationServiceCatalog({
             </div>
           </section>
           <section className="rounded-lg border p-4 space-y-3">
-            <h3 className="font-semibold flex items-center gap-2"><Phone className="h-4 w-4" />{copy.inboundTitle}<Badge variant="secondary">{copy.available}</Badge></h3>
+            <h3 className="font-semibold flex items-center gap-2"><Phone className="h-4 w-4" />{copy.inboundTitle}<Badge variant="secondary">{copy.available}</Badge><AutomationStepHelp step="call" copy={t.automationEditorHelp} /></h3>
             <p className="text-sm text-muted-foreground">{copy.inboundInfo}</p>
             <p className="text-xs text-muted-foreground">{copy.inboundGuard}</p>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -192,7 +195,7 @@ export function AutomationServiceCatalog({
             </div>
           </section>
           <section className="rounded-lg border p-4 space-y-3" data-testid="automation-outbound-services">
-            <h3 className="font-semibold flex items-center gap-2"><Phone className="h-4 w-4" />{copy.outboundTitle}<Badge variant="secondary">{copy.available}</Badge></h3>
+            <h3 className="font-semibold flex items-center gap-2"><Phone className="h-4 w-4" />{copy.outboundTitle}<Badge variant="secondary">{copy.available}</Badge><AutomationStepHelp step="call" copy={t.automationEditorHelp} /></h3>
             <p className="text-sm text-muted-foreground">{copy.outboundInfo}</p>
             <p className="text-xs text-muted-foreground">{copy.outboundGuard}</p>
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

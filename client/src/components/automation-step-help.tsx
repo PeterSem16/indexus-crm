@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { AutomationEditorCopy } from "@/i18n/automation-editor-help-translations";
 
-export function AutomationStepHelp({ step, copy }: { step: "when" | "if" | "then" | "notify"; copy: AutomationEditorCopy }) {
-  const title = step === "when" ? copy.whenTitle : step === "if" ? copy.ifTitle : step === "notify" ? copy.notifyTitle : copy.thenTitle;
-  const paragraphs = step === "when" ? copy.when : step === "if" ? copy.if : step === "notify" ? copy.notify : copy.then;
+export function AutomationStepHelp({ step, copy }: { step: "when" | "if" | "then" | "notify" | "call" | "webhook"; copy: AutomationEditorCopy }) {
+  const title = copy[`${step}Title`];
+  const paragraphs = copy[step];
   return <Popover>
     <PopoverTrigger asChild>
       <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"

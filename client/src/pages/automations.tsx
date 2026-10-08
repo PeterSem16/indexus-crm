@@ -1029,6 +1029,7 @@ function RuleEditor({
                           : t.automationServices.workspace.scheduleModeLabel}</p>
                       </button>
                     <AutomationStepHelp step="when" copy={t.automationEditorHelp} />
+                    {draft.module === "call" && <AutomationStepHelp step="call" copy={t.automationEditorHelp} />}
                     <div className="automation-trigger-switch" role="group" aria-label={t.automationServices.workspace.triggerType}>
                       <button type="button" className={draft.trigger.type === "event" ? "active" : ""} aria-pressed={draft.trigger.type === "event"}
                         onClick={() => {
@@ -2208,6 +2209,10 @@ function ActionEditor({
 
       {action.type === "webhook" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+          <div className="md:col-span-3 flex items-center gap-2">
+            <span className="text-sm font-medium">{t.automationEditorHelp.webhookTitle}</span>
+            <AutomationStepHelp step="webhook" copy={t.automationEditorHelp} />
+          </div>
           <div className="md:col-span-2">
             <Label className="text-xs">URL</Label>
             <Input
