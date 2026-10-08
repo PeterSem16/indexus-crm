@@ -179,7 +179,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
   try {
     ctx = taskTemplateContext(ctx, config.templateLanguage);
     const display = await automationDisplayValues(ctx,
-      [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference);
+      [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference, config.templateLanguage);
     // New task text must never silently lose unavailable template variables.
     if (config.taskText !== undefined) {
       for (const value of [config.title, config.description, config.taskText]) {
@@ -431,7 +431,7 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
   try {
     config = await applyMessageTemplate(config, "email", scheduled);
     const rendered = renderTemplate(config, ctx);
-    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference);
+    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
     if (display.size) {
       rendered.subject = renderEmailValue(config.subject, ctx, false, display);
       const html = /<[a-z][\s\S]*>/i.test(String(config.body || ""));
@@ -1719,10 +1719,10 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     const rendered = renderTemplate(config, ctx);
     if (a.type === "create_task") {
       const display = await automationDisplayValues(textCtx,
-        [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference);
+        [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference, config.templateLanguage);
       Object.assign(rendered, taskDisplayContent(config, textCtx, display));
     } else if (a.type === "send_email") {
-      const display = await automationDisplayValues(textCtx, [config.subject, config.body], lookupAutomationReference);
+      const display = await automationDisplayValues(textCtx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
       rendered.subject = renderEmailValue(config.subject, textCtx, false, display);
       rendered.body = renderEmailValue(config.body, textCtx, /<[a-z][\s\S]*>/i.test(String(config.body || "")), display);
     }

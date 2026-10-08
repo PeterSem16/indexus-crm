@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AUTOMATION_TRANSLATION_LANGUAGES, loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
+import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
 
 type CallVariant = { key: string; name: string; emailBody: string; taskName: string; taskBody: string };
 type CallCopy = { badge: string; detailHeading: string; detailText: string; openCall: string; linkTitle: string; artworkAlt: string; variants: CallVariant[] };
@@ -28,6 +29,7 @@ export async function loadAutomationCallTemplates() {
             copy.detailHeading, copy.detailText, copy.openCall],
         } },
       });
+      email.contentHtml = normalizeEmailTemplateLayout(email.contentHtml);
       if (!variant.taskName?.trim() || !variant.taskBody?.trim()) throw new Error(`Missing call Task copy: ${language}/${variant.key}`);
       const suffix = `${variant.key}${language === "sk" ? "" : `-${language}`}`;
       return {

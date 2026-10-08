@@ -1,3 +1,5 @@
+import { taskStatusTemplateLabel } from "@shared/task-status-labels";
+
 export type ReferenceKind = "user" | "department" | "group" | "customer" | "clinic" | "hospital" | "collaborator" | "campaign" | "queue" | "task" | "contract" | "invoice";
 export type ReferenceLookup = (kind: ReferenceKind, id: string, country: string | null) => Promise<string | null>;
 export type DisplayValues = ReadonlyMap<string, string>;
@@ -17,7 +19,7 @@ export function templatePath(ctx: any, path: string): any {
 }
 
 /** Resolve only references explicitly used in content, never mutate event IDs. */
-export async function automationDisplayValues(ctx: any, content: unknown[], lookup: ReferenceLookup): Promise<DisplayValues> {
+export async function automationDisplayValues(ctx: any, content: unknown[], lookup: ReferenceLookup, language?: string): Promise<DisplayValues> {
   const paths = new Set<string>();
   const scan = (value: unknown) => {
     if (typeof value === "string")
@@ -33,6 +35,10 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
     if (!match) return;
     const [, scope, field] = match;
     const data = ctx[scope] || {};
+    if (field === "status" && ctx.event?.module === "task" && language && data.status != null) {
+      result.set(path, taskStatusTemplateLabel(data.status, language));
+      return;
+    }
     let kind = references[field];
     if (field === "relatedEntityId") {
       const type = data.relatedEntityType || ctx.newValues?.relatedEntityType;

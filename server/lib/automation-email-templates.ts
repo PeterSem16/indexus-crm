@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
+import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
 
 /** Seed once; edits, deletions and rule snapshots are never overwritten. */
 export async function ensureAutomationEmailTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
-  const templates: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"));
+  const templates: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"))
+    .map((template: AutomationEmailDefault) => ({ ...template, contentHtml: normalizeEmailTemplateLayout(template.contentHtml) }));
   const locales = await loadAutomationTemplateLocales();
   const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
   // Each approval batch has its own marker: adding new defaults must not

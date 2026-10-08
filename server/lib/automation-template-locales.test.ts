@@ -10,6 +10,7 @@ import { DEFAULT_TASK_MESSAGE_TEMPLATES, ensureTaskMessageTemplates } from "./ta
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
 import { automationEmailInlineAttachments } from "./automation-email-assets";
 import { sanitizeAutomationEmail } from "./automation-email-policy";
+import { normalizeEmailTemplateLayout } from "@shared/email-template-layout";
 import { ensureAutomationCallTemplates, loadAutomationCallTemplates, CALL_TEMPLATE_KEYS } from "./automation-call-templates";
 
 const sources = async (): Promise<AutomationEmailDefault[]> =>
@@ -88,7 +89,7 @@ test("call catalog supplies four email and four Task variants in all seven langu
     for (const { email, task } of templates) {
       assert.equal(email.language, language);
       assert.equal(task.language, language);
-      assert.equal(skeleton(email.contentHtml), skeleton(source.contentHtml));
+      assert.equal(skeleton(email.contentHtml), skeleton(normalizeEmailTemplateLayout(source.contentHtml)));
       assert.ok(task.content.trim() && task.name.trim());
       assert.doesNotMatch(email.contentHtml + task.content, /{{|<script|\/__mockup/);
       for (const id of [email.id, task.id]) { assert.ok(!ids.has(id)); ids.add(id); }

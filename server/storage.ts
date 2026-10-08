@@ -170,6 +170,7 @@ import {
   type CampaignStatusAssignment, type InsertCampaignStatusAssignment,
 } from "@shared/schema";
 import { db } from "./db";
+import { normalizeEmailTemplateRecord } from "../shared/email-template-layout";
 import { ensureTaskAiChecklist } from "./lib/task-ai-checklist";
 import { stripTaskWorkTimingInput, transitionTaskWorkTiming } from "./lib/task-work-timing";
 import { eq, inArray, sql, desc, and, or, asc, gte, lte, lt, isNull, isNotNull, count } from "drizzle-orm";
@@ -7587,14 +7588,16 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      return await db.select().from(messageTemplates).where(and(...conditions)).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+      const results = await db.select().from(messageTemplates).where(and(...conditions)).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+      return results.map(normalizeEmailTemplateRecord);
     }
-    return await db.select().from(messageTemplates).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+    const results = await db.select().from(messageTemplates).orderBy(desc(messageTemplates.priority), asc(messageTemplates.name));
+    return results.map(normalizeEmailTemplateRecord);
   }
 
   async getMessageTemplate(id: string): Promise<MessageTemplate | undefined> {
     const [result] = await db.select().from(messageTemplates).where(eq(messageTemplates.id, id));
-    return result || undefined;
+    return result ? normalizeEmailTemplateRecord(result) : undefined;
   }
 
   async createMessageTemplate(data: InsertMessageTemplate): Promise<MessageTemplate> {

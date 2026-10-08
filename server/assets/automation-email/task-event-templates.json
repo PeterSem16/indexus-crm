@@ -1,0 +1,51 @@
+{
+  "sk": {
+    "names": ["Nová úloha", "Úloha bola upravená", "Zmena stavu úlohy", "Priradenie úlohy", "Úloha dokončená", "Úloha po termíne", "Stav úlohy: Čakajúca", "Stav úlohy: V riešení", "Stav úlohy: Zrušená"],
+    "leads": ["Je pripravená nová úloha", "Úloha bola upravená", "Stav úlohy bol zmenený na {{newValues.status}}", "Úloha bola priradená", "Úloha bola dokončená", "Úloha prekročila termín"],
+    "intro": "Skontrolujte aktuálny stav a nadväzujúci krok v INDEXUS.",
+    "detail": "Súvisiaca úloha",
+    "next": "Otvorte súvisiacu úlohu v INDEXUS, skontrolujte jej kontext a zaznamenajte ďalší postup."
+  },
+  "en": {
+    "names": ["New task", "Task updated", "Task status changed", "Task assigned", "Task completed", "Task overdue", "Task status: Pending", "Task status: In Progress", "Task status: Cancelled"],
+    "leads": ["A new task is ready", "The task was updated", "Task status changed to {{newValues.status}}", "The task was assigned", "The task was completed", "The task is overdue"],
+    "intro": "Review the current status and next step in INDEXUS.",
+    "detail": "Related task",
+    "next": "Open the related task in INDEXUS, review its context and record the next step."
+  },
+  "cs": {
+    "names": ["Nový úkol", "Úkol byl upraven", "Změna stavu úkolu", "Přiřazení úkolu", "Úkol dokončen", "Úkol po termínu", "Stav úkolu: Čekající", "Stav úkolu: V řešení", "Stav úkolu: Zrušený"],
+    "leads": ["Je připraven nový úkol", "Úkol byl upraven", "Stav úkolu byl změněn na {{newValues.status}}", "Úkol byl přiřazen", "Úkol byl dokončen", "Úkol překročil termín"],
+    "intro": "Zkontrolujte aktuální stav a navazující krok v INDEXUS.",
+    "detail": "Související úkol",
+    "next": "Otevřete související úkol v INDEXUS, zkontrolujte jeho kontext a zaznamenejte další postup."
+  },
+  "hu": {
+    "names": ["Új feladat", "Feladat frissítve", "Feladat állapota megváltozott", "Feladat hozzárendelve", "Feladat befejezve", "Lejárt feladat", "Feladat állapota: Függőben", "Feladat állapota: Folyamatban", "Feladat állapota: Törölve"],
+    "leads": ["Új feladat áll készen", "A feladat frissítve lett", "A feladat új állapota: {{newValues.status}}", "A feladat hozzá lett rendelve", "A feladat befejeződött", "A feladat határideje lejárt"],
+    "intro": "Ellenőrizze az aktuális állapotot és a következő lépést az INDEXUS rendszerben.",
+    "detail": "Kapcsolódó feladat",
+    "next": "Nyissa meg a kapcsolódó feladatot az INDEXUS rendszerben, ellenőrizze a körülményeit és rögzítse a következő lépést."
+  },
+  "ro": {
+    "names": ["Sarcină nouă", "Sarcină actualizată", "Starea sarcinii s-a schimbat", "Sarcină atribuită", "Sarcină finalizată", "Sarcină cu termen depășit", "Starea sarcinii: În așteptare", "Starea sarcinii: În curs", "Starea sarcinii: Anulată"],
+    "leads": ["O sarcină nouă este pregătită", "Sarcina a fost actualizată", "Starea sarcinii a fost schimbată în {{newValues.status}}", "Sarcina a fost atribuită", "Sarcina a fost finalizată", "Termenul sarcinii a fost depășit"],
+    "intro": "Verificați starea actuală și următorul pas în INDEXUS.",
+    "detail": "Sarcină asociată",
+    "next": "Deschideți sarcina asociată în INDEXUS, verificați contextul și înregistrați următorul pas."
+  },
+  "it": {
+    "names": ["Nuova attività", "Attività aggiornata", "Stato dell'attività modificato", "Attività assegnata", "Attività completata", "Attività scaduta", "Stato dell'attività: In attesa", "Stato dell'attività: In corso", "Stato dell'attività: Annullata"],
+    "leads": ["Una nuova attività è pronta", "L'attività è stata aggiornata", "Lo stato dell'attività è stato modificato in {{newValues.status}}", "L'attività è stata assegnata", "L'attività è stata completata", "L'attività ha superato la scadenza"],
+    "intro": "Verifica lo stato attuale e il prossimo passo in INDEXUS.",
+    "detail": "Attività correlata",
+    "next": "Apri l'attività correlata in INDEXUS, verifica il contesto e registra il prossimo passo."
+  },
+  "de": {
+    "names": ["Neue Aufgabe", "Aufgabe aktualisiert", "Aufgabenstatus geändert", "Aufgabe zugewiesen", "Aufgabe abgeschlossen", "Überfällige Aufgabe", "Aufgabenstatus: Ausstehend", "Aufgabenstatus: In Bearbeitung", "Aufgabenstatus: Abgebrochen"],
+    "leads": ["Eine neue Aufgabe ist bereit", "Die Aufgabe wurde aktualisiert", "Der Aufgabenstatus wurde geändert zu {{newValues.status}}", "Die Aufgabe wurde zugewiesen", "Die Aufgabe wurde abgeschlossen", "Die Frist der Aufgabe wurde überschritten"],
+    "intro": "Prüfen Sie den aktuellen Status und den nächsten Schritt in INDEXUS.",
+    "detail": "Zugehörige Aufgabe",
+    "next": "Öffnen Sie die zugehörige Aufgabe in INDEXUS, prüfen Sie den Kontext und dokumentieren Sie den nächsten Schritt."
+  }
+}

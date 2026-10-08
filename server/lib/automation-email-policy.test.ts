@@ -5,6 +5,7 @@ import { emailActionIssues, emailAddressList } from "../../shared/automation-ema
 import { addCountrySignature, renderEmailValue, renderEmailAddressConfig, resolveEmailRecipients, sanitizeAutomationEmail, selectAutomationEmailSender } from "./automation-email-policy";
 import { sendAutomationGraphEmail } from "./automation-email-graph";
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
+import { loadAutomationCallTemplates } from "./automation-call-templates";
 import { validMessageTemplateCountries } from "./message-template-countries";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import { automationEmailInlineAttachments } from "./automation-email-assets";
@@ -62,6 +63,18 @@ test("email sanitizer retains design and CID GIFs but strips executable content"
   assert.match(signed, /&lt;script&gt;x&lt;\/script&gt;<br>INDEXUS/);
   assert.match(signed, /INDEXUS<\/div><\/body>/);
   assert.equal(addCountrySignature("body", ""), "body");
+});
+test("sanitizer rounds old snapshot frames while preserving inline design, placeholders, and CID images", () => {
+  const source = '<!doctype html><html><head><title>Snapshot</title></head><body><table width="600" style="max-width:600px;background-color:#edf3f8;border:1px solid #d9e4ed;color:#21384c"><tr><td><p>{{contact.name}}</p><img src="cid:indexus-automation-task" width="160"><script>unsafe()</script><img src="https://example.test/image.png" onerror="unsafe()"></td></tr></table></body></html>';
+  const safe = sanitizeAutomationEmail(source);
+  assert.match(safe, /border-radius:12px/);
+  assert.match(safe, /background-color:#edf3f8/);
+  assert.match(safe, /color:#21384c/);
+  assert.match(safe, /\{\{contact\.name\}\}/);
+  assert.match(safe, /cid:indexus-automation-task/);
+  assert.match(safe, /width="160"/);
+  assert.doesNotMatch(safe, /<script|unsafe\(\)|onerror/);
+  assert.match(safe, /src="https:\/\/example\.test\/image\.png"/);
 });
 test("country metadata is global or a valid unique operating-country list", () => {
   assert.equal(validMessageTemplateCountries([]), true);
@@ -130,4 +143,15 @@ test("approved defaults use a persistent seed marker and portable inline assets"
     assert.match(Buffer.from(assets[0].contentBytes, "base64").toString("ascii", 0, 6), /^GIF8/);
   }
   await assert.rejects(automationEmailInlineAttachments('<img src="cid:../../private">'), /unavailable/);
+});
+test("approved call email loader normalizes email variants without changing Task templates", async () => {
+  const batches = await loadAutomationCallTemplates();
+  assert.ok(batches.length > 0);
+  for (const batch of batches) {
+    for (const { email, task } of batch.templates) {
+      assert.match(email.contentHtml, /border-radius:12px/);
+      assert.doesNotMatch(task.content, /border-radius:12px/);
+      assert.equal(task.id.startsWith("indexus-task-template-call-"), true);
+    }
+  }
 });

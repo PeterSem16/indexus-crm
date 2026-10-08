@@ -1,6 +1,7 @@
 import { load } from "cheerio";
 import { templateTokenInUrl } from "./automation-display-values";
 import { emailAddressList, EMAIL_RECIPIENT_LIMIT, validEmailTargets, type AutomationEmailTarget } from "../../shared/automation-email-action";
+import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
 
 type RecipientDeps = {
   group: (target: AutomationEmailTarget) => Promise<string[]>;
@@ -115,7 +116,7 @@ export function sanitizeAutomationEmail(html: string): string {
       }
     }
   });
-  return $.html();
+  return normalizeEmailTemplateLayout($.html());
 }
 
 export function addCountrySignature(html: string, signature: string) {
