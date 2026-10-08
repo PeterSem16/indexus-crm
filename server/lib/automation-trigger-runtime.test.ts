@@ -7,6 +7,7 @@ import { emitEvent, emitEntityCreated, emitEntityUpdated, emitTaskLifecycle, set
 import { eventMatchesRule, dryRunRule } from "./automation-engine";
 import { MODULE_EVENTS } from "./automation-capabilities";
 import { sendAutomationGraphEmail } from "./automation-email-graph";
+import { TASK_STATUSES } from "@shared/schema";
 
 test("every offered WHEN event matches only its module, event, enabled state and verified country", () => {
   let count = 0;
@@ -25,6 +26,26 @@ test("every offered WHEN event matches only its module, event, enabled state and
     }
   }
   assert.equal(count, 35);
+});
+
+test("Task status_changed excludes completion in matching and preview, but includes reopening", async () => {
+  const rule = { enabled: true, module: "task", countryCodes: ["SK"],
+    trigger: { type: "event", entityType: "task", eventType: "status_changed" },
+    conditions: null, actions: [] } as any;
+  for (const { value: oldStatus } of TASK_STATUSES) {
+    for (const { value: newStatus } of TASK_STATUSES) {
+      if (oldStatus === newStatus) continue;
+      const event = { module: "task", entityType: "task", eventType: "status_changed", countryCode: "SK",
+        oldValues: { status: oldStatus }, newValues: { status: newStatus } } as any;
+      const expected = newStatus !== "completed";
+      assert.equal(eventMatchesRule(rule, event), expected, `${oldStatus} → ${newStatus}`);
+      assert.equal((await dryRunRule(rule, event)).conditionMet, expected, `preview ${oldStatus} → ${newStatus}`);
+      if (newStatus === "completed") {
+        assert.equal(eventMatchesRule({ ...rule, trigger: { ...rule.trigger, eventType: "task.completed" } },
+          { ...event, eventType: "task.completed" }), true);
+      }
+    }
+  }
 });
 
 test("committed Task lifecycle reaches Slovakia email rules even when stored Task country is empty", async () => {
@@ -96,7 +117,7 @@ test("committed Task lifecycle reaches Slovakia email rules even when stored Tas
     await clear();
     await emitTaskLifecycle({ ...task, status: "completed", resolvedByUserId: "resolver" }, task, "resolver",
       { creatorNotificationHandled: true, causationRunId: "parent-run" });
-    assert.deepEqual(await types(), ["status_changed", "task.completed", "updated"]);
+    assert.deepEqual(await types(), ["task.completed", "updated"]);
     const completed = (await events()).find(e => e.event_type === "task.completed");
     assert.equal(completed.new_values.creatorNotificationHandled, true);
     assert.deepEqual(completed.new_values.resolvedByGroupIds, ["resolver-group"]);
@@ -107,6 +128,16 @@ test("committed Task lifecycle reaches Slovakia email rules even when stored Tas
     await clear();
     await emitTaskLifecycle({ ...task, status: "cancelled" }, task, "agent");
     assert.deepEqual(await types(), ["status_changed", "updated"]);
+    // Check every transition, including reopening and unchanged saves.
+    for (const { value: oldStatus } of TASK_STATUSES) {
+      for (const { value: newStatus } of TASK_STATUSES) {
+        await clear();
+        await emitTaskLifecycle({ ...task, status: newStatus }, { ...task, status: oldStatus }, "agent");
+        const expected = ["updated"];
+        if (oldStatus !== newStatus) expected.push(newStatus === "completed" ? "task.completed" : "status_changed");
+        assert.deepEqual(await types(), expected.sort(), `${oldStatus} → ${newStatus}`);
+      }
+    }
     await clear();
     await emitEvent({ source: "cron", module: "task", entityType: "task", entityId: task.id,
       eventType: "task.overdue", newValues: task, countryCode: null });

@@ -28,7 +28,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "A task is created, regardless of who created it.",
       updated: "Any task edit is saved: title, priority, deadline, assignment or status.",
-      status_changed: "Only the task status changes, for example Pending → In progress. Other edits do not trigger this event.",
+      status_changed: "All task status changes except transitions to Completed. Completion is handled by Task completed. Other edits do not trigger this event.",
       "task.assigned": "A task is assigned or reassigned to a group or a person.",
       "task.completed": "A task is resolved and its status becomes Completed.",
       "task.overdue": "An unfinished task passes its resolution deadline.",
@@ -43,7 +43,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Vytvorí sa úloha bez ohľadu na to, kto ju vytvoril.",
       updated: "Uloží sa ľubovoľná úprava úlohy: názov, priorita, termín, priradenie alebo stav.",
-      status_changed: "Zmení sa iba stav úlohy, napríklad Čakajúca → V riešení. Iné úpravy túto udalosť nespustia.",
+      status_changed: "Všetky zmeny stavu úlohy okrem prechodu na Dokončená (Completed). Dokončenie sleduje udalosť Úloha dokončená (Task completed). Iné úpravy túto udalosť nespustia.",
       "task.assigned": "Úloha sa priradí alebo presunie skupine či konkrétnemu človeku.",
       "task.completed": "Úloha je vyriešená a jej stav sa zmení na Dokončená.",
       "task.overdue": "Nevyriešená úloha prekročí požadovaný termín riešenia.",
@@ -58,7 +58,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Vytvoří se úkol bez ohledu na to, kdo jej vytvořil.",
       updated: "Uloží se libovolná úprava úkolu: název, priorita, termín, přiřazení nebo stav.",
-      status_changed: "Změní se pouze stav úkolu, například Čekající → V řešení. Jiné úpravy tuto událost nespustí.",
+      status_changed: "Všechny změny stavu úkolu kromě přechodu na Dokončený (Completed). Dokončení sleduje událost Úkol dokončen (Task completed). Jiné úpravy tuto událost nespustí.",
       "task.assigned": "Úkol se přiřadí nebo přesune skupině či konkrétnímu člověku.",
       "task.completed": "Úkol je vyřešen a jeho stav se změní na Dokončený.",
       "task.overdue": "Nevyřešený úkol překročí požadovaný termín řešení.",
@@ -73,7 +73,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Feladat jön létre, függetlenül a létrehozójától.",
       updated: "A feladat bármely módosítását elmentik: cím, prioritás, határidő, hozzárendelés vagy állapot.",
-      status_changed: "Csak a feladat állapota változik, például Függőben → Folyamatban. Más módosítás nem indítja el.",
+      status_changed: "A feladat minden állapotváltozása, kivéve a Befejezett állapotba lépést. A befejezést a Feladat befejezve esemény kezeli. Más módosítás nem indítja el ezt az eseményt.",
       "task.assigned": "Feladatot rendelnek vagy adnak át egy csoportnak vagy személynek.",
       "task.completed": "A feladat megoldott, állapota Befejezett lesz.",
       "task.overdue": "Egy megoldatlan feladat túllépi a megoldási határidőt.",
@@ -88,7 +88,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Se creează o sarcină, indiferent cine o creează.",
       updated: "Se salvează orice modificare: titlu, prioritate, termen, atribuire sau stare.",
-      status_changed: "Se schimbă doar starea sarcinii, de exemplu În așteptare → În curs. Alte modificări nu declanșează evenimentul.",
+      status_changed: "Toate schimbările de stare ale sarcinii, cu excepția trecerii la Finalizată. Finalizarea este urmărită de evenimentul Sarcină finalizată. Alte modificări nu declanșează acest eveniment.",
       "task.assigned": "O sarcină este atribuită sau reatribuită unui grup sau unei persoane.",
       "task.completed": "Sarcina este rezolvată și starea devine Finalizată.",
       "task.overdue": "O sarcină nerezolvată depășește termenul de rezolvare.",
@@ -103,7 +103,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Viene creata un'attività, indipendentemente da chi la crea.",
       updated: "Viene salvata qualsiasi modifica: titolo, priorità, scadenza, assegnazione o stato.",
-      status_changed: "Cambia solo lo stato dell'attività, ad esempio In attesa → In corso. Altre modifiche non avviano l'evento.",
+      status_changed: "Tutte le modifiche di stato dell'attività, tranne il passaggio a Completata. Il completamento è gestito dall'evento Attività completata. Altre modifiche non attivano questo evento.",
       "task.assigned": "Un'attività viene assegnata o riassegnata a un gruppo o a una persona.",
       "task.completed": "L'attività viene risolta e lo stato diventa Completata.",
       "task.overdue": "Un'attività non risolta supera il termine di risoluzione.",
@@ -118,7 +118,7 @@ export const taskAutomationTranslations: Record<Locale, TaskAutomationCopy> = {
     eventDescriptions: {
       created: "Eine Aufgabe wird erstellt, unabhängig davon, wer sie erstellt.",
       updated: "Jede Änderung wird gespeichert: Titel, Priorität, Frist, Zuweisung oder Status.",
-      status_changed: "Nur der Aufgabenstatus ändert sich, etwa Ausstehend → In Bearbeitung. Andere Änderungen lösen das Ereignis nicht aus.",
+      status_changed: "Alle Änderungen des Aufgabenstatus außer dem Wechsel zu Abgeschlossen. Den Abschluss behandelt das Ereignis Aufgabe abgeschlossen. Andere Änderungen lösen dieses Ereignis nicht aus.",
       "task.assigned": "Eine Aufgabe wird einer Gruppe oder Person zugewiesen oder neu zugewiesen.",
       "task.completed": "Die Aufgabe wird gelöst und ihr Status wird Abgeschlossen.",
       "task.overdue": "Eine ungelöste Aufgabe überschreitet ihre Lösungsfrist.",

@@ -1110,8 +1110,16 @@ async function findMatchingRules(event: WorkflowEvent, onlyRuleIds?: readonly st
   return all.filter((rule) => eventMatchesRule(rule, event));
 }
 
+function taskStatusTriggerMatches(rule: WorkflowRule, newValues: any): boolean {
+  const trigger: any = rule.trigger || {};
+  return !(rule.module === "task" && trigger.type === "event" &&
+    trigger.eventType === "status_changed" && newValues?.status === "completed");
+}
+
 export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): boolean {
     if (!rule.enabled || rule.module !== event.module) return false;
+    // Also exclude legacy completion status_changed events already waiting in the queue.
+    if (!taskStatusTriggerMatches(rule, event.newValues)) return false;
     const t: any = rule.trigger || {};
     if (t.type === "event") {
       if (t.entityType && t.entityType !== event.entityType) return false;
@@ -1703,7 +1711,8 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
   };
-  const conditionMet = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && evalCondition(rule.conditions as any, ctx);
+  const conditionMet = taskStatusTriggerMatches(rule, ctx.newValues) &&
+    taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && evalCondition(rule.conditions as any, ctx);
   const renderedActions = await Promise.all((rule.actions as any[]).map(async (a) => {
     const config = a.config || {};
     const textCtx = taskTemplateContext(ctx, config.templateLanguage);

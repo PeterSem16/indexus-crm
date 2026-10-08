@@ -269,8 +269,9 @@ export async function emitEntityUpdated(
   options: { causationRunId?: string | null } = {},
 ) {
   await emitEvent({ module, entityType, entityId, eventType: "updated", oldValues, newValues, actorUserId, countryCode, ...options });
-  // Status change is its own event for easier matching
-  if (oldValues && newValues && oldValues.status !== newValues.status) {
+  // Task completion has its own trigger; all other status transitions remain here.
+  if (oldValues && newValues && oldValues.status !== newValues.status &&
+    !(module === "task" && newValues.status === "completed")) {
     await emitEvent({
       module,
       entityType,

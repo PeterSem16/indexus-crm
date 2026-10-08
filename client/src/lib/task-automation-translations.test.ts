@@ -15,3 +15,18 @@ test("task rule copy has every field and event in all seven languages", () => {
     }
   }
 });
+
+test("Status changed explains the completion exception in all seven languages", () => {
+  const exceptionNotes = {
+    en: /except.*Completed/,
+    sk: /okrem.*Completed/,
+    cs: /kromě.*Completed/,
+    hu: /kivéve.*Befejezett/,
+    ro: /excepția.*Finalizată/,
+    it: /tranne.*Completata/,
+    de: /außer.*Abgeschlossen/,
+  };
+  for (const locale of Object.keys(exceptionNotes) as (keyof typeof exceptionNotes)[]) {
+    assert.match(taskAutomationTranslations[locale].eventDescriptions.status_changed, exceptionNotes[locale], locale);
+  }
+});
