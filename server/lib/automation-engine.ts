@@ -2,6 +2,8 @@ import { db, pool } from "../db";
 import { admitAutomationRun } from "./automation-run-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
+import { automationDisplayValues, taskDisplayContent } from "./automation-display-values";
+import { lookupAutomationReference } from "./automation-reference-lookup";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
   workflowRules,
@@ -40,7 +42,7 @@ import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
 import { deliverAutomationEmail, planAutomationEmailRecipients } from "./automation-email-delivery";
-import { renderEmailAddressConfig } from "./automation-email-policy";
+import { renderEmailAddressConfig, renderEmailValue, escapeEmailText } from "./automation-email-policy";
 import { assertTaskRecipientAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds } from "./task-assignment-access";
 import { userMayAccessTaskCountry } from "./task-contract";
 import {
@@ -176,16 +178,19 @@ async function verifiedInboundAgentRecipient(raw: unknown, recipientId: string, 
 async function actionCreateTask(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
     ctx = taskTemplateContext(ctx, config.templateLanguage);
+    const display = await automationDisplayValues(ctx,
+      [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference);
     // New task text must never silently lose unavailable template variables.
     if (config.taskText !== undefined) {
       for (const value of [config.title, config.description, config.taskText]) {
         if (typeof value !== "string") continue;
         for (const match of value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)) {
-          if (getPath(ctx, match[1]) == null) throw new Error(`Task variable is unavailable: ${match[1]}`);
+          if (getPath(ctx, match[1]) == null && !display.has(match[1])) throw new Error(`Task variable is unavailable: ${match[1]}`);
         }
       }
     }
     const rendered = renderTemplate(config, ctx);
+    Object.assign(rendered, taskDisplayContent(config, ctx, display));
     const assignedUserId = rendered.assignedUserId || rendered.assignee_user_id || null;
     const assignedDepartmentId = rendered.assignedDepartmentId || rendered.assignee_department_id || null;
     const grouped = rendered.taskGroupId || rendered.targetRole;
@@ -423,6 +428,13 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
   try {
     config = await applyMessageTemplate(config, "email", scheduled);
     const rendered = renderTemplate(config, ctx);
+    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference);
+    if (display.size) {
+      rendered.subject = renderEmailValue(config.subject, ctx, false, display);
+      const html = /<[a-z][\s\S]*>/i.test(String(config.body || ""));
+      rendered.body = html ? renderEmailValue(config.body, ctx, true, display)
+        : escapeEmailText(renderEmailValue(config.body, ctx, false, display)).replace(/\n/g, "<br/>");
+    }
     const grouped = rendered.taskGroupId || rendered.targetRole;
     if (grouped && rendered.to) return { ok: false, error: "Choose either an email address or a group/role" };
     if (ctx.event?.module === "call") {
@@ -1661,9 +1673,20 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     actorUserId: event.actorUserId,
   };
   const conditionMet = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && evalCondition(rule.conditions as any, ctx);
-  const renderedActions = (rule.actions as any[]).map((a) => ({
-    type: a.type,
-    rendered: renderTemplate(a.config || {}, ctx),
+  const renderedActions = await Promise.all((rule.actions as any[]).map(async (a) => {
+    const config = a.config || {};
+    const textCtx = taskTemplateContext(ctx, config.templateLanguage);
+    const rendered = renderTemplate(config, ctx);
+    if (a.type === "create_task") {
+      const display = await automationDisplayValues(textCtx,
+        [config.title, config.description, config.taskText, config.checklist], lookupAutomationReference);
+      Object.assign(rendered, taskDisplayContent(config, textCtx, display));
+    } else if (a.type === "send_email") {
+      const display = await automationDisplayValues(textCtx, [config.subject, config.body], lookupAutomationReference);
+      rendered.subject = renderEmailValue(config.subject, textCtx, false, display);
+      rendered.body = renderEmailValue(config.body, textCtx, /<[a-z][\s\S]*>/i.test(String(config.body || "")), display);
+    }
+    return { type: a.type, rendered };
   }));
   return { conditionMet, ctx, actions: renderedActions };
 }

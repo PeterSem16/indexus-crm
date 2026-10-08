@@ -10,6 +10,8 @@ import { emailActionIssues } from "../../shared/automation-email-action";
 import { addCountrySignature, escapeEmailText, renderEmailValue, renderEmailAddressConfig, resolveEmailRecipients, sanitizeAutomationEmail, selectAutomationEmailSender } from "./automation-email-policy";
 import { sendAutomationGraphEmail } from "./automation-email-graph";
 import { automationEmailInlineAttachments } from "./automation-email-assets";
+import { automationDisplayValues } from "./automation-display-values";
+import { lookupAutomationReference } from "./automation-reference-lookup";
 
 export async function planAutomationEmailRecipients(config: any) {
   return resolveEmailRecipients(config, {
@@ -32,6 +34,7 @@ export async function deliverAutomationEmail(config: any, context: any) {
         (!context.newValues?.campaignId || !context.event?.countryCode))
       throw new Error("Inbound email requires verified Mission and queue country");
     const ctx = taskTemplateContext(context, config.templateLanguage);
+    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference);
     const addresses = renderEmailAddressConfig(config, ctx);
     const recipients = await planAutomationEmailRecipients(addresses);
     const sender = selectAutomationEmailSender(config, context);
@@ -70,11 +73,11 @@ export async function deliverAutomationEmail(config: any, context: any) {
       if (personal) await storage.updateUserMs365Connection(authorId!, update);
       else await storage.updateSystemMs365Connection(country!, update);
     }
-    const subject = renderEmailValue(config.subject, ctx).trim();
+    const subject = renderEmailValue(config.subject, ctx, false, display).trim();
     if (!subject || /[\r\n]/.test(subject)) throw new Error("Invalid email subject");
     const isHtml = /<[a-z][\s\S]*>/i.test(config.body);
-    let html = isHtml ? renderEmailValue(config.body, ctx, true)
-      : escapeEmailText(renderEmailValue(config.body, ctx)).replace(/\r?\n/g, "<br>");
+    let html = isHtml ? renderEmailValue(config.body, ctx, true, display)
+      : escapeEmailText(renderEmailValue(config.body, ctx, false, display)).replace(/\r?\n/g, "<br>");
     if (!personal && config.includeSystemSignature)
       html = addCountrySignature(html, settings?.systemEmailSignature || "");
     html = sanitizeAutomationEmail(html);
@@ -110,7 +113,8 @@ export async function deliverAutomationEmail(config: any, context: any) {
   } catch (error) {
     // Never include provider response bodies, tokens or recipient identities.
     const message = error instanceof Error ? error.message : "";
-    const safe = /^(Invalid |Unknown |Email |System |Personal |Inbound |The |A recipient |At least |Connect |Reconnect |Configured |Some |Task group |Role )/.test(message);
+    const safe = /^(Invalid |Unknown |Email |System |Personal |Inbound |The |A recipient |At least |Connect |Reconnect |Configured |Some |Task group |Role )/.test(message)
+      || /^Template reference (?:is (?:unavailable|invalid)|type is unavailable): (?:newValues|oldValues)\.[A-Za-z]+$/.test(message);
     return { ok: false, error: safe ? message : "Configured email could not be sent" };
   }
 }

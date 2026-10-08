@@ -1,4 +1,5 @@
 import { load } from "cheerio";
+import { templateTokenInUrl } from "./automation-display-values";
 import { emailAddressList, EMAIL_RECIPIENT_LIMIT, validEmailTargets, type AutomationEmailTarget } from "../../shared/automation-email-action";
 
 type RecipientDeps = {
@@ -63,10 +64,21 @@ export async function resolveEmailRecipients(config: any, deps: RecipientDeps) {
 export const escapeEmailText = (value: string) => value.replace(/[&<>"']/g, ch =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 
-export function renderEmailValue(value: unknown, ctx: any, html = false): string {
-  return String(value ?? "").replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path: string) => {
-    const resolved = path.split(".").reduce((current: any, key: string) =>
+export function renderEmailValue(value: unknown, ctx: any, html = false, display?: ReadonlyMap<string, string>): string {
+  const source = String(value ?? "");
+  let scanned = 0, inTag = false, quote = "";
+  return source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path: string, offset: number) => {
+    // HTML attributes (including links) need raw IDs, not display names.
+    if (html) for (; scanned < offset; scanned++) {
+      const ch = source[scanned];
+      if (inTag && quote) { if (ch === quote) quote = ""; }
+      else if (inTag && (ch === '"' || ch === "'")) quote = ch;
+      else if (ch === "<") inTag = true;
+      else if (ch === ">") inTag = false;
+    }
+    const raw = path.split(".").reduce((current: any, key: string) =>
       ["__proto__", "prototype", "constructor"].includes(key) ? undefined : current?.[key], ctx);
+    const resolved = display?.has(path) && !(html && inTag) && !templateTokenInUrl(source, offset) ? display.get(path) : raw;
     if (resolved == null) throw new Error(`Email variable is unavailable: ${path}`);
     const text = String(resolved);
     return html ? escapeEmailText(text) : text;
