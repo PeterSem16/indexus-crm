@@ -9948,9 +9948,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       try {
         const taskCustomer = task.customerId ? await storage.getCustomer(task.customerId) : undefined;
-        const { emitEntityCreated, emitTaskAssigned, safeTaskEventValues } = await import("./lib/event-bus");
-        await emitEntityCreated("task", "task", task.id, safeTaskEventValues(task), req.session.user!.id, taskCustomer?.country || null);
-        await emitTaskAssigned(task, undefined, req.session.user!.id);
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(task, undefined, req.session.user!.id);
       } catch (err) { console.error("[EventBus] task create emit error:", err); }
 
       void (async () => {
@@ -10097,12 +10096,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
       );
 
       try {
-        const { emitEntityUpdated, emitTaskCompleted, emitTaskAssigned } = await import("./lib/event-bus");
-        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
-        await emitTaskAssigned(task, previousTask, req.session.user!.id);
-        if (completedNow) {
-          await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
-        }
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(task, previousTask, req.session.user!.id, { creatorNotificationHandled: true });
       } catch (err) { console.error("[EventBus] task update emit error:", err); }
 
       if (notification) {
@@ -10242,10 +10237,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
       );
 
       try {
-        const { emitEntityUpdated, emitTaskCompleted } = await import("./lib/event-bus");
-        // Emit a generic update so rules listening for status_changed/updated also fire
-        await emitEntityUpdated("task", "task", task.id, previousTask, task, req.session.user!.id, task.country);
-        await emitTaskCompleted(task.id, task, req.session.user!.id, { creatorNotificationHandled: true });
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(task, previousTask, req.session.user!.id, { creatorNotificationHandled: true });
       } catch (err) { console.error("[EventBus] task resolve emit error:", err); }
 
       if (notification) {
@@ -34176,12 +34169,12 @@ Respond ONLY with valid JSON in this exact format:
       const transactionResult = await db.transaction(async (tx) => {
         const [currentTask] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).for("update").limit(1);
         if (!currentTask || !(currentTask.tags || []).includes("back_office")) {
-          return { confirmation: null, notification: undefined, alreadyDone: false };
+          return { confirmation: null, notification: undefined, alreadyDone: false, workflowChanges: [] as { task: any; oldTask: any }[] };
         }
         if (currentTask.boState === "done" || currentTask.status === "completed") {
           const [existing] = await tx.select().from(taskBackOfficeConfirmations)
             .where(eq(taskBackOfficeConfirmations.taskId, taskId)).limit(1);
-          return { confirmation: existing || { ok: true, alreadyDone: true }, notification: undefined, alreadyDone: true };
+          return { confirmation: existing || { ok: true, alreadyDone: true }, notification: undefined, alreadyDone: true, workflowChanges: [] as { task: any; oldTask: any }[] };
         }
         await assertTaskResolverAllowed(tx, userId);
         assertTaskCanBeCompletedStatus(currentTask.status);
@@ -34217,6 +34210,7 @@ Respond ONLY with valid JSON in this exact format:
           taskId, userId, content: note || "Úloha vybavená", kind: "state_change",
           metadata: { toState: "done" } as any,
         });
+        const workflowChanges = [{ task: completedTask, oldTask: currentTask }];
         // Sync sibling duplicates → completed. A single status-list confirmation can create
         // several back-office task rows (one per group member), inserted within ~milliseconds.
         // Completing only this row would leave its member-twins "pending" in Nexus Omni, so
@@ -34243,11 +34237,12 @@ Respond ONLY with valid JSON in this exact format:
           for (const sibling of siblings) {
             const siblingCompletedAt = new Date();
             const siblingWorkTiming = transitionTaskWorkTiming(sibling, "completed", siblingCompletedAt);
-            await tx.update(tasks).set({
+            const [completedSibling] = await tx.update(tasks).set({
               status: "completed", boState: "done", resolvedAt: siblingCompletedAt,
               resolvedByUserId: userId, resolution: note || "Confirmed by Back Office (sibling)",
               ...siblingWorkTiming,
-            }).where(eq(tasks.id, sibling.id));
+            }).where(eq(tasks.id, sibling.id)).returning();
+            if (completedSibling) workflowChanges.push({ task: completedSibling, oldTask: sibling });
           }
         }
         let notification: any;
@@ -34286,9 +34281,14 @@ Respond ONLY with valid JSON in this exact format:
             }).returning();
           }
         }
-        return { confirmation: conf, notification, alreadyDone: false };
+        return { confirmation: conf, notification, alreadyDone: false, workflowChanges };
       });
       if (!transactionResult.confirmation) return res.status(404).json({ error: "Task not found" });
+      try {
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        for (const change of transactionResult.workflowChanges)
+          await emitTaskLifecycle(change.task, change.oldTask, userId, { creatorNotificationHandled: true });
+      } catch (err) { console.error("[EventBus] back-office completion emit error:", err); }
       // The in-app row commits atomically with the completion; WebSocket delivery
       // is best-effort because clients hydrate persisted unread notices over HTTP.
       if (transactionResult.notification) {
@@ -34399,18 +34399,16 @@ Respond ONLY with valid JSON in this exact format:
           taskId, userId, content: "Prevzaté do vybavovania", kind: "state_change",
           metadata: { toState: "in_progress" } as any,
         });
-        return { error: null, updatedTask: updated, unchanged: false };
+        return { error: null, updatedTask: updated, oldTask: currentTask, unchanged: false };
       });
       if (claimResult.error === "missing") return res.status(404).json({ error: "Task not found" });
       if (claimResult.error === "done") return res.status(409).json({ error: "Task already completed" });
       const updatedTask = claimResult.updatedTask!;
       if (claimResult.unchanged) return res.json({ ok: true, unchanged: true });
-      if (updatedTask && task.assignedUserId !== updatedTask.assignedUserId) {
-        try {
-          const { emitTaskAssigned } = await import("./lib/event-bus");
-          await emitTaskAssigned(updatedTask, task, userId);
-        } catch (err) { console.error("[EventBus] back-office claim assignment emit error:", err); }
-      }
+      try {
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(updatedTask, claimResult.oldTask || task, userId);
+      } catch (err) { console.error("[EventBus] back-office claim emit error:", err); }
       res.json({ ok: true });
     } catch (error) {
       if (error instanceof TaskAssignmentAccessError) return res.status(403).json({ error: error.message, code: error.code });
@@ -34475,15 +34473,19 @@ Respond ONLY with valid JSON in this exact format:
         await markTaskAttachmentsAssociated(tx, attachments, currentTask);
         const now = new Date();
         const workTiming = transitionTaskWorkTiming(currentTask, "in_progress", now);
-        await tx.update(tasks).set({
+        const [updatedTask] = await tx.update(tasks).set({
           boState: "waiting_agent", status: "in_progress", ...workTiming, updatedAt: now,
-        }).where(eq(tasks.id, taskId));
-        return { error: null, comment: c };
+        }).where(eq(tasks.id, taskId)).returning();
+        return { error: null, comment: c, oldTask: currentTask, updatedTask };
       });
       if (askResult.error === "missing") return res.status(404).json({ error: "Task not found" });
       if (askResult.error === "done") return res.status(409).json({ error: "Task already completed" });
       if (askResult.error === "no_creator") return res.status(400).json({ error: "Task has no originating agent" });
       const comment = askResult.comment!;
+      if (askResult.updatedTask) {
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(askResult.updatedTask, askResult.oldTask, userId);
+      }
       let askCustomerName: string | null = null;
       if (task.customerId) {
         try {
@@ -34663,19 +34665,17 @@ Respond ONLY with valid JSON in this exact format:
           kind: "state_change",
           metadata: { forwardedTo: targetType, targetId, targetName, note: note || null, byUserId: userId } as any,
         });
-        return { error: null as null, task: updated[0] };
+        return { error: null as null, task: updated[0], oldTask: currentTask };
       });
       if (!forwardOutcome) return res.status(404).json({ error: "Task not found" });
       if (forwardOutcome.error === "invalid_target") return res.status(400).json({ error: targetType === "admin" ? "Target admin not found" : "Target group not found" });
       if (forwardOutcome.error === "ineligible_target") return res.status(400).json({ error: "Target has no approved active country-authorized recipients" });
       const forwardedTask = forwardOutcome.task!;
 
-      if (forwardedTask && task.assignedUserId !== forwardedTask.assignedUserId) {
-        try {
-          const { emitTaskAssigned } = await import("./lib/event-bus");
-          await emitTaskAssigned(forwardedTask, task, userId);
-        } catch (err) { console.error("[EventBus] back-office forward assignment emit error:", err); }
-      }
+      try {
+        const { emitTaskLifecycle } = await import("./lib/event-bus");
+        await emitTaskLifecycle(forwardedTask, forwardOutcome.oldTask || task, userId);
+      } catch (err) { console.error("[EventBus] back-office forward emit error:", err); }
 
       try {
         const meUser = (await storage.getAllUsers() as any[]).find(u => u.id === userId);
@@ -34827,14 +34827,22 @@ Respond ONLY with valid JSON in this exact format:
           throw error;
         }
       }
-      const comment = await db.transaction(async (tx) => {
+      const answerResult = await db.transaction(async (tx) => {
+        const [currentTask] = await tx.select().from(tasks).where(eq(tasks.id, taskId)).for("update").limit(1);
+        if (!currentTask || currentTask.boState !== "waiting_agent")
+          return null;
         const [c] = await tx.insert(taskComments).values({
           taskId, userId, content, kind: "answer", metadata: { answeredBy: userId, attachments } as any,
         }).returning();
         await markTaskAttachmentsAssociated(tx, attachments, task);
-        await tx.update(tasks).set({ boState: "in_progress" }).where(eq(tasks.id, taskId));
-        return c;
+        const [updatedTask] = await tx.update(tasks).set({ boState: "in_progress", updatedAt: new Date() })
+          .where(eq(tasks.id, taskId)).returning();
+        return { comment: c, oldTask: currentTask, updatedTask };
       });
+      if (!answerResult) return res.status(409).json({ error: "No pending question to answer" });
+      const comment = answerResult.comment;
+      const { emitTaskLifecycle } = await import("./lib/event-bus");
+      await emitTaskLifecycle(answerResult.updatedTask, answerResult.oldTask, userId);
       try {
         const notifyIds = (task.assignedUserId ? [task.assignedUserId] : []).filter(Boolean) as string[];
         if (notifyIds.length > 0) {
@@ -50582,16 +50590,10 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       });
 
       try {
-        const { emitEntityUpdated, emitEvent } = await import("./lib/event-bus");
+        const { emitEntityUpdated } = await import("./lib/event-bus");
         const contractCustomer = contract.customerId ? await storage.getCustomer(contract.customerId) : null;
         const cc = contractCustomer?.country || null;
         await emitEntityUpdated("contract", "contract", contract.id, contract, updatedContract, req.session.user!.id, cc);
-        await emitEvent({
-          source: "storage", module: "contract", entityType: "contract",
-          entityId: contract.id, eventType: "contract.completed",
-          oldValues: contract, newValues: updatedContract,
-          actorUserId: req.session.user!.id, countryCode: cc,
-        });
       } catch (err) { console.error("[EventBus] contract complete emit error:", err); }
       
       await storage.createContractAuditLog({
@@ -50629,16 +50631,10 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       });
 
       try {
-        const { emitEntityUpdated, emitEvent } = await import("./lib/event-bus");
+        const { emitEntityUpdated } = await import("./lib/event-bus");
         const contractCustomer = contract.customerId ? await storage.getCustomer(contract.customerId) : null;
         const cc = contractCustomer?.country || null;
         await emitEntityUpdated("contract", "contract", contract.id, contract, cancelledContract, req.session.user!.id, cc);
-        await emitEvent({
-          source: "storage", module: "contract", entityType: "contract",
-          entityId: contract.id, eventType: "contract.cancelled",
-          oldValues: contract, newValues: cancelledContract,
-          actorUserId: req.session.user!.id, countryCode: cc,
-        });
       } catch (err) { console.error("[EventBus] contract cancel emit error:", err); }
       
       await storage.createContractAuditLog({

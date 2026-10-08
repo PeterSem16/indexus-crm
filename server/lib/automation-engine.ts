@@ -26,7 +26,7 @@ import {
   type WorkflowRule,
   type WorkflowEvent,
 } from "@shared/schema";
-import { setEventDispatcher } from "./event-bus";
+import { setEventDispatcher, emitTaskLifecycle, emitEntityUpdated } from "./event-bus";
 import {
   compareOrderedValues, conditionValuesEqual, fieldsForEvent,
   matchesRuleCountryScope, SCHEDULE_MAX_MATCHES, SCHEDULE_MAX_SCAN_ROWS, SCHEDULE_RECORD_MODULES,
@@ -316,6 +316,9 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
     // Trigger after transaction commit. Existing automation template steps are
     // detected as preserved by the checklist service and are never replaced.
     for (const taskId of taskIds) void ensureTaskAiChecklist(taskId);
+    const createdTasks = await db.select().from(tasks).where(inArray(tasks.id, taskIds));
+    for (const createdTask of createdTasks)
+      await emitTaskLifecycle(createdTask, undefined, ctx.actorUserId || ctx.rule?.createdByUserId, { causationRunId: runId });
     return { ok: true, output: { taskId: taskIds[0], taskIds, taskCount: taskIds.length } };
   } catch (err: any) {
     return { ok: false, error: err?.message || "create_task failed" };
@@ -840,7 +843,21 @@ const UPDATE_ENTITY_MAP: Record<
   },
 };
 
-async function actionUpdateEntity(config: any, ctx: any): Promise<ActionResult> {
+async function emitAutomatedMutation(entityType: string, entityId: string, before: any, after: any, ctx: any, runId: string) {
+  if (!before || !after) return;
+  if (entityType === "task") {
+    await emitTaskLifecycle(after, before, ctx.actorUserId, { causationRunId: runId });
+    return;
+  }
+  let country = after.country || after.countryCode || null;
+  if (entityType === "invoice" && after.customerId) {
+    const customer = await storage.getCustomer(after.customerId);
+    country = customer?.country || country;
+  }
+  await emitEntityUpdated(entityType, entityType, entityId, before, after, ctx.actorUserId, country, { causationRunId: runId });
+}
+
+async function actionUpdateEntity(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
     const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
@@ -874,9 +891,12 @@ async function actionUpdateEntity(config: any, ctx: any): Promise<ActionResult> 
     if (typeof fn !== "function") {
       return { ok: false, error: `update_entity: storage.${cfg.method} not available` };
     }
+    const getter = `get${entityType[0].toUpperCase()}${entityType.slice(1)}`;
+    const before = await (storage as any)[getter]?.call(storage, entityId);
     const updated = await fn.call(storage, entityId, safe);
     if (!updated) return { ok: false, error: `update_entity: ${entityType} ${entityId} not found` };
 
+    await emitAutomatedMutation(entityType, entityId, before, updated, ctx, runId);
     return { ok: true, output: { entityType, entityId, updatedFields: Object.keys(safe) } };
   } catch (err: any) {
     return { ok: false, error: err?.message || "update_entity failed" };
@@ -980,9 +1000,12 @@ async function actionAssignUser(config: any, ctx: any, runId: string): Promise<A
     if (typeof fn !== "function") {
       return { ok: false, error: `assign_user: storage.${target.method} not available` };
     }
+    const getter = `get${entityType[0].toUpperCase()}${entityType.slice(1)}`;
+    const before = await (storage as any)[getter]?.call(storage, entityId);
     const updated = await fn.call(storage, entityId, { [target.field]: chosen });
     if (!updated) return { ok: false, error: `assign_user: ${entityType} ${entityId} not found` };
 
+    await emitAutomatedMutation(entityType, entityId, before, updated, ctx, runId);
     return { ok: true, output: { entityType, entityId, strategy, assignedTo: chosen, candidatePool: candidates.length } };
   } catch (err: any) {
     return { ok: false, error: err?.message || "assign_user failed" };
@@ -1013,6 +1036,7 @@ async function actionTagMutation(
   config: any,
   ctx: any,
   mode: "add" | "remove",
+  runId: string,
 ): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
@@ -1025,6 +1049,8 @@ async function actionTagMutation(
     if (!entityId) return { ok: false, error: `${mode}_tag requires entityId` };
     if (tags.length === 0) return { ok: false, error: `${mode}_tag requires at least one tag` };
 
+    const getter = `get${entityType[0].toUpperCase()}${entityType.slice(1)}`;
+    const before = await (storage as any)[getter]?.call(storage, entityId);
     const { pool } = await import("../db");
     const sqlText = mode === "add"
       ? `UPDATE ${target.table}
@@ -1044,6 +1070,8 @@ async function actionTagMutation(
     if (result.rowCount === 0) {
       return { ok: false, error: `${mode}_tag: ${entityType} ${entityId} not found` };
     }
+    const after = await (storage as any)[getter]?.call(storage, entityId);
+    await emitAutomatedMutation(entityType, entityId, before, after, ctx, runId);
     return {
       ok: true,
       output: { entityType, entityId, mode, requested: tags, currentTags: result.rows[0].tags },
@@ -1062,8 +1090,8 @@ const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, 
   webhook: actionWebhook,
   update_entity: actionUpdateEntity,
   assign_user: actionAssignUser,
-  add_tag: (cfg, ctx) => actionTagMutation(cfg, ctx, "add"),
-  remove_tag: (cfg, ctx) => actionTagMutation(cfg, ctx, "remove"),
+  add_tag: (cfg, ctx, runId) => actionTagMutation(cfg, ctx, "add", runId),
+  remove_tag: (cfg, ctx, runId) => actionTagMutation(cfg, ctx, "remove", runId),
 };
 
 /* ------------------------------------------------------------
@@ -1079,7 +1107,11 @@ async function findMatchingRules(event: WorkflowEvent, onlyRuleIds?: readonly st
       eq(workflowRules.module, event.module),
       ...(onlyRuleIds ? [inArray(workflowRules.id, [...onlyRuleIds])] : []),
     ));
-  return all.filter((rule) => {
+  return all.filter((rule) => eventMatchesRule(rule, event));
+}
+
+export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): boolean {
+    if (!rule.enabled || rule.module !== event.module) return false;
     const t: any = rule.trigger || {};
     if (t.type === "event") {
       if (t.entityType && t.entityType !== event.entityType) return false;
@@ -1091,7 +1123,6 @@ async function findMatchingRules(event: WorkflowEvent, onlyRuleIds?: readonly st
       return true;
     }
     return false;
-  });
 }
 
 type ScheduledCandidate = { id: string; countryCode: string; newValues: Record<string, unknown> };

@@ -166,8 +166,8 @@ export async function executeStatusListTaskAction(
       // This insert commits independently; task creation is never coupled to AI.
       void ensureTaskAiChecklist(createdTask.id);
       try {
-        const { emitTaskAssigned } = await import("./event-bus");
-        await emitTaskAssigned(createdTask, undefined, userId);
+        const { emitTaskLifecycle } = await import("./event-bus");
+        await emitTaskLifecycle(createdTask, undefined, userId);
       } catch (err) { console.error("[EventBus] status-list task assignment emit error:", err); }
     }
     return createdTask;

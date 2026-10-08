@@ -1,8 +1,9 @@
 import { db } from "../db";
-import { customers, tasks, taskGroupMembers, workflowEvents } from "@shared/schema";
+import { customers, clinics, hospitals, collaborators, tasks, taskGroupMembers, workflowEvents } from "@shared/schema";
 import { taskAutomationGroupIds } from "@shared/task-automation";
 import { and, eq, sql } from "drizzle-orm";
 import { taskTextContentIdentity } from "./task-text-identity";
+import { isPulseOriginTask } from "./task-contract";
 
 type EventInput = {
   source?: "storage" | "webhook" | "cron" | "manual" | "inbound-call" | "task-analysis";
@@ -52,15 +53,40 @@ export function safeTaskEventValues(task: any) {
     taskGroupIds: taskAutomationGroupIds(task),
     createdByUserId: task.createdByUserId,
     customerId: task.customerId,
+    country: task.country,
     relatedEntityType: task.relatedEntityType,
     relatedEntityId: task.relatedEntityId,
     resolvedByUserId: task.resolvedByUserId,
     resolvedAt: task.resolvedAt,
     sourceRunId: task.sourceRunId,
+    pulseOrigin: isPulseOriginTask(task),
     boState: task.boState,
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
   };
+}
+
+/** Resolve the actual linked institution/contact country, never a rule or agent default. */
+export async function taskEventCountry(task: any, fallback?: string | null): Promise<string | null> {
+  if (task?.customerId) {
+    const [customer] = await db.select({ country: customers.country }).from(customers)
+      .where(eq(customers.id, task.customerId)).limit(1);
+    if (customer?.country) return customer.country;
+  }
+  const sources = {
+    customer: { table: customers, country: customers.country },
+    clinic: { table: clinics, country: clinics.countryCode },
+    hospital: { table: hospitals, country: hospitals.countryCode },
+    collaborator: { table: collaborators, country: collaborators.countryCode },
+  };
+  const related = Object.prototype.hasOwnProperty.call(sources, task?.relatedEntityType)
+    ? sources[task.relatedEntityType as keyof typeof sources] : undefined;
+  if (related && task?.relatedEntityId) {
+    const [row] = await db.select({ country: related.country }).from(related.table)
+      .where(eq(related.table.id, task.relatedEntityId)).limit(1);
+    if (row?.country) return row.country;
+  }
+  return task?.country || fallback || null;
 }
 
 export async function emitEvent(input: EventInput): Promise<string | null> {
@@ -75,7 +101,8 @@ export async function emitEvent(input: EventInput): Promise<string | null> {
         return { ...values, taskGroupIds: taskAutomationGroupIds(values),
           resolvedByGroupIds: [...new Set(resolverGroups.map(row => row.groupId))] };
       };
-      input = { ...input, oldValues: await withRouting(input.oldValues), newValues: await withRouting(input.newValues) };
+      input = { ...input, countryCode: await taskEventCountry(input.newValues, input.countryCode),
+        oldValues: await withRouting(input.oldValues), newValues: await withRouting(input.newValues) };
     }
     const changedFields = diffChangedFields(input.oldValues, input.newValues);
     const [row] = await db
@@ -238,9 +265,10 @@ export async function emitEntityUpdated(
   oldValues: any,
   newValues: any,
   actorUserId?: string | null,
-  countryCode?: string | null
+  countryCode?: string | null,
+  options: { causationRunId?: string | null } = {},
 ) {
-  await emitEvent({ module, entityType, entityId, eventType: "updated", oldValues, newValues, actorUserId, countryCode });
+  await emitEvent({ module, entityType, entityId, eventType: "updated", oldValues, newValues, actorUserId, countryCode, ...options });
   // Status change is its own event for easier matching
   if (oldValues && newValues && oldValues.status !== newValues.status) {
     await emitEvent({
@@ -252,7 +280,12 @@ export async function emitEntityUpdated(
       newValues: { status: newValues.status, ...newValues },
       actorUserId,
       countryCode,
+      ...options,
     });
+    if (module === "contract" && ["completed", "cancelled"].includes(newValues.status)) {
+      await emitEvent({ module, entityType, entityId, eventType: `contract.${newValues.status}`,
+        oldValues, newValues, actorUserId, countryCode, ...options });
+    }
   }
 }
 
@@ -262,6 +295,7 @@ export function taskCompletionEventValues(
 ) {
   return {
     ...task,
+    pulseOrigin: isPulseOriginTask(task),
     creatorNotificationHandled: options.creatorNotificationHandled === true,
   };
 }
@@ -270,7 +304,7 @@ export async function emitTaskCompleted(
   taskId: string,
   task: any,
   actorUserId?: string | null,
-  options: { creatorNotificationHandled?: boolean } = {},
+  options: { creatorNotificationHandled?: boolean; causationRunId?: string | null } = {},
 ) {
   return emitEvent({
     module: "task",
@@ -280,23 +314,16 @@ export async function emitTaskCompleted(
     newValues: taskCompletionEventValues(task, options),
     actorUserId,
     countryCode: task?.country || null,
+    causationRunId: options.causationRunId,
   });
 }
 
 /** Emit assignment only when a task is newly assigned or its owner changes. */
-export async function emitTaskAssigned(task: any, oldTask?: any, actorUserId?: string | null) {
+export async function emitTaskAssigned(task: any, oldTask?: any, actorUserId?: string | null, causationRunId?: string | null) {
   if (!task?.id || !task.assignedUserId) return null;
   if (oldTask && oldTask.assignedUserId === task.assignedUserId &&
     JSON.stringify(taskAutomationGroupIds(oldTask)) === JSON.stringify(taskAutomationGroupIds(task)) &&
     oldTask.assignedDepartmentId === task.assignedDepartmentId) return null;
-  let verifiedCountry: string | null = task.country || null;
-  if (task.customerId) {
-    const [customer] = await db.select({ country: customers.country })
-      .from(customers)
-      .where(eq(customers.id, task.customerId))
-      .limit(1);
-    verifiedCountry = customer?.country || verifiedCountry;
-  }
   return emitEvent({
     module: "task",
     entityType: "task",
@@ -305,6 +332,26 @@ export async function emitTaskAssigned(task: any, oldTask?: any, actorUserId?: s
     oldValues: oldTask ? safeTaskEventValues(oldTask) : null,
     newValues: safeTaskEventValues(task),
     actorUserId,
-    countryCode: verifiedCountry,
+    countryCode: task.country || null,
+    causationRunId,
   });
+}
+
+/** Run after the committed write; one consistent lifecycle across every Task UI. */
+export async function emitTaskLifecycle(
+  task: any, oldTask?: any, actorUserId?: string | null,
+  options: { creatorNotificationHandled?: boolean; causationRunId?: string | null } = {},
+) {
+  if (!task?.id) return;
+  if (!oldTask) {
+    await emitEvent({ module: "task", entityType: "task", entityId: task.id, eventType: "created",
+      newValues: safeTaskEventValues(task), actorUserId, countryCode: task.country,
+      causationRunId: options.causationRunId });
+  } else {
+    await emitEntityUpdated("task", "task", task.id, oldTask,
+      task, actorUserId, task.country, { causationRunId: options.causationRunId });
+  }
+  await emitTaskAssigned(task, oldTask, actorUserId, options.causationRunId);
+  if (oldTask && oldTask.status !== "completed" && task.status === "completed")
+    await emitTaskCompleted(task.id, task, actorUserId, options);
 }
