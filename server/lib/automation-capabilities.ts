@@ -1,4 +1,5 @@
 import { taskSalutationFields } from "../../shared/task-template-variables";
+import { smsRecipientList } from "../../shared/automation-sms-policy";
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
@@ -604,6 +605,27 @@ export function validateRuleCapabilities(rule: {
     }
     if (a.type === "send_sms" && !specified(config.to))
       fail(`${path}.config.to`, "Phone number is required");
+    if (a.type === "send_sms" && config.smsActionVersion === 2) {
+      try { smsRecipientList(config.to); }
+      catch (error) { fail(`${path}.config.to`, (error as Error).message); }
+      if (typeof config.text !== "string" || !config.text.trim())
+        fail(`${path}.config.text`, "SMS message is required");
+      if (specified(config.kind) && !["transactional", "promotional"].includes(config.kind))
+        fail(`${path}.config.kind`, "Unknown SMS kind");
+      if (specified(config.provider) && !["bulkgate", "smstools", "default"].includes(config.provider))
+        fail(`${path}.config.provider`, "Unknown SMS gateway");
+      if (config.templateLanguage !== undefined &&
+          !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
+        fail(`${path}.config.templateLanguage`, "Unsupported SMS template language");
+      const variables = new Set([
+        ...fieldsForEvent(rule.module, event).map(field => field.value),
+        ...taskSalutationFields(rule.module, event).map(field => field.value),
+        "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
+      ]);
+      if (typeof config.text === "string")
+        for (const match of config.text.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g))
+          if (!variables.has(match[1].trim())) fail(`${path}.config.text`, `Unavailable SMS variable: ${match[1]}`);
+    }
     if (scheduleMode && ["send_email", "send_sms"].includes(a.type)) {
       const explicitCount = (value: unknown): number | null => {
         if (typeof value !== "string" && !Array.isArray(value)) return null;
@@ -622,9 +644,14 @@ export function validateRuleCapabilities(rule: {
         if (toCount != null && ccCount != null && bccCount != null)
           staticallyKnownDeliveries += toCount * (1 + ccCount + bccCount);
       } else if (a.type === "send_sms") {
-        const toCount = explicitCount(config.to);
+        let toCount = explicitCount(config.to);
+        if (config.smsActionVersion === 2) {
+          try { toCount = smsRecipientList(config.to).length; }
+          catch { toCount = null; }
+        }
         if (toCount != null) {
-          if (toCount !== 1) fail(`${path}.config.to`, "Scheduled SMS requires exactly one explicit recipient");
+          if (config.smsActionVersion !== 2 && toCount !== 1)
+            fail(`${path}.config.to`, "Scheduled SMS requires exactly one explicit recipient");
           staticallyKnownDeliveries += toCount;
         }
       }

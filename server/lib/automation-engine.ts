@@ -3,6 +3,8 @@ import { admitAutomationRun } from "./automation-run-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
 import { automationDisplayValues, taskDisplayContent, renderAutomationText } from "./automation-display-values";
+import { deliverAutomationSms } from "./automation-sms-delivery";
+import { smsRecipientList } from "../../shared/automation-sms-policy";
 import { lookupAutomationReference } from "./automation-reference-lookup";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -658,93 +660,22 @@ async function actionSendEmail(config: any, ctx: any): Promise<ActionResult> {
 
 async function actionSendSms(config: any, ctx: any): Promise<ActionResult> {
   try {
-    config = await applyMessageTemplate(config, "sms", ctx.event?.source === "schedule");
+    // Modern actions own an editable snapshot, including deliberate clears.
+    if (config.smsActionVersion !== 2)
+      config = await applyMessageTemplate(config, "sms", ctx.event?.source === "schedule");
     const rendered = renderTemplate(config, ctx);
-    const to: string = String(rendered.to || "").trim();
-    const text: string = String(rendered.text || rendered.message || "").trim();
-    if (!to) return { ok: false, error: "send_sms requires `to` (phone number)" };
-    if (!text) return { ok: false, error: "send_sms requires `text`" };
-
-    const promotional = rendered.kind === "promotional" || rendered.promotional === true;
-    const country: string | undefined = ctx.event?.source === "schedule"
-      ? ctx.event?.countryCode || undefined
-      : rendered.country || ctx.event?.countryCode || undefined;
-    // Mission identity must come from the server-emitted event, never from the
-    // editable SMS action config. Campaign-contact events include campaignId in
-    // newValues (or oldValues for delete-style events).
-    const campaignId: string | undefined =
-      ctx.newValues?.campaignId ||
-      ctx.oldValues?.campaignId ||
-      ctx.event?.newValues?.campaignId ||
-      ctx.event?.oldValues?.campaignId ||
-      undefined;
-
-    const communication = await storage.createCommunicationMessage({
-      customerId: ctx.customer?.id || (ctx.contact?.type === "customer" ? ctx.contact?.id : null)
-        || (ctx.event?.entityType === "customer" ? ctx.event?.entityId : null) || ctx.event?.customerId || null,
-      campaignId: campaignId || undefined,
-      entityType: ctx.contact?.type || ctx.customer?.type || ctx.event?.entityType
-        || (ctx.customer || ctx.event?.customerId ? "customer" : undefined),
-      entityId: ctx.contact?.id || ctx.customer?.id || ctx.event?.entityId || ctx.event?.customerId || undefined,
-      userId: ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
-      type: "sms",
-      direction: "outbound",
-      content: text,
-      recipientPhone: to,
-      status: "pending",
-      metadata: JSON.stringify({
-        source: "automation_engine",
-        ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
-        campaignId: campaignId || null,
-      }),
-    });
+    if (config.smsActionVersion === 2) {
+      rendered.to = smsRecipientList(config.to);
+      const textCtx = taskTemplateContext(ctx, config.templateLanguage);
+      const display = await automationDisplayValues(textCtx, [config.text], lookupAutomationReference, config.templateLanguage);
+      rendered.text = renderAutomationText(config.text, textCtx, display);
+    }
     const { sendSmsViaProvider } = await import("./sms-provider");
-    const result = await sendSmsViaProvider({
-      number: to,
-      text,
-      country,
-      // A Mission's configured provider is authoritative. Ignore stale
-      // action-level provider fields rather than allowing a switch.
-      provider: undefined,
-      campaignId,
-      // The campaign provider is authoritative; an action must not switch it.
-      campaignProviderMode: "reject-conflict",
-      promotional,
-      unicode: rendered.unicode === true,
-      tag: communication.id,
+    return await deliverAutomationSms(rendered, ctx, {
+      createMessage: message => storage.createCommunicationMessage(message),
+      updateMessage: (id, changes) => storage.updateCommunicationMessage(id, changes),
+      send: options => sendSmsViaProvider(options),
     });
-
-    try {
-      await storage.updateCommunicationMessage(communication.id, {
-        status: result.success ? "sent" : "failed",
-        provider: result.provider,
-        externalId: result.smsId,
-        errorMessage: result.success ? undefined : result.error,
-        sentAt: result.success ? new Date() : undefined,
-        metadata: JSON.stringify({
-          batchId: result.batchId || null,
-          source: "automation_engine",
-          ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
-          campaignId: campaignId || null,
-        }),
-      });
-    } catch (historyError) {
-      console.error("[Automation] SMS communication history write failed:", historyError);
-    }
-
-    if (!result.success) {
-      return { ok: false, error: result.error || "send_sms failed", output: { errorCode: result.errorCode } };
-    }
-    return {
-      ok: true,
-      output: {
-        smsId: result.smsId,
-        batchId: result.batchId,
-        provider: result.provider,
-        number: result.number,
-        kind: promotional ? "promotional" : "transactional",
-      },
-    };
   } catch (err: any) {
     return { ok: false, error: err?.message || "send_sms failed" };
   }
@@ -1204,10 +1135,10 @@ async function countScheduledDeliveries(rule: WorkflowRule, candidates: Schedule
         ? renderEmailAddressConfig(config, taskTemplateContext(ctx, config.templateLanguage))
         : renderTemplate(config, ctx);
       if (action.type === "send_sms") {
-        const recipients = scheduleRecipients(rendered.to);
-        if (recipients.length !== 1 || hasUnresolvedTemplate(recipients))
+        const recipients = config.smsActionVersion === 2 ? smsRecipientList(config.to) : scheduleRecipients(rendered.to);
+        if ((!recipients.length || (config.smsActionVersion !== 2 && recipients.length !== 1)) || hasUnresolvedTemplate(recipients))
           throw new Error("Scheduled SMS recipient fanout cannot be safely determined");
-        total++;
+        total += recipients.length;
       } else {
         if (rendered.emailActionVersion === 2) {
           const resolved = await planAutomationEmailRecipients(rendered);
@@ -1737,6 +1668,10 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
       const display = await automationDisplayValues(textCtx, [config.title, config.message], lookupAutomationReference, config.templateLanguage);
       rendered.title = renderAutomationText(config.title, textCtx, display);
       rendered.message = renderAutomationText(config.message, textCtx, display);
+    } else if (a.type === "send_sms" && config.smsActionVersion === 2) {
+      const display = await automationDisplayValues(textCtx, [config.text], lookupAutomationReference, config.templateLanguage);
+      rendered.to = smsRecipientList(config.to);
+      rendered.text = renderAutomationText(config.text, textCtx, display);
     }
     return { type: a.type, rendered };
   }));

@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useI18n } from "@/i18n";
+import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
 import { useAuth } from "@/contexts/auth-context";
 import { Link } from "wouter";
 import { serviceVisual } from "./automation-service-visuals";
@@ -49,9 +50,10 @@ export function AutomationServiceCatalog({
   onManage?: (serviceId: string) => void;
   compact?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user } = useAuth();
   const copy = t.automationServices;
+  const smsCopy = getSmsActionCopy(locale);
   const canManageStatusList = user?.role === "admin" || user?.role === "manager";
   const services = catalog.actionTypes;
   const moduleNames = (ids: string[]) => ids.map(id =>
@@ -86,11 +88,11 @@ export function AutomationServiceCatalog({
                 <div className="flex items-start gap-3">
                   <span className={`rounded-xl p-2.5 shrink-0 ${visual.tile} ${visual.accent}`}><Icon className="h-5 w-5" /></span>
                   <div>
-                    <h3 className="font-semibold leading-6">{copy.names[id] || service.label}</h3>
+                    <h3 className="font-semibold leading-6">{id === "send_sms" ? smsCopy.heading : copy.names[id] || service.label}</h3>
                     <Badge variant="secondary" className="mt-1 text-[10px]">{copy.available}</Badge>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground flex-1">{copy.descriptions[id] || service.purpose}</p>
+                <p className="text-sm text-muted-foreground flex-1">{id === "send_sms" ? smsCopy.description : copy.descriptions[id] || service.purpose}</p>
                 <p className="text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">{copy.where}: </span>{moduleNames(service.availableIn)}
                 </p>

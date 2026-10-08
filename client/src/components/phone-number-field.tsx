@@ -44,6 +44,10 @@ interface PhoneNumberFieldProps {
   defaultCountryCode?: string;
   "data-testid"?: string;
   className?: string;
+  countryNames?: Record<string, string>;
+  searchPlaceholder?: string;
+  noCountryResults?: string;
+  portalClassName?: string;
 }
 
 function formatPhoneNumber(value: string): string {
@@ -77,6 +81,10 @@ export function PhoneNumberField({
   defaultCountryCode = "SK",
   "data-testid": testId,
   className,
+  countryNames,
+  searchPlaceholder = "Hľadať krajinu...",
+  noCountryResults = "Krajina nenájdená",
+  portalClassName,
 }: PhoneNumberFieldProps) {
   const [open, setOpen] = useState(false);
   const parsed = parsePhoneValue(value);
@@ -149,16 +157,16 @@ export function PhoneNumberField({
             <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[220px] p-0" align="start">
+        <PopoverContent className={cn("w-[220px] p-0", portalClassName)} align="start">
           <Command>
-            <CommandInput placeholder="Hľadať krajinu..." />
+            <CommandInput placeholder={searchPlaceholder} />
             <CommandList>
-              <CommandEmpty>Krajina nenájdená</CommandEmpty>
+              <CommandEmpty>{noCountryResults}</CommandEmpty>
               <CommandGroup>
                 {PHONE_COUNTRIES.map((c) => (
                   <CommandItem
                     key={c.code}
-                    value={`${c.name} ${c.dialCode}`}
+                    value={`${countryNames?.[c.code] || c.name} ${c.name} ${c.dialCode}`}
                     onSelect={() => handleCountryChange(c.code)}
                     data-testid={testId ? `${testId}-country-${c.code}` : undefined}
                   >
@@ -169,7 +177,7 @@ export function PhoneNumberField({
                       )}
                     />
                     <span className="mr-2">{c.flag}</span>
-                    <span className="flex-1">{c.name}</span>
+                    <span className="flex-1">{countryNames?.[c.code] || c.name}</span>
                     <span className="text-muted-foreground text-sm">{c.dialCode}</span>
                   </CommandItem>
                 ))}

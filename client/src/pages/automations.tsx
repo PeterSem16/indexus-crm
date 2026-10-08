@@ -30,7 +30,9 @@ import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
 import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
+import { AutomationSendSmsAction } from "@/components/automation-send-sms-action";
 import { AutomationNotifyUserAction } from "@/components/automation-notify-user-action";
+import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
 import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
@@ -190,7 +192,7 @@ function chooseTriggerPreset(draft: RuleDraft, preset: AutomationTriggerPreset):
 
 export default function AutomationsPage() {
   const { toast } = useToast();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [editing, setEditing] = useState<Rule | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newService, setNewService] = useState<ServiceId | null>(null);
@@ -900,7 +902,7 @@ function RuleEditor({
     });
   };
   const hasInvalidEmailDraft = tab !== "json" && draft.actions.some((action, index) =>
-    action.type === "send_email" && emailDraftInvalidByAction[index]);
+    (action.type === "send_email" || action.type === "send_sms") && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
     setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
@@ -2074,7 +2076,7 @@ function ActionEditor({
   onRemove: () => void;
   onEmailDraftValidityChange?: (invalid: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const setCfg = (k: string, v: any) => onChange({ ...action, config: { ...action.config, [k]: v } });
   const notifyEditorApplyIntent = useRef(false);
   const changeNotifyConfig = (config: Record<string, any>) => {
@@ -2127,7 +2129,7 @@ function ActionEditor({
                     </span>
                   ); })()}
                   <span className="whitespace-normal leading-5">
-                    {a.value === "send_sms" ? t.automationCatalog.smsMissionProvider : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
+                    {a.value === "send_sms" ? getSmsActionCopy(locale).heading : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
                   </span>
                 </span>
               </SelectItem>
@@ -2194,73 +2196,14 @@ function ActionEditor({
       />}
 
       {action.type === "send_sms" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div>
-            <Label className="text-xs">To (phone or template)</Label>
-            <Input
-              className="h-8 text-xs"
-              value={action.config.to || ""}
-              onChange={(e) => setCfg("to", e.target.value)}
-              placeholder="{{newValues.phone}}"
-              data-testid={`input-sms-to-${index}`}
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Kind</Label>
-            <Select value={action.config.kind || "transactional"} onValueChange={(v) => setCfg("kind", v)}>
-              <SelectTrigger className="h-8 text-xs" data-testid={`select-sms-kind-${index}`}><SelectValue /></SelectTrigger>
-              <SelectContent className="automation-rule-select-content">
-                <SelectItem value="transactional">Transactional</SelectItem>
-                <SelectItem value="promotional">Promotional</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">SMS gateway</Label>
-            <Select value={action.config.provider || "default"} onValueChange={(v) => setCfg("provider", v === "default" ? undefined : v)}>
-              <SelectTrigger className="h-8 text-xs" data-testid={`select-sms-gateway-${index}`}><SelectValue /></SelectTrigger>
-              <SelectContent className="automation-rule-select-content">
-                <SelectItem value="default">Country default</SelectItem>
-                <SelectItem value="bulkgate">BulkGate</SelectItem>
-                <SelectItem value="smstools">SMSTOOLS (SK)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Country (optional)</Label>
-            <Input
-              className="h-8 text-xs"
-              value={action.config.country || ""}
-              onChange={(e) => setCfg("country", e.target.value)}
-              placeholder="SK / CZ / AT"
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={action.config.unicode === true}
-                onChange={(e) => setCfg("unicode", e.target.checked)}
-                data-testid={`checkbox-sms-unicode-${index}`}
-              />
-              Unicode (non-GSM)
-            </label>
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Message text</Label>
-            <Textarea
-              rows={3}
-              className="text-xs"
-              value={action.config.text || ""}
-              onChange={(e) => setCfg("text", e.target.value)}
-              placeholder="Hi {{newValues.firstName}}, your appointment is confirmed."
-              data-testid={`textarea-sms-text-${index}`}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              ~160 chars per part (70 with unicode). Sent via BulkGate using country sender config.
-            </p>
-          </div>
-        </div>
+        <AutomationSendSmsAction
+          config={action.config}
+          onChange={(config) => onChange({ ...action, config })}
+          availableVariables={availableVariables}
+          countryCodes={countryCodes}
+          testId={`send-sms-action-${index}`}
+          onDraftValidityChange={onEmailDraftValidityChange}
+        />
       )}
 
       {action.type === "webhook" && (
