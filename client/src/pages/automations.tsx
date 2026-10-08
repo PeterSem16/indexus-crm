@@ -2131,6 +2131,14 @@ function ActionEditor({
 
       {action.type === "notify_user" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          <div className="md:col-span-2 rounded-md border bg-background p-2" data-testid={`notify-user-help-${index}`}>
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="font-medium">{t.automationEditorHelp.notifyTitle}</span>
+              <AutomationStepHelp step="notify" copy={t.automationEditorHelp} />
+            </div>
+            <p className="mt-1 leading-relaxed text-muted-foreground">{t.automationEditorHelp.notify[0]}</p>
+          </div>
           <RecipientTargetSelect mode="notify" config={action.config} userOptions={userOptions}
             groups={taskGroups} roles={roles} onChange={(config) => onChange({ ...action, config })} index={index} />
           <div>
