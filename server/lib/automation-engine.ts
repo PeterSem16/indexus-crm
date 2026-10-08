@@ -2,7 +2,7 @@ import { db, pool } from "../db";
 import { admitAutomationRun } from "./automation-run-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
-import { automationDisplayValues, taskDisplayContent } from "./automation-display-values";
+import { automationDisplayValues, taskDisplayContent, renderAutomationText } from "./automation-display-values";
 import { lookupAutomationReference } from "./automation-reference-lookup";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import {
@@ -328,6 +328,14 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
 async function actionNotifyUser(config: any, ctx: any): Promise<ActionResult> {
   try {
     const rendered = renderTemplate(config, ctx);
+    if (config.notificationActionVersion === 2) {
+      const textCtx = taskTemplateContext(ctx, config.templateLanguage);
+      const display = await automationDisplayValues(textCtx,
+        [config.title, config.message], lookupAutomationReference, config.templateLanguage);
+      rendered.title = renderAutomationText(config.title, textCtx, display);
+      rendered.message = renderAutomationText(config.message, textCtx, display);
+      if (!rendered.title.trim()) return { ok: false, error: "Notification title is empty" };
+    }
     const grouped = rendered.taskGroupId || rendered.targetRole;
     if (grouped && (rendered.userId || rendered.userIds?.length)) {
       return { ok: false, error: "Choose one notification recipient: user, group or role" };
@@ -1725,6 +1733,10 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
       const display = await automationDisplayValues(textCtx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
       rendered.subject = renderEmailValue(config.subject, textCtx, false, display);
       rendered.body = renderEmailValue(config.body, textCtx, /<[a-z][\s\S]*>/i.test(String(config.body || "")), display);
+    } else if (a.type === "notify_user" && config.notificationActionVersion === 2) {
+      const display = await automationDisplayValues(textCtx, [config.title, config.message], lookupAutomationReference, config.templateLanguage);
+      rendered.title = renderAutomationText(config.title, textCtx, display);
+      rendered.message = renderAutomationText(config.message, textCtx, display);
     }
     return { type: a.type, rendered };
   }));

@@ -59,6 +59,7 @@ import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/adm
 import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
 import { transitionTaskWorkTiming } from "./lib/task-work-timing";
 import { validTaskMessageTemplate } from "./lib/task-message-templates";
+import { validNotificationMessageTemplate } from "./lib/automation-notification-templates";
 import { validMessageTemplateCountries } from "./lib/message-template-countries";
 import { registerPhoneCardPreferenceRoutes, type PhoneLookupMatch } from "./phone-card-preference-routes";
 import { registerAgentShiftLoginSetRoutes, sanitizeAgentShiftScope } from "./agent-shift-login-set-routes";
@@ -54638,10 +54639,12 @@ Return ONLY the JSON object.`
       const { attachments: _stripAtt, ...safeBody } = req.body;
       if (safeBody.countryCodes !== undefined && !validMessageTemplateCountries(safeBody.countryCodes))
         return res.status(400).json({ error: "Invalid template countries" });
-      if (!["email", "sms", "task"].includes(safeBody.type))
+      if (!["email", "sms", "task", "notification"].includes(safeBody.type))
         return res.status(400).json({ error: "Unknown template type" });
       if (safeBody.type === "task" && !validTaskMessageTemplate(safeBody))
         return res.status(400).json({ error: "Task templates require a name and plain-text content" });
+      if (safeBody.type === "notification" && !validNotificationMessageTemplate(safeBody))
+        return res.status(400).json({ error: "Notification templates require a name, title and plain-text message" });
       const template = await storage.createMessageTemplate({
         ...safeBody,
         createdBy: userId,
@@ -54662,13 +54665,19 @@ Return ONLY the JSON object.`
         return res.status(400).json({ error: "Invalid template countries" });
       const existing = await storage.getMessageTemplate(req.params.id);
       if (!existing) return res.status(404).json({ error: "Message template not found" });
-      if (safeBody2.type !== undefined && !["email", "sms", "task"].includes(safeBody2.type))
+      if (safeBody2.type !== undefined && !["email", "sms", "task", "notification"].includes(safeBody2.type))
         return res.status(400).json({ error: "Unknown template type" });
       if ((safeBody2.type || existing.type) === "task") {
         if (!validTaskMessageTemplate({ ...existing, ...safeBody2 }))
           return res.status(400).json({ error: "Task templates require a name and plain-text content" });
         if (existing.attachments?.length)
           return res.status(400).json({ error: "Remove message attachments before converting to a Task template" });
+      }
+      if ((safeBody2.type || existing.type) === "notification") {
+        if (!validNotificationMessageTemplate({ ...existing, ...safeBody2 }))
+          return res.status(400).json({ error: "Notification templates require a name, title and plain-text message" });
+        if (existing.attachments?.length)
+          return res.status(400).json({ error: "Remove attachments before converting to a notification template" });
       }
       const template = await storage.updateMessageTemplate(req.params.id, {
         ...safeBody2,

@@ -562,6 +562,27 @@ export function validateRuleCapabilities(rule: {
         fail(`${path}.config.userId`, "Choose a user, task group or role");
       if (groupTarget && (specified(config.userId) || specified(config.userIds)))
         fail(`${path}.config`, "Choose only one notification recipient");
+      if (config.notificationActionVersion === 2) {
+        if (typeof config.title !== "string" || !config.title.trim())
+          fail(`${path}.config.title`, "Notification title is required");
+        if (config.message != null && typeof config.message !== "string")
+          fail(`${path}.config.message`, "Notification message must be text");
+        if (specified(config.priority) && !["low", "normal", "high", "urgent"].includes(config.priority))
+          fail(`${path}.config.priority`, "Unknown notification priority");
+        if (config.templateLanguage !== undefined &&
+            !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
+          fail(`${path}.config.templateLanguage`, "Unsupported notification template language");
+        const variables = new Set([
+          ...fieldsForEvent(rule.module, event).map(field => field.value),
+          ...taskSalutationFields(rule.module, event).map(field => field.value),
+          "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
+        ]);
+        for (const key of ["title", "message"]) {
+          if (typeof config[key] !== "string") continue;
+          for (const match of config[key].matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g))
+            if (!variables.has(match[1].trim())) fail(`${path}.config.${key}`, `Unavailable notification variable: ${match[1]}`);
+        }
+      }
     }
     if (a.type === "send_email") {
       if (config.emailActionVersion === 2) {

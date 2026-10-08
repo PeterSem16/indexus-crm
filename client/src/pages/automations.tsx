@@ -1,6 +1,6 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
 import { emailActionIssues } from "@shared/automation-email-action";
-import { useState, useMemo, useEffect, Fragment, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, Fragment, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import { AutomationChoicePicker } from "@/components/automation-choice-picker";
 import { AutomationTaskAssignmentFilter } from "@/components/automation-task-assignment-filter";
 import { AutomationCreateTaskAction } from "@/components/automation-create-task-action";
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
+import { AutomationNotifyUserAction } from "@/components/automation-notify-user-action";
 import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
@@ -215,7 +216,7 @@ export default function AutomationsPage() {
         ? { all: [{ field: "newValues.lastCallResult", op: "changed_to", value: code }] }
         : { all: [{ field: "newValues.lastDispositionCategory", op: "eq", value: cat }] },
       actions: [
-        { type: "notify_user", config: { userId: "{{newValues.assignedUserId}}", title: name || "Status zmena", message: "Klient: {{newValues.firstName}} {{newValues.lastName}}" } },
+        { type: "notify_user", config: { notificationActionVersion: 2, userId: "{{newValues.assignedUserId}}", title: name || "Status zmena", message: "Klient: {{newValues.firstName}} {{newValues.lastName}}" } },
       ],
       rateLimitPerHour: null,
     };
@@ -327,7 +328,7 @@ export default function AutomationsPage() {
             setPrefillDraft(chooseTriggerPreset({
               ...EMPTY_DRAFT(),
               name: t.automationServices.triggerPresets.labels[preset.id],
-              actions: [{ type: "notify_user", config: { title: t.automationServices.triggerPresets.labels[preset.id] } }],
+              actions: [{ type: "notify_user", config: { notificationActionVersion: 2, title: t.automationServices.triggerPresets.labels[preset.id] } }],
             }, preset));
             setShowCreate(true);
           }} onSelect={(service) => {
@@ -1193,7 +1194,7 @@ function RuleEditor({
                       </button>
                       <AutomationStepHelp step="then" copy={t.automationEditorHelp} />
                       <Button size="sm" variant="outline" onClick={() => {
-                        setDraft({ ...draft, actions: [...draft.actions, { type: "notify_user", config: {} }] });
+                        setDraft({ ...draft, actions: [...draft.actions, { type: "notify_user", config: { notificationActionVersion: 2 } }] });
                         setExpandedStep(2);
                       }}
                         data-testid="button-add-action"><Plus className="h-3.5 w-3.5 mr-1" />{t.automationServices.workspace.addAction}</Button>
@@ -1495,7 +1496,7 @@ function RuleEditor({
                   onClick={() =>
                     setDraft({
                       ...draft,
-                      actions: [...draft.actions, { type: "notify_user", config: {} }],
+                      actions: [...draft.actions, { type: "notify_user", config: { notificationActionVersion: 2 } }],
                     })
                   }
                   data-testid="button-add-action"
@@ -2075,6 +2076,19 @@ function ActionEditor({
 }) {
   const { t } = useI18n();
   const setCfg = (k: string, v: any) => onChange({ ...action, config: { ...action.config, [k]: v } });
+  const notifyEditorApplyIntent = useRef(false);
+  const changeNotifyConfig = (config: Record<string, any>) => {
+    const previous = action.config;
+    const semanticChanges = Array.from(new Set([...Object.keys(previous), ...Object.keys(config)]))
+      .filter(key => key !== "notificationActionVersion" && JSON.stringify(previous[key]) !== JSON.stringify(config[key]));
+    const nextConfig = { ...config };
+    if (previous.notificationActionVersion !== 2 && config.notificationActionVersion === 2 &&
+      !notifyEditorApplyIntent.current && semanticChanges.every(key => key === "priority")) {
+      delete nextConfig.notificationActionVersion;
+    }
+    notifyEditorApplyIntent.current = false;
+    onChange({ ...action, config: nextConfig });
+  };
 
   const userOptions = useMemo(
     () => [
@@ -2098,7 +2112,7 @@ function ActionEditor({
         {(() => { const visual = serviceVisual(action.type); const Icon = visual.icon; return (
           <span className={`rounded-md p-1.5 ${visual.tile} ${visual.accent}`}><Icon className="h-4 w-4" /></span>
         ); })()}
-        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : {} })}>
+        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : {} })}>
           <SelectTrigger aria-label={t.automationServices.conditionEditor.action}
             className="h-9 w-56 max-w-full min-w-0 text-xs [&>span]:truncate" data-testid={`select-action-type-${index}`}>
             <SelectValue />
@@ -2129,40 +2143,29 @@ function ActionEditor({
       {!supportedActions.includes(action.type) &&
         <p className="text-xs text-destructive">{t.automationCatalog.unavailableHere}</p>}
 
-      {action.type === "notify_user" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div className="md:col-span-2 rounded-md border bg-background p-2" data-testid={`notify-user-help-${index}`}>
-            <div className="flex items-center gap-2">
-              <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <span className="font-medium">{t.automationEditorHelp.notifyTitle}</span>
-              <AutomationStepHelp step="notify" copy={t.automationEditorHelp} />
-            </div>
-            <p className="mt-1 leading-relaxed text-muted-foreground">{t.automationEditorHelp.notify[0]}</p>
+      {action.type === "notify_user" && <div className="space-y-3 text-xs">
+        <div className="rounded-md border bg-background p-2" data-testid={`notify-user-help-${index}`}>
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="font-medium">{t.automationEditorHelp.notifyTitle}</span>
+            <AutomationStepHelp step="notify" copy={t.automationEditorHelp} />
           </div>
-          <RecipientTargetSelect mode="notify" config={action.config} userOptions={userOptions}
-            groups={taskGroups} roles={roles} onChange={(config) => onChange({ ...action, config })} index={index} />
-          <div>
-            <Label className="text-xs">Priority</Label>
-            <Select value={action.config.priority || "normal"} onValueChange={(v) => setCfg("priority", v)}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent className="automation-rule-select-content">
-                <SelectItem value="low">low</SelectItem>
-                <SelectItem value="normal">normal</SelectItem>
-                <SelectItem value="high">high</SelectItem>
-                <SelectItem value="urgent">urgent</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Title</Label>
-            <Input className="h-8 text-xs" value={action.config.title || ""} onChange={(e) => setCfg("title", e.target.value)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Message</Label>
-            <Textarea rows={2} className="text-xs" value={action.config.message || ""} onChange={(e) => setCfg("message", e.target.value)} />
-          </div>
+          <p className="mt-1 leading-relaxed text-muted-foreground">{t.automationEditorHelp.notify[0]}</p>
         </div>
-      )}
+        <div onClickCapture={event => {
+          const target = event.target as HTMLElement;
+          if (target.closest(`[data-testid="notify-user-apply-${index}"]`)) notifyEditorApplyIntent.current = true;
+        }}>
+          <AutomationNotifyUserAction
+            config={action.config}
+            onChange={changeNotifyConfig}
+            availableVariables={availableVariables}
+            index={index}
+            recipientSelector={<RecipientTargetSelect mode="notify" config={action.config} userOptions={userOptions}
+              groups={taskGroups} roles={roles} onChange={(config) => onChange({ ...action, config })} index={index} />}
+          />
+        </div>
+      </div>}
 
       {action.type === "create_task" && (
         <AutomationCreateTaskAction

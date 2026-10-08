@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import ReactQuill from "react-quill";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
+import { getNotificationCopy } from "@/i18n/automation-notification-copy";
 import { taskSalutationFields, templateVariableToken } from "@shared/task-template-variables";
 import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
@@ -11562,7 +11563,7 @@ interface MessageTemplate {
   id: string;
   name: string;
   description?: string;
-  type: "email" | "sms" | "task";
+  type: "email" | "sms" | "task" | "notification";
   format: "text" | "html";
   subject?: string;
   content?: string;
@@ -11761,6 +11762,7 @@ const rewriteEmailArtworkPreview = (html: string) => html.replace(
 function MessageTemplatesTab() {
   const { t, locale } = useI18n();
   const taskCopy = getTaskActionCopy(locale);
+  const notificationCopy = getNotificationCopy(locale);
   const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<"templates" | "categories">("templates");
   
@@ -11773,7 +11775,7 @@ function MessageTemplatesTab() {
   const [editingCategory, setEditingCategory] = useState<TemplateCategory | null>(null);
   
   // Filter state
-  const [filterType, setFilterType] = useState<"all" | "email" | "sms" | "task">("all");
+  const [filterType, setFilterType] = useState<"all" | "email" | "sms" | "task" | "notification">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterLanguage, setFilterLanguage] = useState<string>("all");
 
@@ -11785,12 +11787,12 @@ function MessageTemplatesTab() {
   // Template form state
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
-  const [templateType, setTemplateType] = useState<"email" | "sms" | "task">("email");
+  const [templateType, setTemplateType] = useState<"email" | "sms" | "task" | "notification">("email");
   const { data: taskTemplateCatalog } = useQuery<any>({
     queryKey: ["/api/automation/catalog"],
-    enabled: templateType === "task",
+    enabled: templateType === "task" || templateType === "notification",
   });
-  const templateVariables = templateType === "task" ? Object.fromEntries(
+  const templateVariables = templateType === "task" || templateType === "notification" ? Object.fromEntries(
     Object.entries(taskTemplateCatalog?.fields || {}).map(([module, fields]) => [module, {
       label: (taskTemplateCatalog?.moduleLabels || {})[module] || module,
       description: taskCopy.taskVariablesHint,
@@ -12264,7 +12266,7 @@ function MessageTemplatesTab() {
       setTemplateName(template.name);
       setTemplateDescription(template.description || "");
       setTemplateType(template.type);
-      setTemplateFormat(template.format);
+      setTemplateFormat(template.type === "notification" ? "text" : template.format);
       setTemplateSubject(template.subject || "");
       setTemplateContent(template.content || "");
       setTemplateContentHtml(template.contentHtml || "");
@@ -12505,7 +12507,7 @@ function MessageTemplatesTab() {
         <TabsContent value="templates" className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={filterType} onValueChange={(v) => { setFilterType(v as "all" | "email" | "sms" | "task"); setMsgTemplatePage(1); }}>
+              <Select value={filterType} onValueChange={(v) => { setFilterType(v as "all" | "email" | "sms" | "task" | "notification"); setMsgTemplatePage(1); }}>
                 <SelectTrigger className="w-32" data-testid="select-filter-type">
                   <SelectValue placeholder={t.konfigurator.templateType} />
                 </SelectTrigger>
@@ -12514,6 +12516,7 @@ function MessageTemplatesTab() {
                   <SelectItem value="email">{t.konfigurator.typeEmail}</SelectItem>
                   <SelectItem value="sms">{t.konfigurator.typeSms}</SelectItem>
                   <SelectItem value="task">{taskCopy.taskType}</SelectItem>
+                  <SelectItem value="notification">{notificationCopy.notificationType}</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={filterCategory} onValueChange={(v) => { setFilterCategory(v); setMsgTemplatePage(1); }}>
@@ -12617,8 +12620,8 @@ function MessageTemplatesTab() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           <Badge variant={template.type === "email" ? "default" : "secondary"}>
-                            {template.type === "task" ? <ClipboardList className="h-3 w-3 mr-1" /> : template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
-                            {template.type === "task" ? taskCopy.taskType : template.type === "email" ? t.konfigurator.typeEmail : t.konfigurator.typeSms}
+                            {template.type === "task" ? <ClipboardList className="h-3 w-3 mr-1" /> : template.type === "email" ? <Mail className="h-3 w-3 mr-1" /> : template.type === "notification" ? <Bell className="h-3 w-3 mr-1" /> : <Smartphone className="h-3 w-3 mr-1" />}
+                            {template.type === "task" ? taskCopy.taskType : template.type === "email" ? t.konfigurator.typeEmail : template.type === "notification" ? notificationCopy.notificationType : t.konfigurator.typeSms}
                           </Badge>
                           {(template as any).attachments?.length > 0 && (
                             <Badge variant="outline" className="text-[9px] h-5 gap-0.5" title={`${(template as any).attachments.length} attachment(s)`}>
@@ -12752,12 +12755,14 @@ function MessageTemplatesTab() {
                 <SheetDescription className="text-[11px] text-muted-foreground mt-0 flex items-center gap-1.5">
                   {templateType === "sms" ? (
                     <span className="inline-flex items-center gap-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded text-[10px] font-medium">SMS</span>
+                  ) : templateType === "notification" ? (
+                    <span className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-medium">{notificationCopy.notificationType}</span>
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-[10px] font-medium">Email</span>
                   )}
-                  {templateFormat === "html" && <span className="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded text-[10px] font-medium">HTML</span>}
+                  {templateType !== "notification" && templateFormat === "html" && <span className="inline-flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded text-[10px] font-medium">HTML</span>}
                   {templateLanguage && <span className="inline-flex items-center bg-muted px-1.5 py-0.5 rounded text-[10px] font-medium uppercase text-muted-foreground">{templateLanguage}</span>}
-                  {templateAttachments.length > 0 && <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded text-[10px] font-medium text-muted-foreground"><Paperclip className="h-2.5 w-2.5" />{templateAttachments.length} príl.</span>}
+                  {templateType !== "notification" && templateAttachments.length > 0 && <span className="inline-flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded text-[10px] font-medium text-muted-foreground"><Paperclip className="h-2.5 w-2.5" />{templateAttachments.length} príl.</span>}
                 </SheetDescription>
               </div>
             </div>
@@ -12771,10 +12776,11 @@ function MessageTemplatesTab() {
             {/* LEFT: Email preview — slate background like email client */}
             <div className="flex-1 flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-900">
               {/* Subject bar */}
-              {templateType === "email" && templateSubject && (
+              {(templateType === "notification" || (templateType === "email" && templateSubject)) && (
                 <div className="flex items-center gap-3 px-5 py-2.5 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0 shadow-sm">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Predmet</span>
-                  <span className="text-sm font-medium flex-1 truncate text-slate-800 dark:text-slate-100">{interpolatePreview(templateSubject)}</span>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest shrink-0">{templateType === "notification" ? notificationCopy.title : "Predmet"}</span>
+                  <span className="text-sm font-medium flex-1 truncate text-slate-800 dark:text-slate-100"
+                    data-testid={templateType === "notification" ? "notification-template-preview-title" : undefined}>{interpolatePreview(templateSubject)}</span>
                 </div>
               )}
               {/* Preview content — padded so email card floats */}
@@ -12788,7 +12794,7 @@ function MessageTemplatesTab() {
                       <p className="text-[10px] text-slate-400 ml-1">{(interpolatePreview(templateContent || "")).length} znakov</p>
                     </div>
                   </div>
-                ) : templateFormat === "html" && templateContentHtml ? (
+                ) : templateType !== "notification" && templateFormat === "html" && templateContentHtml ? (
                   <div className="rounded-xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-700 bg-white">
                     <iframe
                       srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:28px 32px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.7;color:#1a1a1a;background:#fff;}</style></head><body>${rewriteEmailArtworkPreview(interpolatePreview(templateContentHtml).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/on\w+\s*=/gi,"data-blocked="))}</body></html>`}
@@ -12797,6 +12803,11 @@ function MessageTemplatesTab() {
                       sandbox=""
                       title="Email náhľad"
                     />
+                  </div>
+                ) : templateType === "notification" ? (
+                  <div className="rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 font-sans text-sm text-slate-800 dark:text-slate-100 leading-relaxed" data-testid="notification-template-preview-text">
+                    <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{notificationCopy.message}</p>
+                    <p className="whitespace-pre-wrap">{interpolatePreview(templateContent || "")}</p>
                   </div>
                 ) : (
                   <div className="rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 font-sans text-sm whitespace-pre-wrap text-slate-800 dark:text-slate-100 leading-relaxed">
@@ -12807,7 +12818,7 @@ function MessageTemplatesTab() {
             </div>
 
             {/* RIGHT: Send panel — white card panel with shadow separator */}
-            <div className="w-[400px] shrink-0 flex flex-col overflow-hidden bg-background border-l border-border/60 shadow-[-4px_0_16px_-4px_rgba(0,0,0,0.08)] relative">
+            {templateType !== "notification" && <div className="w-[400px] shrink-0 flex flex-col overflow-hidden bg-background border-l border-border/60 shadow-[-4px_0_16px_-4px_rgba(0,0,0,0.08)] relative">
               {/* Sending overlay */}
               {sendStep && sendStep !== "error" && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/98 backdrop-blur-sm">
@@ -12964,7 +12975,7 @@ function MessageTemplatesTab() {
                   )}
                 </Button>
               </div>
-            </div>
+            </div>}
           </div>
         </SheetContent>
       </Sheet>
@@ -12983,7 +12994,7 @@ function MessageTemplatesTab() {
               </SheetDescription>
             </div>
             <div className="flex items-center gap-2">
-              {templateType === "email" && (
+              {(templateType === "email" || templateType === "notification") && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -12992,13 +13003,13 @@ function MessageTemplatesTab() {
                   className="h-8 text-xs gap-1.5"
                 >
                   <Eye className="h-3.5 w-3.5" />
-                  {(t.konfigurator as any).previewTestBtn || "Náhľad / Test"}
+                  {templateType === "notification" ? notificationCopy.previewAction : (t.konfigurator as any).previewTestBtn || "Náhľad / Test"}
                 </Button>
               )}
               <Button
                 size="sm"
                 onClick={handleSaveTemplate}
-                disabled={!templateName.trim() || (templateType === "task" && !templateContent.trim()) || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                disabled={!templateName.trim() || ((templateType === "task" || templateType === "notification") && !templateContent.trim()) || (templateType === "notification" && (!templateSubject.trim() || Boolean(templateContentHtml.trim()) || templateAttachments.length > 0)) || createTemplateMutation.isPending || updateTemplateMutation.isPending}
                 data-testid="button-save-template"
                 className="h-8"
               >
@@ -13058,8 +13069,37 @@ function MessageTemplatesTab() {
                     >
                       <ClipboardList className="h-3 w-3" /> {taskCopy.taskType}
                     </button>
+                    <button
+                      type="button"
+                      className={`min-w-[calc(50%-0.25rem)] flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all sm:min-w-0 ${templateType === "notification" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => { setTemplateType("notification"); setTemplateFormat("text"); setHtmlSourceMode(false); }}
+                      data-testid="toggle-type-notification"
+                    >
+                      <Bell className="h-3 w-3" /> {notificationCopy.notificationType}
+                    </button>
                   </div>
                 </div>
+
+                {templateType === "notification" && (
+                  <div className="space-y-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/20" data-testid="notification-text-only">
+                    <p className="font-medium">{notificationCopy.plainTextNotice}</p>
+                    {templateContentHtml.trim() && <div className="space-y-1.5" data-testid="notification-html-warning">
+                      <p className="text-amber-800 dark:text-amber-300">{notificationCopy.htmlNotAllowed}</p>
+                      <Button type="button" size="sm" variant="outline" className="h-7 text-[11px]"
+                        onClick={() => { setTemplateContentHtml(""); setHtmlSourceMode(false); }}
+                        data-testid="notification-clear-html">{notificationCopy.removeHtmlContent}</Button>
+                    </div>}
+                    {templateAttachments.length > 0 && <div className="space-y-1.5" data-testid="notification-attachment-warning">
+                      <p className="text-amber-800 dark:text-amber-300">{notificationCopy.attachmentsNotAllowed}</p>
+                      {templateAttachments.map((attachment: any, index: number) => <div key={`${attachment.fileName}-${index}`} className="flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate">{attachment.fileName || `Attachment ${index + 1}`}</span>
+                        <Button type="button" size="sm" variant="outline" className="h-7 shrink-0 text-[11px]"
+                          onClick={() => handleDeleteTemplateAttachment(index)}
+                          data-testid={`notification-delete-attachment-${index}`}>{notificationCopy.removeAttachment}</Button>
+                      </div>)}
+                    </div>}
+                  </div>
+                )}
 
                 {/* Format (email only) */}
                 {templateType === "email" && (
@@ -13290,11 +13330,11 @@ function MessageTemplatesTab() {
               {templateType !== "sms" && (
                 <div className="px-5 py-2.5 border-b shrink-0 bg-background">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24 shrink-0">{templateType === "task" ? taskCopy.taskTitle : t.konfigurator.templateSubject}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24 shrink-0">{templateType === "task" ? taskCopy.taskTitle : templateType === "notification" ? notificationCopy.notificationTitle : t.konfigurator.templateSubject}</span>
                     <Input
                       value={templateSubject}
                       onChange={(e) => setTemplateSubject(e.target.value)}
-                      placeholder={`${templateType === "task" ? taskCopy.taskTitle : t.konfigurator.templateSubject}...`}
+                      placeholder={`${templateType === "task" ? taskCopy.taskTitle : templateType === "notification" ? notificationCopy.notificationTitle : t.konfigurator.templateSubject}...`}
                       className="h-8 text-sm flex-1"
                       data-testid="input-template-subject"
                     />
@@ -13607,7 +13647,7 @@ function MessageTemplatesTab() {
               {/* Variables footer hint */}
               <div className="px-3 py-2 border-t shrink-0 bg-background/50">
                 <p className="text-[9px] text-muted-foreground leading-relaxed">
-                  {templateType === "task" ? taskCopy.taskVariablesHint : (t.konfigurator as any).variableInsertFooter || "Kliknite na premennú pre vloženie do šablóny."}
+                  {templateType === "task" ? taskCopy.taskVariablesHint : templateType === "notification" ? notificationCopy.templateVariablesHint : (t.konfigurator as any).variableInsertFooter || "Kliknite na premennú pre vloženie do šablóny."}
                 </p>
               </div>
             </div>
