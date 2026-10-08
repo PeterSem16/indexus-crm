@@ -300,21 +300,25 @@ export function AutomationSendSmsAction({
     </div>
 
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="z-[10041] max-h-[92dvh] w-[min(760px,calc(100vw-1rem))] overflow-y-auto" data-testid={`${testId}-editor`}>
+      <DialogContent
+        overlayClassName="task-modern-modal-overlay task-modern-modal-overlay--nested"
+        className="task-modern-modal task-modern-modal--nested flex h-[min(760px,calc(100dvh-2rem))] w-[min(760px,calc(100vw-1rem))] max-w-[760px] flex-col gap-0 overflow-hidden p-0"
+        data-testid={`${testId}-editor`}
+      >
         <DialogHeader><DialogTitle>{copy.editorTitle}</DialogTitle><DialogDescription>{copy.editorHelp}</DialogDescription></DialogHeader>
-        <div className="space-y-4">
+        <div className="task-modern-modal-body min-h-0 flex-1 space-y-4">
           <div className="space-y-2">
             <Label>{copy.templates}</Label>
             <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
               <SelectTrigger aria-label={copy.language} data-testid={`${testId}-template-language`}><SelectValue /></SelectTrigger>
-              <SelectContent className="z-[10041]">
+              <SelectContent>
                 <SelectItem value="all">{copy.allLanguages}</SelectItem>
                 {languages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={draft.templateId || "__custom"} onValueChange={chooseTemplate}>
               <SelectTrigger data-testid={`${testId}-template`}><SelectValue placeholder={copy.chooseTemplate} /></SelectTrigger>
-              <SelectContent className="z-[10041]">
+              <SelectContent>
                 <SelectItem value="__custom">{copy.custom}</SelectItem>
                 {draft.templateId && !visibleTemplates.some(item => item.id === draft.templateId) && <SelectItem value={draft.templateId}>
                   {draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.currentSnapshot}
@@ -352,7 +356,7 @@ export function AutomationSendSmsAction({
             {isLegacy && <p className="text-xs text-muted-foreground">{copy.legacyNotice}</p>}
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="task-modern-modal-footer mt-0 gap-2 sm:gap-2">
           <Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid={`${testId}-cancel`}>{copy.cancel}</Button>
           <Button type="button" onClick={apply} disabled={!draft.text.trim() || unsupported.length > 0} data-testid={`${testId}-apply`}>{copy.apply}</Button>
         </DialogFooter>

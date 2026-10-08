@@ -35,7 +35,7 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
         window.loadScalar=()=>setConfig({to:"+421900123456",text:"Scalar message"});
         return <QueryClientProvider client={client}>
           <Dialog open={parentOpen} onOpenChange={setParentOpen}>
-            <DialogContent data-testid="parent-rule" className="automation-rule-dialog task-modal-modern max-h-[90dvh] overflow-y-auto">
+             <DialogContent data-testid="parent-rule" className="task-modern-modal automation-editor-dialog automation-rule-dialog max-h-[90dvh]" overlayClassName="task-modern-modal-overlay">
               <DialogTitle>Rule fixture</DialogTitle><DialogDescription>SMS action</DialogDescription>
               <AutomationSendSmsAction config={config} onChange={setConfig} testId="sms" countryCodes={["CZ"]}
                 onDraftValidityChange={setInvalid} availableVariables={[{value:"newValues.title",label:"Task title"}]}/>
@@ -115,6 +115,14 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
     await page.getByTestId("sms-template-language").click();
     await page.getByRole("option", { name: "Deutsch", exact: true }).click();
     await expect(text).toHaveValue("Task {{newValues.title}}");
+     await page.getByTestId("sms-template").click();
+     await page.getByTestId("sms-template-option-de").click();
+     await expect(text).toHaveValue("German text");
+     await page.getByTestId("sms-template-language").click();
+     await page.getByRole("option", { name: "Slovenčina", exact: true }).click();
+     await expect(text).toHaveValue("German text", { timeout: 1000 });
+     await page.getByTestId("sms-template").click();
+     await page.getByTestId("sms-template-option-sk").click();
     await page.getByTestId("sms-apply").click();
     const applied = await state();
     assert.equal(applied.templateLanguage, "sk");
@@ -130,12 +138,20 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
     for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
       await page.getByTestId("sms-open-editor").click();
+       await expect(dialog).toHaveClass(/task-modern-modal--nested/);
       const bounds = await dialog.boundingBox();
       assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1);
-      await page.getByTestId("sms-apply").scrollIntoViewIfNeeded();
+       await page.getByTestId("sms-template-language").click();
+       await page.getByRole("option", { name: "Deutsch", exact: true }).click();
+       await page.getByTestId("sms-template").click();
+       await page.getByTestId("sms-template-option-de").click();
+       await expect(text).toHaveValue("German text");
       await expect(page.getByTestId("sms-apply")).toBeInViewport();
+       await expect(page.getByTestId("sms-cancel")).toBeInViewport();
+       await page.screenshot({path: `/tmp/sms-compose-${viewport.width}.png`});
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("parent-rule")).toBeVisible();
+       assert.equal((await state()).text, "Task {{newValues.title}}");
     }
     await page.evaluate(() => (window as any).loadLegacy());
     await expect(page.getByTestId("sms-replace-legacy")).toBeVisible();
