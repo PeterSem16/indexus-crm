@@ -266,6 +266,7 @@ import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
 import { buildOutsideMissionCallbackDialMetadata } from "@/lib/outside-mission-callback";
+import { resolveMissionContactId } from "@/lib/mission-contact-identity";
 import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
 import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import {
@@ -11004,16 +11005,21 @@ function AgentWorkspacePageContent() {
         });
       }
 
-      if (contact && inboundTaskContext) {
-        setCurrentCampaignContactId(null);
-      }
+      const selectedEnrollmentId = contact && !inboundTaskContext
+        ? resolveMissionContactId({
+            contacts: rawCampaignContacts, campaignId: selectedCampaignId,
+            entityId: String(contact.id), contactType: match.entityType,
+            preferredId: currentCampaignContactId,
+          })
+        : null;
+      if (contact) setCurrentCampaignContactId(selectedEnrollmentId);
 
       // Sync selected identity to sip-phone — sip-phone updates localCustomerIdRef AND PATCHes call log.
       // Skipped for contexts (e.g. missed-calls list) that only want to open a card without touching an active call.
       if (contact && options?.syncCall !== false) {
         callContext.updateCallCustomerFn.current?.(String(contact.id), {
           contactType: match.entityType,
-          campaignContactId: inboundTaskContext ? undefined : currentCampaignContactId || undefined,
+          campaignContactId: selectedEnrollmentId || undefined,
         });
       }
 
@@ -12268,27 +12274,11 @@ function AgentWorkspacePageContent() {
   // When currentCampaignContactId is null (e.g. inbound call matched to a contact),
   // try to find the campaign contact by matching the current contact's ID against rawCampaignContacts.
   const effectiveCampaignContactId = useMemo(() => {
-    if (currentCampaignContactId) return currentCampaignContactId;
-    if (!currentContact?.id || !selectedCampaignId) return null;
-    const contactIdStr = String(currentContact.id);
-    // Primary lookup based on declared contactType
-    let matched = rawCampaignContacts.find((cc: any) => {
-      if (currentContactType === "hospital") return String(cc.hospitalId) === contactIdStr;
-      if (currentContactType === "clinic") return String(cc.clinicId) === contactIdStr;
-      if (currentContactType === "collaborator") return String(cc.collaboratorId) === contactIdStr;
-      return String(cc.customerId) === contactIdStr;
+    return resolveMissionContactId({
+      contacts: rawCampaignContacts, campaignId: selectedCampaignId,
+      entityId: currentContact?.id, contactType: currentContactType,
+      preferredId: currentCampaignContactId,
     });
-    // Fallback: contactType may be wrong (e.g. "customer" set as default for a hospital loaded via
-    // inbound lookup or manual search) — try all four fields so outbound calls still resolve.
-    if (!matched) {
-      matched = rawCampaignContacts.find((cc: any) =>
-        String(cc.hospitalId) === contactIdStr ||
-        String(cc.clinicId) === contactIdStr ||
-        String(cc.collaboratorId) === contactIdStr ||
-        String(cc.customerId) === contactIdStr
-      );
-    }
-    return matched?.id || null;
   }, [currentCampaignContactId, currentContact?.id, currentContactType, rawCampaignContacts, selectedCampaignId]);
 
   const currentCampaignContact = useMemo(() => {
@@ -14125,7 +14115,13 @@ function AgentWorkspacePageContent() {
         customerName: isOutsideMission ? outsideMissionMetadata?.customerName : (customerName || undefined),
         campaignId: isOutsideMission ? undefined : (selectedCampaignId || undefined),
         campaignName: isOutsideMission ? undefined : (selectedCampaign?.name || undefined),
-        campaignContactId: isOutsideMission ? undefined : (currentCampaignContactId || undefined),
+        campaignContactId: isOutsideMission ? undefined : (
+          resolveMissionContactId({
+            contacts: rawCampaignContacts, campaignId: selectedCampaignId,
+            entityId: callContact.id, contactType: currentContactType,
+            preferredId: currentCampaignContactId,
+          }) || undefined
+        ),
         contactType: (isOutsideMission ? "customer" : (currentContactType || "customer")) as "customer" | "hospital" | "clinic" | "collaborator",
         callerIdNumber: outboundRouting.callerIdNumber,
         provider: outboundRouting.provider,

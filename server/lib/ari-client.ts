@@ -556,6 +556,20 @@ export class AriClient extends EventEmitter {
     await this.ariRequest("POST", `/recordings/live/${recordingName}/stop`);
   }
 
+  /** A channel in a mixing bridge cannot use channels.record; record the bridge instead. */
+  async startBridgeRecording(bridgeId: string, options: {
+    name: string;
+    format?: string;
+    ifExists?: string;
+  }): Promise<any> {
+    const params = new URLSearchParams({
+      name: options.name,
+      format: options.format || "wav",
+      ifExists: options.ifExists || "fail",
+    });
+    return this.ariRequest("POST", `/bridges/${encodeURIComponent(bridgeId)}/record?${params}`);
+  }
+
   async downloadStoredRecording(recordingName: string): Promise<Buffer> {
     const url = `${this.baseUrl}/ari/recordings/stored/${recordingName}/file`;
     const response = await fetch(url, {

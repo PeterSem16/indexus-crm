@@ -4816,7 +4816,7 @@ export class QueueEngine extends EventEmitter {
             } else {
               active!.recordingName = recordingName!;
               if (peerActive) peerActive.recordingName = recordingName!;
-              await this.ariClient.startRecordingAdvanced(pending.callerChannelId, {
+              await this.ariClient.startBridgeRecording(bridge.id, {
                 name: recordingName!,
                 format: "wav",
                 ifExists: "fail",
