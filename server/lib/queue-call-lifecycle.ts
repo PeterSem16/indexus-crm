@@ -61,6 +61,8 @@ export interface StandingRecordingIdentity {
 
 export interface StandingRecordingAuthorization {
   authorized: boolean;
+  /** False until both live legs have actually joined; absent only on older calls. */
+  bridgeConnected?: boolean;
   recordingName?: string;
   state: "off" | "starting" | "recording" | "stop_requested" | "saving" | "saved" | "failed";
   campaignId: string | null;
@@ -98,7 +100,7 @@ export function canClaimStandingRecordingRecovery(input: {
   now?: Date;
 }): boolean {
   const now = input.now || new Date();
-  if (!input.authorization.authorized || !shouldRecoverStandingRecording({
+  if (!input.authorization.authorized || input.authorization.bridgeConnected === false || !shouldRecoverStandingRecording({
     callStatus: input.callStatus,
     endedAt: input.endedAt,
     recordingState: input.authorization.state,
@@ -119,7 +121,7 @@ export function isTrustedStandingRecording(input: {
   currentPbxIdentity: StandingRecordingIdentity | null;
 }): boolean {
   const { authorization } = input;
-  if (!input.standingForward || !authorization?.authorized ||
+  if (!input.standingForward || !authorization?.authorized || authorization.bridgeConnected === false ||
       !["starting", "recording", "stop_requested", "saving"].includes(authorization.state) ||
       !authorization.recordingName || authorization.recordingName !== input.recordingName ||
       !new RegExp(`^mobile_${input.callLogId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_standing_\\d+$`).test(input.recordingName) ||

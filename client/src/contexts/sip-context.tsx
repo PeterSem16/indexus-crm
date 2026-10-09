@@ -52,6 +52,8 @@ export interface PendingCall {
   customerId?: string;
   campaignId?: string;
   campaignContactId?: string;
+  /** Original missed inbound call; server verifies scope and the exact destination. */
+  missedCallbackSourceId?: string;
   contactType?: "customer" | "hospital" | "clinic" | "collaborator";
   campaignName?: string;
   customerName?: string;

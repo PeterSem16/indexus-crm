@@ -260,6 +260,8 @@ import {
   createCallRecordingUploadFilename,
 } from "./lib/call-recording-upload-filename";
 import { missionCallListDateBounds } from "./lib/mission-call-list-dates";
+import { authorizeMissedCallback, MissedCallbackError } from "./lib/missed-call-callback";
+import { callbackRecordingDestinationMatches } from "@shared/missed-call-callback";
 import { normalizeSmsPhone, uniqueSmsEntity, type SmsEntityCandidate } from "./lib/sms-attribution";
 import {
   buildUnambiguousCallBrowsePhoneIndex,
@@ -37565,6 +37567,12 @@ Respond ONLY with valid JSON in this exact format:
         ? metadata.dialedPerson as Record<string, unknown> : null;
       let trustedContactForCall: any = null;
       let trustedInboundRecordingSnapshot: MissionCallRecordingSnapshot | null = null;
+      const missedCallbackSourceId = typeof metadata.missedCallbackSourceId === "string"
+        ? metadata.missedCallbackSourceId : null;
+      delete metadata.missedCallback;
+      if (missedCallbackSourceId && (req.body?.direction !== "outbound" || !req.body?.campaignId || dialedPerson)) {
+        return res.status(403).json({ error: "MISSED_CALLBACK_FORBIDDEN" });
+      }
       if (req.body?.direction === "inbound") {
         if (req.body?.inboundCallLogId) {
           const [trustedInbound] = await db.select().from(inboundCallLogs)
@@ -37582,6 +37590,26 @@ Respond ONLY with valid JSON in this exact format:
             : null;
         } else {
           delete req.body.campaignId;
+        }
+      } else if (req.body?.campaignId && missedCallbackSourceId) {
+        try {
+          const trusted = await authorizeMissedCallback({
+            userId: sessionUserId, role: String(req.session.user!.role || ""),
+            sourceId: missedCallbackSourceId, campaignId: String(req.body.campaignId),
+            entityId: String(req.body.customerId || ""), contactType: String(metadata.contactType || ""),
+            phone: req.body.phoneNumber,
+            assignedCountries: (req.session.user!.assignedCountries || []) as string[],
+          });
+          metadata.missedCallback = trusted;
+          req.body.customerName = trusted.customerName;
+          // It is an authorized callback, not an enrollment and not an inbound backlink.
+          delete req.body.campaignContactId;
+          delete req.body.inboundCallLogId;
+        } catch (error) {
+          if (error instanceof MissedCallbackError) {
+            return res.status(error.code === "CONTACT_INACTIVE" ? 409 : 403).json({ code: error.code, error: error.code });
+          }
+          throw error;
         }
       } else if (req.body?.campaignId) {
         if (!req.body?.campaignContactId) {
@@ -37794,6 +37822,10 @@ Respond ONLY with valid JSON in this exact format:
           // A later request cannot manufacture the start-time authorization.
           delete nextMetadata.recordingPolicySnapshot;
         }
+        if (oldMetadata.missedCallback) nextMetadata.missedCallback = oldMetadata.missedCallback;
+        else delete nextMetadata.missedCallback;
+        if (oldMetadata.missedCallbackSourceId) nextMetadata.missedCallbackSourceId = oldMetadata.missedCallbackSourceId;
+        else delete nextMetadata.missedCallbackSourceId;
         if (oldMetadata.recordingCorrelationHash) {
           nextMetadata.recordingCorrelationHash = oldMetadata.recordingCorrelationHash;
           nextMetadata.recordingExpectedPhone = oldMetadata.recordingExpectedPhone;
@@ -37897,11 +37929,13 @@ Respond ONLY with valid JSON in this exact format:
       let snapshot: MissionCallRecordingSnapshot | null = null;
       let recordingCorrelationHash = "";
       let recordingExpectedPhone = "";
+      let missedCallbackRecordingBinding: { destinationPhoneKey?: string; destinationCountry?: string | null } | null = null;
       try {
         const metadata = callLog.metadata ? JSON.parse(callLog.metadata) : {};
         snapshot = metadata?.recordingPolicySnapshot || null;
         recordingCorrelationHash = String(metadata?.recordingCorrelationHash || "");
         recordingExpectedPhone = String(metadata?.recordingExpectedPhone || "");
+        missedCallbackRecordingBinding = metadata?.missedCallback || null;
       } catch {}
       if (!snapshot?.active || snapshot.mode !== "agent_only") {
         console.warn("[AgentOnlyRecording] Start rejected", callLog.id, "reason=inactive_snapshot");
@@ -38007,8 +38041,8 @@ Respond ONLY with valid JSON in this exact format:
                 await getVariable("EXTEN") ||
                 event.Exten ||
                 "",
-              ).replace(/\D/g, "").slice(-9);
-              if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
+              );
+              if (!callbackRecordingDestinationMatches(missedCallbackRecordingBinding, actualPhone, recordingExpectedPhone)) continue;
               scan.phone++;
 
               const channelSipCallId = await getVariable("CHANNEL(pjsip,call-id)");
@@ -38075,8 +38109,8 @@ Respond ONLY with valid JSON in this exact format:
                   { headers: { Authorization: authHeader }, signal: AbortSignal.timeout(3000) },
                 );
                 if (!extensionResponse.ok) continue;
-                const actualPhone = String((await extensionResponse.json())?.value || "").replace(/\D/g, "").slice(-9);
-                if (!recordingExpectedPhone || actualPhone !== recordingExpectedPhone) continue;
+                const actualPhone = String((await extensionResponse.json())?.value || "");
+                if (!callbackRecordingDestinationMatches(missedCallbackRecordingBinding, actualPhone, recordingExpectedPhone)) continue;
               }
               const callIdResponse = await fetch(
                 `${ariProtocol}://${server.host}:${server.port}/ari/channels/${encodeURIComponent(channel.id)}/variable?variable=${encodeURIComponent("CHANNEL(pjsip,call-id)")}`,

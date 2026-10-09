@@ -267,6 +267,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
 import { buildOutsideMissionCallbackDialMetadata } from "@/lib/outside-mission-callback";
 import { resolveMissionContactId } from "@/lib/mission-contact-identity";
+import { selectedMissedCallbackSource, type MissedCallbackSelection } from "@shared/missed-call-callback";
 import PriorityBuilder, { PRIORITY_BUILDER_DIALOG_CLASS_NAME } from "@/components/agent/PriorityBuilder";
 import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import {
@@ -10731,6 +10732,7 @@ function AgentWorkspacePageContent() {
   const [missedSort, setMissedSort] = useState<"date_desc" | "date_asc" | "name_asc" | "unhandled">("date_desc");
   const [missedCallNotifs, setMissedCallNotifs] = useState<Array<{ id: number; title: string; description: string }>>([]);
   const pendingCallbackAbandonedIdRef = useRef<string | null>(null);
+  const missedCallbackSelectionRef = useRef<MissedCallbackSelection | null>(null);
   const [historyDetailModal, setHistoryDetailModal] = useState<TimelineEntry | ContactHistory | null>(null);
   const [emailReplyOpen, setEmailReplyOpen] = useState(false);
   const [emailReplyText, setEmailReplyText] = useState("");
@@ -10908,6 +10910,7 @@ function AgentWorkspacePageContent() {
     try {
       outsideMissionContactActiveRef.current = false;
       outsideMissionContactRef.current = null;
+      missedCallbackSelectionRef.current = null;
       setCurrentPhoneOverride(null);
       let contact: Customer | null = null;
       if (match.entityType === "customer") {
@@ -11174,6 +11177,11 @@ function AgentWorkspacePageContent() {
       { syncCall: !missedCallId, rememberPhone: pending.phone },
     );
     if (opened && missedCallId) {
+      missedCallbackSelectionRef.current = {
+        sourceId: String(missedCallId), campaignId: selectedCampaignId || "",
+        entityId: String(match.id), contactType: match.entityType, callerNumber: pending.phone,
+      };
+      setCurrentPhoneOverride(pending.phone);
       try {
         await markMissedCallHandled(missedCallId);
         setCurrentCampaignContactId(null);
@@ -14115,6 +14123,11 @@ function AgentWorkspacePageContent() {
         customerName: isOutsideMission ? outsideMissionMetadata?.customerName : (customerName || undefined),
         campaignId: isOutsideMission ? undefined : (selectedCampaignId || undefined),
         campaignName: isOutsideMission ? undefined : (selectedCampaign?.name || undefined),
+        missedCallbackSourceId: isOutsideMission || context?.dialedPerson ? undefined :
+          selectedMissedCallbackSource(missedCallbackSelectionRef.current, {
+            campaignId: selectedCampaignId, entityId: String(callContact.id),
+            contactType: currentContactType, phone: normalizedPhone, country: outboundCountry,
+          }),
         campaignContactId: isOutsideMission ? undefined : (
           resolveMissionContactId({
             contacts: rawCampaignContacts, campaignId: selectedCampaignId,
@@ -18153,12 +18166,14 @@ function AgentWorkspacePageContent() {
             setAbandonedCallsOpen(false);
           }}
           onOpenCall={async (call) => {
-            const phoneNum = call.customerPhone || call.callerNumber;
+            const phoneNum = call.callerNumber || call.customerPhone;
             let opened = false;
+            let selectedMatch: PhoneMatch | null = null;
             setOpeningMissedCallId(String(call.id));
             try {
               const persistedTarget = resolveMissedCallCardTarget(call.customerId, phoneNum || "", []);
               if (persistedTarget.kind === "match") {
+                selectedMatch = persistedTarget.match;
                 opened = await handleSelectInboundMatch(
                   persistedTarget.match, "card", undefined,
                   { syncCall: false, rememberPhone: phoneNum },
@@ -18182,6 +18197,7 @@ function AgentWorkspacePageContent() {
                 const rememberedMatch = getRememberedPhoneCard(validMatches, preference);
                 const resolution = resolveMissedCallCardTarget(call.customerId, phoneNum, validMatches, rememberedMatch);
                 if (resolution.kind === "match") {
+                  selectedMatch = resolution.match;
                   opened = await handleSelectInboundMatch(
                     resolution.match, "card", undefined,
                     { syncCall: false, rememberPhone: phoneNum },
@@ -18196,7 +18212,13 @@ function AgentWorkspacePageContent() {
                   return;
                 }
               }
-              if (!opened) throw new Error(t.agentWorkspace.missedNoContactFound);
+              if (!opened || !selectedMatch) throw new Error(t.agentWorkspace.missedNoContactFound);
+              missedCallbackSelectionRef.current = {
+                sourceId: String(call.id), campaignId: selectedCampaignId || "",
+                entityId: String(selectedMatch.id),
+                contactType: selectedMatch.entityType, callerNumber: phoneNum || "",
+              };
+              setCurrentPhoneOverride(phoneNum || null);
               await markMissedCallHandled(call.id);
               setCurrentCampaignContactId(null);
               setRightTab("actions");

@@ -196,6 +196,8 @@ export function SipPhone({
   const [localCampaignId, setLocalCampaignId] = useState(campaignId);
   const localCampaignIdRef = useRef<string | undefined>(campaignId);
   const localCampaignContactIdRef = useRef<string | undefined>(undefined);
+  const missedCallbackSourceIdRef = useRef<string | undefined>(undefined);
+  const dialedPersonRef = useRef<NonNullable<typeof pendingCall>["dialedPerson"]>(undefined);
   const localContactTypeRef = useRef<"customer" | "hospital" | "clinic" | "collaborator" | undefined>(undefined);
   const localProviderRef = useRef<"O2-IMS" | undefined>(undefined);
   const localOutboundTrunkRef = useRef<import("@shared/telephony-routing").OutboundTrunkSelection>("global");
@@ -1777,6 +1779,9 @@ export function SipPhone({
       direction: "outbound",
       recordingSnapshot: recordingSnapshotRef.current as Record<string, unknown> | undefined,
     };
+    const requestedMissedCallbackSourceId = missedCallbackSourceIdRef.current;
+    const requestedContactType = localContactTypeRef.current;
+    const requestedDialedPerson = dialedPersonRef.current;
 
     setCallState("connecting");
 
@@ -1809,12 +1814,13 @@ export function SipPhone({
         campaignContactId: localCampaignContactIdRef.current,
         customerName: requestedIdentity.customerName,
         metadata: JSON.stringify({
-          contactType: localContactTypeRef.current || null,
+          contactType: requestedContactType || null,
+          missedCallbackSourceId: requestedMissedCallbackSourceId || null,
           provider: localProviderRef.current || null,
           outboundTrunk: localOutboundTrunkRef.current,
           callerIdNumber: localCallerIdNumberRef.current || collaboratorCallerIdRef.current || null,
           recordingPolicySnapshot: requestedIdentity.recordingSnapshot || null,
-          dialedPerson: pendingCall?.dialedPerson || null,
+          dialedPerson: requestedDialedPerson || null,
         }),
       });
       let exactRecordingSnapshot = requestedIdentity.recordingSnapshot as MissionCallRecordingSnapshot | undefined;
@@ -2318,6 +2324,8 @@ export function SipPhone({
       localCampaignIdRef.current = callData.campaignId?.toString();
       localCampaignContactIdRef.current = callData.campaignContactId?.toString();
       localContactTypeRef.current = callData.contactType;
+      missedCallbackSourceIdRef.current = callData.missedCallbackSourceId;
+      dialedPersonRef.current = callData.dialedPerson;
       localProviderRef.current = callData.provider ?? resolveOutboundCallProvider(callData.callerIdNumber);
       localOutboundTrunkRef.current = callData.outboundTrunk || "global";
       localOutboundCountryRef.current = callData.outboundCountry;

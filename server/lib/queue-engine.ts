@@ -44,6 +44,7 @@ import {
   type ResolvedOutboundRouting,
 } from "@shared/telephony-routing";
 import { resolveMissionRecordingPolicy, type MissionCallRecordingSnapshot } from "@shared/mission-recording";
+import { allowedStandingRecordingStates, isCurrentCallerBridgeExit } from "./standing-recording-transitions";
 import { cancelForwardedHandoff, ForwardedCallReconciler, persistForwardedHandoff } from "./forwarded-call-reconciliation";
 import {
   projectWallboardQueueCalls,
@@ -142,6 +143,7 @@ interface ActiveBridge {
   createdAt: Date;
   canonicalCallLogId?: string | null;
   recordingName?: string | null;
+  mediaConnected?: boolean;
   ready?: Promise<void>;
 }
 
@@ -391,8 +393,7 @@ export class QueueEngine extends EventEmitter {
       const channelId = event.channel?.id;
       if (!channelId) return;
       const bridge = this.activeBridges.get(channelId);
-      if (!bridge) return;
-      if (channelId !== bridge.callerChannelId) return; // only react to CALLER leaving
+      if (!bridge || !isCurrentCallerBridgeExit(bridge, channelId, event.bridge?.id)) return;
       console.log(`[QueueEngine] channel-left-bridge: caller ${channelId} left bridge ${bridge.bridgeId} — hanging up agent ${bridge.agentChannelId} immediately`);
       this.handleActiveBridgeHangup(bridge).catch(err => {
         console.error("[QueueEngine] handleActiveBridgeHangup (left-bridge) error:", err instanceof Error ? err.message : err);
@@ -1198,6 +1199,10 @@ export class QueueEngine extends EventEmitter {
     const claimGuard = claimToken
       ? sql`${nested} ->> 'claimToken' = ${claimToken}`
       : sql`(${nested} ->> 'state' <> 'saving' OR COALESCE(NULLIF(${nested} ->> 'claimUntil', '')::timestamptz, '-infinity'::timestamptz) <= NOW())`;
+    const allowedStates = patch.state ? allowedStandingRecordingStates(patch.state, !!claimToken) : [];
+    const stateGuard = patch.state
+      ? sql`${nested} ->> 'state' IN (${sql.join(allowedStates.map(state => sql`${state}`), sql`, `)})`
+      : sql`TRUE`;
     await db.update(inboundCallLogs).set({
       metadata: sql`(${base} || jsonb_build_object(
         'standingForwardRecording',
@@ -1208,6 +1213,7 @@ export class QueueEngine extends EventEmitter {
       eq(inboundCallLogs.callLogId, callLogId),
       sql`${nested} ->> 'recordingName' = ${recordingName}`,
       claimGuard,
+      stateGuard,
     ));
   }
 
@@ -4665,47 +4671,11 @@ export class QueueEngine extends EventEmitter {
 
     let answerPersisted = false;
     let markBridgeReady: () => void = () => {};
+    let preparingBridgeId: string | null = null;
     try {
-      await this.stopMohForChannel(pending.callerChannelId);
-
       const bridge = await this.ariClient.createBridge("mixing");
+      preparingBridgeId = bridge.id;
       console.log(`[QueueEngine] Bridge created: ${bridge.id}`);
-
-      await this.ariClient.addChannelToBridge(bridge.id, pending.callerChannelId);
-      await this.ariClient.addChannelToBridge(bridge.id, agentChannelId);
-
-      console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
-
-      // RTP path fix for RO inbound calls: when the ARI softmix bridge is created,
-      // Asterisk may use a different RTP port than what was in the initial 200 OK SDP.
-      // RO (old chan_sip) keeps sending to the original port → Asterisk sees no RTP activity
-      // → rtp_timeout fires → silence. Fix: AMI "channel request hold/unhold" bypasses the
-      // bridge hold layer and sends a real SIP re-INVITE to RO with the current bridge RTP port.
-      const _rtpFixChannelId = pending.callerChannelId;
-      (async () => {
-        try {
-          await new Promise(r => setTimeout(r, 800));
-          const ch = await this.ariClient.getChannel(_rtpFixChannelId);
-          if (!ch.name.startsWith("PJSIP/trunk-ro-endpoint")) return;
-          const [cfg] = await db.select().from(ariSettings).limit(1);
-          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
-          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
-          const sshPort = cfg.sshPort || 22;
-          console.log(`[QueueEngine] RTP fix: hold/unhold re-INVITE for ${ch.name}`);
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request hold ${ch.name}`,
-          });
-          await new Promise(r => setTimeout(r, 600));
-          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
-            Action: "Command",
-            Command: `channel request unhold ${ch.name}`,
-          });
-          console.log(`[QueueEngine] RTP fix: done for ${ch.name}`);
-        } catch (err: any) {
-          console.warn(`[QueueEngine] RTP fix (non-critical):`, err.message);
-        }
-      })();
 
       const bridgeCreatedAt = new Date();
       const bridgeQueueId = assignedAtAnswer?.queueId || pending.queueId;
@@ -4745,26 +4715,6 @@ export class QueueEngine extends EventEmitter {
         this.updateAgentStatus(pending.agentId, "busy", pending.callId).catch(() => {});
       }
 
-      if (!isTransfer && !pending.callId.startsWith("transfer-")) {
-        const [answerTransition] = await db.update(inboundCallLogs)
-          .set({
-            status: "answered",
-            answeredAt: new Date(),
-          })
-          .where(and(
-            eq(inboundCallLogs.id, pending.callId),
-            inArray(inboundCallLogs.status, ["queued", "ringing"]),
-          ))
-          .returning({ id: inboundCallLogs.id });
-        if (!answerTransition) {
-          this.activeBridges.delete(pending.callerChannelId);
-          this.activeBridges.delete(agentChannelId);
-          try { await this.ariClient.destroyBridge(bridge.id); } catch {}
-          throw new Error(`call ${pending.callId} was no longer answerable`);
-        }
-        answerPersisted = true;
-      }
-
       if (!isTransfer && this.isStandingId(pending.agentId)) {
         try {
           if (!assignedAtAnswer) throw new Error(`standing call ${pending.callId} lost its queue assignment`);
@@ -4784,7 +4734,7 @@ export class QueueEngine extends EventEmitter {
           const peerActive = this.activeBridges.get(agentChannelId);
           if (peerActive) peerActive.canonicalCallLogId = canonicalCallLogId;
 
-          // ARI channel recording on a bridged caller leg is mixed audio. It is
+          // ARI bridge recording is mixed audio. It is
           // allowed only for non-Mission queue recording or Mission "both".
           const recordingPbxIdentity = this.ariClient.getRecordingPbxIdentity();
           const mixedRecordingPolicyAllowed = inboundQueueForwardedRecordingAllowed({
@@ -4801,6 +4751,7 @@ export class QueueEngine extends EventEmitter {
             : undefined;
           await this.persistStandingRecordingAuthorization(pending.callId, canonicalCallLogId, {
             authorized: mixedRecordingAllowed,
+            bridgeConnected: false,
             ...(recordingName ? { recordingName } : {}),
             state: mixedRecordingAllowed ? "starting" : "off",
             campaignId: recordingContext.campaignId,
@@ -4834,14 +4785,73 @@ export class QueueEngine extends EventEmitter {
             console.warn("[QueueRecording] Agent-only Mission capture unavailable for standing mixed bridge; recording disabled");
           }
         } catch (trackingError) {
-          // The answer and bridge are real and already live. Persistence or
-          // optional recording failure must not tear down customer audio.
-          console.error("[QueueRecording] Standing answered call tracking failed; live bridge retained:",
+          // Recording is optional; a failure must not prevent connecting the
+          // authorized live conversation. Keep the attempted name for recovery.
+          console.error("[QueueRecording] Standing recording preparation failed; call connection retained:",
             trackingError instanceof Error ? trackingError.message : trackingError);
           // Keep any attempted recording name on the bridge. The ARI request
           // may have succeeded even if the follow-up status write failed, so
           // normal teardown must still stop it and durable recovery can verify it.
         }
+      }
+
+      // Authorize and start capture on the empty mixing bridge BEFORE adding
+      // the two live legs, so the initial conversation is not lost to DB awaits.
+      if (!this.activeBridges.has(pending.callerChannelId)) {
+        throw new Error("Call ended during bridge preparation");
+      }
+      // Keep the exact bridge identity even if a rapid hangup removes its map
+      // entry after ARI acknowledges both joins but before the DB write.
+      const connectedRecording = this.activeBridges.get(pending.callerChannelId);
+      const connectedPeer = this.activeBridges.get(agentChannelId);
+      await this.stopMohForChannel(pending.callerChannelId);
+      await this.ariClient.addChannelToBridge(bridge.id, pending.callerChannelId);
+      await this.ariClient.addChannelToBridge(bridge.id, agentChannelId);
+      console.log(`[QueueEngine] Both channels added to bridge ${bridge.id}`);
+      if (connectedRecording) connectedRecording.mediaConnected = true;
+      if (connectedPeer) connectedPeer.mediaConnected = true;
+      if (connectedRecording?.canonicalCallLogId && connectedRecording.recordingName) {
+        await this.updateStandingRecordingState(
+          pending.callId, connectedRecording.canonicalCallLogId,
+          connectedRecording.recordingName, { bridgeConnected: true },
+        ).catch(() => console.warn("[QueueRecording] Connection proof write failed; retained live call and will retry during teardown"));
+      }
+
+      // The RO re-INVITE must start only after the media bridge exists, never
+      // while recording authorization is still awaiting the database.
+      const _rtpFixChannelId = pending.callerChannelId;
+      (async () => {
+        try {
+          await new Promise(r => setTimeout(r, 800));
+          if (this.activeBridges.get(_rtpFixChannelId)?.bridgeId !== bridge.id) return;
+          const ch = await this.ariClient.getChannel(_rtpFixChannelId);
+          if (!ch.name.startsWith("PJSIP/trunk-ro-endpoint")) return;
+          const [cfg] = await db.select().from(ariSettings).limit(1);
+          if (!cfg?.host || !cfg?.sshUsername || !cfg?.sshPassword) return;
+          const { host, sshUsername, sshPassword, username: amiUser, password: amiPass } = cfg;
+          const sshPort = cfg.sshPort || 22;
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command", Command: `channel request hold ${ch.name}`,
+          });
+          await new Promise(r => setTimeout(r, 600));
+          if (this.activeBridges.get(_rtpFixChannelId)?.bridgeId !== bridge.id) return;
+          await sendAmiActionViaSshTunnel(host, sshPort, sshUsername, sshPassword, amiUser, amiPass, {
+            Action: "Command", Command: `channel request unhold ${ch.name}`,
+          });
+        } catch (err: any) {
+          console.warn("[QueueEngine] RTP fix (non-critical):", err.message);
+        }
+      })();
+
+      if (!isTransfer && !pending.callId.startsWith("transfer-")) {
+        const [answerTransition] = await db.update(inboundCallLogs)
+          .set({ status: "answered", answeredAt: new Date() })
+          .where(and(
+            eq(inboundCallLogs.id, pending.callId),
+            inArray(inboundCallLogs.status, ["queued", "ringing"]),
+          )).returning({ id: inboundCallLogs.id });
+        if (!answerTransition) throw new Error(`call ${pending.callId} was no longer answerable`);
+        answerPersisted = true;
       }
 
       markBridgeReady();
@@ -4854,8 +4864,22 @@ export class QueueEngine extends EventEmitter {
       markBridgeReady();
       console.error(`[QueueEngine] Failed to bridge channels:`, err.message);
       this.ringAllClaimedCallers.delete(pending.callerChannelId);
+      const failedBridge = this.activeBridges.get(pending.callerChannelId);
+      if (failedBridge?.bridgeId === preparingBridgeId) {
+        this.activeBridges.delete(pending.callerChannelId);
+        this.activeBridges.delete(agentChannelId);
+        if (failedBridge.recordingName) {
+          try { await this.ariClient.stopRecording(failedBridge.recordingName); } catch {}
+        }
+      }
+      if (preparingBridgeId) {
+        try { await this.ariClient.destroyBridge(preparingBridgeId); } catch {}
+      }
       try { await this.ariClient.hangupChannel(agentChannelId, "normal"); } catch {}
-      if (assignedAtAnswer && !isTransfer && !answerPersisted) {
+      const callerStillLive = assignedAtAnswer && !isTransfer && !answerPersisted
+        ? await this.ariClient.getChannel(pending.callerChannelId).then(() => true, () => false)
+        : false;
+      if (assignedAtAnswer && !isTransfer && !answerPersisted && callerStillLive) {
         const recoveredCall = assignedAtAnswer.call;
         recoveredCall.position = this.getQueueSize(recoveredCall.queueId) + 1;
         this.waitingCalls.set(recoveredCall.channelId, recoveredCall);
@@ -5100,7 +5124,7 @@ export class QueueEngine extends EventEmitter {
           bridge.callId,
           bridge.canonicalCallLogId,
           bridge.recordingName,
-          { state: "stop_requested" },
+          { state: "stop_requested", ...(bridge.mediaConnected ? { bridgeConnected: true } : {}) },
         ).catch(err => console.warn("[MobileRecording] Could not persist stop request:", err instanceof Error ? err.message : err));
       }
       try { await this.ariClient.stopRecording(bridge.recordingName); } catch {}
