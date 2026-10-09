@@ -874,6 +874,7 @@ function RuleEditor({
     if (field?.type === "tags") return !["contains", "not_contains"].includes(leaf.op) ||
       typeof leaf.value !== "string" || !leaf.value.trim();
     return !field || !catalog.operators.some(op => op.value === leaf.op && op.availableIn.includes(draft.module) &&
+      op.value !== "not_contains" &&
       (field.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)) &&
       (!["gt", "gte", "lt", "lte"].includes(op.value) || ["date", "number"].includes(field.type)) &&
@@ -1907,6 +1908,8 @@ function ConditionsEditor({
   const chooseField = (value: string) => {
     const nextField = fields.find(field => field.value === value);
     const nextOperators = operators.filter(operator =>
+      nextField?.type === "tags" ? ["contains", "not_contains"].includes(operator.value) :
+      operator.value !== "not_contains" &&
       (nextField?.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(operator.value)) &&
       (!["gt", "gte", "lt", "lte"].includes(operator.value) || ["date", "number"].includes(nextField?.type || "")) &&
       (!["in", "not_in"].includes(operator.value) || !["boolean", "date"].includes(nextField?.type || "")) &&
