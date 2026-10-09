@@ -23,7 +23,7 @@ const release = Object.freeze({
   patchBase: "6d4d30f0085bb2f1d8a1e046e6e81424594e8706",
   commit: "ebd32c32eded042a1852e53fdc33334ea2e08d29",
   tree: "6b2760b0b81492911d142b487379d495a9e6872e",
-  patchSha256: "8256a2f25ad8e8eee6a945b19ba0d855918ca1926ca7170f9a2f8f5740e5df11",
+  patchSha256: "ebd36b0fc3c4c579dadbd5fb0033c0787dea31aa5a800cd09d3c5c8cd9ba95d8",
   paths: [
     "client/src/components/tasks/task-timing.tsx",
     "server/alert-evaluator.ts",
