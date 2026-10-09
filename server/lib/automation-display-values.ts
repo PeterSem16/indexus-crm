@@ -1,4 +1,5 @@
 import { taskStatusTemplateLabel } from "@shared/task-status-labels";
+import { automationDateDisplay } from "../../shared/automation-display-date";
 
 export type ReferenceKind = "user" | "department" | "group" | "customer" | "clinic" | "hospital" | "collaborator" | "campaign" | "queue" | "task" | "contract" | "invoice";
 export type ReferenceLookup = (kind: ReferenceKind, id: string, country: string | null) => Promise<string | null>;
@@ -35,6 +36,11 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
     if (!match) return;
     const [, scope, field] = match;
     const data = ctx[scope] || {};
+    const dateLabel = automationDateDisplay(field, data[field], ctx.event?.module, language, country);
+    if (dateLabel !== undefined) {
+      result.set(path, dateLabel);
+      return;
+    }
     if (field === "status" && ctx.event?.module === "task" && language && data.status != null) {
       result.set(path, taskStatusTemplateLabel(data.status, language));
       return;

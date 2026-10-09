@@ -5,6 +5,23 @@ import { automationDisplayValues, renderAutomationText, taskDisplayContent, type
 import { createAutomationReferenceLookup } from "./automation-reference-lookup";
 import { renderEmailValue, renderEmailAddressConfig, sanitizeAutomationEmail } from "./automation-email-policy";
 
+test("Email subject/body localize task dates without mutating event values or URL variables", async () => {
+  const source = {
+    event: { module: "task", countryCode: "SK" },
+    newValues: { dueDate: "2026-10-08T00:00:00.000Z", createdAt: "2026-10-09T14:47:54Z" },
+    oldValues: { dueDate: "2026-10-07T00:00:00.000Z" },
+  };
+  const subject = "Termín {{newValues.dueDate}}";
+  const body = '<p>{{oldValues.dueDate}} → {{newValues.dueDate}}; {{newValues.createdAt}}</p>' +
+    '<a href="/tasks?deadline={{newValues.dueDate}}">detail</a>';
+  const display = await automationDisplayValues(source, [subject, body], async () => null);
+  assert.equal(renderEmailValue(subject, source, false, display), "Termín 8. 10. 2026");
+  const html = renderEmailValue(body, source, true, display);
+  assert.ok(html.includes("7. 10. 2026 → 8. 10. 2026; 9. 10. 2026 16:47"));
+  assert.ok(html.includes('href="/tasks?deadline=2026-10-08T00:00:00.000Z"'));
+  assert.equal(source.newValues.dueDate, "2026-10-08T00:00:00.000Z");
+});
+
 const ctx = {
   event: { module: "task", countryCode: "SK" },
   newValues: { id: "task-id", title: "Original task", customerId: "customer-id", createdByUserId: "creator-id",
