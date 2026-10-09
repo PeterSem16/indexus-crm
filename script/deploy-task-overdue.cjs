@@ -37,7 +37,8 @@ const release = Object.freeze({
     "client/src/components/tasks/task-timing.tsx": "c8386847daef8bb05e3a7e47f3a35c4e516f37276535ecca03459af2dc6b49e0",
     "server/alert-evaluator.ts": "d7641afdd101d959250362391ca5b9d9fcbf6992e4840b2b59da9c81981f789c",
     "server/lib/automation-trigger-runtime.test.ts": "1f4775a640288a454b908900aa67b44c0c972b1aa550b527f965fbdb1037b9b4",
-    "server/lib/event-bus.ts": "87c06bf964aae16e57966b4aed9d598c586051969ca55cb82962898d75f70547",
+    // Production's physical file matches the verified parent-tree blob, even though its Git HEAD is older.
+    "server/lib/event-bus.ts": "d916f94fb0bb4b1ae583122f8c3d7113806837e36be5cc6cbfb1a010c0c1064b",
     "server/lib/task-overdue.test.ts": "missing",
     "server/lib/task-overdue.ts": "missing",
     "shared/task-deadline.ts": "missing",
