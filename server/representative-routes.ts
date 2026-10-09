@@ -4,6 +4,7 @@
 // ============================================================
 import type { Express, Request, Response, NextFunction } from "express";
 import { db, pool } from "./db";
+import { assignMedicalPartnerRepresentative } from "./lib/representative-assignment";
 import { eq, and, isNull, lte, or, gt, inArray, desc, sql } from "drizzle-orm";
 import {
   clinicRepresentativeAssignments,
@@ -446,33 +447,10 @@ export function registerRepresentativeRoutes(
       const user = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
       if (!user.length) return res.status(404).json({ message: "User not found" });
 
-      // Uzavri existujúce aktívne priradenie (ak existuje)
-      await db
-        .update(clinicRepresentativeAssignments)
-        .set({ validTo: effectiveFrom })
-        .where(
-          and(
-            eq(clinicRepresentativeAssignments.clinicId, clinicId),
-            isNull(clinicRepresentativeAssignments.validTo)
-          )
-        );
-
-      // Vytvor nové priradenie
-      const [created] = await db
-        .insert(clinicRepresentativeAssignments)
-        .values({
-          clinicId,
-          userId,
-          validFrom: effectiveFrom,
-          validTo: null,
-          assignedBy: req.session!.user?.id,
-          assignmentType: "manual",
-          note: note ?? null,
-        })
-        .returning();
-
-      // Sync priamo na clinic riadok (UI číta clinic.representativeId)
-      await db.update(clinics).set({ representativeId: userId }).where(eq(clinics.id, clinicId));
+      const { assignment: created } = await db.transaction(tx => assignMedicalPartnerRepresentative(tx, {
+        entityType: "clinic", entityId: clinicId, userId, validFrom: effectiveFrom,
+        assignedBy: req.session!.user!.id, assignmentType: "manual", note,
+      }));
 
       res.json({ assignment: created });
     } catch (e: any) {
@@ -860,14 +838,10 @@ export function registerRepresentativeRoutes(
       const effectiveFrom = validFrom ? new Date(validFrom) : new Date();
       const hospital = await db.select({ id: hospitals.id }).from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
       if (!hospital.length) return res.status(404).json({ message: "Hospital not found" });
-      await db.update(hospitalRepresentativeAssignments).set({ validTo: effectiveFrom })
-        .where(and(eq(hospitalRepresentativeAssignments.hospitalId, hospitalId), isNull(hospitalRepresentativeAssignments.validTo)));
-      const [created] = await db.insert(hospitalRepresentativeAssignments).values({
-        hospitalId, userId, validFrom: effectiveFrom, validTo: null,
-        assignedBy: req.session!.user?.id, assignmentType: "manual", note: note ?? null,
-      }).returning();
-      // Sync priamo na hospital riadok
-      await db.update(hospitals).set({ representativeId: userId }).where(eq(hospitals.id, hospitalId));
+      const { assignment: created } = await db.transaction(tx => assignMedicalPartnerRepresentative(tx, {
+        entityType: "hospital", entityId: hospitalId, userId, validFrom: effectiveFrom,
+        assignedBy: req.session!.user!.id, assignmentType: "manual", note,
+      }));
       res.json({ assignment: created });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });

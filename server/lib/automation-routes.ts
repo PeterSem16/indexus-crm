@@ -29,6 +29,7 @@ import { storage } from "../storage";
 import { resolve } from "node:path";
 import { registerUpdateRecordRoutes, updateRecordOwner, validateSavedUpdateRecord } from "./automation-update-record";
 import { registerRecordTagRoutes, validateSavedTagAction } from "./automation-record-tags";
+import { registerAssignOwnerRoutes, validateSavedAssignOwner } from "./automation-assign-owner";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -58,6 +59,7 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  registerAssignOwnerRoutes(app, requireAutomationDesigner, requireAuth);
   registerUpdateRecordRoutes(app, requireAutomationDesigner);
   registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
@@ -186,6 +188,9 @@ export function registerAutomationRoutes(app: Express) {
     const countryScope = { ...parsed.data };
     try {
       const owner = await updateRecordOwner(userId);
+      for (const action of parsed.data.actions as any[]) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
+        await validateSavedAssignOwner(action.config, parsed.data.module, owner,
+          parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
       for (const action of parsed.data.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
         await validateSavedUpdateRecord(action.config, parsed.data.module, owner,
           parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
@@ -245,6 +250,9 @@ export function registerAutomationRoutes(app: Express) {
       if (!current) return res.status(404).json({ error: "Not found" });
       const next = { ...current, ...partial.data };
       try {
+        for (const action of next.actions as any[]) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
+          await validateSavedAssignOwner(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""),
+            next.countryCodes || (next.countryCode ? [next.countryCode] : null));
         for (const action of next.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
           await validateSavedUpdateRecord(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
         for (const action of next.actions as any[]) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
@@ -577,22 +585,22 @@ export function registerAutomationRoutes(app: Express) {
         },
         {
           value: "assign_user",
-          label: "Assign user (auto-distribute owner)",
+          label: "Assign an owner",
           configSchema: {
-            entityType: "task|customer|hospital (defaults to event entityType)",
-            entityId: "string (defaults to event entityId, supports template)",
-            strategy: "round_robin|least_loaded|random|specific (default round_robin)",
-            userIds: "array or CSV of user IDs (used by round_robin/least_loaded/random; if empty, all active users are eligible)",
-            userId: "string (required for strategy=specific)",
-            roleFilter: "string (optional, filter eligible users by role when userIds is empty)",
-            countryFilter: "string|array (optional ISO codes, intersect with user's countries)",
+            assignOwnerVersion: "2; legacy configurations remain unchanged until reviewed",
+            assignmentKind: "owner: internal user; representative: business representative for clinic or hospital",
+            target: "event, persisted related record or selected named record; task|customer|hospital|clinic",
+            strategy: "specific (default), round_robin, least_loaded or random",
+            userIds: "explicit selected active users; never an empty-pool fallback",
+            replaceExisting: "false preserves existing assignment; true explicitly replaces it",
+            acknowledged: "true after reviewing the exact target, people and replacement policy",
           },
         },
       ].map((action) => {
         const policy = AUTOMATION_ACTION_POLICY[action.value as keyof typeof AUTOMATION_ACTION_POLICY];
         return {
           ...action, ...AUTOMATION_SERVICE_DETAILS[action.value], risk: policy.risk, aiDraftEligible: policy.aiDraftEligible,
-          availableIn: ["update_entity", "add_tag", "remove_tag"].includes(action.value) ? Object.keys(MODULE_EVENTS) : ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
+          availableIn: ["update_entity", "add_tag", "remove_tag", "assign_user"].includes(action.value) ? Object.keys(MODULE_EVENTS) : ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
           recipientTypes: RECIPIENT_CAPABILITIES.filter(r => r.actions.includes(action.value)).map(r => r.value),
         };
       }),

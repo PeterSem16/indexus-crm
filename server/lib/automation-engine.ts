@@ -1,4 +1,6 @@
 import { db, pool } from "../db";
+import { executeAssignOwner } from "./automation-assign-owner";
+import { assignmentField } from "../../shared/automation-assign-owner";
 import { admitAutomationRun } from "./automation-run-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
@@ -873,6 +875,21 @@ const ASSIGN_TARGET_MAP: Record<string, { method: string; field: string }> = {
 
 async function actionAssignUser(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
+    if (config.assignOwnerVersion === 2) {
+      const result = await executeAssignOwner(config, ctx);
+      if (result.changed) {
+        const field = assignmentField(config)!;
+        const snapshot = (row: any) => Object.fromEntries(["id", "country", "countryCode", field,
+          ...(result.entityType === "task" ? ["title", "status", "priority", "createdByUserId", "assignedDepartmentId",
+            "tags", "customerId", "relatedEntityType", "relatedEntityId"] : [])].map(key => [key, row[key]]));
+        await emitAutomatedMutation(result.entityType, result.entityId, snapshot(result.before), snapshot(result.after), ctx, runId);
+      }
+      return { ok: true, output: { entityType: result.entityType, entityId: result.entityId,
+        changed: result.changed, assignmentKind: config.assignmentKind || "owner", assignedTo: result.after[assignmentField(config)!],
+        strategy: config.strategy, candidatePool: config.userIds.length, reason: result.reason } };
+    }
+    if (config.assignOwnerVersion != null || config.target != null)
+      return { ok: false, error: "Unsupported owner assignment format" };
     const rendered = renderTemplate(config, ctx);
     const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
     const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();

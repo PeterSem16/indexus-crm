@@ -33,6 +33,8 @@ export const MODULE_LABELS: Record<string, string> = {
   collection: "Collection", campaign: "Mission", product: "Product",
 };
 
+import { assignOwnerIssues } from "../../shared/automation-assign-owner";
+
 export const ACTION_TARGETS: Record<string, string[] | null> = {
   create_task: null,
   notify_user: null,
@@ -53,7 +55,7 @@ export const AUTOMATION_SERVICE_DETAILS: Record<string, { purpose: string; needs
   send_sms: { purpose: "Send SMS to a number or verified event recipient", needs: ["to", "text or templateId"] },
   webhook: { purpose: "Call an external HTTP endpoint", needs: ["url"] },
   update_entity: { purpose: "Change permitted fields on the triggering entity", needs: ["fields"] },
-  assign_user: { purpose: "Assign an owner on a supported entity", needs: ["strategy", "userId or userIds when applicable"] },
+  assign_user: { purpose: "Assign a reviewed internal owner or a Clinic/Hospital business representative", needs: ["assignmentKind", "target", "strategy", "explicit userIds", "replaceExisting", "acknowledged"] },
   add_tag: { purpose: "Add tags to the triggering entity", needs: ["tags"] },
   remove_tag: { purpose: "Remove tags from the triggering entity", needs: ["tags"] },
 };
@@ -527,7 +529,16 @@ export function validateRuleCapabilities(rule: {
     if (targets === undefined) return fail(`${path}.type`, "Action has no executable handler");
     const updateV2 = a?.type === "update_entity" && a?.config?.updateRecordVersion === 2;
     const tagV2 = ["add_tag", "remove_tag"].includes(a?.type) && a?.config?.recordTagActionVersion === 2;
-    const targetedV2 = updateV2 || tagV2;
+    const ownerV2 = a?.type === "assign_user" && a?.config?.assignOwnerVersion === 2;
+    const targetedV2 = updateV2 || tagV2 || ownerV2;
+    if (ownerV2) {
+      for (const issue of assignOwnerIssues(a.config, rule.module)) fail(`${path}.config`, issue);
+      if (scheduleMode === "per_record" && a.config.target?.mode === "selected")
+        fail(`${path}.config.target`, "Per-record schedules cannot repeatedly assign a fixed record");
+      if (scheduleMode === "once" && a.config.target?.mode !== "selected")
+        fail(`${path}.config.target`, "One-shot schedules require a selected owner target");
+    } else if (a?.type === "assign_user" && (a?.config?.assignOwnerVersion != null || a?.config?.target != null))
+      fail(`${path}.config`, "Unsupported owner assignment format");
     if (tagV2) {
       for (const issue of tagActionIssues(a.config, rule.module)) fail(`${path}.config`, issue);
       if (scheduleMode === "per_record" && a.config.target?.mode === "selected")

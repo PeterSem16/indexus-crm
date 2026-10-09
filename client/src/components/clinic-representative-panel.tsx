@@ -112,7 +112,9 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: 30_000,
   });
 
   useEffect(() => {
@@ -129,7 +131,9 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
       return res.json();
     },
     enabled: showHistory,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: showHistory ? 30_000 : false,
   });
 
   const { data: representatives = [], isLoading: repsLoading } = useQuery<RepUser[]>({
