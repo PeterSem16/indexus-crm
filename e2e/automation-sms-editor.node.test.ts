@@ -38,7 +38,8 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
              <DialogContent data-testid="parent-rule" className="task-modern-modal automation-editor-dialog automation-rule-dialog max-h-[90dvh]" overlayClassName="task-modern-modal-overlay">
               <DialogTitle>Rule fixture</DialogTitle><DialogDescription>SMS action</DialogDescription>
               <AutomationSendSmsAction config={config} onChange={setConfig} testId="sms" countryCodes={["CZ"]}
-                onDraftValidityChange={setInvalid} availableVariables={[{value:"newValues.title",label:"Task title"}]}/>
+                 onDraftValidityChange={setInvalid} availableVariables={[{value:"newValues.title",label:"Task title"},
+                   ...Array.from({length:16},(_,i)=>({value:"newValues.field"+i,label:"Field "+i}))]}/>
               <button data-testid="parent-save" disabled={invalid}>Save rule</button>
             </DialogContent>
           </Dialog>
@@ -140,7 +141,7 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
       await page.getByTestId("sms-open-editor").click();
        await expect(dialog).toHaveClass(/task-modern-modal--nested/);
       const bounds = await dialog.boundingBox();
-      assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1);
+       assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height + 1);
        await page.getByTestId("sms-template-language").click();
        await page.getByRole("option", { name: "Deutsch", exact: true }).click();
        await page.getByTestId("sms-template").click();
@@ -148,6 +149,12 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
        await expect(text).toHaveValue("German text");
       await expect(page.getByTestId("sms-apply")).toBeInViewport();
        await expect(page.getByTestId("sms-cancel")).toBeInViewport();
+        if (viewport.width > 768) {
+          const messageBounds = await text.boundingBox();
+          const templateBounds = await page.getByTestId("sms-template-language").boundingBox();
+          assert.ok(messageBounds && templateBounds && templateBounds.x > messageBounds.x + messageBounds.width,
+            "Desktop SMS editor and template controls must occupy separate columns");
+        }
        await page.screenshot({path: `/tmp/sms-compose-${viewport.width}.png`});
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("parent-rule")).toBeVisible();

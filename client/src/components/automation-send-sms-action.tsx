@@ -135,7 +135,7 @@ export function AutomationSendSmsAction({
     }
   };
   const startManualList = () => {
-    const next = { ...config, smsActionVersion: 2, to: [] };
+    const next: Record<string, any> = { ...config, smsActionVersion: 2, to: [] };
     delete next.country;
     delete next.legacyRecipient;
     onChange(next);
@@ -302,11 +302,30 @@ export function AutomationSendSmsAction({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent
         overlayClassName="task-modern-modal-overlay task-modern-modal-overlay--nested"
-        className="task-modern-modal task-modern-modal--nested flex h-[min(760px,calc(100dvh-2rem))] w-[min(760px,calc(100vw-1rem))] max-w-[760px] flex-col gap-0 overflow-hidden p-0"
+        className="task-modern-modal task-modern-modal--nested flex h-[min(760px,calc(100dvh-2rem))] w-[min(900px,calc(100vw-1rem))] max-w-[900px] flex-col gap-0 overflow-hidden p-0"
         data-testid={`${testId}-editor`}
       >
         <DialogHeader><DialogTitle>{copy.editorTitle}</DialogTitle><DialogDescription>{copy.editorHelp}</DialogDescription></DialogHeader>
-        <div className="task-modern-modal-body min-h-0 flex-1 space-y-4">
+        <div className="task-modern-modal-body min-h-0 flex-1">
+          <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1.15fr)_minmax(260px,.85fr)]">
+          <div className="order-1 min-w-0 space-y-4 md:order-1">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${testId}-text`}>{copy.text}</Label>
+            <Textarea id={`${testId}-text`} rows={6} ref={textRef} value={draft.text} placeholder={copy.messagePlaceholder}
+              data-testid={`${testId}-text`} onFocus={event => {
+                selection.current = { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd };
+              }} onSelect={event => {
+                selection.current = { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd };
+              }} onChange={event => setDraft(previous => ({ ...previous, text: event.target.value }))} />
+          </div>
+          {Boolean(unsupported.length || !draft.text.trim() || isLegacy) && <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+            {!!unsupported.length && <p role="alert" className="text-xs text-destructive" data-testid={`${testId}-unsupported`}>
+              <strong>{copy.unsupported}:</strong> {unsupported.map(value => `{{${value}}}`).join(", ")}</p>}
+            {!draft.text.trim() && <p className="text-xs text-destructive">{copy.messageRequired}</p>}
+            {isLegacy && <p className="text-xs text-muted-foreground">{copy.legacyNotice}</p>}
+          </div>}
+          </div>
+          <div className="order-2 min-w-0 space-y-4 md:order-2">
           <div className="space-y-2">
             <Label>{copy.templates}</Label>
             <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
@@ -337,23 +356,12 @@ export function AutomationSendSmsAction({
             {templatesQuery.isSuccess && visibleTemplates.length === 0 && <p className="text-xs text-muted-foreground">{copy.noTemplates}</p>}
             {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templateError}</button>}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${testId}-text`}>{copy.text}</Label>
-            <Textarea id={`${testId}-text`} rows={6} ref={textRef} value={draft.text} placeholder={copy.messagePlaceholder}
-              data-testid={`${testId}-text`} onFocus={event => {
-                selection.current = { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd };
-              }} onSelect={event => {
-                selection.current = { start: event.currentTarget.selectionStart, end: event.currentTarget.selectionEnd };
-              }} onChange={event => setDraft(previous => ({ ...previous, text: event.target.value }))} />
-          </div>
-          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+           <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
             <div className="flex items-center gap-2 text-xs font-medium"><Braces className="h-3.5 w-3.5" />{copy.variables}<Badge variant="secondary">{availableVariables.length}</Badge></div>
             <div className="flex flex-wrap gap-1.5">{availableVariables.map(variable => <Button key={variable.value} type="button" variant="outline" size="sm"
               className="h-7 font-mono text-[11px]" onClick={() => insertVariable(variable.value)} title={variable.label}>{`{{${cleanVariable(variable.value)}}}`}</Button>)}</div>
-            {!!unsupported.length && <p role="alert" className="text-xs text-destructive" data-testid={`${testId}-unsupported`}>
-              <strong>{copy.unsupported}:</strong> {unsupported.map(value => `{{${value}}}`).join(", ")}</p>}
-            {!draft.text.trim() && <p className="text-xs text-destructive">{copy.messageRequired}</p>}
-            {isLegacy && <p className="text-xs text-muted-foreground">{copy.legacyNotice}</p>}
+          </div>
+          </div>
           </div>
         </div>
         <DialogFooter className="task-modern-modal-footer mt-0 gap-2 sm:gap-2">

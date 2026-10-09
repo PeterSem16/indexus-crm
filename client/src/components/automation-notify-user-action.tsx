@@ -120,7 +120,7 @@ export function AutomationNotifyUserAction({
       <Label className="sr-only" htmlFor={`notify-priority-${index}`}>{copy.priority}</Label>
       <Select value={config.priority || "normal"} onValueChange={value => onChange({ ...config, priority: value })}>
         <SelectTrigger id={`notify-priority-${index}`} className="h-8 w-[125px] text-xs" data-testid={`notify-user-priority-${index}`}><SelectValue /></SelectTrigger>
-        <SelectContent className="z-[10041]">
+        <SelectContent>
           {(["low", "normal", "high", "urgent"] as const).map(priority => <SelectItem key={priority} value={priority}>{copy.priorityLabels[priority]}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -137,19 +137,25 @@ export function AutomationNotifyUserAction({
       </p>}
     </div>
     <Dialog open={open} onOpenChange={() => setOpen(false)}>
-      <DialogContent className="z-[10041] max-h-[92dvh] w-[min(760px,calc(100vw-1rem))] overflow-y-auto" data-testid={`notify-user-editor-${index}`}>
+      <DialogContent
+        overlayClassName="task-modern-modal-overlay task-modern-modal-overlay--nested"
+        className="task-modern-modal task-modern-modal--nested flex h-[min(760px,calc(100dvh-2rem))] w-[min(900px,calc(100vw-1rem))] max-w-[900px] flex-col gap-0 overflow-hidden p-0"
+        data-testid={`notify-user-editor-${index}`}
+      >
         <DialogHeader><DialogTitle>{copy.editorTitle}</DialogTitle><DialogDescription>{copy.editorDescription}</DialogDescription></DialogHeader>
-        <div className="space-y-4">
+        <div className="task-modern-modal-body min-h-0 flex-1">
+          <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-[minmax(0,1.15fr)_minmax(260px,.85fr)]">
+          <div className="order-2 min-w-0 space-y-4 md:order-2">
           <div className="space-y-2"><Label>{copy.templates}</Label>
             <Select value={templateLanguage} onValueChange={setTemplateLanguage}>
               <SelectTrigger aria-label={copy.allLanguages} data-testid={`notify-user-template-language-${index}`}><SelectValue /></SelectTrigger>
-              <SelectContent className="z-[10041]"><SelectItem value="all">{copy.allLanguages}</SelectItem>
+              <SelectContent><SelectItem value="all">{copy.allLanguages}</SelectItem>
                 {languages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={draft.templateId || "__custom"} onValueChange={chooseTemplate}>
               <SelectTrigger data-testid={`notify-user-template-${index}`}><SelectValue placeholder={copy.chooseTemplate} /></SelectTrigger>
-              <SelectContent className="z-[10041]">
+              <SelectContent>
                 <SelectItem value="__custom">{copy.custom}</SelectItem>
                 {draft.templateId && keepSelectedVisible && (() => {
                   const unsupportedVariables = selectedTemplate ? unsupportedIn(selectedTemplate) : unsupported;
@@ -172,6 +178,14 @@ export function AutomationNotifyUserAction({
             {query.isLoading && <p className="text-xs text-muted-foreground">{copy.loading}</p>}
             {query.isError && <button type="button" className="text-xs text-destructive" onClick={() => query.refetch()}>{copy.templateError}</button>}
           </div>
+          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-center gap-2 text-xs font-medium"><Braces className="h-3.5 w-3.5" />{copy.variables}<Badge variant="secondary">{availableVariables.length}</Badge></div>
+            <div className="flex flex-wrap gap-1.5">{availableVariables.map(variable => <Button key={variable.value} type="button" variant="outline" size="sm" className="h-7 font-mono text-[11px]" onClick={() => insertVariable(variable.value)} title={variable.label}>{`{{${clean(variable.value)}}}`}</Button>)}
+              {!availableVariables.length && <span className="text-xs text-muted-foreground">—</span>}</div>
+            {!!unsupported.length && <p role="alert" className="text-xs text-destructive" data-testid={`notify-user-unsupported-${index}`}><strong>{copy.unsupported}:</strong> {unsupported.map(value => `{{${value}}}`).join(", ")}</p>}
+          </div>
+          </div>
+          <div className="order-1 min-w-0 space-y-4 md:order-1">
           <div className="space-y-1.5"><Label htmlFor={`notify-title-${index}`}>{copy.title}</Label>
             <Input id={`notify-title-${index}`} ref={node => { refs.current.title = node; }} value={draft.title} data-testid={`notify-user-title-${index}`}
               onFocus={event => { activeField.current = "title"; selections.current.title = { start: event.currentTarget.selectionStart || 0, end: event.currentTarget.selectionEnd || 0 }; }}
@@ -184,16 +198,14 @@ export function AutomationNotifyUserAction({
               onSelect={event => { selections.current.message = { start: event.currentTarget.selectionStart || 0, end: event.currentTarget.selectionEnd || 0 }; }}
               onChange={event => setDraft(previous => ({ ...previous, message: event.target.value }))} />
           </div>
-          <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-            <div className="flex items-center gap-2 text-xs font-medium"><Braces className="h-3.5 w-3.5" />{copy.variables}<Badge variant="secondary">{availableVariables.length}</Badge></div>
-            <div className="flex flex-wrap gap-1.5">{availableVariables.map(variable => <Button key={variable.value} type="button" variant="outline" size="sm" className="h-7 font-mono text-[11px]" onClick={() => insertVariable(variable.value)} title={variable.label}>{`{{${clean(variable.value)}}}`}</Button>)}
-              {!availableVariables.length && <span className="text-xs text-muted-foreground">—</span>}</div>
-            {!!unsupported.length && <p role="alert" className="text-xs text-destructive" data-testid={`notify-user-unsupported-${index}`}><strong>{copy.unsupported}:</strong> {unsupported.map(value => `{{${value}}}`).join(", ")}</p>}
+           {(!draft.title.trim() || !draft.message.trim()) && <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
             {!draft.title.trim() && <p className="text-xs text-destructive">{copy.titleRequired}</p>}
             {!draft.message.trim() && <p className="text-xs text-destructive">{copy.messageRequired}</p>}
+           </div>}
+          </div>
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-2">
+        <DialogFooter className="task-modern-modal-footer mt-0 gap-2 sm:gap-2">
           <Button type="button" variant="outline" onClick={() => setOpen(false)}>{copy.cancel}</Button>
           <Button type="button" onClick={save} disabled={!draft.title.trim() || !draft.message.trim() || unsupported.length > 0}
             data-testid={`notify-user-apply-${index}`}>{copy.apply}</Button>

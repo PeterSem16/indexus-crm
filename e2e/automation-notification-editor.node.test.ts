@@ -30,11 +30,12 @@ test("real notification modal: cursor variables, saved copies, cancel, language 
           templateId:"deleted-template",templateName:"Deleted saved copy",templateLanguage:"de",templateSnapshot:true});
         return <QueryClientProvider client={client}>
           <Dialog open={parentOpen} onOpenChange={setParentOpen}>
-            <DialogContent data-testid="parent-rule" className="automation-rule-dialog task-modal-modern">
+             <DialogContent data-testid="parent-rule" className="task-modern-modal automation-editor-dialog automation-rule-dialog max-h-[88vh]" overlayClassName="task-modern-modal-overlay">
               <DialogTitle>Rule fixture</DialogTitle><DialogDescription>Notification action</DialogDescription>
               <AutomationNotifyUserAction config={config} onChange={setConfig} index={0}
                 recipientSelector={<div data-testid="recipient">agent</div>}
-                availableVariables={[{value:"newValues.title",label:"Task title"},{value:"newValues.status",label:"Status"}]}/>
+                 availableVariables={[{value:"newValues.title",label:"Task title"},{value:"newValues.status",label:"Status"},
+                   ...Array.from({length:16},(_,i)=>({value:"newValues.field"+i,label:"Field "+i}))]}/>
             </DialogContent>
           </Dialog>
           <pre data-testid="config">{JSON.stringify(config)}</pre>
@@ -101,6 +102,15 @@ test("real notification modal: cursor variables, saved copies, cancel, language 
     await page.getByTestId("notify-user-template-language-0").click();
     await page.getByRole("option", { name: "Deutsch", exact: true }).click();
     await expect(title).toHaveValue("Template {{newValues.title}}");
+     await page.getByTestId("notify-user-template-0").click();
+     await page.getByTestId("notify-template-option-de-template").click();
+     await expect(title).toHaveValue("German title");
+     await expect(message).toHaveValue("German body");
+     await page.getByTestId("notify-user-template-language-0").click();
+     await page.getByRole("option", { name: "Slovenčina", exact: true }).click();
+     await expect(title).toHaveValue("German title");
+     await page.getByTestId("notify-user-template-0").click();
+     await page.getByTestId("notify-template-option-sk-template").click();
     await page.getByTestId("notify-user-apply-0").click();
     const applied = await state();
     assert.equal(applied.templateId, "sk-template");
@@ -118,12 +128,26 @@ test("real notification modal: cursor variables, saved copies, cancel, language 
     for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 }]) {
       await page.setViewportSize(viewport);
       await page.getByTestId("notify-user-edit-0").click();
+       await expect(dialog).toHaveClass(/task-modern-modal--nested/);
       const bounds = await dialog.boundingBox();
-      assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1);
-      await page.getByTestId("notify-user-apply-0").scrollIntoViewIfNeeded();
+       assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= viewport.width + 1 && bounds.y + bounds.height <= viewport.height + 1);
+       await page.getByTestId("notify-user-template-language-0").click();
+       await page.getByRole("option", { name: "Deutsch", exact: true }).click();
+       await page.getByTestId("notify-user-template-0").click();
+       await page.getByTestId("notify-template-option-de-template").click();
+       await expect(message).toHaveValue("German body");
       await expect(page.getByTestId("notify-user-apply-0")).toBeInViewport();
+       await expect(dialog.getByRole("button", { name: getNotificationCopy("sk").cancel, exact: true })).toBeInViewport();
+       if (viewport.width > 768) {
+         const editorBounds = await title.boundingBox();
+         const templateBounds = await page.getByTestId("notify-user-template-language-0").boundingBox();
+         assert.ok(editorBounds && templateBounds && templateBounds.x > editorBounds.x + editorBounds.width,
+           "Desktop content editor and template controls must occupy separate columns");
+       }
+       await page.screenshot({path: `/tmp/notification-compose-${viewport.width}.png`});
       await page.keyboard.press("Escape");
       await expect(page.getByTestId("parent-rule")).toBeVisible();
+       assert.equal((await state()).message, "Status {{newValues.status}}");
     }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
