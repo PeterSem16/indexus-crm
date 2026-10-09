@@ -4,6 +4,7 @@ import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
 import { emailActionIssues } from "@shared/automation-email-action";
+import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "@shared/automation-update-record";
 
 /** Executable event and action capabilities of the standalone Automation Engine. */
 export const MODULE_EVENTS: Record<string, string[]> = {
@@ -14,6 +15,9 @@ export const MODULE_EVENTS: Record<string, string[]> = {
   hospital: ["created", "updated"],
   clinic: ["created", "updated"],
   collaborator: ["created", "updated"],
+  collection: ["created", "updated"],
+  campaign: ["created", "updated"],
+  product: ["created", "updated"],
   invoice: ["created", "updated", "status_changed"],
   call: [
     "call.assigned", "call.answered", "call.completed", "call.abandoned", "call.timeout",
@@ -25,6 +29,7 @@ export const MODULE_LABELS: Record<string, string> = {
   customer: "Customer", task: "Task", contract: "Contract", hospital: "Hospital",
   clinic: "Clinic", collaborator: "Collaborator", invoice: "Invoice", call: "Call",
   communication: "Communications and analyzed text",
+  collection: "Collection", campaign: "Mission", product: "Product",
 };
 
 export const ACTION_TARGETS: Record<string, string[] | null> = {
@@ -322,6 +327,21 @@ export const hasChangeSnapshot = (event: string) =>
   event === "updated" || event === "status_changed" || event === "task.assigned" ||
   event === "contract.completed" || event === "contract.cancelled";
 
+for (const module of ["collection", "campaign", "product"]) {
+  FIELD_OPTIONS[module] = [
+    { value: "newValues.id", label: "ID", type: "string" },
+    ...UPDATE_RECORD_ENTITIES[module].map(field => ({
+      value: `newValues.${field.key}`, label: field.key,
+      type: field.kind === "reference" ? field.reference === "collection_status" ? "number" : "string"
+        : field.kind === "text" ? "string" : field.kind,
+      ...(field.options ? { options: field.options } : {}),
+    })),
+    ...(module === "collection" ? ["customerId", "hospitalId", "clinicId", "collaboratorId", "contractId"].map(key => ({
+      value: `newValues.${key}`, label: key, type: "string",
+    })) : []),
+  ];
+}
+
 export function fieldsForEvent(module: string, event: string) {
   if (event === "schedule.tick")
     return (SCHEDULE_RECORD_FIELDS[module] || []).flatMap(value =>
@@ -489,10 +509,18 @@ export function validateRuleCapabilities(rule: {
     const path = `actions[${i}]`;
     const targets = ACTION_TARGETS[a?.type];
     if (targets === undefined) return fail(`${path}.type`, "Action has no executable handler");
-    if (targets && !targets.includes(rule.module)) fail(`${path}.type`, "Action cannot target this module by default");
-    if (targets && event === "schedule.tick" && scheduleMode !== "per_record")
+    const updateV2 = a?.type === "update_entity" && a?.config?.updateRecordVersion === 2;
+    if (updateV2) {
+      for (const issue of updateRecordIssues(a.config, rule.module)) fail(`${path}.config`, issue);
+      if (scheduleMode === "per_record" && a.config.target?.mode === "selected")
+        fail(`${path}.config.target`, "Per-record schedules must not repeatedly update a fixed record");
+      if (scheduleMode === "once" && a.config.target?.mode !== "selected")
+        fail(`${path}.config.target`, "One-shot schedules require a selected record");
+    }
+    if (!updateV2 && targets && !targets.includes(rule.module)) fail(`${path}.type`, "Action cannot target this module by default");
+    if (!updateV2 && targets && event === "schedule.tick" && scheduleMode !== "per_record")
       fail(`${path}.type`, "One-shot schedules have no target entity");
-    if (targets && a?.config?.entityType && a.config.entityType !== rule.module)
+    if (!updateV2 && targets && a?.config?.entityType && a.config.entityType !== rule.module)
       fail(`${path}.config.entityType`, "Action target must match rule module");
     const config = a?.config;
     if (!record(config)) return fail(`${path}.config`, "Action configuration is required");

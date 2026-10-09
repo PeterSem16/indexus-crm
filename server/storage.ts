@@ -1643,15 +1643,22 @@ export class DatabaseStorage implements IStorage {
 
   async createProduct(insertProduct: InsertProduct): Promise<Product> {
     const [product] = await db.insert(products).values(insertProduct).returning();
+    const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+    await emitUpdateRecordLifecycle("product", product);
     return product;
   }
 
   async updateProduct(id: string, updateData: Partial<InsertProduct>): Promise<Product | undefined> {
+    const before = await this.getProduct(id);
     const [product] = await db
       .update(products)
       .set(updateData)
       .where(eq(products.id, id))
       .returning();
+    if (product) {
+      const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+      await emitUpdateRecordLifecycle("product", product, before);
+    }
     return product || undefined;
   }
 
@@ -4619,10 +4626,13 @@ export class DatabaseStorage implements IStorage {
       startDate: data.startDate ? new Date(data.startDate) : null,
       endDate: data.endDate ? new Date(data.endDate) : null,
     }).returning();
+    const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+    await emitUpdateRecordLifecycle("campaign", created);
     return created;
   }
 
   async updateCampaign(id: string, data: Partial<InsertCampaign>): Promise<Campaign | undefined> {
+    const before = await this.getCampaign(id);
     const updateData: any = { ...data, updatedAt: new Date() };
     if (data.startDate && typeof data.startDate === "string") {
       const d = new Date(data.startDate);
@@ -4639,6 +4649,10 @@ export class DatabaseStorage implements IStorage {
     if ('id' in updateData) delete updateData.id;
     
     const [updated] = await db.update(campaigns).set(updateData).where(eq(campaigns.id, id)).returning();
+    if (updated) {
+      const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+      await emitUpdateRecordLifecycle("campaign", updated, before);
+    }
     return updated || undefined;
   }
 
@@ -7316,14 +7330,21 @@ export class DatabaseStorage implements IStorage {
 
   async createCollection(data: InsertCollection): Promise<Collection> {
     const [collection] = await db.insert(collections).values(data).returning();
+    const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+    await emitUpdateRecordLifecycle("collection", collection);
     return collection;
   }
 
   async updateCollection(id: string, data: Partial<InsertCollection>): Promise<Collection | undefined> {
+    const before = await this.getCollection(id);
     const [collection] = await db.update(collections)
       .set({ ...data, updatedAt: new Date() })
       .where(eq(collections.id, id))
       .returning();
+    if (collection) {
+      const { emitUpdateRecordLifecycle } = await import("./lib/automation-update-record");
+      await emitUpdateRecordLifecycle("collection", collection, before);
+    }
     return collection || undefined;
   }
 

@@ -43,6 +43,7 @@ import { planTaskActionRecipients, type TaskCreationAssignment } from "./automat
 import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
+import { executeUpdateRecord } from "./automation-update-record";
 import { deliverAutomationEmail, planAutomationEmailRecipients } from "./automation-email-delivery";
 import { renderEmailAddressConfig, renderEmailValue, escapeEmailText } from "./automation-email-policy";
 import { assertTaskRecipientAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds } from "./task-assignment-access";
@@ -789,7 +790,7 @@ async function emitAutomatedMutation(entityType: string, entityId: string, befor
     return;
   }
   let country = after.country || after.countryCode || null;
-  if (entityType === "invoice" && after.customerId) {
+  if ((entityType === "invoice" || entityType === "contract") && after.customerId) {
     const customer = await storage.getCustomer(after.customerId);
     country = customer?.country || country;
   }
@@ -798,6 +799,19 @@ async function emitAutomatedMutation(entityType: string, entityId: string, befor
 
 async function actionUpdateEntity(config: any, ctx: any, runId: string): Promise<ActionResult> {
   try {
+    if (config.updateRecordVersion === 2) {
+      const result = await executeUpdateRecord(config, ctx);
+      const snapshot = (row: any) => {
+        if (result.entityType === "task") return row;
+        const keys = new Set(["id", "country", "countryCode", "customerId", "hospitalId", "clinicId", "collaboratorId", "contractId", "status", ...result.fields]);
+        return Object.fromEntries([...keys].filter(key => Object.hasOwn(row, key)).map(key => [key, row[key]]));
+      };
+      await emitAutomatedMutation(result.entityType, result.entityId, snapshot(result.before), snapshot(result.after), ctx, runId);
+      return { ok: true, output: {
+        entityType: result.entityType, entityId: result.entityId, updatedFields: result.fields,
+        targetMode: config.target.mode,
+      } };
+    }
     const rendered = renderTemplate(config, ctx);
     const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
     const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();

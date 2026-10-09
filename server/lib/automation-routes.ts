@@ -27,6 +27,7 @@ import {
 import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
 import { storage } from "../storage";
 import { resolve } from "node:path";
+import { registerUpdateRecordRoutes, updateRecordOwner, validateSavedUpdateRecord } from "./automation-update-record";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -56,6 +57,7 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  registerUpdateRecordRoutes(app, requireAutomationDesigner);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
   app.get("/api/automation/email-artwork/:name", (req, res) => {
     if (!["task", "attention", "success", "deadline"].includes(req.params.name))
@@ -180,6 +182,14 @@ export function registerAutomationRoutes(app: Express) {
     if (capabilityIssues.length) return res.status(400).json({ error: "Unsupported capability", details: capabilityIssues });
     const userId = getSessionUser(req)!.id;
     const countryScope = { ...parsed.data };
+    try {
+      const owner = await updateRecordOwner(userId);
+      for (const action of parsed.data.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
+        await validateSavedUpdateRecord(action.config, parsed.data.module, owner,
+          parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
+    } catch {
+      return res.status(400).json({ error: "Update record target or values unavailable; review the action" });
+    }
     // An explicit null multi-country scope means global; do not let a stale
     // legacy single-country value silently narrow it.
     if ("countryCodes" in parsed.data && parsed.data.countryCodes === null) countryScope.countryCode = null;
@@ -225,6 +235,17 @@ export function registerAutomationRoutes(app: Express) {
     // If user re-enables the rule manually, also clear auto-disable tracking
     // so the next single failure does not immediately disable it again.
     const extra: Record<string, any> = {};
+    if (["module", "trigger", "actions", "countryCode", "countryCodes", "enabled"].some(key => key in partial.data)) {
+      const [current] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id));
+      if (!current) return res.status(404).json({ error: "Not found" });
+      const next = { ...current, ...partial.data };
+      try {
+        for (const action of next.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
+          await validateSavedUpdateRecord(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
+      } catch {
+        return res.status(400).json({ error: "Update record target or values unavailable; review the action" });
+      }
+    }
     let wasEnabled: boolean | undefined;
     if (partial.data.enabled === true) {
       const [current] = await db
@@ -523,9 +544,10 @@ export function registerAutomationRoutes(app: Express) {
           value: "update_entity",
           label: "Update entity (mutate fields)",
           configSchema: {
-            entityType: "task|customer|hospital|clinic|invoice (defaults to event entityType)",
-            entityId: "string (defaults to event entityId, supports template)",
-            fields: "object - only allow-listed fields per entity type are applied",
+            updateRecordVersion: "2",
+            target: "event record, explicit related record, or searched selected record",
+            fields: "typed field/value rows from the shared permitted-field registry",
+            acknowledged: "required confirmation of the target and all changes",
           },
         },
         {
@@ -563,7 +585,7 @@ export function registerAutomationRoutes(app: Express) {
         const policy = AUTOMATION_ACTION_POLICY[action.value as keyof typeof AUTOMATION_ACTION_POLICY];
         return {
           ...action, ...AUTOMATION_SERVICE_DETAILS[action.value], risk: policy.risk, aiDraftEligible: policy.aiDraftEligible,
-          availableIn: ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
+          availableIn: action.value === "update_entity" ? Object.keys(MODULE_EVENTS) : ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
           recipientTypes: RECIPIENT_CAPABILITIES.filter(r => r.actions.includes(action.value)).map(r => r.value),
         };
       }),

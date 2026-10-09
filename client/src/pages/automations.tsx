@@ -32,6 +32,8 @@ import { AutomationCreateTaskAction } from "@/components/automation-create-task-
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
 import { AutomationSendSmsAction } from "@/components/automation-send-sms-action";
 import { AutomationNotifyUserAction } from "@/components/automation-notify-user-action";
+import { AutomationUpdateRecordAction } from "@/components/automation-update-record-action";
+import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
 import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
 import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
@@ -704,12 +706,13 @@ function RuleEditor({
   const actionsForModule = catalog.actionTypes.filter(a =>
     a.availableIn.includes(draft.module) &&
     (draft.trigger.type !== "schedule" || scheduleMode === "per_record" ||
-      !["update_entity", "assign_user", "add_tag", "remove_tag"].includes(a.value)));
+      !["assign_user", "add_tag", "remove_tag"].includes(a.value)));
   const moduleNames = (ids: string[]) => ids.map(id => {
     const fallback = id === "collaborator" ? t.automationCatalog.collaborator
       : id === "communication" ? t.automationServices.triggerPresets.moduleLabel
       : catalog.modules.find(m => m.value === id)?.label || id;
-    return t.automationServices.editorCatalog.moduleLabels[id] || fallback;
+    return t.automationServices.editorCatalog.moduleLabels[id] ||
+      (getUpdateRecordCopy(locale).entity as Record<string, string>)[id] || fallback;
   }).join(", ");
   const eventLabel = (event: Catalog["eventTypes"][number]) =>
     event.value === "contract.completed" ? t.automationCatalog.contractCompleted :
@@ -722,7 +725,8 @@ function RuleEditor({
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
   const fieldLabel = (field: { value: string; label: string }) =>
     (draft.module === "task" ? t.automationServices.taskRules.fieldLabels[field.value] : undefined) ||
-    t.automationServices.editorCatalog.fieldLabels[field.value] || field.label;
+    t.automationServices.editorCatalog.fieldLabels[field.value] ||
+    (getUpdateRecordCopy(locale).field as Record<string, string>)[field.value.split(".").pop() || field.value] || field.label;
   const conditionFields: ConditionField[] = fieldsForConditions.map(field => {
     const localized: ConditionField = { ...field, label: fieldLabel(field) };
     if (draft.module !== "task") return localized;
@@ -902,7 +906,7 @@ function RuleEditor({
     });
   };
   const hasInvalidEmailDraft = tab !== "json" && draft.actions.some((action, index) =>
-    (action.type === "send_email" || action.type === "send_sms") && emailDraftInvalidByAction[index]);
+    (action.type === "send_email" || action.type === "send_sms" || action.type === "update_entity") && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
     setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
@@ -1206,6 +1210,8 @@ function RuleEditor({
                     <div className="automation-actions">
                       {draft.actions.length === 0 && <p className="automation-inline-note">{t.automationServices.workspace.noActions}</p>}
                       {draft.actions.map((action, index) => <ActionEditor key={index} action={action} index={index}
+                        sourceModule={draft.module}
+                        scheduleMode={draft.trigger.type === "schedule" ? scheduleMode || undefined : undefined}
                         actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
                         recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
                         availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
@@ -1515,6 +1521,8 @@ function RuleEditor({
                 {draft.actions.map((a, i) => (
                   <ActionEditor
                     key={i}
+                    sourceModule={draft.module}
+                    scheduleMode={draft.trigger.type === "schedule" ? scheduleMode || undefined : undefined}
                     action={a}
                     index={i}
                     actionTypes={catalog.actionTypes}
@@ -2046,6 +2054,8 @@ function RecipientTargetSelect({
 
 function ActionEditor({
   action,
+  sourceModule,
+  scheduleMode,
   index,
   actionTypes,
   supportedActions,
@@ -2062,6 +2072,8 @@ function ActionEditor({
   onEmailDraftValidityChange,
 }: {
   action: ActionNode;
+  sourceModule: string;
+  scheduleMode?: "once" | "per_record";
   index: number;
   actionTypes: Catalog["actionTypes"];
   supportedActions: string[];
@@ -2385,54 +2397,11 @@ function ActionEditor({
       )}
 
       {action.type === "update_entity" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div>
-            <Label className="text-xs">Entity type</Label>
-            <Select value={action.config.entityType || ""} onValueChange={(v) => setCfg("entityType", v)}>
-              <SelectTrigger className="h-8 text-xs" data-testid={`select-update-entity-type-${index}`}>
-                <SelectValue placeholder="(use event entityType)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="task">Task</SelectItem>
-                <SelectItem value="customer">Customer</SelectItem>
-                <SelectItem value="hospital">Hospital</SelectItem>
-                <SelectItem value="clinic">Clinic</SelectItem>
-                <SelectItem value="invoice">Invoice</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Entity ID (template ok)</Label>
-            <Input
-              className="h-8 text-xs"
-              value={action.config.entityId || ""}
-              onChange={(e) => setCfg("entityId", e.target.value)}
-              placeholder="{{entityId}}"
-              data-testid={`input-update-entity-id-${index}`}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Fields to set (JSON object)</Label>
-            <Textarea
-              rows={4}
-              className="text-xs font-mono"
-              value={action.config.fields ? JSON.stringify(action.config.fields, null, 2) : ""}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (!v.trim()) { setCfg("fields", undefined); return; }
-                try { setCfg("fields", JSON.parse(v)); } catch { /* keep last valid */ }
-              }}
-              placeholder={'{"status":"completed","assignedUserId":"{{newValues.assignedUserId}}"}'}
-              data-testid={`textarea-update-fields-${index}`}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Allowed fields per type: task = status, priority, assignedUserId, assignedDepartmentId, dueDate, title, description, completedAt;
-              customer = status, leadScore, assignedUserId, notes, stage, country;
-              hospital/clinic = status, notes, isActive; invoice = status, paidDate, notes.
-              Other fields are silently ignored.
-            </p>
-          </div>
-        </div>
+        <AutomationUpdateRecordAction config={action.config} sourceModule={sourceModule}
+          scheduleMode={scheduleMode}
+          index={index} availableVariables={availableVariables} countryCodes={countryCodes}
+          onDraftValidityChange={onEmailDraftValidityChange}
+          onChange={config => onChange({ ...action, config })} />
       )}
     </div>
   );
