@@ -24,7 +24,7 @@ type Props = {
 };
 const LEGACY_KEYS = ["entityId", "EntityId", "entityID", "entity_id", "entityType", "recordId", "rawEntityId", "rawJson", "json", "updates", "values", "fields", "entity"];
 const tokenPattern = /^{{\s*([A-Za-z][A-Za-z0-9.]*)\s*}}$/;
-const entityNames: Record<string, string> = { task: "Task", customer: "Customer", hospital: "Hospital", clinic: "Clinic", invoice: "Invoice", collection: "Collection", collaborator: "Collaborator", contract: "Contract", campaign: "Campaign", product: "Product", user: "User", department: "Department" };
+const entityNames: Record<string, string> = { task: "Task", customer: "Customer", hospital: "Hospital", clinic: "Clinic", invoice: "Invoice", collection: "Collection", collaborator: "Collaborator", contract: "Contract", campaign: "Mission", product: "Product", user: "User", department: "Department" };
 
 function useRecordSearch(entityType: string, countries: string, query: string, enabled: boolean) {
   const [result, setResult] = useState<{ records: RecordOption[]; truncated: boolean; key: string } | null>(null);

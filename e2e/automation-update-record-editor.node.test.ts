@@ -18,6 +18,8 @@ test("Update record editor: seven-language help, event default, scoped search an
     assert.deepEqual(Object.keys(copy.field).sort(), Object.keys(english.field).sort());
     assert.deepEqual(Object.keys(copy.entity).sort(), Object.keys(english.entity).sort());
     assert.ok(copy.fixedWarning && copy.legacyHelp && copy.description && copy.field.internalNotes);
+    assert.equal(copy.entity.campaign, "Mission", `${locale}: preserve the INDEXUS Mission name`);
+    assert.ok(copy.safetyHelp.includes("Mission"));
   }
   const result = await build({
     stdin: { contents: `
@@ -114,6 +116,8 @@ test("Update record editor: seven-language help, event default, scoped search an
     await page.getByTestId("update-record-0-mode").click();
     await page.getByRole("option", { name: getUpdateRecordCopy("sk").selected, exact: true }).click();
     await page.getByTestId("update-record-0-type").click();
+    await expect(page.getByRole("option", { name: "Mission", exact: true })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Kampaň", exact: true })).toHaveCount(0);
     await page.getByRole("option", { name: getUpdateRecordCopy("sk").entity.clinic, exact: true }).click();
     await page.getByTestId("update-record-0-search").fill("Test");
     await page.getByTestId("update-record-result-fixture-clinic").click();
