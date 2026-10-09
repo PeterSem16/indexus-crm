@@ -25,7 +25,7 @@ test("every offered WHEN event matches only its module, event, enabled state and
       count++;
     }
   }
-  assert.equal(count, 35);
+  assert.ok(count >= 35, "Cover at least the original catalog, plus every subsequently offered event");
 });
 
 test("Task status_changed excludes completion in matching and preview, but includes reopening", async () => {

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Clock } from "lucide-react";
 import { useI18n } from "@/i18n";
-
-const TASK_TIME_ZONE = "Europe/Bratislava";
+import { getTaskDeadlineTimestamp, isTaskOverdue, getTaskTimestamp as parseTimestamp } from "@shared/task-deadline";
+export { getTaskDeadlineTimestamp, isTaskOverdue } from "@shared/task-deadline";
 
 export type TaskTimingFields = {
   id: string;
@@ -11,105 +11,6 @@ export type TaskTimingFields = {
   workStartedAt?: string | Date | null;
   workStoppedAt?: string | Date | null;
 };
-
-function parseTimestamp(value: string | Date | null | undefined): number | null {
-  if (value instanceof Date) {
-    const time = value.getTime();
-    return Number.isFinite(time) ? time : null;
-  }
-  if (typeof value !== "string" || !value.trim()) return null;
-  const time = Date.parse(value);
-  return Number.isFinite(time) ? time : null;
-}
-
-function parseCalendarDate(value: string): { year: number; month: number; day: number } | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const check = new Date(0);
-  check.setUTCFullYear(year, month - 1, day);
-  check.setUTCHours(0, 0, 0, 0);
-  if (check.getUTCFullYear() !== year || check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null;
-  return { year, month, day };
-}
-
-function utcEpochFromParts(year: number, month: number, day: number, hour: number, minute: number, second: number): number {
-  const date = new Date(0);
-  date.setUTCFullYear(year, month - 1, day);
-  date.setUTCHours(hour, minute, second, 0);
-  return date.getTime();
-}
-
-function getZonedMidnightEpoch(year: number, month: number, day: number): number {
-  const targetAsUtc = utcEpochFromParts(year, month, day, 0, 0, 0);
-  let estimate = targetAsUtc;
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: TASK_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
-
-  // Resolve a local civil time to an instant without assuming a fixed UTC offset.
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const parts = formatter.formatToParts(new Date(estimate));
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    const shownAsUtc = utcEpochFromParts(
-      Number(values.year),
-      Number(values.month),
-      Number(values.day),
-      Number(values.hour),
-      Number(values.minute),
-      Number(values.second),
-    );
-    const adjustment = targetAsUtc - shownAsUtc;
-    estimate += adjustment;
-    if (adjustment === 0) break;
-  }
-  return estimate;
-}
-
-/**
- * Resolve date-only and legacy UTC-midnight due dates as the end of that
- * calendar day in Bratislava. Other timestamps remain absolute instants.
- */
-export function getTaskDeadlineTimestamp(dueDate: string | Date | null | undefined): number | null {
-  let calendarDate: string | null = null;
-  if (typeof dueDate === "string") {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) {
-      calendarDate = dueDate;
-    } else {
-      const legacyMidnight = /^(\d{4}-\d{2}-\d{2})T00:00(?::00(?:\.0+)?)?(?:Z|\+00:00)$/.exec(dueDate);
-      if (legacyMidnight) calendarDate = legacyMidnight[1];
-    }
-  } else if (dueDate instanceof Date) {
-    const iso = Number.isFinite(dueDate.getTime()) ? dueDate.toISOString() : "";
-    const legacyMidnight = /^(\d{4}-\d{2}-\d{2})T00:00(?::00(?:\.0+)?)?Z$/.exec(iso);
-    if (legacyMidnight) calendarDate = legacyMidnight[1];
-  }
-
-  if (calendarDate) {
-    const parts = parseCalendarDate(calendarDate);
-    if (!parts) return null;
-    const nextDay = new Date(0);
-    nextDay.setUTCFullYear(parts.year, parts.month - 1, parts.day + 1);
-    nextDay.setUTCHours(0, 0, 0, 0);
-    return getZonedMidnightEpoch(nextDay.getUTCFullYear(), nextDay.getUTCMonth() + 1, nextDay.getUTCDate());
-  }
-  return parseTimestamp(dueDate);
-}
-
-export function isTaskOverdue(status: string, dueDate: string | Date | null | undefined, now = Date.now()): boolean {
-  if (status === "completed" || status === "cancelled") return false;
-  const deadline = getTaskDeadlineTimestamp(dueDate);
-  return deadline !== null && now >= deadline;
-}
 
 export function getTaskElapsedMilliseconds(
   status: string,

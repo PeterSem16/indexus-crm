@@ -25,6 +25,23 @@ export function setEventDispatcher(fn: (eventId: string) => Promise<void>) {
   dispatcher = fn;
 }
 
+/** Publish only after the transaction that inserted the event has committed. */
+export function dispatchCommittedEvent(eventId: string): void {
+  if (dispatcher) dispatcher(eventId).catch(() => {
+    console.error("[EventBus] committed-event dispatcher failed");
+  });
+}
+
+export async function taskEventValuesWithRouting(values: any, executor: any = db) {
+  if (!values || typeof values !== "object") return values;
+  const resolverGroups = values.resolvedByUserId
+    ? await executor.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers)
+      .where(eq(taskGroupMembers.userId, values.resolvedByUserId))
+    : [];
+  return { ...values, taskGroupIds: taskAutomationGroupIds(values),
+    resolvedByGroupIds: Array.from(new Set<string>(resolverGroups.map((row: any) => String(row.groupId)))) };
+}
+
 function diffChangedFields(oldV: any, newV: any): string[] {
   if (!oldV || !newV || typeof oldV !== "object" || typeof newV !== "object") return [];
   const fields = new Set<string>();
@@ -69,9 +86,9 @@ export function safeTaskEventValues(task: any) {
 }
 
 /** Resolve the actual linked institution/contact country, never a rule or agent default. */
-export async function taskEventCountry(task: any, fallback?: string | null): Promise<string | null> {
+export async function taskEventCountry(task: any, fallback?: string | null, executor: any = db): Promise<string | null> {
   if (task?.customerId) {
-    const [customer] = await db.select({ country: customers.country }).from(customers)
+    const [customer] = await executor.select({ country: customers.country }).from(customers)
       .where(eq(customers.id, task.customerId)).limit(1);
     if (customer?.country) return customer.country;
   }
@@ -84,7 +101,7 @@ export async function taskEventCountry(task: any, fallback?: string | null): Pro
   const related = Object.prototype.hasOwnProperty.call(sources, task?.relatedEntityType)
     ? sources[task.relatedEntityType as keyof typeof sources] : undefined;
   if (related && task?.relatedEntityId) {
-    const [row] = await db.select({ country: related.country }).from(related.table)
+    const [row] = await executor.select({ country: related.country }).from(related.table)
       .where(eq(related.table.id, task.relatedEntityId)).limit(1);
     if (row?.country) return row.country;
   }
@@ -94,17 +111,8 @@ export async function taskEventCountry(task: any, fallback?: string | null): Pro
 export async function emitEvent(input: EventInput): Promise<string | null> {
   try {
     if (input.module === "task") {
-      const withRouting = async (values: any) => {
-        if (!values || typeof values !== "object") return values;
-        const resolverGroups = values.resolvedByUserId
-          ? await db.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers)
-            .where(eq(taskGroupMembers.userId, values.resolvedByUserId))
-          : [];
-        return { ...values, taskGroupIds: taskAutomationGroupIds(values),
-          resolvedByGroupIds: [...new Set(resolverGroups.map(row => row.groupId))] };
-      };
       input = { ...input, countryCode: await taskEventCountry(input.newValues, input.countryCode),
-        oldValues: await withRouting(input.oldValues), newValues: await withRouting(input.newValues) };
+        oldValues: await taskEventValuesWithRouting(input.oldValues), newValues: await taskEventValuesWithRouting(input.newValues) };
     }
     const changedFields = diffChangedFields(input.oldValues, input.newValues);
     const [row] = await db

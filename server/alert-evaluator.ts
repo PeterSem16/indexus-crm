@@ -1,8 +1,8 @@
 import { storage } from "./storage";
 import { db } from "./db";
-import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications, workflowEvents } from "@shared/schema";
+import { collections, collectionLabResults, customers, invoices, tasks, apiKeys, users, scheduledInvoices, notifications } from "@shared/schema";
 import { eq, sql, and, isNull, lt, gte, lte, inArray, ne } from "drizzle-orm";
-import { emitEvent } from "./lib/event-bus";
+import { emitTaskOverdueEvents } from "./lib/task-overdue";
 import { runScheduledRule, getEnabledScheduleRules, claimScheduledRuleDue } from "./lib/automation-engine";
 
 type MetricType = 
@@ -483,7 +483,7 @@ async function checkScheduledInvoiceNotifications(): Promise<void> {
 /* ============================================================
  *  Phase C: Automation cron driver
  *    - schedule-triggered workflow rules
- *    - auto-emission of `task.overdue` once per task
+ *    - auto-emission of `task.overdue` once per actual deadline occurrence
  * ============================================================ */
 
 const scheduleIntervalMs: Record<string, number> = {
@@ -512,56 +512,6 @@ async function processScheduledAutomationRules(): Promise<void> {
     }
   } catch (err) {
     console.error("[AutomationCron] processScheduledAutomationRules failed:", err);
-  }
-}
-
-async function emitTaskOverdueEvents(): Promise<void> {
-  try {
-    const now = new Date();
-    // Find tasks past due that are still open
-    const overdue = await db
-      .select()
-      .from(tasks)
-      .where(
-        and(
-          inArray(tasks.status, ["pending", "in_progress"]),
-          lt(tasks.dueDate, now)
-        )
-      );
-    if (!overdue.length) return;
-
-    // Skip ones that already have a task.overdue event
-    const ids = overdue.map((t) => t.id);
-    const existing = await db
-      .select({ entityId: workflowEvents.entityId })
-      .from(workflowEvents)
-      .where(
-        and(
-          eq(workflowEvents.eventType, "task.overdue"),
-          inArray(workflowEvents.entityId, ids)
-        )
-      );
-    const seen = new Set(existing.map((r) => r.entityId).filter(Boolean) as string[]);
-
-    for (const task of overdue) {
-      if (seen.has(task.id)) continue;
-      try {
-        await emitEvent({
-          source: "cron",
-          module: "task",
-          entityType: "task",
-          entityId: task.id,
-          eventType: "task.overdue",
-          newValues: task,
-          actorUserId: null,
-          countryCode: task.country || null,
-        });
-      } catch (err) {
-        console.error(`[AutomationCron] failed to emit task.overdue for ${task.id}:`, err);
-      }
-    }
-  } catch (err) {
-    console.error("[AutomationCron] emitTaskOverdueEvents failed:", err);
   }
 }
 
