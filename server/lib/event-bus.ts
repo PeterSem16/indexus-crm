@@ -1,3 +1,4 @@
+import { visibleRecordTags } from "@shared/automation-record-tags";
 import { db } from "../db";
 import { customers, clinics, hospitals, collaborators, tasks, taskGroupMembers, workflowEvents } from "@shared/schema";
 import { taskAutomationGroupIds } from "@shared/task-automation";
@@ -51,6 +52,7 @@ export function safeTaskEventValues(task: any) {
     assignedUserId: task.assignedUserId,
     assignedDepartmentId: task.assignedDepartmentId,
     taskGroupIds: taskAutomationGroupIds(task),
+    tags: visibleRecordTags(task.tags),
     createdByUserId: task.createdByUserId,
     customerId: task.customerId,
     country: task.country,

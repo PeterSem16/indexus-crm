@@ -682,6 +682,7 @@ export const customers = pgTable("customers", {
 
 // Products table - services/products offered by the company
 export const products = pgTable("products", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
@@ -1003,6 +1004,7 @@ export const customerProducts = pgTable("customer_products", {
 
 // Invoices table - generated invoices
 export const invoices = pgTable("invoices", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceNumber: text("invoice_number").notNull().unique(),
   legacyId: text("legacy_id"), // ID from old system
@@ -2216,6 +2218,7 @@ export type AddressType = typeof ADDRESS_TYPES[number]["value"];
 
 // Collaborators table - main collaborator data
 export const collaborators = pgTable("collaborators", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   legacyId: text("legacy_id"), // Legacy ID from previous CRM
   
@@ -3171,6 +3174,7 @@ export type UserRole = typeof userRoles.$inferSelect;
 
 // Campaigns - marketing/sales campaigns with dynamic criteria
 export const campaigns = pgTable("campaigns", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
@@ -4253,6 +4257,7 @@ export type ContractTemplate = typeof contractTemplates.$inferSelect;
 
 // Contract Instances - actual contracts generated from templates
 export const contractInstances = pgTable("contract_instances", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   contractNumber: varchar("contract_number", { length: 50 }).notNull(), // e.g., ZML-2025-00001
   templateId: varchar("template_id").notNull(),
@@ -5560,6 +5565,7 @@ export const notificationRulesRelations = relations(notificationRules, ({ one })
 // ========================================
 
 export const collections = pgTable("collections", {
+  tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   legacyId: text("legacy_id"),
   cbuNumber: text("cbu_number"),

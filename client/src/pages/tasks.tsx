@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -1156,6 +1157,7 @@ export default function TasksPage() {
           <TaskModalArtwork variant="detail" />
           <DialogHeader>
             <DialogTitle>{t.tasks.viewDetails}</DialogTitle>
+            {selectedTask && <RecordTagsBadges entityType="task" entityId={selectedTask.id} tags={selectedTask.tags} />}
           </DialogHeader>
           {selectedTask && (
             <div className="task-modern-modal-body space-y-4">

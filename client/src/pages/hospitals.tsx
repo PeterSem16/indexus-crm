@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -312,6 +313,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-semibold" data-testid="text-hospital-drawer-name">{hospital.fullName || hospital.name}</h2>
+                <RecordTagsBadges entityType="hospital" entityId={hospital.id} tags={hospital.tags} />
                 {hospitalNetworks.map((netName: string) => (
                   <Badge key={netName} className="text-[10px] px-1.5 py-0 font-bold bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/60 dark:text-amber-300 dark:border-amber-700" data-testid="badge-hospital-network-drawer">
                     <Network className="h-2.5 w-2.5 mr-0.5" />

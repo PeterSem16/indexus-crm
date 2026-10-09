@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Package } from "lucide-react";
@@ -531,6 +532,7 @@ export default function ProductsPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.products.editProduct}</DialogTitle>
+            {editingProduct && <RecordTagsBadges entityType="product" entityId={editingProduct.id} tags={editingProduct.tags} />}
             <DialogDescription>
               {t.products.updateProductInfo}
             </DialogDescription>

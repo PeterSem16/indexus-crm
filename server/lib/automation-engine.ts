@@ -44,6 +44,8 @@ import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
 import { executeUpdateRecord } from "./automation-update-record";
+import { executeRecordTagAction } from "./automation-record-tags";
+import { visibleRecordTags, recordTagsContain, recordTagsLack } from "../../shared/automation-record-tags";
 import { deliverAutomationEmail, planAutomationEmailRecipients } from "./automation-email-delivery";
 import { renderEmailAddressConfig, renderEmailValue, escapeEmailText } from "./automation-email-policy";
 import { assertTaskRecipientAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds } from "./task-assignment-access";
@@ -107,7 +109,8 @@ function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
     case "lte": return compareOrderedValues(v, c.value, "lte");
     case "in": return Array.isArray(v) ? taskAutomationListMatches(v, c.value) : Array.isArray(c.value) && c.value.some((item: unknown) => conditionValuesEqual(v, item));
     case "not_in": return Array.isArray(v) ? Array.isArray(c.value) && !taskAutomationListMatches(v, c.value) : Array.isArray(c.value) && !c.value.some((item: unknown) => conditionValuesEqual(v, item));
-    case "contains": return typeof v === "string" && v.includes(String(c.value));
+    case "contains": return Array.isArray(v) ? recordTagsContain(v, c.value) : typeof v === "string" && v.includes(String(c.value));
+    case "not_contains": return recordTagsLack(v, c.value);
     case "starts_with": return typeof v === "string" && v.startsWith(String(c.value));
     case "is_null": return v == null;
     case "is_not_null": return v != null;
@@ -966,15 +969,8 @@ async function actionAssignUser(config: any, ctx: any, runId: string): Promise<A
 }
 
 /* ------------------------------------------------------------
- *  add_tag / remove_tag — manipulate the tags[] column on supported entities
+ *  add_tag / remove_tag — scoped, atomic organizational labels on record cards
  * ------------------------------------------------------------ */
-const TAG_TARGET_MAP: Record<string, { table: string }> = {
-  task: { table: "tasks" },
-  customer: { table: "customers" },
-  hospital: { table: "hospitals" },
-  clinic: { table: "clinics" },
-};
-
 function normalizeTagList(input: any): string[] {
   if (Array.isArray(input)) {
     return input.map(t => String(t).trim()).filter(Boolean);
@@ -992,42 +988,35 @@ async function actionTagMutation(
   runId: string,
 ): Promise<ActionResult> {
   try {
-    const rendered = renderTemplate(config, ctx);
-    const entityType: string = String(rendered.entityType || ctx.event?.entityType || "").trim();
-    const entityId: string = String(rendered.entityId || ctx.event?.entityId || "").trim();
-    const tags = normalizeTagList(rendered.tags ?? rendered.tag);
-
-    const target = TAG_TARGET_MAP[entityType];
-    if (!target) return { ok: false, error: `${mode}_tag: unsupported entityType "${entityType}" (allowed: ${Object.keys(TAG_TARGET_MAP).join(", ")})` };
-    if (!entityId) return { ok: false, error: `${mode}_tag requires entityId` };
-    if (tags.length === 0) return { ok: false, error: `${mode}_tag requires at least one tag` };
-
-    const getter = `get${entityType[0].toUpperCase()}${entityType.slice(1)}`;
-    const before = await (storage as any)[getter]?.call(storage, entityId);
-    const { pool } = await import("../db");
-    const sqlText = mode === "add"
-      ? `UPDATE ${target.table}
-         SET tags = (
-           SELECT ARRAY(SELECT DISTINCT unnest(COALESCE(tags, ARRAY[]::text[]) || $2::text[]))
-         )
-         WHERE id = $1
-         RETURNING tags`
-      : `UPDATE ${target.table}
-         SET tags = COALESCE(
-           ARRAY(SELECT t FROM unnest(COALESCE(tags, ARRAY[]::text[])) AS t WHERE t <> ALL($2::text[])),
-           ARRAY[]::text[]
-         )
-         WHERE id = $1
-         RETURNING tags`;
-    const result = await pool.query(sqlText, [entityId, tags]);
-    if (result.rowCount === 0) {
-      return { ok: false, error: `${mode}_tag: ${entityType} ${entityId} not found` };
+    let safeConfig = config;
+    if (config.recordTagActionVersion !== 2) {
+      if (config.recordTagActionVersion != null || config.target != null)
+        throw new Error("Unsupported tag action format");
+      const rendered = renderTemplate(config, ctx);
+      const entityType = String(rendered.entityType || ctx.event?.entityType || "").trim();
+      const entityId = String(rendered.entityId || ctx.event?.entityId || "").trim();
+      const tags = visibleRecordTags(normalizeTagList(rendered.tags ?? rendered.tag));
+      // Legacy configurations remain persisted as-is; execution still enforces current scope.
+      safeConfig = { recordTagActionVersion: 2, acknowledged: true, tags,
+        target: { mode: entityType === ctx.event?.entityType && entityId === ctx.event?.entityId ? "event" : "selected",
+          entityType, ...(entityId !== ctx.event?.entityId || entityType !== ctx.event?.entityType ? { recordId: entityId } : {}) } };
+      const raw = normalizeTagList(rendered.tags ?? rendered.tag);
+      if (raw.length && raw.some(tag => !visibleRecordTags([tag]).length)) throw new Error("Technical tags cannot be changed by tag actions");
     }
-    const after = await (storage as any)[getter]?.call(storage, entityId);
-    await emitAutomatedMutation(entityType, entityId, before, after, ctx, runId);
+    const result = await executeRecordTagAction(safeConfig, ctx, mode);
+    if (result.changed) {
+      // Never put full collaborator/customer rows (including credentials) into an event.
+      const keys = new Set(["id", "country", "countryCode", "tags", "customerId", "hospitalId", "clinicId",
+        "collaboratorId", "contractId", "relatedEntityType", "relatedEntityId", "createdAt", "updatedAt",
+        ...fieldsForEvent(result.entityType, "updated").map(field => field.value.split(".")[1])]);
+      const snapshot = (row: any) => Object.fromEntries([...keys].filter(key => Object.hasOwn(row, key))
+        .map(key => [key, row[key]]));
+      await emitAutomatedMutation(result.entityType, result.entityId, snapshot(result.before), snapshot(result.after), ctx, runId);
+    }
     return {
       ok: true,
-      output: { entityType, entityId, mode, requested: tags, currentTags: result.rows[0].tags },
+      output: { entityType: result.entityType, entityId: result.entityId, mode, changed: result.changed,
+        requested: result.requested, currentTags: result.currentTags },
     };
   } catch (err: any) {
     return { ok: false, error: err?.message || `${mode}_tag failed` };

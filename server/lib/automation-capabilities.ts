@@ -1,4 +1,5 @@
 import { taskSalutationFields } from "../../shared/task-template-variables";
+import { RECORD_TAG_ENTITY_TYPES, tagActionIssues, normalizeTagName, isProtectedRecordTag } from "@shared/automation-record-tags";
 import { smsRecipientList } from "../../shared/automation-sms-policy";
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
 import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
@@ -40,8 +41,8 @@ export const ACTION_TARGETS: Record<string, string[] | null> = {
   webhook: null,
   update_entity: ["task", "customer", "hospital", "clinic", "invoice"],
   assign_user: ["task", "customer", "hospital"],
-  add_tag: ["task", "customer", "hospital", "clinic"],
-  remove_tag: ["task", "customer", "hospital", "clinic"],
+  add_tag: RECORD_TAG_ENTITY_TYPES,
+  remove_tag: RECORD_TAG_ENTITY_TYPES,
 };
 
 /** Service descriptions are tied to existing handlers, not promises of new integrations. */
@@ -284,6 +285,7 @@ export const OPERATORS = [
   { value: "in", label: "in (comma list)", arity: 1 },
   { value: "not_in", label: "not in (comma list)", arity: 1 },
   { value: "contains", label: "contains", arity: 1 },
+  { value: "not_contains", label: "does not contain tag", arity: 1 },
   { value: "starts_with", label: "starts with", arity: 1 },
   { value: "is_null", label: "is empty", arity: 0 },
   { value: "is_not_null", label: "is set", arity: 0 },
@@ -342,10 +344,19 @@ for (const module of ["collection", "campaign", "product"]) {
   ];
 }
 
+for (const module of RECORD_TAG_ENTITY_TYPES) {
+  FIELD_OPTIONS[module] ||= [];
+  FIELD_OPTIONS[module].push(
+    { value: "newValues.tags", label: "Record tags", type: "tags" },
+    { value: "oldValues.tags", label: "Previous record tags", type: "tags" },
+  );
+}
+
 export function fieldsForEvent(module: string, event: string) {
   if (event === "schedule.tick")
-    return (SCHEDULE_RECORD_FIELDS[module] || []).flatMap(value =>
-      (FIELD_OPTIONS[module] || []).filter(field => field.value === value));
+    return [...(SCHEDULE_RECORD_FIELDS[module] || []).flatMap(value =>
+      (FIELD_OPTIONS[module] || []).filter(field => field.value === value)),
+      ...(SCHEDULE_RECORD_MODULES.includes(module) ? FIELD_OPTIONS[module].filter(field => field.value === "newValues.tags") : [])];
   if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])];
   if (module === "communication") {
     const payloadFields = event === "sentiment.negative"
@@ -360,7 +371,7 @@ export function fieldsForEvent(module: string, event: string) {
       "newValues.status", "newValues.clientStatus", "newValues.newsletter",
       "newValues.useCorrespondenceAddress", "newValues.assignedUserId", "newValues.leadScore",
       "newValues.leadScoreUpdatedAt", "newValues.leadStatus", "newValues.serviceType",
-      "newValues.registrationSource", "newValues.registrationDate", "newValues.createdAt",
+      "newValues.registrationSource", "newValues.registrationDate", "newValues.createdAt", "newValues.tags",
     ].includes(f.value));
   if (event === "status_changed" && module !== "task") return fields.filter(f => f.value === "newValues.status");
   return fields;
@@ -378,11 +389,13 @@ export function matchesRuleCountryScope(
 }
 
 export function operatorsForEvent(event: string, fieldType?: string) {
+  if (fieldType === "tags") return OPERATORS.filter(op => ["contains", "not_contains"].includes(op.value));
   return OPERATORS.filter(op =>
     (fieldType !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
     (!op.value.startsWith("changed") || hasChangeSnapshot(event)) &&
     (!["gt", "gte", "lt", "lte"].includes(op.value) || fieldType === "number" || fieldType === "date") &&
     (!["in", "not_in"].includes(op.value) || fieldType !== "boolean") &&
+    op.value !== "not_contains" &&
     (!["contains", "starts_with"].includes(op.value) || fieldType === "string"));
 }
 
@@ -476,6 +489,9 @@ export function validateRuleCapabilities(rule: {
       const op = operatorsForEvent(event, field?.type).find(o => o.value === node.op);
       if (!op) fail(`${path}.op`, "Operator is not supported for this field and event");
       if (op?.arity && node.value === undefined) fail(`${path}.value`, "Value is required");
+      if (field?.type === "tags" && (typeof node.value !== "string" || !normalizeTagName(node.value) ||
+        normalizeTagName(node.value).length > 64 || /[{}\u0000-\u001f\u007f]/u.test(node.value) ||
+        isProtectedRecordTag(node.value))) fail(`${path}.value`, "Choose one literal organizational tag");
       const listOperator = ["in", "not_in"].includes(node.op);
       if (listOperator && (!Array.isArray(node.value) || !node.value.length))
         fail(`${path}.value`, "List operator requires a nonempty array");
@@ -510,6 +526,17 @@ export function validateRuleCapabilities(rule: {
     const targets = ACTION_TARGETS[a?.type];
     if (targets === undefined) return fail(`${path}.type`, "Action has no executable handler");
     const updateV2 = a?.type === "update_entity" && a?.config?.updateRecordVersion === 2;
+    const tagV2 = ["add_tag", "remove_tag"].includes(a?.type) && a?.config?.recordTagActionVersion === 2;
+    const targetedV2 = updateV2 || tagV2;
+    if (tagV2) {
+      for (const issue of tagActionIssues(a.config, rule.module)) fail(`${path}.config`, issue);
+      if (scheduleMode === "per_record" && a.config.target?.mode === "selected")
+        fail(`${path}.config.target`, "Per-record schedules cannot tag a fixed record repeatedly");
+      if (scheduleMode === "once" && a.config.target?.mode !== "selected")
+        fail(`${path}.config.target`, "One-shot schedules require a selected tag target");
+    } else if (["add_tag", "remove_tag"].includes(a?.type) &&
+      (a?.config?.recordTagActionVersion != null || a?.config?.target != null))
+      fail(`${path}.config`, "Unsupported tag action format");
     if (updateV2) {
       for (const issue of updateRecordIssues(a.config, rule.module)) fail(`${path}.config`, issue);
       if (scheduleMode === "per_record" && a.config.target?.mode === "selected")
@@ -517,10 +544,10 @@ export function validateRuleCapabilities(rule: {
       if (scheduleMode === "once" && a.config.target?.mode !== "selected")
         fail(`${path}.config.target`, "One-shot schedules require a selected record");
     }
-    if (!updateV2 && targets && !targets.includes(rule.module)) fail(`${path}.type`, "Action cannot target this module by default");
-    if (!updateV2 && targets && event === "schedule.tick" && scheduleMode !== "per_record")
+    if (!targetedV2 && targets && !targets.includes(rule.module)) fail(`${path}.type`, "Action cannot target this module by default");
+    if (!targetedV2 && targets && event === "schedule.tick" && scheduleMode !== "per_record")
       fail(`${path}.type`, "One-shot schedules have no target entity");
-    if (!updateV2 && targets && a?.config?.entityType && a.config.entityType !== rule.module)
+    if (!targetedV2 && targets && a?.config?.entityType && a.config.entityType !== rule.module)
       fail(`${path}.config.entityType`, "Action target must match rule module");
     const config = a?.config;
     if (!record(config)) return fail(`${path}.config`, "Action configuration is required");

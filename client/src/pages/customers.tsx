@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -3768,6 +3769,7 @@ export function CustomerDetailsContent({
 
   return (
     <div className={compact ? "space-y-2" : "mt-6 space-y-6"}>
+      <RecordTagsBadges entityType="customer" entityId={customer.id} tags={customer.tags} />
       {compact ? null : (
         <>
           <div className="flex items-center gap-4">

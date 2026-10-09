@@ -33,6 +33,10 @@ import { AutomationSendEmailAction } from "@/components/automation-send-email-ac
 import { AutomationSendSmsAction } from "@/components/automation-send-sms-action";
 import { AutomationNotifyUserAction } from "@/components/automation-notify-user-action";
 import { AutomationUpdateRecordAction } from "@/components/automation-update-record-action";
+import { AutomationRecordTagAction, RecordTagConditionInput } from "@/components/automation-record-tag-action";
+import { RecordTagsBrowser } from "@/components/record-tags-browser";
+import { getAutomationRecordTagCopy } from "@/i18n/automation-record-tag-copy";
+import { tagActionIssues } from "@shared/automation-record-tags";
 import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
 import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
 import { AutomationStepHelp } from "@/components/automation-step-help";
@@ -199,6 +203,7 @@ export default function AutomationsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newService, setNewService] = useState<ServiceId | null>(null);
   const [historyFor, setHistoryFor] = useState<Rule | null>(null);
+  const [showTagOverview, setShowTagOverview] = useState(false);
   const [prefillDraft, setPrefillDraft] = useState<RuleDraft | null>(null);
 
   // Prefill from URL params (e.g. when arriving from Status Management "⚡ Create automation")
@@ -300,10 +305,15 @@ export default function AutomationsPage() {
             Automations
           </h1>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={() => setShowTagOverview(true)} data-testid="button-record-tag-overview">
+          {getAutomationRecordTagCopy(locale).overview}
+        </Button>
         <Button onClick={() => { setNewService(null); setShowCreate(true); }} data-testid="button-create-rule">
           <Plus className="h-4 w-4 mr-2" />
           {t.automationServices.choose}
         </Button>
+        </div>
       </div>
 
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as any)}>
@@ -530,6 +540,13 @@ export default function AutomationsPage() {
         />
       )}
 
+      <Dialog open={showTagOverview} onOpenChange={setShowTagOverview}>
+        <DialogContent className="task-modern-modal max-w-4xl max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+          <TaskModalArtwork variant="detail" />
+          <DialogHeader><DialogTitle>{getAutomationRecordTagCopy(locale).overview}</DialogTitle></DialogHeader>
+          <div className="task-modern-modal-body"><RecordTagsBrowser /></div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)}>
         <DialogContent className="task-modern-modal automation-history-dialog max-w-3xl" overlayClassName="task-modern-modal-overlay">
           <TaskModalArtwork variant="detail" />
@@ -706,7 +723,7 @@ function RuleEditor({
   const actionsForModule = catalog.actionTypes.filter(a =>
     a.availableIn.includes(draft.module) &&
     (draft.trigger.type !== "schedule" || scheduleMode === "per_record" ||
-      !["assign_user", "add_tag", "remove_tag"].includes(a.value)));
+      a.value !== "assign_user"));
   const moduleNames = (ids: string[]) => ids.map(id => {
     const fallback = id === "collaborator" ? t.automationCatalog.collaborator
       : id === "communication" ? t.automationServices.triggerPresets.moduleLabel
@@ -724,6 +741,8 @@ function RuleEditor({
     (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
   const fieldLabel = (field: { value: string; label: string }) =>
+    field.value.endsWith(".tags") ? field.value.startsWith("oldValues.")
+      ? getAutomationRecordTagCopy(locale).previousTags : getAutomationRecordTagCopy(locale).tags :
     (draft.module === "task" ? t.automationServices.taskRules.fieldLabels[field.value] : undefined) ||
     t.automationServices.editorCatalog.fieldLabels[field.value] ||
     (getUpdateRecordCopy(locale).field as Record<string, string>)[field.value.split(".").pop() || field.value] || field.label;
@@ -852,6 +871,8 @@ function RuleEditor({
     if ("any" in node && node.any) return node.any.some(invalidCondition);
     const leaf = node as LeafCondition;
     const field = fieldsForModule.find(f => f.value === leaf.field);
+    if (field?.type === "tags") return !["contains", "not_contains"].includes(leaf.op) ||
+      typeof leaf.value !== "string" || !leaf.value.trim();
     return !field || !catalog.operators.some(op => op.value === leaf.op && op.availableIn.includes(draft.module) &&
       (field.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)) &&
@@ -897,6 +918,8 @@ function RuleEditor({
       return true;
     };
     return (candidate.actions || []).some((action) => {
+      if (["add_tag", "remove_tag"].includes(action.type))
+        return action.config?.recordTagActionVersion !== 2 || tagActionIssues(action.config, candidate.module).length > 0;
       if (action.type !== "send_email" || action.config?.emailActionVersion !== 2) return false;
       const config = action.config || {};
       if (emailActionIssues(config).length) return true;
@@ -906,7 +929,7 @@ function RuleEditor({
     });
   };
   const hasInvalidEmailDraft = tab !== "json" && draft.actions.some((action, index) =>
-    (action.type === "send_email" || action.type === "send_sms" || action.type === "update_entity") && emailDraftInvalidByAction[index]);
+    ["send_email", "send_sms", "update_entity", "add_tag", "remove_tag"].includes(action.type) && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
     setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
@@ -1185,6 +1208,7 @@ function RuleEditor({
                       {visibleConditions && <ConditionsEditor
                         node={visibleConditions}
                         fields={conditionFields}
+                        sourceModule={draft.module} countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
                         operators={catalog.operators.filter(op => op.availableIn.includes(draft.module) &&
                           (!op.value.startsWith("changed") || eventsForModule.some(event => event.value === selectedEvent && event.changeSnapshot)))}
                         onChange={updateConditions}
@@ -1486,6 +1510,7 @@ function RuleEditor({
                   <ConditionsEditor
                       node={visibleConditions!}
                     fields={conditionFields}
+                    sourceModule={draft.module} countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
                     operators={catalog.operators.filter(op =>
                       op.availableIn.includes(draft.module) &&
                       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)))}
@@ -1759,12 +1784,16 @@ function ConditionsEditor({
   operators,
   onChange,
   depth = 0,
+  sourceModule = "",
+  countryCodes = [],
 }: {
   node: ConditionNode;
   fields: ConditionField[];
   operators: Catalog["operators"];
   onChange: (n: ConditionNode) => void;
   depth?: number;
+  sourceModule?: string;
+  countryCodes?: string[];
 }) {
   const { t, locale } = useI18n();
   const copy = t.automationServices.conditionEditor;
@@ -1786,6 +1815,7 @@ function ConditionsEditor({
           operators={operators}
           onChange={(c) => onChange({ not: c })}
           depth={depth + 1}
+          sourceModule={sourceModule} countryCodes={countryCodes}
         />
       </div>
     );
@@ -1841,6 +1871,7 @@ function ConditionsEditor({
                   update(next);
                 }}
                 depth={depth + 1}
+                sourceModule={sourceModule} countryCodes={countryCodes}
               />
             </div>
             <Button size="icon" variant="ghost" className="h-7 w-7"
@@ -1862,6 +1893,8 @@ function ConditionsEditor({
   const fieldMeta = fields.find((f) => f.value === leaf.field);
   const eligibleOperators = operators.filter(o => {
     const type = fieldMeta?.type || "";
+    if (type === "tags") return ["contains", "not_contains"].includes(o.value);
+    if (o.value === "not_contains") return false;
     return (type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(o.value)) &&
       (!["gt", "gte", "lt", "lte"].includes(o.value) || ["date", "number"].includes(type)) &&
       (!["in", "not_in"].includes(o.value) || !["boolean", "date"].includes(type)) &&
@@ -1910,19 +1943,25 @@ function ConditionsEditor({
         <SelectTrigger aria-label={copy.operator} className="h-9 w-44 text-xs"><SelectValue /></SelectTrigger>
         <SelectContent className="automation-rule-select-content max-h-80 w-[min(28rem,calc(100vw-2rem))]">
           {eligibleOperators.map((o) => (
-            <SelectItem key={o.value} value={o.value} textValue={copy.operators[o.value] || o.label} className="min-h-9 whitespace-normal py-2">
+            <SelectItem key={o.value} value={o.value} textValue={fieldMeta?.type === "tags"
+              ? o.value === "contains" ? getAutomationRecordTagCopy(locale).hasTag : getAutomationRecordTagCopy(locale).doesNotHaveTag
+              : copy.operators[o.value] || o.label} className="min-h-9 whitespace-normal py-2">
               <span className="flex min-w-0 items-center gap-2">
                 {(() => {
                   const Icon = conditionOperatorIcons[o.value] || CircleHelp;
                   return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
                 })()}
-                <span className="leading-5">{copy.operators[o.value] || o.label}</span>
+                <span className="leading-5">{fieldMeta?.type === "tags"
+                  ? o.value === "contains" ? getAutomationRecordTagCopy(locale).hasTag : getAutomationRecordTagCopy(locale).doesNotHaveTag
+                  : copy.operators[o.value] || o.label}</span>
               </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       {opMeta && opMeta.arity > 0 && (
+        fieldMeta?.type === "tags" ? <RecordTagConditionInput entityType={sourceModule} countryCodes={countryCodes}
+          value={typeof leaf.value === "string" ? leaf.value : ""} onChange={value => onChange({ ...leaf, op: selectedOp, value })} /> :
         fieldMeta?.options && (fieldMeta.type === "list" || ["in", "not_in"].includes(selectedOp)) ? (
           <AutomationChoicePicker
             options={fieldMeta.options.map(value => ({ value, label: fieldMeta.optionLabels?.[value] || value }))}
@@ -2266,45 +2305,10 @@ function ActionEditor({
       )}
 
       {(action.type === "add_tag" || action.type === "remove_tag") && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-          <div>
-            <Label className="text-xs">Entity type</Label>
-            <Select value={action.config.entityType || ""} onValueChange={(v) => setCfg("entityType", v)}>
-              <SelectTrigger className="h-8 text-xs" data-testid={`select-tag-entity-type-${index}`}>
-                <SelectValue placeholder="(use event entityType)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="task">Task</SelectItem>
-                <SelectItem value="customer">Customer</SelectItem>
-                <SelectItem value="hospital">Hospital</SelectItem>
-                <SelectItem value="clinic">Clinic</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Entity ID (template ok)</Label>
-            <Input
-              className="h-8 text-xs"
-              value={action.config.entityId || ""}
-              onChange={(e) => setCfg("entityId", e.target.value)}
-              placeholder="{{entityId}}"
-              data-testid={`input-tag-entity-id-${index}`}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs">Tags (comma-separated)</Label>
-            <Input
-              className="h-8 text-xs"
-              value={Array.isArray(action.config.tags) ? action.config.tags.join(", ") : (action.config.tags || "")}
-              onChange={(e) => setCfg("tags", e.target.value)}
-              placeholder="vip, urgent, follow-up"
-              data-testid={`input-tag-tags-${index}`}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              {action.type === "add_tag" ? "Tags are deduplicated against existing ones." : "Tags removed (case-insensitive match)."}
-            </p>
-          </div>
-        </div>
+        <AutomationRecordTagAction config={action.config} sourceModule={sourceModule}
+          mode={action.type === "add_tag" ? "add" : "remove"} scheduleMode={scheduleMode}
+          index={index} countryCodes={countryCodes} onDraftValidityChange={onEmailDraftValidityChange}
+          onChange={config => onChange({ ...action, config })} />
       )}
 
       {action.type === "assign_user" && (

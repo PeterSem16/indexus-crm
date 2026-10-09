@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -6038,6 +6039,7 @@ export default function CampaignDetailPage() {
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-bold">{campaign.name}</h1>
+            <RecordTagsBadges entityType="campaign" entityId={campaign.id} tags={campaign.tags} />
             <Badge className={STATUS_COLORS[campaign.status]}>
               {t.campaigns.statuses[campaign.status as keyof typeof t.campaigns.statuses] || campaign.status}
             </Badge>

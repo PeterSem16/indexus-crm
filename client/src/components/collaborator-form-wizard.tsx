@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -5716,6 +5717,7 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
                 </Badge>
               ))}
               {resolvedHeaderBadge}
+              {initialData?.id && <RecordTagsBadges entityType="collaborator" entityId={initialData.id} tags={initialData.tags} />}
               {(() => {
                 const recBy = referrals.filter(r => r.referralType === "doctor_referral" || r.referralType === "doctor_suggests");
                 if (recBy.length === 0) return null;

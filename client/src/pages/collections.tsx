@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useRef, useMemo, useCallback, startTransition } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
@@ -2331,6 +2332,7 @@ export default function CollectionsPage() {
               <h1 className="text-2xl font-bold tracking-tight">
                 {collection?.clientFirstName || ""} {collection?.clientLastName || ""}
               </h1>
+              {collection && <RecordTagsBadges entityType="collection" entityId={collection.id} tags={collection.tags} />}
               {collection?.state && (
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeStyle(collection.state)}`}>
                   {getStateLabel(collection.state)}
@@ -3935,7 +3937,9 @@ export default function CollectionsPage() {
                               onClick={() => setLocation(`/collections/${col.id}`)}
                               data-testid={`row-collection-${col.id}`}
                             >
-                              <td className="py-3 px-3 font-mono text-xs">{col.cbuNumber || notAvailable}</td>
+                              <td className="py-3 px-3 font-mono text-xs">{col.cbuNumber || notAvailable}
+                                <RecordTagsBadges entityType="collection" entityId={col.id} tags={col.tags} refresh={false} />
+                              </td>
                               <td className="py-3 px-3">
                                 <div className="flex flex-col">
                                   <span className="font-medium">

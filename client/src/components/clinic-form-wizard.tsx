@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -1179,6 +1180,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 )}
               </div>
             </TitleWrapper>
+            {initialData?.id && <RecordTagsBadges entityType="clinic" entityId={initialData.id} tags={initialData.tags} />}
           </HeaderWrapper>
 
           {/* Progress Bar */}

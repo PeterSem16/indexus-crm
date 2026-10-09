@@ -11,11 +11,12 @@ import {
 } from "../../shared/automation-update-record";
 import { userMayAccessTaskCountry } from "./task-contract";
 
-const tables: Record<string, any> = {
+export const updateRecordTables: Record<string, any> = {
   task: tasks, customer: customers, hospital: hospitals, clinic: clinics, invoice: invoices,
   collection: collections, collaborator: collaborators, contract: contractInstances,
   campaign: campaigns, product: products,
 };
+const tables = updateRecordTables;
 const names: Record<string, string[]> = {
   task: ["title"], customer: ["firstName", "lastName"], hospital: ["name"], clinic: ["name", "doctorName"],
   invoice: ["invoiceNumber"], collection: ["cbuNumber", "clientFirstName", "clientLastName"],
@@ -31,12 +32,12 @@ function scopeCountries(owner: Owner, countries?: string[] | null): string[] | u
   if (requested.some(country => !permittedCountry(owner, country))) throw new Error("Country access denied");
   return requested.length ? requested : permitted;
 }
-function countryExpression(type: string, table: any) {
+export function countryExpression(type: string, table: any) {
   if (type === "invoice" || type === "contract")
     return sql<string>`(select country from customers where customers.id = ${table.customerId})`;
   return table.countryCode || table.country || sql<string>`null`;
 }
-function scopePredicate(type: string, table: any, owner: Owner, countries?: string[] | null) {
+export function scopePredicate(type: string, table: any, owner: Owner, countries?: string[] | null) {
   const scoped = scopeCountries(owner, countries);
   if (type === "product" || type === "campaign") {
     // These settings affect a shared product/Mission, not a single country's card.
@@ -45,7 +46,7 @@ function scopePredicate(type: string, table: any, owner: Owner, countries?: stri
   }
   return scoped ? inArray(countryExpression(type, table), scoped) : undefined;
 }
-function labelExpression(type: string, table: any) {
+export function labelExpression(type: string, table: any) {
   const columns = (names[type] || []).filter(key => table[key]).map(key => sql`coalesce(${table[key]}::text, '')`);
   return sql<string>`trim(concat_ws(' ', ${sql.join(columns, sql`, `)}))`;
 }
@@ -57,7 +58,7 @@ export async function updateRecordOwner(id: string): Promise<Owner> {
     throw new Error("Rule owner is not authorized");
   return owner;
 }
-export async function searchUpdateRecords(type: string, q: string, owner: Owner, countries?: string[] | null) {
+export async function searchUpdateRecords(type: string, q: string, owner: Owner, countries?: string[] | null, includeFinalContracts = false) {
   if (type === "user" || type === "department") {
     const { options } = await updateRecordOptions("task", type === "user" ? "assignedUserId" : "assignedDepartmentId", q, owner, countries);
     return { records: options.slice(0, 20).map(option => ({ id: String(option.value), label: option.label, secondary: "", country: null })), truncated: options.length > 20 };
@@ -71,7 +72,7 @@ export async function searchUpdateRecords(type: string, q: string, owner: Owner,
     secondary: type === "collection" ? table.cbuNumber
       : table.city || table.contractNumber || table.invoiceNumber || sql<string>`''`,
   }).from(table).where(and(scopePredicate(type, table, owner, countries),
-    type === "contract" ? eq(table.status, "draft") : undefined, query ? ilike(label, `%${query}%`) : undefined))
+    type === "contract" && !includeFinalContracts ? eq(table.status, "draft") : undefined, query ? ilike(label, `%${query}%`) : undefined))
     .orderBy(label, table.id).limit(21);
   return { records: rows.slice(0, 20).map(row => ({ ...row, label: row.label || type })), truncated: rows.length > 20 };
 }
@@ -156,7 +157,7 @@ export async function validateSavedUpdateRecord(config: any, module: string, own
 }
 
 /** Resolve relationships from the current persisted source, never browser payloads. */
-export async function resolveUpdateRecord(config: UpdateRecordConfig, ctx: any, owner: Owner) {
+export async function resolveUpdateRecord(config: Pick<UpdateRecordConfig, "target">, ctx: any, owner: Owner, includeFinalContracts = false) {
   const target = config.target;
   const countries = ctx.rule?.countryCodes || (ctx.rule?.countryCode ? [ctx.rule.countryCode] : null);
   let id = target.recordId;
@@ -179,7 +180,7 @@ export async function resolveUpdateRecord(config: UpdateRecordConfig, ctx: any, 
   const targetCountry = countryRow?.country;
   if (ctx.event?.countryCode && targetCountry && ctx.event.countryCode !== targetCountry)
     throw new Error("Target country differs from the event");
-  if (target.entityType === "contract" && row.status !== "draft") throw new Error("Only draft contracts can be changed");
+  if (!includeFinalContracts && target.entityType === "contract" && row.status !== "draft") throw new Error("Only draft contracts can be changed");
   return { row, countries, targetCountry };
 }
 
@@ -270,6 +271,7 @@ export async function emitUpdateRecordLifecycle(type: string, after: any, before
   const { emitEntityCreated, emitEntityUpdated } = await import("./event-bus");
   const snapshot = (row: any) => row ? Object.fromEntries([
     ["id", row.id], ["countryCode", row.countryCode || row.country || null],
+    ["tags", row.tags || []],
     ...UPDATE_RECORD_ENTITIES[type].map(field => [field.key, row[field.key]]),
     ...(UPDATE_RECORD_RELATIONS[type] || []).map(relation => [relation.key, row[relation.key]]),
   ]) : undefined;

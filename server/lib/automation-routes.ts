@@ -28,6 +28,7 @@ import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
 import { storage } from "../storage";
 import { resolve } from "node:path";
 import { registerUpdateRecordRoutes, updateRecordOwner, validateSavedUpdateRecord } from "./automation-update-record";
+import { registerRecordTagRoutes, validateSavedTagAction } from "./automation-record-tags";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -58,6 +59,7 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 
 export function registerAutomationRoutes(app: Express) {
   registerUpdateRecordRoutes(app, requireAutomationDesigner);
+  registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
   app.get("/api/automation/email-artwork/:name", (req, res) => {
     if (!["task", "attention", "success", "deadline"].includes(req.params.name))
@@ -187,6 +189,9 @@ export function registerAutomationRoutes(app: Express) {
       for (const action of parsed.data.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
         await validateSavedUpdateRecord(action.config, parsed.data.module, owner,
           parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
+      for (const action of parsed.data.actions as any[]) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
+        await validateSavedTagAction(action.config, parsed.data.module, owner,
+          parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
     } catch {
       return res.status(400).json({ error: "Update record target or values unavailable; review the action" });
     }
@@ -242,6 +247,8 @@ export function registerAutomationRoutes(app: Express) {
       try {
         for (const action of next.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
           await validateSavedUpdateRecord(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
+        for (const action of next.actions as any[]) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
+          await validateSavedTagAction(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
       } catch {
         return res.status(400).json({ error: "Update record target or values unavailable; review the action" });
       }
@@ -585,7 +592,7 @@ export function registerAutomationRoutes(app: Express) {
         const policy = AUTOMATION_ACTION_POLICY[action.value as keyof typeof AUTOMATION_ACTION_POLICY];
         return {
           ...action, ...AUTOMATION_SERVICE_DETAILS[action.value], risk: policy.risk, aiDraftEligible: policy.aiDraftEligible,
-          availableIn: action.value === "update_entity" ? Object.keys(MODULE_EVENTS) : ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
+          availableIn: ["update_entity", "add_tag", "remove_tag"].includes(action.value) ? Object.keys(MODULE_EVENTS) : ACTION_TARGETS[action.value] || Object.keys(MODULE_EVENTS),
           recipientTypes: RECIPIENT_CAPABILITIES.filter(r => r.actions.includes(action.value)).map(r => r.value),
         };
       }),

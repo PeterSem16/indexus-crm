@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Search, FileText, Download, Users, CheckCircle, ChevronLeft, ChevronRight, Clock, Send, CreditCard, AlertTriangle } from "lucide-react";
@@ -183,6 +184,7 @@ export default function InvoicesPage() {
           <div>
             <div className="flex items-center gap-2">
               <p className="font-medium">{invoice.invoiceNumber}</p>
+              <RecordTagsBadges entityType="invoice" entityId={invoice.id} tags={invoice.tags} refresh={false} />
               {(invoice as any).dataSource === 'iscbc' && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 dark:border-orange-800" data-testid={`badge-iscbc-invoice-${invoice.id}`}>
                   ISCBC

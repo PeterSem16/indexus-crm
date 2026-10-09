@@ -1,3 +1,4 @@
+import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useMemo } from "react";
 import { useI18n } from "@/i18n";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -3930,6 +3931,7 @@ export default function ContractsPage() {
               <FileText className="h-5 w-5" />
               Zmluva {selectedContract?.contractNumber}
             </DialogTitle>
+            {selectedContract && <RecordTagsBadges entityType="contract" entityId={selectedContract.id} tags={selectedContract.tags} />}
           </DialogHeader>
           
           {selectedContract && (
