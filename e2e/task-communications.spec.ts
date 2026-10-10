@@ -83,7 +83,7 @@ async function setup(page: Page) {
       }
     });
   });
-  return { writes, errors, currentTasks, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
+  return { writes, errors, currentTasks, comments, messages, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
     incoming: (partnerId: string) => {
       const message = { id: "incoming-new", senderId: partnerId, receiverId: "viewer", content: "New private message", createdAt: new Date().toISOString() };
       messages[partnerId].push(message); unread[partnerId]++;
@@ -257,6 +257,7 @@ test("Mission agent drawer saves per-agent Inbox colleagues and can explicitly d
 });
 
 test("BO alert opens its tab and direct message thread stays below its header", async ({ page }) => {
+  test.setTimeout(90_000); // The first real-component fixture may cold-transform the CRM graph.
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?toolbar");
   await page.getByTestId("communication-updates-back-office").click();
@@ -271,5 +272,66 @@ test("BO alert opens its tab and direct message thread stays below its header", 
   expect(compose!.y).toBeGreaterThanOrEqual(thread!.y + thread!.height - 1);
   await expect(page.locator(".icp-thread").getByText("Private A message", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/inbox-direct-message-layout.png" });
+  expect(state.errors).toEqual([]);
+});
+
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`fullscreen Pulse retains populated chat and composer at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    test.setTimeout(90_000);
+    const state = await setup(page);
+    await page.setViewportSize(viewport);
+    state.messages.a = Array.from({ length: 40 }, (_, index) => ({
+      id: `history-${index}`, senderId: index % 2 ? "viewer" : "a", receiverId: index % 2 ? "a" : "viewer",
+      content: `Full history message ${index + 1}: a sufficiently long private conversation to require actual scrolling.`,
+      createdAt: new Date(Date.UTC(2026, 9, 10, 9, index)).toISOString(),
+    }));
+    await page.goto("/test-fixtures/task-communications.html");
+    await page.evaluate(() => document.documentElement.setAttribute("data-agent-fullscreen", "true"));
+    await expect(page.locator("html")).toHaveAttribute("data-agent-fullscreen", "true");
+    await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    await expect(page.locator(".icp-thread .icp-message")).toHaveCount(40);
+    const thread = await page.locator(".icp-thread").boundingBox();
+    expect(thread!.height).toBeGreaterThan(150);
+    await expect(page.locator(".icp-chat-head")).toBeVisible();
+    await expect(page.getByRole("heading", { name: c.centerTitle, level: 1 })).toBeVisible();
+    const head = await page.locator(".icp-chat-head").boundingBox();
+    const compose = await page.locator(".icp-compose").boundingBox();
+    expect(thread!.y).toBeGreaterThanOrEqual(head!.y + head!.height - 1);
+    expect(compose!.y + compose!.height).toBeLessThanOrEqual(viewport.height);
+    expect(compose!.y).toBeGreaterThanOrEqual(thread!.y + thread!.height - 1);
+    await expect.poll(() => page.locator(".icp-thread").evaluate(element =>
+      element.scrollHeight - element.clientHeight - element.scrollTop)).toBeLessThan(3);
+    await page.locator(".icp-thread").evaluate(element => { element.scrollTop = 0; });
+    await expect.poll(() => page.locator(".icp-thread").evaluate(element => element.scrollTop)).toBe(0);
+    await page.locator(".icp-root textarea").fill("Fullscreen message remains usable");
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    await expect(page.locator(".icp-thread .icp-message")).toHaveCount(41);
+    await page.screenshot({ path: `test-results/fullscreen-chat-${viewport.width}.png` });
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test("completed task shows one history event and one resolution with its actual resolver", async ({ page }) => {
+  test.setTimeout(90_000);
+  const state = await setup(page);
+  const resolution = "Corrected the contact details and verified the result.";
+  Object.assign(state.currentTasks[1], {
+    status: "completed", resolution, resolvedByUserId: "a", resolvedAt: "2026-10-10T09:00:00Z",
+  });
+  state.comments["task-two"] = [
+    { id: "completed-event", taskId: "task-two", userId: "a", kind: "state_change", content: resolution,
+      metadata: { fromState: "in_progress", toState: "completed" }, createdAt: "2026-10-10T09:00:00.020Z" },
+    { id: "earlier-comment", taskId: "task-two", userId: "b", kind: "comment", content: "Ordinary discussion remains intact.", createdAt: "2026-10-10T08:30:00Z" },
+  ];
+  await page.goto("/test-fixtures/task-communications.html");
+  await page.evaluate(() => document.documentElement.setAttribute("data-agent-fullscreen", "true"));
+  await expect(page.locator(".center-detail-head")).toBeVisible();
+  await expect(page.locator(".center-detail").getByText(resolution, { exact: true })).toHaveCount(1);
+  await expect(page.locator(".history-event.history-completed")).toHaveCount(1);
+  await expect(page.locator(".history-event.history-completed")).not.toContainText(resolution);
+  await expect(page.getByTestId("task-resolution")).toContainText(`${translations.en.tasks.resolvedBy}: Test Colleague A`);
+  await expect(page.locator(".task-comments")).toContainText("Ordinary discussion remains intact.");
+  await page.screenshot({ path: "test-results/task-resolution-once.png" });
   expect(state.errors).toEqual([]);
 });

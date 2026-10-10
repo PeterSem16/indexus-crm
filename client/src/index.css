@@ -721,13 +721,13 @@
   box-decoration-break: clone;
 }
 
-[data-agent-fullscreen="true"] main {
+[data-agent-fullscreen="true"] main[data-app-main] {
   padding: 0 !important;
   height: 100vh !important;
   overflow: hidden !important;
 }
 
-[data-agent-fullscreen="true"] main > div {
+[data-agent-fullscreen="true"] main[data-app-main] > div {
   max-width: none !important;
   margin: 0 !important;
   height: 100% !important;
@@ -741,7 +741,7 @@
   display: none !important;
 }
 
-[data-agent-fullscreen="true"] header {
+[data-agent-fullscreen="true"] header[data-app-header] {
   display: none !important;
 }
 

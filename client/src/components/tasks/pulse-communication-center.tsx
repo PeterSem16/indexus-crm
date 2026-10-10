@@ -14,6 +14,7 @@ import { TaskAttachmentList } from "./task-attachments";
 import type { TaskAttachment } from "@shared/task-attachments";
 import { InternalChatPanel, type InternalChatDraftSnapshot } from "@/components/chat/InternalChatPanel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
+import { isCompletionEvent, taskHistoryComments, taskResolverId } from "./task-history-model";
 
 type Person = { id: string; fullName: string | null; username: string; avatarUrl?: string | null };
 type Conversation = { partnerId: string; unreadCount: number };
@@ -129,6 +130,8 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
   const unreadTotal = (conversations.data || []).reduce((sum, thread) =>
     sum + Math.max(chat.unreadCounts.get(thread.partnerId) || 0, thread.unreadCount || 0), 0);
   const error = (retry: () => unknown) => <div className="pulse-empty" role="alert">{c.loadFailed}<button className="pulse-btn ml-2" onClick={() => { retry(); }}>{t.common.refresh}</button></div>;
+  const resolverId = task ? taskResolverId(task, comments.data || []) : null;
+  const resolverName = personName(people.data?.find(person => person.id === resolverId)) || t.common.unknown;
   return <Dialog modal={mode !== "backOffice"} open={open} onOpenChange={onOpenChange}>
     <DialogContent onInteractOutside={event => { if (mode === "backOffice") event.preventDefault(); }} className={`${boEntityOpen ? "invisible" : ""} pulse-live pulse-center-dialog z-[10021] w-[calc(100vw-24px)] max-w-[1240px] sm:max-w-[1240px] h-[calc(100dvh-32px)] max-h-[900px] p-0 gap-0 border-0 bg-[#eaf1f6]`} data-testid="pulse-communication-center">
       <DialogTitle className="sr-only">{c.centerTitle}</DialogTitle><DialogDescription className="sr-only">{c.centerSubtitle}</DialogDescription>
@@ -165,18 +168,19 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
                 <div className="center-section-title mt-4">{c.history}</div><div className="history-list">
                    <div className="history-event history-created"><Clock3 size={14} className="history-icon"/><div><b>{c.created}</b><small>{stamp(task.createdAt)}</small></div></div>
                    {task.workStartedAt && <div className="history-event history-in-progress"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.inProgress}</b><small>{stamp(task.workStartedAt)}</small></div></div>}
-                   {task.resolvedAt && <div className="history-event history-completed"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.completed}</b><small>{personName(people.data?.find(person => person.id === task.resolvedByUserId))} · {stamp(task.resolvedAt)}</small></div></div>}
-                   {(comments.data || []).filter(comment => comment.kind === "state_change").map(comment => {
+                    {task.resolvedAt && <div className="history-event history-completed"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.completed}</b><small>{resolverName} · {stamp(task.resolvedAt)}</small></div></div>}
+                    {taskHistoryComments(task, comments.data || []).map(comment => {
+                      const completion = isCompletionEvent(task, comment);
                      const label = comment.content.toLocaleLowerCase();
-                     const tone = label.includes(t.tasks.inProgress.toLocaleLowerCase()) ? "history-in-progress"
+                      const tone = completion ? "history-completed" : label.includes(t.tasks.inProgress.toLocaleLowerCase()) ? "history-in-progress"
                        : label.includes(t.tasks.completed.toLocaleLowerCase()) ? "history-completed"
                          : label.includes(t.backOffice.stateWaitingAgent.toLocaleLowerCase()) ? "history-waiting-agent"
                            : label.includes(t.tasks.statuses.cancelled.toLocaleLowerCase()) ? "history-cancelled"
                              : label.includes(t.tasks.statuses.pending.toLocaleLowerCase()) ? "history-created" : "";
-                     return <div className={`history-event ${tone}`} key={comment.id}><Clock3 size={14} className="history-icon"/><div><b>{comment.content}</b><small>{personName(people.data?.find(person => person.id === comment.userId))} · {stamp(comment.createdAt)}</small></div></div>;
+                      return <div className={`history-event ${tone}`} key={comment.id}><Clock3 size={14} className="history-icon"/><div><b>{completion ? t.tasks.completed : comment.content}</b><small>{personName(people.data?.find(person => person.id === comment.userId))} · {stamp(comment.createdAt)}</small></div></div>;
                    })}
                 </div>
-                {task.resolution && <div className="authored-request mt-3">{task.resolution}</div>}
+                 {task.resolution && <div className="authored-request mt-3" data-testid="task-resolution"><div className="font-semibold mb-1">{t.tasks.resolvedBy}: {resolverName}</div><div>{task.resolution}</div></div>}
                 <div className="center-discussion-title"><div><div className="center-section-title">{c.discussion}</div><span>{c.discussionHint}</span></div></div>
                 <div className="task-comments">{comments.isLoading ? <span className="pulse-note">{t.common.loading}</span> : comments.isError ? error(() => comments.refetch()) : <>
                   {(comments.data || []).filter(comment => comment.kind !== "state_change").map(comment => <div key={comment.id} className={`comment-row ${comment.userId === user?.id ? "mine" : ""}`}><div className="comment-avatar"><UserRound size={12}/></div>

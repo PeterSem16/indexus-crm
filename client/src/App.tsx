@@ -254,7 +254,7 @@ function AuthenticatedApp() {
           <div className="flex h-screen w-full">
             <AppSidebar />
             <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-              <header className="flex h-14 items-center justify-between gap-4 border-b px-4 shrink-0">
+              <header data-app-header className="flex h-14 items-center justify-between gap-4 border-b px-4 shrink-0">
                 <SidebarTrigger data-testid="button-sidebar-toggle" />
                 <div className="flex items-center gap-2">
                   <GlobalSearch />
@@ -268,7 +268,7 @@ function AuthenticatedApp() {
                   <ThemeToggle />
                 </div>
               </header>
-              <main className={`flex-1 overflow-auto ${location === "/email" ? "p-0" : "p-4"}`}>
+              <main data-app-main className={`flex-1 overflow-auto ${location === "/email" ? "p-0" : "p-4"}`}>
                 <div>
                   <Suspense fallback={<PageLoader />}>
                   <Switch>
