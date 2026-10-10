@@ -598,6 +598,18 @@ app.use((req, res, next) => {
         allowed_user_ids text[],
         updated_at timestamp NOT NULL DEFAULT now()
       );
+      ALTER TABLE tasks ADD COLUMN IF NOT EXISTS request_recipients jsonb;
+      CREATE TABLE IF NOT EXISTS task_request_types (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL,
+        group_ids text[] NOT NULL DEFAULT '{}', user_ids text[] NOT NULL DEFAULT '{}',
+        enabled boolean NOT NULL DEFAULT true, deleted boolean NOT NULL DEFAULT false,
+        sort_order integer NOT NULL DEFAULT 0, updated_at timestamp NOT NULL DEFAULT now()
+      );
+      INSERT INTO task_request_types (id, name, sort_order) VALUES
+        ('change_data','change_data',0), ('wrong_phone','wrong_phone',1),
+        ('wrong_email','wrong_email',2), ('wrong_address','wrong_address',3),
+        ('document_request','document_request',4), ('complaint','complaint',5), ('other','other',6)
+      ON CONFLICT (id) DO NOTHING;
       INSERT INTO task_assignment_access (id, allowed_user_ids)
         VALUES (1, NULL) ON CONFLICT (id) DO NOTHING;
       ALTER TABLE campaign_status_list_automations

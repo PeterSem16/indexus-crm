@@ -52,6 +52,7 @@ interface AgentToolbarUnifiedProps {
   missedCommunicationCounts?: { calls: number; emails: number; sms: number };
   onOpenAbandonedCalls?: () => void;
   onOpenMyActivity?: () => void;
+  onOpenCommunicationCenter?: () => void;
   inboundRingtoneEnabled?: boolean;
   onToggleInboundRingtone?: () => void;
 }
@@ -76,6 +77,7 @@ export function AgentToolbarUnified({
   missedCommunicationCounts,
   onOpenAbandonedCalls,
   onOpenMyActivity,
+  onOpenCommunicationCenter,
   inboundRingtoneEnabled,
   onToggleInboundRingtone,
 }: AgentToolbarUnifiedProps) {
@@ -273,6 +275,9 @@ export function AgentToolbarUnified({
               </span>
               <span className="pta-open-indicator">{t.agentWorkspace.toolbar.open}</span>
             </button>
+          )}
+          {onOpenCommunicationCenter && (
+            <button type="button" className="pta-button" onClick={onOpenCommunicationCenter} title={t.taskCommunication.centerTitle} aria-label={t.taskCommunication.centerTitle} data-testid="btn-toolbar-communication-center"><MessageSquare className="h-3.5 w-3.5" /></button>
           )}
           {onOpenMyActivity && (
             <button type="button" className="pta-button pta-shift" onClick={onOpenMyActivity} data-testid="btn-open-my-activity">

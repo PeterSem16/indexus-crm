@@ -1,4 +1,9 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { PulseCommunicationCenter } from "@/components/tasks/pulse-communication-center";
+import { RequestRecipientPicker } from "@/components/tasks/request-recipient-picker";
+import { emptyRecipients, defaultRecipients, recipientsAreAvailable, requestTypeLabel, type RequestRecipients, type TaskRequestType } from "@/components/tasks/request-routing-model";
+import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { EditableEmailFrame } from "@/components/editable-email-frame";
 import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft,
   recipientEditorHtml, readRecipientEditorHtml, sendRecipientCopies, normalizeRecipientEmail, uniqueRecipientEmails,
@@ -9485,6 +9490,7 @@ export function CustomerInfoPanel({
                   { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
                   { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(phoneOverride || contact.phone), testId: "btn-quick-sms" },
                   { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
+                  { key: "communication", icon: MessageSquare, label: t.taskCommunication.centerTitle, color: "#3079b3", disabled: false, testId: "btn-communication-center" },
                 ].map(({ key, icon: Icon, label, color, disabled, testId }) => {
                   const actionProps = {
                     disabled,
@@ -10748,6 +10754,10 @@ function AgentWorkspacePageContent() {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
+  const [communicationCenterOpen, setCommunicationCenterOpen] = useState(false);
+  const [taskRecipients, setTaskRecipients] = useState<RequestRecipients>(emptyRecipients);
+  const [taskRecipientsManual, setTaskRecipientsManual] = useState(false);
+  const [pendingTaskCategory, setPendingTaskCategory] = useState<string | null>(null);
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserIds: [] as string[], dueDate: "", groupId: "", category: "" });
   const [taskAssignmentMode, setTaskAssignmentMode] = useState<"group" | "people">("group");
   const [createTaskAttachments, setCreateTaskAttachments] = useState<TaskAttachment[]>([]);
@@ -11318,16 +11328,6 @@ function AgentWorkspacePageContent() {
     enabled: !!hasModuleAccess,
   });
 
-  const { data: allUsersForTasks = [] } = useQuery<Array<{ id: string; username: string; fullName: string | null }>>({
-    queryKey: ["/api/users"],
-    enabled: !!hasModuleAccess,
-  });
-
-  const { data: taskGroupsForCreate = [] } = useQuery<any[]>({
-    queryKey: ["/api/task-groups"],
-    enabled: !!hasModuleAccess,
-  });
-
   const resolveTaskEntity = (): { type: string; id: string; name: string } | null => {
     if (currentContactType === "clinic" && currentClinicData?.id) {
       return { type: "clinic", id: String(currentClinicData.id), name: currentClinicData.name || "" };
@@ -11354,7 +11354,7 @@ function AgentWorkspacePageContent() {
     return labels[type] || t.quickCreate.linkedCustomer;
   };
 
-  const taskCategoryOptions: { id: string; label: string; phrase: string; Icon: any }[] = [
+  const defaultTaskCategories: { id: string; label: string; phrase: string; Icon: any }[] = [
     { id: "change_data", label: t.quickCreate.catChangeData, phrase: t.quickCreate.reqChangeData, Icon: User },
     { id: "wrong_phone", label: t.quickCreate.catWrongPhone, phrase: t.quickCreate.reqWrongPhone, Icon: Phone },
     { id: "wrong_email", label: t.quickCreate.catWrongEmail, phrase: t.quickCreate.reqWrongEmail, Icon: Mail },
@@ -11363,14 +11363,33 @@ function AgentWorkspacePageContent() {
     { id: "complaint", label: t.quickCreate.catComplaint, phrase: t.quickCreate.reqComplaint, Icon: AlertTriangle },
     { id: "other", label: t.quickCreate.catOther, phrase: t.quickCreate.reqOther, Icon: Tag },
   ];
+  const taskRoutingTypes = useQuery<TaskRequestType[]>({
+    queryKey: ["/api/task-request-types"], enabled: !!hasModuleAccess,
+  });
+  const taskCategoryOptions = (taskRoutingTypes.data || []).map(type => {
+    const original = defaultTaskCategories.find(category => category.id === type.id);
+    return { id: type.id, label: requestTypeLabel(type, t), phrase: original?.phrase || type.name, Icon: original?.Icon || Tag };
+  });
+  useEffect(() => {
+    if (!createTaskDialogOpen) return;
+    setTaskRecipients(defaultRecipients(taskRoutingTypes.data?.find(type => type.id === createTaskForm.category)));
+    setTaskRecipientsManual(false);
+    setPendingTaskCategory(null);
+  }, [createTaskDialogOpen]);
 
-  const applyTaskCategory = (catId: string) => {
+  const applyTaskCategory = (catId: string, keepRecipients = false, confirmed = false) => {
+    if (taskRecipientsManual && !confirmed && catId !== createTaskForm.category) { setPendingTaskCategory(catId); return; }
     const cat = taskCategoryOptions.find(c => c.id === catId);
     if (!cat) return;
     const ent = resolveTaskEntity();
     const entLabel = ent?.name.trim() || "";
     const newTitle = entLabel ? `${cat.label} — ${entLabel}` : cat.label;
-    setCreateTaskForm(prev => applyTaskRequestCategory(prev, catId, newTitle));
+    setCreateTaskForm(prev => ({ ...prev, category: catId, title: prev.title.trim() ? prev.title : newTitle }));
+    if (!keepRecipients) {
+      setTaskRecipients(defaultRecipients(taskRoutingTypes.data?.find(type => type.id === catId)));
+      setTaskRecipientsManual(false);
+    }
+    setPendingTaskCategory(null);
   };
 
   const createTaskMutation = useMutation({
@@ -11380,6 +11399,9 @@ function AgentWorkspacePageContent() {
         throw new Error("An active Mission session is required to create a Nexus Pulse task.");
       }
       const pulseOrigin = { missionId: selectedCampaignId, sessionId };
+      if (data.recipients) {
+        return createAgentWorkspaceTask(data, undefined, pulseOrigin);
+      }
       if (data.groupId) {
         return createAgentWorkspaceTask(data, undefined, pulseOrigin);
       }
@@ -11389,6 +11411,7 @@ function AgentWorkspacePageContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks/created"] });
       toast({ title: t.quickCreate.taskCreated, description: t.quickCreate.taskCreatedDesc });
       setCreateTaskDialogOpen(false);
       setCreateTaskAttachments([]);
@@ -12297,6 +12320,7 @@ function AgentWorkspacePageContent() {
   const selectedCampaign = useMemo(() => {
     return campaigns.find((c) => c.id === selectedCampaignId) || null;
   }, [campaigns, selectedCampaignId]);
+  const taskRecipientOptions = useTaskAssignmentOptions(selectedCampaign?.country);
 
   useWallboardPresence({
     sessionId: agentSession.session?.id,
@@ -14174,6 +14198,9 @@ function AgentWorkspacePageContent() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
+      case "communication":
+        setCommunicationCenterOpen(true);
+        break;
       case "call": {
         setActiveChannel("phone");
         const phoneToCall = currentPhoneOverride || currentClinicData?.phone || currentCollaboratorData?.phone || currentContact?.phone;
@@ -15780,6 +15807,7 @@ function AgentWorkspacePageContent() {
         />
       )}
 
+      {isMobile && <div className="px-3 py-2"><Button size="sm" variant="outline" onClick={() => setCommunicationCenterOpen(true)} data-testid="btn-mobile-communication-center"><MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.centerTitle}</Button></div>}
       {!isMobile && (
       <AgentToolbarUnified
         status={agentSession.status}
@@ -15805,6 +15833,7 @@ function AgentWorkspacePageContent() {
         }}
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
         onOpenMyActivity={() => setMyActivityOpen(true)}
+        onOpenCommunicationCenter={() => setCommunicationCenterOpen(true)}
         inboundRingtoneEnabled={inboundRingtoneEnabled}
         onToggleInboundRingtone={toggleInboundRingtone}
       />
@@ -18000,40 +18029,10 @@ function AgentWorkspacePageContent() {
               </div>
 
               <div className="md:col-span-2">
-                <TaskAssignmentPicker
-                  mode={taskAssignmentMode}
-                  onModeChange={(mode) => {
-                    setTaskAssignmentMode(mode);
-                    setCreateTaskForm((prev) => mode === "group"
-                      ? { ...prev, assignedUserIds: [] }
-                      : { ...prev, groupId: "" });
-                  }}
-                  groups={taskGroupsForCreate}
-                  users={allUsersForTasks}
-                  selectedGroupId={createTaskForm.groupId}
-                  selectedUserIds={createTaskForm.assignedUserIds}
-                  onGroupChange={(groupId) => setCreateTaskForm((prev) => ({ ...prev, groupId, assignedUserIds: [] }))}
-                  onUserToggle={(userId) => setCreateTaskForm((prev) => ({
-                    ...prev,
-                    groupId: "",
-                    assignedUserIds: prev.assignedUserIds.includes(userId)
-                      ? prev.assignedUserIds.filter((id) => id !== userId)
-                      : [...prev.assignedUserIds, userId],
-                  }))}
-                  labels={{
-                    assignedTo: t.quickCreate.assignedTo,
-                    assignToGroup: t.quickCreate.assignToGroup,
-                    searchUser: t.quickCreate.searchUser,
-                    noUsersFound: t.quickCreate.noUsersFound,
-                    groupMode: t.quickCreate.groupMode,
-                    peopleMode: t.quickCreate.peopleMode,
-                    groupModeHint: t.quickCreate.groupModeHint,
-                    peopleModeHint: t.quickCreate.peopleModeHint,
-                    groupEmpty: t.quickCreate.groupEmpty,
-                    groupPrompt: t.quickCreate.groupPrompt,
-                    peoplePrompt: t.quickCreate.peoplePrompt,
-                  }}
-                />
+                {taskRecipientOptions.isLoading || taskRoutingTypes.isLoading ? <p>{t.common.loading}</p>
+                  : taskRecipientOptions.isError || taskRoutingTypes.isError ? <p role="alert">{t.taskCommunication.loadFailed}<Button variant="link" onClick={() => { void taskRecipientOptions.refetch(); void taskRoutingTypes.refetch(); }}>{t.common.refresh}</Button></p>
+                  : <RequestRecipientPicker value={taskRecipients} options={taskRecipientOptions.data || { users: [], groups: [], canResolve: false }}
+                    disabled={createTaskMutation.isPending} onChange={value => { setTaskRecipients(value); setTaskRecipientsManual(true); }}/>}
               </div>
             </div>
             <div className="md:col-span-2 rounded-xl border border-[#c7d8e7] dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 p-3">
@@ -18062,9 +18061,8 @@ function AgentWorkspacePageContent() {
             </Button>
             <Button
               onClick={() => {
-                const hasAssignment = taskAssignmentMode === "group"
-                  ? Boolean(createTaskForm.groupId)
-                  : createTaskForm.assignedUserIds.length > 0;
+                const hasAssignment = taskRecipients.groupIds.length + taskRecipients.userIds.length > 0
+                  && recipientsAreAvailable(taskRecipients, taskRecipientOptions.data?.groups || [], taskRecipientOptions.data?.users || []);
                 if (!createTaskForm.title.trim() || !hasAssignment) return;
                 const ent = resolveTaskEntity();
                 const selectedCategory = taskCategoryOptions.find(category => category.id === createTaskForm.category);
@@ -18076,17 +18074,18 @@ function AgentWorkspacePageContent() {
                     createTaskForm.description,
                   ),
                   priority: createTaskForm.priority,
-                  assignedUserIds: taskAssignmentMode === "people" ? createTaskForm.assignedUserIds : [],
+                  assignedUserIds: [],
+                  recipients: taskRecipients,
+                  requestTypeId: createTaskForm.category || undefined,
                   customerId: ent?.type === "customer" ? ent.id : undefined,
                   relatedEntityType: ent?.type || undefined,
                   relatedEntityId: ent?.id || undefined,
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
-                  groupId: taskAssignmentMode === "group" ? createTaskForm.groupId || undefined : undefined,
                   attachments: createTaskAttachments,
                 });
               }}
-              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || (taskAssignmentMode === "group" ? !createTaskForm.groupId : createTaskForm.assignedUserIds.length === 0)}
+              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || taskRecipientOptions.isError || taskRecipientOptions.isLoading || taskRoutingTypes.isError || taskRoutingTypes.isLoading || taskRecipients.groupIds.length + taskRecipients.userIds.length === 0 || !recipientsAreAvailable(taskRecipients, taskRecipientOptions.data?.groups || [], taskRecipientOptions.data?.users || [])}
                 className="task-create-submit rounded-xl px-5 font-semibold text-white border-0 disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >
@@ -18097,6 +18096,18 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
+      <PulseCommunicationCenter open={communicationCenterOpen} onOpenChange={setCommunicationCenterOpen} onNewRequest={() => {
+        setCommunicationCenterOpen(false);
+        setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
+        setCreateTaskDialogOpen(true);
+      }} />
+      <AlertDialog open={pendingTaskCategory !== null} onOpenChange={open => { if (!open) setPendingTaskCategory(null); }}>
+        <AlertDialogContent className="z-[10030]"><AlertDialogHeader><AlertDialogTitle>{t.taskCommunication.replaceTitle}</AlertDialogTitle>
+          <AlertDialogDescription>{t.taskCommunication.replaceBody}</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel onClick={() => { if (pendingTaskCategory) applyTaskCategory(pendingTaskCategory, true, true); }}>{t.taskCommunication.keep}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (pendingTaskCategory) applyTaskCategory(pendingTaskCategory, false, true); }}>{t.taskCommunication.replace}</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={abandonedCallsOpen} onOpenChange={(open) => { setAbandonedCallsOpen(open); if (!open) { setAbandonedCallsFilter("all"); setMissedChannel("all"); setMissedSearch(""); setMissedSearchField("all"); setMissedSort("date_desc"); } }}>
         <MissedUnifiedDialog
           calls={abandonedCalls}

@@ -23,7 +23,8 @@ interface ChatContextType {
   openChat: (partner: OnlineUser) => void;
   closeChat: (partnerId: string) => void;
   minimizeChat: (partnerId: string, minimized: boolean) => void;
-  sendMessage: (receiverId: string, content: string) => void;
+  sendMessage: (receiverId: string, content: string, clientMessageId?: string) => boolean;
+  setCommunicationView: (open: boolean, partnerId: string | null) => void;
   markAsRead: (senderId: string) => void;
   sendTypingIndicator: (receiverId: string, isTyping: boolean) => void;
 }
@@ -53,6 +54,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const messageHandlersRef = useRef<Map<string, (msg: ChatMessage, sender?: SafeUser) => void>>(new Map());
   const openChatsRef = useRef<ChatWindow[]>([]);
+  const communicationViewRef = useRef({ open: false, partnerId: null as string | null });
+  const keepConnectedRef = useRef(false);
+  const setCommunicationView = useCallback((open: boolean, partnerId: string | null) => {
+    communicationViewRef.current = { open, partnerId };
+  }, []);
   
   useEffect(() => {
     openChatsRef.current = openChats;
@@ -91,7 +97,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
             }));
             
             const currentOpenChats = openChatsRef.current;
-            const isOpen = currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized);
+             const isOpen = currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized)
+               || (communicationViewRef.current.open && communicationViewRef.current.partnerId === msg.senderId);
             if (!isOpen) {
               setUnreadCounts(prev => {
                 const newCounts = new Map(prev);
@@ -99,7 +106,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 return newCounts;
               });
               
-              if (!currentOpenChats.some(c => c.partnerId === msg.senderId)) {
+               if (!communicationViewRef.current.open && !currentOpenChats.some(c => c.partnerId === msg.senderId)) {
                 setOpenChats(prev => [...prev, {
                   partnerId: msg.senderId,
                   partner: {
@@ -117,11 +124,17 @@ export function ChatProvider({ children }: ChatProviderProps) {
           case "message_sent":
             window.dispatchEvent(new CustomEvent("chat_message_sent", {
               detail: { message: data.message, receiverId: data.message.receiverId }
+             }));
+             window.dispatchEvent(new CustomEvent("chat_delivery_confirmed", {
+               detail: { message: data.message, clientMessageId: data.clientMessageId }
             }));
             break;
             
           case "messages_read":
             break;
+           case "error":
+             window.dispatchEvent(new CustomEvent("chat_delivery_error", { detail: { clientMessageId: data.clientMessageId } }));
+             break;
             
           case "user_typing":
             const typingHandler = messageHandlersRef.current.get(`typing_${data.userId}`);
@@ -136,8 +149,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
     };
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return;
       setIsConnected(false);
       wsRef.current = null;
+      if (!keepConnectedRef.current) return;
       
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
@@ -150,17 +165,25 @@ export function ChatProvider({ children }: ChatProviderProps) {
   }, [user?.id]);
 
   useEffect(() => {
+    keepConnectedRef.current = true;
+    setOpenChats([]);
+    setOnlineUsers([]);
+    setUnreadCounts(new Map());
     if (user?.id) {
       connect();
     }
 
     return () => {
+      keepConnectedRef.current = false;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (wsRef.current) {
-        wsRef.current.close();
+        const socket = wsRef.current;
+        wsRef.current = null;
+        socket.close();
       }
+      setIsConnected(false);
     };
   }, [user?.id, connect]);
 
@@ -193,14 +216,17 @@ export function ChatProvider({ children }: ChatProviderProps) {
     ));
   }, []);
 
-  const sendMessage = useCallback((receiverId: string, content: string) => {
+  const sendMessage = useCallback((receiverId: string, content: string, clientMessageId?: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "chat_message",
         receiverId,
-        content
+        content,
+        clientMessageId,
       }));
+      return true;
     }
+    return false;
   }, []);
 
   const markAsRead = useCallback((senderId: string) => {
@@ -238,6 +264,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
       closeChat,
       minimizeChat,
       sendMessage,
+      setCommunicationView,
       markAsRead,
       sendTypingIndicator
     }}>

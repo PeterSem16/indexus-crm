@@ -18,6 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Building2, ChevronDown, ChevronUp, Edit, GripVertical, Loader2, Plus, Search, Trash2, Users, UserPlus, X, UserRound } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TaskRequestRouting } from "./task-request-routing";
 import { TaskModalArtwork } from "./task-modal-artwork";
 import {
   createEmptyTaskGroupForm,
@@ -482,16 +483,18 @@ function AdminTaskGroupsDialog({ open, onOpenChange }: Props) {
               <Users className="h-5 w-5 text-primary" />
               {editorOpen
                 ? (editingGroup ? tg.editGroup : tg.newGroupTitle)
-                : activeSettingsTab === "users" ? t.tasks.workspace.settings : tg.dialogTitle}
+                : activeSettingsTab === "routing" ? t.taskCommunication.routingTitle : activeSettingsTab === "users" ? t.tasks.workspace.settings : tg.dialogTitle}
             </DialogTitle>
             <DialogDescription className="sr-only">{tg.title}</DialogDescription>
           </DialogHeader>
 
           <Tabs value={activeSettingsTab} onValueChange={setActiveSettingsTab} className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <TabsList className="mx-6 mt-3 grid w-auto shrink-0 grid-cols-2" aria-label={tg.settingsTabsLabel}>
+            <TabsList className="mx-6 mt-3 grid w-auto shrink-0 grid-cols-3" aria-label={tg.settingsTabsLabel}>
               <TabsTrigger value="users" data-testid="tab-assigned-users">{tg.assignedUsersTab}</TabsTrigger>
               <TabsTrigger value="groups" data-testid="tab-task-groups">{tg.groupsTab}</TabsTrigger>
+              <TabsTrigger value="routing" data-testid="tab-request-routing">{t.taskCommunication.requestTypes}</TabsTrigger>
             </TabsList>
+            <TabsContent value="routing" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"><TaskRequestRouting /></TabsContent>
             <TabsContent value="users" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden">
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {assignmentSettingsFailed ? (

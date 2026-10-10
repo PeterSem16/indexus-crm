@@ -1,6 +1,7 @@
 /** Group routing and personal assignment are alternative create targets.
  * Legacy group tags are validated separately by the existing route. */
 export type TaskCreateAssignment =
+  | { kind: "shared"; groupIds: string[]; userIds: string[] }
   | { kind: "group"; groupId: string }
   | { kind: "person"; assignedUserId: string };
 
@@ -11,6 +12,23 @@ export class TaskCreateAssignmentError extends Error {
 }
 
 export function parseTaskCreateAssignment(body: Record<string, unknown>): TaskCreateAssignment {
+  if (body.recipients !== undefined) {
+    if (body.groupId != null || body.assignedUserId != null || body.assignedUserIds != null) {
+      throw new TaskCreateAssignmentError("Shared recipients cannot be combined with legacy assignment fields");
+    }
+    const value = body.recipients as any;
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new TaskCreateAssignmentError("Invalid recipients");
+    const ids = (input: unknown): string[] => {
+      if (!Array.isArray(input) || input.length > 30 || input.some(id => typeof id !== "string" || !id.trim() || id.length > 100)) {
+        throw new TaskCreateAssignmentError("Invalid recipient IDs");
+      }
+      return [...new Set(input.map(id => id.trim()))];
+    };
+    const groupIds = ids(value.groupIds);
+    const userIds = ids(value.userIds);
+    if (!groupIds.length && !userIds.length) throw new TaskCreateAssignmentError("Select at least one recipient");
+    return { kind: "shared", groupIds, userIds };
+  }
   if (body.groupId !== undefined) {
     if (typeof body.groupId !== "string" || !body.groupId.trim()) {
       throw new TaskCreateAssignmentError("groupId must identify a task group");

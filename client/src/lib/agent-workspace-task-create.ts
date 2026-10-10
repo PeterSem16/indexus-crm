@@ -12,6 +12,8 @@ export interface AgentWorkspaceTaskCreateInput {
   dueDate?: string;
   country?: string;
   groupId?: string;
+  recipients?: { groupIds: string[]; userIds: string[] };
+  requestTypeId?: string;
   attachments: TaskAttachment[];
 }
 
@@ -29,7 +31,7 @@ export function buildAgentWorkspaceTaskCreatePayload(
     ...(task.relatedEntityType ? { relatedEntityType: task.relatedEntityType } : {}),
     ...(task.relatedEntityId ? { relatedEntityId: task.relatedEntityId } : {}),
     ...(task.country ? { country: task.country } : {}),
-    ...(task.groupId ? { groupId: task.groupId } : { assignedUserId }),
+    ...(task.recipients ? { recipients: task.recipients, requestTypeId: task.requestTypeId } : task.groupId ? { groupId: task.groupId } : { assignedUserId }),
     attachments: task.attachments,
     pulseOrigin,
   };

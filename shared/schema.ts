@@ -1223,6 +1223,7 @@ export const tasks = pgTable("tasks", {
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
   assignedUserId: varchar("assigned_user_id").notNull(),
   assignedDepartmentId: varchar("assigned_department_id"), // optional group assignment (Automation MVP-1)
+  requestRecipients: jsonb("request_recipients").$type<{ userIds: string[]; typeId?: string; typeName?: string }>(),
   createdByUserId: varchar("created_by_user_id").notNull(),
   customerId: varchar("customer_id"), // optional - link to customer
   relatedEntityType: text("related_entity_type"), // generic link (Automation MVP-1)
@@ -1264,6 +1265,7 @@ export const taskAttachmentUploads = pgTable("task_attachment_uploads", {
     country?: string | null;
     assignedUserId?: string | null;
     createdByUserId?: string | null;
+    requestRecipients?: { userIds?: string[] } | null;
     tags?: string[] | null;
   }[]>().notNull().default(sql`'[]'::jsonb`),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
@@ -8426,6 +8428,17 @@ export const taskGroupMembers = pgTable('task_group_members', {
 export const taskAssignmentAccess = pgTable("task_assignment_access", {
   id: integer("id").primaryKey(),
   allowedUserIds: text("allowed_user_ids").array(),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const taskRequestTypes = pgTable("task_request_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  groupIds: text("group_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  userIds: text("user_ids").array().notNull().default(sql`ARRAY[]::text[]`),
+  enabled: boolean("enabled").notNull().default(true),
+  deleted: boolean("deleted").notNull().default(false),
+  sortOrder: integer("sort_order").notNull().default(0),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 

@@ -261,6 +261,7 @@ async function markTaskAttachmentAssociations(
     country: task.country ?? null,
     assignedUserId: task.assignedUserId ?? null,
     createdByUserId: task.createdByUserId ?? null,
+    requestRecipients: task.requestRecipients ?? null,
     tags: task.tags ?? [],
   };
   const taskIdMatch = JSON.stringify([{ taskId: task.id }]);
@@ -2638,6 +2639,22 @@ export class DatabaseStorage implements IStorage {
   async createTask(task: InsertTask): Promise<Task> {
     const safeTask = stripTaskWorkTimingInput(task);
     const created = await db.transaction(async (tx) => {
+      if (safeTask.requestRecipients) {
+        for (const id of Array.from(new Set(safeTask.requestRecipients.userIds)).sort()) {
+          await assertTaskRecipientAllowed(tx, id, safeTask.country);
+        }
+        const groupIds = Array.from(new Set((safeTask.tags || []).filter(tag => tag.startsWith("group_id:")).map(tag => tag.slice(9)))).sort();
+        for (const id of groupIds) {
+          const [group] = await tx.select({ id: taskGroups.id }).from(taskGroups).where(eq(taskGroups.id, id)).for("share").limit(1);
+          if (!group) throw new TaskAssignmentAccessError("The selected group no longer exists");
+          const members = await tx.select({ id: users.id }).from(taskGroupMembers)
+            .innerJoin(users, eq(users.id, taskGroupMembers.userId))
+            .where(and(eq(taskGroupMembers.groupId, id), eq(users.isActive, true))).for("share");
+          if (!await hasCountryAuthorizedTaskRecipient(tx, members.map(row => row.id), safeTask.country)) {
+            throw new TaskAssignmentAccessError("The selected group has no eligible recipient");
+          }
+        }
+      }
       const groupId = (safeTask.tags || []).find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
       if (groupId) {
         await assertTaskRecipientAllowed(tx, safeTask.assignedUserId, safeTask.country);

@@ -4,6 +4,7 @@ import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
 import automationExecutionSettingsTranslations from "./automation-execution-settings-translations";
 import automationEditorHelpTranslations, { type AutomationEditorCopy } from "./automation-editor-help-translations";
+import { taskCommunicationTranslations, type TaskCommunicationCopy } from "./task-communication-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -50,6 +51,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 };
 
 export interface Translations {
+  taskCommunication: TaskCommunicationCopy;
   sendEmailAction: typeof sendEmailActionTranslations.en;
   personEmail: typeof personEmailTranslations.en;
   sendEmailEditor: typeof sendEmailEditorTranslations.en;
@@ -9206,6 +9208,7 @@ const inboundUiByLocale = {
 
 export const translations = {
   en: {
+    taskCommunication: taskCommunicationTranslations.en,
     datePicker: { selectDate: 'Select date', now: 'Now', noTimeLimit: 'The agreement has no time limit' },
     backOffice: {
       title: 'Back Office',
@@ -17067,6 +17070,7 @@ export const translations = {
 
   },
   sk: {
+    taskCommunication: taskCommunicationTranslations.sk,
     datePicker: { selectDate: 'Vyberte dátum', now: 'Teraz', noTimeLimit: 'Zmluva nemá časové obmedzenie platnosti' },
     backOffice: {
       title: 'Back Office',
@@ -24924,6 +24928,7 @@ export const translations = {
 
   },
   cs: {
+    taskCommunication: taskCommunicationTranslations.cs,
     datePicker: { selectDate: 'Vyberte datum', now: 'Nyní', noTimeLimit: 'Smlouva nemá časové omezení platnosti' },
     backOffice: {
       title: 'Back Office',
@@ -32740,6 +32745,7 @@ export const translations = {
 
   },
   hu: {
+    taskCommunication: taskCommunicationTranslations.hu,
     datePicker: { selectDate: 'Válasszon dátumot', now: 'Most', noTimeLimit: 'A szerződés határozatlan ideig érvényes' },
     backOffice: {
       title: 'Back Office',
@@ -40554,6 +40560,7 @@ export const translations = {
 
   },
   ro: {
+    taskCommunication: taskCommunicationTranslations.ro,
     datePicker: { selectDate: 'Selectați data', now: 'Acum', noTimeLimit: 'Contractul nu are termen de expirare' },
     backOffice: {
       title: 'Back Office',
@@ -48376,6 +48383,7 @@ export const translations = {
 
   },
   it: {
+    taskCommunication: taskCommunicationTranslations.it,
     datePicker: { selectDate: 'Seleziona data', now: 'Adesso', noTimeLimit: 'Il contratto non ha limiti temporali di validità' },
     backOffice: {
       title: 'Back Office',
@@ -56189,6 +56197,7 @@ export const translations = {
 
   },
   de: {
+    taskCommunication: taskCommunicationTranslations.de,
     datePicker: { selectDate: 'Datum auswählen', now: 'Jetzt', noTimeLimit: 'Der Vertrag ist unbefristet gültig' },
     backOffice: {
       title: 'Back Office',

@@ -22,12 +22,12 @@ export type TaskAssignmentOptions = {
   canResolve: boolean;
 };
 
-export function useTaskAssignmentOptions() {
+export function useTaskAssignmentOptions(country?: string | null) {
   const { user } = useAuth();
   return useQuery<TaskAssignmentOptions>({
-    queryKey: ["/api/tasks/assignment-options", user?.id],
+    queryKey: ["/api/tasks/assignment-options", user?.id, country || null],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/tasks/assignment-options");
+      const response = await apiRequest("GET", `/api/tasks/assignment-options${country ? `?country=${encodeURIComponent(country)}` : ""}`);
       return response.json();
     },
     staleTime: 0,

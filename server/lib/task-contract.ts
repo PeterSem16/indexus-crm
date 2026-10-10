@@ -22,6 +22,7 @@ export interface TaskAccessUser {
 }
 
 export interface TaskAccessRow extends TaskContractRow {
+  requestRecipients?: { userIds?: readonly string[] } | null;
   country?: string | null;
   assignedUserId?: string | null;
   createdByUserId?: string | null;
@@ -47,8 +48,8 @@ export function canAccessTaskByPolicy(
   if (!userMayAccessTaskCountry(user.role, user.assignedCountries, task.country)) return false;
   if (user.role === "manager") return true;
   if (task.assignedUserId === user.id || task.createdByUserId === user.id) return true;
-  const groupId = (task.tags || []).find(tag => tag.startsWith("group_id:"))?.slice("group_id:".length);
-  return !!groupId && groupIds.has(groupId);
+  if (task.requestRecipients?.userIds?.includes(user.id)) return true;
+  return (task.tags || []).some(tag => tag.startsWith("group_id:") && groupIds.has(tag.slice("group_id:".length)));
 }
 
 export function taskPeopleCandidateAllowed(
@@ -69,7 +70,7 @@ export function taskPeoplePersonVisible(isActive: boolean, isParticipant: boolea
 }
 
 export function collectTaskParticipantIds(
-  tasks: readonly { createdByUserId?: string | null; assignedUserId?: string | null; resolvedByUserId?: string | null }[],
+  tasks: readonly { createdByUserId?: string | null; assignedUserId?: string | null; resolvedByUserId?: string | null; requestRecipients?: { userIds?: readonly string[] } | null }[],
   groupMemberIds: readonly string[] = [],
 ): string[] {
   const participantIds = new Set<string>();
@@ -80,6 +81,7 @@ export function collectTaskParticipantIds(
     add(task.createdByUserId);
     add(task.assignedUserId);
     add(task.resolvedByUserId);
+    task.requestRecipients?.userIds?.forEach(add);
   }
   groupMemberIds.forEach(add);
   return Array.from(participantIds);
@@ -265,7 +267,9 @@ export function buildValidatedTaskPatch(
     if (!Array.isArray(body.tags) || body.tags.some(tag => typeof tag !== "string")) throw new Error("tags must be an array of strings");
     const requestedTags = body.tags as string[];
     const requestedGroupTags = requestedTags.filter(tag => tag.startsWith("group_id:"));
-    if (requestedGroupTags.length > 1 || requestedTags.some(tag => tag.startsWith("group_id:") && !tag.slice("group_id:".length).trim())) {
+    const existingGroupTags = existingTags.filter(tag => tag.startsWith("group_id:"));
+    const sameGroups = requestedGroupTags.length === existingGroupTags.length && requestedGroupTags.every(tag => existingGroupTags.includes(tag));
+    if ((requestedGroupTags.length > 1 && !sameGroups) || requestedTags.some(tag => tag.startsWith("group_id:") && !tag.slice("group_id:".length).trim())) {
       throw new Error("tags may contain at most one valid group_id tag");
     }
     if (requestedTags.some(tag => !tag.startsWith("group_id:") && !existingTags.includes(tag))) {

@@ -37,7 +37,7 @@ import {
   TaskCompletionNoticeAuthorizationError,
   TaskInactiveCompletionError,
 } from "./lib/task-completion";
-import { createServer, type Server } from "http";
+import { createServer, ServerResponse, type Server } from "http";
 import crypto from "crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { startOfDay, endOfDay, subDays } from "date-fns";
@@ -55,6 +55,8 @@ import { registerTaskResolutionDraftRoute } from "./lib/task-resolution-draft-ro
 import { registerTaskReassignmentRoutes } from "./lib/task-reassignment-route";
 import { taskReassignmentGroupId } from "./lib/task-reassignment";
 import { parseTaskCreateAssignment, taskGroupNominalOwner, TaskCreateAssignmentError } from "./lib/task-create-assignment";
+import { registerTaskRequestTypeRoutes } from "./lib/task-request-type-routes";
+import { taskRequestTypes } from "@shared/schema";
 import { createRequirePersistedAdmin, isPersistedAdministrator } from "./lib/admin-authorization";
 import { taskAssignmentAllowlist, taskAssignmentPolicyVersionMatches, isTaskAssignmentUserAllowed, hasAllowedTaskRecipient, countryAuthorizedTaskRecipientIds, assertTaskRecipientAllowed, assertTaskResolverAllowed, TaskAssignmentAccessError } from "./lib/task-assignment-access";
 import { transitionTaskWorkTiming } from "./lib/task-work-timing";
@@ -9368,6 +9370,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
 
   // Shared policy for task listing, detail, mutation, and participant lookups.
+  registerTaskRequestTypeRoutes(app, requireAuth, requireTaskSettingsAdmin);
   // Every non-admin is country-scoped (country-less tasks are shared); managers
   // see that country scope while ordinary users also need a task relationship.
   async function taskAccessContext(user: any) {
@@ -9595,6 +9598,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.get("/api/tasks/assignment-options", requireAuth, async (req, res) => {
     try {
       const actor = req.session.user!;
+      const country = typeof req.query.country === "string" ? req.query.country.trim().toUpperCase() : null;
+      if (country && !userMayAccessTaskCountry(actor.role, actor.assignedCountries, country)) return res.status(403).json({ error: "Country not authorized" });
       const policy = await taskAssignmentAllowlist(db);
       const candidates = await db.select({
         id: users.id, fullName: users.fullName, username: users.username, email: users.email,
@@ -9603,7 +9608,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }).from(users).where(eq(users.isActive, true));
       const eligible = candidates.filter(candidate =>
         (!policy.configured || policy.allowedUserIds.includes(candidate.id))
-        && taskPeopleCandidateAllowed(actor.role, actor.assignedCountries, candidate.assignedCountries));
+        && (candidate.role === "admin" || taskPeopleCandidateAllowed(actor.role, actor.assignedCountries, candidate.assignedCountries))
+        && (!country || userMayAccessTaskCountry(candidate.role, candidate.assignedCountries, country)));
       const eligibleIds = new Set(eligible.map(person => person.id));
       const groups = await db.select().from(taskGroups);
       const memberships = groups.length
@@ -9676,6 +9682,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
   });
 
   // Tasks API (protected)
+  app.get("/api/tasks/created", requireAuth, async (req, res) => {
+    try {
+      const mine = (await getAuthorizedTasksForUser(req.session.user!)).filter(task => task.createdByUserId === req.session.user!.id);
+      res.json(mine.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    } catch { res.status(500).json({ error: "Failed to load created tasks" }); }
+  });
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {
       const authorizedTasks = await getAuthorizedTasksForUser(req.session.user!);
@@ -9694,7 +9706,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.get("/api/tasks/my", requireAuth, async (req, res) => {
     try {
       const mine = (await getAuthorizedTasksForUser(req.session.user!))
-        .filter(task => task.assignedUserId === req.session.user!.id);
+        .filter(task => task.assignedUserId === req.session.user!.id || task.requestRecipients?.userIds?.includes(req.session.user!.id));
       if (req.query.page || req.query.limit) {
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
         const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 200);
@@ -9823,26 +9835,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.post("/api/tasks", requireAuth, async (req, res) => {
     try {
       const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
-      const { title, description, priority, customerId, relatedEntityType, relatedEntityId, country, dueDate, tags, pulseOrigin } = body;
+      const { title, description, priority, customerId, relatedEntityType, relatedEntityId, country: requestedCountry, dueDate, tags, pulseOrigin } = body;
+      let country = requestedCountry;
       if (!title) return res.status(400).json({ error: "Title is required" });
       if (!userMayAccessTaskCountry(req.session.user!.role, req.session.user!.assignedCountries, country)) {
         return res.status(403).json({ error: "You are not authorized to create a task in this country" });
       }
-      const assignment = parseTaskCreateAssignment(body);
-      let assignedUserId: string;
-      if (assignment.kind === "group") {
-        const [group] = await db.select({ id: taskGroups.id }).from(taskGroups)
-          .where(eq(taskGroups.id, assignment.groupId)).limit(1);
-        if (!group) return res.status(400).json({ error: "Unknown task group" });
-        const members = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers)
-          .where(eq(taskGroupMembers.groupId, assignment.groupId));
-        // The database requires an owner. Resolve it on the server from approved
-        // active members; the agent chooses ONLY the group, never an owner too.
-        assignedUserId = taskGroupNominalOwner(req.session.user!.id,
-          await countryAuthorizedTaskRecipientIds(db, members.map(member => member.userId), country));
-      } else {
-        assignedUserId = assignment.assignedUserId;
-      }
+      if (body.recipients !== undefined && pulseOrigin === undefined) return res.status(400).json({ error: "Shared requests require an active Mission session" });
       let manualPulseProvenanceValidated = false;
       if (pulseOrigin !== undefined) {
         if (
@@ -9886,6 +9885,32 @@ Return ONLY valid JSON, no markdown code blocks.`,
           return res.status(403).json({ error: "Manual Nexus Pulse task provenance requires an active authorized Mission session" });
         }
         manualPulseProvenanceValidated = true;
+        const mission = await storage.getCampaign(pulseOrigin.missionId);
+        if (!mission || !userMayAccessTaskCountry(req.session.user!.role, req.session.user!.assignedCountries, mission.country)) {
+          return res.status(403).json({ error: "Mission country not authorized" });
+        }
+        if (requestedCountry && String(requestedCountry).trim().toUpperCase() !== mission.country?.trim().toUpperCase()) {
+          return res.status(403).json({ error: "Task country must match the authorized Mission" });
+        }
+        country = mission.country;
+      }
+      const assignment = parseTaskCreateAssignment(body);
+      let assignedUserId: string;
+      let sharedGroups: { id: string; name: string; isBackOffice: boolean | null }[] = [];
+      if (assignment.kind === "person") {
+        assignedUserId = assignment.assignedUserId;
+      } else {
+        const groupIds = assignment.kind === "group" ? [assignment.groupId] : assignment.groupIds;
+        if (assignment.kind === "shared") for (const id of assignment.userIds) await assertTaskRecipientAllowed(db, id, country);
+        const owners: string[] = [];
+        for (const id of groupIds) {
+          const [group] = await db.select({ id: taskGroups.id, name: taskGroups.name, isBackOffice: taskGroups.isBackOffice }).from(taskGroups).where(eq(taskGroups.id, id)).limit(1);
+          if (!group) return res.status(400).json({ error: "Unknown task group" });
+          const members = await db.select({ userId: taskGroupMembers.userId }).from(taskGroupMembers).where(eq(taskGroupMembers.groupId, id));
+          owners.push(taskGroupNominalOwner(req.session.user!.id, await countryAuthorizedTaskRecipientIds(db, members.map(member => member.userId), country)));
+          sharedGroups.push(group);
+        }
+        assignedUserId = owners[0] || (assignment.kind === "shared" ? assignment.userIds[0] : "");
       }
       const [assignee] = await db.select({ id: users.id, isActive: users.isActive }).from(users)
         .where(eq(users.id, assignedUserId)).limit(1);
@@ -9903,11 +9928,16 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }
       const providedTags: string[] = Array.isArray(tags)
-        ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG)
+        ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG
+          && (assignment.kind !== "shared" || (!tag.startsWith("group_id:") && !tag.startsWith("group:") && tag !== "back_office")))
         : [];
       if (assignment.kind === "group") providedTags.push(`group_id:${assignment.groupId}`);
+      if (assignment.kind === "shared") {
+        for (const group of sharedGroups) providedTags.push(`group_id:${group.id}`, `group:${group.name}`);
+        if (sharedGroups.some(group => group.isBackOffice)) providedTags.push("back_office");
+      }
       const groupTags = providedTags.filter(tag => tag.startsWith("group_id:"));
-      if (groupTags.length > 1 || groupTags.some(tag => !tag.slice("group_id:".length).trim())) {
+      if ((assignment.kind !== "shared" && groupTags.length > 1) || groupTags.some(tag => !tag.slice("group_id:".length).trim())) {
         return res.status(400).json({ error: "tags may contain at most one valid group_id tag" });
       }
       if (groupTags.length) {
@@ -9926,6 +9956,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
         createdByUserId: req.session.user!.id,
         attachments,
       };
+      if (assignment.kind === "shared") {
+        const typeId = typeof body.requestTypeId === "string" ? body.requestTypeId : undefined;
+        const [requestType] = typeId ? await db.select().from(taskRequestTypes).where(and(eq(taskRequestTypes.id, typeId), eq(taskRequestTypes.deleted, false))).limit(1) : [];
+        if (typeId && !requestType) return res.status(400).json({ error: "Request type no longer exists" });
+        taskData.requestRecipients = { userIds: assignment.userIds, typeId, typeName: requestType?.name };
+      }
       if (description) taskData.description = description;
       if (customerId) taskData.customerId = customerId;
       if (relatedEntityType && relatedEntityType !== "status_list_item") taskData.relatedEntityType = relatedEntityType;
@@ -9976,13 +10012,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
       try {
         const taskTags: string[] = task.tags || [];
-        const groupIdTag = taskTags.find((t: string) => t.startsWith("group_id:"));
-        if (groupIdTag) {
+        const groupIdTags = taskTags.filter((t: string) => t.startsWith("group_id:"));
+        const notified = new Set<string>();
+        for (const groupIdTag of groupIdTags) {
           const groupId = groupIdTag.replace("group_id:", "");
           const groupMembersRows = await db.select().from(taskGroupMembers).where(eq(taskGroupMembers.groupId, groupId));
           const [groupRow] = await db.select().from(taskGroups).where(eq(taskGroups.id, groupId)).limit(1);
           const groupName = groupRow?.name ?? groupId;
-          const memberIds = await countryAuthorizedTaskRecipientIds(db, groupMembersRows.map(m => m.userId), task.country);
+          const memberIds = (await countryAuthorizedTaskRecipientIds(db, groupMembersRows.map(m => m.userId), task.country)).filter(id => !notified.has(id));
           if (memberIds.length > 0) {
             await notificationService.sendNotificationToUsers(memberIds, {
               type: "group_task_assigned",
@@ -9992,8 +10029,14 @@ Return ONLY valid JSON, no markdown code blocks.`,
               entityType: "task",
               metadata: { groupId, groupName, taskId: task.id, taskTitle: task.title },
             });
+            memberIds.forEach(id => notified.add(id));
           }
         }
+        const directRecipients = task.requestRecipients?.userIds?.filter(id => !notified.has(id)) || [];
+        if (directRecipients.length) await notificationService.sendNotificationToUsers(directRecipients, {
+          type: "task_assigned", title: task.title, message: "", priority: "normal", entityType: "task",
+          metadata: { taskId: task.id },
+        });
       } catch (err) { console.error("[CreateTask] group notification error:", err); }
       
       res.status(201).json(task);
@@ -40984,17 +41027,21 @@ Rules:
   const onlineUsers = new Map<string, { ws: WebSocket; user: SafeUser }>();
   
   // Create WebSocket server (noServer mode to avoid intercepting Vite HMR /vite-hmr upgrades)
-  const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
+  const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 65536 });
   console.log("[Chat] WebSocket server initialized on path /ws/chat");
 
   httpServer.on("upgrade", (req: any, socket: any, head: any) => {
     const pathname = req.url?.split("?")[0];
     if (pathname === "/ws/chat") {
-      wss.handleUpgrade(req, socket, head, (ws) => {
-        wss.emit("connection", ws, req);
+      const origin = req.headers.origin;
+      const allowedHosts = [req.headers.host, ...String(req.headers["x-forwarded-host"] || "").split(",").map((host: string) => host.trim())];
+      if (origin && !allowedHosts.some(host => origin === `https://${host}` || origin === `http://${host}`)) {
+        socket.destroy(); return;
+      }
+      sharedSessionMiddleware(req, new ServerResponse(req), () => {
+        if (!req.session?.user?.id) { socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n"); socket.destroy(); return; }
+        wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
       });
-      (socket as any).end = () => {};
-      (socket as any).destroy = () => {};
     }
   });
   
@@ -41006,15 +41053,19 @@ Rules:
     ws.on("message", async (data) => {
       try {
         const message = JSON.parse(data.toString());
+        const sessionValid = await new Promise<boolean>(resolve => (req as any).session.reload((error: unknown) => resolve(!error && !!(req as any).session?.user?.id)));
+        if (!sessionValid || (userId && (req as any).session.user.id !== userId)) { ws.close(1008, "Unauthorized"); return; }
         
         switch (message.type) {
           case "auth":
-            // Authenticate user by session or user info passed from client
-            userId = message.userId;
+            // The persisted session is authoritative; a browser cannot name
+            // another identity, even when it knows that user's ID.
+            userId = (req as any).session?.user?.id || null;
+            if (message.userId && message.userId !== userId) { ws.close(1008, "Unauthorized"); return; }
             if (userId) {
               console.log("[Chat] Auth attempt for user:", userId);
               const fullUser = await storage.getUser(userId);
-              if (fullUser) {
+              if (fullUser?.isActive) {
                 const { passwordHash, ...safeUser } = fullUser;
                 user = safeUser;
                 onlineUsers.set(userId, { ws, user });
@@ -41037,18 +41088,26 @@ Rules:
             }
             
             const { receiverId, content } = message;
+            const actor = await storage.getUser(userId);
+            const target = typeof receiverId === "string" ? await storage.getUser(receiverId) : null;
+            if (!actor?.isActive) { ws.close(1008, "Unauthorized"); return; }
+            if (!target?.isActive || target.id === userId || !chatPartnerAllowed(actor, target)
+              || typeof content !== "string" || !content.trim() || content.length > 10000) {
+              ws.send(JSON.stringify({ type: "error", error: "Message recipient or content is not valid", clientMessageId: message.clientMessageId })); return;
+            }
             
             // Store message in database
             const chatMsg = await storage.createChatMessage({
               senderId: userId,
               receiverId,
-              content,
+              content: content.trim(),
               isRead: false,
             });
             
             // Send confirmation to sender
             ws.send(JSON.stringify({ 
               type: "message_sent", 
+              clientMessageId: message.clientMessageId,
               message: chatMsg 
             }));
             
@@ -41058,7 +41117,7 @@ Rules:
               recipient.ws.send(JSON.stringify({
                 type: "new_message",
                 message: chatMsg,
-                sender: user
+                sender: { id: user.id, fullName: user.fullName, username: user.username, avatarUrl: user.avatarUrl }
               }));
             }
             break;
@@ -41098,7 +41157,7 @@ Rules:
     
     ws.on("close", () => {
       if (userId) {
-        onlineUsers.delete(userId);
+        if (onlineUsers.get(userId)?.ws === ws) onlineUsers.delete(userId);
         broadcastPresence();
       }
     });
@@ -41106,7 +41165,7 @@ Rules:
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
       if (userId) {
-        onlineUsers.delete(userId);
+        if (onlineUsers.get(userId)?.ws === ws) onlineUsers.delete(userId);
       }
     });
   });
@@ -41126,11 +41185,28 @@ Rules:
     
     for (const { ws } of onlineUsers.values()) {
       if (ws.readyState === WebSocket.OPEN) {
-        ws.send(presenceMessage);
+        const viewer = Array.from(onlineUsers.values()).find(connection => connection.ws === ws)?.user;
+        ws.send(JSON.stringify({ type: "presence_update", onlineUsers: onlineUserList.filter(candidate => {
+          const target = onlineUsers.get(candidate.id)?.user;
+          return viewer && target;
+        }) }));
       }
     }
   }
   
+  function chatPartnerAllowed(viewer: any, target: any) {
+    // Private user-to-user conversations are independent of task/Mission
+    // country scopes. Their contents are always queried by the session's pair.
+    return !!viewer?.id && !!target?.id;
+  }
+  app.get("/api/chat/people", requireAuth, async (req, res) => {
+    try {
+      const candidates = await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl, role: users.role, assignedCountries: users.assignedCountries })
+        .from(users).where(eq(users.isActive, true));
+      res.json(candidates.filter(person => person.id !== req.session.user!.id && chatPartnerAllowed(req.session.user!, person))
+        .map(({ id, fullName, username, avatarUrl }) => ({ id, fullName, username, avatarUrl })));
+    } catch { res.status(500).json({ error: "Failed to load colleagues" }); }
+  });
   // REST API for chat history
   app.get("/api/chat/conversations", requireAuth, async (req, res) => {
     try {
@@ -41141,6 +41217,7 @@ Rules:
       const enrichedConversations = await Promise.all(
         conversations.map(async (conv) => {
           const partner = await storage.getUser(conv.partnerId);
+          if (!partner || !chatPartnerAllowed(req.session.user!, partner)) return null;
           return {
             ...conv,
             partner: partner ? { 
@@ -41153,7 +41230,7 @@ Rules:
         })
       );
       
-      res.json(enrichedConversations);
+      res.json(enrichedConversations.filter(Boolean));
     } catch (error) {
       console.error("Failed to fetch conversations:", error);
       res.status(500).json({ error: "Failed to fetch conversations" });
@@ -41164,7 +41241,9 @@ Rules:
     try {
       const userId = req.session.user!.id;
       const { partnerId } = req.params;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const partner = await storage.getUser(partnerId);
+      if (!partner || !chatPartnerAllowed(req.session.user!, partner)) return res.status(404).json({ error: "Conversation not found" });
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
       
       const messages = await storage.getChatMessages(userId, partnerId, limit);
       
@@ -41180,7 +41259,7 @@ Rules:
   
   app.get("/api/chat/online-users", requireAuth, async (req, res) => {
     try {
-      const onlineUserList = Array.from(onlineUsers.values()).map(u => ({
+      const onlineUserList = Array.from(onlineUsers.values()).filter(u => chatPartnerAllowed(req.session.user!, u.user)).map(u => ({
         id: u.user.id,
         fullName: u.user.fullName,
         username: u.user.username,
