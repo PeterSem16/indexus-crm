@@ -9,6 +9,9 @@
   width: 100%;
   height: 100%;
   min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   color: var(--icp-ink);
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
@@ -18,6 +21,7 @@
   grid-template-columns: minmax(240px, 310px) minmax(0, 1fr);
   height: 100%;
   min-height: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   background: #f8fbfc;
   border: 1px solid #d5e3eb;
@@ -199,4 +203,85 @@
   .icp-compose-row { align-items: stretch; flex-direction: column; }
   .icp-send { align-self: flex-end; min-height: 34px; }
   .icp-private-tag { display: none; }
+}
+
+/* The shared chat inherits the active workspace's available height all the
+   way to its scrolling thread; this is especially important inside Radix. */
+.icp-root,
+.icp-shell,
+.icp-conversation,
+.icp-thread { min-height: 0; }
+.icp-thread { overscroll-behavior: contain; }
+
+/* Nexus Omni chat is an extension of Tasks, not a second Pulse workspace. */
+.icp-theme-omni {
+  --icp-ink: hsl(var(--foreground));
+  --icp-muted: hsl(var(--muted-foreground));
+  --icp-line: hsl(var(--border));
+  --icp-paper: hsl(var(--background));
+  --icp-blue: hsl(var(--primary));
+  --icp-own: hsl(var(--primary) / .11);
+  --icp-other: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-family: inherit;
+}
+.icp-theme-omni .icp-shell { background: hsl(var(--background)); border-color: hsl(var(--border)); border-radius: .75rem; box-shadow: none; }
+.icp-theme-omni .icp-sidebar { background: hsl(var(--card)); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-side-head { border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-side-head h2,
+.icp-theme-omni .icp-person-top b,
+.icp-theme-omni .icp-chat-person > b { color: hsl(var(--foreground)); }
+.icp-theme-omni .icp-kicker,
+.icp-theme-omni .icp-person-bottom > span,
+.icp-theme-omni .icp-person-bottom > i,
+.icp-theme-omni .icp-person-top time,
+.icp-theme-omni .icp-chat-person > span,
+.icp-theme-omni .icp-compose-foot { color: hsl(var(--muted-foreground)); }
+.icp-theme-omni .icp-search,
+.icp-theme-omni .icp-compose-row textarea { color: hsl(var(--foreground)); background: hsl(var(--background)); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-search input,
+.icp-theme-omni .icp-compose-row textarea { color: hsl(var(--foreground)); }
+.icp-theme-omni .icp-search { background: hsl(var(--muted) / .28); }
+.icp-theme-omni .icp-person:hover,
+.icp-theme-omni .icp-person.selected { background: hsl(var(--muted) / .45); border-color: hsl(var(--border)); box-shadow: inset 3px 0 hsl(var(--primary)); }
+.icp-theme-omni .icp-avatar { color: hsl(var(--primary)); background: hsl(var(--primary) / .1); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-avatar > i,
+.icp-theme-omni .icp-chat-person > span > i { border-color: hsl(var(--card)); }
+.icp-theme-omni .icp-conversation { background: hsl(var(--background)); }
+.icp-theme-omni .icp-chat-head,
+.icp-theme-omni .icp-compose { border-color: hsl(var(--border)); background: hsl(var(--card)); }
+.icp-theme-omni .icp-private-tag { color: hsl(var(--primary)); background: hsl(var(--primary) / .1); border-color: hsl(var(--primary) / .2); }
+.icp-theme-omni .icp-day::before,
+.icp-theme-omni .icp-day::after { background: hsl(var(--border)); }
+.icp-theme-omni .icp-day span { color: hsl(var(--muted-foreground)); background: hsl(var(--background)); }
+.icp-theme-omni .icp-message { color: hsl(var(--foreground)); background: hsl(var(--card)); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-message.is-own { color: hsl(var(--foreground)); background: hsl(var(--primary) / .1); border-color: hsl(var(--primary) / .22); }
+.icp-theme-omni .icp-message-meta b,
+.icp-theme-omni .icp-message p { color: hsl(var(--foreground)); }
+.icp-theme-omni .icp-message-meta time,
+.icp-theme-omni .icp-receipt { color: hsl(var(--muted-foreground)); }
+.icp-theme-omni .icp-compose-row textarea:focus { border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / .13); }
+.icp-theme-omni .icp-back { color: hsl(var(--muted-foreground)); background: hsl(var(--muted) / .35); }
+.icp-theme-omni .icp-send { color: hsl(var(--primary-foreground)); background: hsl(var(--primary)); border-color: hsl(var(--primary)); }
+.icp-theme-omni .icp-send:hover:not(:disabled) { background: hsl(var(--primary) / .88); }
+.icp-theme-omni .icp-empty,
+.icp-theme-omni .icp-state { color: hsl(var(--muted-foreground)); }
+.icp-theme-omni .icp-empty > svg,
+.icp-theme-omni .icp-state > svg { color: hsl(var(--primary)); }
+.icp-theme-omni .icp-empty strong { color: hsl(var(--foreground)); }
+.icp-theme-omni .icp-state button { color: hsl(var(--foreground)); background: hsl(var(--card)); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-unread { background: hsl(var(--primary)); }
+.icp-theme-omni .icp-roster-state span { background: hsl(var(--muted)); }
+.icp-theme-omni .icp-loading span,
+.icp-theme-omni .icp-typing-dots i { background: hsl(var(--primary)); }
+.icp-theme-omni .icp-typing-dots { background: hsl(var(--muted) / .4); }
+.icp-theme-omni .icp-typing { color: hsl(var(--muted-foreground)); }
+.icp-theme-omni .icp-notice { color: hsl(var(--foreground)); background: hsl(var(--muted) / .35); border-color: hsl(var(--border)); }
+.icp-theme-omni .icp-notice.error { color: hsl(var(--destructive)); background: hsl(var(--destructive) / .08); border-color: hsl(var(--destructive) / .25); }
+.dark .icp-theme-omni .icp-message.is-own { background: hsl(var(--primary) / .2); }
+.dark .icp-theme-omni .icp-notice.error { color: hsl(var(--destructive)); }
+@media (prefers-reduced-motion: reduce) {
+  .icp-root *,
+  .icp-root *::before,
+  .icp-root *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }

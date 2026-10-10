@@ -1,3 +1,4 @@
+import { MissionAgentChatSettings, type MissionChatSelections } from "@/components/campaigns/mission-agent-chat-settings";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -1560,6 +1561,7 @@ export default function CampaignsPage() {
   const [selectedForComparison, setSelectedForComparison] = useState<string[]>([]);
   const [agentsDialogCampaign, setAgentsDialogCampaign] = useState<Campaign | null>(null);
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
+  const [agentChatSelections, setAgentChatSelections] = useState<MissionChatSelections>({});
   const [activeTab, setActiveTab] = useState("campaigns");
   const [filterStatus, setFilterStatus] = useState<string>("active");
   const [filterType, setFilterType] = useState<string>("all");
@@ -1601,9 +1603,11 @@ export default function CampaignsPage() {
     queryKey: ["/api/roles"],
   });
 
-  const { data: currentCampaignAgents = [] } = useQuery<{ id: string; userId: string; campaignId: string }[]>({
+  const { data: currentCampaignAgents = [], isFetching: agentsFetching } = useQuery<{ id: string; userId: string; campaignId: string; chatUserIds: string[] | null }[]>({
     queryKey: ["/api/campaigns", agentsDialogCampaign?.id, "agents"],
     enabled: !!agentsDialogCampaign,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: templates = [] } = useQuery<CampaignTemplate[]>({
@@ -1635,12 +1639,17 @@ export default function CampaignsPage() {
   });
 
   const updateAgentsMutation = useMutation({
-    mutationFn: (data: { campaignId: string; userIds: string[] }) => 
-      apiRequest("POST", `/api/campaigns/${data.campaignId}/agents`, { userIds: data.userIds }),
+    mutationFn: (data: { campaignId: string; userIds: string[] }) =>
+      apiRequest("POST", `/api/campaigns/${data.campaignId}/agents`, {
+        userIds: data.userIds,
+        chatSelections: Object.fromEntries(data.userIds.filter(id => Object.prototype.hasOwnProperty.call(agentChatSelections, id))
+          .map(id => [id, agentChatSelections[id]])),
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", agentsDialogCampaign?.id, "agents"] });
       setAgentsDialogCampaign(null);
       setSelectedAgentIds([]);
+      setAgentChatSelections({});
       toast({ title: t.campaigns.agentsAssigned });
     },
     onError: () => {
@@ -1651,6 +1660,7 @@ export default function CampaignsPage() {
   useEffect(() => {
     if (agentsDialogCampaign) {
       const newIds = currentCampaignAgents.map(a => a.userId).sort();
+      setAgentChatSelections(Object.fromEntries(currentCampaignAgents.map(a => [a.userId, a.chatUserIds ?? null])));
       setSelectedAgentIds(prev => {
         const sorted = [...prev].sort();
         if (sorted.length === newIds.length && sorted.every((v, i) => v === newIds[i])) return prev;
@@ -2468,7 +2478,7 @@ export default function CampaignsPage() {
           setAgentSearchQuery("");
         }
       }}>
-        <SheetContent side="right" className="w-[480px] sm:max-w-[480px] flex flex-col">
+        <SheetContent side="right" className="w-full sm:max-w-[480px] flex flex-col">
           <SheetHeader>
             <SheetTitle>Priradiť agentov</SheetTitle>
             <SheetDescription>
@@ -2476,7 +2486,7 @@ export default function CampaignsPage() {
             </SheetDescription>
           </SheetHeader>
           
-          <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-4">
+          <div className={`flex-1 min-h-0 overflow-hidden flex flex-col gap-4 pt-4 ${agentsFetching ? "pointer-events-none opacity-60" : ""}`}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -2558,6 +2568,12 @@ export default function CampaignsPage() {
             </div>
           </div>
 
+          <MissionAgentChatSettings
+            agents={allActiveUsers.filter(person => selectedAgentIds.includes(person.id))}
+            people={allActiveUsers}
+            selections={agentChatSelections}
+            onChange={setAgentChatSelections}
+          />
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button 
               variant="outline" 
@@ -2580,7 +2596,7 @@ export default function CampaignsPage() {
                   });
                 }
               }}
-              disabled={updateAgentsMutation.isPending}
+              disabled={updateAgentsMutation.isPending || agentsFetching}
               data-testid="button-save-agents"
             >
               {updateAgentsMutation.isPending ? t.common.saving : t.common.save}

@@ -3234,6 +3234,7 @@ export const campaignAgents = pgTable("campaign_agents", {
   role: text("role").notNull().default("agent"), // agent, supervisor
   assignedAt: timestamp("assigned_at").notNull().default(sql`now()`),
   assignedBy: varchar("assigned_by"),
+  chatUserIds: jsonb("chat_user_ids").$type<string[] | null>(),
 }, (table) => ({
   idxCampaignAgentsCampaign: index("idx_campaign_agents_campaign").on(table.campaignId),
   idxCampaignAgentsUser: index("idx_campaign_agents_user").on(table.userId),

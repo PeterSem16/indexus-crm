@@ -1,6 +1,8 @@
 import type { Locale } from "./translations";
 
 const keys = [
+  "missionChatTitle", "missionChatHint", "missionChatAgent", "missionChatDefault", "missionChatSelected",
+  "missionChatNone", "missionChatSearch", "missionChatNoAgents", "missionChatUnion",
   "inboxLabel",
   "routingTitle", "routingSubtitle", "requestTypes", "addType", "enabledRouting", "manual",
   "sharedHint", "recipientsUnavailable", "replaceTitle", "replaceBody", "replace", "keep",
@@ -21,8 +23,17 @@ const chatLabels: Record<Locale, string[]> = {
   it: ["Cerca colleghi", "Oggi", "Ieri", "Allegato", "Inviato", "Letto", "Invio in corso", "Connesso", "Disconnesso", "Privato", "Conversazione privata con un collega", "Torna ai colleghi", "I messaggi privati non vengono aggiunti alla cronologia delle attività", "Invio con Invio", "Maiusc+Invio per una nuova riga"],
   de: ["Kollegen suchen", "Heute", "Gestern", "Anhang", "Gesendet", "Gelesen", "Wird gesendet", "Verbunden", "Getrennt", "Privat", "Privates Gespräch mit einem Kollegen", "Zurück zu Kollegen", "Private Nachrichten werden nicht zum Aufgabenverlauf hinzugefügt", "Mit Eingabetaste senden", "Umschalt+Eingabetaste für neue Zeile"],
 };
+const missionChatLabels: Record<Locale, string[]> = {
+  en: ["Agent Inbox colleagues", "Choose who each agent may see and chat with. Online status remains visible.", "Agent", "No restriction from this Mission", "Only selected colleagues", "No colleagues selected — chat is disabled.", "Search permitted colleagues…", "Select an agent first.", "Explicit lists across the agent's Missions are combined. An unconfigured Mission does not widen an existing list."],
+  sk: ["Kolegovia v Inboxe agenta", "Vyberte, koho môže agent vidieť a s kým môže chatovať. Stav online zostáva viditeľný.", "Agent", "Bez obmedzenia tejto Mission", "Len vybraní kolegovia", "Nie sú vybraní kolegovia — chat je vypnutý.", "Hľadať povolených kolegov…", "Najprv vyberte agenta.", "Nastavené zoznamy zo všetkých Missions agenta sa spoja. Nenastavená Mission už nastavený zoznam nerozširuje."],
+  cs: ["Kolegové v Inboxu agenta", "Vyberte, koho může agent vidět a s kým může chatovat. Stav online zůstává viditelný.", "Agent", "Bez omezení této Mission", "Pouze vybraní kolegové", "Nejsou vybráni kolegové — chat je vypnutý.", "Hledat povolené kolegy…", "Nejprve vyberte agenta.", "Nastavené seznamy ze všech Missions agenta se spojí. Nenastavená Mission již nastavený seznam nerozšiřuje."],
+  hu: ["Munkatársak az ügynök Inboxában", "Válassza ki, kit láthat az ügynök és kivel cseveghet. Az online állapot látható marad.", "Ügynök", "Ez a Mission nem korlátoz", "Csak a kijelölt munkatársak", "Nincs kijelölt munkatárs — a chat le van tiltva.", "Engedélyezett munkatársak keresése…", "Először válasszon ügynököt.", "Az ügynök Missions listái összeadódnak. A beállítatlan Mission nem bővíti a meglévő listát."],
+  ro: ["Colegi în Inboxul agentului", "Alegeți pe cine poate vedea agentul și cu cine poate conversa. Starea online rămâne vizibilă.", "Agent", "Fără restricție din această Mission", "Doar colegii selectați", "Niciun coleg selectat — chatul este dezactivat.", "Caută colegi permiși…", "Selectați mai întâi un agent.", "Listele explicite din Missions ale agentului se combină. O Mission neconfigurată nu extinde lista existentă."],
+  it: ["Colleghi nell'Inbox dell'agente", "Scegli chi può vedere l'agente e con chi può chattare. Lo stato online resta visibile.", "Agente", "Nessuna restrizione da questa Mission", "Solo colleghi selezionati", "Nessun collega selezionato — chat disabilitata.", "Cerca colleghi consentiti…", "Seleziona prima un agente.", "Gli elenchi delle Missions dell'agente vengono uniti. Una Mission non configurata non amplia l'elenco esistente."],
+  de: ["Kollegen im Agenten-Inbox", "Wählen Sie, wen der Agent sehen und mit wem er chatten darf. Der Online-Status bleibt sichtbar.", "Agent", "Keine Einschränkung durch diese Mission", "Nur ausgewählte Kollegen", "Keine Kollegen ausgewählt — Chat deaktiviert.", "Erlaubte Kollegen suchen…", "Wählen Sie zuerst einen Agenten.", "Die Listen aller Missions des Agenten werden zusammengeführt. Eine unkonfigurierte Mission erweitert die bestehende Liste nicht."],
+};
 function copy(locale: Locale, values: string[]): TaskCommunicationCopy {
-  const allValues = [...values, ...chatLabels[locale]];
+  const allValues = [...missionChatLabels[locale], ...values, ...chatLabels[locale]];
   if (allValues.length !== keys.length) throw new Error("Incomplete task communication translations");
   return Object.fromEntries(keys.map((key, index) => [key, allValues[index]])) as TaskCommunicationCopy;
 }

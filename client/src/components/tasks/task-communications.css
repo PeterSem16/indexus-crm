@@ -57,3 +57,54 @@
 .pulse-live .center-compose textarea{flex:1;min-width:0;resize:none;border:1px solid #d4e2eb;border-radius:9px;padding:9px 11px;font-size:11px;color:#24445e;background:white;outline:none}.pulse-live .center-compose textarea:focus{border-color:#69a0c4}
 .pulse-live .center-compose .pulse-btn{padding:7px 10px;font-size:10px}
 @media(max-width:760px){.pulse-live .pulse-routing-grid{grid-template-columns:minmax(0,1fr)}.pulse-live .center-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,150px) minmax(0,1fr)}.pulse-live .pulse-content{padding:14px}.pulse-live .pulse-heading h1{font-size:18px}.pulse-live .pulse-heading{align-items:center}.pulse-live .pulse-heading p,.pulse-live .center-scope{display:none}.pulse-live .history-list{grid-template-columns:1fr}.pulse-live .center-detail-head{padding:10px 12px}.pulse-live .center-detail-scroll{padding:12px}.pulse-live.pulse-routing-root{padding:14px}}
+
+/* Radix DialogContent defaults to a centered grid. Let the viewport-sized
+   frame participate in normal flex sizing instead of centering a tall child
+   against the dialog's intrinsic grid height. */
+.pulse-live.pulse-center-dialog {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-height: 0;
+  overflow: hidden;
+}
+.pulse-live .pulse-frame,
+.pulse-live .pulse-content,
+.pulse-live .pulse-direct-host,
+.pulse-live .icp-root,
+.pulse-live .icp-shell,
+.pulse-live .icp-conversation,
+.pulse-live .icp-thread { min-height: 0; }
+.pulse-live .pulse-frame { flex: 1 1 0; }
+.pulse-live .pulse-content { flex: 1 1 0; }
+.pulse-live .pulse-direct-host { display: flex; flex-direction: column; }
+.pulse-live .pulse-direct-host.hidden { display: none; }
+.pulse-live .status-dot.status-pending { background: #8560b5; }
+.pulse-live .status-dot.status-in_progress { background: #287fb1; }
+.pulse-live .status-dot.status-completed { background: #32835f; }
+.pulse-live .status-dot.status-cancelled { background: #bd514b; }
+.pulse-live .status-dot.status-waiting_agent { background: #b77b22; }
+.pulse-live .status-name.status-pending { color: #76509e; }
+.pulse-live .status-name.status-in_progress { color: #246f9f; }
+.pulse-live .status-name.status-completed { color: #28714f; }
+.pulse-live .status-name.status-cancelled { color: #a54440; }
+.pulse-live .status-name.status-waiting_agent { color: #986316; }
+.pulse-live .status-pill[data-status="pending"] { color: #76509e; background: #f2ebfa; }
+.pulse-live .status-pill[data-status="in_progress"] { color: #216d9c; background: #e7f2f9; }
+.pulse-live .status-pill[data-status="completed"] { color: #26704e; background: #e8f4ed; }
+.pulse-live .status-pill[data-status="cancelled"] { color: #a54440; background: #faecea; }
+.pulse-live .status-pill[data-status="waiting_agent"] { color: #986316; background: #faf1df; }
+.pulse-live .history-event.history-created { background: #f4effa; border-color: #e3d5ef; }
+.pulse-live .history-created .history-icon, .pulse-live .history-created b { color: #76509e; }
+.pulse-live .history-event.history-in-progress { background: #edf5f9; border-color: #cfe2ed; }
+.pulse-live .history-in-progress .history-icon, .pulse-live .history-in-progress b { color: #287fb1; }
+.pulse-live .history-event.history-completed { background: #edf6f0; border-color: #d1e6d8; }
+.pulse-live .history-completed .history-icon, .pulse-live .history-completed b { color: #32835f; }
+.pulse-live .history-event.history-cancelled { background: #fbefed; border-color: #efd5d1; }
+.pulse-live .history-cancelled .history-icon, .pulse-live .history-cancelled b { color: #bd514b; }
+.pulse-live .history-event.history-waiting-agent { background: #fcf5e8; border-color: #eddfbf; }
+.pulse-live .history-waiting-agent .history-icon, .pulse-live .history-waiting-agent b { color: #986316; }
+@media (prefers-reduced-motion: reduce) {
+  .pulse-live .pulse-btn { transition: none; }
+}

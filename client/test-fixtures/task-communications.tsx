@@ -1,8 +1,11 @@
 import { createRoot } from "react-dom/client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { AuthProvider, useAuth } from "@/contexts/auth-context";
+import { PermissionsProvider } from "@/contexts/permissions-context";
+import { CountryFilterProvider } from "@/contexts/country-filter-context";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { I18nProvider, useI18n } from "@/i18n";
 import { ChatProvider } from "@/contexts/chat-context";
 import { PulseCommunicationCenter } from "@/components/tasks/pulse-communication-center";
@@ -13,6 +16,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
 import { NotificationItem } from "@/components/notification-center";
 import "@/index.css";
+const CampaignsPage = lazy(() => import("@/pages/campaigns"));
 
 function Fixture() {
   const { user } = useAuth();
@@ -28,11 +32,13 @@ function Fixture() {
     breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
     onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
     <button onClick={() => setOpen(true)}>Reopen</button>{
-    fixtureMode.includes("settings")
+    fixtureMode.includes("mission-chat")
+      ? <PermissionsProvider><CountryFilterProvider><TooltipProvider><Suspense fallback={<div>Loading Mission settings</div>}><CampaignsPage/></Suspense></TooltipProvider></CountryFilterProvider></PermissionsProvider>
+      : fixtureMode.includes("settings")
       ? <TaskGroupsDialog open={open} onOpenChange={setOpen}/>
       : fixtureMode.includes("omni") ? <div className="h-screen p-4">
         <NotificationItem notification={{ id: "chat-notice", userId: "viewer", type: "new_chat", title: "Chat", message: "Test Colleague A", priority: "normal", isRead: false, isDismissed: false, createdAt: new Date().toISOString(), metadata: { senderId: "a" } } as any} onMarkRead={() => {}} onDismiss={() => {}} />
-        <InternalChatPanel/>
+        <InternalChatPanel theme="omni"/>
       </div>
        : <PulseCommunicationCenter open={open} onOpenChange={setOpen} onTaskViewed={updates.markTaskViewed} onNewRequest={() => setOpen(false)}/>
   }<Toaster/></>;

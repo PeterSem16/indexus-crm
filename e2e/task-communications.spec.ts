@@ -28,6 +28,10 @@ async function setup(page: Page) {
     let data: unknown = [];
     if (method !== "GET") writes.push({ url, body: request.headers()["content-type"]?.includes("application/json") ? request.postDataJSON() : null });
     if (url === "/api/auth/me") data = { user: { ...users[0], role: "admin", isActive: true, assignedCountries: ["SK"], locale: "en" } };
+    else if (url === "/api/users") data = users.map(person => ({ ...person, role: "user", isActive: true }));
+    else if (url === "/api/campaigns") data = [{ id: "mission-chat", name: "Chat permissions Mission", type: "outbound", status: "active", channel: "phone", countryCodes: ["SK"], tags: [], createdAt: "2026-10-10T09:00:00Z" }];
+    else if (url === "/api/campaigns/mission-chat/agents") data = [{ id: "assignment", userId: "viewer", campaignId: "mission-chat", chatUserIds: ["a"] }];
+    else if (url === "/api/campaigns/batch-stats") data = {};
     else if (url === "/api/task-settings/access") data = { canManage: true };
     else if (url === "/api/tasks/created") data = currentTasks;
     else if (url === "/api/agent/bo-questions") data = currentTasks.filter(task => task.boState === "waiting_agent" && task.tags.includes("back_office")).map(task => ({
@@ -88,6 +92,7 @@ async function setup(page: Page) {
   };
 }
 test("real communication center separates histories, retains per-thread drafts and answers BO questions", async ({ page }) => {
+  test.setTimeout(90_000); // Cold Vite transforms the real CRM component graph.
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html");
   await expect(page.getByText("Original authored request")).toHaveCount(0);
@@ -105,7 +110,7 @@ test("real communication center separates histories, retains per-thread drafts a
   await page.getByRole("button", { name: c.addComment }).click();
   await expect(taskDraft).toHaveValue("");
   expect(state.writes.filter(write => write.url.includes("/answer"))).toEqual([{ url: "/api/agent/bo-questions/task-one/answer", body: { content: "Task one draft" } }]);
-  await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
   await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
   await expect(page.locator(".icp-thread").getByText("Private A message", { exact: true })).toBeVisible();
   const direct = page.locator(".icp-root textarea");
@@ -126,7 +131,7 @@ test("failed chat confirmation does not discard the draft", async ({ page }) => 
   const state = await setup(page);
   state.setDeliveries(false);
   await page.goto("/test-fixtures/task-communications.html");
-  await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
   await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
   const draft = page.locator(".icp-root textarea");
   await draft.fill("Keep this unconfirmed draft");
@@ -190,13 +195,13 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   await page.reload();
   await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
   await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
-  await trigger.click();
+  await trigger.locator(".pta-communication-label").click();
   await expect(page.getByRole("heading", { name: "Pulse Inbox", level: 1 })).toBeVisible();
   await expect(page.getByTestId("communication-updates-completed")).toContainText("0");
   await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
   await page.getByTestId("inbox-tab-back-office").click();
   await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
-  await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
   await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
   await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
   await expect(page.getByTestId("communication-updates-back-office")).toContainText("1");
@@ -226,5 +231,45 @@ test("shared Omni chat sends attachment-only messages and distinguishes incoming
   state.emitChat({ type: "messages_read", readBy: "a" });
   await expect(own).toContainText(translations.en.taskCommunication.read);
   await page.screenshot({ path: "test-results/shared-omni-chat.png" });
+  expect(state.errors).toEqual([]);
+});
+
+test("Mission agent drawer saves per-agent Inbox colleagues and can explicitly disable chat", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?mission-chat");
+  await page.getByTestId("button-assign-agents-mission-chat").click();
+  const settings = page.getByTestId("mission-agent-chat-settings");
+  await expect(settings).toBeVisible();
+  await expect(page.getByTestId("mission-chat-agent")).toHaveValue("viewer");
+  await expect(page.getByTestId("mission-chat-mode")).toHaveValue("selected");
+  await expect(page.getByTestId("mission-chat-colleague-a")).toBeChecked();
+  await page.getByTestId("mission-chat-colleague-b").check();
+  await page.getByTestId("button-save-agents").click();
+  await expect.poll(() => state.writes.find(write => write.url === "/api/campaigns/mission-chat/agents")?.body)
+    .toMatchObject({ userIds: ["viewer"], chatSelections: { viewer: ["a", "b"] } });
+  await page.getByTestId("button-assign-agents-mission-chat").click();
+  await expect(page.getByTestId("mission-chat-colleague-a")).toBeChecked();
+  await page.getByTestId("mission-chat-colleague-a").uncheck();
+  await page.getByTestId("button-save-agents").click();
+  await expect.poll(() => state.writes.filter(write => write.url === "/api/campaigns/mission-chat/agents").at(-1)?.body)
+    .toMatchObject({ chatSelections: { viewer: [] } });
+  expect(state.errors).toEqual([]);
+});
+
+test("BO alert opens its tab and direct message thread stays below its header", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?toolbar");
+  await page.getByTestId("communication-updates-back-office").click();
+  await expect(page.getByTestId("inbox-tab-back-office")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  const head = await page.locator(".icp-chat-head").boundingBox();
+  const thread = await page.locator(".icp-thread").boundingBox();
+  const compose = await page.locator(".icp-compose").boundingBox();
+  expect(thread!.height).toBeGreaterThan(100);
+  expect(thread!.y).toBeGreaterThanOrEqual(head!.y + head!.height - 1);
+  expect(compose!.y).toBeGreaterThanOrEqual(thread!.y + thread!.height - 1);
+  await expect(page.locator(".icp-thread").getByText("Private A message", { exact: true })).toBeVisible();
+  await page.screenshot({ path: "test-results/inbox-direct-message-layout.png" });
   expect(state.errors).toEqual([]);
 });

@@ -18,6 +18,7 @@ type PendingSend = { partnerId: string; text: string; attachments: TaskAttachmen
 type Props = {
   initialPartnerId?: string | null;
   active?: boolean;
+  theme?: "pulse" | "omni";
   onPartnerChange?: (partnerId: string | null) => void;
   persistedDrafts?: Record<string, InternalChatDraftSnapshot>;
   onPersistedDraftsChange?: (drafts: Record<string, InternalChatDraftSnapshot>) => void;
@@ -110,7 +111,7 @@ function formatTime(date: Date | null, locale: string): string {
 }
 
 export function InternalChatPanel({
-  initialPartnerId, active = true, onPartnerChange, persistedDrafts, onPersistedDraftsChange,
+  initialPartnerId, active = true, theme = "omni", onPartnerChange, persistedDrafts, onPersistedDraftsChange,
 }: Props) {
   const { user } = useAuth();
   const { t, locale } = useI18n();
@@ -264,6 +265,26 @@ export function InternalChatPanel({
     window.addEventListener("chat_open_conversation", onOpen);
     return () => window.removeEventListener("chat_open_conversation", onOpen);
   }, [active]);
+  useEffect(() => {
+    const onPolicyChanged = () => {
+      const formerPartnerId = activeIdRef.current;
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      if (typingPartner.current) chat.sendTypingIndicator(typingPartner.current, false);
+      else if (formerPartnerId) chat.sendTypingIndicator(formerPartnerId, false);
+      typingPartner.current = null;
+      activeIdRef.current = null;
+      setActiveId(null);
+      setMessagesByPartner({});
+      setTypingUsers({});
+      pendingRef.current = {};
+      setPending({});
+      deliverySnapshotsRef.current = {};
+      setDeliveryError(false);
+      onPartnerChangeRef.current?.(null);
+    };
+    window.addEventListener("chat_policy_changed", onPolicyChanged);
+    return () => window.removeEventListener("chat_policy_changed", onPolicyChanged);
+  }, [chat.sendTypingIndicator]);
   useEffect(() => {
     if (active && activeId && peopleQuery.isSuccess && conversationsQuery.isSuccess && !partner) setActiveId(null);
   }, [active, activeId, peopleQuery.isSuccess, conversationsQuery.isSuccess, partner]);
@@ -512,7 +533,7 @@ export function InternalChatPanel({
     if (conversationsQuery.isError) void conversationsQuery.refetch();
   };
 
-  return <section className="pulse-live icp-root" aria-label={copy.directMessages}>
+  return <section className={`icp-root ${theme === "pulse" ? "pulse-live" : "icp-theme-omni"}`} aria-label={copy.directMessages}>
     <div className={`icp-shell ${activeId ? "has-active" : ""}`}>
       <aside className="icp-sidebar">
         <header className="icp-side-head">

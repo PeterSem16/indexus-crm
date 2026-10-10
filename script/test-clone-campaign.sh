@@ -22,3 +22,4 @@ export CLONE_CAMPAIGN_TEST_DATABASE_URL="postgresql://clone_test@/postgres?host=
 export DATABASE_URL="$CLONE_CAMPAIGN_TEST_DATABASE_URL"
 npx tsx server/lib/clone-campaign.test.ts
 npx tsx server/lib/clone-campaign.integration.test.ts
+npx tsx server/lib/campaign-agent-assignments.integration.test.ts

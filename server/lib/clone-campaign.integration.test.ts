@@ -228,6 +228,7 @@ async function seedFixture(database: IsolatedCloneDatabase["db"]) {
     userId: "operator-1",
     role: "supervisor",
     assignedBy: "source-owner",
+    chatUserIds: ["allowed-colleague"],
   });
   await database.insert(campaignSchedules).values({
     id: "source-schedule",

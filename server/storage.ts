@@ -1,3 +1,4 @@
+import { updateMissionAgentAssignments } from "./lib/campaign-agent-assignments";
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems, scheduledInvoices,
   customerNotes, entityNotes, activityLogs, communicationMessages,
@@ -829,7 +830,7 @@ export interface IStorage {
   getCampaignsByAgent(userId: string): Promise<Campaign[]>;
   addCampaignAgent(data: InsertCampaignAgent): Promise<CampaignAgent>;
   removeCampaignAgent(campaignId: string, userId: string): Promise<boolean>;
-  updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string): Promise<CampaignAgent[]>;
+  updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string, chatSelections?: Record<string, string[] | null>): Promise<CampaignAgent[]>;
 
   // Agent Workspace Access (country-based access control)
   getAgentWorkspaceAccess(userId: string): Promise<AgentWorkspaceAccess[]>;
@@ -4925,21 +4926,8 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string): Promise<CampaignAgent[]> {
-    // Delete existing agents for this campaign
-    await db.delete(campaignAgents).where(eq(campaignAgents.campaignId, campaignId));
-    
-    if (userIds.length === 0) return [];
-    
-    // Add new agents
-    const newAgents = userIds.map(userId => ({
-      campaignId,
-      userId,
-      role: "agent" as const,
-      assignedBy: assignedBy || null,
-    }));
-    
-    return db.insert(campaignAgents).values(newAgents).returning();
+  async updateCampaignAgents(campaignId: string, userIds: string[], assignedBy?: string, chatSelections?: Record<string, string[] | null>): Promise<CampaignAgent[]> {
+    return updateMissionAgentAssignments(db, campaignId, userIds, assignedBy, chatSelections);
   }
 
   // Agent Workspace Access

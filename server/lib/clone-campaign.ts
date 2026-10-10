@@ -133,6 +133,7 @@ export async function cloneCampaignWithConfiguration(
         campaignId: newCampaignId,
         userId: row.userId,
         role: row.role,
+        chatUserIds: row.chatUserIds,
         assignedBy: createdBy,
       })));
     }

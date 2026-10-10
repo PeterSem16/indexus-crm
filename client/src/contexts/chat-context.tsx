@@ -89,6 +89,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
           case "presence_update":
             setOnlineUsers(data.onlineUsers.filter((u: OnlineUser) => u.id !== user?.id));
             break;
+          case "chat_policy_changed":
+            setUnreadCounts(new Map());
+            setOpenChats([]);
+            window.dispatchEvent(new CustomEvent("chat_policy_changed"));
+            void queryClient.invalidateQueries({ predicate: query =>
+              typeof query.queryKey[0] === "string" && query.queryKey[0].startsWith("/api/chat/") });
+            break;
             
           case "new_message":
             const msg = data.message as ChatMessage;

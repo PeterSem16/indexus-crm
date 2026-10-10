@@ -296,7 +296,14 @@ export function AgentToolbarUnified({
             <button
               type="button"
               className="pta-button pta-communication-center"
-              onClick={onOpenCommunicationCenter}
+              onClick={event => {
+                if ((communicationUpdates.backOffice || 0) > 0
+                  && event.target instanceof Element
+                  && event.target.closest(".pta-communication-bo-alert")) {
+                  window.dispatchEvent(new CustomEvent("pulse_inbox_back_office"));
+                }
+                onOpenCommunicationCenter();
+              }}
               title={`${t.taskCommunication.inboxLabel} — ${communicationCountsLabel}`}
               aria-label={`${t.taskCommunication.inboxLabel}: ${communicationCountsLabel}`}
               data-testid="btn-toolbar-communication-center"
@@ -304,7 +311,11 @@ export function AgentToolbarUnified({
               <MessageSquare size={15} aria-hidden="true" />
               <span className="pta-communication-label">{t.taskCommunication.inboxLabel}</span>
               <span className="pta-communication-counts">
-                {!!communicationUpdates.backOffice && <span className="pta-communication-count" title={t.backOffice.title} data-testid="communication-updates-back-office"><Users size={11}/><b>{communicationUpdates.backOffice}</b></span>}
+                {!!communicationUpdates.backOffice && <span className="pta-communication-bo-alert" data-testid="communication-updates-back-office">
+                  <span className="pta-communication-bo-dot" aria-hidden="true" />
+                  <span className="pta-communication-bo-label">{t.backOffice.questionsInboxTitle}</span>
+                  <b>{communicationUpdates.backOffice}</b>
+                </span>}
                 <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
                   <Clock3 aria-hidden="true" /><b>{communicationUpdates.inProgress}</b>
                 </span>

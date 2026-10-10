@@ -6296,6 +6296,7 @@ export default function EmailClientPage() {
 
         <div className={cn("flex-1 min-h-0", activeTab === "chats" ? "flex" : "hidden")}>
           <InternalChatPanel
+            theme="omni"
             active={activeTab === "chats"}
             initialPartnerId={internalChatPartner}
             onPartnerChange={setInternalChatPartner}

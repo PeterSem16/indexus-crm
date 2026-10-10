@@ -3,6 +3,7 @@ import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
+import { buildChatPolicy, chatPairAllowed, validateChatSelections, type ChatPolicy } from "./lib/chat-partner-policy";
 import {
   registerTaskSourceEntityRoute,
   getTaskCompletionNoticeSourceLookupId,
@@ -9556,10 +9557,13 @@ Return ONLY valid JSON, no markdown code blocks.`,
         canAccessTaskByPolicy(user, task, groupIds)
         || (!!(task.tags || []).includes("back_office")
           && (canAccessBoTask(req, task) || task.createdByUserId === user.id));
-      const chatAssociation = await db.select({ id: chatMessages.id }).from(chatMessages)
+      const chatAssociation = await db.select({ senderId: chatMessages.senderId, receiverId: chatMessages.receiverId }).from(chatMessages)
         .where(sql`(${chatMessages.senderId} = ${user.id} OR ${chatMessages.receiverId} = ${user.id})
-          AND ${chatMessages.attachments} @> ${JSON.stringify([{ id: upload.id }])}::jsonb`).limit(1);
-      if (!chatAssociation.length && !taskAttachmentReadAllowed(
+          AND ${chatMessages.attachments} @> ${JSON.stringify([{ id: upload.id }])}::jsonb`);
+      const chatPolicy = chatAssociation.length ? await loadChatPolicy() : null;
+      const readableChat = chatPolicy && chatAssociation.some(row =>
+        chatPairAllowed(chatPolicy, row.senderId, row.receiverId));
+      if (!readableChat && !taskAttachmentReadAllowed(
         user,
         upload.uploaderUserId,
         associatedPolicies,
@@ -32598,6 +32602,27 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   });
 
   // Campaign Agents endpoints
+  async function authorizeMissionAgentsEdit(req: Request, res: Response, campaignId: string) {
+    const actor = await storage.getUser(req.session.user!.id);
+    if (!actor?.isActive) { res.status(403).json({ error: "Forbidden" }); return null; }
+    const permissions = actor.roleId ? await storage.getRoleModulePermissions(actor.roleId) : [];
+    const permission = permissions.find(p => p.moduleKey === "campaigns");
+    if (actor.role !== "admin" && (
+      (permission && (permission.access === "hidden" || !permission.canEdit))
+      || (!permission && actor.role !== "manager")
+    )) { res.status(403).json({ error: "Mission editing permission required" }); return null; }
+    const mission = await storage.getCampaign(campaignId);
+    if (!mission) { res.status(404).json({ error: "Mission not found" }); return null; }
+    if (actor.role !== "admin" && mission.countryCodes.length
+      && !mission.countryCodes.some(country => actor.assignedCountries?.includes(country))) {
+      res.status(403).json({ error: "Mission outside assigned countries" }); return null;
+    }
+    return actor;
+  }
+  function refreshChatPermissions() {
+    for (const id of onlineUsers.keys()) sendChatToUser(id, { type: "chat_policy_changed" });
+    void broadcastPresence();
+  }
   // Get all campaign agent assignments
   app.get("/api/campaign-agents", requireAuth, async (req, res) => {
     try {
@@ -32632,11 +32657,23 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.post("/api/campaigns/:id/agents", requireAuth, async (req, res) => {
     try {
-      const { userIds } = req.body;
-      if (!Array.isArray(userIds)) {
+      const actor = await authorizeMissionAgentsEdit(req, res, req.params.id);
+      if (!actor) return;
+      const { userIds, chatSelections } = req.body;
+      if (!Array.isArray(userIds) || userIds.length > 1000 || userIds.some(id => typeof id !== "string")) {
         return res.status(400).json({ error: "userIds must be an array" });
       }
-      const agents = await storage.updateCampaignAgents(req.params.id, userIds, req.session.user?.id);
+      const activeUsers = await db.select({ id: users.id }).from(users).where(eq(users.isActive, true));
+      const activeIds = new Set(activeUsers.map(row => row.id));
+      if (userIds.some(id => !activeIds.has(id))) return res.status(400).json({ error: "Agents must be active users" });
+      let selections: Record<string, string[] | null> | undefined;
+      if (chatSelections !== undefined) {
+        try { selections = validateChatSelections(chatSelections, userIds, activeIds); }
+        catch (error) { return res.status(400).json({ error: (error as Error).message }); }
+      }
+      const agents = await storage.updateCampaignAgents(req.params.id, [...new Set(userIds)] as string[], actor.id, selections);
+      // Revoke presence and cached directories immediately across connected clients.
+      refreshChatPermissions();
       res.json(agents);
     } catch (error) {
       console.error("Failed to update campaign agents:", error);
@@ -32700,10 +32737,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   app.delete("/api/campaigns/:campaignId/agents/:userId", requireAuth, async (req, res) => {
     try {
+      if (!await authorizeMissionAgentsEdit(req, res, req.params.campaignId)) return;
       const deleted = await storage.removeCampaignAgent(req.params.campaignId, req.params.userId);
       if (!deleted) {
         return res.status(404).json({ error: "Agent assignment not found" });
       }
+      refreshChatPermissions();
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to remove campaign agent:", error);
@@ -41117,7 +41156,7 @@ Rules:
             const actor = await storage.getUser(userId);
             const target = typeof receiverId === "string" ? await storage.getUser(receiverId) : null;
             if (!actor?.isActive) { ws.close(1008, "Unauthorized"); return; }
-            if (!target?.isActive || target.id === userId || !chatPartnerAllowed(actor, target)
+            if (!target?.isActive || target.id === userId || !chatPartnerAllowed(await loadChatPolicy(), actor, target)
               || typeof content !== "string" || content.length > 10000
               || (!content.trim() && !message.attachments?.length)) {
               ws.send(JSON.stringify({ type: "error", error: "Message recipient or content is not valid", clientMessageId: message.clientMessageId })); return;
@@ -41159,6 +41198,8 @@ Rules:
           case "mark_read":
             if (!userId) return;
             const { senderId } = message;
+            if (typeof senderId !== "string"
+              || !chatPairAllowed(await loadChatPolicy(), userId, senderId)) return;
             await storage.markMessagesAsRead(senderId, userId);
             await db.update(notifications).set({ isRead: true, readAt: new Date() })
               .where(sql`${notifications.userId} = ${userId} AND ${notifications.type} = 'new_chat'
@@ -41178,6 +41219,8 @@ Rules:
             
           case "typing":
             if (!userId) return;
+            if (typeof message.receiverId !== "string"
+              || !chatPairAllowed(await loadChatPolicy(), userId, message.receiverId)) return;
             sendChatToUser(message.receiverId, {
                 type: "user_typing",
                 userId: userId,
@@ -41208,7 +41251,14 @@ Rules:
     });
   });
   
-  function broadcastPresence() {
+  async function broadcastPresence() {
+    let policy: ChatPolicy;
+    try { policy = await loadChatPolicy(); }
+    catch {
+      for (const id of onlineUsers.keys()) sendChatToUser(id, { type: "presence_update", onlineUsers: [] });
+      console.error("[Chat] Presence policy unavailable");
+      return;
+    }
     const onlineUserList = Array.from(onlineUsers.values()).map(u => ({
       id: u.user.id,
       fullName: u.user.fullName,
@@ -41216,32 +41266,31 @@ Rules:
       avatarUrl: u.user.avatarUrl
     }));
     
-    const presenceMessage = JSON.stringify({
-      type: "presence_update",
-      onlineUsers: onlineUserList
-    });
-    
     for (const { ws } of onlineUsers.values()) {
       if (ws.readyState === WebSocket.OPEN) {
         const viewer = Array.from(onlineUsers.values()).find(connection => connection.ws === ws)?.user;
         if (viewer) sendChatToUser(viewer.id, { type: "presence_update", onlineUsers: onlineUserList.filter(candidate => {
           const target = onlineUsers.get(candidate.id)?.user;
-          return viewer && target;
+          return target && chatPartnerAllowed(policy, viewer, target);
         }) });
       }
     }
   }
   
-  function chatPartnerAllowed(viewer: any, target: any) {
-    // Private user-to-user conversations are independent of task/Mission
-    // country scopes. Their contents are always queried by the session's pair.
-    return !!viewer?.id && !!target?.id;
+  async function loadChatPolicy(): Promise<ChatPolicy> {
+    const assignments = await db.select({ userId: campaignAgents.userId, chatUserIds: campaignAgents.chatUserIds })
+      .from(campaignAgents).where(sql`${campaignAgents.chatUserIds} IS NOT NULL`);
+    return buildChatPolicy(assignments);
+  }
+  function chatPartnerAllowed(policy: ChatPolicy, viewer: any, target: any) {
+    return chatPairAllowed(policy, viewer?.id, target?.id);
   }
   app.get("/api/chat/people", requireAuth, async (req, res) => {
     try {
       const candidates = await db.select({ id: users.id, fullName: users.fullName, username: users.username, avatarUrl: users.avatarUrl, role: users.role, assignedCountries: users.assignedCountries })
         .from(users).where(eq(users.isActive, true));
-      res.json(candidates.filter(person => person.id !== req.session.user!.id && chatPartnerAllowed(req.session.user!, person))
+      const policy = await loadChatPolicy();
+      res.json(candidates.filter(person => chatPartnerAllowed(policy, req.session.user!, person))
         .map(({ id, fullName, username, avatarUrl }) => ({ id, fullName, username, avatarUrl })));
     } catch { res.status(500).json({ error: "Failed to load colleagues" }); }
   });
@@ -41250,12 +41299,13 @@ Rules:
     try {
       const userId = req.session.user!.id;
       const conversations = await storage.getChatConversations(userId);
+      const policy = await loadChatPolicy();
       
       // Enrich with user data
       const enrichedConversations = await Promise.all(
         conversations.map(async (conv) => {
           const partner = await storage.getUser(conv.partnerId);
-          if (!partner || !chatPartnerAllowed(req.session.user!, partner)) return null;
+          if (!partner || !partner.isActive || !chatPartnerAllowed(policy, req.session.user!, partner)) return null;
           return {
             ...conv,
             partner: partner ? { 
@@ -41280,7 +41330,7 @@ Rules:
       const userId = req.session.user!.id;
       const { partnerId } = req.params;
       const partner = await storage.getUser(partnerId);
-      if (!partner || !chatPartnerAllowed(req.session.user!, partner)) return res.status(404).json({ error: "Conversation not found" });
+      if (!partner || !partner.isActive || !chatPartnerAllowed(await loadChatPolicy(), req.session.user!, partner)) return res.status(404).json({ error: "Conversation not found" });
       const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
       
       const messages = await storage.getChatMessages(userId, partnerId, limit);
@@ -41297,7 +41347,8 @@ Rules:
   
   app.get("/api/chat/online-users", requireAuth, async (req, res) => {
     try {
-      const onlineUserList = Array.from(onlineUsers.values()).filter(u => chatPartnerAllowed(req.session.user!, u.user)).map(u => ({
+      const policy = await loadChatPolicy();
+      const onlineUserList = Array.from(onlineUsers.values()).filter(u => chatPartnerAllowed(policy, req.session.user!, u.user)).map(u => ({
         id: u.user.id,
         fullName: u.user.fullName,
         username: u.user.username,

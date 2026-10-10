@@ -99,6 +99,14 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
     if (open) { setSearch(""); setFilter("all"); }
   }, [open]);
   useEffect(() => {
+    const openBackOffice = () => {
+      setMode("backOffice");
+      setTaskId("");
+    };
+    window.addEventListener("pulse_inbox_back_office", openBackOffice);
+    return () => window.removeEventListener("pulse_inbox_back_office", openBackOffice);
+  }, []);
+  useEffect(() => {
     setTaskDrafts({}); setDirectDrafts({}); setTaskId(""); setPartnerId("");
   }, [user?.id]);
   const commentMutation = useMutation({
@@ -122,7 +130,7 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
     sum + Math.max(chat.unreadCounts.get(thread.partnerId) || 0, thread.unreadCount || 0), 0);
   const error = (retry: () => unknown) => <div className="pulse-empty" role="alert">{c.loadFailed}<button className="pulse-btn ml-2" onClick={() => { retry(); }}>{t.common.refresh}</button></div>;
   return <Dialog modal={mode !== "backOffice"} open={open} onOpenChange={onOpenChange}>
-    <DialogContent onInteractOutside={event => { if (mode === "backOffice") event.preventDefault(); }} className={`${boEntityOpen ? "invisible" : ""} pulse-live z-[10021] w-[calc(100vw-24px)] max-w-[1240px] sm:max-w-[1240px] h-[calc(100dvh-32px)] max-h-[900px] p-0 gap-0 border-0 bg-[#eaf1f6]`} data-testid="pulse-communication-center">
+    <DialogContent onInteractOutside={event => { if (mode === "backOffice") event.preventDefault(); }} className={`${boEntityOpen ? "invisible" : ""} pulse-live pulse-center-dialog z-[10021] w-[calc(100vw-24px)] max-w-[1240px] sm:max-w-[1240px] h-[calc(100dvh-32px)] max-h-[900px] p-0 gap-0 border-0 bg-[#eaf1f6]`} data-testid="pulse-communication-center">
       <DialogTitle className="sr-only">{c.centerTitle}</DialogTitle><DialogDescription className="sr-only">{c.centerSubtitle}</DialogDescription>
       <div className="pulse-frame">
         <div className="pulse-top"><div className="pulse-brand">NEXUS <b>PULSE</b></div></div>
@@ -141,7 +149,7 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
               </select></div>
               {mode === "backOffice" && <BackOfficeQuestionsInbox onEntityOpenChange={setBoEntityOpen} />}
               <div className="center-task-list">{tasks.isLoading || questions.isLoading ? <div className="pulse-empty">{t.common.loading}</div> : tasks.isError || questions.isError ? error(() => { void tasks.refetch(); void questions.refetch(); }) : shown.map(row => <button key={row.id} className={`center-task-item ${task?.id === row.id ? "is-current" : ""}`} onClick={() => setTaskId(row.id)}>
-                <div className="center-item-top"><span className={`status-dot ${stateKey(row) === "completed" ? "done" : stateKey(row) === "in_progress" ? "active" : ""}`}/><span className="status-name">{statusLabel(row)}</span><time className="center-time">{stamp(row.createdAt)}</time></div>
+                <div className="center-item-top"><span className={`status-dot status-${stateKey(row)}`}/><span className={`status-name status-${stateKey(row)}`}>{statusLabel(row)}</span><time className="center-time">{stamp(row.createdAt)}</time></div>
                 <strong>{row.title}</strong><div className="center-handler"><Users size={12}/>{handler(row)}</div>
               </button>)}
                 {!tasks.isLoading && !tasks.isError && !shown.length && <div className="pulse-empty">{c.noRequests}{(search || filter !== "all") && <button className="pulse-btn mt-2" onClick={() => { setSearch(""); setFilter("all"); }}>{c.clearFilters}</button>}</div>}
@@ -149,16 +157,24 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
             </aside>
             {task && !tasks.isError ? <section className="center-detail pulse-panel">
               <header className="center-detail-head"><div><div className="pulse-eyebrow">{requestTypeLabel({ id: task.requestRecipients?.typeId, name: task.requestRecipients?.typeName }, t)}</div><h2>{task.title}</h2>
-                <div className="center-meta"><span className="status-pill">{statusLabel(task)}</span><span><Users size={13}/>{t.quickCreate.assignedTo}: {handler(task)}</span>{task.dueDate && <span><Clock3 size={13}/>{stamp(task.dueDate)}</span>}</div>
+                 <div className="center-meta"><span className="status-pill" data-status={stateKey(task)}>{statusLabel(task)}</span><span><Users size={13}/>{t.quickCreate.assignedTo}: {handler(task)}</span>{task.dueDate && <span><Clock3 size={13}/>{stamp(task.dueDate)}</span>}</div>
               </div></header>
               <div className="center-detail-scroll">
                 <div className="center-section-title">{t.tasks.originalRequest}</div><div className="authored-request">{task.description || task.title}</div>
                 <TaskAttachmentList attachments={task.attachments || []}/>
                 <div className="center-section-title mt-4">{c.history}</div><div className="history-list">
-                  <div className="history-event"><Clock3 size={14} className="history-icon"/><div><b>{c.created}</b><small>{stamp(task.createdAt)}</small></div></div>
-                  {task.workStartedAt && <div className="history-event"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.inProgress}</b><small>{stamp(task.workStartedAt)}</small></div></div>}
-                  {task.resolvedAt && <div className="history-event"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.completed}</b><small>{personName(people.data?.find(person => person.id === task.resolvedByUserId))} · {stamp(task.resolvedAt)}</small></div></div>}
-                  {(comments.data || []).filter(comment => comment.kind === "state_change").map(comment => <div className="history-event" key={comment.id}><Clock3 size={14} className="history-icon"/><div><b>{comment.content}</b><small>{personName(people.data?.find(person => person.id === comment.userId))} · {stamp(comment.createdAt)}</small></div></div>)}
+                   <div className="history-event history-created"><Clock3 size={14} className="history-icon"/><div><b>{c.created}</b><small>{stamp(task.createdAt)}</small></div></div>
+                   {task.workStartedAt && <div className="history-event history-in-progress"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.inProgress}</b><small>{stamp(task.workStartedAt)}</small></div></div>}
+                   {task.resolvedAt && <div className="history-event history-completed"><Clock3 size={14} className="history-icon"/><div><b>{t.tasks.completed}</b><small>{personName(people.data?.find(person => person.id === task.resolvedByUserId))} · {stamp(task.resolvedAt)}</small></div></div>}
+                   {(comments.data || []).filter(comment => comment.kind === "state_change").map(comment => {
+                     const label = comment.content.toLocaleLowerCase();
+                     const tone = label.includes(t.tasks.inProgress.toLocaleLowerCase()) ? "history-in-progress"
+                       : label.includes(t.tasks.completed.toLocaleLowerCase()) ? "history-completed"
+                         : label.includes(t.backOffice.stateWaitingAgent.toLocaleLowerCase()) ? "history-waiting-agent"
+                           : label.includes(t.tasks.statuses.cancelled.toLocaleLowerCase()) ? "history-cancelled"
+                             : label.includes(t.tasks.statuses.pending.toLocaleLowerCase()) ? "history-created" : "";
+                     return <div className={`history-event ${tone}`} key={comment.id}><Clock3 size={14} className="history-icon"/><div><b>{comment.content}</b><small>{personName(people.data?.find(person => person.id === comment.userId))} · {stamp(comment.createdAt)}</small></div></div>;
+                   })}
                 </div>
                 {task.resolution && <div className="authored-request mt-3">{task.resolution}</div>}
                 <div className="center-discussion-title"><div><div className="center-section-title">{c.discussion}</div><span>{c.discussionHint}</span></div></div>
@@ -176,8 +192,9 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
               </form>
             </section> : <div className="center-detail pulse-panel"><div className="pulse-empty">{c.noRequests}</div></div>}
           </div>}
-          <div className={`flex-1 min-h-0 ${mode === "direct" ? "flex" : "hidden"}`}>
+          <div className={`pulse-direct-host flex-1 min-h-0 ${mode === "direct" ? "flex" : "hidden"}`}>
             <InternalChatPanel
+              theme="pulse"
               active={open && mode === "direct"}
               initialPartnerId={partnerId || null}
               onPartnerChange={id => setPartnerId(id || "")}
