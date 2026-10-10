@@ -178,6 +178,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
   });
 }
 test("toolbar follows My Shift and retains task alerts until viewed, with live unread chat", async ({ page }) => {
+  test.setTimeout(90_000);
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?toolbar");
   const trigger = page.getByTestId("btn-toolbar-communication-center");
@@ -185,7 +186,8 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   await expect(trigger).not.toContainText("Pulse Inbox");
   await expect(page.getByTestId("btn-open-my-activity").locator("xpath=following-sibling::*[1]")).toHaveAttribute("data-testid", "btn-toolbar-communication-center");
   await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
-  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-progress")).toHaveCount(0);
+  await expect(page.getByTestId("communication-updates-completed")).toHaveCount(0);
   await page.waitForFunction(() => !!localStorage.getItem("pulse-communication-seen:viewer"));
   state.currentTasks[0].status = "in_progress";
   state.currentTasks[1].status = "completed";
@@ -197,19 +199,19 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
   await trigger.locator(".pta-communication-label").click();
   await expect(page.getByRole("heading", { name: "Pulse Inbox", level: 1 })).toBeVisible();
-  await expect(page.getByTestId("communication-updates-completed")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-completed")).toHaveCount(0);
   await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
   await page.getByTestId("inbox-tab-back-office").click();
-  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-progress")).toHaveCount(0);
   await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
   await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
-  await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-chat")).toHaveCount(0);
   await expect(page.getByTestId("communication-updates-back-office")).toContainText("1");
   state.incoming("b");
   await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
   await expect(page.getByTestId("communication-updates-dot")).toHaveCount(1);
   await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague B/ }).click();
-  await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-chat")).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
 

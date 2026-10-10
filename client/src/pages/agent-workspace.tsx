@@ -15810,15 +15810,15 @@ function AgentWorkspacePageContent() {
       }} data-testid="btn-mobile-communication-center">
         <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.inboxLabel}
         {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat + communicationUpdates.counts.backOffice > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
-        <span className="ml-2 flex items-center gap-2">
-          {!!communicationUpdates.counts.backOffice && <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-1 text-amber-900" title={t.backOffice.questionsInboxTitle}>
+        {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat + communicationUpdates.counts.backOffice > 0) && <span className="ml-2 flex items-center gap-2">
+          {communicationUpdates.counts.backOffice > 0 && <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-1 text-amber-900" title={t.backOffice.questionsInboxTitle}>
             <span className="h-2 w-2 rounded-full bg-red-500 motion-safe:animate-pulse" aria-hidden="true"/>
             {t.backOffice.title}: {communicationUpdates.counts.backOffice}
           </span>}
-          <span className="flex items-center gap-1 text-blue-600" title={t.tasks.inProgress} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.counts.inProgress}`}><Clock className="h-3 w-3"/>{communicationUpdates.counts.inProgress}</span>
-          <span className="flex items-center gap-1 text-green-600" title={t.tasks.completed} aria-label={`${t.tasks.completed}: ${communicationUpdates.counts.completed}`}><CheckCircle className="h-3 w-3"/>{communicationUpdates.counts.completed}</span>
-          <span className="flex items-center gap-1 text-blue-600" title={t.taskCommunication.directMessages} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.counts.chat}`}><MessageSquare className="h-3 w-3"/>{communicationUpdates.counts.chat}</span>
-        </span>
+          {communicationUpdates.counts.inProgress > 0 && <span className="flex items-center gap-1 text-blue-600" title={t.tasks.inProgress} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.counts.inProgress}`}><Clock className="h-3 w-3"/>{communicationUpdates.counts.inProgress}</span>}
+          {communicationUpdates.counts.completed > 0 && <span className="flex items-center gap-1 text-green-600" title={t.tasks.completed} aria-label={`${t.tasks.completed}: ${communicationUpdates.counts.completed}`}><CheckCircle className="h-3 w-3"/>{communicationUpdates.counts.completed}</span>}
+          {communicationUpdates.counts.chat > 0 && <span className="flex items-center gap-1 text-blue-600" title={t.taskCommunication.directMessages} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.counts.chat}`}><MessageSquare className="h-3 w-3"/>{communicationUpdates.counts.chat}</span>}
+        </span>}
       </Button></div>}
       {!isMobile && (
       <AgentToolbarUnified

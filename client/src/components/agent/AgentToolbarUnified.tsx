@@ -310,22 +310,22 @@ export function AgentToolbarUnified({
             >
               <MessageSquare size={15} aria-hidden="true" />
               <span className="pta-communication-label">{t.taskCommunication.inboxLabel}</span>
-              <span className="pta-communication-counts">
-                {!!communicationUpdates.backOffice && <span className="pta-communication-bo-alert" data-testid="communication-updates-back-office">
+              {hasCommunicationUpdates && <span className="pta-communication-counts">
+                {(communicationUpdates.backOffice || 0) > 0 && <span className="pta-communication-bo-alert" data-testid="communication-updates-back-office">
                   <span className="pta-communication-bo-dot" aria-hidden="true" />
                   <span className="pta-communication-bo-label">{t.backOffice.questionsInboxTitle}</span>
                   <b>{communicationUpdates.backOffice}</b>
                 </span>}
-                <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
+                {communicationUpdates.inProgress > 0 && <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
                   <Clock3 aria-hidden="true" /><b>{communicationUpdates.inProgress}</b>
-                </span>
-                <span className="pta-communication-count is-completed" title={`${t.tasks.completed}: ${communicationUpdates.completed}`} aria-label={`${t.tasks.completed}: ${communicationUpdates.completed}`} data-testid="communication-updates-completed">
+                </span>}
+                {communicationUpdates.completed > 0 && <span className="pta-communication-count is-completed" title={`${t.tasks.completed}: ${communicationUpdates.completed}`} aria-label={`${t.tasks.completed}: ${communicationUpdates.completed}`} data-testid="communication-updates-completed">
                   <CheckCircle2 aria-hidden="true" /><b>{communicationUpdates.completed}</b>
-                </span>
-                <span className="pta-communication-count" title={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} data-testid="communication-updates-chat">
+                </span>}
+                {communicationUpdates.chat > 0 && <span className="pta-communication-count" title={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} data-testid="communication-updates-chat">
                   <MessageSquare aria-hidden="true" /><b>{communicationUpdates.chat}</b>
-                </span>
-              </span>
+                </span>}
+              </span>}
               {hasCommunicationUpdates && <span className="pta-communication-dot" data-testid="communication-updates-dot" aria-hidden="true" />}
             </button>
           )}
