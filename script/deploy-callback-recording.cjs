@@ -76,6 +76,16 @@ function atomicCopy(source, destination) {
   fs.copyFileSync(source, temporary);
   fs.renameSync(temporary, destination);
 }
+function extractSourceArchive(target, build, backup) {
+  // Git writes directly into the private backup directory. Never buffer the
+  // whole repository in Node, and never pipe a Buffer into another child.
+  const archive = path.join(backup, "source.tar");
+  execFileSync("git", ["archive", "--format=tar", `--output=${archive}`, target], {
+    cwd: root, stdio: ["ignore", "inherit", "inherit"],
+  });
+  execFileSync("tar", ["-xf", archive, "-C", build], { stdio: "inherit" });
+  fs.unlinkSync(archive);
+}
 async function main() {
   assert(os.userInfo().username === "seman" && os.hostname().split(".")[0].toUpperCase() === "CORPCRM01",
     "Run only as seman on CORPCRM01");
@@ -100,8 +110,7 @@ async function main() {
   fs.writeFileSync(path.join(backup, "target-head.txt"), target + "\n", { mode: 0o600 });
   fs.cpSync(path.join(root, "dist"), path.join(backup, "dist"), { recursive: true });
   console.log(`ZÁLOHA: ${backup}`);
-  const archive = execFileSync("git", ["archive", target], { cwd: root, maxBuffer: 250 * 1024 * 1024 });
-  execFileSync("tar", ["-x", "-C", build], { input: archive });
+  extractSourceArchive(target, build, backup);
   fs.symlinkSync(path.join(root, "node_modules"), path.join(build, "node_modules"));
   if (fs.existsSync(path.join(root, ".env"))) fs.symlinkSync(path.join(root, ".env"), path.join(build, ".env"));
   execFileSync("npm", ["run", "build"], { cwd: build, stdio: "inherit" });

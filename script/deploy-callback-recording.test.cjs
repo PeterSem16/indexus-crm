@@ -26,7 +26,7 @@ function fixture(run) {
     function load(overrides = {}) {
       return vm.runInNewContext(
         source.replace('const root = "/var/www/indexus-crm";', `const root = ${JSON.stringify(root)};`)
-          + "\n;({ filesStillMatch });",
+          + "\n;({ filesStillMatch, extractSourceArchive });",
         {
           require(name) {
             if (name === "node:child_process") return { ...cp, ...overrides };
@@ -35,9 +35,10 @@ function fixture(run) {
           module: {}, process: { argv: [] }, console,
           Buffer, setTimeout,
         },
-      ).filesStillMatch;
+      );
     }
-    return run({ root, commit, load, git });
+    return run({ root, commit, load: overrides => load(overrides).filesStillMatch,
+      loadArchive: overrides => load(overrides).extractSourceArchive, git });
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
@@ -85,4 +86,49 @@ test("Git tree lookup failures cannot be interpreted as missing files", () => fi
     },
   });
   assert.throws(() => check(commit, [file]), /isolated tree failure/);
+}));
+
+test("real archive exceeding the former 250 MiB buffer limit is written and extracted without a Buffer", () =>
+  fixture(({ root, loadArchive, git }) => {
+    const asset = path.join(root, "large-archive-fixture.bin");
+    fs.closeSync(fs.openSync(asset, "w"));
+    const size = 251 * 1024 * 1024;
+    fs.truncateSync(asset, size);
+    git("add", "--", "large-archive-fixture.bin");
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+      "-c", "commit.gpgsign=false", "commit", "--quiet", "-m", "Large archive fixture");
+    const commit = git("rev-parse", "HEAD");
+    const backup = fs.mkdtempSync(path.join(os.tmpdir(), "callback-archive-backup-"));
+    fs.chmodSync(backup, 0o700);
+    const build = path.join(backup, "build");
+    fs.mkdirSync(build);
+    const calls = [];
+    const extract = loadArchive({
+      execFileSync(bin, args, options) {
+        calls.push({ bin, args, options });
+        assert.ok(!options?.input, "must not pass the archive through Node memory");
+        return cp.execFileSync(bin, args, options);
+      },
+    });
+    try {
+      extract(commit, build, backup);
+      assert.equal(fs.statSync(path.join(build, "large-archive-fixture.bin")).size, size);
+      assert.equal(fs.readFileSync(path.join(build, file), "utf8"), fs.readFileSync(path.join(root, file), "utf8"));
+      assert.ok(calls.find(call => call.bin === "git").args.some(arg => arg.startsWith("--output=")));
+      assert.equal(fs.existsSync(path.join(backup, "source.tar")), false);
+    } finally {
+      fs.rmSync(backup, { recursive: true, force: true });
+    }
+  }));
+
+test("archive creation failure stops before extraction", () => fixture(({ commit, root, loadArchive }) => {
+  let extracted = false;
+  const extract = loadArchive({
+    execFileSync(bin) {
+      if (bin === "git") throw new Error("isolated archive write failure");
+      extracted = true;
+    },
+  });
+  assert.throws(() => extract(commit, root, root), /isolated archive write failure/);
+  assert.equal(extracted, false);
 }));
