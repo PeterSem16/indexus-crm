@@ -165,6 +165,8 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?toolbar");
   const trigger = page.getByTestId("btn-toolbar-communication-center");
+  await expect(trigger).toContainText("Inbox");
+  await expect(trigger).not.toContainText("Pulse Inbox");
   await expect(page.getByTestId("btn-open-my-activity").locator("xpath=following-sibling::*[1]")).toHaveAttribute("data-testid", "btn-toolbar-communication-center");
   await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
   await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
@@ -178,6 +180,7 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
   await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
   await trigger.click();
+  await expect(page.getByRole("heading", { name: "Pulse Inbox", level: 1 })).toBeVisible();
   await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
   await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
   await page.getByRole("button", { name: /Second request/ }).click();

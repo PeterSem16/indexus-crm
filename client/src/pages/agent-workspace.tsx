@@ -15806,7 +15806,7 @@ function AgentWorkspacePageContent() {
       )}
 
       {isMobile && <div className="px-3 py-2"><Button size="sm" variant="outline" onClick={() => setCommunicationCenterOpen(true)} data-testid="btn-mobile-communication-center">
-        <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.centerTitle}
+        <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.inboxLabel}
         {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
         <span className="ml-2 flex items-center gap-2">
           <span className="flex items-center gap-1 text-blue-600" title={t.tasks.inProgress} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.counts.inProgress}`}><Clock className="h-3 w-3"/>{communicationUpdates.counts.inProgress}</span>

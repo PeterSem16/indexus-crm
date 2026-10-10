@@ -296,12 +296,12 @@ export function AgentToolbarUnified({
               type="button"
               className="pta-button pta-communication-center"
               onClick={onOpenCommunicationCenter}
-              title={`${t.taskCommunication.centerTitle} — ${communicationCountsLabel}`}
-              aria-label={`${t.taskCommunication.centerTitle}: ${communicationCountsLabel}`}
+              title={`${t.taskCommunication.inboxLabel} — ${communicationCountsLabel}`}
+              aria-label={`${t.taskCommunication.inboxLabel}: ${communicationCountsLabel}`}
               data-testid="btn-toolbar-communication-center"
             >
               <MessageSquare size={15} aria-hidden="true" />
-              <span className="pta-communication-label">{t.taskCommunication.centerTitle}</span>
+              <span className="pta-communication-label">{t.taskCommunication.inboxLabel}</span>
               <span className="pta-communication-counts">
                 <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
                   <Clock3 aria-hidden="true" /><b>{communicationUpdates.inProgress}</b>
