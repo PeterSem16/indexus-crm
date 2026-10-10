@@ -3,6 +3,7 @@ import type { AgentBreakType } from "@shared/schema";
 import { useAuth } from "@/contexts/auth-context";
 import {
   CalendarClock,
+  CheckCircle2,
   ChevronDown,
   Clock3,
   Coffee,
@@ -50,6 +51,7 @@ interface AgentToolbarUnifiedProps {
   onOpenScheduledQueue?: () => void;
   scheduledQueueCounts?: { total: number; overdue: number };
   missedCommunicationCounts?: { calls: number; emails: number; sms: number };
+  communicationUpdates?: { inProgress: number; completed: number; chat: number };
   onOpenAbandonedCalls?: () => void;
   onOpenMyActivity?: () => void;
   onOpenCommunicationCenter?: () => void;
@@ -75,6 +77,7 @@ export function AgentToolbarUnified({
   onOpenScheduledQueue,
   scheduledQueueCounts,
   missedCommunicationCounts,
+  communicationUpdates = { inProgress: 0, completed: 0, chat: 0 },
   onOpenAbandonedCalls,
   onOpenMyActivity,
   onOpenCommunicationCenter,
@@ -105,6 +108,8 @@ export function AgentToolbarUnified({
   };
   const currentStatus = statusConfig[isOnBreak ? "break" : status];
   const callForwardingActive = !!(fwdData?.enabled && fwdData.number);
+  const communicationCountsLabel = `${t.tasks.inProgress}: ${communicationUpdates.inProgress}, ${t.tasks.completed}: ${communicationUpdates.completed}, ${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`;
+  const hasCommunicationUpdates = communicationUpdates.inProgress > 0 || communicationUpdates.completed > 0 || communicationUpdates.chat > 0;
   const formatCount = (value: number, quota: number | null | undefined) =>
     quota === null || quota === undefined ? String(value) : `${value}/${quota}`;
 
@@ -276,9 +281,6 @@ export function AgentToolbarUnified({
               <span className="pta-open-indicator">{t.agentWorkspace.toolbar.open}</span>
             </button>
           )}
-          {onOpenCommunicationCenter && (
-            <button type="button" className="pta-button" onClick={onOpenCommunicationCenter} title={t.taskCommunication.centerTitle} aria-label={t.taskCommunication.centerTitle} data-testid="btn-toolbar-communication-center"><MessageSquare className="h-3.5 w-3.5" /></button>
-          )}
           {onOpenMyActivity && (
             <button type="button" className="pta-button pta-shift" onClick={onOpenMyActivity} data-testid="btn-open-my-activity">
               <span className="pta-symbol"><History size={21} strokeWidth={1.7} /></span>
@@ -287,6 +289,31 @@ export function AgentToolbarUnified({
                 <span>{t.agentWorkspace.toolbar.myShiftHint}</span>
               </span>
               <span className="pta-open-indicator">{t.agentWorkspace.toolbar.open}</span>
+            </button>
+          )}
+          {onOpenCommunicationCenter && (
+            <button
+              type="button"
+              className="pta-button pta-communication-center"
+              onClick={onOpenCommunicationCenter}
+              title={`${t.taskCommunication.centerTitle} — ${communicationCountsLabel}`}
+              aria-label={`${t.taskCommunication.centerTitle}: ${communicationCountsLabel}`}
+              data-testid="btn-toolbar-communication-center"
+            >
+              <MessageSquare size={15} aria-hidden="true" />
+              <span className="pta-communication-label">{t.taskCommunication.centerTitle}</span>
+              <span className="pta-communication-counts">
+                <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
+                  <Clock3 aria-hidden="true" /><b>{communicationUpdates.inProgress}</b>
+                </span>
+                <span className="pta-communication-count is-completed" title={`${t.tasks.completed}: ${communicationUpdates.completed}`} aria-label={`${t.tasks.completed}: ${communicationUpdates.completed}`} data-testid="communication-updates-completed">
+                  <CheckCircle2 aria-hidden="true" /><b>{communicationUpdates.completed}</b>
+                </span>
+                <span className="pta-communication-count" title={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`} data-testid="communication-updates-chat">
+                  <MessageSquare aria-hidden="true" /><b>{communicationUpdates.chat}</b>
+                </span>
+              </span>
+              {hasCommunicationUpdates && <span className="pta-communication-dot" data-testid="communication-updates-dot" aria-hidden="true" />}
             </button>
           )}
         </div>

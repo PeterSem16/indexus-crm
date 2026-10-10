@@ -11,6 +11,9 @@ const tasks = [
   { id: "task-two", title: "Second request", description: "Second original content", createdByUserId: "viewer", assignedUserId: "b", status: "in_progress", tags: [], requestRecipients: { userIds: ["b"] }, attachments: [], createdAt: "2026-10-10T07:00:00Z" },
 ];
 async function setup(page: Page) {
+  const currentTasks: any[] = structuredClone(tasks);
+  const unread: Record<string, number> = { a: 1, b: 0 };
+  let chatSocket: any;
   const comments: Record<string, any[]> = { "task-one": [{ id: "question", taskId: "task-one", userId: "a", kind: "question", content: "Please clarify", createdAt: "2026-10-10T09:00:00Z" }], "task-two": [] };
   const messages: Record<string, any[]> = { a: [{ id: "initial-a", senderId: "a", receiverId: "viewer", content: "Private A message", createdAt: "2026-10-10T09:00:00Z" }], b: [] };
   const routes = [{ id: "change_data", name: "change_data", groupIds: ["bo"], userIds: ["a"], enabled: true }, { id: "other", name: "other", groupIds: [], userIds: [], enabled: false }];
@@ -26,11 +29,12 @@ async function setup(page: Page) {
     if (method !== "GET") writes.push({ url, body: request.postDataJSON() });
     if (url === "/api/auth/me") data = { user: { ...users[0], role: "admin", isActive: true, assignedCountries: ["SK"], locale: "en" } };
     else if (url === "/api/task-settings/access") data = { canManage: true };
-    else if (url === "/api/tasks/created") data = tasks;
+    else if (url === "/api/tasks/created") data = currentTasks;
     else if (url === "/api/tasks/people") data = users;
     else if (url === "/api/task-settings/users") data = { configured: false, allowedUserIds: [], users: users.map(user => ({ ...user, isActive: true, email: null, avatarUrl: null })), updatedAt: null };
     else if (url === "/api/chat/people") data = users.slice(1);
-    else if (url === "/api/chat/conversations") data = [{ partnerId: "a", partner: users[1], unreadCount: 1, lastMessage: messages.a.at(-1) }];
+    else if (url === "/api/chat/conversations") data = Object.entries(messages).filter(([, rows]) => rows.length).map(([id, rows]) => ({ partnerId: id, partner: users.find(user => user.id === id), unreadCount: unread[id], lastMessage: rows.at(-1) }));
+    else if (url.endsWith("/call-forwarding")) data = { enabled: false, number: null };
     else if (url.startsWith("/api/chat/messages/")) data = messages[url.split("/").at(-1)!] || [];
     else if (url === "/api/tasks/assignment-options") data = { users: users.slice(1), groups: [{ id: "bo", name: "Back Office" }, { id: "it", name: "IT" }], canResolve: true };
     else if (url === "/api/task-groups" || url === "/api/task-settings/groups") data = [{ id: "bo", name: "Back Office", members: [users[1]], memberCount: 1, memberIds: ["a"] }];
@@ -55,11 +59,15 @@ async function setup(page: Page) {
     await route.fulfill({ json: data });
   });
   await page.routeWebSocket("**/ws/chat", socket => {
+    chatSocket = socket;
     socket.onMessage(raw => {
       const message = JSON.parse(raw.toString());
       if (message.type === "auth") {
         socket.send(JSON.stringify({ type: "auth_success", userId: "viewer" }));
         socket.send(JSON.stringify({ type: "presence_update", onlineUsers: users }));
+      } else if (message.type === "mark_read") {
+        unread[message.senderId] = 0;
+        socket.send(JSON.stringify({ type: "read_confirmed", senderId: message.senderId }));
       } else if (message.type === "chat_message" && deliveries) {
         const saved = { id: `sent-${messages[message.receiverId].length}`, senderId: "viewer", receiverId: message.receiverId, content: message.content, createdAt: new Date().toISOString() };
         messages[message.receiverId].push(saved);
@@ -67,7 +75,13 @@ async function setup(page: Page) {
       }
     });
   });
-  return { writes, errors, setDeliveries: (value: boolean) => { deliveries = value; } };
+  return { writes, errors, currentTasks, setDeliveries: (value: boolean) => { deliveries = value; },
+    incoming: (partnerId: string) => {
+      const message = { id: "incoming-new", senderId: partnerId, receiverId: "viewer", content: "New private message", createdAt: new Date().toISOString() };
+      messages[partnerId].push(message); unread[partnerId]++;
+      chatSocket.send(JSON.stringify({ type: "new_message", message, sender: users.find(user => user.id === partnerId) }));
+    },
+  };
 }
 test("real communication center separates histories, retains per-thread drafts and answers BO questions", async ({ page }) => {
   const state = await setup(page);
@@ -147,3 +161,34 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
     expect(state.errors).toEqual([]);
   });
 }
+test("toolbar follows My Shift and retains task alerts until viewed, with live unread chat", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?toolbar");
+  const trigger = page.getByTestId("btn-toolbar-communication-center");
+  await expect(page.getByTestId("btn-open-my-activity").locator("xpath=following-sibling::*[1]")).toHaveAttribute("data-testid", "btn-toolbar-communication-center");
+  await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
+  await page.waitForFunction(() => !!localStorage.getItem("pulse-communication-seen:viewer"));
+  state.currentTasks[0].status = "in_progress";
+  state.currentTasks[1].status = "completed";
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("1", { timeout: 12000 });
+  await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
+  await page.screenshot({ path: "test-results/communication-toolbar-updates.png" });
+  await page.reload();
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
+  await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
+  await trigger.click();
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
+  await page.getByRole("button", { name: /Second request/ }).click();
+  await expect(page.getByTestId("communication-updates-completed")).toContainText("0");
+  await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-dot")).toHaveCount(0);
+  state.incoming("b");
+  await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
+  await expect(page.getByTestId("communication-updates-dot")).toHaveCount(1);
+  await page.getByRole("button", { name: /Test Colleague B/ }).click();
+  await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
+  expect(state.errors).toEqual([]);
+});

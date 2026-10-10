@@ -63,6 +63,14 @@
 .agent-toolbar-unified .pta-counter { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 25px; min-width: 30px; padding: 0 5px; border-radius: 6px; background: #f3f6f9; color: #8397a8; font-size: 11px; }
 .agent-toolbar-unified .pta-counter b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .agent-toolbar-unified .pta-counter.pta-pending { color: #ab5437; background: #fff0e8; box-shadow: inset 0 0 0 1px #f5d9ca; }
+.agent-toolbar-unified .pta-communication-center { position: relative; gap: 7px; }
+.agent-toolbar-unified .pta-communication-center > svg { flex: none; color: #2d6fba; }
+.agent-toolbar-unified .pta-communication-label { white-space: nowrap; font-size: 11px; font-weight: 700; }
+.agent-toolbar-unified .pta-communication-counts { display: inline-flex; align-items: center; gap: 3px; padding-left: 6px; border-left: 1px solid #e4edf5; }
+.agent-toolbar-unified .pta-communication-count { display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px; border-radius: 5px; background: #eef5fa; color: #3979b2; font: 700 10px/1 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.agent-toolbar-unified .pta-communication-count svg { width: 11px; height: 11px; }
+.agent-toolbar-unified .pta-communication-count.is-completed { color: #42845d; background: #edf7f0; }
+.agent-toolbar-unified .pta-communication-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #2d6fba; }
 .agent-toolbar-unified .pta-open-indicator { display: none; }
 
 .pta-status-menu { font-family: "Open Sans", sans-serif; color: #18314d; background: #fbfdff; border-color: #d1e0ed; border-radius: 11px; box-shadow: 0 10px 30px #244e7020; }
@@ -104,6 +112,11 @@
   .agent-toolbar-unified .pta-symbol svg { width: 17px; }
   .agent-toolbar-unified .pta-copy > span, .agent-toolbar-unified .pta-open-indicator { display: none; }
   .agent-toolbar-unified .pta-copy strong { font-size: 11px; white-space: normal; }
+  .agent-toolbar-unified .pta-communication-center { gap: 5px; padding: 6px; }
+  .agent-toolbar-unified .pta-communication-label { font-size: 10px; }
+  .agent-toolbar-unified .pta-communication-counts { gap: 1px; padding-left: 4px; }
+  .agent-toolbar-unified .pta-communication-count { gap: 1px; padding: 3px 2px; font-size: 9px; }
+  .agent-toolbar-unified .pta-communication-count svg { width: 10px; height: 10px; }
   .agent-toolbar-unified .pta-counts { gap: 2px; margin-left: auto; padding-left: 5px; }
   .agent-toolbar-unified .pta-counter { min-width: 26px; height: 23px; padding: 0 4px; gap: 2px; }
   .agent-toolbar-unified .pta-counter svg { width: 11px; }

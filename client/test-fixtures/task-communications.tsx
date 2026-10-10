@@ -7,19 +7,27 @@ import { I18nProvider, useI18n } from "@/i18n";
 import { ChatProvider } from "@/contexts/chat-context";
 import { PulseCommunicationCenter } from "@/components/tasks/pulse-communication-center";
 import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
+import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
+import { useCommunicationUpdates } from "@/hooks/use-communication-updates";
 import { Toaster } from "@/components/ui/toaster";
 import "@/index.css";
 
 function Fixture() {
   const { user } = useAuth();
-  const { setLocale } = useI18n();
-  const [open, setOpen] = useState(true);
+  const { setLocale, t } = useI18n();
+  const toolbar = location.search.includes("toolbar");
+  const updates = useCommunicationUpdates(toolbar && !!user?.id);
+  const [open, setOpen] = useState(!toolbar);
   useEffect(() => setLocale("en"), [setLocale]);
   if (!user) return <div>Loading test identity</div>;
-  return <><button onClick={() => setOpen(true)}>Reopen</button>{
+  return <>{toolbar && <AgentToolbarUnified status="available" onStatusChange={() => {}} stats={{ calls: 0, emails: 0, sms: 0 }}
+    quotas={null} isQuotaBlocked={() => false} workTime="01:00" breakTypes={[]} onStartBreak={() => {}} onOpenBreak={() => {}}
+    breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
+    onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
+    <button onClick={() => setOpen(true)}>Reopen</button>{
     location.search.includes("settings")
       ? <TaskGroupsDialog open={open} onOpenChange={setOpen}/>
-      : <PulseCommunicationCenter open={open} onOpenChange={setOpen} onNewRequest={() => setOpen(false)}/>
+       : <PulseCommunicationCenter open={open} onOpenChange={setOpen} onTaskViewed={updates.markTaskViewed} onNewRequest={() => setOpen(false)}/>
   }<Toaster/></>;
 }
 createRoot(document.getElementById("root")!).render(

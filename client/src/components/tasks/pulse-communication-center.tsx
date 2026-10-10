@@ -28,8 +28,8 @@ function stateKey(task: Task) {
   if (task.status === "in_progress" || task.boState === "in_progress") return "in_progress";
   return "pending";
 }
-export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest }: {
-  open: boolean; onOpenChange: (value: boolean) => void; onNewRequest: () => void;
+export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onTaskViewed }: {
+  open: boolean; onOpenChange: (value: boolean) => void; onNewRequest: () => void; onTaskViewed?: (task: Task) => void;
 }) {
   const { t, locale } = useI18n();
   const c = t.taskCommunication;
@@ -82,6 +82,9 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest }: {
     queryKey: ["/api/tasks", user?.id, task?.id, "comments"], queryFn: async () => (await apiRequest("GET", `/api/tasks/${encodeURIComponent(task!.id)}/comments`)).json(),
     enabled: open && mode === "tasks" && !!task?.id, staleTime: 0, refetchInterval: open && mode === "tasks" ? 10000 : false,
   });
+  useEffect(() => {
+    if (open && mode === "tasks" && task && comments.isSuccess) onTaskViewed?.(task);
+  }, [open, mode, task, comments.isSuccess, onTaskViewed]);
   const directory = useMemo(() => {
     const result = new Map<string, Person>();
     (conversations.data || []).forEach(thread => { if (thread.partner) result.set(thread.partnerId, thread.partner); });

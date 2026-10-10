@@ -132,6 +132,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
             
           case "messages_read":
             break;
+          case "read_confirmed":
+            window.dispatchEvent(new CustomEvent("chat_read_confirmed", { detail: { senderId: data.senderId } }));
+            break;
            case "error":
              window.dispatchEvent(new CustomEvent("chat_delivery_error", { detail: { clientMessageId: data.clientMessageId } }));
              break;

@@ -9684,7 +9684,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Tasks API (protected)
   app.get("/api/tasks/created", requireAuth, async (req, res) => {
     try {
-      const mine = (await getAuthorizedTasksForUser(req.session.user!)).filter(task => task.createdByUserId === req.session.user!.id);
+      const user = req.session.user!;
+      const [created, context] = await Promise.all([
+        db.select().from(tasks).where(eq(tasks.createdByUserId, user.id)),
+        taskAccessContext(user),
+      ]);
+      const mine = created.filter(task => taskIsAccessibleToUser(user, task, context));
       res.json(mine.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch { res.status(500).json({ error: "Failed to load created tasks" }); }
   });
@@ -41126,6 +41131,7 @@ Rules:
             if (!userId) return;
             const { senderId } = message;
             await storage.markMessagesAsRead(senderId, userId);
+            ws.send(JSON.stringify({ type: "read_confirmed", senderId }));
             
             // Notify sender that messages were read
             const sender = onlineUsers.get(senderId);

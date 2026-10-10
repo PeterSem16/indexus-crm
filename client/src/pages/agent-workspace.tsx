@@ -3,6 +3,7 @@ import { PulseCommunicationCenter } from "@/components/tasks/pulse-communication
 import { RequestRecipientPicker } from "@/components/tasks/request-recipient-picker";
 import { emptyRecipients, defaultRecipients, recipientsAreAvailable, requestTypeLabel, type RequestRecipients, type TaskRequestType } from "@/components/tasks/request-routing-model";
 import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
+import { useCommunicationUpdates } from "@/hooks/use-communication-updates";
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { EditableEmailFrame } from "@/components/editable-email-frame";
 import { preserveRecipientFields, recipientContext, renderRecipientDraft, editRecipientDraft,
@@ -9490,7 +9491,6 @@ export function CustomerInfoPanel({
                   { key: "email", icon: Mail, label: t.agentWorkspace.emailAction, color: "#5B4FCF", disabled: !contact.email, testId: "btn-quick-email" },
                   { key: "sms", icon: MessageSquare, label: t.agentWorkspace.smsAction, color: "#2E75B6", disabled: !(phoneOverride || contact.phone), testId: "btn-quick-sms" },
                   { key: "task", icon: CalendarPlus, label: t.agentWorkspace.taskAction, color: "#7A6858", disabled: false, testId: "btn-quick-task" },
-                  { key: "communication", icon: MessageSquare, label: t.taskCommunication.centerTitle, color: "#3079b3", disabled: false, testId: "btn-communication-center" },
                 ].map(({ key, icon: Icon, label, color, disabled, testId }) => {
                   const actionProps = {
                     disabled,
@@ -10755,6 +10755,7 @@ function AgentWorkspacePageContent() {
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [communicationCenterOpen, setCommunicationCenterOpen] = useState(false);
+  const communicationUpdates = useCommunicationUpdates(agentSession.isSessionActive);
   const [taskRecipients, setTaskRecipients] = useState<RequestRecipients>(emptyRecipients);
   const [taskRecipientsManual, setTaskRecipientsManual] = useState(false);
   const [pendingTaskCategory, setPendingTaskCategory] = useState<string | null>(null);
@@ -14198,9 +14199,6 @@ function AgentWorkspacePageContent() {
 
   const handleQuickAction = (action: string) => {
     switch (action) {
-      case "communication":
-        setCommunicationCenterOpen(true);
-        break;
       case "call": {
         setActiveChannel("phone");
         const phoneToCall = currentPhoneOverride || currentClinicData?.phone || currentCollaboratorData?.phone || currentContact?.phone;
@@ -15807,7 +15805,15 @@ function AgentWorkspacePageContent() {
         />
       )}
 
-      {isMobile && <div className="px-3 py-2"><Button size="sm" variant="outline" onClick={() => setCommunicationCenterOpen(true)} data-testid="btn-mobile-communication-center"><MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.centerTitle}</Button></div>}
+      {isMobile && <div className="px-3 py-2"><Button size="sm" variant="outline" onClick={() => setCommunicationCenterOpen(true)} data-testid="btn-mobile-communication-center">
+        <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.centerTitle}
+        {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
+        <span className="ml-2 flex items-center gap-2">
+          <span className="flex items-center gap-1 text-blue-600" title={t.tasks.inProgress} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.counts.inProgress}`}><Clock className="h-3 w-3"/>{communicationUpdates.counts.inProgress}</span>
+          <span className="flex items-center gap-1 text-green-600" title={t.tasks.completed} aria-label={`${t.tasks.completed}: ${communicationUpdates.counts.completed}`}><CheckCircle className="h-3 w-3"/>{communicationUpdates.counts.completed}</span>
+          <span className="flex items-center gap-1 text-blue-600" title={t.taskCommunication.directMessages} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.counts.chat}`}><MessageSquare className="h-3 w-3"/>{communicationUpdates.counts.chat}</span>
+        </span>
+      </Button></div>}
       {!isMobile && (
       <AgentToolbarUnified
         status={agentSession.status}
@@ -15834,6 +15840,7 @@ function AgentWorkspacePageContent() {
         onOpenAbandonedCalls={() => setAbandonedCallsOpen(true)}
         onOpenMyActivity={() => setMyActivityOpen(true)}
         onOpenCommunicationCenter={() => setCommunicationCenterOpen(true)}
+        communicationUpdates={communicationUpdates.counts}
         inboundRingtoneEnabled={inboundRingtoneEnabled}
         onToggleInboundRingtone={toggleInboundRingtone}
       />
@@ -18096,7 +18103,7 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <PulseCommunicationCenter open={communicationCenterOpen} onOpenChange={setCommunicationCenterOpen} onNewRequest={() => {
+      <PulseCommunicationCenter open={communicationCenterOpen} onOpenChange={setCommunicationCenterOpen} onTaskViewed={communicationUpdates.markTaskViewed} onNewRequest={() => {
         setCommunicationCenterOpen(false);
         setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
         setCreateTaskDialogOpen(true);
