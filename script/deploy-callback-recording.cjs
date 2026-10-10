@@ -7,7 +7,7 @@ const path = require("node:path");
 const os = require("node:os");
 const crypto = require("node:crypto");
 const http = require("node:http");
-const { execFileSync, spawnSync } = require("node:child_process");
+const { execFileSync } = require("node:child_process");
 const root = "/var/www/indexus-crm";
 const base = "4cd6e34073d5650f33baf097309613dfba4327ea";
 const permitted = new Set([
@@ -18,6 +18,7 @@ const permitted = new Set([
   "server/lib/standing-recording-transitions.ts", "server/lib/standing-recording-transitions.test.ts",
   "server/lib/standing-recording-flow.test.ts", "shared/missed-call-callback.ts",
   "shared/missed-call-callback.test.ts", "script/deploy-callback-recording.cjs",
+  "script/deploy-callback-recording.test.cjs",
 ]);
 const args = process.argv.slice(2);
 const target = args[args.indexOf("--target") + 1];
@@ -29,10 +30,27 @@ const hash = value => crypto.createHash("sha256").update(value).digest("hex");
 function assert(condition, message) { if (!condition) throw new Error(message); }
 function filesStillMatch(commit, files) {
   for (const file of files) {
-    const blob = spawnSync("git", ["show", `${commit}:${file}`], { cwd: root });
+    // Probe the tree separately: a failed blob read is never proof of absence.
+    // The tree entry is tiny even when the source file exceeds Node's default
+    // 1 MiB child-process output buffer.
+    const entry = command("git", ["ls-tree", "-z", commit, "--", file]);
     const exists = fs.existsSync(path.join(root, file));
-    if (blob.status === 0) assert(exists && hash(fs.readFileSync(path.join(root, file))) === hash(blob.stdout), `SOURCE_CHANGED: ${file}`);
-    else assert(!exists, `UNTRACKED_CONFLICT: ${file}`);
+    if (!entry) {
+      assert(!exists, `UNTRACKED_CONFLICT: ${file}`);
+      continue;
+    }
+    const match = /^(100644|100755) blob ([a-f0-9]{40})\t([\s\S]*)\0$/.exec(entry);
+    assert(match && match[3] === file, `INVALID_SOURCE_ENTRY: ${file}`);
+    let blob;
+    try {
+      blob = execFileSync("git", ["cat-file", "blob", match[2]], {
+        cwd: root, maxBuffer: 64 * 1024 * 1024,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch {
+      throw new Error(`GIT_BLOB_READ_FAILED: ${file}`);
+    }
+    assert(exists && hash(fs.readFileSync(path.join(root, file))) === hash(blob), `SOURCE_CHANGED: ${file}`);
   }
 }
 function status(url) {
