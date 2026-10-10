@@ -4124,6 +4124,7 @@ export const chatMessages = pgTable("chat_messages", {
   senderId: varchar("sender_id").notNull(),
   receiverId: varchar("receiver_id").notNull(),
   content: text("content").notNull(),
+  attachments: jsonb("attachments").$type<TaskAttachment[]>().notNull().default([]),
   isRead: boolean("is_read").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });

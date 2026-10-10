@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { useChatContext } from "@/contexts/chat-context";
+import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
 import { useTaskSettingsAccess } from "@/hooks/use-task-settings-access";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -3067,21 +3069,62 @@ export default function EmailClientPage() {
   useEffect(() => {
     if (activeTab !== "tasks" || !selectedTask) setTaskDetailFullscreen(false);
   }, [activeTab, selectedTask?.id]);
+  const searchString = useSearch();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const [wsOnlineUsers, setWsOnlineUsers] = useState<Array<{ id: string; fullName: string; username: string; avatarUrl?: string }>>([]);
   const [internalChatPartner, setInternalChatPartner] = useState<string | null>(null);
-  const [internalMessages, setInternalMessages] = useState<any[]>([]);
-  const [internalConversations, setInternalConversations] = useState<any[]>([]);
-  const [internalChatInput, setInternalChatInput] = useState("");
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const typingTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
-  const chatScrollRef = useRef<HTMLDivElement>(null);
-  const lastMsgCountRef = useRef<number>(0);
-  const [internalChatLoading, setInternalChatLoading] = useState(false);
-  const internalChatPartnerRef = useRef<string | null>(null);
-  useEffect(() => { internalChatPartnerRef.current = internalChatPartner; }, [internalChatPartner]);
+  const sharedChat = useChatContext();
+  const chatConversationsQuery = useQuery<Array<{
+    partnerId: string;
+    partner?: { id: string; fullName: string | null; username: string; avatarUrl?: string | null } | null;
+    unreadCount: number;
+    lastMessage?: { content?: string | null; createdAt?: string | Date | null } | null;
+  }>>({
+    queryKey: ["/api/chat/conversations", user?.id],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/chat/conversations");
+      if (!response.ok) throw new Error(`Conversation request failed (${response.status})`);
+      return response.json();
+    },
+    enabled: !!user?.id,
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
+  useEffect(() => {
+    if (chatConversationsQuery.isError) {
+      toast({ title: t.taskCommunication.loadFailed, variant: "destructive" });
+    }
+  }, [chatConversationsQuery.isError, t.taskCommunication.loadFailed, toast]);
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    if (params.get("tab") === "chats") {
+      setActiveTab("chats");
+      setInternalChatPartner(params.get("partner"));
+    }
+  }, [searchString]);
+  useEffect(() => {
+    const openConversation = (event: Event) => {
+      const id = (event as CustomEvent).detail?.partnerId;
+      if (typeof id === "string") { setActiveTab("chats"); setInternalChatPartner(id); }
+    };
+    const refreshChats = () => { void chatConversationsQuery.refetch(); };
+    const incomingChat = () => {
+      refreshChats();
+      if (emailPrefsRef.current.chatNotifySound) playSound("receive");
+    };
+    window.addEventListener("chat_open_conversation", openConversation);
+    window.addEventListener("chat_new_message", incomingChat);
+    window.addEventListener("chat_delivery_confirmed", refreshChats);
+    window.addEventListener("chat_read_confirmed", refreshChats);
+    window.addEventListener("chat_messages_read", refreshChats);
+    return () => {
+      window.removeEventListener("chat_open_conversation", openConversation);
+      window.removeEventListener("chat_new_message", incomingChat);
+      window.removeEventListener("chat_delivery_confirmed", refreshChats);
+      window.removeEventListener("chat_read_confirmed", refreshChats);
+      window.removeEventListener("chat_messages_read", refreshChats);
+    };
+  }, [chatConversationsQuery.refetch]);
 
   const [emailFilters, setEmailFilters] = useState({
     unreadOnly: false,
@@ -3263,7 +3306,6 @@ export default function EmailClientPage() {
 
   const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
 
-  const searchString = useSearch();
   const [, navigateOmni] = useLocation();
   const processedSearchRef = useRef<string | null>(null);
 
@@ -4215,109 +4257,8 @@ export default function EmailClientPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [smartSearchOpen, activeTab, nexusFullscreen, signatureDialogOpen]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${window.location.host}/ws/chat`);
-    wsRef.current = ws;
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ type: "auth", userId: user.id }));
-    };
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        switch (data.type) {
-          case "presence_update":
-            setWsOnlineUsers(data.onlineUsers.filter((u: any) => u.id !== user.id));
-            break;
-          case "new_message":
-            if (data.message.senderId === internalChatPartnerRef.current) {
-              setInternalMessages(prev => [...prev, data.message]);
-            }
-            if (emailPrefsRef.current.chatNotifySound) playSound("receive");
-            if (emailPrefsRef.current.chatNotifyPopup && data.sender) {
-              toast({ title: `${t.nexusOmni.chats.newMessageFrom} ${data.sender.fullName}`, description: data.message.content?.substring(0, 80) || "", duration: 5000 });
-            }
-            fetchConversations();
-            break;
-          case "message_sent":
-            if (data.message.receiverId === internalChatPartnerRef.current) {
-              setInternalMessages(prev => [...prev, data.message]);
-            }
-            fetchConversations();
-            break;
-          case "user_typing":
-            if (data.isTyping) {
-              setTypingUsers(prev => new Set(prev).add(data.userId));
-              if (typingTimerRef.current[data.userId]) clearTimeout(typingTimerRef.current[data.userId]);
-              typingTimerRef.current[data.userId] = setTimeout(() => {
-                setTypingUsers(prev => { const n = new Set(prev); n.delete(data.userId); return n; });
-              }, 3000);
-            } else {
-              setTypingUsers(prev => { const n = new Set(prev); n.delete(data.userId); return n; });
-            }
-            break;
-          case "messages_read":
-            break;
-        }
-      } catch {}
-    };
-    ws.onclose = () => { wsRef.current = null; };
-    return () => { ws.close(); wsRef.current = null; };
-  }, [user?.id]);
-
-  const fetchConversations = async () => {
-    try {
-      const res = await fetch("/api/chat/conversations", { credentials: "include" });
-      if (res.ok) { const data = await res.json(); setInternalConversations(data); }
-    } catch {}
-  };
-
-  useEffect(() => { if (user?.id) fetchConversations(); }, [user?.id]);
-
-  const loadChatHistory = async (partnerId: string) => {
-    setInternalChatLoading(true);
-    try {
-      const res = await fetch(`/api/chat/messages/${partnerId}?limit=50`, { credentials: "include" });
-      if (res.ok) { const msgs = await res.json(); setInternalMessages(msgs); }
-    } catch {} finally { setInternalChatLoading(false); }
-  };
-
-  useEffect(() => {
-    if (internalChatPartner) {
-      loadChatHistory(internalChatPartner);
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: "mark_read", senderId: internalChatPartner }));
-      }
-    }
-  }, [internalChatPartner]);
-
-  useEffect(() => {
-    if (chatScrollRef.current && internalMessages.length > lastMsgCountRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
-    }
-    lastMsgCountRef.current = internalMessages.length;
-  }, [internalMessages]);
-
-  const sendInternalMessage = () => {
-    if (!internalChatInput.trim() || !internalChatPartner || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({ type: "chat_message", receiverId: internalChatPartner, content: internalChatInput.trim() }));
-    wsRef.current.send(JSON.stringify({ type: "typing", receiverId: internalChatPartner, isTyping: false }));
-    setInternalChatInput("");
-  };
-
-  const handleInternalChatTyping = (val: string) => {
-    setInternalChatInput(val);
-    if (internalChatPartner && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "typing", receiverId: internalChatPartner, isTyping: val.length > 0 }));
-    }
-  };
-
   const startChatWithUser = (userId: string) => {
     setInternalChatPartner(userId);
-    setInternalMessages([]);
-    setInternalChatInput("");
   };
 
   const [taskComments, setTaskComments] = useState<any[]>([]);
@@ -5452,6 +5393,17 @@ export default function EmailClientPage() {
             )}
           </button>
         ))}
+        {chatConversationsQuery.isError && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-auto shrink-0"
+            onClick={() => { void chatConversationsQuery.refetch(); }}
+          >
+            {t.common.refresh}
+          </Button>
+        )}
       </div>
 
       <div className={cn("flex gap-2 transition-all duration-300 flex-1 min-h-0", activeTab === "tasks" && "nexus-task-layout")}>
@@ -5469,13 +5421,15 @@ export default function EmailClientPage() {
           onTaskFilterChange={setTaskFilter}
           smsData={smsData}
           tasksData={taskScopeTasks}
-          chatsData={internalConversations.map((conv: any) => ({
+          chatsData={(chatConversationsQuery.data || []).map((conv) => ({
             id: conv.partnerId,
             participantId: conv.partnerId,
-            participantName: conv.partner?.fullName || conv.partnerId,
+            participantName: conv.partner?.fullName?.trim() || conv.partner?.username || conv.partnerId,
             lastMessage: conv.lastMessage?.content || "",
-            lastMessageAt: conv.lastMessage?.createdAt || "",
-            unreadCount: conv.unreadCount || 0,
+            lastMessageAt: conv.lastMessage?.createdAt instanceof Date
+              ? conv.lastMessage.createdAt.toISOString()
+              : conv.lastMessage?.createdAt || "",
+            unreadCount: Math.max(sharedChat.unreadCounts.get(conv.partnerId) || 0, conv.unreadCount || 0),
           }))}
           totalUnreadEmails={totalUnreadEmails}
           selectedChatId={internalChatPartner}
@@ -6340,206 +6294,13 @@ export default function EmailClientPage() {
           </>
         )}
 
-        {activeTab === "chats" && (
-          <>
-            <Card className="transition-all duration-300 w-[280px] min-w-[240px] max-w-[320px] shrink-0 flex flex-col">
-              <CardHeader className="py-2 px-3 border-b shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MessagesSquare className="h-4 w-4 text-violet-600" />
-                    <span className="text-sm font-semibold">{t.nexusOmni.chats.internalChats}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Badge variant="secondary" className="text-[10px] h-5">{wsOnlineUsers.length} {t.nexusOmni.chats.online}</Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {(() => {
-                  const otherUsers = allSystemUsers.filter((su: any) => su.id !== user?.id);
-                  const onlineIds = new Set(wsOnlineUsers.map(u => u.id));
-                  const sortedUsers = [...otherUsers].sort((a: any, b: any) => {
-                    const aOnline = onlineIds.has(a.id) ? 0 : 1;
-                    const bOnline = onlineIds.has(b.id) ? 0 : 1;
-                    if (aOnline !== bOnline) return aOnline - bOnline;
-                    return (a.fullName || a.username).localeCompare(b.fullName || b.username);
-                  });
-                  const conversationPartnerIds = new Set(internalConversations.map((c: any) => c.partnerId));
-                  return (
-                    <>
-                      <div className="px-3 py-2 border-b">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.onlineUsers}</p>
-                      </div>
-                      <div className="divide-y max-h-[200px] overflow-auto">
-                        {sortedUsers.length === 0 ? (
-                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">{t.nexusOmni.chats.noConversations}</div>
-                        ) : sortedUsers.map((su: any) => {
-                          const isOnline = onlineIds.has(su.id);
-                          return (
-                            <div
-                              key={su.id}
-                              className={`px-3 py-2 flex items-center gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === su.id ? "bg-accent" : ""}`}
-                              onClick={() => startChatWithUser(su.id)}
-                              data-testid={`user-${su.id}`}
-                            >
-                              <div className="relative">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={su.avatarUrl || undefined} className="object-cover" />
-                                  <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(su.fullName || su.username))}>
-                                    {getInitialsStatic(su.fullName || su.username)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background", isOnline ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600")} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium truncate">{su.fullName || su.username}</p>
-                                <p className={cn("text-[10px]", isOnline ? "text-emerald-600" : "text-muted-foreground")}>{isOnline ? t.nexusOmni.chats.online : "Offline"}</p>
-                              </div>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={(e) => { e.stopPropagation(); startChatWithUser(su.id); }} data-testid={`start-chat-${su.id}`}>
-                                <MessageCircle className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {internalConversations.length > 0 && (
-                        <>
-                          <div className="px-3 py-2 border-t border-b">
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">{t.nexusOmni.chats.conversations}</p>
-                          </div>
-                          <ScrollArea className="flex-1 min-h-0">
-                            <div className="divide-y">
-                              {internalConversations.map((conv: any) => {
-                                const convSysUser = allSystemUsers.find((su: any) => su.id === conv.partnerId);
-                                const isConvOnline = onlineIds.has(conv.partnerId);
-                                return (
-                                  <div
-                                    key={conv.partnerId}
-                                    className={`px-3 py-2 cursor-pointer hover:bg-accent/50 transition-colors ${internalChatPartner === conv.partnerId ? "bg-accent" : ""}`}
-                                    onClick={() => startChatWithUser(conv.partnerId)}
-                                    data-testid={`conv-${conv.partnerId}`}
-                                  >
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="relative">
-                                        <Avatar className="h-8 w-8">
-                                          <AvatarImage src={convSysUser?.avatarUrl || conv.partner?.avatarUrl || undefined} className="object-cover" />
-                                          <AvatarFallback className={cn("text-white text-xs font-semibold", getAvatarColorStatic(conv.partner?.fullName || "?"))}>
-                                            {getInitialsStatic(conv.partner?.fullName || "?")}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className={cn("absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-background", isConvOnline ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600")} />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-xs font-medium truncate">{conv.partner?.fullName || conv.partnerId}</p>
-                                          {conv.lastMessage?.createdAt && (
-                                            <span className="text-[10px] text-muted-foreground">{format(new Date(conv.lastMessage.createdAt), "HH:mm")}</span>
-                                          )}
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage?.content || ""}</p>
-                                      </div>
-                                      {conv.unreadCount > 0 && (
-                                        <Badge className="h-4 min-w-[16px] text-[9px] px-1 bg-violet-500">{conv.unreadCount}</Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </ScrollArea>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
-              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {internalChatPartner ? (() => {
-                  const partner = wsOnlineUsers.find(u => u.id === internalChatPartner) || internalConversations.find((c: any) => c.partnerId === internalChatPartner)?.partner;
-                  const partnerName = partner?.fullName || internalChatPartner;
-                  const isOnline = wsOnlineUsers.some(u => u.id === internalChatPartner);
-                  const isPartnerTyping = typingUsers.has(internalChatPartner);
-                  return (
-                    <div className="flex flex-col h-full">
-                      <div className="px-4 py-2.5 border-b flex items-center gap-3 shrink-0">
-                        <div className="relative">
-                          <div className={cn("h-9 w-9 rounded-full flex items-center justify-center text-white text-sm font-semibold", getAvatarColorStatic(partnerName))}>
-                            {getInitialsStatic(partnerName)}
-                          </div>
-                          {isOnline && <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 border-2 border-background" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{partnerName}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {isPartnerTyping ? <span className="text-violet-500 animate-pulse">{t.nexusOmni.chats.typing}</span> : isOnline ? <span className="text-emerald-500">{t.nexusOmni.chats.online}</span> : <span>{t.nexusOmni.chats.offline}</span>}
-                          </p>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setInternalChatPartner(null); setInternalMessages([]); }}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <div ref={chatScrollRef} className="flex-1 overflow-auto p-4 space-y-2" data-testid="chat-messages-area">
-                        {internalChatLoading ? (
-                          <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                        ) : internalMessages.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                            <MessageCircle className="h-8 w-8 mb-2 opacity-50" />
-                            <p className="text-sm">{t.nexusOmni.chats.noMessages}</p>
-                          </div>
-                        ) : (
-                          internalMessages.map((msg, i) => {
-                            const isMine = msg.senderId === user?.id;
-                            const showDate = i === 0 || format(new Date(msg.createdAt), "yyyy-MM-dd") !== format(new Date(internalMessages[i - 1].createdAt), "yyyy-MM-dd");
-                            return (
-                              <div key={msg.id || i}>
-                                {showDate && (
-                                  <div className="flex items-center justify-center my-3">
-                                    <span className="text-[10px] bg-muted px-2 py-0.5 rounded-full text-muted-foreground">
-                                      {format(new Date(msg.createdAt), "d. MMMM yyyy")}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className={`flex ${isMine ? "justify-end" : "justify-start"}`} data-testid={`chat-msg-${msg.id || i}`}>
-                                  <div className={`max-w-[70%] px-3 py-2 rounded-2xl text-sm ${isMine ? "bg-violet-500 text-white rounded-br-md" : "bg-muted rounded-bl-md"}`}>
-                                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                                    <p className={`text-[10px] mt-0.5 ${isMine ? "text-white/60" : "text-muted-foreground"}`}>
-                                      {format(new Date(msg.createdAt), "HH:mm")}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                      <div className="px-3 py-2.5 border-t shrink-0 flex items-center gap-2">
-                        <Input
-                          value={internalChatInput}
-                          onChange={(e) => handleInternalChatTyping(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendInternalMessage(); } }}
-                          placeholder={t.nexusOmni.chats.typeMessage}
-                          className="flex-1 text-sm h-9"
-                          data-testid="input-chat-message"
-                        />
-                        <Button size="sm" className="h-9 px-3" onClick={sendInternalMessage} disabled={!internalChatInput.trim()} data-testid="button-send-chat">
-                          <Send className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                    <MessagesSquare className="h-12 w-12 mb-4 opacity-50" />
-                    <p className="font-medium">{t.nexusOmni.chats.internalChats}</p>
-                    <p className="text-sm">{t.nexusOmni.chats.selectConversation}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
+        <div className={cn("flex-1 min-h-0", activeTab === "chats" ? "flex" : "hidden")}>
+          <InternalChatPanel
+            active={activeTab === "chats"}
+            initialPartnerId={internalChatPartner}
+            onPartnerChange={setInternalChatPartner}
+          />
+        </div>
 
         {activeTab === "teams" && teamsSidebarFilter !== "calendar" && (
           <TeamsPanel userId={user?.id} sidebarFilter={teamsSidebarFilter} setSidebarFilter={setTeamsSidebarFilter} onOpenMeetingDialog={openMeetingDialog} />

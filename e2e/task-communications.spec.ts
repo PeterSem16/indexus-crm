@@ -26,10 +26,14 @@ async function setup(page: Page) {
     const url = new URL(request.url()).pathname;
     const method = request.method();
     let data: unknown = [];
-    if (method !== "GET") writes.push({ url, body: request.postDataJSON() });
+    if (method !== "GET") writes.push({ url, body: request.headers()["content-type"]?.includes("application/json") ? request.postDataJSON() : null });
     if (url === "/api/auth/me") data = { user: { ...users[0], role: "admin", isActive: true, assignedCountries: ["SK"], locale: "en" } };
     else if (url === "/api/task-settings/access") data = { canManage: true };
     else if (url === "/api/tasks/created") data = currentTasks;
+    else if (url === "/api/agent/bo-questions") data = currentTasks.filter(task => task.boState === "waiting_agent" && task.tags.includes("back_office")).map(task => ({
+      task, question: { id: "question", content: "Please clarify", userId: "a", userName: users[1].fullName, createdAt: "2026-10-10T09:00:00Z" }, comments: comments[task.id],
+    }));
+    else if (url === "/api/tasks/attachments" && method === "POST") data = { id: "upload-one", name: "document.pdf", type: "application/pdf", size: 9, url: "/api/tasks/attachments/upload-one" };
     else if (url === "/api/tasks/people") data = users;
     else if (url === "/api/task-settings/users") data = { configured: false, allowedUserIds: [], users: users.map(user => ({ ...user, isActive: true, email: null, avatarUrl: null })), updatedAt: null };
     else if (url === "/api/chat/people") data = users.slice(1);
@@ -69,13 +73,13 @@ async function setup(page: Page) {
         unread[message.senderId] = 0;
         socket.send(JSON.stringify({ type: "read_confirmed", senderId: message.senderId }));
       } else if (message.type === "chat_message" && deliveries) {
-        const saved = { id: `sent-${messages[message.receiverId].length}`, senderId: "viewer", receiverId: message.receiverId, content: message.content, createdAt: new Date().toISOString() };
+        const saved = { id: `sent-${messages[message.receiverId].length}`, senderId: "viewer", receiverId: message.receiverId, content: message.content, attachments: message.attachments || [], isRead: false, createdAt: new Date().toISOString() };
         messages[message.receiverId].push(saved);
         socket.send(JSON.stringify({ type: "message_sent", message: saved, clientMessageId: message.clientMessageId }));
       }
     });
   });
-  return { writes, errors, currentTasks, setDeliveries: (value: boolean) => { deliveries = value; },
+  return { writes, errors, currentTasks, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
     incoming: (partnerId: string) => {
       const message = { id: "incoming-new", senderId: partnerId, receiverId: "viewer", content: "New private message", createdAt: new Date().toISOString() };
       messages[partnerId].push(message); unread[partnerId]++;
@@ -86,31 +90,36 @@ async function setup(page: Page) {
 test("real communication center separates histories, retains per-thread drafts and answers BO questions", async ({ page }) => {
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html");
+  await expect(page.getByText("Original authored request")).toHaveCount(0);
+  await page.getByTestId("inbox-tab-back-office").click();
   await expect(page.getByText("Original authored request")).toBeVisible();
   const taskDraft = page.getByRole("textbox", { name: c.taskMessage });
   await taskDraft.fill("Task one draft");
+  await page.getByRole("button", { name: new RegExp(c.myRequests) }).click();
   await page.getByRole("button", { name: /Second request/ }).click();
   await expect(taskDraft).toHaveValue("");
   await taskDraft.fill("Task two draft");
-  await page.getByRole("button", { name: /First real-source request/ }).click();
+  await page.getByTestId("inbox-tab-back-office").click();
+  await page.locator(".center-task-list").getByRole("button", { name: /First real-source request/ }).click();
   await expect(taskDraft).toHaveValue("Task one draft");
   await page.getByRole("button", { name: c.addComment }).click();
   await expect(taskDraft).toHaveValue("");
   expect(state.writes.filter(write => write.url.includes("/answer"))).toEqual([{ url: "/api/agent/bo-questions/task-one/answer", body: { content: "Task one draft" } }]);
   await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
-  await expect(page.locator(".direct-thread").getByText("Private A message", { exact: true })).toBeVisible();
-  const direct = page.getByRole("textbox", { name: c.privateMessage });
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  await expect(page.locator(".icp-thread").getByText("Private A message", { exact: true })).toBeVisible();
+  const direct = page.locator(".icp-root textarea");
   await direct.fill("Private A draft");
-  await page.getByRole("button", { name: /Test Colleague B/ }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague B/ }).click();
   await expect(direct).toHaveValue("");
   await direct.fill("Private B draft");
-  await page.getByRole("button", { name: /Test Colleague A/ }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
   await expect(direct).toHaveValue("Private A draft");
   await page.getByRole("button", { name: c.send, exact: true }).click();
   await expect(direct).toHaveValue("");
-  await expect(page.locator(".direct-thread").getByText("Private A draft", { exact: true })).toBeVisible();
+  await expect(page.locator(".icp-thread").getByText("Private A draft", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: new RegExp(c.myRequests) }).click();
-  await expect(page.getByText("Private A draft", { exact: true })).toHaveCount(0);
+  await expect(page.locator(".center-detail").getByText("Private A draft", { exact: true })).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
 test("failed chat confirmation does not discard the draft", async ({ page }) => {
@@ -118,7 +127,8 @@ test("failed chat confirmation does not discard the draft", async ({ page }) => 
   state.setDeliveries(false);
   await page.goto("/test-fixtures/task-communications.html");
   await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
-  const draft = page.getByRole("textbox", { name: c.privateMessage });
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  const draft = page.locator(".icp-root textarea");
   await draft.fill("Keep this unconfirmed draft");
   await page.getByRole("button", { name: c.send, exact: true }).click();
   await expect(draft).toHaveValue("Keep this unconfirmed draft");
@@ -148,6 +158,7 @@ for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 
     const state = await setup(page);
     await page.setViewportSize(viewport);
     await page.goto("/test-fixtures/task-communications.html");
+    await page.getByTestId("inbox-tab-back-office").click();
     const center = page.getByTestId("pulse-communication-center");
     await expect(page.getByText("Original authored request")).toBeVisible();
     const composer = page.getByRole("textbox", { name: c.taskMessage });
@@ -181,17 +192,39 @@ test("toolbar follows My Shift and retains task alerts until viewed, with live u
   await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
   await trigger.click();
   await expect(page.getByRole("heading", { name: "Pulse Inbox", level: 1 })).toBeVisible();
-  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
-  await expect(page.getByTestId("communication-updates-completed")).toContainText("1");
-  await page.getByRole("button", { name: /Second request/ }).click();
   await expect(page.getByTestId("communication-updates-completed")).toContainText("0");
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("1");
+  await page.getByTestId("inbox-tab-back-office").click();
+  await expect(page.getByTestId("communication-updates-progress")).toContainText("0");
   await page.getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
   await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
-  await expect(page.getByTestId("communication-updates-dot")).toHaveCount(0);
+  await expect(page.getByTestId("communication-updates-back-office")).toContainText("1");
   state.incoming("b");
   await expect(page.getByTestId("communication-updates-chat")).toContainText("1");
   await expect(page.getByTestId("communication-updates-dot")).toHaveCount(1);
-  await page.getByRole("button", { name: /Test Colleague B/ }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague B/ }).click();
   await expect(page.getByTestId("communication-updates-chat")).toContainText("0");
+  expect(state.errors).toEqual([]);
+});
+
+test("shared Omni chat sends attachment-only messages and distinguishes incoming replies and read receipts", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?omni");
+  await page.getByRole("button", { name: new RegExp("Notification: " + c.directMessages) }).click();
+  await expect(page).toHaveURL(/\/email\?tab=chats&partner=a/);
+  await expect(page.locator(".icp-thread").getByText("Private A message", { exact: true })).toBeVisible();
+  await page.getByTestId("input-task-attachment-files").setInputFiles({ name: "document.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-test") });
+  await expect(page.getByTestId("chip-task-attachment-0")).toBeVisible();
+  await page.getByRole("button", { name: c.send, exact: true }).click();
+  await expect(page.locator(".icp-thread").getByRole("link", { name: /document.pdf/ })).toHaveAttribute("href", "/api/tasks/attachments/upload-one");
+  await expect(page.getByTestId("chip-task-attachment-0")).toHaveCount(0);
+  const colors = await page.locator(".icp-message").evaluateAll(rows => rows.map(row => getComputedStyle(row).backgroundColor));
+  expect(new Set(colors).size).toBe(2);
+  const own = page.locator(".icp-message.is-own");
+  await expect(own).not.toContainText(translations.en.taskCommunication.read);
+  state.emitChat({ type: "messages_read", readBy: "a" });
+  await expect(own).toContainText(translations.en.taskCommunication.read);
+  await page.screenshot({ path: "test-results/shared-omni-chat.png" });
   expect(state.errors).toEqual([]);
 });

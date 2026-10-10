@@ -20,6 +20,7 @@ import {
   Power,
   Volume2,
   VolumeX,
+  Users,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -51,7 +52,7 @@ interface AgentToolbarUnifiedProps {
   onOpenScheduledQueue?: () => void;
   scheduledQueueCounts?: { total: number; overdue: number };
   missedCommunicationCounts?: { calls: number; emails: number; sms: number };
-  communicationUpdates?: { inProgress: number; completed: number; chat: number };
+   communicationUpdates?: { inProgress: number; completed: number; chat: number; backOffice?: number };
   onOpenAbandonedCalls?: () => void;
   onOpenMyActivity?: () => void;
   onOpenCommunicationCenter?: () => void;
@@ -108,8 +109,8 @@ export function AgentToolbarUnified({
   };
   const currentStatus = statusConfig[isOnBreak ? "break" : status];
   const callForwardingActive = !!(fwdData?.enabled && fwdData.number);
-  const communicationCountsLabel = `${t.tasks.inProgress}: ${communicationUpdates.inProgress}, ${t.tasks.completed}: ${communicationUpdates.completed}, ${t.taskCommunication.directMessages}: ${communicationUpdates.chat}`;
-  const hasCommunicationUpdates = communicationUpdates.inProgress > 0 || communicationUpdates.completed > 0 || communicationUpdates.chat > 0;
+  const communicationCountsLabel = `${t.tasks.inProgress}: ${communicationUpdates.inProgress}, ${t.tasks.completed}: ${communicationUpdates.completed}, ${t.taskCommunication.directMessages}: ${communicationUpdates.chat}, ${t.backOffice.title}: ${communicationUpdates.backOffice || 0}`;
+  const hasCommunicationUpdates = communicationUpdates.inProgress > 0 || communicationUpdates.completed > 0 || communicationUpdates.chat > 0 || (communicationUpdates.backOffice || 0) > 0;
   const formatCount = (value: number, quota: number | null | undefined) =>
     quota === null || quota === undefined ? String(value) : `${value}/${quota}`;
 
@@ -303,6 +304,7 @@ export function AgentToolbarUnified({
               <MessageSquare size={15} aria-hidden="true" />
               <span className="pta-communication-label">{t.taskCommunication.inboxLabel}</span>
               <span className="pta-communication-counts">
+                {!!communicationUpdates.backOffice && <span className="pta-communication-count" title={t.backOffice.title} data-testid="communication-updates-back-office"><Users size={11}/><b>{communicationUpdates.backOffice}</b></span>}
                 <span className="pta-communication-count" title={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.inProgress}`} data-testid="communication-updates-progress">
                   <Clock3 aria-hidden="true" /><b>{communicationUpdates.inProgress}</b>
                 </span>

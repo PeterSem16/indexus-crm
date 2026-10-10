@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { queryClient } from "@/lib/queryClient";
+import type { TaskAttachment } from "@shared/task-attachments";
 import type { ChatMessage, SafeUser } from "@shared/schema";
 
 interface OnlineUser {
@@ -23,7 +25,7 @@ interface ChatContextType {
   openChat: (partner: OnlineUser) => void;
   closeChat: (partnerId: string) => void;
   minimizeChat: (partnerId: string, minimized: boolean) => void;
-  sendMessage: (receiverId: string, content: string, clientMessageId?: string) => boolean;
+  sendMessage: (receiverId: string, content: string, clientMessageId?: string, attachments?: TaskAttachment[]) => boolean;
   setCommunicationView: (open: boolean, partnerId: string | null) => void;
   markAsRead: (senderId: string) => void;
   sendTypingIndicator: (receiverId: string, isTyping: boolean) => void;
@@ -97,8 +99,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
             }));
             
             const currentOpenChats = openChatsRef.current;
-             const isOpen = currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized)
-               || (communicationViewRef.current.open && communicationViewRef.current.partnerId === msg.senderId);
+             const isOpen = !document.hidden && document.hasFocus() && (
+               currentOpenChats.some(c => c.partnerId === msg.senderId && !c.minimized)
+               || (communicationViewRef.current.open && communicationViewRef.current.partnerId === msg.senderId));
             if (!isOpen) {
               setUnreadCounts(prev => {
                 const newCounts = new Map(prev);
@@ -106,18 +109,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
                 return newCounts;
               });
               
-               if (!communicationViewRef.current.open && !currentOpenChats.some(c => c.partnerId === msg.senderId)) {
-                setOpenChats(prev => [...prev, {
-                  partnerId: msg.senderId,
-                  partner: {
-                    id: sender.id,
-                    fullName: sender.fullName,
-                    username: sender.username,
-                    avatarUrl: (sender as any).avatarUrl || null
-                  },
-                  minimized: false
-                }]);
-              }
             }
             break;
             
@@ -131,8 +122,15 @@ export function ChatProvider({ children }: ChatProviderProps) {
             break;
             
           case "messages_read":
+            window.dispatchEvent(new CustomEvent("chat_messages_read", { detail: { readBy: data.readBy } }));
             break;
           case "read_confirmed":
+            setUnreadCounts(previous => {
+              const next = new Map(previous); next.delete(data.senderId); return next;
+            });
+            void queryClient.invalidateQueries({ predicate: query =>
+              String(query.queryKey[0]).startsWith("/api/notifications") ||
+              query.queryKey[0] === "/api/chat/conversations" });
             window.dispatchEvent(new CustomEvent("chat_read_confirmed", { detail: { senderId: data.senderId } }));
             break;
            case "error":
@@ -140,6 +138,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
              break;
             
           case "user_typing":
+            window.dispatchEvent(new CustomEvent("chat_user_typing", { detail: { userId: data.userId, isTyping: data.isTyping } }));
             const typingHandler = messageHandlersRef.current.get(`typing_${data.userId}`);
             if (typingHandler) {
               typingHandler({ isTyping: data.isTyping } as any);
@@ -201,11 +200,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
       return [...prev, { partnerId: partner.id, partner, minimized: false }];
     });
     
-    setUnreadCounts(prev => {
-      const newCounts = new Map(prev);
-      newCounts.delete(partner.id);
-      return newCounts;
-    });
   }, []);
 
   const closeChat = useCallback((partnerId: string) => {
@@ -219,13 +213,14 @@ export function ChatProvider({ children }: ChatProviderProps) {
     ));
   }, []);
 
-  const sendMessage = useCallback((receiverId: string, content: string, clientMessageId?: string) => {
+  const sendMessage = useCallback((receiverId: string, content: string, clientMessageId?: string, attachments: TaskAttachment[] = []) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "chat_message",
         receiverId,
         content,
         clientMessageId,
+        attachments,
       }));
       return true;
     }
@@ -233,6 +228,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
   }, []);
 
   const markAsRead = useCallback((senderId: string) => {
+    if (document.hidden) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "mark_read",
@@ -240,11 +236,6 @@ export function ChatProvider({ children }: ChatProviderProps) {
       }));
     }
     
-    setUnreadCounts(prev => {
-      const newCounts = new Map(prev);
-      newCounts.delete(senderId);
-      return newCounts;
-    });
   }, []);
 
   const sendTypingIndicator = useCallback((receiverId: string, isTyping: boolean) => {

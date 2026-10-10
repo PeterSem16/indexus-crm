@@ -679,6 +679,7 @@ app.use((req, res, next) => {
     );
     CREATE INDEX IF NOT EXISTS idx_task_ai_checklist_generations_status_updated
       ON task_ai_checklist_generations (status, updated_at);
+    ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS attachments jsonb NOT NULL DEFAULT '[]'::jsonb;
     CREATE TABLE IF NOT EXISTS task_attachment_uploads (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
       uploader_user_id varchar NOT NULL,

@@ -267,7 +267,6 @@ import "react-quill/dist/quill.snow.css";
 import { getCountryFlag } from "@/lib/countries";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import { BackOfficePanel } from "@/components/back-office-panel";
-import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 import { MobileAgentWorkspace } from "@/components/mobile-agent-workspace";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getInboundSelectionContext, resolveMissedCallCardTarget } from "@/lib/missed-call-card-resolver";
@@ -15807,8 +15806,9 @@ function AgentWorkspacePageContent() {
 
       {isMobile && <div className="px-3 py-2"><Button size="sm" variant="outline" onClick={() => setCommunicationCenterOpen(true)} data-testid="btn-mobile-communication-center">
         <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.inboxLabel}
-        {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
+        {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat + communicationUpdates.counts.backOffice > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
         <span className="ml-2 flex items-center gap-2">
+          {!!communicationUpdates.counts.backOffice && <span className="text-blue-600" title={t.backOffice.title}>{communicationUpdates.counts.backOffice}</span>}
           <span className="flex items-center gap-1 text-blue-600" title={t.tasks.inProgress} aria-label={`${t.tasks.inProgress}: ${communicationUpdates.counts.inProgress}`}><Clock className="h-3 w-3"/>{communicationUpdates.counts.inProgress}</span>
           <span className="flex items-center gap-1 text-green-600" title={t.tasks.completed} aria-label={`${t.tasks.completed}: ${communicationUpdates.counts.completed}`}><CheckCircle className="h-3 w-3"/>{communicationUpdates.counts.completed}</span>
           <span className="flex items-center gap-1 text-blue-600" title={t.taskCommunication.directMessages} aria-label={`${t.taskCommunication.directMessages}: ${communicationUpdates.counts.chat}`}><MessageSquare className="h-3 w-3"/>{communicationUpdates.counts.chat}</span>
@@ -15905,7 +15905,6 @@ function AgentWorkspacePageContent() {
       {/* ── PULSE — štandardné rozloženie ── */}
       <div className={`flex flex-1 overflow-hidden ${agentSession.isSessionActive && backOfficeModeActive && mainWorkspaceTab === "back_office" ? "hidden" : ""}`} style={{ minHeight: 0 }}>
         <div className={`flex flex-col h-full shrink-0 w-72${isMobile ? " hidden" : ""}`}>
-          <BackOfficeQuestionsInbox />
           <div className="flex-1 min-h-0 flex">
         <TaskListPanel
           tasks={tasks}

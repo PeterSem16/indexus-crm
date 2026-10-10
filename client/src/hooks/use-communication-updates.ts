@@ -32,6 +32,11 @@ export function useCommunicationUpdates(enabled: boolean) {
     queryFn: async () => (await apiRequest("GET", "/api/chat/conversations")).json(),
     enabled: enabled && !!user?.id, staleTime: 0, refetchInterval: enabled ? 15000 : false,
   });
+  const backOffice = useQuery<{ task: Task }[]>({
+    queryKey: ["/api/agent/bo-questions", user?.id],
+    queryFn: async () => (await apiRequest("GET", "/api/agent/bo-questions")).json(),
+    enabled: enabled && !!user?.id, staleTime: 0, refetchInterval: enabled ? 10000 : false,
+  });
   useEffect(() => {
     setSeen({ userId: user?.id || "", versions: user?.id ? readSeen(user.id) : null });
   }, [user?.id]);
@@ -67,6 +72,7 @@ export function useCommunicationUpdates(enabled: boolean) {
     counts: {
       ...communicationTaskCounts(tasks.data || [], sameUser ? seen.versions : null),
       chat: sameUser ? communicationChatCount(threads.data || [], chat.unreadCounts) : 0,
+      backOffice: backOffice.data?.length || 0,
     },
     markTaskViewed,
   };

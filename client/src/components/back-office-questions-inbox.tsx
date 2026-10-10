@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -173,7 +173,7 @@ function QuestionTile({ item, onClick }: { item: BOQuestion; onClick: () => void
   );
 }
 
-function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: () => void }) {
+function QuestionDrawerContent({ item, onClose, onEntityOpenChange }: { item: BOQuestion; onClose: () => void; onEntityOpenChange?: (open: boolean) => void }) {
   const { t } = useI18n();
   const { toast } = useToast();
   const [answer, setAnswer] = useState("");
@@ -182,6 +182,10 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
   const fxTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (fxTimer.current) clearTimeout(fxTimer.current); }, []);
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
+  useEffect(() => {
+    onEntityOpenChange?.(!!detailEntity);
+    return () => onEntityOpenChange?.(false);
+  }, [!!detailEntity, onEntityOpenChange]);
 
   const answerMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/agent/bo-questions/${item.task.id}/answer`, { content: answer, attachments: answerAttachments }).then(r => r.json()),
@@ -413,7 +417,7 @@ function QuestionDrawerContent({ item, onClose }: { item: BOQuestion; onClose: (
   );
 }
 
-export function BackOfficeQuestionsInbox() {
+export function BackOfficeQuestionsInbox({ onEntityOpenChange }: { onEntityOpenChange?: (open: boolean) => void } = {}) {
   const { t } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -421,13 +425,17 @@ export function BackOfficeQuestionsInbox() {
   const unreadNotificationsUrl = "/api/notifications?includeRead=false&includeDismissed=false&limit=100&resolveTaskSourceTitles=true";
   const [collapsed, setCollapsed] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const [entityOpen, setEntityOpen] = useState(false);
+  const handleEntityOpen = useCallback((open: boolean) => {
+    setEntityOpen(open); onEntityOpenChange?.(open);
+  }, [onEntityOpenChange]);
   const [completionState, setCompletionState] = useState<{
     userId: string | null;
     items: TaskCompletionNotice[];
   }>({ userId, items: [] });
   const [pendingNoticeIds, setPendingNoticeIds] = useState<string[]>([]);
   const { data: questions = [] } = useQuery<BOQuestion[]>({
-    queryKey: ["/api/agent/bo-questions"],
+    queryKey: ["/api/agent/bo-questions", userId],
     queryFn: () => apiRequest("GET", "/api/agent/bo-questions").then(r => r.json()),
     refetchInterval: 20000,
   });
@@ -560,15 +568,16 @@ export function BackOfficeQuestionsInbox() {
         </div>
       )}
 
-      <Sheet open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
+      <Sheet modal={false} open={!!activeItem} onOpenChange={(o) => { if (!o) setOpenTaskId(null); }}>
         <SheetContent
           side="right"
           drawerWidth="wide"
-          className="w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col"
+          onInteractOutside={event => { if (entityOpen) event.preventDefault(); }}
+          className={`${entityOpen ? "invisible" : ""} z-[10031] w-full sm:max-w-xl lg:max-w-4xl xl:max-w-5xl p-0 gap-0 overflow-hidden flex flex-col`}
           data-testid="drawer-bo-question-detail"
         >
           <SheetTitle className="sr-only">{activeItem?.task.title || t.backOffice.questionsInboxTitle}</SheetTitle>
-          {activeItem && <QuestionDrawerContent item={activeItem} onClose={() => setOpenTaskId(null)} />}
+          {activeItem && <QuestionDrawerContent item={activeItem} onClose={() => setOpenTaskId(null)} onEntityOpenChange={handleEntityOpen} />}
         </SheetContent>
       </Sheet>
     </div>

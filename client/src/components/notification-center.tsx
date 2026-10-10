@@ -54,6 +54,7 @@ import "./notification-focus.css";
 const NOTIFICATION_ICONS: Record<string, any> = {
   new_email: Mail,
   new_sms: MessageSquare,
+  new_chat: MessageSquare,
   new_customer: UserPlus,
   status_change: RefreshCw,
   sentiment_alert: AlertTriangle,
@@ -125,9 +126,10 @@ interface NotificationItemProps {
   leadNotificationId?: string;
 }
 
-function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificationId }: NotificationItemProps) {
+export function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificationId }: NotificationItemProps) {
   const { t } = useI18n();
   const Icon = NOTIFICATION_ICONS[notification.type] || Info;
+  const title = notification.type === "new_chat" ? t.taskCommunication.directMessages : notification.title;
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { 
     addSuffix: true, 
     locale: sk 
@@ -142,6 +144,12 @@ function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificatio
 
   function handleClick() {
     if (!notification.isRead) onMarkRead(notification.id);
+    if (notification.type === "new_chat" && typeof notification.metadata?.senderId === "string") {
+      const partnerId = notification.metadata.senderId;
+      navigate(`/email?tab=chats&partner=${encodeURIComponent(partnerId)}`);
+      window.dispatchEvent(new CustomEvent("chat_open_conversation", { detail: { partnerId } }));
+      return;
+    }
     const isTaskNotification = notification.entityType === "task" ||
       ["task_assigned", "group_task_assigned", "task_due", "task_completed"].includes(notification.type);
     if (isTaskNotification) {
@@ -165,7 +173,7 @@ function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificatio
         type="button"
         className="notification-focus-row-main flex min-w-0 flex-1 gap-3 p-3 text-left"
         onClick={handleClick}
-        aria-label={`${t.nexusOmni.notificationCenter.rowLabel.replace("{title}", notification.title)} — ${notification.isRead ? t.nexusOmni.notificationCenter.read : t.nexusOmni.notificationCenter.unread}${notification.priority === "urgent" ? `, ${t.nexusOmni.notificationCenter.urgent}` : ""}`}
+        aria-label={`${t.nexusOmni.notificationCenter.rowLabel.replace("{title}", title)} — ${notification.isRead ? t.nexusOmni.notificationCenter.read : t.nexusOmni.notificationCenter.unread}${notification.priority === "urgent" ? `, ${t.nexusOmni.notificationCenter.urgent}` : ""}`}
       >
         <span className={cn(
           "notification-focus-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
@@ -183,7 +191,7 @@ function NotificationItem({ notification, onMarkRead, onDismiss, leadNotificatio
                 <span className="notification-focus-priority-label">{t.nexusOmni.notificationCenter.priorityLead}</span>
               )}
               <span className={cn("block truncate text-sm", !notification.isRead && "font-semibold")}>
-                {notification.title}
+                {title}
               </span>
               {notification.message && (
                 <span className="mt-0.5 line-clamp-2 block text-xs text-muted-foreground">

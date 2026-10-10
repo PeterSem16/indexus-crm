@@ -10,12 +10,15 @@ import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
 import { AgentToolbarUnified } from "@/components/agent/AgentToolbarUnified";
 import { useCommunicationUpdates } from "@/hooks/use-communication-updates";
 import { Toaster } from "@/components/ui/toaster";
+import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
+import { NotificationItem } from "@/components/notification-center";
 import "@/index.css";
 
 function Fixture() {
   const { user } = useAuth();
   const { setLocale, t } = useI18n();
-  const toolbar = location.search.includes("toolbar");
+  const [fixtureMode] = useState(() => location.search);
+  const toolbar = fixtureMode.includes("toolbar");
   const updates = useCommunicationUpdates(toolbar && !!user?.id);
   const [open, setOpen] = useState(!toolbar);
   useEffect(() => setLocale("en"), [setLocale]);
@@ -25,8 +28,12 @@ function Fixture() {
     breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
     onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
     <button onClick={() => setOpen(true)}>Reopen</button>{
-    location.search.includes("settings")
+    fixtureMode.includes("settings")
       ? <TaskGroupsDialog open={open} onOpenChange={setOpen}/>
+      : fixtureMode.includes("omni") ? <div className="h-screen p-4">
+        <NotificationItem notification={{ id: "chat-notice", userId: "viewer", type: "new_chat", title: "Chat", message: "Test Colleague A", priority: "normal", isRead: false, isDismissed: false, createdAt: new Date().toISOString(), metadata: { senderId: "a" } } as any} onMarkRead={() => {}} onDismiss={() => {}} />
+        <InternalChatPanel/>
+      </div>
        : <PulseCommunicationCenter open={open} onOpenChange={setOpen} onTaskViewed={updates.markTaskViewed} onNewRequest={() => setOpen(false)}/>
   }<Toaster/></>;
 }

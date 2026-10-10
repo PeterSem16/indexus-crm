@@ -14,6 +14,7 @@ import {
 } from "@/lib/task-completion-notice";
 
 const _shownSmsToasts = new Set<string>();
+const _shownChatToasts = new Set<string>();
 const _shownNegSmsToasts = new Set<string>();
 const _shownBoQuestionToasts = new Set<string>();
 const UNREAD_NOTIFICATIONS_URL = "/api/notifications?includeRead=false&includeDismissed=false&limit=100";
@@ -172,6 +173,23 @@ export function useNotifications() {
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications?includeRead=true&includeDismissed=false&limit=100"] });
                 queryClient.invalidateQueries({ queryKey: [UNREAD_NOTIFICATIONS_URL] });
                 queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+                if (message.notification?.type === "new_chat" && !_shownChatToasts.has(message.notification.id)) {
+                  const notification = message.notification;
+                  _shownChatToasts.add(notification.id);
+                  toastRef.current({
+                    title: tRef.current.taskCommunication.directMessages,
+                    description: notification.message || undefined,
+                    action: createElement(ToastAction, {
+                      altText: tRef.current.taskCommunication.directMessages,
+                      onClick: () => {
+                        const partnerId = notification.metadata?.senderId;
+                        if (typeof partnerId !== "string") return;
+                        setLocationRef.current(`/email?tab=chats&partner=${encodeURIComponent(partnerId)}`);
+                        window.dispatchEvent(new CustomEvent("chat_open_conversation", { detail: { partnerId } }));
+                      },
+                    }, tRef.current.taskCommunication.directMessages),
+                  });
+                }
                 const pulseTaskCompletion = message.notification?.type === "back_office_resolved" &&
                   message.notification.entityType?.toLowerCase() === "task" &&
                   message.notification.metadata?.source === "nexus_pulse";

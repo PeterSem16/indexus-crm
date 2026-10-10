@@ -230,6 +230,7 @@ import mammoth from "mammoth";
 import QRCode from "qrcode";
 import { PDFDocument as PDFLibDocument, rgb, degrees, StandardFonts } from "pdf-lib";
 import { notificationService } from "./lib/notification-service";
+import { chatMessages } from "@shared/schema";
 import { normalizeCollaboratorPriorityCity } from "./lib/collaborator-priority-city";
 import {
   resolveInboundCallbackMission,
@@ -9555,7 +9556,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
         canAccessTaskByPolicy(user, task, groupIds)
         || (!!(task.tags || []).includes("back_office")
           && (canAccessBoTask(req, task) || task.createdByUserId === user.id));
-      if (!taskAttachmentReadAllowed(
+      const chatAssociation = await db.select({ id: chatMessages.id }).from(chatMessages)
+        .where(sql`(${chatMessages.senderId} = ${user.id} OR ${chatMessages.receiverId} = ${user.id})
+          AND ${chatMessages.attachments} @> ${JSON.stringify([{ id: upload.id }])}::jsonb`).limit(1);
+      if (!chatAssociation.length && !taskAttachmentReadAllowed(
         user,
         upload.uploaderUserId,
         associatedPolicies,
@@ -41030,6 +41034,21 @@ Rules:
   
   // Track online users and their WebSocket connections
   const onlineUsers = new Map<string, { ws: WebSocket; user: SafeUser }>();
+  const chatSockets = new Map<string, Set<WebSocket>>();
+  function sendChatToUser(id: string, payload: unknown) {
+    for (const socket of chatSockets.get(id) || []) {
+      if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload));
+    }
+  }
+  function removeChatSocket(id: string, socket: WebSocket) {
+    const sockets = chatSockets.get(id);
+    sockets?.delete(socket);
+    if (!sockets?.size) {
+      chatSockets.delete(id); onlineUsers.delete(id);
+    } else if (onlineUsers.get(id)?.ws === socket) {
+      onlineUsers.set(id, { ...onlineUsers.get(id)!, ws: [...sockets][0] });
+    }
+  }
   
   // Create WebSocket server (noServer mode to avoid intercepting Vite HMR /vite-hmr upgrades)
   const wss = new WebSocketServer({ noServer: true, perMessageDeflate: false, maxPayload: 65536 });
@@ -41073,6 +41092,8 @@ Rules:
               if (fullUser?.isActive) {
                 const { passwordHash, ...safeUser } = fullUser;
                 user = safeUser;
+                const sockets = chatSockets.get(userId) || new Set<WebSocket>();
+                sockets.add(ws); chatSockets.set(userId, sockets);
                 onlineUsers.set(userId, { ws, user });
                 console.log("[Chat] User authenticated:", fullUser.fullName, "| Total online:", onlineUsers.size);
                 
@@ -41097,17 +41118,28 @@ Rules:
             const target = typeof receiverId === "string" ? await storage.getUser(receiverId) : null;
             if (!actor?.isActive) { ws.close(1008, "Unauthorized"); return; }
             if (!target?.isActive || target.id === userId || !chatPartnerAllowed(actor, target)
-              || typeof content !== "string" || !content.trim() || content.length > 10000) {
+              || typeof content !== "string" || content.length > 10000
+              || (!content.trim() && !message.attachments?.length)) {
               ws.send(JSON.stringify({ type: "error", error: "Message recipient or content is not valid", clientMessageId: message.clientMessageId })); return;
             }
             
             // Store message in database
-            const chatMsg = await storage.createChatMessage({
-              senderId: userId,
-              receiverId,
-              content: content.trim(),
-              isRead: false,
+            const chatAttachments = await resolveTaskAttachmentsForWrite(message.attachments ?? [], actor);
+            const { chatMsg, chatNotification } = await db.transaction(async tx => {
+              const [chatMsg] = await tx.insert(chatMessages).values({
+                senderId: userId!, receiverId, content: content.trim(), isRead: false, attachments: chatAttachments,
+              }).returning();
+              const [chatNotification] = await tx.insert(notifications).values({
+                userId: receiverId, type: "new_chat", title: "Chat",
+                message: actor.fullName || actor.username, entityType: "chat", entityId: chatMsg.id,
+                metadata: { senderId: userId, messageId: chatMsg.id }, priority: "normal",
+              }).returning();
+              if (chatAttachments.length) await tx.update(taskAttachmentUploads).set({ everAssociated: true })
+                .where(inArray(taskAttachmentUploads.id, chatAttachments.map(file => file.id!)));
+              return { chatMsg, chatNotification };
             });
+            void notificationService.broadcastExistingNotification(chatNotification)
+              .catch(() => console.error("[Chat] Notification delivery failed; persisted for recipient"));
             
             // Send confirmation to sender
             ws.send(JSON.stringify({ 
@@ -41117,53 +41149,53 @@ Rules:
             }));
             
             // Deliver to recipient if online
-            const recipient = onlineUsers.get(receiverId);
-            if (recipient) {
-              recipient.ws.send(JSON.stringify({
+            sendChatToUser(receiverId, {
                 type: "new_message",
                 message: chatMsg,
                 sender: { id: user.id, fullName: user.fullName, username: user.username, avatarUrl: user.avatarUrl }
-              }));
-            }
+              });
             break;
             
           case "mark_read":
             if (!userId) return;
             const { senderId } = message;
             await storage.markMessagesAsRead(senderId, userId);
-            ws.send(JSON.stringify({ type: "read_confirmed", senderId }));
+            await db.update(notifications).set({ isRead: true, readAt: new Date() })
+              .where(sql`${notifications.userId} = ${userId} AND ${notifications.type} = 'new_chat'
+                AND ${notifications.metadata}->>'senderId' = ${senderId}
+                AND ${notifications.entityId} IN (
+                  SELECT id FROM chat_messages WHERE sender_id = ${senderId}
+                    AND receiver_id = ${userId} AND is_read = true
+                )`);
+            sendChatToUser(userId, { type: "read_confirmed", senderId });
             
             // Notify sender that messages were read
-            const sender = onlineUsers.get(senderId);
-            if (sender) {
-              sender.ws.send(JSON.stringify({
+            sendChatToUser(senderId, {
                 type: "messages_read",
                 readBy: userId
-              }));
-            }
+              });
             break;
             
           case "typing":
             if (!userId) return;
-            const typingRecipient = onlineUsers.get(message.receiverId);
-            if (typingRecipient) {
-              typingRecipient.ws.send(JSON.stringify({
+            sendChatToUser(message.receiverId, {
                 type: "user_typing",
                 userId: userId,
                 isTyping: message.isTyping
-              }));
-            }
+              });
             break;
         }
       } catch (error) {
-        console.error("WebSocket message error:", error);
-        ws.send(JSON.stringify({ type: "error", error: "Invalid message format" }));
+        console.error("[Chat] Message processing failed");
+        let clientMessageId: unknown;
+        try { clientMessageId = JSON.parse(data.toString()).clientMessageId; } catch {}
+        ws.send(JSON.stringify({ type: "error", error: "Unable to process message", clientMessageId }));
       }
     });
     
     ws.on("close", () => {
       if (userId) {
-        if (onlineUsers.get(userId)?.ws === ws) onlineUsers.delete(userId);
+        removeChatSocket(userId, ws);
         broadcastPresence();
       }
     });
@@ -41171,7 +41203,7 @@ Rules:
     ws.on("error", (error) => {
       console.error("WebSocket error:", error);
       if (userId) {
-        if (onlineUsers.get(userId)?.ws === ws) onlineUsers.delete(userId);
+        removeChatSocket(userId, ws);
       }
     });
   });
@@ -41192,10 +41224,10 @@ Rules:
     for (const { ws } of onlineUsers.values()) {
       if (ws.readyState === WebSocket.OPEN) {
         const viewer = Array.from(onlineUsers.values()).find(connection => connection.ws === ws)?.user;
-        ws.send(JSON.stringify({ type: "presence_update", onlineUsers: onlineUserList.filter(candidate => {
+        if (viewer) sendChatToUser(viewer.id, { type: "presence_update", onlineUsers: onlineUserList.filter(candidate => {
           const target = onlineUsers.get(candidate.id)?.user;
           return viewer && target;
-        }) }));
+        }) });
       }
     }
   }
