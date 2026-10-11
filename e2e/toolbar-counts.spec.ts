@@ -1,5 +1,33 @@
 import { test, expect } from "@playwright/test";
 
+test("Missed communications hides zero indicators and restores only positive categories", async ({ page }) => {
+  await page.route("**/api/**", route => route.fulfill({ json: { enabled: false } }));
+  await page.goto("/test-fixtures/toolbar-counts.html", { waitUntil: "domcontentloaded" });
+  const trigger = page.getByTestId("btn-open-abandoned-calls");
+  await expect(trigger).toBeVisible();
+  await expect(trigger.locator(".pta-counts")).toHaveCount(0);
+  for (const selected of ["calls", "emails", "sms"]) {
+    await page.evaluate(selected => window.dispatchEvent(new CustomEvent("test:missed-counts", {
+      detail: { calls: 0, emails: 0, sms: 0, [selected]: 3 },
+    })), selected);
+    for (const category of ["calls", "emails", "sms"]) {
+      const badge = page.getByTestId(`badge-missed-${category}`);
+      if (category === selected) await expect(badge).toContainText("3");
+      else await expect(badge).toHaveCount(0);
+    }
+  }
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent("test:missed-counts", {
+    detail: { calls: 0, emails: 0, sms: 0 },
+  })));
+  await expect(trigger.locator(".pta-counts")).toHaveCount(0);
+  await expect(trigger).toBeVisible();
+  await page.evaluate(() => window.addEventListener("test:missed-open", () => {
+    document.body.setAttribute("data-missed-open", "true");
+  }, { once: true }));
+  await trigger.click();
+  await expect(page.locator("body")).toHaveAttribute("data-missed-open", "true");
+});
+
 test("Inbox badges appear above zero and disappear again at zero", async ({ page }) => {
   await page.route("**/api/**", route => route.fulfill({ json: route.request().url().includes("/auth/me")
     ? { user: { id: "test-agent", username: "agent", fullName: "Test Agent", role: "admin", isActive: true, assignedCountries: ["SK"] } }

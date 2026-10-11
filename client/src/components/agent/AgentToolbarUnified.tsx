@@ -268,17 +268,17 @@ export function AgentToolbarUnified({
                 <strong>{t.agentWorkspace.toolbar.missedCommunications}</strong>
                 <span>{t.agentWorkspace.toolbar.missedCommunicationsHint}</span>
               </span>
-              <span className="pta-counts">
-                 <span className={`pta-counter ${(missedCommunicationCounts?.calls || 0) > 0 ? "pta-pending" : ""}`} title={t.agentWorkspace.missedCallsTab} aria-label={`${t.agentWorkspace.missedCallsTab}: ${missedCommunicationCounts?.calls || 0}`} data-testid="badge-missed-calls">
+              {((missedCommunicationCounts?.calls || 0) > 0 || (missedCommunicationCounts?.emails || 0) > 0 || (missedCommunicationCounts?.sms || 0) > 0) && <span className="pta-counts">
+                 {(missedCommunicationCounts?.calls || 0) > 0 && <span className="pta-counter pta-pending" title={t.agentWorkspace.missedCallsTab} aria-label={`${t.agentWorkspace.missedCallsTab}: ${missedCommunicationCounts?.calls || 0}`} data-testid="badge-missed-calls">
                   <PhoneMissed size={14} /><b>{missedCommunicationCounts?.calls || 0}</b>
-                </span>
-                 <span className={`pta-counter ${(missedCommunicationCounts?.emails || 0) > 0 ? "pta-pending" : ""}`} title={t.agentWorkspace.missedEmailsTab} aria-label={`${t.agentWorkspace.missedEmailsTab}: ${missedCommunicationCounts?.emails || 0}`} data-testid="badge-missed-emails">
+                </span>}
+                 {(missedCommunicationCounts?.emails || 0) > 0 && <span className="pta-counter pta-pending" title={t.agentWorkspace.missedEmailsTab} aria-label={`${t.agentWorkspace.missedEmailsTab}: ${missedCommunicationCounts?.emails || 0}`} data-testid="badge-missed-emails">
                   <Mail size={14} /><b>{missedCommunicationCounts?.emails || 0}</b>
-                </span>
-                 <span className={`pta-counter ${(missedCommunicationCounts?.sms || 0) > 0 ? "pta-pending" : ""}`} title={t.agentWorkspace.missedSmsTab} aria-label={`${t.agentWorkspace.missedSmsTab}: ${missedCommunicationCounts?.sms || 0}`} data-testid="badge-missed-sms">
+                </span>}
+                 {(missedCommunicationCounts?.sms || 0) > 0 && <span className="pta-counter pta-pending" title={t.agentWorkspace.missedSmsTab} aria-label={`${t.agentWorkspace.missedSmsTab}: ${missedCommunicationCounts?.sms || 0}`} data-testid="badge-missed-sms">
                   <MessageSquare size={14} /><b>{missedCommunicationCounts?.sms || 0}</b>
-                </span>
-              </span>
+                </span>}
+              </span>}
               <span className="pta-open-indicator">{t.agentWorkspace.toolbar.open}</span>
             </button>
           )}
