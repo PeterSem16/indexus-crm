@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, MessageSquareText, Send, Clock3, Users, UserRound, LockKeyhole } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogPortal } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
@@ -133,8 +133,14 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
   const error = (retry: () => unknown) => <div className="pulse-empty" role="alert">{c.loadFailed}<button className="pulse-btn ml-2" onClick={() => { retry(); }}>{t.common.refresh}</button></div>;
   const resolverId = task ? taskResolverId(task, comments.data || []) : null;
   const resolverName = personName(people.data?.find(person => person.id === resolverId)) || t.common.unknown;
-  return <Dialog modal={mode !== "backOffice"} open={open} onOpenChange={onOpenChange}>
-    <DialogContent onInteractOutside={event => { if (mode === "backOffice") event.preventDefault(); }} className={`${boEntityOpen ? "invisible" : ""} pulse-live pulse-center-dialog z-[10021] w-[calc(100vw-24px)] max-w-[1240px] sm:max-w-[1240px] h-[calc(100dvh-32px)] max-h-[900px] p-0 gap-0 border-0 bg-[#eaf1f6]`} data-testid="pulse-communication-center">
+  // Keep the Radix content type stable: switching modal/non-modal remounts the
+  // entire dialog and drops its overlay. Non-modal is needed for BO's portalled
+  // entity drawers; the independent backdrop blocks the underlying workspace.
+  return <Dialog modal={false} open={open} onOpenChange={onOpenChange}>
+    {open && <DialogPortal><div aria-hidden="true" data-testid="pulse-inbox-backdrop"
+      className={`fixed inset-0 z-[10020] bg-black/80 pointer-events-auto ${boEntityOpen ? "hidden" : ""}`}
+      onPointerDown={event => event.preventDefault()}/></DialogPortal>}
+    <DialogContent aria-modal={!boEntityOpen} onInteractOutside={event => { if (mode === "backOffice" || boEntityOpen) event.preventDefault(); }} className={`${boEntityOpen ? "invisible" : ""} pulse-live pulse-center-dialog z-[10021] w-[calc(100vw-24px)] max-w-[1240px] sm:max-w-[1240px] h-[calc(100dvh-32px)] max-h-[900px] p-0 gap-0 border-0 bg-[#eaf1f6]`} data-testid="pulse-communication-center">
       <DialogTitle className="sr-only">{c.centerTitle}</DialogTitle><DialogDescription className="sr-only">{c.centerSubtitle}</DialogDescription>
       <div className="pulse-frame">
         <div className="pulse-top"><div className="pulse-brand">NEXUS <b>PULSE</b></div></div>

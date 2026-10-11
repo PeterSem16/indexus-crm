@@ -14,8 +14,19 @@ const keys = [
    "privateLabel", "privateColleagueConversation", "backToColleagues", "messagesOutsideTasks", "enterToSend", "shiftEnterNewLine",
    "muteChatSounds", "enableChatSounds", "quickReplies", "emojiAgree", "emojiSmile", "emojiThanks", "emojiDone", "emojiAppreciation", "emojiHello", "unreadChats",
   "addRecipients", "collapseRecipients",
+  "peopleAssigned", "peopleAvailable", "peopleAssignmentHint", "peopleInboxHint", "peopleSelectedCount",
+  "peopleSearch", "peopleNoResults", "peopleAssignmentTitle", "peopleAssignmentSubtitle",
 ] as const;
 export type TaskCommunicationCopy = Record<typeof keys[number], string>;
+const missionPeopleLabels: Record<Locale, string[]> = {
+  en: ["Assigned agents", "Available people", "Choose who works on this Mission. Assignment does not set Inbox access.", "This controls Inbox visibility and chat, not Mission assignment. Explicit selections from other Missions are combined; access is checked in both directions.", "{count} selected", "Search people…", "No people match this search.", "Mission team & Inbox", "Manage the team and each agent’s Inbox colleagues for"],
+  sk: ["Priradení agenti", "Dostupní používatelia", "Vyberte, kto pracuje na tejto Mission. Priradenie nenastavuje prístup v Inboxe.", "Toto určuje viditeľnosť v Inboxe a chat, nie priradenie k Mission. Výbery z ostatných Missions sa kombinujú; prístup sa overuje oboma smermi.", "{count} vybraných", "Hľadať používateľov…", "Tomuto vyhľadávaniu nevyhovuje žiadny používateľ.", "Tím Mission a Inbox", "Spravujte tím a kolegov v Inboxe každého agenta pre"],
+  cs: ["Přiřazení agenti", "Dostupní uživatelé", "Vyberte, kdo pracuje na této Mission. Přiřazení nenastavuje přístup v Inboxu.", "Toto určuje viditelnost v Inboxu a chat, nikoli přiřazení k Mission. Výběry z ostatních Missions se kombinují; přístup se ověřuje oběma směry.", "{count} vybraných", "Hledat uživatele…", "Tomuto hledání neodpovídá žádný uživatel.", "Tým Mission a Inbox", "Spravujte tým a kolegy v Inboxu každého agenta pro"],
+  hu: ["Hozzárendelt ügynökök", "Elérhető felhasználók", "Válassza ki, ki dolgozik ezen a Missionön. A hozzárendelés nem állítja be az Inbox hozzáférését.", "Ez az Inbox láthatóságát és a csevegést szabályozza, nem a Mission-hozzárendelést. Más Missionök kifejezett kiválasztásai összeadódnak; a hozzáférést mindkét irányban ellenőrizzük.", "{count} kiválasztva", "Felhasználók keresése…", "Nincs a keresésnek megfelelő felhasználó.", "Mission csapat és Inbox", "A csapat és az ügynökök Inbox-kollégáinak kezelése:"],
+  ro: ["Agenți alocați", "Utilizatori disponibili", "Alegeți cine lucrează în această Mission. Alocarea nu configurează accesul la Inbox.", "Aceasta controlează vizibilitatea în Inbox și chatul, nu alocarea la Mission. Selecțiile explicite din alte Missions se combină; accesul se verifică în ambele direcții.", "{count} selectați", "Caută utilizatori…", "Niciun utilizator nu corespunde căutării.", "Echipa Mission și Inbox", "Gestionați echipa și colegii din Inbox ai fiecărui agent pentru"],
+  it: ["Agenti assegnati", "Utenti disponibili", "Scegli chi lavora in questa Mission. L’assegnazione non configura l’accesso all’Inbox.", "Questo controlla la visibilità nell’Inbox e la chat, non l’assegnazione alla Mission. Le selezioni esplicite delle altre Missions si combinano; l’accesso viene verificato in entrambe le direzioni.", "{count} selezionati", "Cerca utenti…", "Nessun utente corrisponde alla ricerca.", "Team Mission e Inbox", "Gestisci il team e i colleghi dell’Inbox di ogni agente per"],
+  de: ["Zugewiesene Agenten", "Verfügbare Benutzer", "Wählen Sie, wer an dieser Mission arbeitet. Die Zuweisung legt den Inbox-Zugriff nicht fest.", "Dies steuert die Sichtbarkeit in der Inbox und den Chat, nicht die Mission-Zuweisung. Explizite Auswahlen anderer Missions werden kombiniert; der Zugriff wird in beide Richtungen geprüft.", "{count} ausgewählt", "Benutzer suchen…", "Keine Benutzer entsprechen dieser Suche.", "Mission-Team und Inbox", "Verwalten Sie das Team und die Inbox-Kollegen jedes Agenten für"],
+};
 const recipientPickerLabels: Record<Locale, string[]> = {
   en: ["Add a group or colleague", "Collapse list"],
   sk: ["Pridať skupinu alebo používateľa", "Zbaliť zoznam"],
@@ -58,7 +69,7 @@ function copy(locale: Locale, values: string[]): TaskCommunicationCopy {
     hu: "Saját kérések és válaszok", ro: "Cererile și răspunsurile dvs.", it: "Le tue richieste e risposte",
     de: "Ihre Anfragen und Antworten",
   };
-  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale], ...interactionLabels[locale], ...recipientPickerLabels[locale]];
+  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale], ...interactionLabels[locale], ...recipientPickerLabels[locale], ...missionPeopleLabels[locale]];
   if (allValues.length !== keys.length) throw new Error("Incomplete task communication translations");
   return Object.fromEntries(keys.map((key, index) => [key, allValues[index]])) as TaskCommunicationCopy;
 }

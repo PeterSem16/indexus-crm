@@ -185,6 +185,37 @@ test("mobile private chat highlights online presence and keeps bubbles and sendi
   await page.screenshot({ path: "test-results/personal-inbox-chat-mobile.png" });
   expect(state.errors).toEqual([]);
 });
+test("Inbox tab switches preserve the same grey backdrop and dialog without remounting", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html");
+  const dialog = page.getByTestId("pulse-communication-center");
+  const backdrop = page.getByTestId("pulse-inbox-backdrop");
+  await expect(dialog).toBeVisible();
+  await expect(backdrop).toBeVisible();
+  await dialog.evaluate(node => { node.dataset.sameDialog = "yes"; });
+  await backdrop.evaluate(node => { node.dataset.sameBackdrop = "yes"; });
+  const colour = await backdrop.evaluate(node => getComputedStyle(node).backgroundColor);
+  const width = await page.evaluate(() => document.documentElement.clientWidth);
+  for (let cycle = 0; cycle < 2; cycle++) {
+    for (const label of [translations.en.backOffice.title, c.directMessages, c.myRequests]) {
+      await dialog.locator(".center-tabs").getByRole("button", { name: new RegExp(label) }).click();
+      await expect(dialog).toHaveAttribute("data-same-dialog", "yes");
+      await expect(backdrop).toHaveAttribute("data-same-backdrop", "yes");
+      await expect(backdrop).toBeVisible();
+      expect(await backdrop.evaluate(node => getComputedStyle(node).backgroundColor)).toBe(colour);
+      expect(await page.evaluate(() => document.documentElement.clientWidth)).toBe(width);
+    }
+  }
+  await page.getByTestId("inbox-tab-back-office").click();
+  await page.screenshot({ path: "test-results/inbox-back-office-stable-backdrop.png" });
+  await page.mouse.click(2, 2);
+  await expect(dialog).toBeVisible();
+  await dialog.locator(".center-tabs").getByRole("button", { name: new RegExp(c.myRequests) }).click();
+  await page.mouse.click(2, 2);
+  await expect(dialog).toHaveCount(0);
+  expect(state.errors).toEqual([]);
+});
+
 test("request recipients stay collapsed until adding a group or colleague and preserve selection", async ({ page }) => {
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?recipients");
@@ -471,6 +502,50 @@ test("ordinary INDEXUS shows saved and live private chats on Nexus Omni without 
   await page.screenshot({ path: "test-results/indexus-global-private-chat.png" });
   expect(state.errors).toEqual([]);
 });
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`Mission team redesign keeps independent agent policies, search and footer usable at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const state = await setup(page);
+    await page.goto("/test-fixtures/task-communications.html?mission-chat");
+    await page.getByTestId("button-assign-agents-mission-chat").click();
+    await expect(page.getByRole("heading", { name: c.peopleAssignmentTitle })).toBeVisible();
+    const assignment = page.getByTestId("mission-agent-assignment-picker");
+    await page.getByTestId("input-search-agents").fill("Test Colleague B");
+    await page.getByTestId("checkbox-agent-b").check();
+    await page.getByTestId("input-search-agents").fill("missing-person-name");
+    await expect(assignment).toContainText(c.peopleNoResults);
+    await expect(assignment.locator(".mission-assignment-selected")).toContainText("Test Colleague B");
+    await page.getByTestId("input-search-agents").fill("");
+    await page.getByTestId("button-toggle-role-__legacy__user").click();
+    await expect(page.getByTestId("checkbox-agent-viewer")).toBeChecked();
+    const agent = page.getByTestId("mission-chat-agent");
+    const mode = page.getByTestId("mission-chat-mode");
+    await agent.selectOption("b");
+    await expect(mode).toHaveValue("default");
+    await mode.selectOption("selected");
+    await expect(page.getByTestId("mission-agent-chat-settings")).toContainText(c.missionChatNone);
+    await expect(page.getByTestId("mission-chat-colleague-b")).toHaveCount(0);
+    await page.getByTestId("mission-chat-colleague-a").check();
+    await agent.selectOption("viewer");
+    await expect(page.getByTestId("mission-chat-colleague-a")).toBeChecked();
+    await expect(page.getByTestId("mission-chat-colleague-b")).not.toBeChecked();
+    await agent.selectOption("b");
+    await expect(page.getByTestId("mission-chat-colleague-a")).toBeChecked();
+    const save = page.getByTestId("button-save-agents");
+    const bounds = await save.boundingBox();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
+    await page.screenshot({ path: `test-results/mission-people-redesign-${viewport.width}.png` });
+    await mode.selectOption("default");
+    await mode.selectOption("selected");
+    await save.click();
+    await expect.poll(() => state.writes.find(write => write.url === "/api/campaigns/mission-chat/agents")?.body)
+      .toMatchObject({ userIds: ["viewer", "b"], chatSelections: { viewer: ["a"], b: [] } });
+    expect(state.errors).toEqual([]);
+  });
+}
+
 test("Mission agent drawer saves per-agent Inbox colleagues and can explicitly disable chat", async ({ page }) => {
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?mission-chat");
