@@ -419,6 +419,95 @@
 .dark .icp-theme-omni .icp-message.is-own {
   background: hsl(var(--primary) / .22);
 }
+
+/* Readable type scale for the Pulse inbox and theme-aware Omni chats. */
+.icp-root { font-size: 16px; }
+.icp-day,
+.icp-unread,
+.icp-typing,
+.icp-pending-label { font-size: 12px; }
+.icp-private-tag,
+.icp-kicker { font-size: 11px; }
+.icp-notice,
+.icp-state button,
+.icp-roster-empty,
+.icp-empty span,
+.icp-state p { font-size: 14px; }
+.icp-empty strong { font-size: 15px; }
+.icp-search input {
+  font-size: 14px;
+}
+.icp-person-top b,
+.icp-chat-person > b {
+  font-size: 15px;
+}
+.icp-person-top time,
+.icp-person-bottom > span,
+.icp-person-bottom > i,
+.icp-chat-person > span,
+.icp-message-meta time,
+.icp-receipt {
+  font-size: 12px;
+}
+.icp-person-bottom > i {
+  padding: 3px 7px;
+}
+.icp-person-bottom > i.online {
+  gap: 5px;
+}
+.icp-person-bottom > i.online::before {
+  width: 7px;
+  height: 7px;
+}
+.icp-message-meta b {
+  font-size: 14px;
+}
+.icp-message p,
+.icp-compose-row textarea {
+  font-size: 16px;
+}
+.icp-message p {
+  line-height: 1.55;
+}
+.icp-send {
+  min-height: 42px;
+  padding-inline: 14px;
+  font-size: 14px;
+}
+.icp-compose [data-testid="task-attachment-picker"] button {
+  min-height: 36px;
+  font-size: 13px;
+}
+.icp-compose [data-testid="task-attachment-picker"] button svg {
+  width: 16px;
+  height: 16px;
+}
+.icp-compose-foot {
+  font-size: 12px;
+}
+.icp-theme-omni .icp-person-top time,
+.icp-theme-omni .icp-person-bottom > span,
+.icp-theme-omni .icp-person-bottom > i,
+.icp-theme-omni .icp-chat-person > span {
+  color: hsl(var(--muted-foreground));
+}
+.icp-theme-omni .icp-message-meta time,
+.icp-theme-omni .icp-receipt {
+  color: hsl(var(--muted-foreground));
+}
+.icp-theme-omni .icp-message-meta b,
+.icp-theme-omni .icp-message p {
+  color: hsl(var(--foreground));
+}
+.icp-theme-omni .icp-person-bottom > i.online {
+  color: #087b53;
+  background: hsl(154 53% 91%);
+}
+.icp-theme-omni .icp-person-bottom > i.online::before,
+.icp-theme-omni .icp-avatar > i.online,
+.icp-theme-omni .icp-chat-person > span > i.online {
+  background: #20a876;
+}
 @media (prefers-reduced-motion: reduce) {
   .icp-root *,
   .icp-root *::before,

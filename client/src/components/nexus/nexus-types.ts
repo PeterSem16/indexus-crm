@@ -87,6 +87,7 @@ export interface ChatConversation {
   id: string;
   participantId: string;
   participantName: string;
+  participantAvatarUrl?: string | null;
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;

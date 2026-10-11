@@ -103,10 +103,10 @@ async function setup(page: Page) {
     });
   });
   return { writes, errors, currentTasks, comments, messages, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
-    incoming: (partnerId: string) => {
-      const message = { id: "incoming-new", senderId: partnerId, receiverId: "viewer", content: "New private message", createdAt: new Date().toISOString() };
+    incoming: (partnerId: string, content = "New private message", socketDelivery = true) => {
+      const message = { id: `incoming-${partnerId}-${messages[partnerId].length}`, senderId: partnerId, receiverId: "viewer", content, createdAt: new Date().toISOString() };
       messages[partnerId].push(message); unread[partnerId]++;
-      chatSocket.send(JSON.stringify({ type: "new_message", message, sender: users.find(user => user.id === partnerId) }));
+      if (socketDelivery) chatSocket.send(JSON.stringify({ type: "new_message", message, sender: users.find(user => user.id === partnerId) }));
     },
   };
 }
@@ -278,6 +278,62 @@ test("shared Omni chat sends attachment-only messages and distinguishes incoming
   expect(state.errors).toEqual([]);
 });
 
+for (const theme of ["pulse", "omni"]) {
+  test(`${theme} open chat renders successive incoming messages immediately without replacing the draft`, async ({ page }) => {
+    const state = await setup(page);
+    await page.goto(`/test-fixtures/task-communications.html${theme === "omni" ? "?omni" : ""}`);
+    if (theme === "pulse") {
+      await page.evaluate(() => { document.documentElement.dataset.agentFullscreen = "true"; });
+      await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    }
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    const composer = page.locator(".icp-compose textarea");
+    await expect(page.locator(".icp-thread")).toContainText("Private A message");
+    await composer.fill("Keep my unfinished reply");
+    state.incoming("a", "First live question");
+    state.incoming("a", "Second live question");
+    await expect(page.locator(".icp-thread").getByText("First live question", { exact: true })).toHaveCount(1, { timeout: 2000 });
+    await expect(page.locator(".icp-thread").getByText("Second live question", { exact: true })).toHaveCount(1, { timeout: 2000 });
+    state.incoming("b", "Other colleague private question");
+    await expect(page.locator(".icp-thread")).not.toContainText("Other colleague private question");
+    await expect(composer).toHaveValue("Keep my unfinished reply");
+    expect(await composer.evaluate(element => getComputedStyle(element).fontSize)).toBe("16px");
+    expect(await page.locator(".icp-message p").first().evaluate(element => getComputedStyle(element).fontSize)).toBe("16px");
+    await page.screenshot({ path: `test-results/${theme}-live-readable-chat.png` });
+    expect(state.errors).toEqual([]);
+  });
+  test(`${theme} updated roster reconciles every missed message into the open conversation`, async ({ page }) => {
+    const state = await setup(page);
+    await page.goto(`/test-fixtures/task-communications.html${theme === "omni" ? "?omni" : ""}`);
+    if (theme === "pulse") await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    await expect(page.locator(".icp-thread")).toContainText("Private A message");
+    state.incoming("a", "Missed socket first question", false);
+    state.incoming("a", "Newest roster question", false);
+    state.emitChat({ type: "read_confirmed", senderId: "b" });
+    await expect(page.locator(".icp-thread").getByText("Newest roster question", { exact: true })).toHaveCount(1, { timeout: 2000 });
+    await expect(page.locator(".icp-thread").getByText("Missed socket first question", { exact: true })).toHaveCount(1, { timeout: 2000 });
+    expect(state.errors).toEqual([]);
+  });
+}
+test("collapsed Omni conversation rail shows each person's avatar or initials and keeps chat selection", async ({ page }) => {
+  const state = await setup(page);
+  await page.route("**/test-avatar-a.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#318478"/><circle cx="20" cy="15" r="7" fill="white"/><path d="M8 38a12 12 0 0 1 24 0" fill="white"/></svg>' }));
+  await page.goto("/test-fixtures/task-communications.html?omni&rail");
+  const first = page.getByTestId("chat-collapsed-a");
+  const second = page.getByTestId("chat-collapsed-b");
+  await expect(first.getByRole("img")).toHaveAttribute("src", "/test-avatar-a.svg");
+  await expect(first).toContainText("2");
+  await expect(second).toContainText("TC");
+  await first.click();
+  await expect(first).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".icp-thread")).toContainText("Private A message");
+  await second.click();
+  await expect(second).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".icp-chat-person")).toContainText("Test Colleague B");
+  await page.screenshot({ path: "test-results/omni-collapsed-person-avatars.png" });
+  expect(state.errors).toEqual([]);
+});
 test("Mission agent drawer saves per-agent Inbox colleagues and can explicitly disable chat", async ({ page }) => {
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?mission-chat");

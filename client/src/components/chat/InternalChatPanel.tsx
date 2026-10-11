@@ -197,7 +197,9 @@ export function InternalChatPanel({
     queryFn: () => loadJson<ChatMessage[]>(`/api/chat/messages/${encodeURIComponent(activeId!)}?limit=200`),
     enabled: !!user?.id && active && !!activeId && !!partner,
     retry: false,
-    refetchInterval: active ? 30_000 : false,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchInterval: active ? 5_000 : false,
     refetchOnWindowFocus: true,
   });
   const onlineIds = useMemo(() => new Set(chat.onlineUsers.map(person => person.id)), [chat.onlineUsers]);
@@ -213,7 +215,9 @@ export function InternalChatPanel({
   const activeDraft: Draft | null = activeId
     ? drafts[activeId] || { text: "", attachments: [], busy: false, uploadError: false }
     : null;
-  const visibleMessages = activeId ? messagesByPartner[activeId] || messagesQuery.data || [] : [];
+  const visibleMessages = useMemo(() => activeId
+    ? mergeMessageLists(messagesQuery.data || [], messagesByPartner[activeId] || [])
+    : [], [activeId, messagesQuery.data, messagesByPartner]);
   const threadLoaded = active && !!activeId && !!partner && messagesQuery.isSuccess;
   const threadVisible = !!threadLoaded && isVisible && windowFocused;
   threadVisibleRef.current = threadVisible;
@@ -237,6 +241,23 @@ export function InternalChatPanel({
     void queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations", user?.id] });
     if (active && activeIdRef.current) void queryClient.invalidateQueries({ queryKey: ["/api/chat/messages", user?.id, activeIdRef.current] });
   }, [active, queryClient, user?.id]);
+  useEffect(() => {
+    if (active && chat.isConnected) refetchChatData();
+  }, [active, chat.isConnected, refetchChatData]);
+
+  // A fresh roster preview must never leave its open conversation behind.
+  // Reconcile the latest trusted record immediately, then fetch any missed
+  // messages (including reconnects or events missed while another tab was open).
+  const latestPartnerMessage = activeId ? conversationsById.get(activeId)?.lastMessage : undefined;
+  useEffect(() => {
+    if (!active || !activeId || !user?.id || !latestPartnerMessage) return;
+    const senderId = messageValue<string>(latestPartnerMessage, "senderId");
+    const receiverId = messageValue<string>(latestPartnerMessage, "receiverId");
+    if (!((senderId === user.id && receiverId === activeId)
+      || (senderId === activeId && receiverId === user.id))) return;
+    mergeMessages(activeId, [latestPartnerMessage]);
+    void queryClient.invalidateQueries({ queryKey: ["/api/chat/messages", user.id, activeId] });
+  }, [active, activeId, user?.id, latestPartnerMessage, mergeMessages, queryClient]);
 
   useEffect(() => {
     const onVisibility = () => setIsVisible(!document.hidden);
@@ -316,7 +337,10 @@ export function InternalChatPanel({
     const onNewMessage = (event: Event) => {
       const detail = (event as CustomEvent<{ message: ChatMessage; partnerId: string }>).detail;
       if (!active || !detail?.message || !detail.partnerId) return;
+      if (messageValue<string>(detail.message, "receiverId") !== user?.id
+        || messageValue<string>(detail.message, "senderId") !== detail.partnerId) return;
       mergeMessage(detail.partnerId, detail.message);
+      void queryClient.invalidateQueries({ queryKey: ["/api/chat/messages", user?.id, detail.partnerId] });
       if (activeIdRef.current === detail.partnerId && threadVisibleRef.current) chat.markAsRead(detail.partnerId);
     };
     const onDelivered = (event: Event) => {

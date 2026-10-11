@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -439,8 +440,15 @@ export default function NexusSidebar({
                         onClick={() => onSelectChat?.(chat.id)}
                         className={`relative p-2 rounded-md transition-all ${selectedChatId === chat.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"}`}
                         data-testid={`chat-collapsed-${chat.id}`}
+                        aria-label={chat.participantName || t.nexusOmni.chats.internalChats}
+                        aria-pressed={selectedChatId === chat.id}
                       >
-                        <MessagesSquare className="h-5 w-5" />
+                        <Avatar className="h-9 w-9 rounded-xl">
+                          <AvatarImage src={chat.participantAvatarUrl || undefined} alt={chat.participantName} className="object-cover" />
+                          <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-sm font-semibold">
+                            {(chat.participantName || "?").trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                         {chat.unreadCount > 0 && (
                           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
                             {chat.unreadCount}

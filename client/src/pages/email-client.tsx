@@ -5425,6 +5425,7 @@ export default function EmailClientPage() {
             id: conv.partnerId,
             participantId: conv.partnerId,
             participantName: conv.partner?.fullName?.trim() || conv.partner?.username || conv.partnerId,
+            participantAvatarUrl: conv.partner?.avatarUrl,
             lastMessage: conv.lastMessage?.content || "",
             lastMessageAt: conv.lastMessage?.createdAt instanceof Date
               ? conv.lastMessage.createdAt.toISOString()
