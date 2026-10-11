@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { inboxScopeUrl } from "@shared/pulse-inbox-scope";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
 import { apiRequest } from "@/lib/queryClient";
@@ -17,14 +18,14 @@ function writeSeen(userId: string, value: Record<string, string>) {
   try { localStorage.setItem(`pulse-communication-seen:${userId}`, JSON.stringify(value)); }
   catch { /* Reading still works for this session when browser storage is unavailable. */ }
 }
-export function useCommunicationUpdates(enabled: boolean) {
+export function useCommunicationUpdates(enabled: boolean, missionId?: string | null) {
   const { user } = useAuth();
   const chat = useChatContext();
   const qc = useQueryClient();
   const [seen, setSeen] = useState<{ userId: string; versions: Record<string, string> | null }>({ userId: "", versions: null });
   const tasks = useQuery<Task[]>({
-    queryKey: ["/api/tasks/created", user?.id],
-    queryFn: async () => (await apiRequest("GET", "/api/tasks/created")).json(),
+    queryKey: ["/api/tasks/created", user?.id, missionId],
+    queryFn: async () => (await apiRequest("GET", inboxScopeUrl("/api/tasks/created", missionId))).json(),
     enabled: enabled && !!user?.id, staleTime: 0, refetchInterval: enabled ? 5000 : false,
   });
   const threads = useQuery<{ partnerId: string; unreadCount: number }[]>({
@@ -33,8 +34,8 @@ export function useCommunicationUpdates(enabled: boolean) {
     enabled: enabled && !!user?.id, staleTime: 0, refetchInterval: enabled ? 15000 : false,
   });
   const backOffice = useQuery<{ task: Task }[]>({
-    queryKey: ["/api/agent/bo-questions", user?.id],
-    queryFn: async () => (await apiRequest("GET", "/api/agent/bo-questions")).json(),
+    queryKey: ["/api/agent/bo-questions", user?.id, missionId],
+    queryFn: async () => (await apiRequest("GET", inboxScopeUrl("/api/agent/bo-questions", missionId))).json(),
     enabled: enabled && !!user?.id, staleTime: 0, refetchInterval: enabled ? 10000 : false,
   });
   useEffect(() => {
@@ -70,9 +71,9 @@ export function useCommunicationUpdates(enabled: boolean) {
   const sameUser = seen.userId === user?.id;
   return {
     counts: {
-      ...communicationTaskCounts(tasks.data || [], sameUser ? seen.versions : null),
+      ...communicationTaskCounts((tasks.data || []).filter(task => task.createdByUserId === user?.id), sameUser ? seen.versions : null),
       chat: sameUser ? communicationChatCount(threads.data || [], chat.unreadCounts) : 0,
-      backOffice: backOffice.data?.length || 0,
+      backOffice: backOffice.data?.filter(item => item.task.createdByUserId === user?.id).length || 0,
     },
     markTaskViewed,
   };

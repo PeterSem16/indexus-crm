@@ -15,6 +15,7 @@ import type { TaskAttachment } from "@shared/task-attachments";
 import { InternalChatPanel, type InternalChatDraftSnapshot } from "@/components/chat/InternalChatPanel";
 import { BackOfficeQuestionsInbox } from "@/components/back-office-questions-inbox";
 import { isCompletionEvent, taskHistoryComments, taskResolverId } from "./task-history-model";
+import { inboxScopeUrl } from "@shared/pulse-inbox-scope";
 
 type Person = { id: string; fullName: string | null; username: string; avatarUrl?: string | null };
 type Conversation = { partnerId: string; unreadCount: number };
@@ -31,8 +32,8 @@ function stateKey(task: Task) {
   if (task.status === "in_progress" || task.boState === "in_progress") return "in_progress";
   return "pending";
 }
-export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onTaskViewed }: {
-  open: boolean; onOpenChange: (value: boolean) => void; onNewRequest: () => void; onTaskViewed?: (task: Task) => void;
+export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onTaskViewed, missionId }: {
+  open: boolean; onOpenChange: (value: boolean) => void; onNewRequest: () => void; onTaskViewed?: (task: Task) => void; missionId?: string | null;
 }) {
   const { t, locale } = useI18n();
   const c = t.taskCommunication;
@@ -56,16 +57,16 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
     }).format(value) : "";
   };
   const tasks = useQuery<Task[]>({
-    queryKey: ["/api/tasks/created", user?.id], queryFn: async () => (await apiRequest("GET", "/api/tasks/created")).json(),
+    queryKey: ["/api/tasks/created", user?.id, missionId], queryFn: async () => (await apiRequest("GET", inboxScopeUrl("/api/tasks/created", missionId))).json(),
     enabled: open && !!user?.id, staleTime: 0, refetchInterval: open ? 15000 : false,
   });
   const questions = useQuery<{ task: Task }[]>({
-    queryKey: ["/api/agent/bo-questions", user?.id],
-    queryFn: async () => (await apiRequest("GET", "/api/agent/bo-questions")).json(),
+    queryKey: ["/api/agent/bo-questions", user?.id, missionId],
+    queryFn: async () => (await apiRequest("GET", inboxScopeUrl("/api/agent/bo-questions", missionId))).json(),
     enabled: open && !!user?.id, staleTime: 0, refetchInterval: open ? 10000 : false,
   });
   const allTasks = Array.from(new Map([...(tasks.data || []), ...(questions.data || []).map(item => item.task)]
-    .map(task => [task.id, task])).values());
+    .filter(task => task.createdByUserId === user?.id).map(task => [task.id, task])).values());
   const ordinaryTasks = allTasks.filter(task => !task.tags?.includes("back_office"));
   const backOfficeTasks = allTasks.filter(task => task.tags?.includes("back_office"));
   const people = useQuery<Person[]>({
@@ -150,7 +151,7 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
               <select className="pulse-select center-filter" aria-label={t.common.status} value={filter} onChange={event => setFilter(event.target.value)}><option value="all">{t.common.all}</option>
                 {Object.entries(t.tasks.statuses).map(([key, label]) => <option key={key} value={key}>{label}</option>)}<option value="waiting_agent">{t.backOffice.stateWaitingAgent}</option>
               </select></div>
-              {mode === "backOffice" && <BackOfficeQuestionsInbox onEntityOpenChange={setBoEntityOpen} />}
+              {mode === "backOffice" && <BackOfficeQuestionsInbox key={missionId || "no-mission"} missionId={missionId} allowedTaskIds={backOfficeTasks.map(task => task.id)} onEntityOpenChange={setBoEntityOpen} />}
               <div className="center-task-list">{tasks.isLoading || questions.isLoading ? <div className="pulse-empty">{t.common.loading}</div> : tasks.isError || questions.isError ? error(() => { void tasks.refetch(); void questions.refetch(); }) : shown.map(row => <button key={row.id} className={`center-task-item ${task?.id === row.id ? "is-current" : ""}`} onClick={() => setTaskId(row.id)}>
                 <div className="center-item-top"><span className={`status-dot status-${stateKey(row)}`}/><span className={`status-name status-${stateKey(row)}`}>{statusLabel(row)}</span><time className="center-time">{stamp(row.createdAt)}</time></div>
                 <strong>{row.title}</strong><div className="center-handler"><Users size={12}/>{handler(row)}</div>

@@ -10,6 +10,25 @@ const tasks = [
   { id: "task-one", title: "First real-source request", description: "Original authored request", createdByUserId: "viewer", assignedUserId: "a", status: "pending", boState: "waiting_agent", tags: ["group_id:bo", "group:Back Office", "back_office"], requestRecipients: { userIds: ["b"], typeId: "change_data", typeName: "change_data" }, attachments: [], createdAt: "2026-10-10T08:00:00Z" },
   { id: "task-two", title: "Second request", description: "Second original content", createdByUserId: "viewer", assignedUserId: "b", status: "in_progress", tags: [], requestRecipients: { userIds: ["b"] }, attachments: [], createdAt: "2026-10-10T07:00:00Z" },
 ];
+test("Inbox excludes other authors and changes its request scope with the Mission", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/tasks/created?missionId=*", async route => {
+    const mission = new URL(route.request().url()).searchParams.get("missionId");
+    await route.fulfill({ json: [
+      { ...tasks[1], id: mission, title: `Own request in ${mission}` },
+      { ...tasks[1], id: "foreign", createdByUserId: "a", title: "Another agent's request" },
+    ] });
+  });
+  await page.route("**/api/agent/bo-questions?missionId=*", route => route.fulfill({ json: [] }));
+  await page.route("**/api/tasks/mission-*/comments", route => route.fulfill({ json: [] }));
+  await page.goto("/test-fixtures/task-communications.html?scope");
+  await expect(page.getByText("Own request in mission-one").first()).toBeVisible();
+  await expect(page.getByText("Another agent's request")).toHaveCount(0);
+  await page.getByTestId("switch-mission").evaluate((button: HTMLButtonElement) => button.click());
+  await expect(page.getByText("Own request in mission-two").first()).toBeVisible();
+  await expect(page.getByText("Own request in mission-one")).toHaveCount(0);
+  await expect(page.getByText("Another agent's request")).toHaveCount(0);
+});
 async function setup(page: Page) {
   const currentTasks: any[] = structuredClone(tasks);
   const unread: Record<string, number> = { a: 1, b: 0 };
@@ -123,6 +142,10 @@ test("real communication center separates histories, retains per-thread drafts a
   await page.getByRole("button", { name: c.send, exact: true }).click();
   await expect(direct).toHaveValue("");
   await expect(page.locator(".icp-thread").getByText("Private A draft", { exact: true })).toBeVisible();
+  const outgoing = await page.locator(".icp-thread .icp-message.is-own").last().boundingBox();
+  const incoming = await page.locator(".icp-thread .icp-message.is-other").first().boundingBox();
+  expect(outgoing!.x).toBeGreaterThan(incoming!.x);
+  await page.screenshot({ path: "test-results/personal-inbox-chat-desktop.png" });
   await page.getByRole("button", { name: new RegExp(c.myRequests) }).click();
   await expect(page.locator(".center-detail").getByText("Private A draft", { exact: true })).toHaveCount(0);
   expect(state.errors).toEqual([]);
@@ -138,6 +161,25 @@ test("failed chat confirmation does not discard the draft", async ({ page }) => 
   await page.getByRole("button", { name: c.send, exact: true }).click();
   await expect(draft).toHaveValue("Keep this unconfirmed draft");
   await expect(page.getByRole("button", { name: c.send, exact: true })).toBeDisabled();
+  expect(state.errors).toEqual([]);
+});
+test("mobile private chat highlights online presence and keeps bubbles and sending within view", async ({ page }) => {
+  const state = await setup(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/test-fixtures/task-communications.html");
+  await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  await expect(page.locator(".icp-chat-person i.online")).toHaveCount(1);
+  const composer = page.locator(".icp-root textarea");
+  await composer.fill("Mobile reply");
+  await page.getByRole("button", { name: c.send, exact: true }).click();
+  await expect(composer).toHaveValue("");
+  const bubble = page.locator(".icp-thread .icp-message.is-own").last();
+  await expect(bubble).toContainText("Mobile reply");
+  const bounds = await bubble.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: "test-results/personal-inbox-chat-mobile.png" });
   expect(state.errors).toEqual([]);
 });
 test("live Tasks settings save group/user combinations, create and delete request types", async ({ page }) => {

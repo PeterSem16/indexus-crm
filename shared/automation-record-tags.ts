@@ -11,7 +11,7 @@ export const normalizeTagName = (value: string): string =>
   value.normalize("NFKC").trim().replace(/\s+/gu, " ");
 export const tagKey = (value: string): string => normalizeTagName(value).toLowerCase();
 export const PROTECTED_RECORD_TAG_NAMES = ["status_list", "back_office"];
-export const PROTECTED_RECORD_TAG_PREFIXES = ["group_id:", "group:", "source_entity:", "system:", "__"];
+export const PROTECTED_RECORD_TAG_PREFIXES = ["group_id:", "group:", "source_entity:", "pulse_mission:", "system:", "__"];
 export const isProtectedRecordTag = (value: string): boolean =>
   PROTECTED_RECORD_TAG_NAMES.includes(tagKey(value)) || PROTECTED_RECORD_TAG_PREFIXES.some(prefix => tagKey(value).startsWith(prefix));
 export function visibleRecordTags(input: unknown): string[] {

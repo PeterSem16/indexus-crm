@@ -417,7 +417,9 @@ function QuestionDrawerContent({ item, onClose, onEntityOpenChange }: { item: BO
   );
 }
 
-export function BackOfficeQuestionsInbox({ onEntityOpenChange }: { onEntityOpenChange?: (open: boolean) => void } = {}) {
+export function BackOfficeQuestionsInbox({ onEntityOpenChange, missionId, allowedTaskIds }: {
+  onEntityOpenChange?: (open: boolean) => void; missionId?: string | null; allowedTaskIds?: string[];
+} = {}) {
   const { t } = useI18n();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -434,11 +436,14 @@ export function BackOfficeQuestionsInbox({ onEntityOpenChange }: { onEntityOpenC
     items: TaskCompletionNotice[];
   }>({ userId, items: [] });
   const [pendingNoticeIds, setPendingNoticeIds] = useState<string[]>([]);
-  const { data: questions = [] } = useQuery<BOQuestion[]>({
-    queryKey: ["/api/agent/bo-questions", userId],
-    queryFn: () => apiRequest("GET", "/api/agent/bo-questions").then(r => r.json()),
+  const questionsUrl = missionId === undefined ? "/api/agent/bo-questions" : `/api/agent/bo-questions?missionId=${encodeURIComponent(missionId || "")}`;
+  const { data: fetchedQuestions = [] } = useQuery<BOQuestion[]>({
+    queryKey: ["/api/agent/bo-questions", userId, missionId],
+    queryFn: () => apiRequest("GET", questionsUrl).then(r => r.json()),
     refetchInterval: 20000,
   });
+  const questions = fetchedQuestions.filter(item => item.task.createdByUserId === userId
+    && (allowedTaskIds === undefined || allowedTaskIds.includes(item.task.id)));
 
   const { data: persistedNotifications = [] } = useQuery<TaskCompletionNotification[]>({
     queryKey: [unreadNotificationsUrl, userId],
@@ -497,7 +502,8 @@ export function BackOfficeQuestionsInbox({ onEntityOpenChange }: { onEntityOpenC
     });
   }, [persistedNotifications, userId]);
 
-  const completionItems = completionState.userId === userId ? completionState.items : [];
+  const completionItems = completionState.userId === userId ? completionState.items.filter(item =>
+    allowedTaskIds === undefined || allowedTaskIds.includes(item.taskId)) : [];
 
   async function acknowledgeCompletionNotice(item: TaskCompletionNotice) {
     if (!userId || pendingNoticeIds.includes(item.id)) return;

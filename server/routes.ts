@@ -4,6 +4,7 @@ import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
 import { getQueueEngine } from "./lib/queue-engine";
 import { buildChatPolicy, chatPairAllowed, validateChatSelections, type ChatPolicy } from "./lib/chat-partner-policy";
+import { personalInboxTask, PULSE_TASK_MISSION_PREFIX } from "@shared/pulse-inbox-scope";
 import {
   registerTaskSourceEntityRoute,
   getTaskCompletionNoticeSourceLookupId,
@@ -9689,6 +9690,30 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
+  // Inbox is personal even for administrators; Mission attribution is exact,
+  // never inferred from membership of an institution in multiple Missions.
+  async function scopePersonalInboxRows<T extends typeof tasks.$inferSelect>(req: any, rows: T[]): Promise<T[]> {
+    const user = req.session.user!;
+    const requested = req.query.missionId;
+    if (requested !== undefined && typeof requested !== "string") return [];
+    const missionId = requested === undefined ? undefined : requested.trim();
+    if (missionId !== undefined) {
+      if (!missionId) return [];
+      const scope = await sanitizeAgentShiftScope(user.id, user.role, {
+        name: "personal-inbox", campaignIds: [missionId], inboundQueueIds: [], backOffice: false,
+      });
+      if (!scope.campaignIds.includes(missionId)) return [];
+    }
+    const itemIds = rows.filter(row => row.relatedEntityType === "status_list_item" && row.relatedEntityId)
+      .map(row => row.relatedEntityId!);
+    const items = itemIds.length && missionId !== undefined
+      ? await db.select({ id: campaignStatusListItems.id, campaignId: campaignStatusListItems.campaignId })
+        .from(campaignStatusListItems).where(inArray(campaignStatusListItems.id, itemIds))
+      : [];
+    const itemMissions = new Map(items.map(item => [item.id, item.campaignId]));
+    return rows.filter(row => personalInboxTask(row, user.id, missionId, itemMissions));
+  }
+
   // Tasks API (protected)
   app.get("/api/tasks/created", requireAuth, async (req, res) => {
     try {
@@ -9697,7 +9722,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
         db.select().from(tasks).where(eq(tasks.createdByUserId, user.id)),
         taskAccessContext(user),
       ]);
-      const mine = created.filter(task => taskIsAccessibleToUser(user, task, context));
+      const mine = (await scopePersonalInboxRows(req, created))
+        .filter(task => taskIsAccessibleToUser(user, task, context));
       res.json(mine.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch { res.status(500).json({ error: "Failed to load created tasks" }); }
   });
@@ -9941,7 +9967,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }
       const providedTags: string[] = Array.isArray(tags)
-        ? tags.filter((tag: string) => tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG
+        ? tags.filter((tag: string) => typeof tag === "string" && tag !== "status_list" && tag !== MANUAL_PULSE_TASK_TAG && !tag.startsWith(PULSE_TASK_MISSION_PREFIX)
           && (assignment.kind !== "shared" || (!tag.startsWith("group_id:") && !tag.startsWith("group:") && tag !== "back_office")))
         : [];
       if (assignment.kind === "group") providedTags.push(`group_id:${assignment.groupId}`);
@@ -9982,7 +10008,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       if (country) taskData.country = country;
       if (dueDate) taskData.dueDate = new Date(dueDate);
       const persistedTags = manualPulseProvenanceValidated
-        ? [...providedTags, MANUAL_PULSE_TASK_TAG]
+        ? [...providedTags.filter(tag => !tag.startsWith(PULSE_TASK_MISSION_PREFIX)), MANUAL_PULSE_TASK_TAG, `${PULSE_TASK_MISSION_PREFIX}${pulseOrigin.missionId}`]
         : providedTags;
       if (persistedTags.length > 0) taskData.tags = persistedTags;
       console.log("[CreateTask] creating task");
@@ -34809,9 +34835,9 @@ Respond ONLY with valid JSON in this exact format:
   app.get("/api/agent/bo-questions", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user!.id;
-      const rows = await db.select().from(tasks)
+      const rows = await scopePersonalInboxRows(req, await db.select().from(tasks)
         .where(sql`${tasks.createdByUserId} = ${userId} AND ${tasks.boState} = 'waiting_agent' AND ${tasks.tags} @> ARRAY['back_office']::text[]`)
-        .orderBy(desc(tasks.updatedAt));
+        .orderBy(desc(tasks.updatedAt)));
       // Batch-load customer context so the calling agent knows WHICH customer each
       // back-office question is about (these tasks were created by this agent).
       const custIds = Array.from(new Set(rows.map(t => t.customerId).filter(Boolean))) as string[];
@@ -41163,7 +41189,7 @@ Rules:
             }
             
             // Store message in database
-            const chatAttachments = await resolveTaskAttachmentsForWrite(message.attachments ?? [], actor);
+            const chatAttachments = await resolveTaskAttachments(message.attachments ?? [], actor);
             const { chatMsg, chatNotification } = await db.transaction(async tx => {
               const [chatMsg] = await tx.insert(chatMessages).values({
                 senderId: userId!, receiverId, content: content.trim(), isRead: false, attachments: chatAttachments,

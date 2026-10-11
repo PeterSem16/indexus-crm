@@ -3,7 +3,7 @@ import type { Locale } from "./translations";
 const keys = [
   "missionChatTitle", "missionChatHint", "missionChatAgent", "missionChatDefault", "missionChatSelected",
   "missionChatNone", "missionChatSearch", "missionChatNoAgents", "missionChatUnion",
-  "inboxLabel",
+  "inboxLabel", "inboxHint",
   "routingTitle", "routingSubtitle", "requestTypes", "addType", "enabledRouting", "manual",
   "sharedHint", "recipientsUnavailable", "replaceTitle", "replaceBody", "replace", "keep",
   "groups", "colleagues", "preview", "newType", "centerTitle", "centerSubtitle", "myRequests",
@@ -33,7 +33,12 @@ const missionChatLabels: Record<Locale, string[]> = {
   de: ["Kollegen im Agenten-Inbox", "Wählen Sie, wen der Agent sehen und mit wem er chatten darf. Der Online-Status bleibt sichtbar.", "Agent", "Keine Einschränkung durch diese Mission", "Nur ausgewählte Kollegen", "Keine Kollegen ausgewählt — Chat deaktiviert.", "Erlaubte Kollegen suchen…", "Wählen Sie zuerst einen Agenten.", "Die Listen aller Missions des Agenten werden zusammengeführt. Eine unkonfigurierte Mission erweitert die bestehende Liste nicht."],
 };
 function copy(locale: Locale, values: string[]): TaskCommunicationCopy {
-  const allValues = [...missionChatLabels[locale], ...values, ...chatLabels[locale]];
+  const inboxHints: Record<Locale, string> = {
+    en: "Your requests & replies", sk: "Vaše požiadavky a odpovede", cs: "Vaše požadavky a odpovědi",
+    hu: "Saját kérések és válaszok", ro: "Cererile și răspunsurile dvs.", it: "Le tue richieste e risposte",
+    de: "Ihre Anfragen und Antworten",
+  };
+  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale]];
   if (allValues.length !== keys.length) throw new Error("Incomplete task communication translations");
   return Object.fromEntries(keys.map((key, index) => [key, allValues[index]])) as TaskCommunicationCopy;
 }

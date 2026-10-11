@@ -23,11 +23,12 @@ function Fixture() {
   const { setLocale, t } = useI18n();
   const [fixtureMode] = useState(() => location.search);
   const toolbar = fixtureMode.includes("toolbar");
-  const updates = useCommunicationUpdates(toolbar && !!user?.id);
+  const [missionId, setMissionId] = useState<string | undefined>(fixtureMode.includes("scope") ? "mission-one" : undefined);
+  const updates = useCommunicationUpdates(toolbar && !!user?.id, missionId);
   const [open, setOpen] = useState(!toolbar);
   useEffect(() => setLocale("en"), [setLocale]);
   if (!user) return <div>Loading test identity</div>;
-  return <>{toolbar && <AgentToolbarUnified status="available" onStatusChange={() => {}} stats={{ calls: 0, emails: 0, sms: 0 }}
+  return <>{fixtureMode.includes("scope") && <button data-testid="switch-mission" onClick={() => setMissionId("mission-two")}>Switch Mission</button>}{toolbar && <AgentToolbarUnified status="available" onStatusChange={() => {}} stats={{ calls: 0, emails: 0, sms: 0 }}
     quotas={null} isQuotaBlocked={() => false} workTime="01:00" breakTypes={[]} onStartBreak={() => {}} onOpenBreak={() => {}}
     breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
     onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
@@ -40,7 +41,7 @@ function Fixture() {
         <NotificationItem notification={{ id: "chat-notice", userId: "viewer", type: "new_chat", title: "Chat", message: "Test Colleague A", priority: "normal", isRead: false, isDismissed: false, createdAt: new Date().toISOString(), metadata: { senderId: "a" } } as any} onMarkRead={() => {}} onDismiss={() => {}} />
         <InternalChatPanel theme="omni"/>
       </div>
-       : <PulseCommunicationCenter open={open} onOpenChange={setOpen} onTaskViewed={updates.markTaskViewed} onNewRequest={() => setOpen(false)}/>
+       : <PulseCommunicationCenter missionId={missionId} open={open} onOpenChange={setOpen} onTaskViewed={updates.markTaskViewed} onNewRequest={() => setOpen(false)}/>
   }<Toaster/></>;
 }
 createRoot(document.getElementById("root")!).render(

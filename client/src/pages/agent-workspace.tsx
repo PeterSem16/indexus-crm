@@ -10754,7 +10754,7 @@ function AgentWorkspacePageContent() {
   });
   const [createTaskDialogOpen, setCreateTaskDialogOpen] = useState(false);
   const [communicationCenterOpen, setCommunicationCenterOpen] = useState(false);
-  const communicationUpdates = useCommunicationUpdates(agentSession.isSessionActive);
+  const communicationUpdates = useCommunicationUpdates(agentSession.isSessionActive, selectedCampaignId);
   const [taskRecipients, setTaskRecipients] = useState<RequestRecipients>(emptyRecipients);
   const [taskRecipientsManual, setTaskRecipientsManual] = useState(false);
   const [pendingTaskCategory, setPendingTaskCategory] = useState<string | null>(null);
@@ -15808,7 +15808,7 @@ function AgentWorkspacePageContent() {
         if (communicationUpdates.counts.backOffice > 0) window.dispatchEvent(new CustomEvent("pulse_inbox_back_office"));
         setCommunicationCenterOpen(true);
       }} data-testid="btn-mobile-communication-center">
-        <MessageSquare className="h-4 w-4 mr-2"/>{t.taskCommunication.inboxLabel}
+        <MessageSquare className="h-4 w-4 mr-2"/><span className="flex flex-col text-left"><span>{t.taskCommunication.inboxLabel}</span><span className="text-[10px] font-normal text-muted-foreground">{t.taskCommunication.inboxHint}</span></span>
         {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat + communicationUpdates.counts.backOffice > 0) && <span className="ml-2 h-2 w-2 rounded-full bg-blue-500" />}
         {(communicationUpdates.counts.inProgress + communicationUpdates.counts.completed + communicationUpdates.counts.chat + communicationUpdates.counts.backOffice > 0) && <span className="ml-2 flex items-center gap-2">
           {communicationUpdates.counts.backOffice > 0 && <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-1 text-amber-900" title={t.backOffice.questionsInboxTitle}>
@@ -18108,7 +18108,7 @@ function AgentWorkspacePageContent() {
         </SheetContent>
       </Sheet>
 
-      <PulseCommunicationCenter open={communicationCenterOpen} onOpenChange={setCommunicationCenterOpen} onTaskViewed={communicationUpdates.markTaskViewed} onNewRequest={() => {
+      <PulseCommunicationCenter missionId={selectedCampaignId} open={communicationCenterOpen} onOpenChange={setCommunicationCenterOpen} onTaskViewed={communicationUpdates.markTaskViewed} onNewRequest={() => {
         setCommunicationCenterOpen(false);
         setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
         setCreateTaskDialogOpen(true);

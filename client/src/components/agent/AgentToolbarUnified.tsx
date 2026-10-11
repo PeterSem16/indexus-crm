@@ -308,8 +308,8 @@ export function AgentToolbarUnified({
               aria-label={`${t.taskCommunication.inboxLabel}: ${communicationCountsLabel}`}
               data-testid="btn-toolbar-communication-center"
             >
-              <MessageSquare size={15} aria-hidden="true" />
-              <span className="pta-communication-label">{t.taskCommunication.inboxLabel}</span>
+              <span className="pta-symbol"><MessageSquare size={21} strokeWidth={1.7} aria-hidden="true" /></span>
+              <span className="pta-copy"><strong className="pta-communication-label">{t.taskCommunication.inboxLabel}</strong><span>{t.taskCommunication.inboxHint}</span></span>
               {hasCommunicationUpdates && <span className="pta-communication-counts">
                 {(communicationUpdates.backOffice || 0) > 0 && <span className="pta-communication-bo-alert" data-testid="communication-updates-back-office">
                   <span className="pta-communication-bo-dot" aria-hidden="true" />
