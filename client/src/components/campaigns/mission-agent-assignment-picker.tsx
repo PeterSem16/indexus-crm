@@ -76,11 +76,12 @@ export function MissionAgentAssignmentPicker({ groups, selectedIds, onChange, di
       </span>
     </div>
     {selectedPeople.length > 0 && <div className="mission-assignment-selected" aria-label={c.peopleAssigned}>
-      <div className="mission-assignment-selected-avatars">
-        {selectedPeople.slice(0, 5).map(person => <span key={person.id} title={displayName(person)}><Avatar person={person} /></span>)}
-        {selectedPeople.length > 5 && <span className="mission-assignment-overflow">+{selectedPeople.length - 5}</span>}
-      </div>
-      <span>{selectedPeople.map(displayName).join(", ")}</span>
+      {selectedPeople.map(person => <label key={person.id} className="mission-assignment-selected-person">
+        <Checkbox checked disabled={disabled} data-testid={`checkbox-selected-agent-${person.id}`}
+          onCheckedChange={value => togglePerson(person.id, value === true)} />
+        <Avatar person={person} />
+        <span className="mission-agent-option-copy"><span>{displayName(person)}</span></span>
+      </label>)}
     </div>}
     <div className="mission-assignment-available-label">
       <span>{c.peopleAvailable}</span>

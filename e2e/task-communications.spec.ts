@@ -263,6 +263,63 @@ test("live Tasks settings save group/user combinations, create and delete reques
   await expect(page.getByRole("button", { name: /New authored request type/ })).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
+for (const viewport of [{ width: 1280, height: 720 }, { width: 1280, height: 560 }, { width: 390, height: 844 }]) {
+  test(`Mission people lists scroll and selected agents can be removed and re-added at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const state = await setup(page);
+    const extraUsers = Array.from({ length: 30 }, (_, index) => ({
+      id: `scroll-agent-${index}`, fullName: `Scroll Agent ${String(index).padStart(2, "0")}`,
+      username: `scroll-agent-${index}`, role: "user", isActive: true,
+    }));
+    await page.route("**/api/users", route => route.fulfill({ json: [
+      ...users.map(person => ({ ...person, role: person.id === "a" ? "admin" : "user", isActive: true })),
+      ...extraUsers,
+    ] }));
+    await page.route("**/api/campaigns/mission-chat/agents", async route => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await route.fulfill({ json: ["viewer", "a", ...extraUsers.slice(0, 6).map(person => person.id)].map(userId => ({
+        id: `assignment-${userId}`, userId, campaignId: "mission-chat", chatUserIds: ["a"],
+      })) });
+    });
+    await page.goto("/test-fixtures/task-communications.html?mission-chat");
+    await page.getByTestId("button-assign-agents-mission-chat").click();
+    const assignment = page.getByTestId("mission-agent-assignment-picker");
+    await expect(page.getByTestId("checkbox-selected-agent-a")).toBeChecked();
+    await page.getByTestId("input-search-agents").fill("no-matching-person");
+    await page.getByTestId("checkbox-selected-agent-a").click();
+    await expect(page.getByTestId("checkbox-selected-agent-a")).toHaveCount(0);
+    await page.getByTestId("input-search-agents").fill("Test Colleague A");
+    await expect(page.getByTestId("checkbox-agent-a")).not.toBeChecked();
+    await page.getByTestId("checkbox-agent-a").check();
+    await expect(page.getByTestId("checkbox-selected-agent-a")).toBeChecked();
+    await page.getByTestId("input-search-agents").fill("");
+    const selectedList = assignment.locator(".mission-assignment-selected");
+    await page.getByTestId("checkbox-selected-agent-scroll-agent-5").scrollIntoViewIfNeeded();
+    expect(await selectedList.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    await page.getByTestId("checkbox-selected-agent-scroll-agent-5").click();
+    await page.getByTestId("button-toggle-role-__legacy__admin").click();
+    await expect(page.getByTestId("checkbox-agent-a")).toBeChecked();
+    await page.getByTestId("button-toggle-role-__legacy__user").click();
+    const list = assignment.locator(".mission-assignment-groups");
+    expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
+    await list.hover();
+    await page.mouse.wheel(0, 500);
+    await expect.poll(() => list.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+    const lastAgent = page.getByTestId("checkbox-agent-scroll-agent-29");
+    await lastAgent.scrollIntoViewIfNeeded();
+    await lastAgent.check();
+    await page.getByTestId("input-search-agents").fill("Scroll Agent 05");
+    await expect(page.getByTestId("checkbox-agent-scroll-agent-5")).not.toBeChecked();
+    await page.getByTestId("checkbox-agent-scroll-agent-5").check();
+    await page.screenshot({ path: `test-results/mission-people-scroll-${viewport.width}-${viewport.height}.png` });
+    await expect(page.getByTestId("button-save-agents")).toBeInViewport();
+    await page.getByTestId("button-save-agents").click();
+    await expect.poll(() => state.writes.find(write => write.url === "/api/campaigns/mission-chat/agents")?.body.userIds?.slice().sort())
+      .toEqual(["viewer", "a", ...extraUsers.slice(0, 6).map(person => person.id), "scroll-agent-29"].sort());
+    expect(state.errors).toEqual([]);
+  });
+}
+
 for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
   test(`center controls remain reachable at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     const state = await setup(page);
