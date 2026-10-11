@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Users, UserRound } from "lucide-react";
+import { useId, useState } from "react";
+import { Users, UserRound, Plus, ChevronUp } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { type RequestRecipients, toggleRecipient, recipientsAreAvailable } from "./request-routing-model";
 import type { TaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
@@ -11,6 +11,8 @@ export function RequestRecipientPicker({ value, onChange, options, disabled = fa
   const { t } = useI18n();
   const c = t.taskCommunication;
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const optionsId = useId();
   const available = recipientsAreAvailable(value, options.groups, options.users);
   const count = value.groupIds.length + value.userIds.length;
   return <div className="pulse-live pulse-recipient-box" data-testid="request-recipients">
@@ -26,6 +28,12 @@ export function RequestRecipientPicker({ value, onChange, options, disabled = fa
     </div>
     {!available && <p role="alert" className="text-sm text-amber-800 mb-2">{c.recipientsUnavailable}</p>}
     <p className="pulse-note mb-3">{c.sharedHint}</p>
+    <button type="button" className="pulse-btn" disabled={disabled} aria-expanded={expanded} aria-controls={optionsId}
+      data-testid="toggle-request-recipients" onClick={() => { setExpanded(!expanded); setSearch(""); }}>
+      {expanded ? <ChevronUp size={14}/> : <Plus size={14}/>}
+      {expanded ? c.collapseRecipients : c.addRecipients}
+    </button>
+    {expanded && <div id={optionsId} className="mt-3">
     <input aria-label={t.common.search} className="pulse-input mb-3" placeholder={t.common.search} value={search} disabled={disabled} onChange={event => setSearch(event.target.value)} />
     <div className="pulse-recipient-options">
       <div><div className="pulse-label">{c.groups}</div><div className="pulse-target-scroll">
@@ -39,5 +47,6 @@ export function RequestRecipientPicker({ value, onChange, options, disabled = fa
         </label>)}
       </div></div>
     </div>
+    </div>}
   </div>;
 }

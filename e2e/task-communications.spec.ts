@@ -185,11 +185,40 @@ test("mobile private chat highlights online presence and keeps bubbles and sendi
   await page.screenshot({ path: "test-results/personal-inbox-chat-mobile.png" });
   expect(state.errors).toEqual([]);
 });
+test("request recipients stay collapsed until adding a group or colleague and preserve selection", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?recipients");
+  const picker = page.getByTestId("request-recipients");
+  const toggle = page.getByTestId("toggle-request-recipients");
+  await expect(picker).toContainText("Back Office");
+  await expect(picker).toContainText("Test Colleague A");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(picker.getByRole("checkbox")).toHaveCount(0);
+  await expect(picker.getByRole("textbox")).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await picker.getByRole("checkbox", { name: "IT", exact: true }).check();
+  await picker.getByRole("checkbox", { name: "Test Colleague B", exact: true }).check();
+  await picker.getByRole("textbox").fill("Colleague");
+  await toggle.click();
+  await expect(picker.getByRole("checkbox")).toHaveCount(0);
+  await expect(picker).toContainText("IT");
+  await expect(picker).toContainText("Test Colleague B");
+  await page.screenshot({ path: "test-results/request-recipients-collapsed.png" });
+  await toggle.click();
+  await expect(picker.getByRole("textbox")).toHaveValue("");
+  await expect(picker.getByRole("checkbox", { name: "Back Office", exact: true })).toBeChecked();
+  await expect(picker.getByRole("checkbox", { name: "IT", exact: true })).toBeChecked();
+  await expect(picker.getByRole("checkbox", { name: "Test Colleague B", exact: true })).toBeChecked();
+  expect(state.errors).toEqual([]);
+});
+
 test("live Tasks settings save group/user combinations, create and delete request types", async ({ page }) => {
   const state = await setup(page);
   await page.goto("/test-fixtures/task-communications.html?settings");
   await page.getByTestId("tab-request-routing").click();
   await expect(page.getByRole("heading", { name: c.routingTitle, level: 1 })).toBeVisible();
+  await page.getByTestId("toggle-request-recipients").click();
   await page.getByRole("checkbox", { name: "IT", exact: true }).check();
   await page.getByRole("checkbox", { name: "Test Colleague B", exact: true }).check();
   await page.getByRole("button", { name: translations.en.common.save, exact: true }).click();

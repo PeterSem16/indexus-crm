@@ -18,6 +18,8 @@ import NexusSidebar from "@/components/nexus/nexus-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useLocation } from "wouter";
 import { NotificationItem } from "@/components/notification-center";
+import { RequestRecipientPicker } from "@/components/tasks/request-recipient-picker";
+import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
 import "@/index.css";
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
 const AppSidebar = lazy(() => import("@/components/app-sidebar").then(module => ({ default: module.AppSidebar })));
@@ -28,6 +30,8 @@ function Fixture() {
   const [route] = useLocation();
   const [fixtureMode] = useState(() => location.search);
   const toolbar = fixtureMode.includes("toolbar");
+  const [recipients, setRecipients] = useState({ groupIds: ["bo"], userIds: ["a"] });
+  const recipientOptions = useTaskAssignmentOptions(fixtureMode.includes("recipients"));
   const [missionId, setMissionId] = useState<string | undefined>(fixtureMode.includes("scope") ? "mission-one" : undefined);
   const updates = useCommunicationUpdates(toolbar && !!user?.id, missionId);
   const [open, setOpen] = useState(!toolbar);
@@ -39,7 +43,9 @@ function Fixture() {
     breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
     onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
     <button onClick={() => setOpen(true)}>Reopen</button>{
-    fixtureMode.includes("indexus")
+     fixtureMode.includes("recipients")
+       ? <RequestRecipientPicker value={recipients} onChange={setRecipients} options={recipientOptions.data || { users: [], groups: [], canResolve: false }}/>
+       : fixtureMode.includes("indexus")
       ? <PermissionsProvider><CountryFilterProvider><TooltipProvider><SidebarProvider>
         <Suspense fallback={<div>Loading INDEXUS navigation</div>}><AppSidebar/></Suspense><main className="h-screen flex-1 p-4">{route.startsWith("/email")
           ? <InternalChatPanel theme="omni"/>

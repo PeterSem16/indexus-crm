@@ -13,8 +13,18 @@ const keys = [
    "searchColleagues", "today", "yesterday", "attachmentOnly", "sent", "read", "sending", "connected", "disconnected",
    "privateLabel", "privateColleagueConversation", "backToColleagues", "messagesOutsideTasks", "enterToSend", "shiftEnterNewLine",
    "muteChatSounds", "enableChatSounds", "quickReplies", "emojiAgree", "emojiSmile", "emojiThanks", "emojiDone", "emojiAppreciation", "emojiHello", "unreadChats",
+  "addRecipients", "collapseRecipients",
 ] as const;
 export type TaskCommunicationCopy = Record<typeof keys[number], string>;
+const recipientPickerLabels: Record<Locale, string[]> = {
+  en: ["Add a group or colleague", "Collapse list"],
+  sk: ["Pridať skupinu alebo používateľa", "Zbaliť zoznam"],
+  cs: ["Přidat skupinu nebo uživatele", "Sbalit seznam"],
+  hu: ["Csoport vagy felhasználó hozzáadása", "Lista összecsukása"],
+  ro: ["Adaugă un grup sau un utilizator", "Restrânge lista"],
+  it: ["Aggiungi un gruppo o un utente", "Comprimi elenco"],
+  de: ["Gruppe oder Benutzer hinzufügen", "Liste einklappen"],
+};
 const interactionLabels: Record<Locale, string[]> = {
   en: ["Mute chat sounds", "Enable chat sounds", "Quick replies — insert an emoji, then send", "Agree", "Smile", "Thanks", "Done", "Appreciation", "Hello", "Unread chat messages"],
   sk: ["Stlmiť zvuky chatu", "Zapnúť zvuky chatu", "Rýchle odpovede — vložte emotikon a odošlite", "Súhlasím", "Úsmev", "Ďakujem", "Hotovo", "Poďakovanie", "Pozdrav", "Neprečítané správy chatu"],
@@ -48,7 +58,7 @@ function copy(locale: Locale, values: string[]): TaskCommunicationCopy {
     hu: "Saját kérések és válaszok", ro: "Cererile și răspunsurile dvs.", it: "Le tue richieste e risposte",
     de: "Ihre Anfragen und Antworten",
   };
-  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale], ...interactionLabels[locale]];
+  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale], ...interactionLabels[locale], ...recipientPickerLabels[locale]];
   if (allValues.length !== keys.length) throw new Error("Incomplete task communication translations");
   return Object.fromEntries(keys.map((key, index) => [key, allValues[index]])) as TaskCommunicationCopy;
 }
