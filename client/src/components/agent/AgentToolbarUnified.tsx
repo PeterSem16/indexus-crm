@@ -223,17 +223,17 @@ export function AgentToolbarUnified({
              <span>{isSessionActive ? t.agentWorkspace.toolbar.onShift : t.agentSession.statusOffline}</span>
           </div>
 
-          <div className="pta-micro-counts" aria-label={t.agentWorkspace.toolbar.sessionActivity}>
-            <span className={isQuotaBlocked("calls") ? "pta-quota-blocked" : ""} data-testid="stat-calls">
+          {(stats.calls > 0 || stats.emails > 0 || stats.sms > 0) && <div className="pta-micro-counts" aria-label={t.agentWorkspace.toolbar.sessionActivity}>
+            {stats.calls > 0 && <span className={isQuotaBlocked("calls") ? "pta-quota-blocked" : ""} data-testid="stat-calls">
               <PhoneCall size={14} /><b>{formatCount(stats.calls, quotas?.calls)}</b>
-            </span>
-            <span className={isQuotaBlocked("emails") ? "pta-quota-blocked" : ""} data-testid="stat-emails">
+            </span>}
+            {stats.emails > 0 && <span className={isQuotaBlocked("emails") ? "pta-quota-blocked" : ""} data-testid="stat-emails">
               <Mail size={14} /><b>{formatCount(stats.emails, quotas?.emails)}</b>
-            </span>
-            <span className={`pta-micro-pending ${isQuotaBlocked("sms") ? "pta-quota-blocked" : ""}`} data-testid="stat-sms">
+            </span>}
+            {stats.sms > 0 && <span className={`pta-micro-pending ${isQuotaBlocked("sms") ? "pta-quota-blocked" : ""}`} data-testid="stat-sms">
               <MessageSquare size={14} /><b>{formatCount(stats.sms, quotas?.sms)}</b>
-            </span>
-          </div>
+            </span>}
+          </div>}
 
           {onOpenScheduledQueue && (
             <button

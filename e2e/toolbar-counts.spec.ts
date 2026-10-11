@@ -1,5 +1,36 @@
 import { test, expect } from "@playwright/test";
 
+test("Session activity hides zero icons and counts, including configured quotas, and restores positive channels", async ({ page }) => {
+  await page.route("**/api/**", route => route.fulfill({ json: { enabled: false } }));
+  await page.goto("/test-fixtures/toolbar-counts.html", { waitUntil: "domcontentloaded" });
+  const counters = page.locator(".pta-micro-counts");
+  await expect(page.getByTestId("agent-toolbar-unified")).toBeVisible();
+  await expect(counters).toHaveCount(0);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const quotas of [null, { calls: 3, emails: 10, sms: 15 }]) {
+      for (const selected of ["calls", "emails", "sms"]) {
+        await page.evaluate(({ selected, quotas }) => window.dispatchEvent(new CustomEvent("test:session-stats", {
+          detail: { stats: { calls: 0, emails: 0, sms: 0, [selected]: 3 }, quotas },
+        })), { selected, quotas });
+        for (const category of ["calls", "emails", "sms"]) {
+          const counter = page.getByTestId(`stat-${category}`);
+          if (category === selected) {
+            await expect(counter).toBeVisible();
+            await expect(counter.locator("svg")).toHaveCount(1);
+            await expect(counter.locator("b")).toHaveText(quotas ? `3/${quotas[category as keyof typeof quotas]}` : "3");
+          } else await expect(counter).toHaveCount(0);
+        }
+        if (selected === "calls" && quotas) await expect(page.getByTestId("stat-calls")).toHaveClass(/pta-quota-blocked/);
+      }
+      await page.evaluate(quotas => window.dispatchEvent(new CustomEvent("test:session-stats", {
+        detail: { stats: { calls: 0, emails: 0, sms: 0 }, quotas },
+      })), quotas);
+      await expect(counters).toHaveCount(0);
+    }
+  }
+});
+
 test("Missed communications hides zero indicators and restores only positive categories", async ({ page }) => {
   await page.route("**/api/**", route => route.fulfill({ json: { enabled: false } }));
   await page.goto("/test-fixtures/toolbar-counts.html", { waitUntil: "domcontentloaded" });

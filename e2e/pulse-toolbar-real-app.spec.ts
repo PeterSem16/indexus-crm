@@ -120,11 +120,11 @@ test("unified toolbar keeps status, break, forwarding, ringtone and end-shift be
   const fixture = await openWorkspace(page);
   const status = page.getByTestId("dropdown-agent-status");
   await expect(status).toContainText("Available");
-  await expect(page.getByTestId("stat-calls")).toHaveText("0");
-  await expect(page.getByTestId("badge-missed-calls")).not.toHaveClass(/pta-pending/);
-  await expect(page.getByTestId("badge-missed-emails")).not.toHaveClass(/pta-pending/);
-  await expect(page.getByTestId("badge-missed-sms")).toHaveText("1");
-  await expect(page.getByTestId("badge-missed-sms")).toHaveClass(/pta-pending/);
+  for (const channel of ["calls", "emails", "sms"]) await expect(page.getByTestId(`stat-${channel}`)).toHaveCount(0);
+  await expect(page.getByTestId("badge-missed-calls")).toHaveCount(0);
+  await expect(page.getByTestId("badge-missed-emails")).toHaveCount(0);
+  // No Mission is selected in this fixture, so Mission-scoped missed messages stay hidden.
+  await expect(page.getByTestId("badge-missed-sms")).toHaveCount(0);
   const ringtone = page.getByTestId("button-toggle-inbound-ringtone");
   await expect(ringtone).toContainText("+421900000000");
   await expect(ringtone).toHaveAttribute("aria-pressed", "false");
@@ -134,7 +134,7 @@ test("unified toolbar keeps status, break, forwarding, ringtone and end-shift be
   await ringtone.click();
   await expect(ringtone).toHaveAttribute("aria-pressed", "false");
   await assertToolbarBounds(page);
-  // Desktop toolbar must be ONE row, with counters directly after the timer.
+  // Desktop toolbar stays in ONE row; zero activity leaves no empty counter gap.
   const rowControls = await Promise.all(
     ["dropdown-agent-status", "button-end-session", "button-toggle-inbound-ringtone", "btn-open-scheduled-queue", "btn-open-abandoned-calls", "btn-open-my-activity"]
       .map(id => page.getByTestId(id).boundingBox()),
@@ -142,8 +142,9 @@ test("unified toolbar keeps status, break, forwarding, ringtone and end-shift be
   const centers = rowControls.map(rect => rect!.y + rect!.height / 2);
   expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(2);
   const timer = await page.locator(".agent-toolbar-unified .pta-timer").boundingBox();
-  const counters = await page.locator(".agent-toolbar-unified .pta-micro-counts").boundingBox();
-  expect(counters!.x - (timer!.x + timer!.width)).toBeLessThanOrEqual(10);
+  await expect(page.locator(".agent-toolbar-unified .pta-micro-counts")).toHaveCount(0);
+  const queue = await page.getByTestId("btn-open-scheduled-queue").boundingBox();
+  expect(queue!.x - (timer!.x + timer!.width)).toBeLessThanOrEqual(10);
   await page.screenshot({ path: "screenshots/pulse-toolbar-desktop.png", fullPage: false });
   await status.click();
   await page.getByTestId("menu-item-status-busy").click();
