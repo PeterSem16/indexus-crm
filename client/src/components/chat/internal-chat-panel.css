@@ -513,3 +513,245 @@
   .icp-root *::before,
   .icp-root *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Larger, calmer composer controls: the reply field should feel like the
+   primary workspace rather than a narrow footer input. */
+.icp-compose {
+  padding: 14px 16px 12px;
+}
+.icp-compose-row {
+  align-items: flex-end;
+  gap: 10px;
+}
+.icp-compose-row textarea {
+  min-height: 76px;
+  max-height: 220px;
+  padding: 15px 16px;
+  border-radius: 12px;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.icp-send {
+  min-width: 88px;
+  min-height: 48px;
+  border-radius: 11px;
+}
+.icp-compose-foot {
+  margin-top: 9px;
+}
+.icp-compose :is(button, textarea, input):focus-visible,
+.icp-sound-toggle:focus-visible,
+.icp-quick-replies button:focus-visible {
+  outline: 3px solid #4387ae;
+  outline-offset: 2px;
+}
+
+/* The toolbar remains a single, reachable horizontal strip on narrow screens. */
+.icp-quick-replies {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  margin: 0 0 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 2px 2px 5px;
+  scrollbar-width: thin;
+}
+.icp-quick-replies button {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 5px 9px;
+  color: #315e79;
+  background: #f0f6fa;
+  border: 1px solid #d6e6ef;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color .16s, border-color .16s, transform .16s;
+}
+.icp-quick-replies button:hover {
+  background: #e4f1f8;
+  border-color: #a9cfe3;
+  transform: translateY(-1px);
+}
+.icp-sound-toggle {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: #557a91;
+  background: #f3f8fa;
+  border: 1px solid #dce8ee;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color .16s, color .16s, border-color .16s;
+}
+.icp-sound-toggle:hover {
+  color: #286d96;
+  background: #eaf4f9;
+  border-color: #c2dce9;
+}
+.icp-sound-toggle svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* Unread conversations are clearly prioritized with a quiet blue rail and
+   stronger type; no pulsing or attention-stealing movement. */
+.icp-person.has-unread {
+  background: #f0f7fb;
+  border-color: #d6e8f1;
+  box-shadow: inset 3px 0 #3980aa;
+}
+.icp-person.has-unread .icp-person-top b {
+  color: #194e70;
+  font-weight: 780;
+}
+.icp-person.has-unread .icp-person-bottom > span {
+  color: #476b81;
+}
+.icp-avatar-unread {
+  position: absolute;
+  z-index: 1;
+  top: -7px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  color: #fff;
+  background: #287eae;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Typing has a soft, unmistakable presence while the existing dots do the
+   expressive motion. The status remains visually subordinate to messages. */
+.icp-typing[role="status"] {
+  gap: 9px;
+  margin: 7px 0 4px;
+  color: #52758b;
+  font-size: 13px;
+  font-weight: 600;
+}
+.icp-typing[role="status"] .icp-typing-dots {
+  gap: 5px;
+  padding: 10px 12px;
+  background: #e8f3f9;
+  border: 1px solid #d7e9f2;
+  border-radius: 5px 14px 14px 14px;
+}
+.icp-typing[role="status"] .icp-typing-dots i {
+  width: 6px;
+  height: 6px;
+  background: #4388ad;
+}
+
+.icp-theme-omni .icp-sound-toggle {
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / .28);
+  border-color: hsl(var(--border));
+}
+.icp-theme-omni .icp-sound-toggle:hover {
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / .09);
+  border-color: hsl(var(--primary) / .28);
+}
+.icp-theme-omni .icp-quick-replies button {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / .32);
+  border-color: hsl(var(--border));
+}
+.icp-theme-omni .icp-quick-replies button:hover {
+  background: hsl(var(--primary) / .1);
+  border-color: hsl(var(--primary) / .32);
+}
+.icp-theme-omni .icp-person.has-unread {
+  background: hsl(var(--primary) / .09);
+  border-color: hsl(var(--primary) / .22);
+  box-shadow: inset 3px 0 hsl(var(--primary));
+}
+.icp-theme-omni .icp-person.has-unread .icp-person-top b {
+  color: hsl(var(--foreground));
+}
+.icp-theme-omni .icp-person.has-unread .icp-person-bottom > span {
+  color: hsl(var(--foreground));
+}
+.icp-theme-omni .icp-avatar-unread {
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  border-color: hsl(var(--card));
+}
+.icp-theme-omni .icp-typing[role="status"] {
+  color: hsl(var(--muted-foreground));
+}
+.icp-theme-omni .icp-typing[role="status"] .icp-typing-dots {
+  background: hsl(var(--primary) / .09);
+  border-color: hsl(var(--primary) / .18);
+}
+.icp-theme-omni .icp-typing[role="status"] .icp-typing-dots i {
+  background: hsl(var(--primary));
+}
+
+@media (max-width: 700px) {
+  .icp-compose {
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+  }
+  .icp-compose-row {
+    align-items: flex-end;
+    gap: 7px;
+  }
+  .icp-compose-row textarea {
+    min-height: 76px;
+    max-height: 190px;
+    padding: 13px 12px;
+  }
+  .icp-send {
+    min-width: 72px;
+    min-height: 46px;
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 380px) {
+  .icp-compose-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .icp-compose-row textarea {
+    min-height: 76px;
+  }
+  .icp-send {
+    align-self: flex-end;
+  }
+}
+
+/* Keep quick replies beside attachments, rather than spending two rows of the
+   conversation on tools. Emoji buttons scroll horizontally on small screens. */
+.icp-compose-tools {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+.icp-compose-tools > [data-testid="task-attachment-picker"] {
+  flex: 0 1 auto;
+  min-width: 90px;
+  max-width: 45%;
+}
+.icp-compose-tools > .icp-quick-replies {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}

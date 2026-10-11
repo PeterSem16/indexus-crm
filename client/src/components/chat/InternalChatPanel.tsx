@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ArrowLeft, Check, CheckCheck, MessageCircle, Paperclip, RefreshCw, Search, Send, Wifi, WifiOff } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, CheckCheck, MessageCircle, Paperclip, RefreshCw, Search, Send, Wifi, WifiOff, Volume2, VolumeX } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
@@ -136,6 +136,9 @@ export function InternalChatPanel({
   const threadRef = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingPartner = useRef<string | null>(null);
+  const remoteTypingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const lastTypingSent = useRef(0);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const activeIdRef = useRef(activeId);
   const pendingRef = useRef(pending);
   const threadVisibleRef = useRef(false);
@@ -397,7 +400,17 @@ export function InternalChatPanel({
     };
     const onTyping = (event: Event) => {
       const detail = (event as CustomEvent<{ userId: string; isTyping: boolean }>).detail;
-      if (active && detail?.userId) setTypingUsers(previous => ({ ...previous, [detail.userId]: !!detail.isTyping }));
+      if (!active || !detail?.userId) return;
+      const previousTimer = remoteTypingTimers.current.get(detail.userId);
+      if (previousTimer) clearTimeout(previousTimer);
+      remoteTypingTimers.current.delete(detail.userId);
+      setTypingUsers(previous => ({ ...previous, [detail.userId]: !!detail.isTyping }));
+      if (detail.isTyping) {
+        remoteTypingTimers.current.set(detail.userId, setTimeout(() => {
+          setTypingUsers(previous => ({ ...previous, [detail.userId]: false }));
+          remoteTypingTimers.current.delete(detail.userId);
+        }, 6000));
+      }
     };
     window.addEventListener("chat_new_message", onNewMessage);
     window.addEventListener("chat_delivery_confirmed", onDelivered);
@@ -414,7 +427,10 @@ export function InternalChatPanel({
   }, [active, mergeMessage, isVisible, windowFocused, user?.id, chat.markAsRead, queryClient]);
   useEffect(() => {
     if (threadLoaded && threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
-  }, [threadLoaded, visibleMessages.length]);
+  }, [threadLoaded, visibleMessages.length, activeId, typingUsers[activeId || ""]]);
+  useEffect(() => {
+    if (!chat.isConnected || !active) setTypingUsers({});
+  }, [chat.isConnected, active]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       const expired = Object.entries(pendingRef.current).filter(([, item]) => Date.now() - item.sentAt > 15_000);
@@ -434,6 +450,8 @@ export function InternalChatPanel({
   useEffect(() => () => {
     if (typingTimer.current) clearTimeout(typingTimer.current);
     if (typingPartner.current) chat.sendTypingIndicator(typingPartner.current, false);
+    remoteTypingTimers.current.forEach(timer => clearTimeout(timer));
+    remoteTypingTimers.current.clear();
   }, [chat.sendTypingIndicator]);
   useEffect(() => {
     if (active || !typingPartner.current) return;
@@ -469,17 +487,31 @@ export function InternalChatPanel({
     if (typingTimer.current) clearTimeout(typingTimer.current);
     if (text.trim()) {
       if (typingPartner.current && typingPartner.current !== activeId) chat.sendTypingIndicator(typingPartner.current, false);
+      if (typingPartner.current !== activeId || Date.now() - lastTypingSent.current >= 1000) {
+        chat.sendTypingIndicator(activeId, true);
+        lastTypingSent.current = Date.now();
+      }
       typingPartner.current = activeId;
-      chat.sendTypingIndicator(activeId, true);
       const recipientId = activeId;
       typingTimer.current = setTimeout(() => {
         chat.sendTypingIndicator(recipientId, false);
         if (typingPartner.current === recipientId) typingPartner.current = null;
-      }, 1800);
+      }, 2500);
     } else {
       chat.sendTypingIndicator(activeId, false);
       typingPartner.current = null;
     }
+  };
+  const insertEmoji = (emoji: string) => {
+    const input = composerRef.current;
+    const text = activeDraft?.text || "";
+    const start = input?.selectionStart ?? text.length;
+    const end = input?.selectionEnd ?? start;
+    changeText(text.slice(0, start) + emoji + text.slice(end));
+    requestAnimationFrame(() => {
+      input?.focus();
+      input?.setSelectionRange(start + emoji.length, start + emoji.length);
+    });
   };
   const send = () => {
     if (sendBlocked || !activeId || !activeDraft) return;
@@ -562,6 +594,11 @@ export function InternalChatPanel({
       <aside className="icp-sidebar">
         <header className="icp-side-head">
           <div><span className="icp-kicker">{copy.inboxLabel}</span><h2>{copy.directMessages}</h2></div>
+          <button type="button" className="icp-sound-toggle" onClick={() => chat.setSoundsMuted(!chat.soundsMuted)}
+            aria-pressed={chat.soundsMuted} aria-label={chat.soundsMuted ? copy.enableChatSounds : copy.muteChatSounds}
+            title={chat.soundsMuted ? copy.enableChatSounds : copy.muteChatSounds} data-testid="chat-sound-toggle">
+            {chat.soundsMuted ? <VolumeX /> : <Volume2 />}
+          </button>
           <span className={`icp-connection ${chat.isConnected ? "connected" : ""}`} title={chat.isConnected ? copy.connected : copy.disconnected} aria-label={chat.isConnected ? copy.connected : copy.disconnected}>
             {chat.isConnected ? <Wifi /> : <WifiOff />}
           </span>
@@ -577,13 +614,14 @@ export function InternalChatPanel({
             const unread = unreadFor(person.id);
             const lastMessage = conversationsById.get(person.id)?.lastMessage;
             const preview = lastMessage ? messageValue<string>(lastMessage, "content") || emptyText(lastMessage) : person.username;
-            return <button type="button" key={person.id} onClick={() => { setActiveId(person.id); setDeliveryError(false); }} className={`icp-person ${activeId === person.id ? "selected" : ""}`} aria-current={activeId === person.id ? "true" : undefined}>
-              <span className="icp-avatar">{person.avatarUrl ? <img src={person.avatarUrl} alt="" /> : initials(name)}<i className={online ? "online" : ""} /></span>
+            return <button type="button" key={person.id} onClick={() => { setActiveId(person.id); setDeliveryError(false); }} className={`icp-person ${activeId === person.id ? "selected" : ""} ${unread > 0 ? "has-unread" : ""}`} aria-current={activeId === person.id ? "true" : undefined}>
+              <span className="icp-avatar">{person.avatarUrl ? <img src={person.avatarUrl} alt="" /> : initials(name)}<i className={online ? "online" : ""} />
+                {unread > 0 && <span className="icp-avatar-unread" data-testid={`chat-avatar-unread-${person.id}`} aria-label={`${copy.unreadChats}: ${unread}`}>{unread > 99 ? "99+" : unread}</span>}
+              </span>
               <span className="icp-person-copy">
                 <span className="icp-person-top"><b>{name}</b><time>{formatTime(getDate(lastMessage), locale)}</time></span>
                 <span className="icp-person-bottom"><i className={online ? "online" : ""}>{online ? onlineLabel : offlineLabel}</i><span>{preview.slice(0, 48)}</span></span>
               </span>
-              {unread > 0 && <em className="icp-unread">{unread > 99 ? "99+" : unread}</em>}
             </button>;
           })}
         </div>
@@ -600,16 +638,21 @@ export function InternalChatPanel({
             <span className="icp-avatar large">{partner.avatarUrl ? <img src={partner.avatarUrl} alt="" /> : initials(personName(partner))}<i className={onlineIds.has(partner.id) ? "online" : ""} /></span>
             <div className="icp-chat-person"><b>{personName(partner)}</b><span><i className={onlineIds.has(partner.id) ? "online" : ""} />{onlineIds.has(partner.id) ? onlineLabel : offlineLabel}</span></div>
             <span className="icp-private-tag">{copy.privateLabel}</span>
+            <button type="button" className="icp-sound-toggle" onClick={() => chat.setSoundsMuted(!chat.soundsMuted)}
+              aria-pressed={chat.soundsMuted} aria-label={chat.soundsMuted ? copy.enableChatSounds : copy.muteChatSounds}
+              title={chat.soundsMuted ? copy.enableChatSounds : copy.muteChatSounds} data-testid="chat-thread-sound-toggle">
+              {chat.soundsMuted ? <VolumeX /> : <Volume2 />}
+            </button>
           </header>
           <div className="icp-thread" ref={threadRef} aria-live="polite">
             {renderMessages()}
-            {typingUsers[partner.id] && <div className="icp-typing"><span className="icp-typing-dots"><i /><i /><i /></span><span>{personName(partner)} {omni.typing}</span></div>}
+            {typingUsers[partner.id] && <div className="icp-typing" role="status" aria-live="polite"><span className="icp-typing-dots" aria-hidden="true"><i /><i /><i /></span><span>{personName(partner)} {omni.typing}</span></div>}
             {hasPendingForActive && <div className="icp-pending-label">{copy.sending}</div>}
           </div>
           <div className="icp-compose">
             {!chat.isConnected && <div className="icp-notice"><WifiOff />{copy.offlineHint}<button type="button" onClick={refetchChatData}>{t.common.refresh}</button></div>}
             {deliveryError && <div className="icp-notice error"><AlertCircle />{copy.saveFailed}</div>}
-            <TaskAttachmentPicker
+            <div className="icp-compose-tools"><TaskAttachmentPicker
               key={pickerPartnerId}
               attachments={activeDraft?.attachments || []}
               onChange={attachments => { if (pickerPartnerId) updateDraftFor(pickerPartnerId, { attachments }); }}
@@ -617,9 +660,17 @@ export function InternalChatPanel({
               onErrorChange={uploadError => { if (pickerPartnerId) updateDraftFor(pickerPartnerId, { uploadError }); }}
               disabled={!pickerPartnerId}
             />
+            <div className="icp-quick-replies" role="group" aria-label={copy.quickReplies} title={copy.quickReplies}>
+              {([
+                ["👍", copy.emojiAgree], ["😊", copy.emojiSmile], ["🙏", copy.emojiThanks],
+                ["✅", copy.emojiDone], ["❤️", copy.emojiAppreciation], ["👋", copy.emojiHello],
+              ] as const).map(([emoji, label]) => <button key={emoji} type="button" title={label} aria-label={label}
+                onMouseDown={event => event.preventDefault()} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}
+            </div>
+            </div>
             <div className="icp-compose-row">
-              <textarea value={activeDraft?.text || ""} onChange={event => changeText(event.target.value)} onKeyDown={event => {
-                if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); }
+              <textarea ref={composerRef} style={{ fontSize: "18px" }} value={activeDraft?.text || ""} onChange={event => changeText(event.target.value)} onKeyDown={event => {
+                if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); }
               }} placeholder={omni.typeMessage} rows={2} aria-label={omni.typeMessage} />
               <button type="button" className="icp-send" onClick={send} disabled={sendBlocked}><Send />{copy.send}</button>
             </div>

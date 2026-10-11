@@ -839,7 +839,10 @@ export default function NexusSidebar({
                 chatsData.map(chat => (
                   <SidebarItem
                     key={chat.id}
-                    icon={<MessagesSquare className="h-3.5 w-3.5" />}
+                    icon={<Avatar className="h-8 w-8 shrink-0">
+                      <AvatarImage src={chat.participantAvatarUrl || undefined} alt={chat.participantName} className="object-cover" />
+                      <AvatarFallback className="text-xs font-semibold">{(chat.participantName || "?").trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase()}</AvatarFallback>
+                    </Avatar>}
                     label={chat.participantName || t.nexusOmni.chats.internalChats}
                     badge={chat.unreadCount > 0 ? chat.unreadCount : undefined}
                     badgeVariant="primary"

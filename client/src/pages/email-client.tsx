@@ -3110,7 +3110,6 @@ export default function EmailClientPage() {
     const refreshChats = () => { void chatConversationsQuery.refetch(); };
     const incomingChat = () => {
       refreshChats();
-      if (emailPrefsRef.current.chatNotifySound) playSound("receive");
     };
     window.addEventListener("chat_open_conversation", openConversation);
     window.addEventListener("chat_new_message", incomingChat);
@@ -4047,7 +4046,7 @@ export default function EmailClientPage() {
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
   const smsInboundUnread = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
-  const unreadChats = chatsData?.reduce((acc, c) => acc + (c.unreadCount || 0), 0) || 0;
+  const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
   const filteredSms = (smsData || []).filter(sms => {
     if (smsFilter === "inbound") return sms.direction === "inbound";
     if (smsFilter === "outbound") return sms.direction === "outbound";
@@ -9516,7 +9515,7 @@ export default function EmailClientPage() {
           <SectionTitle>{t.nexusOmni.settings.notifications}</SectionTitle>
           <div className="divide-y">
             <SettingRow label={t.nexusOmni.chats.chatNotifySound} description={t.nexusOmni.chats.chatNotifySoundDesc}>
-              <Switch checked={emailPrefs.chatNotifySound} onCheckedChange={(v) => updateEmailPref("chatNotifySound", v)} />
+              <Switch checked={!sharedChat.soundsMuted} onCheckedChange={(v) => { sharedChat.setSoundsMuted(!v); updateEmailPref("chatNotifySound", v); }} />
             </SettingRow>
             <SettingRow label={t.nexusOmni.chats.chatNotifyPopup} description={t.nexusOmni.chats.chatNotifyPopupDesc}>
               <Switch checked={emailPrefs.chatNotifyPopup} onCheckedChange={(v) => updateEmailPref("chatNotifyPopup", v)} />

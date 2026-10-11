@@ -59,6 +59,7 @@ import { ChevronDown } from "lucide-react";
 import { CountryFilter } from "./country-filter";
 import { UserSettingsDialog } from "./user-settings-dialog";
 import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
+import { useChatContext } from "@/contexts/chat-context";
 
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
@@ -66,6 +67,8 @@ export function AppSidebar() {
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
+  const chat = useChatContext();
+  const unreadChats = Array.from(chat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
 
   const { tasks: openTasks, isError: openTasksError } = useMyOpenTasks();
 
@@ -272,9 +275,15 @@ export function AppSidebar() {
                   {visibleNexusItems.map((item) => (
                     <SidebarMenuItem key={item.testId}>
                       <SidebarMenuButton asChild isActive={location === item.url}>
-                        <Link href={item.url} data-testid={`nav-${item.testId}`}>
+                        <Link className="relative" href={item.testId === "nexus-omni" && unreadChats > 0 ? "/email?tab=chats" : item.url} data-testid={`nav-${item.testId}`}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
+                          {item.testId === "nexus-omni" && unreadChats > 0 && <Badge
+                            className="ml-auto bg-violet-600 text-white hover:bg-violet-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
+                            title={t.taskCommunication.unreadChats}
+                            aria-label={`${t.taskCommunication.unreadChats}: ${unreadChats}`}
+                            data-testid="nexus-omni-unread-chat"
+                          >{unreadChats > 99 ? "99+" : unreadChats}</Badge>}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

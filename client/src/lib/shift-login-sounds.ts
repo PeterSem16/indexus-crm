@@ -1,6 +1,8 @@
 import { renderAmbientTestSound } from "../features/nexus-pulse-preflight/ambient-test-sound";
 
 type ShiftLoginSound =
+  | "chatReceive"
+  | "chatSend"
   | "welcome"
   | "mission"
   | "inbound"
@@ -19,6 +21,7 @@ type AudioGraph = {
 let graph: AudioGraph | null = null;
 let activeEnvelope: GainNode | null = null;
 let requestId = 0;
+let activeSound: ShiftLoginSound | null = null;
 let ambientBuffer: AudioBuffer | null = null;
 
 function createImpulse(context: AudioContext, duration = 2.6, decay = 2.8) {
@@ -168,8 +171,28 @@ function chord(
   });
 }
 
+export function unlockAmbientAudio(): void {
+  try {
+    const audio = getAudioGraph();
+    if (audio?.context.state === "suspended") void audio.context.resume().catch(() => {});
+  } catch { /* Audio is optional; visual chat delivery must remain available. */ }
+}
+
+export function stopAmbientChatAudio(): void {
+  if (activeSound !== "chatReceive" && activeSound !== "chatSend") return;
+  requestId++;
+  if (graph && activeEnvelope) {
+    const now = graph.context.currentTime;
+    activeEnvelope.gain.cancelScheduledValues(now);
+    activeEnvelope.gain.setValueAtTime(activeEnvelope.gain.value, now);
+    activeEnvelope.gain.linearRampToValueAtTime(0, now + 0.025);
+  }
+  activeSound = null;
+}
+
 export async function playShiftLoginSound(sound: ShiftLoginSound, selected = true): Promise<void> {
   const request = ++requestId;
+  activeSound = sound;
   try {
     const shared = getAudioGraph();
     if (!shared) return;
@@ -192,7 +215,11 @@ export async function playShiftLoginSound(sound: ShiftLoginSound, selected = tru
     }, 8000);
     const now = context.currentTime + 0.018;
 
-    if (sound === "welcome" || sound === "start") {
+    if (sound === "chatReceive" || sound === "chatSend") {
+      const incoming = sound === "chatReceive";
+      chord(audio, incoming ? [392, 493.88, 587.33] : [329.63, 392, 523.25], now, incoming ? 0.75 : 0.48, 0.045, 0.045, 1800);
+      window.dispatchEvent(new CustomEvent("chat_sound_played", { detail: { kind: incoming ? "receive" : "send" } }));
+    } else if (sound === "welcome" || sound === "start") {
       if (!ambientBuffer) {
         const channels = renderAmbientTestSound(context.sampleRate);
         ambientBuffer = context.createBuffer(2, channels[0].length, context.sampleRate);

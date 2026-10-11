@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { queryClient } from "@/lib/queryClient";
+import { playShiftLoginSound, unlockAmbientAudio, stopAmbientChatAudio } from "@/lib/shift-login-sounds";
 import type { TaskAttachment } from "@shared/task-attachments";
 import type { ChatMessage, SafeUser } from "@shared/schema";
 
@@ -22,6 +24,8 @@ interface ChatContextType {
   onlineUsers: OnlineUser[];
   openChats: ChatWindow[];
   unreadCounts: Map<string, number>;
+  soundsMuted: boolean;
+  setSoundsMuted: (muted: boolean) => void;
   openChat: (partner: OnlineUser) => void;
   closeChat: (partnerId: string) => void;
   minimizeChat: (partnerId: string, minimized: boolean) => void;
@@ -51,6 +55,66 @@ export function ChatProvider({ children }: ChatProviderProps) {
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [openChats, setOpenChats] = useState<ChatWindow[]>([]);
   const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(new Map());
+  const [soundsMuted, setMuted] = useState(false);
+  const mutedRef = useRef(false);
+  const receivedIds = useRef(new Set<string>());
+  const sentIds = useRef(new Set<string>());
+  const conversations = useQuery<Array<{ partnerId: string; unreadCount: number }>>({
+    queryKey: ["/api/chat/conversations", user?.id],
+    queryFn: async () => {
+      const response = await fetch("/api/chat/conversations", { credentials: "include" });
+      if (!response.ok) throw new Error(`Chat conversations failed (${response.status})`);
+      return response.json();
+    },
+    enabled: !!user?.id,
+    staleTime: 0,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
+  const effectiveUnread = useMemo(() => {
+    const result = new Map(unreadCounts);
+    for (const conversation of conversations.data || []) {
+      if (conversation.unreadCount > 0) result.set(conversation.partnerId, Math.max(result.get(conversation.partnerId) || 0, conversation.unreadCount));
+    }
+    return result;
+  }, [unreadCounts, conversations.data]);
+  const setSoundsMuted = useCallback((muted: boolean) => {
+    mutedRef.current = muted;
+    setMuted(muted);
+    if (muted) stopAmbientChatAudio();
+    else unlockAmbientAudio();
+    if (user?.id) {
+      try { localStorage.setItem(`chat-sounds-muted:${user.id}`, String(muted)); } catch { /* Browser storage may be unavailable. */ }
+    }
+  }, [user?.id]);
+  useEffect(() => {
+    let muted = false;
+    try {
+      const saved = user?.id ? localStorage.getItem(`chat-sounds-muted:${user.id}`) : null;
+      muted = saved !== null ? saved === "true" : JSON.parse(localStorage.getItem("nexus-email-prefs") || "{}").chatNotifySound === false;
+    } catch { /* Keep the in-memory preference when storage is unavailable. */ }
+    mutedRef.current = muted;
+    setMuted(muted);
+    receivedIds.current.clear();
+    sentIds.current.clear();
+    const unlock = () => { if (!mutedRef.current) unlockAmbientAudio(); };
+    const syncMute = (event: StorageEvent) => {
+      if (event.key !== `chat-sounds-muted:${user?.id}`) return;
+      const next = event.newValue === "true";
+      mutedRef.current = next;
+      setMuted(next);
+      if (next) stopAmbientChatAudio();
+    };
+    window.addEventListener("storage", syncMute);
+    document.addEventListener("pointerdown", unlock, { passive: true });
+    document.addEventListener("keydown", unlock);
+    return () => {
+      document.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("keydown", unlock);
+      window.removeEventListener("storage", syncMute);
+      stopAmbientChatAudio();
+    };
+  }, [user?.id]);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,6 +164,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
           case "new_message":
             const msg = data.message as ChatMessage;
             const sender = data.sender as SafeUser;
+            if (!msg?.id || msg.receiverId !== user.id || receivedIds.current.has(msg.id)) break;
+            receivedIds.current.add(msg.id);
+            if (receivedIds.current.size > 1000) receivedIds.current.delete(receivedIds.current.values().next().value!);
+            if (!mutedRef.current) void playShiftLoginSound("chatReceive");
+            void queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations", user.id] });
             
             window.dispatchEvent(new CustomEvent("chat_new_message", {
               detail: { message: msg, partnerId: msg.senderId }
@@ -120,6 +189,10 @@ export function ChatProvider({ children }: ChatProviderProps) {
             break;
             
           case "message_sent":
+            if (!data.message?.id || data.message.senderId !== user.id || sentIds.current.has(data.message.id)) break;
+            sentIds.current.add(data.message.id);
+            if (sentIds.current.size > 1000) sentIds.current.delete(sentIds.current.values().next().value!);
+            if (!mutedRef.current) void playShiftLoginSound("chatSend");
             window.dispatchEvent(new CustomEvent("chat_message_sent", {
               detail: { message: data.message, receiverId: data.message.receiverId }
              }));
@@ -132,6 +205,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
             window.dispatchEvent(new CustomEvent("chat_messages_read", { detail: { readBy: data.readBy } }));
             break;
           case "read_confirmed":
+            queryClient.setQueryData<Array<{ partnerId: string; unreadCount: number }>>(
+              ["/api/chat/conversations", user.id],
+              previous => previous?.map(conversation => conversation.partnerId === data.senderId ? { ...conversation, unreadCount: 0 } : conversation));
             setUnreadCounts(previous => {
               const next = new Map(previous); next.delete(data.senderId); return next;
             });
@@ -260,7 +336,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
       isConnected,
       onlineUsers,
       openChats,
-      unreadCounts,
+      unreadCounts: effectiveUnread,
+      soundsMuted,
+      setSoundsMuted,
       openChat,
       closeChat,
       minimizeChat,

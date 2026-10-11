@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { translations } from "../client/src/i18n/translations";
 const c = translations.en.taskCommunication;
+test.setTimeout(90_000); // Real CRM imports can cold-transform slowly in the preview environment.
 const users = [
   { id: "viewer", fullName: "Test Agent", username: "agent" },
   { id: "a", fullName: "Test Colleague A", username: "colleague-a" },
@@ -38,6 +39,7 @@ async function setup(page: Page) {
   const routes = [{ id: "change_data", name: "change_data", groupIds: ["bo"], userIds: ["a"], enabled: true }, { id: "other", name: "other", groupIds: [], userIds: [], enabled: false }];
   let deliveries = true;
   const writes: { url: string; body: any }[] = [];
+  const socketWrites: any[] = [];
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.route("**/api/**", async route => {
@@ -89,6 +91,7 @@ async function setup(page: Page) {
     chatSocket = socket;
     socket.onMessage(raw => {
       const message = JSON.parse(raw.toString());
+      socketWrites.push(message);
       if (message.type === "auth") {
         socket.send(JSON.stringify({ type: "auth_success", userId: "viewer" }));
         socket.send(JSON.stringify({ type: "presence_update", onlineUsers: users }));
@@ -102,7 +105,7 @@ async function setup(page: Page) {
       }
     });
   });
-  return { writes, errors, currentTasks, comments, messages, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
+  return { writes, socketWrites, errors, currentTasks, comments, messages, emitChat: (payload: unknown) => chatSocket.send(JSON.stringify(payload)), setDeliveries: (value: boolean) => { deliveries = value; },
     incoming: (partnerId: string, content = "New private message", socketDelivery = true) => {
       const message = { id: `incoming-${partnerId}-${messages[partnerId].length}`, senderId: partnerId, receiverId: "viewer", content, createdAt: new Date().toISOString() };
       messages[partnerId].push(message); unread[partnerId]++;
@@ -297,7 +300,7 @@ for (const theme of ["pulse", "omni"]) {
     state.incoming("b", "Other colleague private question");
     await expect(page.locator(".icp-thread")).not.toContainText("Other colleague private question");
     await expect(composer).toHaveValue("Keep my unfinished reply");
-    expect(await composer.evaluate(element => getComputedStyle(element).fontSize)).toBe("16px");
+    expect(await composer.evaluate(element => getComputedStyle(element).fontSize)).toBe("18px");
     expect(await page.locator(".icp-message p").first().evaluate(element => getComputedStyle(element).fontSize)).toBe("16px");
     await page.screenshot({ path: `test-results/${theme}-live-readable-chat.png` });
     expect(state.errors).toEqual([]);
@@ -332,6 +335,111 @@ test("collapsed Omni conversation rail shows each person's avatar or initials an
   await expect(second).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".icp-chat-person")).toContainText("Test Colleague B");
   await page.screenshot({ path: "test-results/omni-collapsed-person-avatars.png" });
+  expect(state.errors).toEqual([]);
+});
+
+test("expanded Omni conversation list uses real avatars and initials rather than chat icons", async ({ page }) => {
+  const state = await setup(page);
+  await page.route("**/test-avatar-a.svg", route => route.fulfill({ contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#318478"/></svg>' }));
+  await page.goto("/test-fixtures/task-communications.html?omni&rail&expanded");
+  const first = page.getByTestId("chat-conversation-a");
+  const second = page.getByTestId("chat-conversation-b");
+  await expect(first.getByRole("img")).toHaveAttribute("src", "/test-avatar-a.svg");
+  await expect(second).toContainText("TC");
+  await second.click();
+  await expect(page.locator(".icp-chat-person")).toContainText("Test Colleague B");
+  await page.screenshot({ path: "test-results/omni-expanded-chat-avatars.png" });
+  expect(state.errors).toEqual([]);
+});
+
+for (const theme of ["pulse", "omni"]) {
+  test(`${theme} chat has large reply text, quick emojis, avatar unread badges and expiring typing`, async ({ page }) => {
+    const state = await setup(page);
+    await page.goto(`/test-fixtures/task-communications.html${theme === "omni" ? "?omni" : ""}`);
+    if (theme === "pulse") {
+      await page.evaluate(() => document.documentElement.dataset.agentFullscreen = "true");
+      await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    }
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    const input = page.locator(".icp-compose textarea");
+    expect(await input.evaluate(node => getComputedStyle(node).fontSize)).toBe("18px");
+    await input.fill("Thank you ");
+    await page.getByRole("button", { name: c.emojiThanks, exact: true }).click();
+    await expect(input).toHaveValue("Thank you 🙏");
+    await expect.poll(() => state.socketWrites.filter(message => message.type === "typing" && message.receiverId === "a" && message.isTyping).length).toBeGreaterThan(0);
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    await expect(input).toHaveValue("");
+    await expect(page.locator(".icp-thread")).toContainText("Thank you 🙏");
+    await expect.poll(() => state.socketWrites.some(message => message.type === "typing" && message.receiverId === "a" && !message.isTyping)).toBe(true);
+    state.incoming("b", "Unread question in another conversation");
+    const badge = page.getByTestId("chat-avatar-unread-b");
+    await expect(badge).toContainText("1");
+    state.emitChat({ type: "user_typing", userId: "b", isTyping: true });
+    await expect(page.locator(".icp-typing")).toHaveCount(0);
+    state.emitChat({ type: "user_typing", userId: "a", isTyping: true });
+    await expect(page.locator(".icp-typing[role=status]")).toContainText("Test Colleague A");
+    await expect(page.locator(".icp-typing-dots i")).toHaveCount(3);
+    await page.screenshot({ path: `test-results/${theme}-chat-typing-emoji-unread.png` });
+    await expect(page.locator(".icp-typing")).toHaveCount(0, { timeout: 8000 });
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague B/ }).click();
+    await expect(badge).toHaveCount(0);
+    expect(state.errors).toEqual([]);
+  });
+
+  test(`${theme} ambient chat cues sound once per delivery, only after send confirmation and obey persistent mute`, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as any).chatCues = [];
+      window.addEventListener("chat_sound_played", event => (window as any).chatCues.push((event as CustomEvent).detail.kind));
+    });
+    const state = await setup(page);
+    await page.goto(`/test-fixtures/task-communications.html${theme === "omni" ? "?omni" : ""}`);
+    if (theme === "pulse") await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    state.incoming("a", "Audible incoming question");
+    await expect.poll(() => page.evaluate(() => (window as any).chatCues)).toEqual(["receive"]);
+    state.emitChat({ type: "new_message", message: state.messages.a.at(-1), sender: users[1] });
+    await page.locator(".icp-compose textarea").fill("Confirmed audible reply");
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).chatCues)).toEqual(["receive", "send"]);
+    state.emitChat({ type: "message_sent", message: state.messages.a.at(-1), clientMessageId: "duplicate-ack" });
+    await page.getByTestId("chat-thread-sound-toggle").click();
+    await expect(page.getByTestId("chat-sound-toggle")).toHaveAttribute("aria-pressed", "true");
+    state.incoming("a", "Muted question still appears");
+    await expect(page.locator(".icp-thread")).toContainText("Muted question still appears");
+    await page.locator(".icp-compose textarea").fill("Muted reply");
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    await expect(page.locator(".icp-thread")).toContainText("Muted reply");
+    expect(await page.evaluate(() => (window as any).chatCues)).toEqual(["receive", "send"]);
+    await page.reload();
+    if (theme === "pulse") await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+    await expect(page.getByTestId("chat-sound-toggle")).toHaveAttribute("aria-pressed", "true");
+    await page.getByTestId("chat-sound-toggle").click();
+    await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+    state.setDeliveries(false);
+    await page.locator(".icp-compose textarea").fill("Unconfirmed silent reply");
+    await page.getByRole("button", { name: c.send, exact: true }).click();
+    await expect(page.locator(".icp-compose textarea")).toHaveValue("Unconfirmed silent reply");
+    expect(await page.evaluate(() => (window as any).chatCues)).toEqual([]);
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test("ordinary INDEXUS shows saved and live private chats on Nexus Omni without any Pulse session", async ({ page }) => {
+  const state = await setup(page);
+  await page.goto("/test-fixtures/task-communications.html?indexus");
+  await expect(page.getByTestId("ordinary-indexus")).toBeVisible();
+  const badge = page.getByTestId("nexus-omni-unread-chat");
+  await expect(badge).toContainText("1");
+  state.incoming("b", "Message for a colleague outside Pulse");
+  await expect(badge).toContainText("2");
+  await page.getByTestId("nav-nexus-omni").click();
+  await expect(page).toHaveURL(/\/email\?tab=chats/);
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague B/ }).click();
+  await expect(page.locator(".icp-thread")).toContainText("Message for a colleague outside Pulse");
+  await expect(badge).toContainText("1");
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  await expect(badge).toHaveCount(0);
+  await page.screenshot({ path: "test-results/indexus-global-private-chat.png" });
   expect(state.errors).toEqual([]);
 });
 test("Mission agent drawer saves per-agent Inbox colleagues and can explicitly disable chat", async ({ page }) => {

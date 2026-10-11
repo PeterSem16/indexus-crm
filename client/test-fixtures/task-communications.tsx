@@ -15,13 +15,17 @@ import { useCommunicationUpdates } from "@/hooks/use-communication-updates";
 import { Toaster } from "@/components/ui/toaster";
 import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
 import NexusSidebar from "@/components/nexus/nexus-sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { useLocation } from "wouter";
 import { NotificationItem } from "@/components/notification-center";
 import "@/index.css";
 const CampaignsPage = lazy(() => import("@/pages/campaigns"));
+const AppSidebar = lazy(() => import("@/components/app-sidebar").then(module => ({ default: module.AppSidebar })));
 
 function Fixture() {
   const { user } = useAuth();
   const { setLocale, t } = useI18n();
+  const [route] = useLocation();
   const [fixtureMode] = useState(() => location.search);
   const toolbar = fixtureMode.includes("toolbar");
   const [missionId, setMissionId] = useState<string | undefined>(fixtureMode.includes("scope") ? "mission-one" : undefined);
@@ -35,7 +39,13 @@ function Fixture() {
     breakDialogOpen={false} isOnBreak={false} onEndSession={() => {}} isSessionActive t={t}
     onOpenMyActivity={() => {}} onOpenCommunicationCenter={() => setOpen(true)} communicationUpdates={updates.counts}/>}
     <button onClick={() => setOpen(true)}>Reopen</button>{
-    fixtureMode.includes("mission-chat")
+    fixtureMode.includes("indexus")
+      ? <PermissionsProvider><CountryFilterProvider><TooltipProvider><SidebarProvider>
+        <Suspense fallback={<div>Loading INDEXUS navigation</div>}><AppSidebar/></Suspense><main className="h-screen flex-1 p-4">{route.startsWith("/email")
+          ? <InternalChatPanel theme="omni"/>
+          : <div data-testid="ordinary-indexus">INDEXUS</div>}</main>
+      </SidebarProvider></TooltipProvider></CountryFilterProvider></PermissionsProvider>
+      : fixtureMode.includes("mission-chat")
       ? <PermissionsProvider><CountryFilterProvider><TooltipProvider><Suspense fallback={<div>Loading Mission settings</div>}><CampaignsPage/></Suspense></TooltipProvider></CountryFilterProvider></PermissionsProvider>
       : fixtureMode.includes("settings")
       ? <TaskGroupsDialog open={open} onOpenChange={setOpen}/>
@@ -44,7 +54,7 @@ function Fixture() {
          <TooltipProvider><div className="flex h-[calc(100%-40px)] gap-3">
            {fixtureMode.includes("rail") && <NexusSidebar activeTab="chats" selectedFolderId={null} onSelectFolder={() => {}} folders={[]} foldersLoading={false}
              smsFilter="all" onSmsFilterChange={() => {}} taskFilter="all" onTaskFilterChange={() => {}} totalUnreadEmails={0}
-             collapsed onToggleCollapse={() => {}} selectedChatId={omniPartner} onSelectChat={setOmniPartner}
+              collapsed={!fixtureMode.includes("expanded")} onToggleCollapse={() => {}} selectedChatId={omniPartner} onSelectChat={setOmniPartner}
              chatsData={[
                { id: "a", participantId: "a", participantName: "Test Colleague A", participantAvatarUrl: "/test-avatar-a.svg", lastMessage: "", lastMessageAt: "", unreadCount: 2 },
                { id: "b", participantId: "b", participantName: "Test Colleague B", lastMessage: "", lastMessageAt: "", unreadCount: 0 },

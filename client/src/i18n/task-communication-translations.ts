@@ -12,8 +12,18 @@ const keys = [
    "offlineHint", "loadFailed", "saveFailed", "noRequests", "clearFilters", "generalRequest", "handler", "unsaved", "unsavedHint", "send",
    "searchColleagues", "today", "yesterday", "attachmentOnly", "sent", "read", "sending", "connected", "disconnected",
    "privateLabel", "privateColleagueConversation", "backToColleagues", "messagesOutsideTasks", "enterToSend", "shiftEnterNewLine",
+   "muteChatSounds", "enableChatSounds", "quickReplies", "emojiAgree", "emojiSmile", "emojiThanks", "emojiDone", "emojiAppreciation", "emojiHello", "unreadChats",
 ] as const;
 export type TaskCommunicationCopy = Record<typeof keys[number], string>;
+const interactionLabels: Record<Locale, string[]> = {
+  en: ["Mute chat sounds", "Enable chat sounds", "Quick replies — insert an emoji, then send", "Agree", "Smile", "Thanks", "Done", "Appreciation", "Hello", "Unread chat messages"],
+  sk: ["Stlmiť zvuky chatu", "Zapnúť zvuky chatu", "Rýchle odpovede — vložte emotikon a odošlite", "Súhlasím", "Úsmev", "Ďakujem", "Hotovo", "Poďakovanie", "Pozdrav", "Neprečítané správy chatu"],
+  cs: ["Ztlumit zvuky chatu", "Zapnout zvuky chatu", "Rychlé odpovědi — vložte emotikon a odešlete", "Souhlasím", "Úsměv", "Děkuji", "Hotovo", "Poděkování", "Pozdrav", "Nepřečtené zprávy chatu"],
+  hu: ["Csevegési hangok némítása", "Csevegési hangok bekapcsolása", "Gyors válaszok — illesszen be egy emojit, majd küldje el", "Egyetértek", "Mosoly", "Köszönöm", "Kész", "Elismerés", "Üdvözlet", "Olvasatlan chatüzenetek"],
+  ro: ["Dezactivează sunetele chatului", "Activează sunetele chatului", "Răspunsuri rapide — inserează un emoji, apoi trimite", "De acord", "Zâmbet", "Mulțumesc", "Gata", "Apreciere", "Salut", "Mesaje de chat necitite"],
+  it: ["Silenzia i suoni della chat", "Attiva i suoni della chat", "Risposte rapide — inserisci un'emoji e invia", "D'accordo", "Sorriso", "Grazie", "Fatto", "Apprezzamento", "Saluto", "Messaggi chat non letti"],
+  de: ["Chat-Töne stummschalten", "Chat-Töne einschalten", "Schnellantworten — Emoji einfügen und senden", "Zustimmung", "Lächeln", "Danke", "Erledigt", "Anerkennung", "Hallo", "Ungelesene Chatnachrichten"],
+};
 const chatLabels: Record<Locale, string[]> = {
   en: ["Search colleagues", "Today", "Yesterday", "Attachment", "Sent", "Read", "Sending", "Connected", "Disconnected", "Private", "Private colleague conversation", "Back to colleagues", "Private messages are not added to task history", "Enter to send", "Shift+Enter for a new line"],
   sk: ["Hľadať kolegov", "Dnes", "Včera", "Príloha", "Odoslané", "Prečítané", "Odosiela sa", "Pripojené", "Odpojené", "Súkromné", "Súkromný rozhovor s kolegom", "Späť na kolegov", "Súkromné správy sa nepridávajú do histórie úloh", "Enter na odoslanie", "Shift+Enter na nový riadok"],
@@ -38,7 +48,7 @@ function copy(locale: Locale, values: string[]): TaskCommunicationCopy {
     hu: "Saját kérések és válaszok", ro: "Cererile și răspunsurile dvs.", it: "Le tue richieste e risposte",
     de: "Ihre Anfragen und Antworten",
   };
-  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale]];
+  const allValues = [...missionChatLabels[locale], values[0], inboxHints[locale], ...values.slice(1), ...chatLabels[locale], ...interactionLabels[locale]];
   if (allValues.length !== keys.length) throw new Error("Incomplete task communication translations");
   return Object.fromEntries(keys.map((key, index) => [key, allValues[index]])) as TaskCommunicationCopy;
 }
