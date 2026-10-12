@@ -48,6 +48,8 @@ import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
 import { getSmsActionCopy } from "@/i18n/automation-sms-copy";
 import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
+import { AutomationFlowPreview } from "@/components/automation-flow-preview";
+import { getFlowchartCopy } from "@/i18n/automation-flowchart-copy";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
@@ -210,6 +212,7 @@ export default function AutomationsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newService, setNewService] = useState<ServiceId | null>(null);
   const [historyFor, setHistoryFor] = useState<Rule | null>(null);
+  const [flowFor, setFlowFor] = useState<Rule | null>(null);
   const [showTagOverview, setShowTagOverview] = useState(false);
   const [prefillDraft, setPrefillDraft] = useState<RuleDraft | null>(null);
 
@@ -483,7 +486,7 @@ export default function AutomationsPage() {
                   )}
                   <Badge variant="outline">{(rule.actions || []).length} action(s)</Badge>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {rule.trigger?.legacySource && !rule.trigger.legacySource.reviewActivatedAt && (
                     <Button size="sm" onClick={() => {
                       if (window.confirm(getUnifiedAutomationCopy(locale).confirmReviewedActivation)) activateReviewedMut.mutate(rule);
@@ -494,6 +497,10 @@ export default function AutomationsPage() {
                   )}
                   <Button size="sm" variant="outline" onClick={() => setEditing(rule)} data-testid={`button-edit-${rule.id}`}>
                     Edit
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setFlowFor(rule)} data-testid={`button-flowchart-${rule.id}`}>
+                    <ArrowRightLeft className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
+                    {getFlowchartCopy(locale).preview}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setHistoryFor(rule)} data-testid={`button-history-${rule.id}`}>
                     <History className="h-3.5 w-3.5 mr-1" />
@@ -582,6 +589,18 @@ export default function AutomationsPage() {
         />
       )}
 
+      <Dialog open={!!flowFor} onOpenChange={open => !open && setFlowFor(null)}>
+        <DialogContent className="task-modern-modal max-w-5xl max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
+          <DialogHeader>
+            <DialogTitle>{getFlowchartCopy(locale).preview}</DialogTitle>
+            <DialogDescription>{getFlowchartCopy(locale).definitionNotice}</DialogDescription>
+          </DialogHeader>
+          {flowFor && catalogQ.data && <AutomationFlowPreview
+            rule={(rulesQ.data || []).find(rule => rule.id === flowFor.id) || flowFor}
+            catalog={catalogQ.data} users={usersQ.data || []} taskGroups={taskGroupsQ.data || []}
+            roles={rolesQ.data || []} departments={departmentsQ.data || []} />}
+        </DialogContent>
+      </Dialog>
       <Dialog open={showTagOverview} onOpenChange={setShowTagOverview}>
         <DialogContent className="task-modern-modal max-w-4xl max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
           <TaskModalArtwork variant="detail" />
@@ -603,7 +622,7 @@ export default function AutomationsPage() {
 }
 
 /* ============================================================
-   Rule editor — Builder + JSON tabs
+   Rule editor — Builder + live flowchart tabs
    ============================================================ */
 function RuleEditor({
   open,
@@ -656,7 +675,6 @@ function RuleEditor({
       : (initialDraft || EMPTY_DRAFT())
   );
   const [selectedService, setSelectedService] = useState<ServiceId | null>(initialService || null);
-  const [jsonText, setJsonText] = useState(() => JSON.stringify(draft, null, 2));
   const [tab, setTab] = useState<string>("builder");
   const [showTest, setShowTest] = useState(false);
   const [expandedStep, setExpandedStep] = useState<number | null>(0);
@@ -682,7 +700,6 @@ function RuleEditor({
       actions: [{ type: service, config: service === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : {} }],
     };
     setDraft(next);
-    setJsonText(JSON.stringify(next, null, 2));
     setSelectedService(service);
     setExpandedStep(0);
   };
@@ -690,10 +707,6 @@ function RuleEditor({
   useEffect(() => {
     if (initialService && !rule && !initialDraft) selectService(initialService);
   }, [initialService]);
-
-  useEffect(() => {
-    if (tab === "json") setJsonText(JSON.stringify(draft, null, 2));
-  }, [tab]);
 
   const selectedEvent = draft.trigger.type === "event" ? draft.trigger.eventType : "schedule.tick";
   const analysisConfig = draft.trigger.type === "event" ? draft.trigger.analysis : undefined;
@@ -1041,7 +1054,7 @@ function RuleEditor({
         !["to", "cc", "bcc"].every((field) => checkTokens(String(config[field] ?? ""), supportedRecipients));
     });
   };
-  const hasInvalidEmailDraft = tab !== "json" && draft.actions.some((action, index) =>
+  const hasInvalidEmailDraft = draft.actions.some((action, index) =>
     ["send_email", "send_sms", "update_entity", "add_tag", "remove_tag", "assign_user"].includes(action.type) && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
@@ -1049,15 +1062,7 @@ function RuleEditor({
 
   const submit = () => {
     let payload = draft;
-    if (tab === "json") {
-      try {
-        payload = JSON.parse(jsonText);
-      } catch (e: any) {
-        toast({ title: "Invalid JSON", description: e.message, variant: "destructive" });
-        return;
-      }
-    }
-    if (tab !== "json" && isNegativeSentimentRule(payload)) {
+    if (isNegativeSentimentRule(payload)) {
       const parsed = readSentimentSources(payload.conditions as AutomationCondition | null);
       if (parsed.editable) payload = { ...payload, conditions: withSentimentSources(parsed.channels, parsed.extra) as ConditionNode };
     }
@@ -1144,7 +1149,7 @@ function RuleEditor({
         <Tabs className="automation-editor-tabs" value={tab} onValueChange={setTab}>
           <TabsList>
             <TabsTrigger value="builder" data-testid="tab-builder">Builder</TabsTrigger>
-            <TabsTrigger value="json" data-testid="tab-json">JSON</TabsTrigger>
+            <TabsTrigger value="flowchart" data-testid="tab-flowchart">{getFlowchartCopy(locale).preview}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="builder" className="space-y-4 pt-4">
@@ -1824,18 +1829,9 @@ function RuleEditor({
             </div>}
           </TabsContent>
 
-          <TabsContent value="json" className="pt-4">
-            <Label>Rule JSON</Label>
-            <Textarea
-              value={jsonText}
-              onChange={(e) => setJsonText(e.target.value)}
-              className="font-mono text-xs h-[420px]"
-              data-testid="textarea-rule-json"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              Edits made here override the Builder tab on save. Templates use{" "}
-              <code>{`{{newValues.fieldName}}`}</code> / <code>{`{{oldValues.fieldName}}`}</code>.
-            </p>
+          <TabsContent value="flowchart" className="pt-4">
+            <AutomationFlowPreview rule={draft} catalog={catalog} users={users}
+              taskGroups={taskGroups} roles={roles} departments={departments || []} />
           </TabsContent>
         </Tabs>
 
