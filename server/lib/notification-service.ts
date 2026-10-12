@@ -2,6 +2,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "http";
 import type { InsertNotification, Notification, NotificationRule } from "@shared/schema";
 import { storage } from "../storage";
+import { matchesNotificationConditions, notificationConditionsNeedAnalysis } from "./notification-rule-conditions";
 
 type SessionParser = (req: any, res: any, next: (error?: any) => void) => void;
 
@@ -176,19 +177,29 @@ class NotificationService {
       countryCode?: string;
       metadata?: any;
       priority?: string;
+      /** SMS callers must intersect configured recipients with verified message visibility. */
+      allowedUserIds?: string[];
+      smsAnalysisPhase?: "received" | "analyzed";
     }
   ) {
     try {
       const rules = await storage.getActiveNotificationRulesByTrigger(triggerType);
       
       for (const rule of rules) {
-        if (rule.countryCodes && rule.countryCodes.length > 0 && data.countryCode) {
-          if (!rule.countryCodes.includes(data.countryCode)) {
+        if (!rule.sendPush) continue;
+        if (triggerType === "new_sms" && data.smsAnalysisPhase &&
+            notificationConditionsNeedAnalysis(rule.triggerConditions) !== (data.smsAnalysisPhase === "analyzed")) continue;
+        if (data.entityType === "sms" && !matchesNotificationConditions(rule.triggerConditions, data)) continue;
+        if (rule.countryCodes && rule.countryCodes.length > 0) {
+          if (!data.countryCode || !rule.countryCodes.includes(data.countryCode)) {
             continue;
           }
         }
 
-        const targetUserIds = await this.getTargetUsers(rule);
+        const configuredUserIds = await this.getTargetUsers(rule);
+        const targetUserIds = data.allowedUserIds
+          ? configuredUserIds.filter(id => data.allowedUserIds!.includes(id))
+          : configuredUserIds;
 
         if (targetUserIds.length > 0) {
           const notificationData: Omit<InsertNotification, "userId"> = {
@@ -226,8 +237,9 @@ class NotificationService {
         }
         break;
       case "specific_users":
+      case "assignee":
         if (rule.targetUserIds && rule.targetUserIds.length > 0) {
-          targetUsers = rule.targetUserIds;
+          targetUsers = rule.targetUserIds.filter(id => allUsers.some(user => user.id === id && user.isActive));
         }
         break;
     }

@@ -19,6 +19,12 @@ export async function emitPersistedInboundEvent(
     aiAnalyzed: communicationMessages.aiAnalyzed,
     aiSentiment: communicationMessages.aiSentiment,
     aiHasAngryTone: communicationMessages.aiHasAngryTone,
+    countryCode: communicationMessages.countryCode,
+    aiAlertLevel: communicationMessages.aiAlertLevel,
+    aiHasRudeExpressions: communicationMessages.aiHasRudeExpressions,
+    aiWantsToCancel: communicationMessages.aiWantsToCancel,
+    aiWantsConsent: communicationMessages.aiWantsConsent,
+    aiDoesNotAcceptContract: communicationMessages.aiDoesNotAcceptContract,
   }).from(communicationMessages)
     .where(eq(communicationMessages.id, messageId)).limit(1);
   if (!message || message.direction !== "inbound") return null;
@@ -29,8 +35,8 @@ export async function emitPersistedInboundEvent(
        !(message.aiSentiment === "negative" || message.aiSentiment === "angry" || message.aiHasAngryTone))) {
     return null;
   }
-  let countryCode: string | null = null;
-  if (message.customerId) {
+  let countryCode: string | null = message.countryCode || null;
+  if (!countryCode && message.customerId) {
     const [customer] = await db.select({ country: customers.country })
       .from(customers).where(eq(customers.id, message.customerId)).limit(1);
     countryCode = customer?.country || null;
@@ -46,7 +52,12 @@ export async function emitPersistedInboundEvent(
       customerId: message.customerId || null,
       campaignId: message.campaignId || null,
       contactType: message.entityType || contactType || null,
-      ...(eventType === "sentiment.negative" ? { sentiment: message.aiSentiment } : {}),
+      ...(eventType === "sentiment.negative" ? {
+        sentiment: message.aiSentiment, alertLevel: message.aiAlertLevel,
+        hasAngryTone: message.aiHasAngryTone, hasRudeExpressions: message.aiHasRudeExpressions,
+        wantsToCancel: message.aiWantsToCancel, wantsConsent: message.aiWantsConsent,
+        doesNotAcceptContract: message.aiDoesNotAcceptContract,
+      } : {}),
     },
     countryCode,
   }, `communication:${message.id}:${eventType}`);

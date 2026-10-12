@@ -50,6 +50,8 @@ import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
 import { taskDisplayText } from "@/lib/task-display";
 import type { Task } from "@shared/schema";
 import "./notification-focus.css";
+import { NotificationRulesManager } from "./notification-rules-manager";
+export { NotificationRulesManager } from "./notification-rules-manager";
 
 const NOTIFICATION_ICONS: Record<string, any> = {
   new_email: Mail,
@@ -485,7 +487,7 @@ const WIZARD_STEPS = [
   { id: 4, title: "Obsah a doručenie", description: "Text notifikácie a kanály" },
 ];
 
-export function NotificationRulesManager() {
+function LegacyNotificationRulesManager() {
   const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
   const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
