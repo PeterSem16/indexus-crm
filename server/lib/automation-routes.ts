@@ -470,6 +470,7 @@ export function registerAutomationRoutes(app: Express) {
         { value: "email.received", label: "New inbound email" },
         { value: "sms.received", label: "New inbound SMS" },
         { value: "sentiment.negative", label: "Negative sentiment in inbound message" },
+        { value: "communication.analyzed", label: "Content and sentiment analysis completed" },
         { value: "task.assigned", label: "Task assigned to a user" },
         { value: "task.completed", label: "Task completed" },
         { value: "task.overdue", label: "Task became overdue (auto)" },

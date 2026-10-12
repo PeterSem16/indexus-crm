@@ -68,6 +68,17 @@ assert.deepEqual(paths(rule("customer", "created", {
 })), []);
 assert.deepEqual(paths(rule("communication", "email.received")), []);
 assert.deepEqual(paths(rule("communication", "sms.received")), []);
+assert.deepEqual(paths(rule("communication", "communication.analyzed", {
+  conditions: { all: [
+    { field: "newValues.provider", op: "in", value: ["smstools", "bulkgate"] },
+    { field: "newValues.wantsToCancel", op: "eq", value: true },
+    { field: "newValues.hasAngryTone", op: "eq", value: false },
+    { field: "newValues.alertLevel", op: "eq", value: "warning" },
+  ] },
+})), []);
+assert.deepEqual(paths(rule("communication", "sms.received", {
+  conditions: { field: "newValues.wantsToCancel", op: "eq", value: true },
+})), ["conditions.field"]);
 assert.deepEqual(paths(rule("communication", "sentiment.negative", {
   conditions: { field: "newValues.sentiment", op: "eq", value: "negative" },
 })), []);

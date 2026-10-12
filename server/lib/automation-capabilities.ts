@@ -11,7 +11,7 @@ import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "@shared/automation-u
 export const MODULE_EVENTS: Record<string, string[]> = {
   customer: ["created", "updated", "status_changed"],
   task: ["created", "updated", "status_changed", "task.assigned", "task.completed", "task.overdue"],
-  communication: ["email.received", "sms.received", "sentiment.negative"],
+  communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed"],
   contract: ["created", "updated", "status_changed", "contract.completed", "contract.cancelled"],
   hospital: ["created", "updated"],
   clinic: ["created", "updated"],
@@ -104,6 +104,14 @@ export const FIELD_OPTIONS: Record<string, { value: string; label: string; type:
     { value: "newValues.campaignId", label: "Mission ID", type: "string" },
     { value: "newValues.contactType", label: "Linked contact type", type: "string" },
     { value: "newValues.sentiment", label: "Sentiment", type: "string" },
+    { value: "newValues.provider", label: "SMS gateway", type: "string", options: ["smstools", "bulkgate"] },
+    { value: "newValues.alertLevel", label: "Attention needed", type: "string", options: ["none", "warning", "critical"] },
+    { value: "newValues.hasAngryTone", label: "Angry tone", type: "boolean" },
+    { value: "newValues.hasRudeExpressions", label: "Rude expressions", type: "boolean" },
+    { value: "newValues.wantsToCancel", label: "Wants to cancel", type: "boolean" },
+    { value: "newValues.wantsConsent", label: "Wants consent", type: "boolean" },
+    { value: "newValues.doesNotAcceptContract", label: "Rejects the contract", type: "boolean" },
+    { value: "countryCode", label: "Country", type: "string", options: COUNTRIES.map(country => country.code) },
     { value: "newValues.callLogId", label: "Call ID", type: "string" },
     { value: "newValues.recordingId", label: "Recording ID", type: "string" },
   ],
@@ -361,9 +369,12 @@ export function fieldsForEvent(module: string, event: string) {
       ...(SCHEDULE_RECORD_MODULES.includes(module) ? FIELD_OPTIONS[module].filter(field => field.value === "newValues.tags") : [])];
   if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])];
   if (module === "communication") {
-    const payloadFields = event === "sentiment.negative"
-      ? ["newValues.type", "newValues.sentiment"]
-      : ["newValues.type", "newValues.customerId", "newValues.campaignId", "newValues.contactType"];
+    const payloadFields = ["sentiment.negative", "communication.analyzed"].includes(event)
+      ? ["newValues.type", "newValues.sentiment", "newValues.provider", "newValues.alertLevel",
+        "newValues.hasAngryTone", "newValues.hasRudeExpressions", "newValues.wantsToCancel",
+        "newValues.wantsConsent", "newValues.doesNotAcceptContract", "countryCode"]
+      : ["newValues.type", "newValues.customerId", "newValues.campaignId", "newValues.contactType",
+        "newValues.provider", "countryCode"];
     return FIELD_OPTIONS.communication.filter(field => payloadFields.includes(field.value));
   }
   const fields = FIELD_OPTIONS[module] || [];

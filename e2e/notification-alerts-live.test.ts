@@ -47,7 +47,12 @@ try {
   await page.getByTestId(`edit-rule-${created.id}`).click();
   await dialog.locator("#nr-name").fill(`${key}-edited`);
   await dialog.locator("#nr-title").fill("Synthetic notice edited");
-  await dialog.locator("#nr-conditions").fill('{"provider":["smstools","bulkgate"],"hasAngryTone":true}');
+  await dialog.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: /^(Nová SMS|New SMS)$/ }).click();
+  await dialog.getByTestId("condition-provider-smstools").click();
+  await dialog.getByTestId("condition-provider-bulkgate").click();
+  await dialog.getByTestId("condition-hasAngryTone-yes").click();
+  assert.equal(await dialog.locator("#nr-conditions").count(), 0, "no raw JSON editor");
   const updateResponse = page.waitForResponse(response =>
     response.url().endsWith(`/api/notification-rules/${created.id}`) && response.request().method() === "PUT");
   await dialog.getByTestId("save-notification-rule").click();
@@ -93,18 +98,61 @@ try {
   await dialog.waitFor();
   await page.screenshot({ path: "/tmp/notification-alerts-desktop.png" });
   await page.setViewportSize({ width: 402, height: 874 });
+  await page.waitForTimeout(250); // settle the shared modal's resize/entrance transition
   await page.screenshot({ path: "/tmp/notification-alerts-mobile.png" });
   assert.equal(await dialog.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth), true);
+  assert.equal(await dialog.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return rect.left >= -1 && rect.right <= window.innerWidth + 1;
+  }), true, "mobile modal must not be shifted outside the viewport");
   assert.equal(await page.getByTestId("save-notification-rule").evaluate(button => {
     const rect = button.getBoundingClientRect();
     return rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
   }), true, "mobile save action must remain visible below the scrollable form");
+
+  // Both external channels open the existing general editor as paused drafts.
+  await page.setViewportSize({ width: 1360, height: 900 });
+  await dialog.locator("#nr-name").fill(`${key}-email-handoff`);
+  await dialog.locator("#nr-title").fill("Synthetic email action");
+  await dialog.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: /^(Nová SMS|New SMS)$/ }).click();
+  await dialog.getByTestId("condition-wantsToCancel-yes").click();
+  await page.getByTestId("handoff-email-automation").click();
+  assert.match(await page.getByTestId("select-event").innerText(), /analýz|analysis/i);
+  await page.getByTestId("automation-then-step").locator(".automation-step-toggle").click();
+  await page.getByTestId("send-email-action-0").waitFor();
+  await page.screenshot({ path: "/tmp/notification-analysis-email-handoff.png" });
+  await page.keyboard.press("Escape");
+  await page.goto(`${base}/automations?tab=notifications&section=notification-rules`);
+  await page.getByTestId("button-add-rule").click();
+  await dialog.locator("#nr-name").fill(`${key}-sms-handoff`);
+  await dialog.locator("#nr-title").fill("Synthetic SMS action");
+  await dialog.getByRole("combobox").first().click();
+  await page.getByRole("option", { name: /^(Nová SMS|New SMS)$/ }).click();
+  await dialog.getByTestId("condition-wantsToCancel-yes").click();
+  await page.getByTestId("handoff-sms-automation").click();
+  assert.match(await page.getByTestId("select-event").innerText(), /analýz|analysis/i);
+  await page.getByTestId("automation-then-step").locator(".automation-step-toggle").click();
+  await page.getByTestId("send-sms-action-0").waitFor();
+  await page.keyboard.press("Escape");
+  await page.goto(`${base}/automations`);
+  await page.getByTestId("choose-trigger-contentAnalysis").click();
+  await page.getByTestId("trigger-context-contentAnalysis").waitFor();
+  const generalCreate = await context.request.post(`${base}/api/automation/rules`, { data: {
+    name: `${key}-general`, description: "", module: "communication", enabled: false, countryCodes: ["SK"],
+    trigger: { type: "event", entityType: "communication", eventType: "communication.analyzed" },
+    conditions: { field: "newValues.wantsToCancel", op: "eq", value: true },
+    actions: [{ type: "notify_user", config: { notificationActionVersion: 2, userId: fixture.id, title: "Synthetic analysis" } }],
+  } });
+  assert.equal(generalCreate.status(), 200, await generalCreate.text());
   assert.deepEqual(runtimeErrors, []);
-  console.log("Authenticated desktop/mobile UI: notification create/edit/toggle/delete confirmation + metric create/edit/delete PASSED");
+  console.log("Authenticated desktop/mobile: friendly conditions CRUD, metrics CRUD, email/SMS hand-offs, analysis preset and paused general rule creation PASSED");
 } finally {
   await context?.request.post(`${base}/api/auth/logout`).catch(() => {});
   await browser?.close();
   await pool.query("DELETE FROM notification_rules WHERE created_by=$1", [fixture.id]);
+  await pool.query("DELETE FROM workflow_runs WHERE rule_id IN (SELECT id FROM workflow_rules WHERE created_by_user_id=$1)", [fixture.id]);
+  await pool.query("DELETE FROM workflow_rules WHERE created_by_user_id=$1", [fixture.id]);
   await pool.query("DELETE FROM alert_history WHERE user_id=$1", [fixture.id]).catch(() => {});
   await pool.query("DELETE FROM alert_rules WHERE created_by=$1", [fixture.id]);
   await pool.query("DELETE FROM notifications WHERE user_id=$1", [fixture.id]);

@@ -19,6 +19,7 @@ export async function emitInboundEmailEvents(message: any, contactType: string, 
   try {
     const { emitPersistedInboundEvent } = await import("./inbound-communication-events");
     if (includeReceived) await emitPersistedInboundEvent(message.id, "email.received", contactType);
+    await emitPersistedInboundEvent(message.id, "communication.analyzed", contactType);
     await emitPersistedInboundEvent(message.id, "sentiment.negative", contactType);
   } catch (err) {
     console.error("[EventBus] inbound email event emit error:", err);

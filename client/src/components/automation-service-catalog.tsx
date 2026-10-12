@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import { serviceVisual } from "./automation-service-visuals";
 import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
 import { triggerPresetIcons } from "./automation-trigger-context";
+import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
 import { ArrowRight, Phone } from "lucide-react";
 
 export const SERVICE_IDS = [
@@ -125,9 +126,9 @@ export function AutomationServiceCatalog({
                   data-testid={`choose-trigger-${preset.id}`}>
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>
-                    <span className="block">{copy.triggerPresets.labels[preset.id]}</span>
+                    <span className="block">{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle : copy.triggerPresets.labels[preset.id]}</span>
                     <span className="block text-xs font-normal text-muted-foreground">
-                      {copy.triggerPresets.details[preset.id].source}
+                      {preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisSource : copy.triggerPresets.details[preset.id].source}
                     </span>
                   </span>
                 </Button>;

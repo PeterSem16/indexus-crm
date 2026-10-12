@@ -51,7 +51,7 @@ async function triggerSmsRules(
   });
 }
 
-async function publishEvent(id: string, eventType: "sms.received" | "sentiment.negative") {
+async function publishEvent(id: string, eventType: "sms.received" | "sentiment.negative" | "communication.analyzed") {
   try { await emitPersistedInboundEvent(id, eventType); }
   catch { console.error("[SMS Analysis] Event publication failed"); }
 }
@@ -77,6 +77,7 @@ export function startInboundSmsAnalysis(
       catch { console.error("[SMS Analysis] Incoming rule notification failed"); }
     },
     analyzed: async messageId => {
+      await publishEvent(messageId, "communication.analyzed");
       try { await triggerSmsRules(messageId, "new_sms", "analyzed"); }
       catch { console.error("[SMS Analysis] Analyzed SMS rule notification failed"); }
     },

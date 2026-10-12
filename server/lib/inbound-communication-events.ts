@@ -6,12 +6,13 @@ import { emitEventOnce } from "./event-bus";
 /** Never publish content from a callback or an uncommitted AI result. */
 export async function emitPersistedInboundEvent(
   messageId: string,
-  eventType: "sms.received" | "email.received" | "sentiment.negative",
+  eventType: "sms.received" | "email.received" | "sentiment.negative" | "communication.analyzed",
   contactType?: string | null,
 ) {
   const [message] = await db.select({
     id: communicationMessages.id,
     type: communicationMessages.type,
+    provider: communicationMessages.provider,
     direction: communicationMessages.direction,
     customerId: communicationMessages.customerId,
     campaignId: communicationMessages.campaignId,
@@ -30,6 +31,8 @@ export async function emitPersistedInboundEvent(
   if (!message || message.direction !== "inbound") return null;
   if (eventType === "sms.received" && message.type !== "sms") return null;
   if (eventType === "email.received" && message.type !== "email") return null;
+  if (eventType === "communication.analyzed" &&
+      (!message.aiAnalyzed || !["sms", "email"].includes(message.type))) return null;
   if (eventType === "sentiment.negative" &&
       (!message.aiAnalyzed ||
        !(message.aiSentiment === "negative" || message.aiSentiment === "angry" || message.aiHasAngryTone))) {
@@ -49,10 +52,11 @@ export async function emitPersistedInboundEvent(
     eventType,
     newValues: {
       type: message.type,
+      provider: message.type === "sms" ? message.provider : null,
       customerId: message.customerId || null,
       campaignId: message.campaignId || null,
       contactType: message.entityType || contactType || null,
-      ...(eventType === "sentiment.negative" ? {
+      ...(["sentiment.negative", "communication.analyzed"].includes(eventType) ? {
         sentiment: message.aiSentiment, alertLevel: message.aiAlertLevel,
         hasAngryTone: message.aiHasAngryTone, hasRudeExpressions: message.aiHasRudeExpressions,
         wantsToCancel: message.aiWantsToCancel, wantsConsent: message.aiWantsConsent,

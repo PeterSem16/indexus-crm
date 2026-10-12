@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Bell, Check, ChevronDown, Clock3, Mail, MessageSquare, Pencil, Plus, Search, Shield, Trash2, UserRound, Users } from "lucide-react";
+import { AlertTriangle, Bell, Check, Clock3, Mail, MessageSquare, Pencil, Plus, Search, Shield, Trash2, UserRound, Users, Workflow } from "lucide-react";
 import type { NotificationRule as NotificationRuleType, Role, User as UserType } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { getNotificationAlertCopy } from "@/components/notification-alert-copy";
+import { NotificationConditionPicker } from "@/components/notification-condition-picker";
+import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +20,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
 type Rule = NotificationRuleType & { triggerConditions?: unknown; countryCodes?: string[] | null; targetRoles?: string[] | null; targetUserIds?: string[] | null };
-type Form = Omit<Rule, "id" | "createdAt" | "updatedAt" | "createdBy">;
+export type NotificationRuleDraft = Omit<Rule, "id" | "createdAt" | "updatedAt" | "createdBy">;
+type Form = NotificationRuleDraft;
+export type NotificationAutomationActionType = "notify_user" | "send_email" | "send_sms";
 const triggers = ["new_email", "new_sms", "new_customer", "status_change", "sentiment_negative", "task_overdue", "task_assigned"];
 const priorities = ["low", "normal", "high", "urgent"];
 const countries = ["SK", "CZ", "HU", "RO", "IT", "DE", "AT", "PL", "GB", "US"];
@@ -36,9 +40,12 @@ const audienceOptions = [
   { value: "specific_users", icon: UserRound }, { value: "assignee", icon: UserRound },
 ];
 
-export function NotificationRulesManager() {
+export function NotificationRulesManager({ onCreateAutomation }: {
+  onCreateAutomation?: (draft?: NotificationRuleDraft, actionType?: NotificationAutomationActionType) => void;
+}) {
   const { locale } = useI18n();
   const copy = getNotificationAlertCopy(locale);
+  const analysisCopy = getCommunicationAnalysisCopy(locale);
   const { toast } = useToast();
   const [queryText, setQueryText] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -69,6 +76,11 @@ export function NotificationRulesManager() {
     `${rule.name} ${rule.description || ""} ${rule.triggerType}`.toLowerCase().includes(queryText.toLowerCase())
   ), [rules.data, queryText]);
   const startNew = () => { setEditing(null); setForm({ ...blank }); setEditorOpen(true); };
+  const handoff = (actionType: NotificationAutomationActionType, draft?: Form) => {
+    if (!onCreateAutomation) return;
+    onCreateAutomation(draft ? { ...draft } : undefined, actionType);
+    setEditorOpen(false);
+  };
   const startEdit = (rule: Rule) => {
     setEditing(rule);
     setForm({
@@ -86,21 +98,12 @@ export function NotificationRulesManager() {
     set(key, (single ? (current.includes(value) ? [] : [value]) : current.includes(value) ? current.filter(item => item !== value) : [...current, value]) as Form[typeof key]);
   };
   const countryOptions = Array.from(new Set([...countries, ...(form.countryCodes || [])]));
-  const formatCondition = (value: unknown) => {
-    if (!value) return "";
-    return typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  };
   const submit = () => {
     if (!form.name.trim() || !form.notificationTitle.trim()) {
       toast({ title: copy.required, variant: "destructive" });
       return;
     }
-    let conditions = form.triggerConditions;
-    if (typeof conditions === "string") {
-      try { conditions = conditions.trim() ? JSON.parse(conditions) : null; }
-      catch { toast({ title: "JSON", description: copy.triggerHelp, variant: "destructive" }); return; }
-    }
-    save.mutate({ ...form, triggerConditions: conditions });
+    save.mutate(form);
   };
   const labels = copy as Record<string, string>;
 
@@ -111,7 +114,10 @@ export function NotificationRulesManager() {
         <h2 className="text-2xl font-semibold tracking-tight">{copy.notificationHeading}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{copy.notificationIntro}</p>
       </div>
-      <Button onClick={startNew} data-testid="button-add-rule"><Plus className="mr-2 h-4 w-4" />{copy.addNotification}</Button>
+      <div className="flex flex-wrap gap-2">
+        {onCreateAutomation && <Button variant="outline" onClick={() => handoff("notify_user")} data-testid="general-analysis-create"><Workflow className="mr-2 h-4 w-4" />{analysisCopy.startInApp}</Button>}
+        <Button onClick={startNew} data-testid="button-add-rule"><Plus className="mr-2 h-4 w-4" />{copy.addNotification}</Button>
+      </div>
     </header>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -164,13 +170,14 @@ export function NotificationRulesManager() {
       })}</div>}
 
     <Dialog open={editorOpen} onOpenChange={open => { if (!save.isPending) setEditorOpen(open); }}>
-      <DialogContent className="flex max-h-[92dvh] max-w-4xl flex-col overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b px-6 py-5">
+      <DialogContent overlayClassName="task-modern-modal-overlay task-modern-modal-overlay--nested"
+        className="task-modern-modal task-modern-modal--nested flex h-[min(860px,calc(100dvh-2rem))] w-[min(1120px,calc(100vw-1rem))] max-w-[1120px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-primary"><Bell className="h-4 w-4" />{editing ? copy.editTitle : copy.createTitle}</div>
           <DialogTitle className="text-xl">{editing ? form.name || copy.editTitle : copy.createTitle}</DialogTitle>
           <DialogDescription>{copy.notificationIntro}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="task-modern-modal-body min-h-0 flex-1">
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
             <div className="space-y-5">
               <section className="space-y-4 rounded-xl border p-4">
@@ -182,9 +189,12 @@ export function NotificationRulesManager() {
                   <div className="space-y-2"><Label>{copy.priority}</Label><Select value={form.priority} onValueChange={value => set("priority", value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{priorities.map(value => <SelectItem key={value} value={value}>{labels[value]}</SelectItem>)}</SelectContent></Select></div>
                 </div>
                 {["new_sms", "sentiment_negative"].includes(form.triggerType) && <div className="flex gap-2 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />{copy.smsHelp}</div>}
-                <div className="space-y-2"><Label htmlFor="nr-conditions">{copy.triggerConditions}</Label><Textarea id="nr-conditions" value={formatCondition(form.triggerConditions)} onChange={e => set("triggerConditions", e.target.value)} rows={4} className="font-mono text-xs" placeholder='{"countryCode":"SK"}' />
-                  <p className="text-xs leading-relaxed text-muted-foreground">{copy.triggerHelp}</p>
-                  {["new_sms", "sentiment_negative"].includes(form.triggerType) && <div className="rounded-md bg-muted/60 p-2.5 text-xs"><span className="font-medium">{copy.conditionKeys}:</span><code className="mt-1 block break-words font-mono text-[11px] leading-relaxed">countryCode · provider · sentiment · alertLevel · hasAngryTone · hasRudeExpressions · wantsToCancel · wantsConsent · doesNotAcceptContract</code></div>}
+                <div data-testid="nr-conditions" className="space-y-3">
+                  <NotificationConditionPicker value={form.triggerConditions} onChange={value => set("triggerConditions", value)} locale={locale} triggerType={form.triggerType} />
+                  {onCreateAutomation && <div className="flex flex-col gap-3 rounded-xl border border-primary/20 bg-primary/[0.035] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0"><p className="text-sm font-semibold">{analysisCopy.generalAutomation.title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{analysisCopy.generalAutomation.hint}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{analysisCopy.legacyHandoff} {analysisCopy.pausedHandoff}</p></div>
+                    <Button type="button" variant="outline" className="shrink-0" onClick={() => handoff("notify_user", form)} data-testid="general-analysis-handoff"><Workflow className="mr-2 h-4 w-4" />{analysisCopy.startInApp}</Button>
+                  </div>}
                 </div>
               </section>
               <section className="space-y-3 rounded-xl border p-4">
@@ -226,15 +236,22 @@ export function NotificationRulesManager() {
                 <div className="space-y-2 border-t pt-3">
                   <p className="text-sm font-semibold">{copy.channels}</p>
                   <label className="flex items-center justify-between gap-3 rounded-lg border p-3"><span className="flex items-center gap-2 text-sm"><Bell className="h-4 w-4 text-primary" />{copy.push}<span className="block text-xs text-muted-foreground">{copy.pushHelp}</span></span><Switch checked={form.sendPush} onCheckedChange={value => set("sendPush", value)} /></label>
-                  <label className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/30 p-3"><span className="flex gap-2 text-sm"><Mail className="mt-0.5 h-4 w-4 text-muted-foreground" /><span>{copy.email}<span className="mt-0.5 block max-w-sm text-xs text-muted-foreground">{copy.unsupported}</span></span></span><Switch checked={form.sendEmail} disabled aria-label={`${copy.email} ${copy.unsupported}`} /></label>
-                  <label className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-muted/30 p-3"><span className="flex gap-2 text-sm"><MessageSquare className="mt-0.5 h-4 w-4 text-muted-foreground" /><span>{copy.sms}<span className="mt-0.5 block max-w-sm text-xs text-muted-foreground">{copy.unsupported}</span></span></span><Switch checked={form.sendSms} disabled aria-label={`${copy.sms} ${copy.unsupported}`} /></label>
+                  <div className="rounded-lg border border-border/80 bg-muted/20 p-3">
+                    <div className="flex gap-2"><Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{copy.email}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{analysisCopy.externalChannelHint}</p></div></div>
+                    {onCreateAutomation && <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => handoff("send_email", form)} data-testid="handoff-email-automation">{analysisCopy.startEmail}</Button>}
+                  </div>
+                  <div className="rounded-lg border border-border/80 bg-muted/20 p-3">
+                    <div className="flex gap-2"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="text-sm font-medium">{copy.sms}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{analysisCopy.externalChannelHint}</p></div></div>
+                    {onCreateAutomation && <Button type="button" size="sm" variant="outline" className="mt-3" onClick={() => handoff("send_sms", form)} data-testid="handoff-sms-automation">{analysisCopy.startSms}</Button>}
+                  </div>
+                  {!onCreateAutomation && <p className="text-xs leading-relaxed text-muted-foreground">{analysisCopy.noAutomationCallback}</p>}
                 </div>
                 <label className="flex items-center justify-between border-t pt-3 text-sm"><span>{copy.active}</span><Switch checked={form.isActive} onCheckedChange={value => set("isActive", value)} /></label>
               </section>
             </div>
           </div>
         </div>
-        <DialogFooter className="shrink-0 border-t px-6 py-4">
+        <DialogFooter className="task-modern-modal-footer mt-0 gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => setEditorOpen(false)} disabled={save.isPending}>{copy.cancel}</Button>
           <Button onClick={submit} data-testid="save-notification-rule" disabled={save.isPending || !form.name.trim() || !form.notificationTitle.trim()}>{save.isPending && <Clock3 className="mr-2 h-4 w-4 animate-pulse" />}{editing ? copy.save : copy.create}</Button>
         </DialogFooter>

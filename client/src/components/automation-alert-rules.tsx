@@ -140,11 +140,12 @@ export function AlertRulesManager() {
       </Card>)}</div>}
 
     <Dialog open={formOpen} onOpenChange={open => { if (!save.isPending) setFormOpen(open); }}>
-      <DialogContent className="flex max-h-[92dvh] max-w-4xl flex-col overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b px-6 py-5"><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800"><Activity className="h-4 w-4" />{editing ? copy.metricEdit : copy.metricCreate}</div>
+      <DialogContent overlayClassName="task-modern-modal-overlay task-modern-modal-overlay--nested"
+        className="task-modern-modal task-modern-modal--nested flex h-[min(800px,calc(100dvh-2rem))] w-[min(1000px,calc(100vw-1rem))] max-w-[1000px] flex-col gap-0 overflow-hidden p-0">
+        <DialogHeader><div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-800"><Activity className="h-4 w-4" />{editing ? copy.metricEdit : copy.metricCreate}</div>
           <DialogTitle className="text-xl">{editing ? form.name || copy.metricEdit : copy.metricCreate}</DialogTitle><DialogDescription>{copy.metricIntro}</DialogDescription>
         </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+        <div className="task-modern-modal-body min-h-0 flex-1">
           <div className="grid gap-5 lg:grid-cols-2">
             <section className="space-y-4 rounded-xl border p-4">
               <h3 className="text-sm font-semibold">{copy.metric}</h3>
@@ -192,7 +193,7 @@ export function AlertRulesManager() {
             </div>
           </div>
         </div>
-        <DialogFooter className="shrink-0 border-t px-6 py-4"><Button variant="outline" disabled={save.isPending} onClick={() => setFormOpen(false)}>{copy.cancel}</Button>
+        <DialogFooter className="task-modern-modal-footer mt-0 gap-2 sm:gap-2"><Button variant="outline" disabled={save.isPending} onClick={() => setFormOpen(false)}>{copy.cancel}</Button>
           <Button disabled={!form.name.trim() || save.isPending} data-testid="save-alert-rule" onClick={submit}>{save.isPending ? copy.loading : editing ? copy.saveMetric : copy.createMetric}</Button></DialogFooter>
       </DialogContent>
     </Dialog>

@@ -20,6 +20,8 @@ import { AutomationDraftAssistant } from "@/components/automation-draft-assistan
 import { AutomationServiceCatalog, type ServiceCatalogData, type ServiceId, type InboundService } from "@/components/automation-service-catalog";
 import { serviceVisual } from "@/components/automation-service-visuals";
 import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
+import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
+import { notificationAutomationDraft } from "@/lib/notification-automation-draft";
 import { SENTIMENT_CHANNELS, readSentimentSources, withSentimentSources, type AutomationCondition, type SentimentChannel } from "@/lib/sentiment-source-conditions";
 import { SentimentSourcePicker } from "@/components/sentiment-source-picker";
 import { AutomationTriggerContext, triggerPresetIcons } from "@/components/automation-trigger-context";
@@ -340,11 +342,14 @@ export default function AutomationsPage() {
             setManagedTab(id === "metric_alerts" ? "alert-rules" : "notification-rules");
             setTopTab("notifications");
           }} onSelectTrigger={(preset) => {
+            const title = preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
+              : t.automationServices.triggerPresets.labels[preset.id];
             setNewService(null);
             setPrefillDraft(chooseTriggerPreset({
               ...EMPTY_DRAFT(),
-              name: t.automationServices.triggerPresets.labels[preset.id],
-              actions: [{ type: "notify_user", config: { notificationActionVersion: 2, title: t.automationServices.triggerPresets.labels[preset.id] } }],
+              name: title,
+              enabled: preset.id === "contentAnalysis" ? false : true,
+              actions: [{ type: "notify_user", config: { notificationActionVersion: 2, title } }],
             }, preset));
             setShowCreate(true);
           }} onSelect={(service) => {
@@ -394,7 +399,23 @@ export default function AutomationsPage() {
                     <AlertTriangle className="h-4 w-4 mr-2" />{t.automationServices.managed.alertTitle}
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="notification-rules"><NotificationRulesManager /></TabsContent>
+                <TabsContent value="notification-rules"><NotificationRulesManager onCreateAutomation={(source, actionType = "notify_user") => {
+                  const copy = getCommunicationAnalysisCopy(locale);
+                  try {
+                    const next = source ? notificationAutomationDraft(source, actionType) : {
+                      ...EMPTY_DRAFT(), name: copy.analysisTitle, module: "communication", enabled: false,
+                      trigger: { type: "event" as const, entityType: "communication", eventType: "communication.analyzed" },
+                      actions: [{ type: actionType, config: { notificationActionVersion: 2, title: copy.analysisTitle } }],
+                    };
+                    setNewService(null);
+                    setPrefillDraft({ ...EMPTY_DRAFT(), ...next });
+                    setTopTab("rules");
+                    setShowCreate(true);
+                    toast({ title: copy.generalAutomation.title, description: copy.conversionDescription });
+                  } catch {
+                    toast({ title: copy.conversionUnavailable, variant: "destructive" });
+                  }
+                }} /></TabsContent>
                 <TabsContent value="alert-rules">
                   <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}><AlertRulesManager /></Suspense>
                 </TabsContent>
@@ -718,7 +739,7 @@ function RuleEditor({
       window.clearTimeout(timeout);
     };
   }, [open, draft.trigger.type, scheduleMode, schedulePreviewInput]);
-  const fieldsForConditions = selectedPreset && draft.module === "communication" && !hasChannelCondition(visibleConditions)
+  const fieldsForConditions = selectedPreset && selectedPreset.id !== "contentAnalysis" && draft.module === "communication" && !hasChannelCondition(visibleConditions)
     ? fieldsForModule.filter(field => field.value !== "newValues.type")
     : fieldsForModule;
   const eventsForModule = catalog.eventTypes.filter(e => e.availableIn.includes(draft.module));
@@ -730,23 +751,34 @@ function RuleEditor({
     return t.automationServices.editorCatalog.moduleLabels[id] ||
       (getUpdateRecordCopy(locale).entity as Record<string, string>)[id] || fallback;
   }).join(", ");
-  const eventLabel = (event: Catalog["eventTypes"][number]) =>
-    event.value === "contract.completed" ? t.automationCatalog.contractCompleted :
-    event.value === "contract.cancelled" ? t.automationCatalog.contractCancelled :
-    AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value)
-      ? t.automationServices.triggerPresets.labels[AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value)!.id]
-      : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
+  const eventLabel = (event: Catalog["eventTypes"][number]) => {
+    if (event.value === "contract.completed") return t.automationCatalog.contractCompleted;
+    if (event.value === "contract.cancelled") return t.automationCatalog.contractCancelled;
+    const preset = AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value);
+    return preset ? preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
+      : t.automationServices.triggerPresets.labels[preset.id] : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
+  };
   const eventDescription = (event: Catalog["eventTypes"][number]) =>
+    event.value === "communication.analyzed" ? getCommunicationAnalysisCopy(locale).analysisDescription :
     (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
-  const fieldLabel = (field: { value: string; label: string }) =>
-    field.value.endsWith(".tags") ? field.value.startsWith("oldValues.")
+  const fieldLabel = (field: { value: string; label: string }) => {
+    const analysisLabel = draft.module === "communication" ? field.value === "countryCode" ? getCommunicationAnalysisCopy(locale).countryCode
+      : getCommunicationAnalysisCopy(locale).fieldLabels[field.value] : undefined;
+    if (analysisLabel) return analysisLabel;
+    return field.value.endsWith(".tags") ? field.value.startsWith("oldValues.")
       ? getAutomationRecordTagCopy(locale).previousTags : getAutomationRecordTagCopy(locale).tags :
     (draft.module === "task" ? t.automationServices.taskRules.fieldLabels[field.value] : undefined) ||
     t.automationServices.editorCatalog.fieldLabels[field.value] ||
     (getUpdateRecordCopy(locale).field as Record<string, string>)[field.value.split(".").pop() || field.value] || field.label;
+  };
   const conditionFields: ConditionField[] = fieldsForConditions.map(field => {
     const localized: ConditionField = { ...field, label: fieldLabel(field) };
+    if (draft.module === "communication") {
+      return { ...localized, optionLabels: getCommunicationAnalysisCopy(locale).optionLabels,
+        ...(selectedEvent === "communication.analyzed" && field.value === "newValues.type" ? { options: ["email", "sms"] } : {}),
+        ...(selectedEvent === "communication.analyzed" && field.value === "newValues.sentiment" ? { options: ["positive", "neutral", "negative", "angry"] } : {}) };
+    }
     if (draft.module !== "task") return localized;
     if (["newValues.assignedUserId", "newValues.createdByUserId", "newValues.resolvedByUserId"].includes(field.value)) {
       return { ...localized, type: "enum", options: users.map(user => user.id),
@@ -1429,7 +1461,7 @@ function RuleEditor({
                               }}
                              data-testid={`select-trigger-preset-${preset.id}`}>
                              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                             <span>{t.automationServices.triggerPresets.labels[preset.id]}</span>
+                             <span>{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle : t.automationServices.triggerPresets.labels[preset.id]}</span>
                            </button>
                          );
                        })}

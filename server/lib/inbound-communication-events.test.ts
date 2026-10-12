@@ -57,6 +57,16 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
         conditions: { field: "newValues.type", op: "eq", value: type },
         actions: [],
       },
+      {
+        name: `inbound-test-${suffix}-${type}-analysis`,
+        module: "communication",
+        trigger: { type: "event", entityType: "communication", eventType: "communication.analyzed" },
+        conditions: { all: [
+          { field: "newValues.type", op: "eq", value: type },
+          { field: "newValues.wantsToCancel", op: "eq", value: true },
+        ] },
+        actions: [],
+      },
     ]).returning({ id: workflowRules.id });
     ruleIds.push(...rules.map(r => r.id));
     return rules.map(r => r.id);
@@ -67,8 +77,8 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
     assert.deepEqual(events.map(e => e.eventType).sort(), expectedTypes.sort());
     const runs = await db.select().from(workflowRuns).where(inArray(workflowRuns.ruleId, rules));
     const relevant = runs.filter(r => events.some(e => e.id === r.eventId));
-    assert.equal(relevant.length, 2, "one rule run per channel and sentiment event");
-    assert.deepEqual(relevant.map(r => r.status), ["success", "success"]);
+    assert.equal(relevant.length, 3, "one run per receipt, sentiment and persisted-analysis event");
+    assert.deepEqual(relevant.map(r => r.status), ["success", "success", "success"]);
     for (const event of events) {
       assert.equal(event.entityId, id);
       assert.equal(event.source, "webhook");
@@ -76,9 +86,10 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
       assert.ok(!JSON.stringify(event).includes(body), "no message content in event");
       assert.ok(!JSON.stringify(event).includes(sender), "no sender in event");
       assert.deepEqual(Object.keys(event.newValues as object).sort(),
-        (event.eventType === "sentiment.negative"
-          ? ["campaignId", "contactType", "customerId", "sentiment", "type"]
-          : ["campaignId", "contactType", "customerId", "type"]).sort());
+        (["sentiment.negative", "communication.analyzed"].includes(event.eventType)
+          ? ["campaignId", "contactType", "customerId", "provider", "sentiment", "type", "alertLevel",
+            "hasAngryTone", "hasRudeExpressions", "wantsToCancel", "wantsConsent", "doesNotAcceptContract"]
+          : ["campaignId", "contactType", "customerId", "provider", "type"]).sort());
     }
   };
 
@@ -103,15 +114,18 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
       rulesByMessage.set(id, rules);
       assert.equal(await storeInboundSmsOnce(provider, values), null);
       assert.equal(await emitPersistedInboundEvent(id, "sentiment.negative"), null, "no sentiment before AI save");
+      assert.equal(await emitPersistedInboundEvent(id, "communication.analyzed"), null, "no content event before AI save");
       await Promise.all([emitPersistedInboundEvent(id, "sms.received"), emitPersistedInboundEvent(id, "sms.received")]);
       await db.update(communicationMessages).set({
-        aiAnalyzed: true, aiSentiment: "negative", aiAnalyzedAt: new Date(),
+        aiAnalyzed: true, aiSentiment: "negative", aiWantsToCancel: true, aiAnalyzedAt: new Date(),
       }).where(eq(communicationMessages.id, id));
       await Promise.all([
         emitPersistedInboundEvent(id, "sentiment.negative"),
         emitPersistedInboundEvent(id, "sentiment.negative"),
+        emitPersistedInboundEvent(id, "communication.analyzed"),
+        emitPersistedInboundEvent(id, "communication.analyzed"),
       ]);
-      await assertOnePerRule(id, ["sms.received", "sentiment.negative"], rules);
+      await assertOnePerRule(id, ["sms.received", "sentiment.negative", "communication.analyzed"], rules);
     }
 
     const rules = await addRules("email", "email.received");
@@ -136,7 +150,7 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
     ]);
     assert.deepEqual((await eventsFor(email.id)).map(e => e.eventType), ["email.received"]);
     await db.update(communicationMessages).set({
-      aiAnalyzed: true, aiSentiment: "angry", aiAnalyzedAt: new Date(),
+      aiAnalyzed: true, aiSentiment: "angry", aiWantsToCancel: true, aiAnalyzedAt: new Date(),
     }).where(eq(communicationMessages.id, email.id));
     // Detail view and monitor can both observe the saved analysis.
     await Promise.all([
@@ -144,7 +158,7 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
       emitInboundEmailEvents({ ...email, aiAnalyzed: true, aiSentiment: "angry" }, "customer", "angry", false),
     ]);
     await emitInboundEmailEvents(email, "customer");
-    await assertOnePerRule(email.id, ["email.received", "sentiment.negative"], rules);
+    await assertOnePerRule(email.id, ["email.received", "sentiment.negative", "communication.analyzed"], rules);
     assert.deepEqual(analysisAtDispatch, [true, true, true], "all negative events follow persisted analysis");
   } finally {
     await Promise.allSettled(dispatched);
