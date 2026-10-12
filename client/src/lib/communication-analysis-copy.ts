@@ -48,7 +48,7 @@ const commonFields: Record<string, string> = {
 };
 const commonOptions: Record<string, string> = {
   positive: "Positive", neutral: "Neutral", negative: "Negative", angry: "Angry", none: "None",
-  warning: "Warning", critical: "Critical", smstools: "SMS.to", bulkgate: "BulkGate", email: "Email", sms: "SMS",
+  warning: "Warning", critical: "Critical", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "Email", sms: "SMS",
 };
 const languages: Record<CommunicationAnalysisLocale, {
   fields: Record<string, string>; options: Record<string, string>; heading: string; description: string;
@@ -86,7 +86,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Hrubý jazyk", "newValues.wantsToCancel": "Chce zrušiť", "newValues.wantsConsent": "Žiada súhlas",
       "newValues.doesNotAcceptContract": "Neprijíma zmluvu",
     },
-    options: { positive: "Pozitívny", neutral: "Neutrálny", negative: "Negatívny", angry: "Nahnevaný", none: "Žiadny", warning: "Upozornenie", critical: "Kritická", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Nízka", medium: "Stredná", high: "Vysoká" },
+    options: { positive: "Pozitívny", neutral: "Neutrálny", negative: "Negatívny", angry: "Nahnevaný", none: "Žiadny", warning: "Upozornenie", critical: "Kritická", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Nízka", medium: "Stredná", high: "Vysoká" },
     heading: "Analýza správy", description: "Vyberte signály, ktoré sa majú zhodovať. Musí platiť každý riadok; pri viacerých voľbách stačí ktorákoľvek.",
     automation: "Vytvoriť automatizáciu", automationHint: "Automatizácie analýzy môžu spájať signály správy s následnými akciami.",
     source: "Analýza komunikácie", when: "Po analýze SMS alebo e-mailu",
@@ -112,7 +112,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Hrubý jazyk", "newValues.wantsToCancel": "Chce zrušit", "newValues.wantsConsent": "Žádá o souhlas",
       "newValues.doesNotAcceptContract": "Nepřijímá smlouvu",
     },
-    options: { positive: "Pozitivní", neutral: "Neutrální", negative: "Negativní", angry: "Rozzlobený", none: "Žádný", warning: "Varování", critical: "Kritická", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Nízká", medium: "Střední", high: "Vysoká" },
+    options: { positive: "Pozitivní", neutral: "Neutrální", negative: "Negativní", angry: "Rozzlobený", none: "Žádný", warning: "Varování", critical: "Kritická", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Nízká", medium: "Střední", high: "Vysoká" },
     heading: "Analýza zprávy", description: "Vyberte signály, které se mají shodovat. Platit musí každý řádek; u více možností stačí kterákoli.",
     automation: "Vytvořit automatizaci", automationHint: "Automatizace analýzy mohou spojit signály zprávy s navazujícími akcemi.",
     source: "Analýza komunikace", when: "Po analýze SMS nebo e-mailu",
@@ -138,7 +138,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Durva kifejezések", "newValues.wantsToCancel": "Lemondaná", "newValues.wantsConsent": "Hozzájárulást kér",
       "newValues.doesNotAcceptContract": "Nem fogadja el a szerződést",
     },
-    options: { positive: "Pozitív", neutral: "Semleges", negative: "Negatív", angry: "Dühös", none: "Nincs", warning: "Figyelmeztetés", critical: "Kritikus", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Alacsony", medium: "Közepes", high: "Magas" },
+    options: { positive: "Pozitív", neutral: "Semleges", negative: "Negatív", angry: "Dühös", none: "Nincs", warning: "Figyelmeztetés", critical: "Kritikus", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Alacsony", medium: "Közepes", high: "Magas" },
     heading: "Üzenetelemzés", description: "Válassza ki az egyező jeleket. Minden sornak teljesülnie kell; egy soron belül bármelyik választás elegendő.",
     automation: "Automatizálás létrehozása", automationHint: "Az elemzési automatizálás üzenetjeleket kapcsolhat össze következő műveletekkel.",
     source: "Kommunikációelemzés", when: "SMS vagy e-mail elemzése után",
@@ -164,7 +164,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Limbaj nepoliticos", "newValues.wantsToCancel": "Dorește anularea", "newValues.wantsConsent": "Solicită consimțământul",
       "newValues.doesNotAcceptContract": "Nu acceptă contractul",
     },
-    options: { positive: "Pozitiv", neutral: "Neutru", negative: "Negativ", angry: "Furios", none: "Niciunul", warning: "Avertizare", critical: "Critic", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Scăzut", medium: "Mediu", high: "Ridicat" },
+    options: { positive: "Pozitiv", neutral: "Neutru", negative: "Negativ", angry: "Furios", none: "Niciunul", warning: "Avertizare", critical: "Critic", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Scăzut", medium: "Mediu", high: "Ridicat" },
     heading: "Analiza mesajului", description: "Alegeți semnalele care trebuie să se potrivească. Fiecare rând trebuie să corespundă; în același rând este suficientă oricare opțiune.",
     automation: "Creează o automatizare", automationHint: "Automatizările de analiză pot combina semnalele mesajelor cu acțiuni ulterioare.",
     source: "Analiza comunicării", when: "După analizarea unui SMS sau e-mail",
@@ -190,7 +190,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Linguaggio scortese", "newValues.wantsToCancel": "Vuole annullare", "newValues.wantsConsent": "Chiede il consenso",
       "newValues.doesNotAcceptContract": "Non accetta il contratto",
     },
-    options: { positive: "Positivo", neutral: "Neutro", negative: "Negativo", angry: "Arrabbiato", none: "Nessuno", warning: "Avviso", critical: "Critico", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Basso", medium: "Medio", high: "Alto" },
+    options: { positive: "Positivo", neutral: "Neutro", negative: "Negativo", angry: "Arrabbiato", none: "Nessuno", warning: "Avviso", critical: "Critico", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-mail", sms: "SMS", low: "Basso", medium: "Medio", high: "Alto" },
     heading: "Analisi del messaggio", description: "Scegli i segnali da confrontare. Ogni riga deve corrispondere; nella stessa riga basta una qualsiasi opzione.",
     automation: "Crea un’automazione", automationHint: "Le automazioni di analisi combinano i segnali del messaggio con azioni successive.",
     source: "Analisi della comunicazione", when: "Dopo l’analisi di un SMS o un’e-mail",
@@ -216,7 +216,7 @@ const languages: Record<CommunicationAnalysisLocale, {
       "newValues.hasRudeExpressions": "Unhöfliche Sprache", "newValues.wantsToCancel": "Möchte kündigen", "newValues.wantsConsent": "Fragt nach Zustimmung",
       "newValues.doesNotAcceptContract": "Akzeptiert den Vertrag nicht",
     },
-    options: { positive: "Positiv", neutral: "Neutral", negative: "Negativ", angry: "Verärgert", none: "Keines", warning: "Warnung", critical: "Kritisch", smstools: "SMS.to", bulkgate: "BulkGate", email: "E-Mail", sms: "SMS", low: "Niedrig", medium: "Mittel", high: "Hoch" },
+    options: { positive: "Positiv", neutral: "Neutral", negative: "Negativ", angry: "Verärgert", none: "Keines", warning: "Warnung", critical: "Kritisch", smstools: "SMSTOOLS", bulkgate: "BulkGate", email: "E-Mail", sms: "SMS", low: "Niedrig", medium: "Mittel", high: "Hoch" },
     heading: "Nachrichtenanalyse", description: "Wähle passende Signale aus. Jede Zeile muss zutreffen; bei mehreren Optionen pro Zeile genügt eine davon.",
     automation: "Automation erstellen", automationHint: "Analyse-Automationen verbinden Nachrichtensignale mit Folgeaktionen.",
     source: "Kommunikationsanalyse", when: "Nachdem eine SMS oder E-Mail analysiert wurde",
