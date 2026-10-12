@@ -1,4 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { createBulkGateCallback } from "./lib/bulkgate-callback";
+import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
 import { registerInboundRoutes, autoConnectAri } from "./inbound-routes";
 import { registerCollaboratorUpdateRoutes } from "./collaborator-update-routes";
 import { registerNexusPulseVersionRoutes } from "./nexus-pulse-version-routes";
@@ -16273,25 +16275,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
   
   // BulkGate DLR/webhook callback (delivery reports + incoming SMS)
   // Supports both GET (low-level API) and POST (bulk API)
-  app.all("/api/auth/bulkgate/callback", async (req, res) => {
-    try {
-      const { parseWebhook, verifyWebhookToken } = await import("./lib/bulkgate");
-      
-      // Normalize payload - POST uses body, GET uses query params
-      const payload = req.method === "GET" ? req.query : req.body;
-      const token = (req.query.token as string) || payload.token;
-      
-      console.log(`[BulkGate DLR] ${req.method} received:`, JSON.stringify(payload));
-      
-      // Verify token if configured
-      if (!verifyWebhookToken(token)) {
-        console.warn("[BulkGate DLR] Invalid or missing token");
-        return res.status(403).json({ received: false, error: "Invalid token" });
-      }
-      
-      const webhookData = parseWebhook(payload);
-      console.log(`[BulkGate DLR] Parsed as: ${webhookData.type}, status=${payload.status}`);
-      
+  app.all("/api/auth/bulkgate/callback", createBulkGateCallback({
+    verifyToken: verifyWebhookToken,
+    processRecord: async (webhookData) => {
       if (webhookData.type === "delivery_report") {
         // Update message status based on delivery report
         if (webhookData.smsId) {
@@ -16300,11 +16286,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           
           if (message) {
             // Map BulkGate status codes to readable status
-            const statusMap: Record<string, string> = {
-              "1": "pending", "2": "sent", "3": "delivered",
-              "4": "failed", "5": "expired", "6": "rejected",
-            };
-            const readableStatus = statusMap[webhookData.status || ""] || webhookData.status;
+            const readableStatus = bulkGateDeliveryStatus(webhookData.status) || webhookData.status;
             
             await storage.updateCommunicationMessage(message.id, {
               deliveryStatus: readableStatus,
@@ -16327,10 +16309,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
           externalId: webhookData.smsId,
         });
         if (!incomingMessage) {
-          return res.json({ received: true, duplicate: true });
+          return;
         }
         
-        console.log(`[BulkGate DLR] Stored incoming SMS from ${webhookData.number}: ${incomingMessage.id}`);
+        console.log(`[BulkGate DLR] Stored incoming SMS message=${incomingMessage.id}`);
         
         // Try to link to any entity (customer / hospital / clinic / collaborator)
         // PRIMARY: only correlate a tag to a persisted outbound external ID.
@@ -16382,7 +16364,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           if (matches.length === 1) {
             linkedCustomerId = matches[0].id;
             await storage.updateCommunicationMessage(incomingMessage.id, {
-              customerId: matches[0].id,
+              customerId: matches[0].type === "customer" ? matches[0].id : undefined,
               entityType: matches[0].type,
               entityId: matches[0].id,
             });
@@ -16397,7 +16379,6 @@ Return ONLY valid JSON, no markdown code blocks.`,
             console.error("[EventBus] inbound SMS event emit error:", err);
           }
         };
-        await emitInboundSmsEvent("sms.received");
 
         // ── Always notify agents about new inbound SMS (direct push, no rule needed) ─
         try {
@@ -16408,7 +16389,10 @@ Return ONLY valid JSON, no markdown code blocks.`,
           console.error("[BulkGate DLR] Failed to send new-SMS notification:", notifErr);
         }
 
-        // Run AI analysis for incoming SMS
+        // SMS + notice are durable before acknowledgement. AI/rules must not
+        // hold BulkGate's entire callback batch waiting on an external service.
+        void (async () => {
+        await emitInboundSmsEvent("sms.received");
         if (webhookData.text) {
           try {
             const aiResult = await analyzeSmsContent(webhookData.text);
@@ -16478,16 +16462,11 @@ Return ONLY valid JSON, no markdown code blocks.`,
             console.error("[BulkGate DLR] AI analysis failed:", aiError);
           }
         }
+        })().catch(() => console.error("[BulkGate DLR] Background analysis failed"));
       }
       
-      // Always respond with 200 OK to acknowledge callback
-      res.status(200).json({ received: true });
-    } catch (error) {
-      console.error("[BulkGate DLR] Error processing callback:", error);
-      // Still return 200 to prevent callback retries
-      res.status(200).json({ received: true, error: "Processing error" });
-    }
-  });
+    },
+  }));
   
   // Get all SMS messages (both sent and received)
   app.get("/api/sms-messages", requireAuth, async (req, res) => {

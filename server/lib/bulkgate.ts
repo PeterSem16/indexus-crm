@@ -359,13 +359,16 @@ export interface BulkGateWebhookData {
 }
 
 export function parseWebhook(body: any): BulkGateWebhookData {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    throw new TypeError("bulkgate_invalid_record");
+  }
   const status = body.status?.toString();
   
   // Status 10 = incoming SMS / reply (BulkGate documentation)
   if (status === "10") {
     return {
       type: "inbox",
-      smsId: body.smsid || body.sms_id,
+      smsId: body.smsID || body.smsid || body.sms_id,
       number: body.from || body.sender || body.number,
       recipientPhone: typeof (body.to || body.recipient || body.virtual_number) === "string"
         ? (body.to || body.recipient || body.virtual_number) : undefined,
@@ -380,7 +383,7 @@ export function parseWebhook(body: any): BulkGateWebhookData {
   if (status) {
     return {
       type: "delivery_report",
-      smsId: body.smsid || body.sms_id,
+      smsId: body.smsID || body.smsid || body.sms_id,
       status: status,
       number: body.number || body.to,
       timestamp: body.timestamp,
@@ -391,7 +394,7 @@ export function parseWebhook(body: any): BulkGateWebhookData {
   // Fallback for payloads without status (legacy inbox format)
   return {
     type: "inbox",
-    smsId: body.smsid || body.sms_id,
+    smsId: body.smsID || body.smsid || body.sms_id,
     number: body.from || body.sender || body.number,
     recipientPhone: typeof (body.to || body.recipient || body.virtual_number) === "string"
       ? (body.to || body.recipient || body.virtual_number) : undefined,
@@ -400,6 +403,32 @@ export function parseWebhook(body: any): BulkGateWebhookData {
     tag: body.tag,
     rawData: body,
   };
+}
+
+/** BulkGate's documented POST body is an array of mixed DLR and inbox records. */
+export function parseWebhookBatch(body: unknown): BulkGateWebhookData[] {
+  const records = Array.isArray(body) ? body : [body];
+  if (!records.length || records.length > 1000) throw new TypeError("bulkgate_invalid_batch");
+  return records.map(record => {
+    const parsed = parseWebhook(record);
+    if (parsed.type === "inbox" &&
+        (typeof parsed.number !== "string" || !parsed.number.trim() ||
+         typeof parsed.text !== "string" || !parsed.text.length)) {
+      throw new TypeError("bulkgate_invalid_inbox");
+    }
+    if (parsed.type === "delivery_report" && typeof parsed.smsId !== "string") {
+      throw new TypeError("bulkgate_invalid_delivery_report");
+    }
+    return parsed;
+  });
+}
+
+/** Provider delivery receipts are distinct from an agent's private read state. */
+export function bulkGateDeliveryStatus(status: string | undefined): string | undefined {
+  return ({
+    "1": "delivered", "2": "pending", "3": "failed", "13": "read",
+    "4": "failed", "5": "expired", "6": "rejected",
+  } as Record<string, string>)[status || ""];
 }
 
 /**
