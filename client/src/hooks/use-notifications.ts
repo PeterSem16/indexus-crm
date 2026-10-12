@@ -211,11 +211,14 @@ export function useNotifications() {
                 }
                 // Toast for new inbound SMS — exactly once per notification ID
                 if (message.notification?.type === "new_sms") {
+                  queryClient.invalidateQueries({ queryKey: ["omni-sms", "messages"] });
+                  queryClient.invalidateQueries({ queryKey: ["omni-sms", "unread"] });
+                  queryClient.invalidateQueries({ queryKey: ["omni-sms", "message"] });
                   const smsNotif = message.notification!;
                   if (!_shownSmsToasts.has(smsNotif.id)) {
                     _shownSmsToasts.add(smsNotif.id);
                     const preview = smsNotif.metadata?.messagePreview?.substring(0, 120) || smsNotif.message || undefined;
-                    toastRef.current({ title: smsNotif.title, description: preview });
+                    toastRef.current({ title: smsNotif.title, description: preview, className: "border-cyan-400 bg-cyan-50 text-cyan-950 dark:bg-cyan-950 dark:text-cyan-50" });
                   }
                 }
                 // Toast for negative SMS sentiment alert — exactly once per notification ID

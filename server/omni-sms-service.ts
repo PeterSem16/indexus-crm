@@ -12,7 +12,7 @@ export async function getOmniSmsAccess(actorId: string): Promise<OmniSmsAccess> 
   const actor = await storage.getUser(actorId);
   if (!actor?.isActive) throw new OmniSmsError(403, "sms_access_denied");
   const isAdmin = await isPersistedAdministrator(storage, actorId);
-  const countries = isAdmin ? [...OMNI_SMS_COUNTRIES, "UNASSIGNED"]
+  const countries = isAdmin ? ["ALL", ...OMNI_SMS_COUNTRIES, "UNASSIGNED"]
     : (actor.assignedCountries || []).filter(countrySupported);
   const grants = isAdmin ? [] : (await pool.query(
     `SELECT country_code AS "countryCode", provider FROM omni_sms_gateway_grants WHERE user_id=$1`, [actorId],
@@ -41,7 +41,7 @@ const base = `
     NULLIF(lower(trim(m.provider)),'') AS provider,
     m.direction,m.content,m.recipient_phone AS "recipientPhone",m.sender_phone AS "senderPhone",
     m.status,m.delivery_status AS "deliveryStatus",m.created_at AS "createdAt",m.sent_at AS "sentAt",
-    m.campaign_id AS "campaignId",m.entity_id AS "entityId",m.entity_type AS "entityType",
+    m.campaign_id AS "campaignId",ca.name AS "campaignName",m.entity_id AS "entityId",m.entity_type AS "entityType",
     m.customer_id AS "customerId",
     CASE WHEN cu.id IS NULL THEN NULL ELSE json_build_object('id',cu.id,'firstName',cu.first_name,'lastName',cu.last_name) END AS customer,
     COALESCE(NULLIF(concat_ws(' ',cu.first_name,cu.last_name),''),cl.name,ho.name,
@@ -86,12 +86,12 @@ export async function findOmniSmsMessage(actorId: string, id: string): Promise<O
   const allowed = accessWhere(access, values);
   const readActor = values.push(actorId);
   const result = await pool.query(`WITH sms AS (${base}) SELECT *,
-    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
+    (EXISTS(
       SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id
     )) AS "isRead" FROM sms WHERE id=$1 AND ${allowed}`, values);
   if (!result.rows[0]) throw new OmniSmsError(404, "sms_not_found");
   const replies = await pool.query(`WITH sms AS (${base}) SELECT *,
-    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
+    (EXISTS(
       SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id
     )) AS "isRead" FROM sms WHERE "replyToSmsId"=$1 AND ${allowed} ORDER BY "createdAt",id`, values);
   result.rows[0].replies = replies.rows;
@@ -104,7 +104,7 @@ export async function getOmniSmsUnread(actorId: string) {
   const allowed = accessWhere(access, values);
   const actor = values.push(actorId);
   const result = await pool.query(`WITH sms AS (${base}) SELECT count(*)::int AS unread FROM sms
-    WHERE ${allowed} AND direction='inbound' AND "deliveryStatus" IS DISTINCT FROM 'read'
+    WHERE ${allowed} AND direction='inbound'
       AND NOT EXISTS(SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${actor} AND r.message_id=sms.id)`, values);
   return { unread: result.rows[0].unread };
 }
@@ -130,12 +130,16 @@ export async function filterOmniSmsFromMixedHistory<T extends { id: string; type
 export async function listOmniSms(actorId: string, query: Record<string, unknown>, allowAllCountries = false): Promise<OmniSmsPage> {
   const access = await getOmniSmsAccess(actorId);
   const country = query.country;
-  if ((!allowAllCountries && !country) || (country && !countrySupported(country) && !(country === "UNASSIGNED" && access.isAdmin)))
+  const allCountries = country === "ALL" && access.isAdmin;
+  if (country === "ALL" && !access.isAdmin) throw new OmniSmsError(403, "sms_country_denied");
+  if ((!allowAllCountries && !country) || (country && !allCountries && !countrySupported(country) && !(country === "UNASSIGNED" && access.isAdmin)))
     throw new OmniSmsError(400, "invalid_sms_country");
   if (country && !access.countries.includes(String(country))) throw new OmniSmsError(403, "sms_country_denied");
   if (query.provider && !providerSupported(query.provider)) throw new OmniSmsError(400, "invalid_sms_provider");
   if (query.direction && !["inbound", "outbound"].includes(String(query.direction)))
     throw new OmniSmsError(400, "invalid_sms_direction");
+  if (query.readState && !["read", "unread"].includes(String(query.readState)))
+    throw new OmniSmsError(400, "invalid_sms_read_state");
   const page = Number(query.page ?? 0), pageSize = Number(query.pageSize ?? 25);
   if (!Number.isSafeInteger(page) || page < 0 || page > 1_000_000 ||
       !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
@@ -144,24 +148,47 @@ export async function listOmniSms(actorId: string, query: Record<string, unknown
     throw new OmniSmsError(400, "invalid_sms_search");
   const values: unknown[] = [];
   const where = [accessWhere(access, values)];
+  const readActor = values.push(actorId);
   if (country === "UNASSIGNED") where.push(`"countryCode" IS NULL`);
-  else if (country) where.push(`"countryCode"=$${values.push(country)}`);
+  else if (country && !allCountries) where.push(`"countryCode"=$${values.push(country)}`);
   if (query.provider) where.push(`provider=$${values.push(query.provider)}`);
   if (query.direction) where.push(`direction=$${values.push(query.direction)}`);
+  if (query.readState) {
+    where.push(`direction='inbound'`);
+    const read = `(EXISTS(
+      SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id))`;
+    where.push(query.readState === "read" ? read : `NOT ${read}`);
+  }
   if (query.q) {
     const n = values.push(`%${String(query.q).replace(/[\\%_]/g, "\\$&")}%`);
     where.push(`(content ILIKE $${n} OR "recipientPhone" ILIKE $${n} OR "senderPhone" ILIKE $${n} OR "contactName" ILIKE $${n})`);
   }
   // Scope and SMS type are applied BEFORE counting or paging; emails never consume the SMS limit.
-  const filtered = `WITH sms AS (${base}), filtered AS (SELECT * FROM sms WHERE ${where.join(" AND ")})`;
+  const filtered = `WITH sms AS (${base}), marked AS (
+    SELECT sms.*, EXISTS(SELECT 1 FROM omni_sms_reads r
+      WHERE r.user_id=$${readActor} AND r.message_id=sms.id) AS "isRead" FROM sms
+  ), filtered AS (SELECT * FROM marked sms WHERE ${where.join(" AND ")})`;
   const count = await pool.query(`${filtered} SELECT count(*)::int AS total FROM filtered`, values);
-  const readActor = values.push(actorId);
   const limit = values.push(pageSize), offset = values.push(page * pageSize);
-  const data = await pool.query(`${filtered} SELECT *,
-    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
-      SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=filtered.id
-    )) AS "isRead" FROM filtered ORDER BY "createdAt" DESC,id DESC LIMIT $${limit} OFFSET $${offset}`, values);
+  const data = await pool.query(`${filtered} SELECT * FROM filtered
+    ORDER BY "createdAt" DESC,id DESC LIMIT $${limit} OFFSET $${offset}`, values);
   return { messages: data.rows, total: count.rows[0].total, page, pageSize };
+}
+
+/** Use the exact inbox projection and grants, not guessed Mission membership. */
+export async function getOmniSmsNotificationAudience(messageId: string) {
+  const result = await pool.query(`WITH sms AS (${base})
+    SELECT u.id, u.assigned_countries AS countries, sms."countryCode", sms.provider
+    FROM sms CROSS JOIN users u LEFT JOIN roles r ON r.id=u.role_id
+    WHERE sms.id=$1 AND sms.direction='inbound' AND u.is_active=true AND (
+      u.role='admin' OR r.legacy_role='admin' OR EXISTS(
+        SELECT 1 FROM omni_sms_gateway_grants g WHERE g.user_id=u.id
+        AND g.country_code=sms."countryCode" AND g.provider=sms.provider
+        AND g.country_code=ANY(u.assigned_countries)
+        AND g.country_code=ANY($2::text[])
+        AND (g.provider='bulkgate' OR (g.provider='smstools' AND g.country_code='SK'))
+      ))`, [messageId, OMNI_SMS_COUNTRIES]);
+  return result.rows as { id: string; countries: string[]; countryCode: string | null; provider: string }[];
 }
 
 export async function getOmniSmsPermissionUsers(country: string) {

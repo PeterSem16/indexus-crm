@@ -144,6 +144,10 @@ export function NotificationItem({ notification, onMarkRead, onDismiss, leadNoti
 
   function handleClick() {
     if (!notification.isRead) onMarkRead(notification.id);
+    if (notification.entityType === "sms" && notification.entityId) {
+      navigate(`/email?tab=sms&sms=${encodeURIComponent(notification.entityId)}`);
+      return;
+    }
     if (notification.type === "new_chat" && typeof notification.metadata?.senderId === "string") {
       const partnerId = notification.metadata.senderId;
       navigate(`/email?tab=chats&partner=${encodeURIComponent(partnerId)}`);

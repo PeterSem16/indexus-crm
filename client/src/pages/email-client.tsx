@@ -26,6 +26,7 @@ import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import { TaskDetailFullscreen } from "@/components/tasks/task-detail-fullscreen";
 import { TaskTimingStatus } from "@/components/tasks/task-timing";
 import { OmniSmsWorkspace } from "@/components/nexus/omni-sms/OmniSmsWorkspace";
+import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
 import type { OmniSmsAccess } from "@shared/omni-sms";
 import type { TaskAttachment } from "@shared/task-attachments";
 import { chooseTaskGroupForSave, clampTaskPage, filterTasksByDate, getFreshTaskById, getTaskGroupId, isPulseNotificationTask, matchesTaskPeopleAndSearch, requiresPulseResolutionForCompletion, sortTasks, type DateRange, type TaskDateBasis, type TaskDatePreset, type TaskSortField } from "@/lib/task-query-controls";
@@ -3024,6 +3025,7 @@ export default function EmailClientPage() {
   const [selectedTaskEntity, setSelectedTaskEntity] = useState<EntityRef | null>(null);
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
+  const [routeSmsId, setRouteSmsId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeFullscreen, setComposeFullscreen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
@@ -3751,6 +3753,13 @@ export default function EmailClientPage() {
     const composeTo = params.get("compose");
     const contactSearch = params.get("contactSearch");
     const tabParam = params.get("tab");
+    if (tabParam === "sms" || params.has("sms")) {
+      setActiveTab("sms");
+      setRouteSmsId(params.get("sms"));
+      setSelectedSms(null);
+      navigateOmni("/email", { replace: true });
+      return;
+    }
     if (tabParam === "training-room") {
       setActiveTab("training-room");
       const roomParam = params.get("room");
@@ -4070,14 +4079,7 @@ export default function EmailClientPage() {
   const totalCount = serverTotalCount;
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
-  const smsUnreadQuery = useQuery<{ unread: number }>({
-    queryKey: ["omni-sms", "unread", user?.id ?? "anonymous", JSON.stringify(smsAccessForLegacy.isError ? null : smsAccessForLegacy.data)],
-    queryFn: async () => (await apiRequest("GET", "/api/omni-sms/unread")).json(),
-    enabled: !!user?.id && legacySmsCanDisplay,
-    staleTime: 0,
-    refetchInterval: 15_000,
-  });
-  const smsInboundUnread = legacySmsCanDisplay && !smsUnreadQuery.isError ? smsUnreadQuery.data?.unread ?? 0 : 0;
+  const { unread: smsInboundUnread } = useOmniSmsUnread();
   const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
 
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
@@ -5980,7 +5982,15 @@ export default function EmailClientPage() {
           </>
         )}
 
-        {activeTab === "sms" && <OmniSmsWorkspace directionFilter={smsFilter} onDirectionFilterChange={setSmsFilter} selectedMessageId={selectedSms?.id} onClearSelectedMessage={() => setSelectedSms(null)} />}
+        {activeTab === "sms" && <OmniSmsWorkspace directionFilter={smsFilter} onDirectionFilterChange={setSmsFilter} selectedMessageId={routeSmsId || selectedSms?.id} onClearSelectedMessage={() => {
+          setSelectedSms(null);
+          setRouteSmsId(null);
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("sms")) {
+            url.searchParams.delete("sms");
+            window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+          }
+        }} />}
 
         {activeTab === "tasks" && (
           <>

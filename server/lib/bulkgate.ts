@@ -352,6 +352,7 @@ export interface BulkGateWebhookData {
   status?: string;
   number?: string;
   text?: string;
+  recipientPhone?: string;
   timestamp?: string;
   tag?: string;
   rawData: any;
@@ -366,6 +367,8 @@ export function parseWebhook(body: any): BulkGateWebhookData {
       type: "inbox",
       smsId: body.smsid || body.sms_id,
       number: body.from || body.sender || body.number,
+      recipientPhone: typeof (body.to || body.recipient || body.virtual_number) === "string"
+        ? (body.to || body.recipient || body.virtual_number) : undefined,
       text: body.message || body.text,
       timestamp: body.timestamp || new Date().toISOString(),
       tag: body.tag,
@@ -388,7 +391,10 @@ export function parseWebhook(body: any): BulkGateWebhookData {
   // Fallback for payloads without status (legacy inbox format)
   return {
     type: "inbox",
+    smsId: body.smsid || body.sms_id,
     number: body.from || body.sender || body.number,
+    recipientPhone: typeof (body.to || body.recipient || body.virtual_number) === "string"
+      ? (body.to || body.recipient || body.virtual_number) : undefined,
     text: body.message || body.text,
     timestamp: body.timestamp || new Date().toISOString(),
     tag: body.tag,

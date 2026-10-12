@@ -7,11 +7,14 @@ import { OMNI_SMS_MIGRATION } from "./lib/omni-sms-migration";
 import { mayViewOmniSms, validateOmniSmsGrant } from "./lib/omni-sms-policy";
 import { authoritativeOmniSmsReply } from "./lib/omni-sms-reply";
 import { registerOmniSmsRoutes } from "./omni-sms-routes";
-import { findOmniSmsMessage, listOmniSms, filterOmniSmsFromMixedHistory, OmniSmsError } from "./omni-sms-service";
+import { findOmniSmsMessage, listOmniSms, filterOmniSmsFromMixedHistory, getOmniSmsNotificationAudience, OmniSmsError } from "./omni-sms-service";
+import { notifyIncomingOmniSms } from "./lib/omni-sms-notifications";
+import { notificationService } from "./lib/notification-service";
 
 const key = `omni-sms-test-${randomUUID()}`;
 const ids: string[] = [];
 let roleId: string | undefined;
+let fixtureCampaign: string | undefined;
 let server: ReturnType<ReturnType<typeof express>["listen"]> | undefined;
 try {
   await pool.query(OMNI_SMS_MIGRATION);
@@ -48,6 +51,9 @@ try {
     countryCode: "SK", direction: "inbound", content: `${key} unknown-provider`, status: "received" });
   const unassigned = await storage.createCommunicationMessage({ userId: admin, type: "sms",
     provider: "bulkgate", direction: "inbound", content: `${key} unknown-country`, status: "received" });
+  fixtureCampaign = randomUUID();
+  await pool.query("INSERT INTO campaigns(id,name,country_codes) VALUES($1,$2,$3)", [fixtureCampaign, `${key} named Mission`, ["SK"]]);
+  await storage.updateCommunicationMessage(bulk.id, { campaignId: fixtureCampaign });
   // Recent emails must not consume a single SMS result or pagination slot.
   await pool.query(`INSERT INTO communication_messages(user_id,type,content,status)
     SELECT $1,'email',$2,'sent' FROM generate_series(1,140)`, [admin, key]);
@@ -80,6 +86,16 @@ try {
   assert.deepEqual(await filterOmniSmsFromMixedHistory(reader, mixed), [{ id: "email-fixture", type: "email" }]);
   assert.equal((await request(admin, `/messages?country=SK&q=${key}`)).data.total, 110);
   assert.equal((await request(admin, `/messages?country=UNASSIGNED&q=${key}`)).data.messages[0].id, unassigned.id);
+  const allCountries = (await request(admin, `/messages?country=ALL&q=${key}&pageSize=100`)).data;
+  assert.equal(allCountries.total, 112);
+  assert(allCountries.messages.some((m: any) => m.id === unassigned.id));
+  assert.equal((await findOmniSmsMessage(admin, bulk.id)).campaignName, `${key} named Mission`);
+  assert.equal((await request(reader, `/messages?country=ALL&q=${key}`)).status, 403);
+  assert.equal((await request(admin, `/messages?country=ALL&readState=invalid`)).status, 400);
+  const unassignedAudience = await getOmniSmsNotificationAudience(unassigned.id);
+  assert(unassignedAudience.some(u => u.id === admin));
+  assert(unassignedAudience.some(u => u.id === customAdmin));
+  for (const denied of [reader, multi, manager, inactive]) assert(!unassignedAudience.some(u => u.id === denied));
   for (const actor of [reader, manager, inactive]) {
     assert.equal((await request(actor, "/permissions?country=SK")).status, 403);
     assert.equal((await request(actor, `/permissions/${reader}`, "PUT", { countryCode: "SK", providers: ["smstools"] })).status, 403);
@@ -91,6 +107,23 @@ try {
   assert.equal((await request(admin, `/permissions/${multi}`, "PUT", { countryCode: "CZ", providers: ["smstools"] })).status, 400);
   assert.equal((await request(admin, `/permissions/${reader}`, "PUT", { countryCode: "SK", providers: ["unknown"] })).status, 400);
   assert.equal((await request(customAdmin, `/permissions/${reader}`, "PUT", { countryCode: "SK", providers: ["smstools"] })).status, 200);
+  const smsToolsAudience = await getOmniSmsNotificationAudience(fixtureIds[0]);
+  assert(smsToolsAudience.some(u => u.id === reader), "a grant, not Mission correlation, authorizes an inbox notice");
+  assert(!smsToolsAudience.some(u => u.id === inactive));
+  assert(!(await getOmniSmsNotificationAudience(bulk.id)).some(u => u.id === reader));
+  const capturedNotices: any[] = [];
+  await notifyIncomingOmniSms(fixtureIds[0], async (recipients, notice) => { capturedNotices.push({ recipients, notice }); });
+  const readerNotice = capturedNotices.find(n => n.recipients.includes(reader)).notice;
+  assert.equal(readerNotice.entityId, fixtureIds[0]);
+  assert.equal(readerNotice.type, "new_sms");
+  assert.match(readerNotice.title, /SMSTOOLS/);
+  assert(!JSON.stringify(readerNotice).includes("+421000000001"));
+  assert(!JSON.stringify(readerNotice).includes(key), "no SMS content in external notification copies");
+  await notificationService.sendNotificationToUsers([reader], readerNotice);
+  const persistedNotice = (await pool.query("SELECT entity_id,type FROM notifications WHERE user_id=$1", [reader])).rows;
+  assert(persistedNotice.some(n => n.entity_id === fixtureIds[0] && n.type === "new_sms"), "a notice is persisted, not only toasted");
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=unread`)).data.total, 54);
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=read`)).data.total, 0);
   const first = await request(reader, `/messages?country=SK&q=${key}&pageSize=100`);
   assert.equal(first.data.total, 108);
   assert.equal(first.data.messages.length, 100);
@@ -114,6 +147,13 @@ try {
   assert.equal((await request(reader, `/messages/${fixtureIds[0]}/read`, "POST")).status, 200);
   assert.equal((await request(reader, "/unread")).data.unread, unreadBefore - 1, "mark-read is idempotent");
   assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).data.isRead, true);
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=read`)).data.total, 1);
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=unread`)).data.total, 53);
+  assert.equal((await request(admin, `/messages/${fixtureIds[0]}`)).data.isRead, false, "another user's receipt is private");
+  await storage.updateCommunicationMessage(fixtureIds[2], { deliveryStatus: "read" });
+  assert.equal((await request(reader, `/messages/${fixtureIds[2]}`)).data.isRead, false, "provider receipt is not an inbox read");
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=unread`)).data.total, 53);
+  assert.equal((await request(reader, `/messages?country=SK&q=${key}&readState=read&direction=outbound`)).data.total, 0);
   assert.deepEqual(await filterOmniSmsFromMixedHistory(reader, mixed), [mixed[0], mixed[2]]);
   const replySource = await findOmniSmsMessage(reader, fixtureIds[0]);
   const reply = authoritativeOmniSmsReply(replySource)!;
@@ -160,6 +200,8 @@ try {
 } finally {
   if (server) await new Promise<void>(resolve => server!.close(() => resolve()));
   await pool.query("DELETE FROM communication_messages WHERE user_id=ANY($1::varchar[])", [ids]);
+  if (fixtureCampaign) await pool.query("DELETE FROM campaigns WHERE id=$1", [fixtureCampaign]);
+  await pool.query("DELETE FROM notifications WHERE user_id=ANY($1::varchar[])", [ids]);
   await pool.query("DELETE FROM users WHERE id=ANY($1::varchar[])", [ids]);
   if (roleId) await pool.query("DELETE FROM roles WHERE id=$1", [roleId]);
   await pool.end();

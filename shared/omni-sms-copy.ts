@@ -1,0 +1,9 @@
+export const smsReadCopy = {
+  en: { readState: "Reading status", read: "Read", unread: "Unread", newIncoming: "New SMS", allCountries: "All countries", unknownCampaign: "Campaign unavailable", openMessage: "Open message", readError: "Could not mark the SMS as read." },
+  sk: { readState: "Stav prečítania", read: "Prečítané", unread: "Neprečítané", newIncoming: "Nová SMS", allCountries: "Všetky krajiny", unknownCampaign: "Kampaň nie je dostupná", openMessage: "Otvoriť správu", readError: "SMS sa nepodarilo označiť ako prečítanú." },
+  cs: { readState: "Stav přečtení", read: "Přečtené", unread: "Nepřečtené", newIncoming: "Nová SMS", allCountries: "Všechny země", unknownCampaign: "Kampaň není dostupná", openMessage: "Otevřít zprávu", readError: "SMS se nepodařilo označit jako přečtenou." },
+  hu: { readState: "Olvasási állapot", read: "Olvasott", unread: "Olvasatlan", newIncoming: "Új SMS", allCountries: "Minden ország", unknownCampaign: "A kampány nem érhető el", openMessage: "Üzenet megnyitása", readError: "Az SMS nem jelölhető olvasottként." },
+  ro: { readState: "Starea citirii", read: "Citit", unread: "Necitit", newIncoming: "SMS nou", allCountries: "Toate țările", unknownCampaign: "Campanie indisponibilă", openMessage: "Deschide mesajul", readError: "SMS-ul nu a putut fi marcat ca citit." },
+  it: { readState: "Stato di lettura", read: "Letto", unread: "Non letto", newIncoming: "Nuovo SMS", allCountries: "Tutti i paesi", unknownCampaign: "Campagna non disponibile", openMessage: "Apri messaggio", readError: "Impossibile segnare l’SMS come letto." },
+  de: { readState: "Lesestatus", read: "Gelesen", unread: "Ungelesen", newIncoming: "Neue SMS", allCountries: "Alle Länder", unknownCampaign: "Kampagne nicht verfügbar", openMessage: "Nachricht öffnen", readError: "Die SMS konnte nicht als gelesen markiert werden." },
+} as const;

@@ -59,6 +59,7 @@ import {
 } from "lucide-react";
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
 
 export interface AccountIconConfig {
   email: string;
@@ -213,7 +214,7 @@ export default function NexusSidebar({
 
   const otherFolders = folders.filter(f => !f.isChildFolder && getWellKnownKey(f, WELL_KNOWN_FOLDERS) === null);
 
-  const smsInboundCount = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
+  const { unread: smsInboundCount } = useOmniSmsUnread();
   const smsTotal = smsData?.length || 0;
   const smsInboundTotal = smsData?.filter(s => s.direction === "inbound")?.length || 0;
   const smsOutboundTotal = smsData?.filter(s => s.direction === "outbound")?.length || 0;
@@ -315,7 +316,7 @@ export default function NexusSidebar({
                   >
                     <MessageSquare className="h-5 w-5" />
                     {smsInboundCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
+                      <span className="absolute -top-0.5 -right-0.5 bg-cyan-600 text-white text-[8px] font-bold rounded-full h-[14px] min-w-[14px] px-0.5 flex items-center justify-center">
                         {smsInboundCount}
                       </span>
                     )}
@@ -747,7 +748,7 @@ export default function NexusSidebar({
                 label={t.nexusOmni.sms.allSms}
                 count={smsTotal}
                 badge={smsInboundCount > 0 ? smsInboundCount : undefined}
-                badgeVariant="primary"
+                badgeVariant="sms"
                 active={smsFilter === "all"}
                 onClick={() => onSmsFilterChange("all")}
                 testId="sms-filter-all"
@@ -969,7 +970,7 @@ interface SidebarItemProps {
   icon: React.ReactNode;
   label: string;
   badge?: number;
-  badgeVariant?: "primary" | "muted";
+  badgeVariant?: "primary" | "muted" | "sms";
   count?: number;
   active: boolean;
   onClick: () => void;
@@ -1005,7 +1006,7 @@ function SidebarItem({ icon, label, badge, badgeVariant = "muted", count, active
         )}
         {badge !== undefined && badge > 0 && (
           <span data-task-count-badge className={`text-[10px] tabular-nums font-medium rounded-full h-[18px] min-w-[18px] px-1 flex items-center justify-center ${
-            badgeVariant === "primary" 
+            badgeVariant === "sms" ? "bg-cyan-600 text-white" : badgeVariant === "primary"
               ? "bg-primary text-primary-foreground" 
               : "bg-muted text-muted-foreground"
           }`}>

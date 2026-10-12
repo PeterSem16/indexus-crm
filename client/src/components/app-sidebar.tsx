@@ -59,6 +59,7 @@ import { ChevronDown } from "lucide-react";
 import { CountryFilter } from "./country-filter";
 import { UserSettingsDialog } from "./user-settings-dialog";
 import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
+import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
 import { useChatContext } from "@/contexts/chat-context";
 
 export function AppSidebar() {
@@ -71,6 +72,7 @@ export function AppSidebar() {
   const unreadChats = Array.from(chat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
 
   const { tasks: openTasks, isError: openTasksError } = useMyOpenTasks();
+  const { unread: unreadSms } = useOmniSmsUnread();
 
   const { data: sidebarRoles = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["/api/roles"],
@@ -275,11 +277,17 @@ export function AppSidebar() {
                   {visibleNexusItems.map((item) => (
                     <SidebarMenuItem key={item.testId}>
                       <SidebarMenuButton asChild isActive={location === item.url}>
-                        <Link className="relative" href={item.testId === "nexus-omni" && unreadChats > 0 ? "/email?tab=chats" : item.url} data-testid={`nav-${item.testId}`}>
+                        <Link className="relative" href={item.testId === "nexus-omni" && unreadSms > 0 ? "/email?tab=sms" : item.testId === "nexus-omni" && unreadChats > 0 ? "/email?tab=chats" : item.url} data-testid={`nav-${item.testId}`}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
+                          {item.testId === "nexus-omni" && unreadSms > 0 && <Badge
+                            className="ml-auto bg-cyan-600 text-white hover:bg-cyan-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
+                            title={`${t.omniSms.title}: ${t.omniSms.unread}`}
+                            aria-label={`${t.omniSms.unread}: ${unreadSms}`}
+                            data-testid="nexus-omni-unread-sms"
+                          >{unreadSms > 99 ? "99+" : unreadSms}</Badge>}
                           {item.testId === "nexus-omni" && unreadChats > 0 && <Badge
-                            className="ml-auto bg-violet-600 text-white hover:bg-violet-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
+                            className="ml-auto bg-violet-600 text-white hover:bg-violet-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:bottom-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
                             title={t.taskCommunication.unreadChats}
                             aria-label={`${t.taskCommunication.unreadChats}: ${unreadChats}`}
                             data-testid="nexus-omni-unread-chat"

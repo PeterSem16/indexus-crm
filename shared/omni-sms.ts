@@ -23,6 +23,7 @@ export interface OmniSmsMessage {
   createdAt: string;
   sentAt: string | null;
   campaignId: string | null;
+  campaignName?: string | null;
   entityId: string | null;
   entityType: string | null;
   customerId: string | null;

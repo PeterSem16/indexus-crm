@@ -16322,6 +16322,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           type: "sms",
           content: webhookData.text || "",
           senderPhone: webhookData.number,
+          recipientPhone: webhookData.recipientPhone,
           status: "received",
           externalId: webhookData.smsId,
         });
@@ -16400,43 +16401,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
 
         // ── Always notify agents about new inbound SMS (direct push, no rule needed) ─
         try {
-          let smsContactName: string | null = null;
-          let smsCountryCode: string | undefined;
-          if (linkedCustomerId) {
-            try {
-              const c = await storage.getCustomer(linkedCustomerId);
-              if (c) { smsContactName = `${c.firstName} ${c.lastName}`.trim(); smsCountryCode = c.country; }
-            } catch {}
-          }
-          const smsDisplayName = smsContactName || webhookData.number || "Neznáme číslo";
-          const allUsers = await storage.getAllUsers();
-          let activeUserIds = allUsers.filter((u: any) => u.isActive !== false).map((u: any) => u.id);
-          if (linkedCampaignId) {
-            const assigned = await db.select({ userId: campaignAgents.userId }).from(campaignAgents)
-              .where(eq(campaignAgents.campaignId, linkedCampaignId));
-            const allowed = new Set(assigned.map(row => row.userId));
-            activeUserIds = activeUserIds.filter(id => allowed.has(id));
-          }
-          // Without exact outbound correlation there is no authorized Mission
-          // audience. Keep the message unassigned instead of broadcasting it.
-          if (linkedCampaignId && activeUserIds.length > 0) {
-            await notificationService.sendNotificationToUsers(activeUserIds, {
-              type: "new_sms",
-              title: `Nová SMS od ${smsDisplayName}`,
-              message: webhookData.text ? webhookData.text.substring(0, 120) : "Prijatá SMS správa",
-              priority: "normal",
-              entityType: "sms",
-              entityId: incomingMessage.id,
-              countryCode: smsCountryCode,
-              metadata: {
-                senderPhone: webhookData.number,
-                customerId: linkedCustomerId || null,
-                customerName: smsContactName,
-                messagePreview: webhookData.text?.substring(0, 200) || "",
-              },
-            });
-          }
-          console.log(`[BulkGate DLR] New-SMS notification pushed to ${activeUserIds.length} users for message ${incomingMessage.id}`);
+          const { notifyIncomingOmniSms } = await import("./lib/omni-sms-notifications");
+          const notified = await notifyIncomingOmniSms(incomingMessage.id);
+          console.log(`[BulkGate DLR] New-SMS notices=${notified} message=${incomingMessage.id}`);
         } catch (notifErr) {
           console.error("[BulkGate DLR] Failed to send new-SMS notification:", notifErr);
         }
@@ -16893,36 +16860,8 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
 
         try {
-          const allUsers = await storage.getAllUsers();
-          let activeUserIds = allUsers
-            .filter((user: any) => user.isActive !== false)
-            .map((user: any) => user.id);
-          if (linkedCampaignId) {
-            const assigned = await db.select({ userId: campaignAgents.userId })
-              .from(campaignAgents)
-              .where(eq(campaignAgents.campaignId, linkedCampaignId));
-            const allowed = new Set(assigned.map(row => row.userId));
-            activeUserIds = activeUserIds.filter(id => allowed.has(id));
-          }
-          // Unresolved phone replies stay in the unassigned inbox. Never push
-          // their content globally because no Mission authorization is known.
-          if (linkedCampaignId && activeUserIds.length > 0) {
-            await notificationService.sendNotificationToUsers(activeUserIds, {
-              type: "new_sms",
-              title: `Nová SMS od ${linkedEntityName || incoming.senderPhone}`,
-              message: incoming.text.substring(0, 120) || "Prijatá SMS správa",
-              priority: "normal",
-              entityType: "sms",
-              entityId: incomingMessage.id,
-              countryCode: linkedCountryCode,
-              metadata: {
-                senderPhone: incoming.senderPhone,
-                customerId: linkedEntityId || null,
-                customerName: linkedEntityName,
-                messagePreview: incoming.text.substring(0, 200),
-              },
-            });
-          }
+          const { notifyIncomingOmniSms } = await import("./lib/omni-sms-notifications");
+          await notifyIncomingOmniSms(incomingMessage.id);
         } catch (notificationError) {
           console.error("[SMSTOOLS callback] inbound notification failed:", notificationError);
         }

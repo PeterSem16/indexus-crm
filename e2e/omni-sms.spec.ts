@@ -13,6 +13,7 @@ const inboundMessage = {
   createdAt: "2026-02-18T10:24:00.000Z",
   sentAt: null,
   campaignId: "mission-41",
+  campaignName: "Morning appointments",
   entityId: "customer-41",
   entityType: "customer",
   customerId: "customer-41",
@@ -41,6 +42,8 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
   const sent: unknown[] = [];
   const replies: Array<typeof inboundMessage> = [];
   const requests: string[] = [];
+  const incoming = [inboundMessage];
+  const readIds = new Set<string>();
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = new URL(request.url());
@@ -50,11 +53,20 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
       return route.fulfill({ json: { user: { id: "sms-admin-1", username: "agent-one", fullName: "Agent One", role: "admin", isActive: true, assignedCountries: ["SK"], locale: "en" } } });
     }
     if (path === "/api/omni-sms/access") return route.fulfill({ json: access });
+    if (path === "/api/omni-sms/unread") return route.fulfill({ json: { unread: incoming.filter(m => !readIds.has(m.id)).length } });
     if (path === "/api/omni-sms/messages" && request.method() === "GET") {
-      return route.fulfill({ json: { messages: [inboundMessage], total: 1, page: 0, pageSize: 25 } });
+      const state = url.searchParams.get("readState");
+      const messages = incoming.map(m => ({ ...m, isRead: readIds.has(m.id) })).filter(m =>
+        state === "read" ? m.isRead : state === "unread" ? !m.isRead : true);
+      return route.fulfill({ json: { messages, total: messages.length, page: 0, pageSize: 25 } });
     }
-    if (path === `/api/omni-sms/messages/${inboundMessage.id}` && request.method() === "GET") return route.fulfill({ json: { ...inboundMessage, replies } });
-    if (path === `/api/omni-sms/messages/${inboundMessage.id}/read` && request.method() === "POST") return route.fulfill({ json: { saved: true } });
+    const detail = incoming.find(m => path === `/api/omni-sms/messages/${m.id}`);
+    if (detail && request.method() === "GET") return route.fulfill({ json: { ...detail, isRead: readIds.has(detail.id), replies } });
+    const read = incoming.find(m => path === `/api/omni-sms/messages/${m.id}/read`);
+    if (read && request.method() === "POST") {
+      readIds.add(read.id);
+      return route.fulfill({ json: { saved: true } });
+    }
     if (path === "/api/omni-sms/permissions" && request.method() === "GET") return route.fulfill({ json: { users: [] } });
     if (path === "/api/send-sms" && request.method() === "POST") {
       sent.push(request.postDataJSON());
@@ -63,7 +75,7 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
     }
     return route.fulfill({ status: 404, json: { error: "Not found" } });
   });
-  return { sent, requests };
+  return { sent, requests, receive: () => incoming.push({ ...inboundMessage, id: "sms-new-43", content: "A newly arrived SMS." }) };
 }
 
 test("SMS workspace loads a protected detail and sends a source-bound reply", async ({ page }) => {
@@ -78,6 +90,8 @@ test("SMS workspace loads a protected detail and sends a source-bound reply", as
   await expect.poll(() => api.requests.some(request => request === `GET /api/omni-sms/messages/${inboundMessage.id}`)).toBe(true);
   await expect(page.getByText("The patient is considering cancelling the appointment.")).toBeVisible();
   await expect(page.getByTestId("sms-ai-analysis-alert")).toBeVisible();
+  await expect(page.getByTestId("sms-campaign-name")).toContainText("Morning appointments");
+  await expect(page.getByTestId("sms-campaign-name")).not.toContainText("mission-41");
   await page.getByTestId("sms-reply-input").fill("We will call you shortly.");
   await page.getByTestId("sms-reply-send").click();
   await expect.poll(() => api.sent.length).toBe(1);
@@ -96,6 +110,44 @@ test("SMS workspace loads a protected detail and sends a source-bound reply", as
   await page.getByTestId(`sms-message-${inboundMessage.id}`).click();
   await expect(page.getByTestId("sms-reply-sms-reply-42")).toContainText("We will call you shortly.");
   expect(runtimeErrors).toEqual([]);
+});
+
+test("filters start collapsed and read filtering follows the private read receipt", async ({ page }) => {
+  const api = await mockSmsApi(page);
+  await page.goto("/test-fixtures/omni-sms.html");
+  const row = page.getByTestId(`sms-message-${inboundMessage.id}`);
+  await expect(row).toHaveClass(/is-unread/);
+  await expect(row.getByText("Unread", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("sms-toggle-filters")).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("sms-filter-controls")).toHaveCount(0);
+  await page.getByTestId("sms-toggle-filters").click();
+  await expect(page.getByTestId("sms-filter-controls")).toBeVisible();
+  await page.getByTestId("sms-read-filter").click();
+  await page.getByRole("option", { name: "Unread", exact: true }).click();
+  await expect.poll(() => api.requests.some(r => r.includes("readState=unread"))).toBe(true);
+  await row.click();
+  await expect(row).toHaveCount(0);
+  await expect(page.getByTestId("sms-new-message-banner")).toHaveCount(0);
+  await page.getByTestId("sms-read-filter").click();
+  await page.getByRole("option", { name: "Read", exact: true }).click();
+  await expect(row).toHaveClass(/is-read/);
+  await expect(row.getByText("Read", { exact: true })).toBeVisible();
+  expect(api.requests.filter(r => r === `POST /api/omni-sms/messages/${inboundMessage.id}/read`)).toHaveLength(1);
+  await page.getByTestId("sms-toggle-filters").click();
+  await expect(page.getByTestId("sms-filter-controls")).toHaveCount(0);
+});
+
+test("a new inbound SMS refreshes the box and unread banner without reloading", async ({ page }) => {
+  const api = await mockSmsApi(page);
+  await page.goto("/test-fixtures/omni-sms.html");
+  await expect(page.getByTestId("sms-new-message-banner")).toContainText("1");
+  await expect(page.getByTestId(`sms-message-${inboundMessage.id}`)).toBeVisible();
+  api.receive();
+  await Promise.all([
+    expect(page.getByTestId("sms-message-sms-new-43")).toBeVisible({ timeout: 15_000 }),
+    expect(page.getByTestId("sms-new-message-banner")).toContainText("2", { timeout: 15_000 }),
+  ]);
+  await expect(page.getByTestId("sms-message-sms-new-43")).toHaveClass(/is-unread/);
 });
 
 test("an ordinary agent without grants makes no messages request", async ({ page }) => {

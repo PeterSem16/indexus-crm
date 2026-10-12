@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n/I18nProvider";
 import { apiRequest } from "@/lib/queryClient";
+import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,12 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   const actorId = user?.id ?? "anonymous";
   const [country, setCountry] = useState("");
   const [provider, setProvider] = useState<ProviderFilter>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [readState, setReadState] = useState<"all" | "read" | "unread">("all");
+  const [readError, setReadError] = useState(false);
+  const visibleMessageRef = useRef<string | null>(null);
+  const [readRetry, setReadRetry] = useState(0);
+  const { unread } = useOmniSmsUnread();
   const [direction, setDirection] = useState<DirectionFilter>(directionFilter ?? "all");
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
@@ -108,6 +115,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   useEffect(() => {
     if (directionFilter && directionFilter !== direction) {
       setDirection(directionFilter);
+      if (directionFilter === "outbound") setReadState("all");
       setPage(0);
       setSelectedId(null);
       setMobileDetail(false);
@@ -145,7 +153,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
     [access?.grants, country],
   );
   const availableGateways = useMemo(() => {
-    const listed = access?.gateways.filter(gateway => gateway.countries.includes(country)).map(gateway => gateway.provider) ?? [];
+    const listed = access?.gateways.filter(gateway => country === "ALL" || gateway.countries.includes(country)).map(gateway => gateway.provider) ?? [];
     return Array.from(new Set([...listed, ...countryGrants]));
   }, [access?.gateways, country, countryGrants]);
   const canReadCountry = !!access?.isAdmin || (
@@ -155,12 +163,14 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   if (provider !== "all") messageParams.set("provider", provider);
   if (direction !== "all") messageParams.set("direction", direction);
   if (search) messageParams.set("q", search);
-  const listKey = ["omni-sms", "messages", actorId, authorityFingerprint, country, provider, direction, search, page, PAGE_SIZE] as const;
+  if (readState !== "all") messageParams.set("readState", readState);
+  const listKey = ["omni-sms", "messages", actorId, authorityFingerprint, country, provider, direction, readState, search, page, PAGE_SIZE] as const;
   const messagesQuery = useQuery<OmniSmsPage>({
     queryKey: listKey,
     queryFn: () => getJson<OmniSmsPage>(`/api/omni-sms/messages?${messageParams.toString()}`),
     enabled: Boolean(user?.id && country && access && canReadCountry),
     staleTime: 0,
+    refetchInterval: 10_000,
   });
 
   const detailKey = ["omni-sms", "message", actorId, authorityFingerprint, country, provider, direction, search, selectedId] as const;
@@ -171,13 +181,14 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
     staleTime: 0,
   });
   const detailRecord = detailQuery.isError ? undefined : detailQuery.data;
+  visibleMessageRef.current = selectedId;
   const readRequests = useRef(new Set<string>());
   useEffect(() => {
-    if (!detailRecord || detailRecord.direction !== "inbound" || detailRecord.isRead ||
-        detailRecord.deliveryStatus === "read") return;
+    if (!detailRecord || detailRecord.direction !== "inbound" || detailRecord.isRead) return;
     const readKey = `${actorId}:${detailRecord.id}`;
     if (readRequests.current.has(readKey)) return;
     readRequests.current.add(readKey);
+    setReadError(false);
     void apiRequest("POST", `/api/omni-sms/messages/${encodeURIComponent(detailRecord.id)}/read`)
       .then(async () => {
         await Promise.all([
@@ -186,11 +197,14 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
           queryClient.invalidateQueries({ queryKey: ["omni-sms", "message", actorId] }),
         ]);
       })
-      .catch(() => { readRequests.current.delete(readKey); });
-  }, [detailRecord, actorId, queryClient]);
-  const detailCountryMatches = !!detailRecord && (country === "UNASSIGNED"
+      .catch(() => {
+        readRequests.current.delete(readKey);
+        if (visibleMessageRef.current === detailRecord.id) setReadError(true);
+      });
+  }, [detailRecord, actorId, queryClient, readRetry]);
+  const detailCountryMatches = !!detailRecord && (country === "ALL" || (country === "UNASSIGNED"
     ? detailRecord.countryCode === null
-    : detailRecord.countryCode === country);
+    : detailRecord.countryCode === country));
   const detailHasAuthority = !!detailRecord && (!!access?.isAdmin || (!!detailRecord.countryCode && !!detailRecord.provider && access?.grants.some(
     grant => grant.countryCode === detailRecord.countryCode && grant.provider === detailRecord.provider,
   )));
@@ -199,7 +213,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   useEffect(() => {
     if (!selectedId || !detailRecord) return;
     const sourceCountry = detailRecord.countryCode ?? "UNASSIGNED";
-    if (sourceCountry !== country) {
+    if (sourceCountry !== country && country !== "ALL") {
       setCountry(sourceCountry);
       setProvider("all");
       setDirection("all");
@@ -215,7 +229,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   const permissionsQuery = useQuery<{ users: OmniSmsPermissionUser[] }>({
     queryKey: permissionKey,
     queryFn: () => getJson<{ users: OmniSmsPermissionUser[] }>(`/api/omni-sms/permissions?country=${encodeURIComponent(country)}`),
-    enabled: Boolean(manageOpen && access?.isAdmin && country && country !== "UNASSIGNED"),
+    enabled: Boolean(manageOpen && access?.isAdmin && COUNTRIES.includes(country)),
     staleTime: 0,
   });
 
@@ -342,16 +356,17 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
               <Badge variant="secondary" className="text-[10px]">{total}</Badge>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {access.isAdmin && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.manageAccess} title={copy.manageAccess} disabled={country === "UNASSIGNED"} onClick={() => setManageOpen(value => !value)}><Settings2 className="h-3.5 w-3.5" /></Button>}
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.filters} title={copy.filters} aria-expanded={filtersOpen} aria-controls="sms-filter-controls" onClick={() => setFiltersOpen(value => !value)} data-testid="sms-toggle-filters"><Settings2 className="h-3.5 w-3.5" /></Button>
+              {access.isAdmin && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.manageAccess} title={copy.manageAccess} disabled={!COUNTRIES.includes(country)} onClick={() => setManageOpen(value => !value)}><UserRound className="h-3.5 w-3.5" /></Button>}
               <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.retry} title={copy.retry} onClick={() => { setSelectedId(null); setMobileDetail(false); onClearSelectedMessage?.(); void accessQuery.refetch(); void messagesQuery.refetch(); }}><RefreshCw className="h-3.5 w-3.5" /></Button>
               <Button type="button" variant="ghost" size="icon" className="sms-mobile-back h-7 w-7" aria-label={copy.close} onClick={() => setMobileDetail(false)}><X className="h-4 w-4" /></Button>
             </div>
           </div>
-          <div className="sms-filter-grid">
+          {filtersOpen && <div className="sms-filter-grid" id="sms-filter-controls" data-testid="sms-filter-controls">
             <label className="sms-filter-field"><span>{copy.country}</span>
               <Select value={country} onValueChange={changeCountry}>
                 <SelectTrigger className="h-8 text-xs" aria-label={copy.country}><SelectValue placeholder={copy.country} /></SelectTrigger>
-                <SelectContent>{access.countries.map(code => <SelectItem key={code} value={code}>{code === "UNASSIGNED" ? copy.unassignedCountry : code}</SelectItem>)}</SelectContent>
+                <SelectContent>{access.countries.map(code => <SelectItem key={code} value={code}>{code === "ALL" ? copy.allCountries : code === "UNASSIGNED" ? copy.unassignedCountry : code}</SelectItem>)}</SelectContent>
               </Select>
             </label>
             <label className="sms-filter-field"><span>{copy.provider}</span>
@@ -364,12 +379,22 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
               </Select>
             </label>
             <label className="sms-filter-field"><span>{copy.direction}</span>
-              <Select value={direction} onValueChange={value => changeFilter(() => { setDirection(value as DirectionFilter); onDirectionFilterChange?.(value as DirectionFilter); })}>
+              <Select value={direction} onValueChange={value => changeFilter(() => { setDirection(value as DirectionFilter); if (value === "outbound") setReadState("all"); onDirectionFilterChange?.(value as DirectionFilter); })}>
                 <SelectTrigger className="h-8 text-xs" aria-label={copy.direction}><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="all">{copy.all}</SelectItem><SelectItem value="inbound">{copy.inbound}</SelectItem><SelectItem value="outbound">{copy.outbound}</SelectItem></SelectContent>
               </Select>
             </label>
-          </div>
+          </div>}
+          {filtersOpen && <label className="sms-filter-field mb-2"><span>{copy.readState}</span>
+            <Select value={readState} onValueChange={value => changeFilter(() => {
+              setReadState(value as "all" | "read" | "unread");
+              if (value !== "all") { setDirection("inbound"); onDirectionFilterChange?.("inbound"); }
+            })}>
+              <SelectTrigger className="h-8 text-xs" aria-label={copy.readState} data-testid="sms-read-filter"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="all">{copy.all}</SelectItem><SelectItem value="unread">{copy.unread}</SelectItem><SelectItem value="read">{copy.read}</SelectItem></SelectContent>
+            </Select>
+          </label>}
+          {unread > 0 && <button type="button" className="sms-new-message-banner" aria-live="polite" onClick={() => changeFilter(() => { setReadState("unread"); setDirection("inbound"); setProvider("all"); setSearchText(""); setSearch(""); if (access.isAdmin) setCountry("ALL"); onDirectionFilterChange?.("inbound"); })} data-testid="sms-new-message-banner"><MessageSquare className="h-4 w-4" />{copy.unread}<strong>{unread}</strong></button>}
           <label className="nexus-signal-queue-search sms-search">
             <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             <Input value={searchText} onChange={event => { setSearchText(event.target.value); setSelectedId(null); setMobileDetail(false); onClearSelectedMessage?.(); }} placeholder={copy.search} aria-label={copy.search} data-testid="sms-search" />
@@ -383,7 +408,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
             </div>
           </div>
         </header>
-        {manageOpen && access.isAdmin && country !== "UNASSIGNED" && (
+        {manageOpen && access.isAdmin && COUNTRIES.includes(country) && (
           <div className="sms-permissions-panel">
             <div className="flex items-start justify-between gap-3">
               <div><h3 className="text-sm font-semibold">{copy.setup}</h3><p className="mt-1 text-[11px] leading-4 text-muted-foreground">{copy.setupDescription}</p></div>
@@ -419,17 +444,19 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
             : <ScrollArea className="h-full"><div className="divide-y divide-[var(--signal-line)]">
               {pageMessages.map(message => {
                 const inbound = message.direction === "inbound";
+                const isUnread = inbound && !message.isRead;
                 const name = message.customer ? `${message.customer.firstName} ${message.customer.lastName}` : message.contactName || (inbound ? message.senderPhone : message.recipientPhone) || copy.unknownContact;
                 const active = selectedId === message.id;
                 const attention = !!message.aiAlertLevel && message.aiAlertLevel !== "none";
-                return <button type="button" key={message.id} className={`nexus-signal-task-row sms-message-row ${active ? "is-selected bg-accent" : ""}`} onClick={() => { setSelectedId(message.id); setMobileDetail(true); setReplyText(""); setReplyError(""); setReplySuccess(false); onClearSelectedMessage?.(); }} aria-current={active ? "true" : undefined} data-testid={`sms-message-${message.id}`}>
+                return <button type="button" key={message.id} className={`nexus-signal-task-row sms-message-row ${isUnread ? "is-unread" : "is-read"} ${active ? "is-selected bg-accent" : ""}`} onClick={() => { setSelectedId(message.id); setMobileDetail(true); setReplyText(""); setReplyError(""); setReplySuccess(false); setReadError(false); onClearSelectedMessage?.(); }} aria-current={active ? "true" : undefined} data-testid={`sms-message-${message.id}`}>
                   <div className="flex items-start gap-2.5">
-                    <span className={`sms-unread-mark ${inbound && !message.isRead && message.deliveryStatus !== "read" ? "is-unread" : ""}`} />
+                    <span className={`sms-unread-mark ${isUnread ? "is-unread" : ""}`} />
                     <span className={`sms-direction-icon ${inbound ? "is-inbound" : "is-outbound"}`}>{inbound ? <ArrowDownLeft className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}</span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{name}</span><time className="shrink-0 text-[10px] text-muted-foreground">{readableDate(message.sentAt || message.createdAt, locale)}</time></span>
                       <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{message.content}</span>
                       <span className="mt-1 flex flex-wrap items-center gap-1">
+                        {inbound && <Badge variant="outline" className={isUnread ? "sms-state-unread" : "sms-state-read"}>{isUnread ? copy.unread : copy.read}</Badge>}
                         <Badge variant="outline" className={`sms-gateway-badge ${message.provider === "bulkgate" ? "sms-gateway-bulkgate" : message.provider === "smstools" ? "sms-gateway-smstools" : "sms-gateway-unknown"}`}>{providerLabel(message.provider, copy)}</Badge>
                         <Badge variant="outline" className={inbound ? "sms-direction-in" : "sms-direction-out"}>{inbound ? copy.inbound : copy.outbound}</Badge>
                         {message.countryCode ? <Badge variant="outline" className="sms-country-badge">{message.countryCode}</Badge> : <Badge variant="outline" className="sms-gateway-unknown">{copy.unassignedCountry}</Badge>}
@@ -470,7 +497,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
                 <p><span>{copy.delivery}</span>{detail.deliveryStatus || "—"}</p>
                 <p><span>{copy.source}</span>{providerLabel(detail.provider, copy)}</p>
                 <p className="sms-date-meta"><span>{readableDate(detail.sentAt || detail.createdAt, locale)}</span></p>
-                {detail.campaignId && <p><span>{copy.campaign}</span>{detail.campaignId}</p>}
+                {detail.campaignId && <p data-testid="sms-campaign-name"><span>{copy.campaign}</span>{detail.campaignName || copy.unknownCampaign}</p>}
               </div>
               {detail.customer?.id && <Link href={`/customers?view=${encodeURIComponent(detail.customer.id)}`} className="sms-customer-link" data-testid="sms-link-customer-detail"><UserRound className="h-4 w-4 shrink-0" /><span>{copy.linkedCustomer}</span><strong>{detail.customer.firstName} {detail.customer.lastName}</strong></Link>}
               {aiNeedsAttention && <div className={`sms-ai-analysis ${detail.aiAlertLevel === "critical" ? "is-critical" : detail.aiAlertLevel === "warning" ? "is-warning" : "is-negative"}`} data-testid="sms-ai-analysis-alert">
@@ -484,6 +511,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
                 </div>{detail.aiAnalysisNote && <p className="mt-1 text-xs text-muted-foreground">{detail.aiAnalysisNote}</p>}</div>
               </div>}
             </header>
+            {readError && <div role="alert" className="px-4 py-2 text-xs text-destructive">{copy.readError}<Button type="button" variant="ghost" size="sm" onClick={() => setReadRetry(value => value + 1)}>{copy.retry}</Button></div>}
             <ScrollArea className="sms-message-content">
               <div className={`sms-message-bubble ${detail.direction === "inbound" ? "is-inbound" : "is-outbound"}`}><p>{detail.content}</p></div>
               {detail.replies?.map(reply => <div key={reply.id} className="sms-message-bubble is-outbound ml-auto mt-3" data-testid={`sms-reply-${reply.id}`}>
