@@ -160,6 +160,28 @@ test("retried and concurrent provider callbacks and overlapping mailbox paths ru
     await emitInboundEmailEvents(email, "customer");
     await assertOnePerRule(email.id, ["email.received", "sentiment.negative", "communication.analyzed"], rules);
     assert.deepEqual(analysisAtDispatch, [true, true, true], "all negative events follow persisted analysis");
+    const calm = await storeInboundEmailOnce(`calm-${suffix}`, {
+      type: "email", direction: "inbound", content: body,
+      metadata: JSON.stringify({ from: sender }), status: "received", externalId: `calm-${suffix}`,
+    });
+    assert.ok(calm);
+    ids.push(calm.id);
+    rulesByMessage.set(calm.id, rules);
+    assert.equal(await emitPersistedInboundEvent(calm.id, "communication.analyzed"), null);
+    await db.update(communicationMessages).set({
+      aiAnalyzed: true, aiSentiment: "neutral", aiWantsToCancel: true, aiAnalyzedAt: new Date(),
+    }).where(eq(communicationMessages.id, calm.id));
+    await Promise.all([
+      emitPersistedInboundEvent(calm.id, "communication.analyzed"),
+      emitPersistedInboundEvent(calm.id, "communication.analyzed"),
+      emitInboundEmailEvents(calm, "customer", "neutral", false),
+    ]);
+    await Promise.all(dispatched);
+    assert.deepEqual((await eventsFor(calm.id)).map(e => e.eventType), ["communication.analyzed"],
+      "calm cancellation still has one completed-analysis event, not a negative alert");
+    const calmEvents = await eventsFor(calm.id);
+    const calmRuns = await db.select().from(workflowRuns).where(inArray(workflowRuns.ruleId, rules));
+    assert.equal(calmRuns.filter(run => calmEvents.some(event => event.id === run.eventId) && run.status === "success").length, 1);
   } finally {
     await Promise.allSettled(dispatched);
     if (ruleIds.length) {

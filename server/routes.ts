@@ -7766,8 +7766,7 @@ Always respond with valid JSON only, no markdown.`
               const senderAddress = (email.from?.emailAddress?.address || "").toLowerCase().trim();
               const mailboxAddress = (actualMailbox || "").toLowerCase().trim();
               if (persistedEmailMetadata?.aiAnalyzed &&
-                  senderAddress && mailboxAddress && senderAddress !== mailboxAddress &&
-                  (persistedEmailMetadata.aiSentiment === "negative" || persistedEmailMetadata.aiSentiment === "angry" || persistedEmailMetadata.aiHasAngryTone)) {
+                  senderAddress && mailboxAddress && senderAddress !== mailboxAddress) {
                 try {
                   const [canonicalMessage] = await db.select({
                     id: communicationMessages.id,
@@ -7789,11 +7788,17 @@ Always respond with valid JSON only, no markdown.`
                       aiAnalyzed: true,
                       aiSentiment: persistedEmailMetadata.aiSentiment,
                       aiHasAngryTone: persistedEmailMetadata.aiHasAngryTone,
+                      aiHasRudeExpressions: persistedEmailMetadata.aiHasRudeExpressions,
+                      aiWantsToCancel: persistedEmailMetadata.aiWantsToCancel,
+                      aiWantsConsent: persistedEmailMetadata.aiWantsConsent,
+                      aiDoesNotAcceptContract: persistedEmailMetadata.aiDoesNotAcceptContract,
+                      aiAlertLevel: persistedEmailMetadata.aiAlertLevel,
                       aiAnalyzedAt: persistedEmailMetadata.aiAnalyzedAt,
                     });
                     if (persistedMessage) {
-                      await (await import("./lib/inbound-communication-events"))
-                        .emitPersistedInboundEvent(canonicalMessage.id, "sentiment.negative");
+                      const { emitPersistedInboundEvent } = await import("./lib/inbound-communication-events");
+                      await emitPersistedInboundEvent(canonicalMessage.id, "communication.analyzed");
+                      await emitPersistedInboundEvent(canonicalMessage.id, "sentiment.negative");
                     }
                   }
                 } catch (canonicalUpdateError) {
