@@ -1,4 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
@@ -7082,6 +7083,7 @@ export interface Translations {
   };
   callAnalysis: {
     pageTitle: string;
+    periodSummary: CallPeriodSummaryCopy;
     customRange: string;
     applyRange: string;
     today: string;
@@ -16142,6 +16144,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Calls & Transcripts',
+      periodSummary: callPeriodSummaryTranslations.en,
       customRange: 'Custom date and time',
       applyRange: 'Apply range',
       today: 'Today',
@@ -24006,6 +24009,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a prepisy',
+      periodSummary: callPeriodSummaryTranslations.sk,
       customRange: 'Vlastný dátum a čas',
       applyRange: 'Použiť rozsah',
       today: 'Dnes',
@@ -31829,6 +31833,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Hovory a přepisy',
+      periodSummary: callPeriodSummaryTranslations.cs,
       customRange: 'Vlastní datum a čas',
       applyRange: 'Použít rozsah',
       today: 'Dnes',
@@ -39648,6 +39653,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Hívások és átiratok',
+      periodSummary: callPeriodSummaryTranslations.hu,
       customRange: 'Egyéni dátum és idő',
       applyRange: 'Tartomány alkalmazása',
       today: 'Ma',
@@ -47465,6 +47471,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Apeluri și transcrieri',
+      periodSummary: callPeriodSummaryTranslations.ro,
       customRange: 'Dată și oră personalizate',
       applyRange: 'Aplică intervalul',
       today: 'Astăzi',
@@ -55290,6 +55297,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Chiamate e trascrizioni',
+      periodSummary: callPeriodSummaryTranslations.it,
       customRange: 'Data e ora personalizzate',
       applyRange: 'Applica intervallo',
       today: 'Oggi',
@@ -63106,6 +63114,7 @@ export const translations = {
     },
     callAnalysis: {
       pageTitle: 'Anrufe und Transkripte',
+      periodSummary: callPeriodSummaryTranslations.de,
       customRange: 'Benutzerdefiniertes Datum und Uhrzeit',
       applyRange: 'Zeitraum anwenden',
       today: 'Heute',

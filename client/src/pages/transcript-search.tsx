@@ -16,6 +16,7 @@ import { CallContactReviewPanel, fetchCallReviewContact, type ReviewContact } fr
 import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-drawer";
 import { fullCardEntityFromReview } from "@/lib/call-review-entity";
 import { callBrowseDisplayName } from "@/lib/call-browse-identity";
+import { CallPeriodSummary } from "@/components/call-period-summary";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 interface TranscriptResult {
@@ -833,6 +834,7 @@ export function TranscriptSearchContent() {
   const [draftDateFrom, setDraftDateFrom] = useState(dateFrom);
   const [draftDateTo, setDraftDateTo] = useState(dateTo);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [summaryRequest, setSummaryRequest] = useState(0);
 
   /* Browse filters */
   const [browseSearchText, setBrowseSearchText] = useState("");
@@ -870,7 +872,7 @@ export function TranscriptSearchContent() {
   const [hasAlertsFilter, setHasAlertsFilter] = useState(false);
 
   /* Queries */
-  const { data: callLogs = [], isLoading: logsLoading } = useQuery<CallLogEntry[]>({
+  const { data: callLogs = [], isLoading: logsLoading, isFetching: logsFetching, isSuccess: logsSuccess, isError: logsError } = useQuery<CallLogEntry[]>({
     queryKey: ["/api/call-logs/browse", dateFrom, dateTo],
     queryFn: async () => {
       const pageSize = 500;
@@ -948,6 +950,7 @@ export function TranscriptSearchContent() {
       from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
     }
     setDatePreset(preset);
+    setSummaryRequest(value => value + 1);
     const nextFrom = toDateTimeInput(from);
     const nextTo = toDateTimeInput(to);
     setDateFrom(nextFrom);
@@ -1209,6 +1212,7 @@ export function TranscriptSearchContent() {
                   <Button size="sm" disabled={new Date(draftDateFrom) > new Date(draftDateTo)}
                     onClick={() => {
                       setDatePreset("custom");
+                      setSummaryRequest(value => value + 1);
                       setDateFrom(draftDateFrom);
                       setDateTo(draftDateTo);
                       setDatePickerOpen(false);
@@ -1290,7 +1294,13 @@ export function TranscriptSearchContent() {
 
       {/* ── Browse mode ── */}
       {activeTab === "browse" && (
-        <div className="flex items-start min-w-0 max-w-full rounded-b-2xl border-x border-b border-border">
+        <div className="relative flex items-start min-w-0 max-w-full rounded-b-2xl border-x border-b border-border">
+          <CallPeriodSummary
+            scopeKey={`${dateFrom}|${dateTo}|${summaryRequest}`}
+            ready={logsSuccess && !logsFetching && !logsError && !mobileDetailOpen}
+            period={[dateFrom, dateTo].filter(Boolean).map(value => new Date(value).toLocaleString(LOCALE_MAP[locale] || "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })).join(" – ")}
+            total={stats.total} withAlerts={stats.withAlerts} avgQ={stats.avgQ}
+          />
 
           {/* Left: list */}
           <div
