@@ -12,7 +12,10 @@ export type AutomationFlowchartCopy = {
   analysis: string;
   conditions: string;
   conditionNote: string;
+  decisionSummary: string;
   conditionsIgnored: string;
+  reference: string;
+  stop: string;
   noConditions: string;
   all: string;
   any: string;
@@ -46,10 +49,12 @@ export type AutomationFlowchartCopy = {
 const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
   en: {
     preview: "Rule flow",
-    definitionNotice: "Definition preview · actions are shown as configured, not as completed or successful.",
+    definitionNotice: "Definition preview · actions run in configured order and continue after a failure; this is not a run-status report.",
     active: "Active", paused: "Paused", scope: "Applies to", trigger: "When", analysis: "Before conditions",
     conditions: "Conditions", conditionNote: "The rule continues only when the complete condition set matches.",
+    decisionSummary: "One decision: evaluate this complete nested condition tree as a single result.",
     conditionsIgnored: "This schedule mode ignores stored conditions and runs once on every schedule tick. Conditions are shown for reference and do not block the actions.",
+    reference: "Reference only · not connected to this route", stop: "STOP",
     noConditions: "No conditions — this rule applies whenever its trigger occurs.",
     all: "ALL", any: "ANY", not: "NOT", allHint: "Every condition below must match",
     anyHint: "At least one condition below must match", notHint: "The condition below must not match",
@@ -78,10 +83,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Yes", no: "No" },
   },
   sk: {
-    preview: "Priebeh pravidla", definitionNotice: "Náhľad definície · akcie sú zobrazené podľa nastavenia, nie ako dokončené alebo úspešné.",
+    preview: "Priebeh pravidla", definitionNotice: "Náhľad definície · akcie sa vykonávajú v nastavenom poradí a pokračujú aj po chybe; nejde o stav vykonania.",
     active: "Aktívne", paused: "Pozastavené", scope: "Platí pre", trigger: "Keď", analysis: "Pred podmienkami",
     conditions: "Podmienky", conditionNote: "Pravidlo pokračuje, len ak sa zhoduje celá skupina podmienok.",
+    decisionSummary: "Jedno rozhodnutie: celý vnorený strom podmienok sa vyhodnotí ako jeden výsledok.",
     conditionsIgnored: "Tento režim plánu ignoruje uložené podmienky a spustí pravidlo pri každom plánovanom intervale. Podmienky sú zobrazené pre informáciu a neblokujú akcie.",
+    reference: "Len referencia · nie je prepojená s touto trasou", stop: "KONIEC",
     noConditions: "Bez podmienok — pravidlo platí pri každom spustení.",
     all: "VŠETKY", any: "ĽUBOVOĽNÁ", not: "NIE", allHint: "Musia platiť všetky nižšie uvedené podmienky",
     anyHint: "Musí platiť aspoň jedna nižšie uvedená podmienka", notHint: "Nižšie uvedená podmienka nesmie platiť",
@@ -110,10 +117,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Áno", no: "Nie" },
   },
   cs: {
-    preview: "Průběh pravidla", definitionNotice: "Náhled definice · akce jsou zobrazeny podle nastavení, ne jako dokončené či úspěšné.",
+    preview: "Průběh pravidla", definitionNotice: "Náhled definice · akce běží v nastaveném pořadí a pokračují i po chybě; nejde o stav provedení.",
     active: "Aktivní", paused: "Pozastaveno", scope: "Platí pro", trigger: "Když", analysis: "Před podmínkami",
     conditions: "Podmínky", conditionNote: "Pravidlo pokračuje, pouze pokud odpovídá celá skupina podmínek.",
+    decisionSummary: "Jedno rozhodnutí: celý vnořený strom podmínek se vyhodnotí jako jediný výsledek.",
     conditionsIgnored: "Tento režim plánu ignoruje uložené podmínky a spustí pravidlo při každém plánovaném intervalu. Podmínky jsou zobrazeny pro informaci a neblokují akce.",
+    reference: "Pouze reference · není propojena s touto trasou", stop: "KONEC",
     noConditions: "Bez podmínek — pravidlo platí při každém spuštění.",
     all: "VŠECHNY", any: "LIBOVOLNÁ", not: "NE", allHint: "Musí platit všechny níže uvedené podmínky",
     anyHint: "Musí platit alespoň jedna níže uvedená podmínka", notHint: "Níže uvedená podmínka nesmí platit",
@@ -142,10 +151,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Ano", no: "Ne" },
   },
   hu: {
-    preview: "Szabályfolyamat", definitionNotice: "Definíció előnézete · a műveletek beállításként láthatók, nem végrehajtott vagy sikeres állapotként.",
+    preview: "Szabályfolyamat", definitionNotice: "Definícióelőnézet · a műveletek a beállított sorrendben futnak, hiba után is folytatódnak; ez nem futási állapotjelzés.",
     active: "Aktív", paused: "Szüneteltetve", scope: "Érvényesség", trigger: "Amikor", analysis: "Feltételek előtt",
     conditions: "Feltételek", conditionNote: "A szabály csak akkor folytatódik, ha a teljes feltételcsoport egyezik.",
+    decisionSummary: "Egyetlen döntés: a teljes, beágyazott feltételfa egyetlen eredményt ad.",
     conditionsIgnored: "Ez az ütemezési mód figyelmen kívül hagyja a tárolt feltételeket, és minden ütemezési ciklusban egyszer fut le. A feltételek tájékoztatásként láthatók, de nem akadályozzák a műveleteket.",
+    reference: "Csak tájékoztató · nincs összekötve ezzel az útvonallal", stop: "VÉGE",
     noConditions: "Nincsenek feltételek — a szabály minden indításkor érvényes.",
     all: "MIND", any: "BÁRMELYIK", not: "NEM", allHint: "Az összes alábbi feltételnek egyeznie kell",
     anyHint: "Legalább egy alábbi feltételnek egyeznie kell", notHint: "Az alábbi feltétel nem egyezhet",
@@ -174,10 +185,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Igen", no: "Nem" },
   },
   ro: {
-    preview: "Fluxul regulii", definitionNotice: "Previzualizare definiție · acțiunile sunt afișate ca configurate, nu ca executate sau reușite.",
+    preview: "Fluxul regulii", definitionNotice: "Previzualizare a definiției · acțiunile rulează în ordinea configurată și continuă după o eroare; aceasta nu este o stare de execuție.",
     active: "Activă", paused: "În pauză", scope: "Se aplică la", trigger: "Când", analysis: "Înainte de condiții",
     conditions: "Condiții", conditionNote: "Regula continuă doar dacă întregul grup de condiții corespunde.",
+    decisionSummary: "O singură decizie: întregul arbore imbricat de condiții este evaluat ca un singur rezultat.",
     conditionsIgnored: "Acest mod de programare ignoră condițiile salvate și rulează o dată la fiecare ciclu programat. Condițiile rămân vizibile ca referință și nu blochează acțiunile.",
+    reference: "Doar referință · neconectată la acest traseu", stop: "STOP",
     noConditions: "Fără condiții — regula se aplică la fiecare declanșare.",
     all: "TOATE", any: "ORICARE", not: "NU", allHint: "Toate condițiile de mai jos trebuie să corespundă",
     anyHint: "Cel puțin o condiție de mai jos trebuie să corespundă", notHint: "Condiția de mai jos nu trebuie să corespundă",
@@ -206,10 +219,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Da", no: "Nu" },
   },
   it: {
-    preview: "Flusso della regola", definitionNotice: "Anteprima della definizione · le azioni sono mostrate come configurate, non come completate o riuscite.",
+    preview: "Flusso della regola", definitionNotice: "Anteprima della definizione · le azioni seguono l’ordine configurato e proseguono dopo un errore; non è un rapporto sullo stato di esecuzione.",
     active: "Attiva", paused: "In pausa", scope: "Si applica a", trigger: "Quando", analysis: "Prima delle condizioni",
     conditions: "Condizioni", conditionNote: "La regola prosegue solo se l’intero gruppo di condizioni corrisponde.",
+    decisionSummary: "Un’unica decisione: l’intero albero annidato delle condizioni viene valutato come un solo risultato.",
     conditionsIgnored: "Questa modalità di programmazione ignora le condizioni salvate ed esegue la regola una volta a ogni ciclo pianificato. Le condizioni restano visibili come riferimento e non bloccano le azioni.",
+    reference: "Solo riferimento · non collegato a questo percorso", stop: "FINE",
     noConditions: "Nessuna condizione — la regola si applica a ogni attivazione.",
     all: "TUTTE", any: "QUALSIASI", not: "NON", allHint: "Devono corrispondere tutte le condizioni seguenti",
     anyHint: "Deve corrispondere almeno una condizione seguente", notHint: "La condizione seguente non deve corrispondere",
@@ -238,10 +253,12 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     }, boolean: { yes: "Sì", no: "No" },
   },
   de: {
-    preview: "Regelablauf", definitionNotice: "Definitionsvorschau · Aktionen werden wie konfiguriert angezeigt, nicht als ausgeführt oder erfolgreich.",
+    preview: "Regelablauf", definitionNotice: "Definitionsvorschau · Aktionen laufen in der konfigurierten Reihenfolge und werden auch nach einem Fehler fortgesetzt; dies ist keine Laufstatusanzeige.",
     active: "Aktiv", paused: "Pausiert", scope: "Gilt für", trigger: "Wenn", analysis: "Vor Bedingungen",
     conditions: "Bedingungen", conditionNote: "Die Regel wird nur fortgesetzt, wenn die gesamte Bedingungsgruppe zutrifft.",
+    decisionSummary: "Eine Entscheidung: Der gesamte verschachtelte Bedingungsbaum wird als ein Ergebnis ausgewertet.",
     conditionsIgnored: "Dieser Zeitplanmodus ignoriert gespeicherte Bedingungen und führt die Regel bei jedem Zeitplan-Takt einmal aus. Die Bedingungen bleiben als Referenz sichtbar und verhindern die Aktionen nicht.",
+    reference: "Nur Referenz · nicht mit diesem Ablauf verbunden", stop: "ENDE",
     noConditions: "Keine Bedingungen — die Regel gilt bei jeder Auslösung.",
     all: "ALLE", any: "BELIEBIGE", not: "NICHT", allHint: "Alle folgenden Bedingungen müssen zutreffen",
     anyHint: "Mindestens eine der folgenden Bedingungen muss zutreffen", notHint: "Die folgende Bedingung darf nicht zutreffen",

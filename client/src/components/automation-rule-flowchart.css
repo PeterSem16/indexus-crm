@@ -476,16 +476,154 @@
   .indexus-flowchart__detail { grid-template-columns: minmax(75px, .42fr) minmax(0, 1fr); }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .indexus-flowchart__node,
-  .indexus-flowchart__group,
-  .indexus-flowchart__action {
-    animation: indexus-flowchart-enter .38s both;
-  }
-  .indexus-flowchart__group { animation-delay: .06s; }
-  .indexus-flowchart__action { animation-delay: .12s; }
+/* The route is a measured overlay: endpoints are derived from the actual cards,
+   not percentages of an unequal grid. */
+.indexus-flowchart__sequence { position: relative; }
+.indexus-flowchart__node,
+.indexus-flowchart__branches { position: relative; z-index: 1; }
+.indexus-flowchart__connector {
+  height: 30px;
+  flex: 0 0 30px;
+  z-index: 1;
+  background: linear-gradient(var(--ifc-line), var(--ifc-line)) center / 2px 100% no-repeat;
 }
-@keyframes indexus-flowchart-enter {
-  from { opacity: .45; transform: translateY(5px); }
-  to { opacity: 1; transform: translateY(0); }
+.indexus-flowchart__connector::after {
+  bottom: -1px;
+  width: 0;
+  height: 0;
+  border: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--ifc-muted);
+  transform: translateX(-50%);
+}
+.indexus-flowchart__branches {
+  position: static;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 30px;
+  padding: 15px 0 0;
+}
+.indexus-flowchart__branches::before,
+.indexus-flowchart__branches::after,
+.indexus-flowchart__branch::before { content: none; }
+.indexus-flowchart__branch { min-width: 0; z-index: 1; }
+.indexus-flowchart__branch-label { margin-bottom: 9px; }
+.indexus-flowchart__branch-label span {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  text-align: center;
+  line-height: 1.25;
+}
+.indexus-flowchart__branch-wires {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto auto 0;
+  overflow: visible;
+  pointer-events: none;
+  width: 100%;
+  height: 100%;
+}
+.indexus-flowchart__branch-wires path {
+  fill: none;
+  stroke: var(--ifc-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.indexus-flowchart__branch-wires marker path { fill: var(--ifc-muted); stroke: none; }
+.indexus-flowchart__actions { gap: 0; }
+.indexus-flowchart__action-item { min-width: 0; }
+.indexus-flowchart__action-connector {
+  position: relative;
+  width: 2px;
+  height: 24px;
+  margin: 0 auto;
+  background: var(--ifc-line);
+}
+.indexus-flowchart__action-connector::after {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--ifc-muted);
+  content: "";
+  transform: translateX(-50%);
+}
+.indexus-flowchart__terminal {
+  display: flex;
+  min-height: 75px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px;
+  border: 1px dashed var(--ifc-coral);
+  border-radius: 12px;
+  color: var(--ifc-muted);
+  background: color-mix(in srgb, var(--ifc-coral-soft) 48%, var(--ifc-surface));
+  text-align: center;
+  font-size: 11px;
+}
+.indexus-flowchart__terminal strong {
+  color: var(--ifc-coral);
+  font: 700 10px/1.2 "DM Mono", monospace;
+  letter-spacing: .12em;
+}
+.indexus-flowchart__reference {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 13px;
+  border-top: 1px dashed var(--ifc-amber);
+}
+.indexus-flowchart__reference-label {
+  margin: 0;
+  color: var(--ifc-amber);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.indexus-flowchart__group > .indexus-flowchart__condition-tree > .indexus-flowchart__condition + .indexus-flowchart__condition {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--ifc-line);
+}
+.indexus-flowchart__group-head { flex-wrap: wrap; align-items: flex-start; }
+.indexus-flowchart__group-explainer { min-width: 0; }
+.indexus-flowchart__detail-value,
+.indexus-flowchart__action-title,
+.indexus-flowchart__leaf-value,
+.indexus-flowchart__leaf-field { overflow-wrap: anywhere; }
+.indexus-flowchart--compact .indexus-flowchart__branches {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+@media (max-width: 620px) {
+  .indexus-flowchart__branches {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    margin-top: 26px;
+    padding-top: 14px;
+  }
+  .indexus-flowchart__branch-label { justify-content: center; }
+  .indexus-flowchart__branch-label span { padding: 4px 6px; font-size: 9px; }
+  .indexus-flowchart__action { gap: 7px; padding: 9px; }
+  .indexus-flowchart__action-index { width: 20px; height: 20px; flex-basis: 20px; }
+  .indexus-flowchart__action .indexus-flowchart__detail {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .indexus-flowchart__action .indexus-flowchart__detail-value { padding-left: 0; }
+}
+
+@media (max-width: 360px) {
+  .indexus-flowchart__branches { gap: 5px; }
+  .indexus-flowchart__action { padding: 7px; }
+  .indexus-flowchart__action-title { font-size: 12px; }
 }
