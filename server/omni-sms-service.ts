@@ -32,6 +32,7 @@ export async function getOmniSmsAccess(actorId: string): Promise<OmniSmsAccess> 
 // SMSTOOLS is a country-bound SK gateway. Ambiguous global virtual numbers stay unassigned.
 const base = `
   SELECT m.id,
+    m.reply_to_sms_id AS "replyToSmsId",
     COALESCE(NULLIF(upper(m.country_code),''),
       CASE WHEN lower(trim(m.provider))='smstools' THEN 'SK' END,
       cu.country, cl.country_code, ho.country_code, co.country_code,
@@ -89,6 +90,11 @@ export async function findOmniSmsMessage(actorId: string, id: string): Promise<O
       SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id
     )) AS "isRead" FROM sms WHERE id=$1 AND ${allowed}`, values);
   if (!result.rows[0]) throw new OmniSmsError(404, "sms_not_found");
+  const replies = await pool.query(`WITH sms AS (${base}) SELECT *,
+    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
+      SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id
+    )) AS "isRead" FROM sms WHERE "replyToSmsId"=$1 AND ${allowed} ORDER BY "createdAt",id`, values);
+  result.rows[0].replies = replies.rows;
   return result.rows[0];
 }
 

@@ -1,4 +1,4 @@
-import type { OmniSmsMessage } from "@shared/omni-sms";
+import type { OmniSmsMessage, OmniSmsProvider } from "@shared/omni-sms";
 import { providerCountryAllowed } from "./omni-sms-policy";
 
 // Apply only AFTER the source message has passed current persisted access checks.
@@ -12,7 +12,7 @@ export function authoritativeOmniSmsReply(source: OmniSmsMessage) {
     customerId: source.entityId || source.customerId || undefined,
     contactType: source.entityType || "customer",
     campaignId: source.campaignId || undefined,
-    provider: source.provider,
+    provider: source.provider as OmniSmsProvider,
     country: source.countryCode,
   };
 }

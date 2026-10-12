@@ -1,5 +1,8 @@
 export const OMNI_SMS_MIGRATION = `
   ALTER TABLE communication_messages ADD COLUMN IF NOT EXISTS country_code varchar(10);
+  ALTER TABLE communication_messages ADD COLUMN IF NOT EXISTS reply_to_sms_id varchar;
+  CREATE INDEX IF NOT EXISTS communication_messages_reply_sms_idx ON communication_messages(reply_to_sms_id)
+    WHERE reply_to_sms_id IS NOT NULL;
   CREATE TABLE IF NOT EXISTS omni_sms_reads (
     user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     message_id varchar NOT NULL REFERENCES communication_messages(id) ON DELETE CASCADE,

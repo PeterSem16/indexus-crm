@@ -272,6 +272,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
       setReplyText("");
       setReplySuccess(true);
       await queryClient.invalidateQueries({ queryKey: ["omni-sms", "messages", actorId] });
+      await queryClient.invalidateQueries({ queryKey: ["omni-sms", "message", actorId] });
     } catch {
       setReplyError(copy.replyFailed);
     } finally {
@@ -483,7 +484,17 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
                 </div>{detail.aiAnalysisNote && <p className="mt-1 text-xs text-muted-foreground">{detail.aiAnalysisNote}</p>}</div>
               </div>}
             </header>
-            <ScrollArea className="sms-message-content"><div className={`sms-message-bubble ${detail.direction === "inbound" ? "is-inbound" : "is-outbound"}`}><p>{detail.content}</p></div></ScrollArea>
+            <ScrollArea className="sms-message-content">
+              <div className={`sms-message-bubble ${detail.direction === "inbound" ? "is-inbound" : "is-outbound"}`}><p>{detail.content}</p></div>
+              {detail.replies?.map(reply => <div key={reply.id} className="sms-message-bubble is-outbound ml-auto mt-3" data-testid={`sms-reply-${reply.id}`}>
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <Badge variant="outline">{reply.status === "sent" ? copy.sentMessage : reply.status}</Badge>
+                  <Badge variant="outline">{providerLabel(reply.provider, copy)}</Badge>
+                  <span>{readableDate(reply.sentAt || reply.createdAt, locale)}</span>
+                </div>
+                <p>{reply.content}</p>
+              </div>)}
+            </ScrollArea>
             {replyPhone && <form className="sms-reply-bar" onSubmit={event => { event.preventDefault(); void submitReply(); }} data-testid="sms-reply-bar">
               <div className="min-w-0 flex-1">
                 <Input placeholder={`${copy.replyPlaceholder} ${replyPhone}`} value={replyText} onChange={event => { setReplyText(event.target.value); setReplySuccess(false); }} maxLength={160} disabled={!canReply || sending} aria-label={`${copy.replyPlaceholder} ${replyPhone}`} data-testid="sms-reply-input" />

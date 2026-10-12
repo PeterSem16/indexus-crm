@@ -120,6 +120,17 @@ try {
   assert.equal(reply.to, "+421000000001");
   assert.equal(reply.provider, "smstools");
   assert.equal(reply.country, "SK");
+  const savedReply = await storage.createCommunicationMessage({
+    userId: reader, type: "sms", provider: "smstools", countryCode: "SK", direction: "outbound",
+    content: `${key} reply`, status: "sent", replyToSmsId: fixtureIds[0],
+  });
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).data.replies[0].id, savedReply.id);
+  const forbiddenReply = await storage.createCommunicationMessage({
+    userId: admin, type: "sms", provider: "bulkgate", countryCode: "CZ", direction: "outbound",
+    content: `${key} forbidden reply`, status: "sent", replyToSmsId: fixtureIds[0],
+  });
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).data.replies.length, 1);
+  assert((await request(admin, `/messages/${fixtureIds[0]}`)).data.replies.some((r: any) => r.id === forbiddenReply.id));
   assert.equal(authoritativeOmniSmsReply({ ...replySource, provider: null }), null);
   assert.equal(authoritativeOmniSmsReply({ ...replySource, countryCode: null }), null);
   assert.equal(authoritativeOmniSmsReply({ ...replySource, countryCode: "CZ" }), null);
@@ -130,7 +141,7 @@ try {
   assert.equal((await request(reader, `/messages?country=SK&q=${encodeURIComponent("' OR true --")}`)).data.total, 0);
   assert.equal((await request(admin, `/permissions/${multi}`, "PUT", { countryCode: "SK", providers: ["bulkgate"] })).status, 200);
   assert.equal((await request(admin, `/permissions/${multi}`, "PUT", { countryCode: "CZ", providers: ["bulkgate"] })).status, 200);
-  assert.equal((await request(multi, `/messages?country=CZ&q=${key}`)).data.total, 1);
+  assert.equal((await request(multi, `/messages?country=CZ&q=${key}`)).data.total, 2);
   await request(admin, `/permissions/${reader}`, "PUT", { countryCode: "SK", providers: ["bulkgate"] });
   assert.equal((await request(reader, `/messages?country=SK&q=${key}`)).data.total, 1);
   assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).status, 404);

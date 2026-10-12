@@ -1326,6 +1326,7 @@ export const communicationMessages = pgTable("communication_messages", {
   content: text("content").notNull(),
   recipientEmail: text("recipient_email"),
   recipientPhone: text("recipient_phone"),
+  replyToSmsId: varchar("reply_to_sms_id"),
   senderPhone: text("sender_phone"), // for incoming SMS
   status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
   externalId: text("external_id"), // BulkGate sms_id or email provider id

@@ -39,6 +39,7 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
   ],
 }) {
   const sent: unknown[] = [];
+  const replies: Array<typeof inboundMessage> = [];
   const requests: string[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
@@ -52,11 +53,12 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
     if (path === "/api/omni-sms/messages" && request.method() === "GET") {
       return route.fulfill({ json: { messages: [inboundMessage], total: 1, page: 0, pageSize: 25 } });
     }
-    if (path === `/api/omni-sms/messages/${inboundMessage.id}` && request.method() === "GET") return route.fulfill({ json: inboundMessage });
+    if (path === `/api/omni-sms/messages/${inboundMessage.id}` && request.method() === "GET") return route.fulfill({ json: { ...inboundMessage, replies } });
     if (path === `/api/omni-sms/messages/${inboundMessage.id}/read` && request.method() === "POST") return route.fulfill({ json: { saved: true } });
     if (path === "/api/omni-sms/permissions" && request.method() === "GET") return route.fulfill({ json: { users: [] } });
     if (path === "/api/send-sms" && request.method() === "POST") {
       sent.push(request.postDataJSON());
+      replies.push({ ...inboundMessage, id: "sms-reply-42", direction: "outbound", status: "sent", content: request.postDataJSON().message });
       return route.fulfill({ json: { success: true, id: "sms-reply-42" } });
     }
     return route.fulfill({ status: 404, json: { error: "Not found" } });
@@ -89,6 +91,10 @@ test("SMS workspace loads a protected detail and sends a source-bound reply", as
     campaignId: inboundMessage.campaignId,
   });
   expect(api.requests).toContain(`GET /api/omni-sms/messages/${inboundMessage.id}`);
+  await expect(page.getByTestId("sms-reply-sms-reply-42")).toContainText("We will call you shortly.");
+  await page.reload();
+  await page.getByTestId(`sms-message-${inboundMessage.id}`).click();
+  await expect(page.getByTestId("sms-reply-sms-reply-42")).toContainText("We will call you shortly.");
   expect(runtimeErrors).toEqual([]);
 });
 

@@ -12,6 +12,8 @@ export interface SmsProviderSendOptions {
   text: string;
   country?: string;
   provider?: SmsGatewayProvider | string | null;
+  /** Server-validated source gateway for Omni replies; never use a country fallback. */
+  requiredProvider?: SmsGatewayProvider;
   unicode?: boolean;
   senderId?: any;
   senderIdValue?: string | null;
@@ -142,11 +144,14 @@ export async function getGatewaySetting(provider: SmsGatewayProvider, country?: 
 
 export async function sendSmsViaProvider(options: SmsProviderSendOptions): Promise<SmsProviderSendResult> {
   const selection = await resolveSmsProviderForCampaign(
-    options.provider,
+    options.requiredProvider || options.provider,
     options.country,
     options.campaignId,
     options.campaignProviderMode,
   );
+  if (options.requiredProvider && selection.provider !== options.requiredProvider) {
+    return { success: false, provider: options.requiredProvider, error: selection.error || "sms_reply_gateway_unavailable", errorCode: 400 };
+  }
   if (!selection.provider) {
     const requested = options.provider;
     const fallbackProvider: SmsGatewayProvider =

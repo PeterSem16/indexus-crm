@@ -15727,6 +15727,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       let { to, message, customerId, contactType, campaignId } = req.body;
       const { compositionDurationSeconds } = req.body;
       let sourceCountry: string | undefined;
+      let sourceReply: NonNullable<ReturnType<typeof authoritativeOmniSmsReply>> | undefined;
       let requestedProvider = typeof req.body?.gateway === "string"
         ? req.body.gateway
         : typeof req.body?.provider === "string" ? req.body.provider : undefined;
@@ -15745,6 +15746,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         campaignId = reply.campaignId;
         requestedProvider = reply.provider;
         sourceCountry = reply.country;
+        sourceReply = reply;
       }
       
       if (!to || !message) {
@@ -15837,7 +15839,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           contactCountry,
           effectiveCampaignId,
         );
-        if (req.body?.sourceSmsId !== undefined && !gatewaySelection.provider) {
+        if (sourceReply && gatewaySelection.provider !== sourceReply.provider) {
           return res.status(400).json({ success: false, error: "sms_reply_gateway_unavailable" });
         }
         const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
@@ -15859,6 +15861,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             campaignId: effectiveCampaignId || null,
           }),
           countryCode: contactCountry,
+          replyToSmsId: sourceReply ? req.body.sourceSmsId : undefined,
         });
         
         if (gatewaySelection.provider || hasConfiguredGateway || gatewaySelection.campaignProvider) {
@@ -15868,6 +15871,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               text: message,
               country: contactCountry,
               provider: requestedProvider,
+              requiredProvider: sourceReply?.provider,
               campaignId: effectiveCampaignId,
               tag: messageRecord.id,
               ...(campaignSender
