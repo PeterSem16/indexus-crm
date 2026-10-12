@@ -74,6 +74,8 @@ try {
   assert.equal((await request(manager, "/access")).data.isAdmin, false);
   assert.equal((await request(customAdmin, "/access")).data.isAdmin, true);
   assert.equal((await request(reader, `/messages?country=SK&q=${key}`)).data.total, 0);
+  assert.equal((await request(reader, "/unread")).data.unread, 0);
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}/read`, "POST")).status, 404);
   const mixed = [{ id: fixtureIds[0], type: "sms" }, { id: bulk.id, type: "sms" }, { id: "email-fixture", type: "email" }];
   assert.deepEqual(await filterOmniSmsFromMixedHistory(reader, mixed), [{ id: "email-fixture", type: "email" }]);
   assert.equal((await request(admin, `/messages?country=SK&q=${key}`)).data.total, 110);
@@ -102,6 +104,16 @@ try {
   assert.equal((await request(reader, `/messages/${unknown.id}`)).status, 404);
   assert.equal((await request(reader, `/messages/${unassigned.id}`)).status, 404);
   assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).status, 200);
+  const unreadBefore = (await request(reader, "/unread")).data.unread;
+  const adminUnreadBefore = (await request(admin, "/unread")).data.unread;
+  assert(unreadBefore >= 54, "all unread inbound SMS are counted, not just one page");
+  assert.equal((await request(reader, `/messages/${bulk.id}/read`, "POST")).status, 404);
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}/read`, "POST")).status, 200);
+  assert.equal((await request(reader, "/unread")).data.unread, unreadBefore - 1);
+  assert.equal((await request(admin, "/unread")).data.unread, adminUnreadBefore, "read state is agent-private");
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}/read`, "POST")).status, 200);
+  assert.equal((await request(reader, "/unread")).data.unread, unreadBefore - 1, "mark-read is idempotent");
+  assert.equal((await request(reader, `/messages/${fixtureIds[0]}`)).data.isRead, true);
   assert.deepEqual(await filterOmniSmsFromMixedHistory(reader, mixed), [mixed[0], mixed[2]]);
   const replySource = await findOmniSmsMessage(reader, fixtureIds[0]);
   const reply = authoritativeOmniSmsReply(replySource)!;

@@ -3,6 +3,7 @@ import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { WallboardAlarmSettings } from "./wallboard-alarms";
+import { primaryKey } from "drizzle-orm/pg-core";
 import type { TaskAttachment } from "./task-attachments";
 
 // Country codes for the CRM system (operating countries)
@@ -5361,6 +5362,12 @@ export const omniSmsGatewayGrants = pgTable("omni_sms_gateway_grants", {
 }, table => ({
   userCountryProvider: unique("omni_sms_grants_user_country_provider").on(table.userId, table.countryCode, table.provider),
 }));
+
+export const omniSmsReads = pgTable("omni_sms_reads", {
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  messageId: varchar("message_id").notNull().references(() => communicationMessages.id, { onDelete: "cascade" }),
+  readAt: timestamp("read_at").notNull().defaultNow(),
+}, table => ({ pk: primaryKey({ name: "omni_sms_reads_pkey", columns: [table.userId, table.messageId] }) }));
 
 export const insertSmsGatewaySettingSchema = createInsertSchema(smsGatewaySettings).omit({
   id: true,

@@ -3310,8 +3310,13 @@ export default function EmailClientPage() {
 
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useQuery<{ connected: boolean; folders: MailFolder[]; inboxId?: string | null }>({
     queryKey: ["/api/users", user?.id, "ms365-folders", effectiveMailbox],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${effectiveMailbox}`).then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${effectiveMailbox}`, { credentials: "include" });
+      if (!response.ok) throw new Error("Mailbox folders unavailable");
+      return response.json();
+    },
     enabled: !!user?.id && !!effectiveMailbox,
+    refetchInterval: 30_000,
   });
 
   const { data: allMailboxFoldersData } = useQuery<Record<string, MailFolder[]>>({
@@ -4065,7 +4070,14 @@ export default function EmailClientPage() {
   const totalCount = serverTotalCount;
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
-  const smsInboundUnread = 0;
+  const smsUnreadQuery = useQuery<{ unread: number }>({
+    queryKey: ["omni-sms", "unread", user?.id ?? "anonymous", JSON.stringify(smsAccessForLegacy.isError ? null : smsAccessForLegacy.data)],
+    queryFn: async () => (await apiRequest("GET", "/api/omni-sms/unread")).json(),
+    enabled: !!user?.id && legacySmsCanDisplay,
+    staleTime: 0,
+    refetchInterval: 15_000,
+  });
+  const smsInboundUnread = legacySmsCanDisplay && !smsUnreadQuery.isError ? smsUnreadQuery.data?.unread ?? 0 : 0;
   const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
 
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
@@ -5379,7 +5391,7 @@ export default function EmailClientPage() {
         </div>
       </div>
 
-      <div className={cn("flex items-center gap-1 bg-muted/50 p-1 rounded-lg border", activeTab === "tasks" && "nexus-signal-tabs")} data-testid="nexus-tabs">
+      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border nexus-signal-tabs" data-testid="nexus-tabs">
         {tabConfig.map(tab => (
           <button
             key={tab.key}
@@ -5390,11 +5402,12 @@ export default function EmailClientPage() {
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
             }`}
             data-testid={`tab-${tab.key}`}
+            aria-selected={activeTab === tab.key}
           >
             <span className={activeTab === tab.key ? typeColors[tab.key].accent : ""}>{tab.icon}</span>
             <span>{tab.label}</span>
             {tab.badge !== undefined && tab.badge > 0 && (
-              <Badge className={`${tab.badgeColor} ${tab.key === "tasks" && activeTab === "tasks" ? "nexus-signal-tab-badge" : ""} text-white text-[10px] h-5 min-w-[20px] px-1.5`}>
+              <Badge className="nexus-signal-tab-badge text-white text-[10px] h-5 min-w-[20px] px-1.5">
                 {tab.badge}
               </Badge>
             )}

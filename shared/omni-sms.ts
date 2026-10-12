@@ -9,6 +9,7 @@ export interface OmniSmsAccess {
 }
 export interface OmniSmsMessage {
   id: string;
+  isRead?: boolean;
   countryCode: string | null;
   provider: string | null;
   direction: string;

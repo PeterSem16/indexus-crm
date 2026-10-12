@@ -9,7 +9,7 @@ const inboundMessage = {
   recipientPhone: null,
   senderPhone: "+421900111222",
   status: "received",
-  deliveryStatus: "read",
+  deliveryStatus: null,
   createdAt: "2026-02-18T10:24:00.000Z",
   sentAt: null,
   campaignId: "mission-41",
@@ -53,6 +53,7 @@ async function mockSmsApi(page: import("@playwright/test").Page, access = {
       return route.fulfill({ json: { messages: [inboundMessage], total: 1, page: 0, pageSize: 25 } });
     }
     if (path === `/api/omni-sms/messages/${inboundMessage.id}` && request.method() === "GET") return route.fulfill({ json: inboundMessage });
+    if (path === `/api/omni-sms/messages/${inboundMessage.id}/read` && request.method() === "POST") return route.fulfill({ json: { saved: true } });
     if (path === "/api/omni-sms/permissions" && request.method() === "GET") return route.fulfill({ json: { users: [] } });
     if (path === "/api/send-sms" && request.method() === "POST") {
       sent.push(request.postDataJSON());
@@ -71,6 +72,7 @@ test("SMS workspace loads a protected detail and sends a source-bound reply", as
   await expect(page.getByTestId(`sms-message-${inboundMessage.id}`)).toBeVisible();
   await expect(page.getByText("BulkGate").first()).toBeVisible();
   await page.getByTestId(`sms-message-${inboundMessage.id}`).click();
+  await expect.poll(() => api.requests.includes(`POST /api/omni-sms/messages/${inboundMessage.id}/read`)).toBe(true);
   await expect.poll(() => api.requests.some(request => request === `GET /api/omni-sms/messages/${inboundMessage.id}`)).toBe(true);
   await expect(page.getByText("The patient is considering cancelling the appointment.")).toBeVisible();
   await expect(page.getByTestId("sms-ai-analysis-alert")).toBeVisible();

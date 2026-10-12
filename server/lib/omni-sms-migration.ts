@@ -1,5 +1,11 @@
 export const OMNI_SMS_MIGRATION = `
   ALTER TABLE communication_messages ADD COLUMN IF NOT EXISTS country_code varchar(10);
+  CREATE TABLE IF NOT EXISTS omni_sms_reads (
+    user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    message_id varchar NOT NULL REFERENCES communication_messages(id) ON DELETE CASCADE,
+    read_at timestamp NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id,message_id)
+  );
   CREATE TABLE IF NOT EXISTS omni_sms_gateway_grants (
     id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,

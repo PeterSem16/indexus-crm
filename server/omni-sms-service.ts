@@ -83,9 +83,31 @@ export async function findOmniSmsMessage(actorId: string, id: string): Promise<O
   const access = await getOmniSmsAccess(actorId);
   const values: unknown[] = [id];
   const allowed = accessWhere(access, values);
-  const result = await pool.query(`WITH sms AS (${base}) SELECT * FROM sms WHERE id=$1 AND ${allowed}`, values);
+  const readActor = values.push(actorId);
+  const result = await pool.query(`WITH sms AS (${base}) SELECT *,
+    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
+      SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=sms.id
+    )) AS "isRead" FROM sms WHERE id=$1 AND ${allowed}`, values);
   if (!result.rows[0]) throw new OmniSmsError(404, "sms_not_found");
   return result.rows[0];
+}
+
+export async function getOmniSmsUnread(actorId: string) {
+  const access = await getOmniSmsAccess(actorId);
+  const values: unknown[] = [];
+  const allowed = accessWhere(access, values);
+  const actor = values.push(actorId);
+  const result = await pool.query(`WITH sms AS (${base}) SELECT count(*)::int AS unread FROM sms
+    WHERE ${allowed} AND direction='inbound' AND "deliveryStatus" IS DISTINCT FROM 'read'
+      AND NOT EXISTS(SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${actor} AND r.message_id=sms.id)`, values);
+  return { unread: result.rows[0].unread };
+}
+
+export async function markOmniSmsRead(actorId: string, messageId: string) {
+  const message = await findOmniSmsMessage(actorId, messageId);
+  if (message.direction === "inbound") await pool.query(
+    `INSERT INTO omni_sms_reads(user_id,message_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [actorId, messageId]);
+  return { saved: true };
 }
 
 export async function filterOmniSmsFromMixedHistory<T extends { id: string; type: string }>(actorId: string, messages: T[]): Promise<T[]> {
@@ -127,8 +149,12 @@ export async function listOmniSms(actorId: string, query: Record<string, unknown
   // Scope and SMS type are applied BEFORE counting or paging; emails never consume the SMS limit.
   const filtered = `WITH sms AS (${base}), filtered AS (SELECT * FROM sms WHERE ${where.join(" AND ")})`;
   const count = await pool.query(`${filtered} SELECT count(*)::int AS total FROM filtered`, values);
+  const readActor = values.push(actorId);
   const limit = values.push(pageSize), offset = values.push(page * pageSize);
-  const data = await pool.query(`${filtered} SELECT * FROM filtered ORDER BY "createdAt" DESC,id DESC LIMIT $${limit} OFFSET $${offset}`, values);
+  const data = await pool.query(`${filtered} SELECT *,
+    (COALESCE("deliveryStatus"='read',false) OR EXISTS(
+      SELECT 1 FROM omni_sms_reads r WHERE r.user_id=$${readActor} AND r.message_id=filtered.id
+    )) AS "isRead" FROM filtered ORDER BY "createdAt" DESC,id DESC LIMIT $${limit} OFFSET $${offset}`, values);
   return { messages: data.rows, total: count.rows[0].total, page, pageSize };
 }
 

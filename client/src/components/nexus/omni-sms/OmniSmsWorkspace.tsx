@@ -171,6 +171,23 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
     staleTime: 0,
   });
   const detailRecord = detailQuery.isError ? undefined : detailQuery.data;
+  const readRequests = useRef(new Set<string>());
+  useEffect(() => {
+    if (!detailRecord || detailRecord.direction !== "inbound" || detailRecord.isRead ||
+        detailRecord.deliveryStatus === "read") return;
+    const readKey = `${actorId}:${detailRecord.id}`;
+    if (readRequests.current.has(readKey)) return;
+    readRequests.current.add(readKey);
+    void apiRequest("POST", `/api/omni-sms/messages/${encodeURIComponent(detailRecord.id)}/read`)
+      .then(async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["omni-sms", "unread", actorId] }),
+          queryClient.invalidateQueries({ queryKey: ["omni-sms", "messages", actorId] }),
+          queryClient.invalidateQueries({ queryKey: ["omni-sms", "message", actorId] }),
+        ]);
+      })
+      .catch(() => { readRequests.current.delete(readKey); });
+  }, [detailRecord, actorId, queryClient]);
   const detailCountryMatches = !!detailRecord && (country === "UNASSIGNED"
     ? detailRecord.countryCode === null
     : detailRecord.countryCode === country);
@@ -406,7 +423,7 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
                 const attention = !!message.aiAlertLevel && message.aiAlertLevel !== "none";
                 return <button type="button" key={message.id} className={`nexus-signal-task-row sms-message-row ${active ? "is-selected bg-accent" : ""}`} onClick={() => { setSelectedId(message.id); setMobileDetail(true); setReplyText(""); setReplyError(""); setReplySuccess(false); onClearSelectedMessage?.(); }} aria-current={active ? "true" : undefined} data-testid={`sms-message-${message.id}`}>
                   <div className="flex items-start gap-2.5">
-                    <span className={`sms-unread-mark ${inbound && message.deliveryStatus !== "read" ? "is-unread" : ""}`} />
+                    <span className={`sms-unread-mark ${inbound && !message.isRead && message.deliveryStatus !== "read" ? "is-unread" : ""}`} />
                     <span className={`sms-direction-icon ${inbound ? "is-inbound" : "is-outbound"}`}>{inbound ? <ArrowDownLeft className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}</span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-medium">{name}</span><time className="shrink-0 text-[10px] text-muted-foreground">{readableDate(message.sentAt || message.createdAt, locale)}</time></span>
