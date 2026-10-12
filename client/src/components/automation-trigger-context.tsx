@@ -1,12 +1,13 @@
 import * as React from "react";
 import {
   AlertTriangle, Clock3, ClipboardList, Mail, MapPin,
-  MessageSquareText, RefreshCw, UserPlus, Zap, Sparkles,
+  MessageSquareText, RefreshCw, UserPlus, Zap, Sparkles, Paperclip, Activity,
 } from "lucide-react";
 import type { Translations } from "@/i18n/translations";
 import type { AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
 import { useI18n } from "@/i18n";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
+import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 
 export const triggerPresetIcons = {
   newEmail: Mail,
@@ -15,6 +16,8 @@ export const triggerPresetIcons = {
   statusChange: RefreshCw,
   negativeSentiment: AlertTriangle,
   contentAnalysis: Sparkles,
+  attachmentAnalysis: Paperclip,
+  metricMonitor: Activity,
   taskOverdue: Clock3,
   taskAssigned: ClipboardList,
 } as const;
@@ -25,8 +28,14 @@ export function AutomationTriggerContext({ preset, copy }: {
 }) {
   const { locale } = useI18n();
   const analysisCopy = getCommunicationAnalysisCopy(locale);
+  const unified = getUnifiedAutomationCopy(locale);
   const detail = preset.id === "contentAnalysis"
-    ? { source: analysisCopy.analysisSource, when: analysisCopy.analysisWhen } : copy.details[preset.id];
+    ? { source: analysisCopy.analysisSource, when: analysisCopy.analysisWhen }
+    : preset.id === "attachmentAnalysis"
+      ? { source: unified.attachmentInfo, when: unified.paused }
+      : preset.id === "metricMonitor"
+        ? { source: unified.metricInfo, when: unified.frequency }
+        : copy.details[preset.id];
   const Icon = triggerPresetIcons[preset.id];
 
   return (
@@ -35,7 +44,9 @@ export function AutomationTriggerContext({ preset, copy }: {
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
-        {preset.id === "contentAnalysis" ? analysisCopy.analysisTitle : copy.labels[preset.id]}
+        {preset.id === "contentAnalysis" ? analysisCopy.analysisTitle
+          : preset.id === "attachmentAnalysis" ? unified.attachment
+            : preset.id === "metricMonitor" ? unified.metric : copy.labels[preset.id]}
       </h3>
       <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
         <div className="flex gap-2 rounded-md border border-border/70 bg-background/80 p-2.5">

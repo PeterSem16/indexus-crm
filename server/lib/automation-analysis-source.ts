@@ -1,0 +1,106 @@
+import { and, eq } from "drizzle-orm";
+import { db } from "../db";
+import { storage } from "../storage";
+import { callRecordings, chatMessages, communicationMessages, taskComments, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
+import { analysisSourceMatches, type AnalysisChannel, type CommunicationAnalysisConfig } from "../../shared/automation-analysis";
+import { decryptTokenSafe, encryptTokenWithMarker } from "./token-crypto";
+import { getValidAccessToken } from "./ms365";
+import { canAccessTaskByPolicy } from "./task-contract";
+
+export type AnalysisSource = {
+  channel: AnalysisChannel; ownerUserId: string; senderEmail?: string | null;
+  text: string; message?: typeof communicationMessages.$inferSelect;
+  mailboxToken?: string;
+  systemMailboxCountry?: string;
+  mailboxEmail?: string;
+};
+export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string };
+
+export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEvent): Promise<AnalysisSource | null> {
+  if (!event.entityId || !rule.createdByUserId) return null;
+  const creator = await storage.getUser(rule.createdByUserId);
+  if (!creator?.isActive) return null;
+  const config = (rule.trigger as any).analysis as CommunicationAnalysisConfig;
+  let source: AnalysisSource | null = null;
+  if (event.module === "communication" && ["email.received", "sms.received"].includes(event.eventType)) {
+    const [message] = await db.select().from(communicationMessages).where(eq(communicationMessages.id, event.entityId));
+    if (!message || message.direction !== "inbound" || !["email", "sms"].includes(message.type)) return null;
+    let metadata: any = message.metadata || {};
+    if (typeof metadata === "string") { try { metadata = JSON.parse(metadata); } catch { metadata = {}; } }
+    const from = metadata.from?.emailAddress?.address || metadata.from?.address || metadata.senderEmail || (typeof metadata.from === "string" ? metadata.from : null);
+    const systemMailbox = metadata.mailboxSource?.kind === "system" ? metadata.mailboxSource : null;
+    const owner = systemMailbox ? `system:${systemMailbox.countryCode}` : metadata.mailboxSource?.ownerUserId || message.userId || "";
+    // Selecting a mailbox never grants a manager access to another person's private mail.
+    if (message.type === "email" && owner !== creator.id &&
+        !(["admin", "superadmin", "owner"].includes(creator.role) && owner &&
+          (!config.mailboxUserIds?.length || config.mailboxUserIds.includes(owner)))) return null;
+    if (message.type === "sms") {
+      const { getOmniSmsNotificationAudience } = await import("../omni-sms-service");
+      const audience = await getOmniSmsNotificationAudience(message.id);
+      if (!audience.some(user => user.id === creator.id)) return null;
+    }
+    source = { channel: message.type as AnalysisChannel, ownerUserId: owner, senderEmail: from, text: message.content || "", message,
+      ...(systemMailbox ? { systemMailboxCountry: systemMailbox.countryCode, mailboxEmail: systemMailbox.mailboxEmail } : {}) };
+  } else if (event.module === "communication" && event.eventType === "chat.received") {
+    const [message] = await db.select().from(chatMessages).where(eq(chatMessages.id, event.entityId));
+    if (!message || ![message.senderId, message.receiverId].includes(creator.id)) return null;
+    source = { channel: "chat", ownerUserId: message.receiverId, text: message.content };
+  } else if (event.module === "communication" && event.eventType === "task.body_received") {
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, event.entityId));
+    if (!task || !canAccessTaskByPolicy(creator, task)) return null;
+    source = { channel: "task", ownerUserId: creator.id, text: `${task.title}\n${task.description || ""}` };
+  } else if (event.module === "communication" && event.eventType === "task.message_received") {
+    const [comment] = await db.select().from(taskComments).where(eq(taskComments.id, event.entityId));
+    if (!comment) return null;
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, comment.taskId));
+    if (!task || !canAccessTaskByPolicy(creator, task)) return null;
+    source = { channel: "task", ownerUserId: creator.id, text: comment.content || "" };
+  } else if (event.module === "communication" && event.eventType === "voice.transcribed") {
+    const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, event.entityId));
+    if (!recording?.transcriptionText || recording.analysisStatus !== "completed") return null;
+    if (recording.userId !== creator.id && !["admin", "superadmin", "owner"].includes(creator.role)) return null;
+    // Only the existing authorized recording/transcription path can supply voice text.
+    source = { channel: "voice", ownerUserId: recording.userId, text: recording.transcriptionText };
+  }
+  return source && analysisSourceMatches(config, source) ? source : null;
+}
+
+export async function prepareSourceMailbox(source: AnalysisSource) {
+  if (!source.message?.externalId || !source.ownerUserId) throw new Error("analysis_mailbox_unavailable");
+  const connection = source.systemMailboxCountry
+    ? await storage.getSystemMs365Connection(source.systemMailboxCountry)
+    : await storage.getUserMs365Connection(source.ownerUserId);
+  if (!connection?.isConnected || !connection.accessToken) throw new Error("analysis_mailbox_unavailable");
+  if (source.systemMailboxCountry && (!source.mailboxEmail ||
+      source.mailboxEmail.toLowerCase() !== (connection as any).email?.toLowerCase())) throw new Error("analysis_mailbox_changed");
+  const token = await getValidAccessToken(decryptTokenSafe(connection.accessToken), connection.tokenExpiresAt,
+    connection.refreshToken ? decryptTokenSafe(connection.refreshToken) : null);
+  if (!token?.accessToken) throw new Error("analysis_mailbox_unavailable");
+  if (token.refreshed) {
+    const update = { accessToken: encryptTokenWithMarker(token.accessToken), tokenExpiresAt: token.expiresOn,
+      ...(token.refreshToken ? { refreshToken: encryptTokenWithMarker(token.refreshToken) } : {}) };
+    if (source.systemMailboxCountry) await storage.updateSystemMs365Connection(source.systemMailboxCountry, update);
+    else await storage.updateUserMs365Connection(source.ownerUserId, update);
+  }
+  source.mailboxToken = token.accessToken;
+}
+
+export async function mailboxRequest(source: AnalysisSource, suffix: string) {
+  if (!source.mailboxToken) await prepareSourceMailbox(source);
+  if (!source.message?.externalId) throw new Error("analysis_mailbox_unavailable");
+  const mailboxPath = source.systemMailboxCountry ? `/users/${encodeURIComponent(source.mailboxEmail!)}` : "/me";
+  const response = await fetch(`https://graph.microsoft.com/v1.0${mailboxPath}/messages/${encodeURIComponent(source.message.externalId)}${suffix}`,
+    { headers: { Authorization: `Bearer ${source.mailboxToken}` }, signal: AbortSignal.timeout(30000) });
+  if (!response.ok) throw new Error("analysis_mailbox_request_failed");
+  return response.json();
+}
+
+export async function listSourceAttachments(source: AnalysisSource): Promise<SourceAttachment[]> {
+  if (source.channel !== "email") return [];
+  const result = await mailboxRequest(source, "/attachments");
+  if (!Array.isArray(result.value) || result["@odata.nextLink"]) throw new Error("analysis_attachment_limit");
+  return result.value.filter((attachment: any) => !attachment.isInline).map((attachment: any) => ({
+    id: attachment.id, name: attachment.name, contentType: attachment.contentType, size: attachment.size,
+    contentBytes: attachment.contentBytes,
+  }));
+}

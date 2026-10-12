@@ -24,6 +24,9 @@ import {
   fieldsForEvent, operatorsForEvent, validateRuleCapabilities, SCHEDULE_INTERVALS,
   SCHEDULE_RECORD_MODULES, SCHEDULE_MAX_MATCHES,
 } from "./automation-capabilities";
+import { METRIC_TYPES } from "../../shared/automation-analysis";
+import { registerReviewedTransitionRoutes, isUnreviewedReplacement } from "./automation-reviewed-transition";
+import { users, userMs365Connections, systemMs365Connections } from "../../shared/schema";
 import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
 import { storage } from "../storage";
 import { resolve } from "node:path";
@@ -59,6 +62,15 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  registerReviewedTransitionRoutes(app, requireAutomationAdmin);
+  app.get("/api/automation/analysis-mailboxes", requireAutomationAdmin, async (_req, res) => {
+    const personal = await db.select({ id: users.id, name: users.fullName })
+      .from(userMs365Connections).innerJoin(users, eq(users.id, userMs365Connections.userId))
+      .where(and(eq(userMs365Connections.isConnected, true), eq(users.isActive, true)));
+    const shared = await db.select().from(systemMs365Connections).where(eq(systemMs365Connections.isConnected, true));
+    res.json([...personal.map(owner => ({ id: owner.id, name: owner.name || owner.id })),
+      ...shared.map(mailbox => ({ id: `system:${mailbox.countryCode}`, name: `${mailbox.email} · ${mailbox.countryCode}` }))]);
+  });
   registerAssignOwnerRoutes(app, requireAutomationDesigner, requireAuth);
   registerUpdateRecordRoutes(app, requireAutomationDesigner);
   registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
@@ -186,6 +198,9 @@ export function registerAutomationRoutes(app: Express) {
     if (capabilityIssues.length) return res.status(400).json({ error: "Unsupported capability", details: capabilityIssues });
     const userId = getSessionUser(req)!.id;
     const countryScope = { ...parsed.data };
+    if ((countryScope.trigger as any)?.analysis) countryScope.trigger = {
+      ...(countryScope.trigger as object), listenAfter: new Date().toISOString(),
+    };
     try {
       const owner = await updateRecordOwner(userId);
       for (const action of parsed.data.actions as any[]) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
@@ -211,10 +226,18 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   app.patch("/api/automation/rules/:id", requireAutomationAdmin, async (req, res) => {
+    if (req.body.enabled === true && await isUnreviewedReplacement(req.params.id))
+      return res.status(409).json({ error: "Activate this replacement through the reviewed transition; the original is still unchanged" });
     if ("createdByUserId" in req.body)
       return res.status(400).json({ error: "The rule author cannot be changed" });
     const partial = insertWorkflowRuleSchema.partial().safeParse(req.body);
     if (!partial.success) return res.status(400).json({ error: "Invalid", details: partial.error.errors });
+    if (partial.data.enabled === true) {
+      const [current] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id));
+      const trigger: any = partial.data.trigger || current?.trigger;
+      if (current && !current.enabled && trigger?.analysis)
+        partial.data.trigger = { ...trigger, listenAfter: new Date().toISOString() };
+    }
     if ("countryCodes" in partial.data && partial.data.countryCodes === null) partial.data.countryCode = null;
     if (partial.data.actions !== undefined) {
       const actionIssues = validateAutomationActions(partial.data.actions, "manual");
@@ -447,12 +470,13 @@ export function registerAutomationRoutes(app: Express) {
   /* -------- TRIGGER / ACTION CATALOGUE (for UI dropdowns) -------- */
   app.get("/api/automation/catalog", requireAuth, async (_req, res) => {
     res.json({
-      // Existing managed services have their own executors and persisted rule shapes.
-      // Listing them here does not register a second handler or duplicate delivery.
-      managedServices: [
-        { id: "notification_rules", label: "Notification rules", executor: "notification_rules", configApi: "/api/notification-rules" },
-        { id: "metric_alerts", label: "Metric alerts", executor: "alert_evaluator", configApi: "/api/alert-rules" },
+      managedServices: [],
+      analysisServices: [
+        { id: "communication_analysis", label: "Communication content and sentiment analysis" },
+        { id: "attachment_analysis", label: "Email attachment classification" },
+        { id: "metric_monitor", label: "Metric monitoring" },
       ],
+      metricTypes: METRIC_TYPES.map(value => ({ value, label: value })),
       modules: Object.entries(MODULE_LABELS).map(([value, label]) => ({ value, label })),
       schedule: {
         intervals: SCHEDULE_INTERVALS,
@@ -471,6 +495,8 @@ export function registerAutomationRoutes(app: Express) {
         { value: "sms.received", label: "New inbound SMS" },
         { value: "sentiment.negative", label: "Negative sentiment in inbound message" },
         { value: "communication.analyzed", label: "Content and sentiment analysis completed" },
+        { value: "communication.received", label: "Analyze selected communication" },
+        { value: "metric.threshold", label: "Metric threshold reached" },
         { value: "task.assigned", label: "Task assigned to a user" },
         { value: "task.completed", label: "Task completed" },
         { value: "task.overdue", label: "Task became overdue (auto)" },

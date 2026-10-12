@@ -29,7 +29,7 @@ const frequencyInMs: Record<CheckFrequency, number> = {
   'weekly': 7 * 24 * 60 * 60 * 1000
 };
 
-async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): Promise<number> {
+export async function evaluateMetric(metricType: MetricType, countryCodes?: string[]): Promise<number> {
   // Helper to add country filter to collection queries
   const getCollectionCountryCondition = () => {
     if (countryCodes?.length) {
@@ -307,6 +307,10 @@ function getOperatorLabel(operator: string): string {
 }
 
 export async function evaluateAlerts(): Promise<void> {
+  try { await (await import("./lib/automation-metric-services")).evaluateMetricServices(); }
+  catch { console.error("[Automation] metric services evaluation failed"); }
+  void import("./lib/automation-analysis-ingress").then(module => module.pollAnalysisMailboxes())
+    .catch(() => console.error("[Automation] analysis mailbox observer unavailable"));
   try {
     const activeRules = await storage.getActiveAlertRules();
     

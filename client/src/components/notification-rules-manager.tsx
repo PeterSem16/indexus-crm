@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n";
 import { getNotificationAlertCopy } from "@/components/notification-alert-copy";
 import { NotificationConditionPicker } from "@/components/notification-condition-picker";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
+import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,12 +41,14 @@ const audienceOptions = [
   { value: "specific_users", icon: UserRound }, { value: "assignee", icon: UserRound },
 ];
 
-export function NotificationRulesManager({ onCreateAutomation }: {
+export function NotificationRulesManager({ onCreateAutomation, onConvertForReview }: {
   onCreateAutomation?: (draft?: NotificationRuleDraft, actionType?: NotificationAutomationActionType) => void;
+  onConvertForReview?: (rule: Rule) => void;
 }) {
   const { locale } = useI18n();
   const copy = getNotificationAlertCopy(locale);
   const analysisCopy = getCommunicationAnalysisCopy(locale);
+  const unifiedCopy = getUnifiedAutomationCopy(locale);
   const { toast } = useToast();
   const [queryText, setQueryText] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
@@ -160,6 +163,7 @@ export function NotificationRulesManager({ onCreateAutomation }: {
                 {(rule.sendEmail || rule.sendSms) && <p className="mt-1 flex items-start gap-1.5 text-xs text-amber-800"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{copy.unsupported}</p>}
               </div>
               <div className="flex shrink-0 items-center gap-1 self-end sm:self-start">
+                {onConvertForReview && <Button size="sm" variant="outline" className="mr-1" onClick={() => onConvertForReview(rule)} data-testid={`convert-notification-review-${rule.id}`}>{unifiedCopy.review}</Button>}
                 <Switch checked={rule.isActive} disabled={toggle.isPending} data-testid={`toggle-rule-${rule.id}`} aria-label={`${copy.active}: ${rule.name}`} onCheckedChange={isActive => toggle.mutate({ id: rule.id, isActive })} />
                 <Button variant="ghost" size="icon" aria-label={`${copy.edit}: ${rule.name}`} data-testid={`edit-rule-${rule.id}`} onClick={() => startEdit(rule)}><Pencil className="h-4 w-4" /></Button>
                 <Button variant="ghost" size="icon" aria-label={`${copy.delete}: ${rule.name}`} data-testid={`delete-rule-${rule.id}`} onClick={() => setDeleting(rule)}><Trash2 className="h-4 w-4" /></Button>

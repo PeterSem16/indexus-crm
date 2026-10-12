@@ -39378,6 +39378,8 @@ Rules:
       }).where(eq(callRecordings.id, recordingId));
     } finally {
       activeRecordingAnalyses.delete(recordingId);
+      void import("./lib/automation-communication-sources").then(module => module.publishCommunicationServiceSource("voice", recordingId))
+        .catch(() => console.error("[Automation] voice source event unavailable"));
     }
   }
 

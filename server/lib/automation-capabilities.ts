@@ -11,7 +11,8 @@ import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "@shared/automation-u
 export const MODULE_EVENTS: Record<string, string[]> = {
   customer: ["created", "updated", "status_changed"],
   task: ["created", "updated", "status_changed", "task.assigned", "task.completed", "task.overdue"],
-  communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed"],
+  communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed", "communication.received"],
+  metric: ["metric.threshold"],
   contract: ["created", "updated", "status_changed", "contract.completed", "contract.cancelled"],
   hospital: ["created", "updated"],
   clinic: ["created", "updated"],
@@ -30,10 +31,12 @@ export const MODULE_LABELS: Record<string, string> = {
   customer: "Customer", task: "Task", contract: "Contract", hospital: "Hospital",
   clinic: "Clinic", collaborator: "Collaborator", invoice: "Invoice", call: "Call",
   communication: "Communications and analyzed text",
+  metric: "Metric monitoring",
   collection: "Collection", campaign: "Mission", product: "Product",
 };
 
 import { assignOwnerIssues } from "../../shared/automation-assign-owner";
+import { ANALYSIS_FIELDS, analysisConfigIssues, METRIC_TYPES, METRIC_FREQUENCIES } from "../../shared/automation-analysis";
 
 export const ACTION_TARGETS: Record<string, string[] | null> = {
   create_task: null,
@@ -98,6 +101,10 @@ export const RECIPIENT_TEMPLATES: Record<string, Record<string, string[]>> = {
 };
 
 export const FIELD_OPTIONS: Record<string, { value: string; label: string; type: string; options?: string[] }[]> = {
+  metric: [
+    { value: "newValues.value", label: "Metric value", type: "number" },
+    { value: "newValues.metricType", label: "Metric", type: "string", options: [...METRIC_TYPES] },
+  ],
   communication: [
     { value: "newValues.type", label: "Source", type: "string", options: ["email", "sms", "inbound_call", "outbound_call", "task"] },
     { value: "newValues.customerId", label: "Linked contact ID", type: "string" },
@@ -362,13 +369,19 @@ for (const module of RECORD_TAG_ENTITY_TYPES) {
   );
 }
 
-export function fieldsForEvent(module: string, event: string) {
+export function fieldsForEvent(module: string, event: string): { value: string; label: string; type: string; options?: string[] }[] {
   if (event === "schedule.tick")
     return [...(SCHEDULE_RECORD_FIELDS[module] || []).flatMap(value =>
       (FIELD_OPTIONS[module] || []).filter(field => field.value === value)),
       ...(SCHEDULE_RECORD_MODULES.includes(module) ? FIELD_OPTIONS[module].filter(field => field.value === "newValues.tags") : [])];
   if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])];
   if (module === "communication") {
+    if (event === "communication.received") return [
+      ...ANALYSIS_FIELDS.map(field => ({ value: field.value, label: field.label, type: field.type,
+        ...("options" in field ? { options: Array.from(field.options as readonly string[]) } : {}) })),
+      { value: "newValues.type", label: "Communication channel", type: "string", options: ["email", "sms", "voice", "task", "chat"] },
+      { value: "countryCode", label: "Country", type: "string", options: COUNTRIES.map(country => country.code) },
+    ];
     const payloadFields = ["sentiment.negative", "communication.analyzed"].includes(event)
       ? ["newValues.type", "newValues.sentiment", "newValues.provider", "newValues.alertLevel",
         "newValues.hasAngryTone", "newValues.hasRudeExpressions", "newValues.wantsToCancel",
@@ -469,6 +482,16 @@ export function validateRuleCapabilities(rule: {
     event = trigger.eventType;
     if (trigger.entityType !== rule.module) fail("trigger.entityType", "Entity must match module");
     if (!events?.includes(event)) fail("trigger.eventType", "Event is not emitted by this module");
+    if (event === "communication.received") {
+      for (const message of analysisConfigIssues(trigger.analysis)) fail("trigger.analysis", message);
+    } else if (trigger.analysis !== undefined) fail("trigger.analysis", "Analysis requires a communication service source");
+    if (event === "metric.threshold") {
+      const metric = trigger.metric;
+      if (!record(metric) || !METRIC_TYPES.includes(metric.metricType) ||
+          !(metric.checkFrequency in METRIC_FREQUENCIES) || !Number.isInteger(metric.cooldownMinutes) ||
+          metric.cooldownMinutes < 0 || metric.cooldownMinutes > 10080)
+        fail("trigger.metric", "Choose a supported metric, frequency and cooldown");
+    }
     if (trigger.assignmentTarget != null &&
       (rule.module !== "task" || event !== "task.assigned" || !isTaskAssignmentTriggerTarget(trigger.assignmentTarget))) {
       fail("trigger.assignmentTarget", "Assignment target must select task groups or users for task.assigned");

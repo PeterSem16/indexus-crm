@@ -6,6 +6,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useI18n } from "@/i18n";
 import { getMetricAlertLabel, getNotificationAlertCopy } from "@/components/notification-alert-copy";
+import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,9 +35,10 @@ const blank: AlertForm = {
   notificationPriority: "high", cooldownMinutes: 60, targetType: "all", targetRoles: [], targetUserIds: [], countryCodes: [], isActive: true,
 };
 
-export function AlertRulesManager() {
+export function AlertRulesManager({ onConvertForReview }: { onConvertForReview?: (rule: AlertRule) => void }) {
   const { locale } = useI18n();
   const copy = getNotificationAlertCopy(locale);
+  const unifiedCopy = getUnifiedAutomationCopy(locale);
   const { toast } = useToast();
   const [queryText, setQueryText] = useState("");
   const [editing, setEditing] = useState<AlertRule | null>(null);
@@ -132,6 +134,7 @@ export function AlertRulesManager() {
             {rule.lastCheckedAt && <p className="mt-1 text-xs text-muted-foreground">{copy.frequency}: {new Date(rule.lastCheckedAt).toLocaleString(locale)}</p>}
           </div>
           <div className="flex shrink-0 items-center gap-1 self-end sm:self-start">
+            {onConvertForReview && <Button size="sm" variant="outline" className="mr-1" onClick={() => onConvertForReview(rule)} data-testid={`convert-metric-review-${rule.id}`}>{unifiedCopy.review}</Button>}
             <Switch checked={rule.isActive} disabled={toggle.isPending} onCheckedChange={() => toggle.mutate(rule.id)} aria-label={`${copy.active}: ${rule.name}`} />
             <Button size="icon" variant="ghost" onClick={() => edit(rule)} data-testid={`edit-alert-rule-${rule.id}`} aria-label={`${copy.edit}: ${rule.name}`}><Pencil className="h-4 w-4" /></Button>
             <Button size="icon" variant="ghost" onClick={() => setDeleting(rule)} data-testid={`delete-alert-rule-${rule.id}`} aria-label={`${copy.delete}: ${rule.name}`}><Trash2 className="h-4 w-4" /></Button>

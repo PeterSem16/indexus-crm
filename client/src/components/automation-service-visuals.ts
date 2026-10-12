@@ -1,7 +1,7 @@
 import {
-  Bell, ClipboardList, Mail, MessageSquare, Webhook, Wrench,
+  Bell, ClipboardList, Mail, MessageSquare, Webhook, Wrench, Sparkles, Paperclip, Activity,
   UserRoundCheck, Tag, PhoneIncoming, PhoneOutgoing, PhoneMissed,
-  PhoneCall, Clock3, Sparkles, AlertTriangle, type LucideIcon,
+  PhoneCall, Clock3, AlertTriangle, type LucideIcon,
 } from "lucide-react";
 
 type Visual = { icon: LucideIcon; accent: string; tile: string; border: string };
@@ -40,6 +40,9 @@ export const serviceVisuals: Record<string, Visual> = {
   unanswered_followup_task: { icon: ClipboardList, ...amber },
   notification_rules: { icon: Bell, ...amber },
   metric_alerts: { icon: AlertTriangle, ...rose },
+  communication_analysis: { icon: Sparkles, ...violet },
+  attachment_analysis: { icon: Paperclip, ...cyan },
+  metric_monitor: { icon: Activity, ...amber },
 };
 
 export const serviceVisual = (id: string): Visual => serviceVisuals[id] || { icon: Sparkles, ...violet };

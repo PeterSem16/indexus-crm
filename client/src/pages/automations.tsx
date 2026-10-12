@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,7 +22,9 @@ import { AutomationServiceCatalog, type ServiceCatalogData, type ServiceId, type
 import { serviceVisual } from "@/components/automation-service-visuals";
 import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
-import { notificationAutomationDraft } from "@/lib/notification-automation-draft";
+import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation-unified-copy";
+import { createAnalysisServiceDraft, createMetricServiceDraft, ANALYSIS_RESULT_FIELDS, type AnalysisServiceId } from "@/lib/automation-unified-service";
+import { getMetricAlertLabel } from "@/components/notification-alert-copy";
 import { SENTIMENT_CHANNELS, readSentimentSources, withSentimentSources, type AutomationCondition, type SentimentChannel } from "@/lib/sentiment-source-conditions";
 import { SentimentSourcePicker } from "@/components/sentiment-source-picker";
 import { AutomationTriggerContext, triggerPresetIcons } from "@/components/automation-trigger-context";
@@ -157,7 +160,7 @@ type RuleDraft = {
   countryCodes: string[] | null;
   enabled: boolean;
   trigger:
-    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget }
+    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any }
     | { type: "schedule"; interval: string; mode?: "once" | "per_record" };
   conditions: ConditionNode | null;
   actions: ActionNode[];
@@ -239,22 +242,15 @@ export default function AutomationsPage() {
     window.history.replaceState({}, "", "/automations");
   }, []);
 
-  const [topTab, setTopTab] = useState<"assistant" | "services" | "rules" | "runs" | "notifications">(
-    new URLSearchParams(window.location.search).get("tab") === "notifications" ? "notifications"
-      : "services");
-  const [managedTab, setManagedTab] = useState<"notification-rules" | "alert-rules">(
-    new URLSearchParams(window.location.search).get("section") === "alert-rules" ? "alert-rules" : "notification-rules");
+  const legacyTab = new URLSearchParams(window.location.search).get("tab") === "notifications";
+  const [topTab, setTopTab] = useState<"assistant" | "services" | "rules" | "runs">(legacyTab ? "rules" : "services");
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (topTab === "notifications") {
-      url.searchParams.set("tab", "notifications");
-      url.searchParams.set("section", managedTab);
-    } else {
-      url.searchParams.delete("tab");
-      url.searchParams.delete("section");
-    }
+    if (url.searchParams.get("tab") === "notifications") url.searchParams.set("tab", "rules");
+    if (url.searchParams.get("tab") === "rules") url.searchParams.delete("tab");
+    url.searchParams.delete("section");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-  }, [topTab, managedTab]);
+  }, [topTab]);
   const rulesQ = useQuery<Rule[]>({ queryKey: ["/api/automation/rules"] });
   const catalogQ = useQuery<Catalog>({ queryKey: ["/api/automation/catalog"] });
   const usersQ = useQuery<UserOpt[]>({ queryKey: ["/api/automation/users"] });
@@ -292,6 +288,25 @@ export default function AutomationsPage() {
     onError: (e: any) => toast({ title: "Failed", description: e?.message, variant: "destructive" }),
   });
 
+  const legacyDraftMut = useMutation({
+    mutationFn: async ({ kind, id }: { kind: "notification" | "metric"; id: string }) =>
+      apiRequest("POST", `/api/automation/legacy/${kind}/${id}/draft`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/rules"] });
+      toast({ title: getUnifiedAutomationCopy(locale).reviewSuccess });
+    },
+    onError: () => toast({ title: getUnifiedAutomationCopy(locale).reviewError, variant: "destructive" }),
+  });
+  const activateReviewedMut = useMutation({
+    mutationFn: async (rule: Rule) => apiRequest("POST", `/api/automation/rules/${rule.id}/activate-reviewed`),
+    onSuccess: (_result, rule) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/automation/rules"] });
+      queryClient.invalidateQueries({ queryKey: [rule.trigger?.legacySource?.kind === "metric" ? "/api/alert-rules" : "/api/notification-rules"] });
+      toast({ title: getUnifiedAutomationCopy(locale).activateSuccess });
+    },
+    onError: () => toast({ title: getUnifiedAutomationCopy(locale).activateError, variant: "destructive" }),
+  });
+
   const toggleEnabled = (rule: Rule) =>
     updateMut.mutate({ id: rule.id, data: { enabled: !rule.enabled } });
 
@@ -323,9 +338,6 @@ export default function AutomationsPage() {
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as any)}>
         <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="services" data-testid="tab-automation-services">{t.automationServices.servicesTab}</TabsTrigger>
-          <TabsTrigger value="notifications" data-testid="tab-automation-notifications">
-            <Bell className="h-3.5 w-3.5 mr-1" />{t.automationServices.managed.heading}
-          </TabsTrigger>
           <TabsTrigger value="assistant" data-testid="tab-automation-assistant">
             <Sparkles className="h-3.5 w-3.5 mr-1" />{t.automationDraft.button}
           </TabsTrigger>
@@ -338,19 +350,42 @@ export default function AutomationsPage() {
         <TabsContent value="services" className="pt-4">
           {catalogQ.isLoading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
           {catalogQ.isError && <p className="text-sm text-destructive">{String(catalogQ.error)}</p>}
-          {catalogQ.data && <AutomationServiceCatalog catalog={catalogQ.data} onManage={(id) => {
-            setManagedTab(id === "metric_alerts" ? "alert-rules" : "notification-rules");
-            setTopTab("notifications");
-          }} onSelectTrigger={(preset) => {
+          {catalogQ.data && <AutomationServiceCatalog catalog={catalogQ.data} onSelectTrigger={(preset) => {
+            const unified = getUnifiedAutomationCopy(locale);
             const title = preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
-              : t.automationServices.triggerPresets.labels[preset.id];
+              : preset.id === "attachmentAnalysis" ? unified.attachment
+                : preset.id === "metricMonitor" ? unified.metric
+                  : t.automationServices.triggerPresets.labels[preset.id];
             setNewService(null);
-            setPrefillDraft(chooseTriggerPreset({
+            const draft = preset.id === "contentAnalysis" || preset.id === "attachmentAnalysis"
+              ? createAnalysisServiceDraft(preset.id === "attachmentAnalysis" ? "attachment_analysis" : "communication_analysis", title,
+                preset.id === "attachmentAnalysis" ? unified.attachmentInfo : getCommunicationAnalysisCopy(locale).analysisDescription)
+              : preset.id === "metricMonitor"
+                ? createMetricServiceDraft({
+                  name: title, description: unified.metricInfo, metricType: catalogQ.data?.metricTypes?.[0]?.value || "pending_lab_results",
+                  checkFrequency: "daily", cooldownMinutes: 60, threshold: 0,
+                })
+                : chooseTriggerPreset({
               ...EMPTY_DRAFT(),
               name: title,
-              enabled: preset.id === "contentAnalysis" ? false : true,
+              enabled: true,
               actions: [{ type: "notify_user", config: { notificationActionVersion: 2, title } }],
-            }, preset));
+            }, preset);
+            setPrefillDraft(draft);
+            setShowCreate(true);
+          }} onSelectAnalysis={(id: AnalysisServiceId) => {
+            const unified = getUnifiedAutomationCopy(locale);
+            setNewService(null);
+            if (id === "metric_monitor") {
+              const metric = catalogQ.data?.metricTypes?.[0]?.value || "pending_lab_results";
+              setPrefillDraft(createMetricServiceDraft({
+                name: unified.metric, description: unified.metricInfo, metricType: metric,
+                checkFrequency: "daily", cooldownMinutes: 60, threshold: 0,
+              }));
+            } else {
+              setPrefillDraft(createAnalysisServiceDraft(id, id === "communication_analysis" ? unified.communication : unified.attachment,
+                id === "communication_analysis" ? unified.communicationInfo : unified.attachmentInfo));
+            }
             setShowCreate(true);
           }} onSelect={(service) => {
             setPrefillDraft(null);
@@ -383,52 +418,12 @@ export default function AutomationsPage() {
           }} />}
         </TabsContent>
 
-        <TabsContent value="notifications" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t.automationServices.managed.heading}</CardTitle>
-              <CardDescription>{t.automationServices.managed.info}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs value={managedTab} onValueChange={(value) => setManagedTab(value as typeof managedTab)}>
-                <TabsList className="h-auto flex-wrap justify-start">
-                  <TabsTrigger value="notification-rules" data-testid="subtab-notification-rules">
-                    <Bell className="h-4 w-4 mr-2" />{t.automationServices.managed.notificationTitle}
-                  </TabsTrigger>
-                  <TabsTrigger value="alert-rules" data-testid="subtab-alert-rules">
-                    <AlertTriangle className="h-4 w-4 mr-2" />{t.automationServices.managed.alertTitle}
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="notification-rules"><NotificationRulesManager onCreateAutomation={(source, actionType = "notify_user") => {
-                  const copy = getCommunicationAnalysisCopy(locale);
-                  try {
-                    const next = source ? notificationAutomationDraft(source, actionType) : {
-                      ...EMPTY_DRAFT(), name: copy.analysisTitle, module: "communication", enabled: false,
-                      trigger: { type: "event" as const, entityType: "communication", eventType: "communication.analyzed" },
-                      actions: [{ type: actionType, config: { notificationActionVersion: 2, title: copy.analysisTitle } }],
-                    };
-                    setNewService(null);
-                    setPrefillDraft({ ...EMPTY_DRAFT(), ...next });
-                    setTopTab("rules");
-                    setShowCreate(true);
-                    toast({ title: copy.generalAutomation.title, description: copy.conversionDescription });
-                  } catch {
-                    toast({ title: copy.conversionUnavailable, variant: "destructive" });
-                  }
-                }} /></TabsContent>
-                <TabsContent value="alert-rules">
-                  <Suspense fallback={<Loader2 className="h-6 w-6 animate-spin" />}><AlertRulesManager /></Suspense>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="assistant" className="pt-4">
           <AutomationDraftAssistant />
         </TabsContent>
 
         <TabsContent value="rules" className="pt-4">
+          <div className="space-y-8">
       {rulesQ.isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -444,6 +439,7 @@ export default function AutomationsPage() {
                       {rule.name}
                       {rule.isSystem && <Badge variant="secondary">system</Badge>}
                       {!rule.enabled && <Badge variant="outline">disabled</Badge>}
+                      {rule.trigger?.legacySource && <Badge variant="secondary">{getUnifiedAutomationCopy(locale).legacy}</Badge>}
                       {rule.disabledReason && (
                         <Badge variant="destructive" data-testid={`badge-auto-disabled-${rule.id}`}>
                           auto-disabled
@@ -471,6 +467,7 @@ export default function AutomationsPage() {
                   </div>
                   <Switch
                     checked={rule.enabled}
+                    disabled={!!(rule.trigger?.legacySource && !rule.trigger.legacySource.reviewActivatedAt)}
                     onCheckedChange={() => toggleEnabled(rule)}
                     data-testid={`switch-enabled-${rule.id}`}
                   />
@@ -487,6 +484,14 @@ export default function AutomationsPage() {
                   <Badge variant="outline">{(rule.actions || []).length} action(s)</Badge>
                 </div>
                 <div className="flex gap-2">
+                  {rule.trigger?.legacySource && !rule.trigger.legacySource.reviewActivatedAt && (
+                    <Button size="sm" onClick={() => {
+                      if (window.confirm(getUnifiedAutomationCopy(locale).confirmReviewedActivation)) activateReviewedMut.mutate(rule);
+                    }}
+                      disabled={activateReviewedMut.isPending} data-testid={`button-activate-reviewed-${rule.id}`}>
+                      {getUnifiedAutomationCopy(locale).activateReviewed}
+                    </Button>
+                  )}
                   <Button size="sm" variant="outline" onClick={() => setEditing(rule)} data-testid={`button-edit-${rule.id}`}>
                     Edit
                   </Button>
@@ -534,6 +539,20 @@ export default function AutomationsPage() {
           )}
         </div>
       )}
+            <section className="space-y-5 border-t border-border/70 pt-7" data-testid="legacy-rules-review">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">INDEXUS / Rules</p>
+                <h2 className="mt-1 text-xl font-semibold">{t.automationServices.managed.heading}</h2>
+                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{getUnifiedAutomationCopy(locale).reviewHint}</p>
+              </div>
+              <NotificationRulesManager
+                onConvertForReview={(rule) => legacyDraftMut.mutate({ kind: "notification", id: rule.id })}
+              />
+              <Suspense fallback={<div className="h-24 animate-pulse rounded-xl bg-muted/70" />}>
+                <AlertRulesManager onConvertForReview={(rule) => legacyDraftMut.mutate({ kind: "metric", id: rule.id })} />
+              </Suspense>
+            </section>
+          </div>
         </TabsContent>
 
         <TabsContent value="runs" className="pt-4">
@@ -616,6 +635,9 @@ function RuleEditor({
   const { toast } = useToast();
   const { t, locale } = useI18n();
   const countryNames = useMemo(() => new Intl.DisplayNames([locale], { type: "region" }), [locale]);
+  const { data: analysisMailboxes = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: ["/api/automation/analysis-mailboxes"], enabled: open,
+  });
   const [emailDraftInvalidByAction, setEmailDraftInvalidByAction] = useState<Record<number, boolean>>({});
   const [draft, setDraft] = useState<RuleDraft>(() =>
     rule
@@ -674,8 +696,14 @@ function RuleEditor({
   }, [tab]);
 
   const selectedEvent = draft.trigger.type === "event" ? draft.trigger.eventType : "schedule.tick";
+  const analysisConfig = draft.trigger.type === "event" ? draft.trigger.analysis : undefined;
   const selectedPreset = draft.trigger.type === "event"
-    ? AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === selectedEvent)
+    ? draft.module === "metric" ? AUTOMATION_TRIGGER_PRESETS.find(preset => preset.id === "metricMonitor")
+      : selectedEvent === "communication.received" && analysisConfig?.analyzeAttachments
+        ? AUTOMATION_TRIGGER_PRESETS.find(preset => preset.id === "attachmentAnalysis")
+        : selectedEvent === "communication.received" && analysisConfig
+          ? AUTOMATION_TRIGGER_PRESETS.find(preset => preset.id === "contentAnalysis")
+          : AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === selectedEvent)
     : undefined;
   const sentimentRule = isNegativeSentimentRule(draft);
   const sentimentSources = sentimentRule ? readSentimentSources(draft.conditions as AutomationCondition | null) : null;
@@ -698,7 +726,28 @@ function RuleEditor({
     if (!next.length) return;
     setDraft({ ...draft, conditions: withSentimentSources(next, sentimentSources.extra) as ConditionNode });
   };
-  const fieldsForModule = catalog.fieldsByEvent?.[draft.module]?.[selectedEvent] || [];
+  const updateAnalysisConfig = (patch: Record<string, any>) => {
+    if (draft.trigger.type !== "event") return;
+    setDraft({ ...draft, trigger: { ...draft.trigger, analysis: { ...draft.trigger.analysis, ...patch } } });
+  };
+  const updateMetricConfig = (patch: Record<string, any>) => {
+    if (draft.trigger.type !== "event") return;
+    setDraft({ ...draft, trigger: { ...draft.trigger, metric: { ...draft.trigger.metric, ...patch } } });
+  };
+  const analysisFields = ANALYSIS_RESULT_FIELDS.map(value => ({
+    value,
+    label: value.replace(/^analysis\./, "").replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`),
+    type: ["analysis.wantsToCancel", "analysis.hasInvoice"].includes(value) ? "boolean"
+      : ["analysis.invoiceCount", "analysis.failedAttachmentCount"].includes(value) ? "number"
+        : ["analysis.sentiment", "analysis.tone"].includes(value) ? "enum" : "string",
+    options: value === "analysis.sentiment" ? ["positive", "neutral", "negative", "angry"]
+      : value === "analysis.tone" ? ["calm", "concerned", "angry", "rude"] : undefined,
+  }));
+  const fieldsForModule = [
+    ...(catalog.fieldsByEvent?.[draft.module]?.[selectedEvent] || []),
+    ...(draft.module === "communication" && analysisConfig ? analysisFields : []),
+    ...(draft.module === "metric" ? [{ value: "newValues.value", label: "Metric value", type: "number" }] : []),
+  ];
   const schedulePreviewInput = useMemo(() => JSON.stringify({
     module: draft.module,
     trigger: draft.trigger.type === "schedule"
@@ -742,11 +791,35 @@ function RuleEditor({
   const fieldsForConditions = selectedPreset && selectedPreset.id !== "contentAnalysis" && draft.module === "communication" && !hasChannelCondition(visibleConditions)
     ? fieldsForModule.filter(field => field.value !== "newValues.type")
     : fieldsForModule;
-  const eventsForModule = catalog.eventTypes.filter(e => e.availableIn.includes(draft.module));
+  const eventsForModule = [
+    ...catalog.eventTypes.filter(e => e.availableIn.includes(draft.module)),
+    ...(draft.module === "metric" && !catalog.eventTypes.some(event => event.value === "metric.threshold")
+      ? [{ value: "metric.threshold", label: getUnifiedAutomationCopy(locale).metric, availableIn: ["metric"], changeSnapshot: false }]
+      : []),
+    ...(draft.module === "communication" && draft.trigger.type === "event" && draft.trigger.analysis &&
+      !catalog.eventTypes.some(event => event.value === "communication.received")
+      ? [{ value: "communication.received", label: getCommunicationAnalysisCopy(locale).analysisTitle, availableIn: ["communication"], changeSnapshot: false }]
+      : []),
+  ];
+  const editorModules = [
+    ...catalog.modules,
+    ...(!catalog.modules.some(module => module.value === "metric") ? [{ value: "metric", label: getUnifiedAutomationCopy(locale).metric }] : []),
+  ];
   const actionsForModule = catalog.actionTypes.filter(a => a.availableIn.includes(draft.module));
+  if (draft.module === "metric" && !actionsForModule.some(action => action.value === "notify_user")) {
+    const notifyAction = catalog.actionTypes.find(action => action.value === "notify_user");
+    if (notifyAction) actionsForModule.push(notifyAction);
+  }
+  const operatorsForModule = [
+    ...catalog.operators.filter(operator => operator.availableIn.includes(draft.module)),
+    ...(draft.module === "metric" && !catalog.operators.some(operator => operator.value === "gte" && operator.availableIn.includes("metric"))
+      ? [{ ...(catalog.operators.find(operator => operator.value === "gte") || { value: "gte", label: "at least", arity: 1 }), availableIn: ["metric"] }]
+      : []),
+  ];
   const moduleNames = (ids: string[]) => ids.map(id => {
     const fallback = id === "collaborator" ? t.automationCatalog.collaborator
       : id === "communication" ? t.automationServices.triggerPresets.moduleLabel
+      : id === "metric" ? getUnifiedAutomationCopy(locale).metric
       : catalog.modules.find(m => m.value === id)?.label || id;
     return t.automationServices.editorCatalog.moduleLabels[id] ||
       (getUpdateRecordCopy(locale).entity as Record<string, string>)[id] || fallback;
@@ -754,9 +827,13 @@ function RuleEditor({
   const eventLabel = (event: Catalog["eventTypes"][number]) => {
     if (event.value === "contract.completed") return t.automationCatalog.contractCompleted;
     if (event.value === "contract.cancelled") return t.automationCatalog.contractCancelled;
-    const preset = AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value);
+    const preset = event.value === "communication.received" && analysisConfig?.analyzeAttachments
+      ? AUTOMATION_TRIGGER_PRESETS.find(item => item.id === "attachmentAnalysis")
+      : AUTOMATION_TRIGGER_PRESETS.find(preset => preset.module === draft.module && preset.eventType === event.value);
     return preset ? preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
-      : t.automationServices.triggerPresets.labels[preset.id] : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
+      : preset.id === "attachmentAnalysis" ? getUnifiedAutomationCopy(locale).attachment
+        : preset.id === "metricMonitor" ? getUnifiedAutomationCopy(locale).metric
+          : t.automationServices.triggerPresets.labels[preset.id] : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
   };
   const eventDescription = (event: Catalog["eventTypes"][number]) =>
     event.value === "communication.analyzed" ? getCommunicationAnalysisCopy(locale).analysisDescription :
@@ -828,7 +905,7 @@ function RuleEditor({
       <fieldset>
         <div role="group" aria-label={t.automationServices.editor.sourceLabel}
           className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {catalog.modules.map((module) => {
+          {editorModules.map((module) => {
             const Icon = triggerModuleIcons[module.value] || Bell;
             const active = draft.module === module.value;
             return (
@@ -840,7 +917,9 @@ function RuleEditor({
                 data-testid={`select-module-${module.value}`}
                 onClick={() => {
                   const nextEvent = catalog.eventTypes.find(event => event.value === selectedEvent && event.availableIn.includes(module.value))?.value ||
-                    catalog.eventTypes.find(event => event.availableIn.includes(module.value))?.value || "updated";
+                    (module.value === "metric" ? "metric.threshold"
+                      : module.value === "communication" && draft.trigger.type === "event" && draft.trigger.analysis ? "communication.received"
+                        : catalog.eventTypes.find(event => event.availableIn.includes(module.value))?.value) || "updated";
                   setDraft({
                     ...draft,
                     conditions: resetSourceConditions(),
@@ -904,7 +983,7 @@ function RuleEditor({
     const field = fieldsForModule.find(f => f.value === leaf.field);
     if (field?.type === "tags") return !["contains", "not_contains"].includes(leaf.op) ||
       typeof leaf.value !== "string" || !leaf.value.trim();
-    return !field || !catalog.operators.some(op => op.value === leaf.op && op.availableIn.includes(draft.module) &&
+    return !field || !operatorsForModule.some(op => op.value === leaf.op &&
       op.value !== "not_contains" &&
       (field.type !== "list" || ["in", "not_in", "is_null", "is_not_null"].includes(op.value)) &&
       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)) &&
@@ -1118,7 +1197,7 @@ function RuleEditor({
                           setDraft({ ...draft, module, conditions: null, trigger: { type: "event", entityType: module, eventType: nextEvent } });
                         }}>
                           <SelectTrigger data-testid="select-module"><SelectValue /></SelectTrigger>
-                          <SelectContent className="automation-rule-select-content">{catalog.modules.map(module => <SelectItem key={module.value} value={module.value} data-testid={`select-module-${module.value}`}>{moduleNames([module.value])}</SelectItem>)}</SelectContent>
+                          <SelectContent className="automation-rule-select-content">{editorModules.map(module => <SelectItem key={module.value} value={module.value} data-testid={`select-module-${module.value}`}>{moduleNames([module.value])}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div>
@@ -1205,6 +1284,100 @@ function RuleEditor({
                   )}
                   {sourceResetNotice && <p className="automation-reset-notice" role="status">{t.automationServices.editor.conditionsReset}</p>}
                   {selectedPreset && <AutomationTriggerContext preset={selectedPreset} copy={t.automationServices.triggerPresets} />}
+                  {draft.trigger.type === "event" && draft.module === "communication" && draft.trigger.eventType === "communication.received" && draft.trigger.analysis && (
+                    <section className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.035] p-4" data-testid="communication-analysis-config">
+                      <div>
+                        <h3 className="text-sm font-semibold">{selectedPreset?.id === "attachmentAnalysis" ? getUnifiedAutomationCopy(locale).attachment : getCommunicationAnalysisCopy(locale).analysisTitle}</h3>
+                        <p className="mt-1 text-xs text-muted-foreground">{getCommunicationAnalysisCopy(locale).analysisWhen}</p>
+                        <p className="mt-1 text-xs font-medium text-primary">{getUnifiedAutomationCopy(locale).paused}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>{getUnifiedAutomationCopy(locale).channels}</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {(["email", "sms", "voice", "task", "chat"] as const).map(channel => {
+                            const checked = (draft.trigger.type === "event" && draft.trigger.analysis?.channels || []).includes(channel);
+                            return <label key={channel} className="flex cursor-pointer items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
+                              <Checkbox checked={checked} onCheckedChange={value => {
+                                const current = draft.trigger.type === "event" ? draft.trigger.analysis?.channels || [] : [];
+                                if (!value && current.length === 1) return;
+                                updateAnalysisConfig({ channels: value ? [...current, channel] : current.filter((item: string) => item !== channel) });
+                              }} />
+                              <span>{analysisChannelLabel(locale, channel)}</span>
+                            </label>;
+                          })}
+                        </div>
+                      </div>
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>{getUnifiedAutomationCopy(locale).owners}</Label>
+                          <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border bg-background p-2">
+                            <label className="flex cursor-pointer items-center gap-2 rounded-md p-2 text-sm hover:bg-muted">
+                              <Checkbox checked={analysisConfig?.mailboxMode !== "selected" && !(analysisConfig?.mailboxUserIds || []).length}
+                                onCheckedChange={checked => updateAnalysisConfig({ mailboxMode: checked ? "all" : "selected", mailboxUserIds: [] })} />
+                              {getUnifiedAutomationCopy(locale).allOwners}
+                            </label>
+                            {analysisMailboxes.map(user => <label key={user.id} className="flex cursor-pointer items-center gap-2 rounded-md p-2 hover:bg-muted">
+                              <Checkbox checked={(analysisConfig?.mailboxUserIds || []).includes(user.id)}
+                                onCheckedChange={checked => {
+                                  const selected = draft.trigger.type === "event" ? draft.trigger.analysis?.mailboxUserIds || [] : [];
+                                  updateAnalysisConfig({ mailboxMode: "selected", mailboxUserIds: checked ? [...selected, user.id] : selected.filter((id: string) => id !== user.id) });
+                                }} />
+                              <span className="min-w-0 block truncate text-sm">{user.name}</span>
+                            </label>)}
+                            {!analysisMailboxes.length && <p className="p-2 text-xs text-muted-foreground">{getUnifiedAutomationCopy(locale).noOwnersAvailable}</p>}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="analysis-senders">{getUnifiedAutomationCopy(locale).senderEmails}</Label>
+                          <Textarea id="analysis-senders" rows={3} placeholder={getUnifiedAutomationCopy(locale).senderHint}
+                          value={(analysisConfig?.senderEmails || []).join(", ")}
+                            onChange={event => updateAnalysisConfig({ senderEmails: event.target.value.split(/[,\n]/).map(value => value.trim()).filter(Boolean) })} />
+                        </div>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <label className="flex min-h-12 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+                          <Switch checked={draft.trigger.analysis.analyzeContent !== false} onCheckedChange={analyzeContent => updateAnalysisConfig({ analyzeContent })} />
+                          {getUnifiedAutomationCopy(locale).content}
+                        </label>
+                        <label className="flex min-h-12 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+                          <Switch checked={!!draft.trigger.analysis.analyzeAttachments} onCheckedChange={analyzeAttachments => updateAnalysisConfig({ analyzeAttachments })} />
+                          {getUnifiedAutomationCopy(locale).attachments}
+                        </label>
+                      </div>
+                    </section>
+                  )}
+                  {draft.trigger.type === "event" && draft.module === "metric" && draft.trigger.eventType === "metric.threshold" && draft.trigger.metric && (
+                    <section className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.035] p-4" data-testid="metric-monitor-config">
+                      <div><h3 className="text-sm font-semibold">{getUnifiedAutomationCopy(locale).metric}</h3><p className="mt-1 text-xs text-muted-foreground">{getUnifiedAutomationCopy(locale).metricInfo}</p><p className="mt-1 text-xs font-medium text-primary">{getUnifiedAutomationCopy(locale).paused}</p></div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2"><Label>{getUnifiedAutomationCopy(locale).metricValue}</Label>
+                          <Select value={draft.trigger.metric.metricType} onValueChange={metricType => updateMetricConfig({ metricType })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                              {(catalog.metricTypes || []).map(metric => <SelectItem key={metric.value} value={metric.value}>{getMetricAlertLabel(metric.value, locale) || metric.label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2"><Label>{getUnifiedAutomationCopy(locale).frequency}</Label>
+                          <Select value={draft.trigger.metric.checkFrequency || "daily"} onValueChange={checkFrequency => updateMetricConfig({ checkFrequency })}>
+                            <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                              <SelectItem value="hourly">{getUnifiedAutomationCopy(locale).hourly}</SelectItem>
+                              <SelectItem value="every_6_hours">{getUnifiedAutomationCopy(locale).everySixHours}</SelectItem>
+                              <SelectItem value="daily">{getUnifiedAutomationCopy(locale).daily}</SelectItem>
+                              <SelectItem value="weekly">{getUnifiedAutomationCopy(locale).weekly}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2"><Label htmlFor="metric-threshold">{getUnifiedAutomationCopy(locale).threshold}</Label>
+                          <Input id="metric-threshold" type="number" value={(draft.conditions as LeafCondition | null)?.value ?? 0}
+                            onChange={event => updateConditions({ field: "newValues.value", op: "gte", value: Number(event.target.value) })} />
+                        </div>
+                        <div className="space-y-2"><Label htmlFor="metric-cooldown">{getUnifiedAutomationCopy(locale).cooldown}</Label>
+                          <Input id="metric-cooldown" type="number" min={1} value={draft.trigger.metric.cooldownMinutes ?? 60}
+                            onChange={event => updateMetricConfig({ cooldownMinutes: Math.max(1, Number(event.target.value)) })} />
+                        </div>
+                      </div>
+                    </section>
+                  )}
                   {sentimentRule && (sentimentSources?.editable
                       ? <SentimentSourcePicker selected={sentimentSources.channels} onToggle={toggleSentimentSource} copy={t.automationServices.sentimentSources} />
                     : <p className="automation-reset-notice">{t.automationServices.sentimentSources.advancedSelection}</p>)}
@@ -1242,8 +1415,8 @@ function RuleEditor({
                       {visibleConditions && <ConditionsEditor
                         node={visibleConditions}
                         fields={conditionFields}
-                        sourceModule={draft.module} countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
-                        operators={catalog.operators.filter(op => op.availableIn.includes(draft.module) &&
+                        sourceModule={draft.module} countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])}
+                        operators={operatorsForModule.filter(op =>
                           (!op.value.startsWith("changed") || eventsForModule.some(event => event.value === selectedEvent && event.changeSnapshot)))}
                         onChange={updateConditions}
                       />}
@@ -1274,7 +1447,7 @@ function RuleEditor({
                         recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
                         availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
                         users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
-                        countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])} ruleId={rule?.id}
+                        countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])} ruleId={rule?.id}
                         onEmailDraftValidityChange={invalid => recordEmailDraftValidity(index, invalid)}
                         onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
                         onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
@@ -1442,16 +1615,39 @@ function RuleEditor({
                         <p className="mt-1 text-xs text-muted-foreground">{t.automationServices.triggerPresets.info}</p>
                       </div>
                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                       {AUTOMATION_TRIGGER_PRESETS.filter(preset =>
-                         catalog.eventTypes.some(event => event.value === preset.eventType && event.availableIn.includes(preset.module))
+                        {AUTOMATION_TRIGGER_PRESETS.filter(preset =>
+                          catalog.eventTypes.some(event => event.value === preset.eventType && event.availableIn.includes(preset.module)) ||
+                          preset.id === "attachmentAnalysis" || preset.id === "metricMonitor" ||
+                          (preset.id === "contentAnalysis" && !!analysisConfig)
                        ).map((preset: AutomationTriggerPreset) => {
                           const Icon = triggerPresetIcons[preset.id];
-                         const active = draft.module === preset.module && selectedEvent === preset.eventType;
+                          const active = draft.module === preset.module && selectedEvent === preset.eventType &&
+                            (preset.id === "attachmentAnalysis" ? !!analysisConfig?.analyzeAttachments
+                              : preset.id === "contentAnalysis" ? !!analysisConfig && !analysisConfig.analyzeAttachments
+                                : true);
                          return (
                            <button key={preset.id} type="button" aria-pressed={active}
                              className={`flex min-h-14 min-w-0 items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/60"}`}
                               onClick={() => {
-                                const next = chooseTriggerPreset(draft, preset);
+                                 let next = chooseTriggerPreset(draft, preset);
+                                 if (preset.id === "contentAnalysis" || preset.id === "attachmentAnalysis") {
+                                   const unified = getUnifiedAutomationCopy(locale);
+                                   const title = preset.id === "attachmentAnalysis" ? unified.attachment : getCommunicationAnalysisCopy(locale).analysisTitle;
+                                   const analysisDraft = createAnalysisServiceDraft(
+                                     preset.id === "attachmentAnalysis" ? "attachment_analysis" : "communication_analysis",
+                                     title,
+                                     preset.id === "attachmentAnalysis" ? unified.attachmentInfo : getCommunicationAnalysisCopy(locale).analysisDescription,
+                                   );
+                                   next = { ...next, module: analysisDraft.module, enabled: false, trigger: analysisDraft.trigger };
+                                 } else if (preset.id === "metricMonitor") {
+                                   const unified = getUnifiedAutomationCopy(locale);
+                                   const metricDraft = createMetricServiceDraft({
+                                     name: unified.metric, description: unified.metricInfo,
+                                     metricType: catalog.metricTypes?.[0]?.value || "pending_lab_results",
+                                     checkFrequency: "daily", cooldownMinutes: 60, threshold: 0,
+                                   });
+                                   next = { ...next, module: metricDraft.module, enabled: false, trigger: metricDraft.trigger, conditions: metricDraft.conditions };
+                                 }
                                 if (preset.id !== "negativeSentiment" &&
                                   (draft.module !== preset.module || selectedEvent !== preset.eventType) && draft.conditions) {
                                   setSourceResetNotice(true);
@@ -1461,7 +1657,10 @@ function RuleEditor({
                               }}
                              data-testid={`select-trigger-preset-${preset.id}`}>
                              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                             <span>{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle : t.automationServices.triggerPresets.labels[preset.id]}</span>
+                              <span>{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
+                                : preset.id === "attachmentAnalysis" ? getUnifiedAutomationCopy(locale).attachment
+                                  : preset.id === "metricMonitor" ? getUnifiedAutomationCopy(locale).metric
+                                    : t.automationServices.triggerPresets.labels[preset.id]}</span>
                            </button>
                          );
                        })}
@@ -1544,9 +1743,8 @@ function RuleEditor({
                   <ConditionsEditor
                       node={visibleConditions!}
                     fields={conditionFields}
-                    sourceModule={draft.module} countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
-                    operators={catalog.operators.filter(op =>
-                      op.availableIn.includes(draft.module) &&
+                    sourceModule={draft.module} countryCodes={(draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])) as string[]}
+                    operators={operatorsForModule.filter(op =>
                       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)))}
                      onChange={updateConditions}
                   />
@@ -1592,7 +1790,7 @@ function RuleEditor({
                     departments={departments || []}
                     taskGroups={taskGroups}
                     roles={roles}
-                    countryCodes={draft.countryCodes || (draft.countryCode ? [draft.countryCode] : [])}
+                    countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])}
                     onEmailDraftValidityChange={invalid => recordEmailDraftValidity(i, invalid)}
                     ruleId={rule?.id}
                     onChange={(updated) => {
@@ -2202,7 +2400,7 @@ function ActionEditor({
         {(() => { const visual = serviceVisual(action.type); const Icon = visual.icon; return (
           <span className={`rounded-md p-1.5 ${visual.tile} ${visual.accent}`}><Icon className="h-4 w-4" /></span>
         ); })()}
-        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : {} })}>
+        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : v === "create_task" && availableVariables.some(variable => variable.value.startsWith("analysis.")) ? { analysisAttachments: "invoice" } : {} })}>
           <SelectTrigger aria-label={t.automationServices.conditionEditor.action}
             className="h-9 w-56 max-w-full min-w-0 text-xs [&>span]:truncate" data-testid={`select-action-type-${index}`}>
             <SelectValue />

@@ -318,7 +318,14 @@ assert.deepEqual(paths(rule("task", "created", {
 for (const [module, events] of Object.entries(MODULE_EVENTS)) {
   assert.ok(FIELD_OPTIONS[module], `missing fields for ${module}`);
   for (const event of events) {
-    assert.deepEqual(paths(rule(module, event)), [], `${module}/${event} should be valid`);
+    const serviceTrigger = event === "communication.received" ? {
+      analysis: { channels: ["email"], analyzeContent: true, analyzeAttachments: false },
+    } : event === "metric.threshold" ? {
+      metric: { metricType: "pending_invoices", checkFrequency: "hourly", cooldownMinutes: 60 },
+    } : {};
+    const candidate = rule(module, event);
+    Object.assign(candidate.trigger, serviceTrigger);
+    assert.deepEqual(paths(candidate), [], `${module}/${event} should be valid`);
     assert.ok(fieldsForEvent(module, event).length, `${module}/${event} should expose a checked condition field`);
   }
 }

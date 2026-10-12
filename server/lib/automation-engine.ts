@@ -1,4 +1,5 @@
 import { db, pool } from "../db";
+import { analyzeCommunication, selectedAnalysisAttachments, ensureAutomationAnalysisSchema } from "./automation-analysis";
 import { executeAssignOwner } from "./automation-assign-owner";
 import { assignmentField } from "../../shared/automation-assign-owner";
 import { admitAutomationRun } from "./automation-run-admission";
@@ -16,6 +17,7 @@ import {
   workflowActionLog,
   COUNTRIES,
   tasks,
+  taskAttachmentUploads,
   taskGroupMembers,
   callLogs,
   users,
@@ -93,7 +95,9 @@ type Cond =
   | { not: Cond }
   | { field: string; op: string; value?: any };
 
-function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
+export function evalCondition(cond: Cond | null | undefined, ctx: any): boolean {
+  if (cond && "field" in cond && cond.field.startsWith("analysis.") && getPath(ctx, cond.field) == null &&
+      !["is_empty", "not_empty", "exists", "not_exists"].includes(cond.op)) return false;
   if (!cond) return true;
   if ((cond as any).all) return (cond as any).all.every((c: Cond) => evalCondition(c, ctx));
   if ((cond as any).any) return (cond as any).any.some((c: Cond) => evalCondition(c, ctx));
@@ -199,6 +203,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
     }
     const rendered = renderTemplate(config, ctx);
     Object.assign(rendered, taskDisplayContent(config, ctx, display));
+    const analysisAttachments = selectedAnalysisAttachments(config.analysisAttachments, ctx.analysis);
     const assignedUserId = rendered.assignedUserId || rendered.assignee_user_id || null;
     const assignedDepartmentId = rendered.assignedDepartmentId || rendered.assignee_department_id || null;
     const grouped = rendered.taskGroupId || rendered.targetRole;
@@ -286,7 +291,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
         status: "pending",
         assignedUserId: owner,
         assignedDepartmentId: assignedDepartmentId || null,
-        createdByUserId: rendered.createdByUserId || ctx.event?.actorUserId || "system",
+        createdByUserId: ctx.analysis ? ctx.rule.createdByUserId : rendered.createdByUserId || ctx.event?.actorUserId || "system",
         customerId: ctx.event?.source === "schedule"
           ? (ctx.event?.module === "customer" ? ctx.event.entityId : null)
           : rendered.customerId || (ctx.event?.entityType === "customer" ? ctx.event?.entityId : null),
@@ -297,11 +302,18 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
           ? ctx.event?.entityId || null
           : rendered.relatedEntityId || ctx.event?.entityId || null,
         country: taskCountry,
+        attachments: analysisAttachments,
         tags: assignment.tags,
         dueDate,
         sourceRunId: runId,
         }).returning();
         if (!task) throw new Error("Insert returned no row");
+        for (const attachment of analysisAttachments) {
+          await tx.update(taskAttachmentUploads).set({
+            everAssociated: true,
+            associationHistory: sql`${taskAttachmentUploads.associationHistory} || ${JSON.stringify([{ taskId: task.id }])}::jsonb`,
+          }).where(eq(taskAttachmentUploads.id, attachment.id!));
+        }
         ids.push(task.id);
         if (Array.isArray(rendered.checklist) && rendered.checklist.length) {
           await tx.insert(taskChecklistItems).values(rendered.checklist.map((it: any, idx: number) => ({
@@ -1080,12 +1092,17 @@ export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): bool
     // Also exclude legacy completion status_changed events already waiting in the queue.
     if (!taskStatusTriggerMatches(rule, event.newValues)) return false;
     const t: any = rule.trigger || {};
+    if (t.reviewActivatedAt && new Date(event.createdAt).getTime() < new Date(t.reviewActivatedAt).getTime()) return false;
+    if (t.listenAfter && new Date(event.createdAt).getTime() < new Date(t.listenAfter).getTime()) return false;
     if (t.type === "event") {
       if (t.entityType && t.entityType !== event.entityType) return false;
-      if (t.eventType && t.eventType !== event.eventType) return false;
+      const communicationSource = t.eventType === "communication.received" && t.analysis &&
+        ["email.received", "sms.received", "chat.received", "task.message_received", "task.body_received", "voice.transcribed"].includes(event.eventType);
+      if (t.eventType && t.eventType !== event.eventType && !communicationSource) return false;
       // Inbound services must fail closed on unknown queue country. Keep the
       // legacy matching behavior of unrelated modules unchanged.
       // A country-scoped rule must not run on an event without a verified country.
+      if (event.module === "metric") return (event.newValues as any)?.metricRuleId === rule.id;
       if (!matchesRuleCountryScope(rule.countryCodes, rule.countryCode, event.countryCode)) return false;
       return true;
     }
@@ -1452,7 +1469,7 @@ export async function runRule(
   causationChain: string[]
 ): Promise<void> {
   const scheduled = event.source === "schedule";
-  const ctx = {
+  const ctx: any = {
     rule,
     event,
     newValues: event.newValues || {},
@@ -1461,6 +1478,21 @@ export async function runRule(
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
   };
+
+  if ((rule.trigger as any)?.analysis) {
+    try {
+      ctx.analysis = await analyzeCommunication(rule, event);
+      if (!ctx.analysis) {
+        await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "skipped", skippedReason: "analysis_source_not_eligible" });
+        return;
+      }
+    } catch (error) {
+      await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "failed",
+        error: error instanceof Error && /^analysis_[a-z_]+$/.test(error.message) ? error.message : "analysis_failed",
+        finishedAt: new Date() });
+      return;
+    }
+  }
 
   // Skip if conditions not met
   if (!taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) || !permitsSentimentSource(rule.conditions, event) || !evalCondition(rule.conditions as any, ctx)) {
@@ -1626,6 +1658,12 @@ export async function processEvent(eventId: string, onlyRuleIds?: readonly strin
   const [event] = await db.select().from(workflowEvents).where(eq(workflowEvents.id, eventId));
   if (!event) return;
   if (event.source === "status-list" || event.module === "status_list") return;
+  if (event.module === "task" && !event.causationRunId && event.entityId &&
+      (event.eventType === "created" || (event.eventType === "updated" &&
+        ["title", "description", "taskText"].some(field => (event.newValues as any)?.[field] !== (event.oldValues as any)?.[field])))) {
+    try { await (await import("./automation-communication-sources")).publishTaskBodySource(event.entityId, event.id); }
+    catch { console.error("[Automation] task body source event unavailable"); }
+  }
   const rules = await findMatchingRules(event, onlyRuleIds);
   if (!rules.length) return;
   const baseChain = event.causationRunId ? [event.causationRunId] : [];
@@ -1639,6 +1677,7 @@ export async function processEvent(eventId: string, onlyRuleIds?: readonly strin
 }
 
 export function initAutomationEngine() {
+  void ensureAutomationAnalysisSchema().catch(() => console.error("[Automation] analysis schema unavailable"));
   setEventDispatcher(async (eventId: string) => {
     await processEvent(eventId);
   });

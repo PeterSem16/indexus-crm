@@ -10,6 +10,8 @@ import { serviceVisual } from "./automation-service-visuals";
 import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
 import { triggerPresetIcons } from "./automation-trigger-context";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
+import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
+import type { AnalysisServiceId } from "@/lib/automation-unified-service";
 import { ArrowRight, Phone } from "lucide-react";
 
 export const SERVICE_IDS = [
@@ -26,6 +28,8 @@ export type InboundService = {
 };
 
 export type ServiceCatalogData = {
+  analysisServices?: { id: AnalysisServiceId; label: string; description?: string }[];
+  metricTypes?: { value: string; label: string }[];
   managedServices: { id: string; label: string; executor: string; configApi: string }[];
   statusListServices: { value: string; label: string; executor: "per_mission"; configApi: string }[];
   inboundServices: InboundService[];
@@ -42,20 +46,21 @@ export type ServiceCatalogData = {
 };
 
 export function AutomationServiceCatalog({
-  catalog, onSelect, onSelectInbound, onSelectOutbound, onSelectTrigger, onManage, compact = false,
+  catalog, onSelect, onSelectInbound, onSelectOutbound, onSelectTrigger, onSelectAnalysis, compact = false,
 }: {
   catalog: ServiceCatalogData;
   onSelect: (service: ServiceId) => void;
   onSelectInbound?: (service: InboundService) => void;
   onSelectOutbound?: (service: InboundService) => void;
   onSelectTrigger?: (preset: AutomationTriggerPreset) => void;
-  onManage?: (serviceId: string) => void;
+  onSelectAnalysis?: (serviceId: AnalysisServiceId) => void;
   compact?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { user } = useAuth();
   const copy = t.automationServices;
   const smsCopy = getSmsActionCopy(locale);
+  const unifiedCopy = getUnifiedAutomationCopy(locale);
   const canManageStatusList = user?.role === "admin" || user?.role === "manager";
   const services = catalog.actionTypes;
   const moduleNames = (ids: string[]) => ids.map(id =>
@@ -111,6 +116,37 @@ export function AutomationServiceCatalog({
       </div>
       {!compact && (
         <>
+          {!!catalog.analysisServices?.length && <section className="space-y-3 border-y border-border/70 py-5" data-testid="automation-analysis-services">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">INDEXUS / {copy.servicesTab}</p>
+              <h3 className="mt-1 text-lg font-semibold">{unifiedCopy.communication}</h3>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{unifiedCopy.communicationInfo}</p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-3">
+              {catalog.analysisServices.map(service => {
+                const id = service.id;
+                const isMetric = id === "metric_monitor";
+                const visual = serviceVisual(id);
+                const Icon = visual.icon;
+                const title = id === "communication_analysis" ? unifiedCopy.communication : id === "attachment_analysis" ? unifiedCopy.attachment : unifiedCopy.metric;
+                const detail = id === "communication_analysis" ? unifiedCopy.communicationInfo : id === "attachment_analysis" ? unifiedCopy.attachmentInfo : unifiedCopy.metricInfo;
+                return <Card key={id} className={`border-border/80 ${visual.border}`}>
+                  <CardContent className="flex h-full flex-col gap-3 p-4">
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded-xl p-2.5 ${visual.tile} ${visual.accent}`}><Icon className="h-5 w-5" /></span>
+                      <div><h4 className="font-semibold">{title}</h4><Badge variant="secondary" className="mt-1 text-[10px]">{copy.available}</Badge></div>
+                    </div>
+                    <p className="flex-1 text-sm text-muted-foreground">{detail}</p>
+                    {isMetric && !!catalog.metricTypes?.length && <p className="text-xs text-muted-foreground">{catalog.metricTypes.length} {unifiedCopy.monitoredMetrics}</p>}
+                    <Button variant="outline" size="sm" className="w-full justify-between" disabled={!onSelectAnalysis}
+                      onClick={() => onSelectAnalysis?.(id)} data-testid={`choose-analysis-service-${id}`}>
+                      {unifiedCopy.start}<ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>;
+              })}
+            </div>
+          </section>}
           <section className="rounded-lg border p-4 space-y-3" data-testid="automation-trigger-presets">
             <div>
               <h3 className="font-semibold">{copy.triggerPresets.heading}</h3>
@@ -126,44 +162,16 @@ export function AutomationServiceCatalog({
                   data-testid={`choose-trigger-${preset.id}`}>
                   <Icon className="h-4 w-4 shrink-0" />
                   <span>
-                    <span className="block">{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle : copy.triggerPresets.labels[preset.id]}</span>
+                    <span className="block">{preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisTitle
+                      : preset.id === "attachmentAnalysis" ? unifiedCopy.attachment
+                        : preset.id === "metricMonitor" ? unifiedCopy.metric : copy.triggerPresets.labels[preset.id]}</span>
                     <span className="block text-xs font-normal text-muted-foreground">
-                      {preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisSource : copy.triggerPresets.details[preset.id].source}
+                      {preset.id === "contentAnalysis" ? getCommunicationAnalysisCopy(locale).analysisSource
+                        : preset.id === "attachmentAnalysis" ? unifiedCopy.attachmentInfo
+                          : preset.id === "metricMonitor" ? unifiedCopy.metricInfo : copy.triggerPresets.details[preset.id].source}
                     </span>
                   </span>
                 </Button>;
-              })}
-            </div>
-          </section>
-          <section className="rounded-lg border p-4 space-y-3" data-testid="automation-managed-services">
-            <div>
-              <h3 className="font-semibold">{copy.managed.heading}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{copy.managed.info}</p>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              {(catalog.managedServices || []).map(service => {
-                const visual = serviceVisual(service.id);
-                const Icon = visual.icon;
-                const isNotification = service.id === "notification_rules";
-                return <Card key={service.id} className={`border-border/80 ${visual.border}`}>
-                  <CardContent className="p-4 flex flex-col gap-3 h-full">
-                    <div className="flex items-center gap-3">
-                      <span className={`rounded-xl p-2.5 ${visual.tile} ${visual.accent}`}><Icon className="h-5 w-5" /></span>
-                      <div>
-                        <h4 className="font-semibold">{isNotification ? copy.managed.notificationTitle : service.id === "metric_alerts" ? copy.managed.alertTitle : service.label}</h4>
-                        <Badge variant="secondary" className="text-[10px]">{copy.managed.existing}</Badge>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground flex-1">
-                      {isNotification ? copy.managed.notificationInfo : service.id === "metric_alerts" ? copy.managed.alertInfo : service.label}
-                    </p>
-                    <Button variant="outline" size="sm" className="w-full justify-between"
-                      disabled={!onManage || !["notification_rules", "metric_alerts"].includes(service.id)}
-                      onClick={() => onManage?.(service.id)} data-testid={`manage-service-${service.id}`}>
-                      {copy.managed.manage}<ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>;
               })}
             </div>
           </section>

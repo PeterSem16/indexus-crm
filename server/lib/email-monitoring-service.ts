@@ -273,6 +273,7 @@ async function checkUserEmails(userId: string, connection: any) {
                   conversationId: conversationId || null,
                   contactType: linkedType,
                   isHtml: email.body?.contentType?.toLowerCase().includes("html") ?? false,
+                  mailboxSource: { kind: "personal", ownerUserId: userId },
                 }),
               });
               if (storedMessage) {
@@ -300,7 +301,8 @@ async function linkInboundEmailToContact(
   content: string,
   conversationId: string | null,
   bodyIsHtml: boolean,
-  notifyUserId: string | null
+  notifyUserId: string | null,
+  mailboxSource?: { kind: "system"; countryCode: string; mailboxEmail: string }
 ) {
   const existing = await db.select({ id: communicationMessages.id })
     .from(communicationMessages)
@@ -370,7 +372,7 @@ async function linkInboundEmailToContact(
     content: content.substring(0, 100000),
     status: "received",
     externalId: emailId,
-    metadata: JSON.stringify({ from: senderEmail, senderName, conversationId: conversationId || null, contactType: linkedType, isHtml: bodyIsHtml }),
+    metadata: JSON.stringify({ from: senderEmail, senderName, conversationId: conversationId || null, contactType: linkedType, isHtml: bodyIsHtml, mailboxSource }),
   });
   if (!storedMessage) return null;
   await emitInboundEmailEvents(storedMessage, linkedType);
@@ -423,7 +425,8 @@ async function checkSystemMailboxEmails() {
           const bodyIsHtml = email.body?.contentType?.toLowerCase().includes("html") ?? false;
           const notifyUserId = conn.connectedByUserId || null;
 
-          const linked = await linkInboundEmailToContact(emailId, senderEmail, senderName, emailSubject, content, conversationId, bodyIsHtml, notifyUserId);
+          const linked = await linkInboundEmailToContact(emailId, senderEmail, senderName, emailSubject, content, conversationId, bodyIsHtml, notifyUserId,
+            { kind: "system", countryCode: conn.countryCode, mailboxEmail: conn.email });
           if (linked?.responsibleUserId) {
             try {
               const analysis = await analyzeEmailContent(content);

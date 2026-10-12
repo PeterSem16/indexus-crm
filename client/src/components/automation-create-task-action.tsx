@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { useI18n } from "@/i18n";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
+import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 import { AutomationTaskRecipientDialog, type TaskRecipient } from "./automation-task-recipient-dialog";
 import automationEditorHelpTranslations from "@/i18n/automation-editor-help-translations";
 import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
@@ -38,6 +39,7 @@ export function AutomationCreateTaskAction({
 }) {
   const { locale } = useI18n();
   const copy = getTaskActionCopy(locale);
+  const unifiedCopy = getUnifiedAutomationCopy(locale);
   const [recipientDialogOpen, setRecipientDialogOpen] = useState(false);
   const [templateLanguage, setTemplateLanguage] = useState<string>(locale);
   useEffect(() => setTemplateLanguage(locale), [locale]);
@@ -161,6 +163,16 @@ export function AutomationCreateTaskAction({
       </div>
 
       <div className="automation-create-task__fields">
+        {availableVariables.some(variable => variable.value.startsWith("analysis.")) && <div className="automation-create-task__span rounded-lg border border-primary/20 bg-primary/[0.035] p-3">
+          <Label htmlFor={`${testId}-analysis-attachments`}>{unifiedCopy.attachmentSource}</Label>
+          <Select value={config.analysisAttachments || "invoice"} onValueChange={value => set("analysisAttachments", value)}>
+            <SelectTrigger id={`${testId}-analysis-attachments`} data-testid="select-task-analysis-attachments"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="invoice">{unifiedCopy.invoicesOnly}</SelectItem>
+              <SelectItem value="all">{unifiedCopy.allTrusted}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>}
         <div className="automation-create-task__span">
           <Label htmlFor={`${testId}-title`}>{copy.taskTitle}</Label>
           <Input id={`${testId}-title`} value={config.title || ""} onFocus={() => setActiveTextField("title")}

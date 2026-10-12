@@ -2980,7 +2980,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTaskComment(comment: InsertTaskComment): Promise<TaskComment> {
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [created] = await tx.insert(taskComments).values(comment).returning();
       const attachments = (comment.metadata as any)?.attachments;
       if (Array.isArray(attachments) && attachments.length) {
@@ -2989,6 +2989,9 @@ export class DatabaseStorage implements IStorage {
       }
       return created;
     });
+    void import("./lib/automation-communication-sources").then(module => module.publishCommunicationServiceSource("task", result.id))
+      .catch(() => console.error("[Automation] task source event unavailable"));
+    return result;
   }
 
   async deleteTaskComment(id: string): Promise<boolean> {
@@ -5730,6 +5733,8 @@ export class DatabaseStorage implements IStorage {
 
   async createChatMessage(data: InsertChatMessage): Promise<ChatMessage> {
     const [message] = await db.insert(chatMessages).values(data).returning();
+    void import("./lib/automation-communication-sources").then(module => module.publishCommunicationServiceSource("chat", message.id))
+      .catch(() => console.error("[Automation] chat source event unavailable"));
     return message;
   }
 
