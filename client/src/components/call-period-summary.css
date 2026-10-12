@@ -502,9 +502,9 @@
 @keyframes cps-toast-scrim-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes cps-toast-scrim-out { to { opacity: 0; } }
 @keyframes cps-toast-arrive {
-  from { opacity: 0; transform: translateX(54vw) scale(.94); }
-  69% { opacity: 1; transform: translateX(-8px) scale(1.01); }
-  to { opacity: 1; transform: translateX(0) scale(1); }
+  from { opacity: 0; transform: scale(.94); }
+  69% { opacity: 1; transform: scale(1.01); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @media (max-width: 480px) {
@@ -539,6 +539,6 @@
   .cps-float-layer { opacity: 1 !important; }
 }
 
-/* Local overlay only: no viewport scrim, pointer interception outside the summary, or scroll lock. */
-.cps-float-layer { --cps-ink:#292d38; --cps-muted:#777881; --cps-red:#a5364c; inset:0 auto auto 0; width:min(620px,100%); height:280px; color:var(--cps-ink); font-family:"DM Sans", "Plus Jakarta Sans", var(--font-sans), sans-serif; overflow:clip; }
+/* Viewport-centered without a scrim, pointer interception outside the summary, or scroll lock. */
+.cps-float-layer { --cps-ink:#292d38; --cps-muted:#777881; --cps-red:#a5364c; position:fixed; z-index:60; inset:0; width:auto; height:auto; color:var(--cps-ink); font-family:"DM Sans", "Plus Jakarta Sans", var(--font-sans), sans-serif; overflow:clip; }
 @media(prefers-reduced-motion:reduce){.cps-float-layer *, .cps-float-layer *::before, .cps-float-layer *::after{animation:none!important;transition:none!important;}}

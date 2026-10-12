@@ -17,6 +17,7 @@ import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-d
 import { fullCardEntityFromReview } from "@/lib/call-review-entity";
 import { callBrowseDisplayName } from "@/lib/call-browse-identity";
 import { CallPeriodSummary } from "@/components/call-period-summary";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const LOCALE_MAP: Record<string, string> = { en: 'en-US', sk: 'sk-SK', cs: 'cs-CZ', hu: 'hu-HU', ro: 'ro-RO', it: 'it-IT', de: 'de-DE' };
 interface TranscriptResult {
@@ -825,6 +826,7 @@ function ResultCard({ result, query }: { result: TranscriptResult; query: string
 export function TranscriptSearchContent() {
   const { t, locale } = useI18n();
   const ca = t.callAnalysis;
+  const isMobile = useIsMobile();
 
   /* Date range */
   const initialToday = useMemo(() => new Date(), []);
@@ -1296,8 +1298,13 @@ export function TranscriptSearchContent() {
       {activeTab === "browse" && (
         <div className="relative flex items-start min-w-0 max-w-full rounded-b-2xl border-x border-b border-border">
           <CallPeriodSummary
-            scopeKey={`${dateFrom}|${dateTo}|${summaryRequest}`}
-            ready={logsSuccess && !logsFetching && !logsError && !mobileDetailOpen}
+            scopeKey={JSON.stringify([
+              dateFrom, dateTo, summaryRequest, browseSearchText, browseCampaignFilter,
+              browseDirectionFilter, browseQueueFilter, browseStatusFilter, browseRecordingFilter,
+              browseSentimentFilter, browseAgentFilter, browseHasAlertsFilter, browseMobileFilter,
+              browseMinQuality, browseImportantFilter,
+            ])}
+            ready={logsSuccess && !logsFetching && !logsError && (!isMobile || !mobileDetailOpen)}
             period={[dateFrom, dateTo].filter(Boolean).map(value => new Date(value).toLocaleString(LOCALE_MAP[locale] || "en-US", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })).join(" – ")}
             total={stats.total} withAlerts={stats.withAlerts} avgQ={stats.avgQ}
           />

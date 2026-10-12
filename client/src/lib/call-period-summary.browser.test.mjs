@@ -43,6 +43,14 @@ try {
   await summary.waitFor();
   await page.waitForFunction(() => document.querySelector(".cps-count")?.textContent === "11");
   await page.locator('[data-testid="call-summary-lottie"] svg').waitFor();
+  const assertCentered = async () => {
+    const bounds = await page.locator(".cps-summary-toast").boundingBox();
+    const viewport = page.viewportSize();
+    assert.ok(Math.abs(bounds.x + bounds.width / 2 - viewport.width / 2) < 2, "Horizontally centered");
+    assert.ok(Math.abs(bounds.y + bounds.height / 2 - viewport.height / 2) < 2, "Vertically centered");
+    assert.equal(await summary.evaluate(e => e.parentElement === document.body), true, "Not confined by a list/player ancestor");
+  };
+  await assertCentered();
   assert.equal(await summary.evaluate(e => getComputedStyle(e).pointerEvents), "none");
   assert.equal(await page.getByRole("dialog").count(), 0);
   assert.equal(await page.locator(".cps-summary-toast").evaluate(e => getComputedStyle(e).borderTopWidth), "0px");
@@ -51,6 +59,13 @@ try {
   await summary.waitFor({ state: "detached" });
   await render({});
   assert.equal(await summary.count(), 0, "No replay after normal rerender");
+  await render({ scopeKey: "direction:inbound", total: 3, avgQ: "8.0" });
+  await summary.waitFor();
+  await page.waitForFunction(() => document.querySelector(".cps-count")?.textContent === "3");
+  assert.ok((await summary.innerText()).includes("Výborná práca!"));
+  await render({ scopeKey: "direction:inbound|agent:one", total: 1, avgQ: "9.5" });
+  await page.waitForFunction(() => document.querySelector(".cps-count")?.textContent === "1");
+  assert.ok((await summary.innerText()).includes("Mimoriadny výsledok!"));
   await render({ scopeKey: "second" });
   await summary.waitFor();
   await page.mouse.move(0, 0);
@@ -70,6 +85,7 @@ try {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await render({ scopeKey: "mobile" });
   await page.waitForFunction(() => document.querySelector(".cps-count")?.textContent === "11");
+  await assertCentered();
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.deepEqual(errors, []);
   console.log("PASS production component: readiness, real Lottie, close, Escape, auto-dismiss, repeat selection, no replay on rerender, praise, empty, mobile and reduced motion.");

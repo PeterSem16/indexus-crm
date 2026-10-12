@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, CalendarDays, PhoneCall, Star, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { callQualityPraise, callSummaryQuality } from "@/lib/call-period-summary";
@@ -128,7 +129,7 @@ function FloatingSummary({ period, total, withAlerts, avgQ, dismiss }: Props & {
   </div>;
 }
 
-/** One reveal per explicitly selected period, only after the complete query succeeds. */
+/** One reveal per selected period/filter scope, only after the complete query succeeds. */
 export function CallPeriodSummary(props: Props) {
   const lastScope = useRef<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -140,5 +141,5 @@ export function CallPeriodSummary(props: Props) {
     }
   }, [props.ready, props.scopeKey]);
   if (!props.ready || !visible) return null;
-  return <FloatingSummary key={props.scopeKey} {...props} dismiss={() => setVisible(false)} />;
+  return createPortal(<FloatingSummary key={props.scopeKey} {...props} dismiss={() => setVisible(false)} />, document.body);
 }
