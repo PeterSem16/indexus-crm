@@ -1344,6 +1344,9 @@ function RuleEditor({
                           {getUnifiedAutomationCopy(locale).attachments}
                         </label>
                       </div>
+                      {draft.trigger.analysis.analyzeAttachments && (
+                        <p className="text-xs text-muted-foreground">{getUnifiedAutomationCopy(locale).attachmentFormats}</p>
+                      )}
                     </section>
                   )}
                   {draft.trigger.type === "event" && draft.module === "metric" && draft.trigger.eventType === "metric.threshold" && draft.trigger.metric && (

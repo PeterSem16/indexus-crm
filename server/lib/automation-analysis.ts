@@ -8,6 +8,7 @@ import { taskAttachmentUploads, type WorkflowEvent, type WorkflowRule } from "..
 import type { TaskAttachment } from "../../shared/task-attachments";
 import { loadAnalysisSource, listSourceAttachments, mailboxRequest, prepareSourceMailbox, type SourceAttachment } from "./automation-analysis-source";
 import { DATA_ROOT } from "../config/storage-paths";
+import { attachmentExtensions as extensions, prepareAnalysisAttachment, type PreparedAttachment } from "./automation-attachment-document";
 
 type AnalyzedAttachment = TaskAttachment & { classification: "invoice" | "other" };
 export type ServiceAnalysis = {
@@ -25,13 +26,9 @@ export function ensureAutomationAnalysisSchema() {
     CREATE INDEX IF NOT EXISTS workflow_analysis_cache_owner_time ON workflow_analysis_cache(owner_user_id, created_at);
   `).then(() => undefined).catch(error => { schemaReady = undefined; throw error; });
 }
-const extensions: Record<string, string> = {
-  "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
-  "text/plain": ".txt", "text/csv": ".csv",
-};
 const active = new Map<string, Promise<ServiceAnalysis | null>>();
 
-async function askAnalysis(text: string, attachment?: { bytes: Buffer; mime: string; name: string }) {
+async function askAnalysis(text: string, attachment?: PreparedAttachment) {
   if (text.length > 60000) throw new Error("analysis_text_limit");
   if (!process.env.OPENAI_API_KEY) throw new Error("analysis_ai_unavailable");
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 90000, maxRetries: 1 });
@@ -44,7 +41,8 @@ async function askAnalysis(text: string, attachment?: { bytes: Buffer; mime: str
       type: "input_file", filename: "document.pdf", file_data: `data:application/pdf;base64,${attachment.bytes.toString("base64")}`,
     });
     else {
-      const documentText = attachment.bytes.toString("utf8");
+      const documentText = attachment.text;
+      if (!documentText) throw new Error("analysis_document_unreadable");
       if (documentText.length > 60000) throw new Error("analysis_document_text_limit");
       content.push({ type: "input_text", text: documentText });
     }
@@ -85,7 +83,7 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
   if (!config) return null;
   await ensureAutomationAnalysisSchema();
   // Updated rule/source identities do not reuse a different source/configuration's result.
-  const key = createHash("sha256").update(JSON.stringify([rule.id, event.id, config])).digest("hex");
+  const key = createHash("sha256").update(JSON.stringify(["office-formats", rule.id, event.id, config])).digest("hex");
   if (active.has(key)) return active.get(key)!;
   const work = (async () => {
     const source = await loadAnalysisSource(rule, event);
@@ -119,17 +117,17 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
           let totalBytes = 0;
           for (const attachment of attachments) {
             try {
-              if (!extensions[attachment.contentType] || attachment.size > 15 * 1024 * 1024 || attachment.size < 0)
+              if (attachment.size > 15 * 1024 * 1024 || attachment.size < 0)
                 throw new Error("analysis_unsupported_attachment");
               const downloaded = attachment.contentBytes ? attachment : await mailboxRequest(source, `/attachments/${encodeURIComponent(attachment.id)}`);
               if (typeof downloaded.contentBytes !== "string") throw new Error("analysis_attachment_unavailable");
               const bytes = Buffer.from(downloaded.contentBytes, "base64");
               totalBytes += bytes.length;
               if (bytes.length > 15 * 1024 * 1024 || totalBytes > 25 * 1024 * 1024) throw new Error("analysis_attachment_limit");
-              const classified = await askAnalysis("Classify this email attachment by its document content.", {
-                bytes, mime: attachment.contentType, name: attachment.name,
-              });
-              const snapshot = await storeSnapshot(attachment, bytes, rule.createdByUserId!, connection);
+              const prepared = await prepareAnalysisAttachment(bytes, attachment.contentType, attachment.name);
+              const classified = await askAnalysis("Classify this email attachment by its document content.", prepared);
+              // Keep the original Office/image bytes, not the extracted text, on the Task.
+              const snapshot = await storeSnapshot({ ...attachment, contentType: prepared.mime }, bytes, rule.createdByUserId!, connection);
               result.attachments.push({ ...snapshot, classification: classified.classification });
               if (classified.classification === "invoice") result.invoiceCount++;
             } catch { result.failedAttachmentCount++; }
