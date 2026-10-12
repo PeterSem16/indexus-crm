@@ -551,7 +551,7 @@ export interface IStorage {
   getSystemMs365Connection(countryCode: string): Promise<SystemMs365Connection | undefined>;
   getAllSystemMs365Connections(): Promise<SystemMs365Connection[]>;
   createSystemMs365Connection(data: InsertSystemMs365Connection): Promise<SystemMs365Connection>;
-  updateSystemMs365Connection(countryCode: string, data: Partial<InsertSystemMs365Connection>): Promise<SystemMs365Connection | undefined>;
+  updateSystemMs365Connection(countryCode: string, data: Partial<InsertSystemMs365Connection>, expectedAccessToken?: string): Promise<SystemMs365Connection | undefined>;
   deleteSystemMs365Connection(countryCode: string): Promise<boolean>;
 
   // MS365 PKCE Store (persisted for server restart resilience)
@@ -3229,16 +3229,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertCountrySystemSettings(data: InsertCountrySystemSettings): Promise<CountrySystemSettings> {
-    const existing = await this.getCountrySystemSettingsByCountry(data.countryCode);
-    if (existing) {
-      const [updated] = await db.update(countrySystemSettings)
-        .set({ ...data, updatedAt: new Date() })
-        .where(eq(countrySystemSettings.id, existing.id))
-        .returning();
-      return updated;
-    }
-    const [created] = await db.insert(countrySystemSettings).values(data).returning();
-    return created;
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`system-mailbox:${data.countryCode}`}))`);
+      const [connection] = await tx.select().from(systemMs365Connections)
+        .where(eq(systemMs365Connections.countryCode, data.countryCode));
+      // A stale open Settings page must not undo a newly connected mailbox.
+      const values = { ...data, ...(connection?.isConnected ? { systemEmailAddress: connection.email } : {}) };
+      const [saved] = await tx.insert(countrySystemSettings).values(values).onConflictDoUpdate({
+        target: countrySystemSettings.countryCode, set: { ...values, updatedAt: new Date() },
+      }).returning();
+      return saved;
+    });
   }
 
   async deleteCountrySystemSettings(id: string): Promise<boolean> {
@@ -3258,16 +3259,38 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSystemMs365Connection(data: InsertSystemMs365Connection): Promise<SystemMs365Connection> {
-    const [created] = await db.insert(systemMs365Connections).values(data).returning();
-    return created;
+    // The mailbox and the country sender are one identity. Preserve all unrelated
+    // switches, signatures, display names, SMS settings and notification policy.
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`system-mailbox:${data.countryCode}`}))`);
+      const [created] = await tx.insert(systemMs365Connections).values(data).returning();
+      await tx.insert(countrySystemSettings).values({
+        countryCode: created.countryCode, systemEmailAddress: created.email,
+      }).onConflictDoUpdate({
+        target: countrySystemSettings.countryCode,
+        set: { systemEmailAddress: created.email, updatedAt: new Date() },
+      });
+      return created;
+    });
   }
 
-  async updateSystemMs365Connection(countryCode: string, data: Partial<InsertSystemMs365Connection>): Promise<SystemMs365Connection | undefined> {
-    const [updated] = await db.update(systemMs365Connections)
-      .set({ ...data, updatedAt: new Date() })
-      .where(eq(systemMs365Connections.countryCode, countryCode))
-      .returning();
-    return updated || undefined;
+  async updateSystemMs365Connection(countryCode: string, data: Partial<InsertSystemMs365Connection>, expectedAccessToken?: string): Promise<SystemMs365Connection | undefined> {
+    return db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`system-mailbox:${countryCode}`}))`);
+      const [updated] = await tx.update(systemMs365Connections)
+        .set({ ...data, updatedAt: new Date() })
+        .where(and(eq(systemMs365Connections.countryCode, countryCode),
+          expectedAccessToken === undefined ? undefined : eq(systemMs365Connections.accessToken, expectedAccessToken))).returning();
+      if (updated && data.email !== undefined) {
+        await tx.insert(countrySystemSettings).values({
+          countryCode, systemEmailAddress: updated.email,
+        }).onConflictDoUpdate({
+          target: countrySystemSettings.countryCode,
+          set: { systemEmailAddress: updated.email, updatedAt: new Date() },
+        });
+      }
+      return updated || undefined;
+    });
   }
 
   async deleteSystemMs365Connection(countryCode: string): Promise<boolean> {

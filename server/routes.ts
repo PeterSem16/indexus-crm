@@ -2989,6 +2989,8 @@ export async function registerRoutes(
   // only; the route itself applies workspace-country filtering.
   registerWallboardRoutes(app, requireAuth);
   registerWallboardPresenceRoutes(app, requireAuth);
+  const { registerSystemMailboxCheckRoutes, startSystemMailboxCheckAfterReconnect } = await import("./system-mailbox-check-routes");
+  registerSystemMailboxCheckRoutes(app, requireAuth);
   const { registerClinicAgreementRoutes } = await import("./lib/clinic-agreement-routes");
   registerClinicAgreementRoutes(app, requireAuth);
 
@@ -5332,6 +5334,7 @@ export async function registerRoutes(
         }
         
         console.log(`[MS365] System email connected for country ${countryCode}: ${profile.mail || profile.userPrincipalName}`);
+        startSystemMailboxCheckAfterReconnect(countryCode, userId);
         return res.redirect(`/configurator?tab=countries&subtab=system-settings&ms365_connected=true&country=${countryCode}`);
       }
       
@@ -18904,6 +18907,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
       const countryCode = req.params.countryCode;
       const userId = req.session.user!.id;
       const { email, displayName, accessToken, refreshToken, tokenExpiresAt, accountId } = req.body;
+      const { encryptTokenWithMarker, isEncryptedToken } = await import("./lib/token-crypto");
+      const protect = (token: string | undefined) => token
+        ? (isEncryptedToken(token) ? token : encryptTokenWithMarker(token)) : undefined;
       
       // Check if connection already exists
       const existing = await storage.getSystemMs365Connection(countryCode);
@@ -18913,14 +18919,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
         const updated = await storage.updateSystemMs365Connection(countryCode, {
           email,
           displayName,
-          accessToken,
-          refreshToken,
+          accessToken: protect(accessToken),
+          refreshToken: protect(refreshToken),
           tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : undefined,
           accountId,
           isConnected: true,
           connectedByUserId: userId,
         });
         await logActivity(userId, "update", "system_ms365_connection", existing.id, `Updated system email for ${countryCode}`);
+        startSystemMailboxCheckAfterReconnect(countryCode, userId);
         res.json({
           id: updated!.id,
           countryCode: updated!.countryCode,
@@ -18935,14 +18942,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
           countryCode,
           email,
           displayName,
-          accessToken,
-          refreshToken,
+          accessToken: protect(accessToken),
+          refreshToken: protect(refreshToken),
           tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : undefined,
           accountId,
           isConnected: true,
           connectedByUserId: userId,
         });
         await logActivity(userId, "create", "system_ms365_connection", created.id, `Connected system email for ${countryCode}`);
+        startSystemMailboxCheckAfterReconnect(countryCode, userId);
         res.json({
           id: created.id,
           countryCode: created.countryCode,

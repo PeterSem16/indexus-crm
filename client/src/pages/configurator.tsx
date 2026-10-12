@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, Fragment } from "react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+import { SystemMailboxCheckPanel } from "@/components/system-mailbox-check-panel";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
@@ -17011,6 +17012,12 @@ function CountrySystemSettingsTab() {
                   )}
                 </>
               )}
+              <SystemMailboxCheckPanel
+                key={selectedCountry}
+                countryCode={selectedCountry}
+                connected={!!ms365Connection?.isConnected && !!ms365Connection?.hasTokens}
+                connectionKey={ms365Connection?.id}
+              />
             </CardContent>
           </Card>
 
