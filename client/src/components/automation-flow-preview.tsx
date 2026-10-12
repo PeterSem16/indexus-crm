@@ -4,7 +4,10 @@ import { getFlowchartCopy } from "@/i18n/automation-flowchart-copy";
 import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation-unified-copy";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
 import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
+import { getConditionChoiceCopy } from "@/i18n/automation-condition-choice-copy";
 import { AutomationRuleFlowchart } from "./automation-rule-flowchart";
+import { AutomationFlowFullscreen } from "./automation-flow-fullscreen";
+import { getAutomationFlowFullscreenCopy } from "@/i18n/automation-flow-fullscreen-copy";
 
 type Option = { value: string; label: string };
 type Named = { id: string; name?: string; fullName?: string; email?: string; displayAlias?: string | null };
@@ -56,6 +59,10 @@ export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = 
       if (key === "module" || key === "entityType" || key === "recordType") return moduleLabel(text);
       if (key === "eventType") return eventLabel(text);
       if (key === "countryCodes" || key === "countryCode") return catalog.countries.find(item => item.value === text)?.label || text;
+      if (key && ["analysis.sentiment", "analysis.tone", "newValues.sentiment", "newValues.provider", "newValues.alertLevel", "newValues.type"].includes(key)) {
+        const option = getConditionChoiceCopy(locale).values[text] || getCommunicationAnalysisCopy(locale).optionLabels[text];
+        if (option) return option;
+      }
       if (key === "channels" || key === "newValues.type") return analysisChannelLabel(locale, text);
       if (key === "metricType") return catalog.metricTypes?.find(item => item.value === text)?.label || text;
       if (key === "attachmentSelectionMode") return text === "invoices" ? unified.invoicesOnly : text === "all" ? unified.allTrusted : text;
@@ -68,5 +75,12 @@ export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = 
       return extra[`value.${text}`] || text;
     },
   });
-  return <AutomationRuleFlowchart model={model} locale={locale} compact={compact} />;
+  return (
+    <AutomationFlowFullscreen
+      title={model.title}
+      copy={getAutomationFlowFullscreenCopy(locale)}
+    >
+      <AutomationRuleFlowchart model={model} locale={locale} compact={compact} />
+    </AutomationFlowFullscreen>
+  );
 }

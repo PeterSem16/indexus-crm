@@ -50,6 +50,9 @@ import { AutomationStepHelp } from "@/components/automation-step-help";
 import { AutomationRuleExecutionSettings } from "@/components/automation-rule-execution-settings";
 import { AutomationFlowPreview } from "@/components/automation-flow-preview";
 import { getFlowchartCopy } from "@/i18n/automation-flowchart-copy";
+import { getConditionChoiceCopy } from "@/i18n/automation-condition-choice-copy";
+import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
+import { conditionValueOptions, usesConditionChoices, SENTIMENT_OPTIONS, TONE_OPTIONS } from "@/lib/automation-condition-options";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
@@ -751,16 +754,16 @@ function RuleEditor({
     value,
     label: value.replace(/^analysis\./, "").replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`),
     type: ["analysis.wantsToCancel", "analysis.hasInvoice"].includes(value) ? "boolean"
-      : ["analysis.invoiceCount", "analysis.failedAttachmentCount"].includes(value) ? "number"
+      : ["analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount"].includes(value) ? "number"
         : ["analysis.sentiment", "analysis.tone"].includes(value) ? "enum" : "string",
-    options: value === "analysis.sentiment" ? ["positive", "neutral", "negative", "angry"]
-      : value === "analysis.tone" ? ["calm", "concerned", "angry", "rude"] : undefined,
+    options: value === "analysis.sentiment" ? SENTIMENT_OPTIONS
+      : value === "analysis.tone" ? TONE_OPTIONS : undefined,
   }));
   const fieldsForModule = [
     ...(catalog.fieldsByEvent?.[draft.module]?.[selectedEvent] || []),
     ...(draft.module === "communication" && analysisConfig ? analysisFields : []),
     ...(draft.module === "metric" ? [{ value: "newValues.value", label: "Metric value", type: "number" }] : []),
-  ];
+  ].filter((field, index, fields) => fields.findIndex(other => other.value === field.value) === index);
   const schedulePreviewInput = useMemo(() => JSON.stringify({
     module: draft.module,
     trigger: draft.trigger.type === "schedule"
@@ -853,6 +856,8 @@ function RuleEditor({
     (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
   const fieldLabel = (field: { value: string; label: string }) => {
+    const flowLabel = getFlowExtraLabels(locale)[field.value];
+    if (flowLabel) return flowLabel;
     const analysisLabel = draft.module === "communication" ? field.value === "countryCode" ? getCommunicationAnalysisCopy(locale).countryCode
       : getCommunicationAnalysisCopy(locale).fieldLabels[field.value] : undefined;
     if (analysisLabel) return analysisLabel;
@@ -863,11 +868,27 @@ function RuleEditor({
     (getUpdateRecordCopy(locale).field as Record<string, string>)[field.value.split(".").pop() || field.value] || field.label;
   };
   const conditionFields: ConditionField[] = fieldsForConditions.map(field => {
-    const localized: ConditionField = { ...field, label: fieldLabel(field) };
+    const localized: ConditionField = { ...field, label: fieldLabel(field),
+      optionLabels: {
+        ...Object.fromEntries(catalog.countries.map(country => [country.value, country.label])),
+        ...t.customers.statuses,
+        ...t.customers.clientStatuses,
+        cord_blood: t.customers.serviceTypes.cordBlood,
+        cord_tissue: t.customers.serviceTypes.cordTissue,
+        both: t.customers.serviceTypes.both,
+        ...getCommunicationAnalysisCopy(locale).optionLabels,
+        ...getConditionChoiceCopy(locale).values,
+      } };
+    if (["countryCode", "newValues.countryCode", "newValues.country"].includes(field.value))
+      localized.options = catalog.countries.map(country => country.value);
+    if (["newValues.assignedUserId", "newValues.createdByUserId", "newValues.resolvedByUserId", "newValues.agentId", "newValues.assignedAgentId"].includes(field.value)) {
+      return { ...localized, options: users.map(user => user.id),
+        optionLabels: Object.fromEntries(users.map(user => [user.id, user.fullName || user.email || user.id])) };
+    }
     if (draft.module === "communication") {
-      return { ...localized, optionLabels: getCommunicationAnalysisCopy(locale).optionLabels,
+      return { ...localized,
         ...(selectedEvent === "communication.analyzed" && field.value === "newValues.type" ? { options: ["email", "sms"] } : {}),
-        ...(selectedEvent === "communication.analyzed" && field.value === "newValues.sentiment" ? { options: ["positive", "neutral", "negative", "angry"] } : {}) };
+        ...(field.value === "newValues.sentiment" ? { options: SENTIMENT_OPTIONS } : {}) };
     }
     if (draft.module !== "task") return localized;
     if (["newValues.assignedUserId", "newValues.createdByUserId", "newValues.resolvedByUserId"].includes(field.value)) {
@@ -2149,6 +2170,8 @@ function ConditionsEditor({
   };
   const setValue = (value: any) => onChange({ ...leaf, op: selectedOp, value });
   const listValue = Array.isArray(leaf.value) ? leaf.value.map(String) : [];
+  const choiceCopy = getConditionChoiceCopy(locale);
+  const valueOptions = fieldMeta ? conditionValueOptions(fieldMeta, leaf.value, choiceCopy.saved) : [];
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -2159,7 +2182,7 @@ function ConditionsEditor({
             <SelectItem key={f.value} value={f.value} textValue={f.label} className="min-h-9 whitespace-normal py-2">
               <span className="flex min-w-0 items-center gap-2">
                 {(() => {
-                  const Icon = conditionFieldIcons[f.type] || CircleHelp;
+                  const Icon = f.options ? ListFilter : conditionFieldIcons[f.type] || CircleHelp;
                   return <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
                 })()}
                 <span className="leading-5">{f.label}</span>
@@ -2195,16 +2218,17 @@ function ConditionsEditor({
       {opMeta && opMeta.arity > 0 && (
         fieldMeta?.type === "tags" ? <RecordTagConditionInput entityType={sourceModule} countryCodes={countryCodes}
           value={typeof leaf.value === "string" ? leaf.value : ""} onChange={value => onChange({ ...leaf, op: selectedOp, value })} /> :
-        fieldMeta?.options && (fieldMeta.type === "list" || ["in", "not_in"].includes(selectedOp)) ? (
+        usesConditionChoices(fieldMeta, selectedOp) && (fieldMeta?.type === "list" || ["in", "not_in"].includes(selectedOp)) ? (
           <AutomationChoicePicker
-            options={fieldMeta.options.map(value => ({ value, label: fieldMeta.optionLabels?.[value] || value }))}
-            values={listValue} onChange={setValue} label={copy.value} placeholder={copy.chooseValue} />
-        ) : fieldMeta?.type === "enum" && fieldMeta.options ? (
-          <Select value={String(leaf.value ?? "")} onValueChange={(v) => onChange({ ...leaf, value: v })}>
+            options={valueOptions}
+            values={listValue} onChange={setValue} label={copy.value} placeholder={copy.chooseValue}
+            testId="condition-multiple-values" />
+        ) : usesConditionChoices(fieldMeta, selectedOp) ? (
+          <Select value={String(leaf.value ?? "")} onValueChange={setValue}>
             <SelectTrigger aria-label={copy.value} className="h-9 w-44 text-xs"><SelectValue placeholder={copy.chooseValue} /></SelectTrigger>
             <SelectContent className="automation-rule-select-content max-h-80 z-[10050]">
-              {fieldMeta.options.map((o) => (
-                <SelectItem key={o} value={o}>{fieldMeta.optionLabels?.[o] || o}</SelectItem>
+              {valueOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -2239,6 +2263,10 @@ function ConditionsEditor({
         )
       )}
       {fieldMeta?.help && <p className="w-full text-xs leading-relaxed text-muted-foreground">{fieldMeta.help}</p>}
+      {opMeta && opMeta.arity > 0 && usesConditionChoices(fieldMeta, selectedOp) && !fieldMeta?.help &&
+        <p className="w-full text-xs leading-relaxed text-muted-foreground">{
+          fieldMeta?.type === "list" || ["in", "not_in"].includes(selectedOp) ? choiceCopy.choose : choiceCopy.chooseOne
+        }</p>}
     </div>
   );
 }
