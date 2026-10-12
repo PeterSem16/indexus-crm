@@ -669,7 +669,7 @@ export function InternalChatPanel({
             </div>
             </div>
             <div className="icp-compose-row">
-              <textarea ref={composerRef} style={{ fontSize: "18px" }} value={activeDraft?.text || ""} onChange={event => changeText(event.target.value)} onKeyDown={event => {
+              <textarea ref={composerRef} value={activeDraft?.text || ""} onChange={event => changeText(event.target.value)} onKeyDown={event => {
                 if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); send(); }
               }} placeholder={omni.typeMessage} rows={2} aria-label={omni.typeMessage} />
               <button type="button" className="icp-send" onClick={send} disabled={sendBlocked}><Send />{copy.send}</button>

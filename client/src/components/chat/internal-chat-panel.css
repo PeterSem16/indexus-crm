@@ -755,3 +755,38 @@
   min-width: 0;
   margin: 0;
 }
+
+/* Keep Nexus Omni typography compact like the SMS workspace without changing
+   the shared Pulse inbox scale or any control dimensions. */
+.icp-theme-omni { font-size: 12px; }
+.icp-theme-omni .icp-side-head h2,
+.icp-theme-omni .icp-welcome h2 { font-size: 15px; }
+.icp-theme-omni .icp-kicker,
+.icp-theme-omni .icp-private-tag { font-size: 10px; }
+.icp-theme-omni .icp-search input { font-size: 12px; }
+.icp-theme-omni .icp-person-top b,
+.icp-theme-omni .icp-chat-person > b { font-size: 12px; }
+.icp-theme-omni .icp-person-top time,
+.icp-theme-omni .icp-person-bottom > span,
+.icp-theme-omni .icp-person-bottom > i,
+.icp-theme-omni .icp-chat-person > span,
+.icp-theme-omni .icp-day,
+.icp-theme-omni .icp-message-meta time,
+.icp-theme-omni .icp-receipt,
+.icp-theme-omni .icp-compose-foot { font-size: 10px; }
+.icp-theme-omni .icp-message-meta b { font-size: 11px; }
+.icp-theme-omni .icp-message p { font-size: 13px; }
+.icp-theme-omni .icp-compose-row textarea { font-size: 12px; }
+.icp-theme-omni .icp-send,
+.icp-theme-omni .icp-notice,
+.icp-theme-omni .icp-state button,
+.icp-theme-omni .icp-roster-empty,
+.icp-theme-omni .icp-empty span,
+.icp-theme-omni .icp-state p,
+.icp-theme-omni .icp-welcome p,
+.icp-theme-omni .icp-quick-replies button,
+.icp-theme-omni .icp-compose [data-testid="task-attachment-picker"] button { font-size: 12px; }
+.icp-theme-omni .icp-empty strong { font-size: 13px; }
+.icp-theme-omni .icp-typing,
+.icp-theme-omni .icp-pending-label,
+.icp-theme-omni .icp-unread { font-size: 11px; }
