@@ -25,6 +25,8 @@ import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import { TaskDetailFullscreen } from "@/components/tasks/task-detail-fullscreen";
 import { TaskTimingStatus } from "@/components/tasks/task-timing";
+import { OmniSmsWorkspace } from "@/components/nexus/omni-sms/OmniSmsWorkspace";
+import type { OmniSmsAccess } from "@shared/omni-sms";
 import type { TaskAttachment } from "@shared/task-attachments";
 import { chooseTaskGroupForSave, clampTaskPage, filterTasksByDate, getFreshTaskById, getTaskGroupId, isPulseNotificationTask, matchesTaskPeopleAndSearch, requiresPulseResolutionForCompletion, sortTasks, type DateRange, type TaskDateBasis, type TaskDatePreset, type TaskSortField } from "@/lib/task-query-controls";
 
@@ -3022,8 +3024,6 @@ export default function EmailClientPage() {
   const [selectedTaskEntity, setSelectedTaskEntity] = useState<EntityRef | null>(null);
   const [selectedChat, _setSelectedChat] = useState<ChatConversation | null>(null);
   const [selectedSms, setSelectedSms] = useState<SmsMessage | null>(null);
-  const [smsReplyText, setSmsReplyText] = useState("");
-  const [smsReplySending, setSmsReplySending] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeFullscreen, setComposeFullscreen] = useState(false);
   const [replyMode, setReplyMode] = useState<"reply" | "replyAll" | "forward" | null>(null);
@@ -3548,11 +3548,31 @@ export default function EmailClientPage() {
     enabled: !!user?.id,
   });
 
-  const { data: smsData, isLoading: smsLoading, refetch: refetchSms } = useQuery<SmsMessage[]>({
-    queryKey: ["/api/sms-messages"],
-    queryFn: () => fetch("/api/sms-messages").then(r => r.json()),
+  const smsAccessForLegacy = useQuery<OmniSmsAccess>({
+    queryKey: ["omni-sms", "access", user?.id ?? "anonymous"],
+    queryFn: async () => (await apiRequest("GET", "/api/omni-sms/access")).json() as Promise<OmniSmsAccess>,
     enabled: !!user?.id,
+    staleTime: 0,
+    refetchInterval: 30_000,
   });
+  const legacySmsQuery = useQuery<SmsMessage[]>({
+    queryKey: ["/api/sms-messages", user?.id ?? "anonymous", JSON.stringify(smsAccessForLegacy.isError ? null : smsAccessForLegacy.data)],
+    queryFn: async () => {
+      const response = await fetch("/api/sms-messages", { credentials: "include" });
+      if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+      return response.json() as Promise<SmsMessage[]>;
+    },
+    enabled: !!user?.id && !smsAccessForLegacy.isError && !!smsAccessForLegacy.data && (
+      smsAccessForLegacy.data.isAdmin || smsAccessForLegacy.data.grants.length > 0
+    ),
+    staleTime: 0,
+  });
+  // The legacy route is server-filtered by the same country/provider grants.
+  // Never surface its cached response when access is missing or revalidation failed.
+  const legacySmsCanDisplay = !smsAccessForLegacy.isError && !!smsAccessForLegacy.data && (
+    smsAccessForLegacy.data.isAdmin || smsAccessForLegacy.data.grants.length > 0
+  );
+  const smsData: SmsMessage[] = legacySmsCanDisplay ? legacySmsQuery.data ?? [] : [];
 
   const getMailboxParam = (email?: string | null) => {
     if (!email) return effectiveMailbox;
@@ -4045,13 +4065,8 @@ export default function EmailClientPage() {
   const totalCount = serverTotalCount;
   const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
 
-  const smsInboundUnread = smsData?.filter(s => s.direction === "inbound" && s.deliveryStatus !== "read")?.length || 0;
+  const smsInboundUnread = 0;
   const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
-  const filteredSms = (smsData || []).filter(sms => {
-    if (smsFilter === "inbound") return sms.direction === "inbound";
-    if (smsFilter === "outbound") return sms.direction === "outbound";
-    return true;
-  });
 
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
@@ -4149,9 +4164,6 @@ export default function EmailClientPage() {
   const emailsPage = sortedFilteredEmails.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalEmailPages = Math.ceil(filteredEmails.length / localPageSize);
 
-  const smsPage = filteredSms.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
-  const totalSmsPages = Math.ceil(filteredSms.length / localPageSize);
-
   const tasksPage = visibleTasks.slice(localPage * localPageSize, (localPage + 1) * localPageSize);
   const totalTaskPages = Math.ceil(visibleTasks.length / localPageSize);
   useEffect(() => {
@@ -4161,10 +4173,6 @@ export default function EmailClientPage() {
   useEffect(() => {
     if (activeTab === "email") setLocalPage(0);
   }, [activeTab, selectedFolderId]);
-
-  useEffect(() => {
-    if (activeTab === "sms") setLocalPage(0);
-  }, [activeTab, smsFilter]);
 
   useEffect(() => {
     if (activeTab === "tasks") setLocalPage(0);
@@ -5148,7 +5156,7 @@ export default function EmailClientPage() {
       refetchFolders();
       refetchMessages();
     } else if (activeTab === "sms") {
-      refetchSms();
+      // SMS workspace refreshes its permission-scoped server page itself.
     } else if (activeTab === "tasks") {
       void Promise.all([refetchTasks(), invalidateTaskPeople()]);
     } else if (activeTab === "chats") {
@@ -5959,96 +5967,7 @@ export default function EmailClientPage() {
           </>
         )}
 
-        {activeTab === "sms" && (
-          <>
-            <Card className="transition-all duration-300 w-[30%] min-w-[320px] max-w-[420px] shrink-0 flex flex-col">
-              <CardHeader className="py-2 px-3 border-b shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-cyan-600" />
-                    <span className="text-sm font-semibold">{smsFilter === "all" ? t.nexusOmni.sms.allSms : smsFilter === "inbound" ? t.nexusOmni.sms.received : t.nexusOmni.sms.sent}</span>
-                    <Badge variant="secondary" className="text-[10px]">{filteredSms.length}</Badge>
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="sms-page-prev">
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </Button>
-                    <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalSmsPages > 0 ? `${localPage + 1}/${totalSmsPages}` : "0/0"}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalSmsPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="sms-page-next">
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {smsLoading ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-                ) : smsPage.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <MessageSquare className="h-8 w-8 mb-2 opacity-50" />
-                    <span className="text-sm">{t.nexusOmni.sms.noSms}</span>
-                  </div>
-                ) : (
-                  <ScrollArea className="flex-1 min-h-0">
-                    <div className="divide-y">
-                      {smsPage.map(sms => {
-                        const customerName = sms.customer
-                          ? `${sms.customer.firstName} ${sms.customer.lastName}`
-                          : (sms.direction === "inbound" ? sms.senderPhone : sms.recipientPhone) || t.nexusOmni.email.unknown;
-                        const isUnread = sms.direction === "inbound" && sms.deliveryStatus !== "read";
-                        return (
-                          <div
-                            key={sms.id}
-                            className={`w-full text-left px-3 py-2.5 transition-all hover:bg-accent/50 cursor-pointer ${
-                              selectedSms?.id === sms.id ? "bg-accent" : ""
-                            } ${isUnread ? "font-medium" : ""}`}
-                            onClick={() => { setSelectedSms(sms); setSelectedEmail(null); setSelectedTask(null); _setSelectedChat(null); }}
-                            data-testid={`sms-item-${sms.id}`}
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <span className={`h-2 w-2 rounded-full shrink-0 mt-2 ${isUnread ? "bg-cyan-500" : "bg-transparent"}`} />
-                              <div className={`p-1 rounded-md ${sms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-emerald-50 dark:bg-emerald-950/30"} shrink-0`}>
-                                {sms.direction === "inbound" ? <ArrowDown className="h-3.5 w-3.5 text-cyan-600" /> : <ArrowUp className="h-3.5 w-3.5 text-emerald-600" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className={`text-sm truncate ${isUnread ? "font-bold" : ""}`}>{customerName}</span>
-                                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                                    {format(new Date(sms.sentAt || sms.createdAt), "d.M. HH:mm")}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-muted-foreground truncate">{sms.content}</p>
-                                {sms.aiAlertLevel && sms.aiAlertLevel !== "none" && (
-                                  <Badge variant="outline" className={`mt-0.5 text-[10px] px-1 py-0 h-4 ${
-                                    sms.aiAlertLevel === "critical" ? "border-red-500 text-red-600" : "border-amber-500 text-amber-600"
-                                  }`}>
-                                    {sms.aiAlertLevel === "critical" ? <ShieldAlert className="h-3 w-3 mr-0.5" /> : <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                                    {sms.aiHasAngryTone && t.nexusOmni.sms.angry}
-                                    {sms.aiWantsToCancel && t.nexusOmni.sms.cancellation}
-                                  </Badge>
-                                )}
-                                {sms.aiAnalyzed && (sms.aiSentiment === "negative" || sms.aiSentiment === "angry" || sms.aiHasAngryTone) && (!sms.aiAlertLevel || sms.aiAlertLevel === "none") && (
-                                  <Badge variant="outline" className="mt-0.5 text-[10px] px-1 py-0 h-4 border-orange-400 text-orange-600">
-                                    <Flame className="h-3 w-3 mr-0.5" />{t.nexusOmni.sms.negativeSentiment}
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="transition-all duration-300 flex-1 min-w-0 flex flex-col">
-              <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
-                {renderSmsDetail()}
-              </CardContent>
-            </Card>
-          </>
-        )}
+        {activeTab === "sms" && <OmniSmsWorkspace directionFilter={smsFilter} onDirectionFilterChange={setSmsFilter} selectedMessageId={selectedSms?.id} onClearSelectedMessage={() => setSelectedSms(null)} />}
 
         {activeTab === "tasks" && (
           <>
@@ -8600,196 +8519,6 @@ export default function EmailClientPage() {
             </div>
           )}
         </ScrollArea>
-      </div>
-    );
-  }
-
-  function renderSmsDetail() {
-    if (!selectedSms) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-          <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-          <p className="font-medium">SMS</p>
-          <p className="text-sm">{t.nexusOmni.sms.selectSms}</p>
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b space-y-2">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge className={`${typeColors.sms.bg} ${typeColors.sms.text}`}>
-                <MessageSquare className="h-3 w-3 mr-1" />
-                {selectedSms.direction === "inbound" ? t.nexusOmni.sms.receivedSms : t.nexusOmni.sms.sentSms}
-              </Badge>
-              <h2 className="text-lg font-semibold">
-                {selectedSms.customer
-                  ? `${selectedSms.customer.firstName} ${selectedSms.customer.lastName}`
-                  : (selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone)}
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedSms.direction === "inbound" ? (
-                <Badge variant="outline" className="gap-1 text-cyan-600 border-cyan-400">
-                  <ArrowRight className="h-3 w-3 rotate-180" />{t.nexusOmni.common.received}
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-400">
-                  <ArrowRight className="h-3 w-3" />{t.nexusOmni.common.sent}
-                </Badge>
-              )}
-              {selectedSms.deliveryStatus && (
-                <Badge variant="outline" className="text-xs">{selectedSms.deliveryStatus}</Badge>
-              )}
-            </div>
-          </div>
-          <div className="text-sm">
-            <p>
-              <span className="text-muted-foreground">{selectedSms.direction === "inbound" ? `${t.nexusOmni.email.from}:` : `${t.nexusOmni.email.to}:`}</span>{" "}
-              {selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone}
-            </p>
-            <p className="text-muted-foreground text-xs mt-1">
-              {format(new Date(selectedSms.sentAt || selectedSms.createdAt), "d. MMMM yyyy, HH:mm")}
-            </p>
-          </div>
-
-          {selectedSms.customer?.id && (
-            <Link
-              href={`/customers?view=${selectedSms.customer.id}`}
-              className="flex items-center gap-2 mt-2 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md hover:bg-green-100 dark:hover:bg-green-900 transition-colors cursor-pointer"
-              data-testid="sms-link-customer-detail"
-            >
-              <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm text-green-700 dark:text-green-300">{t.nexusOmni.email.linkedCustomer}:</span>
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                {selectedSms.customer.firstName} {selectedSms.customer.lastName}
-              </span>
-            </Link>
-          )}
-
-          {selectedSms.aiAnalyzed && (
-            (selectedSms.aiAlertLevel && selectedSms.aiAlertLevel !== "none") ||
-            selectedSms.aiSentiment === "negative" ||
-            selectedSms.aiSentiment === "angry" ||
-            selectedSms.aiHasAngryTone
-          ) && (
-            <div
-              className={`flex items-start gap-3 mt-3 p-3 rounded-md border ${
-                selectedSms.aiAlertLevel === "critical"
-                  ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-800"
-                  : selectedSms.aiAlertLevel === "warning"
-                  ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800"
-                  : "bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800"
-              }`}
-              data-testid="sms-ai-analysis-alert"
-            >
-              {selectedSms.aiAlertLevel === "critical" ? (
-                <ShieldAlert className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
-              ) : selectedSms.aiAlertLevel === "warning" ? (
-                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-              ) : (
-                <Flame className="h-5 w-5 text-orange-500 dark:text-orange-400 shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold">
-                    {selectedSms.aiAlertLevel === "critical"
-                      ? t.nexusOmni.sms.criticalAlert
-                      : selectedSms.aiAlertLevel === "warning"
-                      ? t.nexusOmni.sms.warning
-                      : t.nexusOmni.sms.negativeSentiment}
-                  </span>
-                  {selectedSms.aiHasAngryTone && (
-                    <Badge variant="outline" className="text-xs border-orange-400 text-orange-600">
-                      <Flame className="h-3 w-3 mr-1" />{t.nexusOmni.sms.angry}
-                    </Badge>
-                  )}
-                  {selectedSms.aiHasRudeExpressions && (
-                    <Badge variant="outline" className="text-xs border-purple-400 text-purple-600">{t.nexusOmni.sms.rudeExpressions}</Badge>
-                  )}
-                  {selectedSms.aiWantsToCancel && (
-                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">{t.nexusOmni.sms.cancellation}</Badge>
-                  )}
-                  {selectedSms.aiWantsConsent && (
-                    <Badge variant="outline" className="text-xs border-green-500 text-green-600">{t.nexusOmni.email.consent}</Badge>
-                  )}
-                  {selectedSms.aiDoesNotAcceptContract && (
-                    <Badge variant="outline" className="text-xs border-red-500 text-red-600">{t.nexusOmni.sms.contractRejection}</Badge>
-                  )}
-                </div>
-                {selectedSms.aiAnalysisNote && (
-                  <p className="text-xs text-muted-foreground mt-1">{selectedSms.aiAnalysisNote}</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-        <ScrollArea className="flex-1">
-          <div className="p-4">
-            <div className={`p-4 rounded-lg ${selectedSms.direction === "inbound" ? "bg-cyan-50 dark:bg-cyan-950/30" : "bg-slate-50 dark:bg-slate-900"}`}>
-              <p className="text-sm whitespace-pre-wrap" style={{ overflowWrap: "break-word", wordBreak: "break-word" }}>{selectedSms.content}</p>
-            </div>
-          </div>
-        </ScrollArea>
-        {(() => {
-          const replyPhone = selectedSms.direction === "inbound" ? selectedSms.senderPhone : selectedSms.recipientPhone;
-          if (!replyPhone) return null;
-          return (
-            <div className="p-3 border-t flex gap-2" data-testid="sms-reply-bar">
-              <Input
-                placeholder={`${t.nexusOmni.sms.replyToPlaceholder} ${replyPhone}...`}
-                value={smsReplyText}
-                onChange={(e) => setSmsReplyText(e.target.value)}
-                maxLength={160}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && smsReplyText.trim() && !smsReplySending) {
-                    e.preventDefault();
-                    setSmsReplySending(true);
-                    fetch("/api/send-sms", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ to: replyPhone, message: smsReplyText.trim(), customerId: selectedSms.customer?.id || null }),
-                    })
-                      .then(r => r.json())
-                      .then(data => {
-                        if (data.error) throw new Error(data.error);
-                        toast({ title: t.nexusOmni.sms.replySent });
-                        setSmsReplyText("");
-                      })
-                      .catch(err => toast({ title: t.nexusOmni.common.error, description: err.message, variant: "destructive" }))
-                      .finally(() => setSmsReplySending(false));
-                  }
-                }}
-                data-testid="sms-reply-input"
-              />
-              <Button
-                size="sm"
-                disabled={!smsReplyText.trim() || smsReplySending}
-                onClick={() => {
-                  if (!smsReplyText.trim() || smsReplySending) return;
-                  setSmsReplySending(true);
-                  fetch("/api/send-sms", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ to: replyPhone, message: smsReplyText.trim(), customerId: selectedSms.customer?.id || null }),
-                  })
-                    .then(r => r.json())
-                    .then(data => {
-                      if (data.error) throw new Error(data.error);
-                      toast({ title: t.nexusOmni.sms.replySent });
-                      setSmsReplyText("");
-                    })
-                    .catch(err => toast({ title: t.nexusOmni.common.error, description: err.message, variant: "destructive" }))
-                    .finally(() => setSmsReplySending(false));
-                }}
-                data-testid="sms-reply-send"
-              >
-                {smsReplySending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
-            </div>
-          );
-        })()}
       </div>
     );
   }

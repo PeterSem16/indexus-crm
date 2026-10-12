@@ -2998,7 +2998,10 @@ export class DatabaseStorage implements IStorage {
 
   // Communication Messages
   async createCommunicationMessage(message: InsertCommunicationMessage): Promise<CommunicationMessage> {
-    const [created] = await db.insert(communicationMessages).values(message).returning();
+    const values = message.type === "sms"
+      ? { ...message, countryCode: await (await import("./lib/sms-country-snapshot")).snapshotSmsCountry(message) }
+      : message;
+    const [created] = await db.insert(communicationMessages).values(values).returning();
     return created;
   }
 

@@ -39,6 +39,7 @@ const INDEXES: IndexDef[] = [
   { name: "idx_call_logs_inbound", table: "call_logs", columns: "inbound_call_log_id" },
 
   // communication_messages — email/sms history
+  { name: "idx_omni_sms_country_provider_created", table: "communication_messages", columns: "type, country_code, provider, created_at DESC" },
   { name: "idx_comm_messages_customer", table: "communication_messages", columns: "customer_id" },
   { name: "idx_comm_messages_contract", table: "communication_messages", columns: "contract_id" },
   { name: "idx_comm_messages_external", table: "communication_messages", columns: "external_id" },

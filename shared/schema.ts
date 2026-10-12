@@ -1311,6 +1311,7 @@ export const TASK_STATUSES = [
 // Communication messages - tracks emails and SMS sent to customers
 export const communicationMessages = pgTable("communication_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  countryCode: varchar("country_code", { length: 10 }),
   customerId: varchar("customer_id"),
   // Mission attribution is intentionally separate from customerId: Mission contacts
   // can be clinics, hospitals, or collaborators and must not be inferred by phone.
@@ -5348,6 +5349,17 @@ export const smsGatewaySettings = pgTable("sms_gateway_settings", {
 }, (table) => ({
   providerCountryUnique: unique("sms_gateway_settings_provider_country").on(table.provider, table.countryCode),
   providerIndex: index("idx_sms_gateway_settings_provider").on(table.provider),
+}));
+
+// Nexus Omni visibility is opt-in for non-administrators, per country/provider.
+export const omniSmsGatewayGrants = pgTable("omni_sms_gateway_grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  countryCode: varchar("country_code", { length: 10 }).notNull(),
+  provider: varchar("provider", { length: 20 }).notNull(),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, table => ({
+  userCountryProvider: unique("omni_sms_grants_user_country_provider").on(table.userId, table.countryCode, table.provider),
 }));
 
 export const insertSmsGatewaySettingSchema = createInsertSchema(smsGatewaySettings).omit({

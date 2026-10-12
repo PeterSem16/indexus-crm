@@ -2991,6 +2991,10 @@ export async function registerRoutes(
   registerWallboardPresenceRoutes(app, requireAuth);
   const { registerSystemMailboxCheckRoutes, startSystemMailboxCheckAfterReconnect } = await import("./system-mailbox-check-routes");
   registerSystemMailboxCheckRoutes(app, requireAuth);
+  const { registerOmniSmsRoutes } = await import("./omni-sms-routes");
+  const { listOmniSms, findOmniSmsMessage, filterOmniSmsFromMixedHistory, OmniSmsError } = await import("./omni-sms-service");
+  const { authoritativeOmniSmsReply } = await import("./lib/omni-sms-reply");
+  registerOmniSmsRoutes(app, requireAuth);
   const { registerClinicAgreementRoutes } = await import("./lib/clinic-agreement-routes");
   registerClinicAgreementRoutes(app, requireAuth);
 
@@ -15709,8 +15713,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       const messages = await storage.getAllCommunicationMessages(limit);
-      res.json(messages);
+      res.json(await filterOmniSmsFromMixedHistory(req.session.user!.id, messages));
     } catch (error) {
+      if (error instanceof OmniSmsError) return res.status(error.status).json({ error: error.message });
       console.error("Error fetching communication messages:", error);
       res.status(500).json({ error: "Failed to fetch messages" });
     }
@@ -15719,10 +15724,28 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Send SMS to multiple recipients (used from customer dialog)
   app.post("/api/send-sms", requireAuth, async (req, res) => {
     try {
-      const { to, message, customerId, contactType, campaignId, compositionDurationSeconds } = req.body;
-      const requestedProvider = typeof req.body?.gateway === "string"
+      let { to, message, customerId, contactType, campaignId } = req.body;
+      const { compositionDurationSeconds } = req.body;
+      let sourceCountry: string | undefined;
+      let requestedProvider = typeof req.body?.gateway === "string"
         ? req.body.gateway
         : typeof req.body?.provider === "string" ? req.body.provider : undefined;
+      if (req.body?.sourceSmsId !== undefined) {
+        if (typeof req.body.sourceSmsId !== "string" || !req.body.sourceSmsId)
+          return res.status(400).json({ error: "invalid_sms_source" });
+        const source = await findOmniSmsMessage(req.session.user!.id, req.body.sourceSmsId);
+        const reply = authoritativeOmniSmsReply(source);
+        if (!reply || typeof message !== "string" || !message.trim())
+          return res.status(400).json({ error: "sms_reply_unavailable" });
+        // The source row owns recipient, country, gateway and Mission. Browser
+        // fields must never select a different recipient or bypass a grant.
+        to = reply.to;
+        customerId = reply.customerId;
+        contactType = reply.contactType;
+        campaignId = reply.campaignId;
+        requestedProvider = reply.provider;
+        sourceCountry = reply.country;
+      }
       
       if (!to || !message) {
         return res.status(400).json({ error: "Missing required fields: to, message" });
@@ -15783,7 +15806,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         else if (contactType === "collaborator") contact = await storage.getCollaborator(customerId);
         else contact = await storage.getCustomer(customerId);
       }
-      const contactCountry = contact?.country || contact?.countryCode || undefined;
+      const contactCountry = sourceCountry || contact?.country || contact?.countryCode || undefined;
       const contactName = contact
         ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || contact.fullName || customerId
         : null;
@@ -15814,6 +15837,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
           contactCountry,
           effectiveCampaignId,
         );
+        if (req.body?.sourceSmsId !== undefined && !gatewaySelection.provider) {
+          return res.status(400).json({ success: false, error: "sms_reply_gateway_unavailable" });
+        }
         const recordProvider = gatewaySelection.provider || (requestedProvider === "smstools" ? "smstools" : "bulkgate");
         // Create message record
         const messageRecord = await storage.createCommunicationMessage({
@@ -15832,6 +15858,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             compositionDurationSeconds: compositionDurationSeconds || null,
             campaignId: effectiveCampaignId || null,
           }),
+          countryCode: contactCountry,
         });
         
         if (gatewaySelection.provider || hasConfiguredGateway || gatewaySelection.campaignProvider) {
@@ -15906,6 +15933,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
         res.status(status).json({ success: false, error: firstError, results });
       }
     } catch (error) {
+      if (error instanceof OmniSmsError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       console.error("Error sending SMS:", error);
       res.status(500).json({ error: "Failed to send SMS" });
     }
@@ -16186,6 +16216,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         campaignId: campaignId || undefined,
         entityType: customerId ? "customer" : undefined,
         entityId: customerId || undefined,
+        countryCode: country,
         type: "sms",
         direction: "outbound",
         content: text,
@@ -16307,6 +16338,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             campaignId: communicationMessages.campaignId,
             entityType: communicationMessages.entityType,
             entityId: communicationMessages.entityId,
+            countryCode: communicationMessages.countryCode,
           }).from(communicationMessages).where(and(
             eq(communicationMessages.provider, "bulkgate"),
             eq(communicationMessages.direction, "outbound"),
@@ -16320,6 +16352,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
               campaignId: outbound.campaignId || undefined,
               entityType: outbound.entityType || undefined,
               entityId: outbound.entityId || undefined,
+              countryCode: outbound.countryCode || undefined,
             });
           }
         }
@@ -16488,38 +16521,15 @@ Return ONLY valid JSON, no markdown code blocks.`,
   // Get all SMS messages (both sent and received)
   app.get("/api/sms-messages", requireAuth, async (req, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
-      const direction = req.query.direction as string | undefined;
-      
-      const messages = await storage.getAllCommunicationMessages(limit);
-      const smsMessages = messages.filter(m => {
-        if (m.type !== "sms") return false;
-        if (direction && m.direction !== direction) return false;
-        return true;
-      });
-      
-      // Enrich with customer data
-      const enrichedMessages = await Promise.all(smsMessages.map(async (msg) => {
-        if (msg.customerId) {
-          const customer = await storage.getCustomer(msg.customerId);
-          if (customer) {
-            return {
-              ...msg,
-              customer: {
-                id: customer.id,
-                firstName: customer.firstName,
-                lastName: customer.lastName,
-              },
-            };
-          }
-        }
-        return msg;
-      }));
-      
-      res.json(enrichedMessages);
+      const page = await listOmniSms(req.session.user!.id, {
+        country: req.query.country, provider: req.query.provider,
+        direction: req.query.direction, q: req.query.q,
+        page: req.query.page ?? 0, pageSize: req.query.limit ?? 100,
+      }, true);
+      res.json(page.messages);
     } catch (error) {
-      console.error("Error fetching SMS messages:", error);
-      res.status(500).json({ error: "Failed to fetch SMS messages" });
+      res.status(error instanceof OmniSmsError ? error.status : 503)
+        .json({ error: error instanceof OmniSmsError ? error.message : "sms_unavailable" });
     }
   });
 
@@ -16713,6 +16723,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           content: incoming.text,
           senderPhone: incoming.senderPhone,
           recipientPhone: incoming.recipientPhone,
+          countryCode: "SK",
           status: "received",
           provider: "smstools",
           externalId: incoming.messageId,

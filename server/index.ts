@@ -10,6 +10,7 @@ import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
 import { CLINIC_AGREEMENTS_MIGRATION } from "./lib/clinic-agreement-contract";
+import { OMNI_SMS_MIGRATION } from "./lib/omni-sms-migration";
 import {
   JMHZ_EDUCATION_TO_CARD_VALUE,
   JMHZ_PROFESSION_TO_CARD_VALUE,
@@ -954,7 +955,8 @@ app.use((req, res, next) => {
       CREATE INDEX IF NOT EXISTS idx_sms_gateway_settings_provider
         ON sms_gateway_settings(provider);
     `);
-    console.log('[migration] sms_gateway_settings table ensured');
+    await pool.query(OMNI_SMS_MIGRATION);
+    console.log('[migration] sms_gateway_settings and Omni visibility ensured');
   } catch (e: any) {
     console.error('[migration] sms_gateway_settings error:', e.message);
   }
