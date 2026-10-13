@@ -36,11 +36,11 @@ export function TaskRequestBrief({
       {brief.category && (
         <div className="task-request-category">{categoryLabels[brief.category]}</div>
       )}
-      <p className="task-request-text" data-testid={`task-request-text-${testId}`}>{brief.request || emptyLabel}</p>
+      <p className="task-request-text whitespace-pre-wrap" data-testid={`task-request-text-${testId}`}>{brief.request || emptyLabel}</p>
       {brief.isFeatured && (
         <details className="task-request-original">
           <summary data-testid={`button-task-request-original-${testId}`}>{originalLabel}</summary>
-          <p>{brief.original}</p>
+          <p className="whitespace-pre-wrap">{brief.original}</p>
         </details>
       )}
       {children}

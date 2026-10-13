@@ -76,6 +76,7 @@ type BOTask = {
     relatedEntityId: string | null;
     tags: string[];
     createdAt: string;
+    attachments?: BoAttachment[];
   };
   confirmation: {
     id: string;
@@ -937,10 +938,15 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                 <div className="text-xs text-muted-foreground italic" data-testid="text-bo-no-customer">{t.backOffice.noCustomer}</div>
               )}
 
-              {task.description && (
+              {(task.description || task.attachments?.length) && (
                 <div>
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{task.description}</p>
+                  {task.description && (
+                    <>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-task-description">{task.description}</p>
+                    </>
+                  )}
+                  <AttachmentChips attachments={task.attachments} />
                 </div>
               )}
 

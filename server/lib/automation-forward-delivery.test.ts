@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { deliverForwardCommunication } from "./automation-forward-delivery";
 import { forwardActionIssues } from "../../shared/automation-forward-action";
 import { validatedContentSignals } from "../../shared/automation-content-signals";
-import { renderEmailValue } from "./automation-email-policy";
+import { renderEmailValue, sanitizeAutomationEmail } from "./automation-email-policy";
+import { forwardedMessageContent } from "./automation-forward-content";
 const mime = Buffer.from("From: sender@example.invalid\r\nSubject: Invoice\r\n\r\nOriginal attachments and headers.");
 const text = '<b>Invoice</b> {{rule.privateField}} <script>alert("x")</script>';
 const source: any = { channel: "email", text, communication: { id: "source-1", subject: "Original {{rule.privateField}}" } };
@@ -17,12 +18,13 @@ function fixtures(overrides: any = {}) {
     attachments: async () => [{ id: "invoice-id", name: "same.pdf", contentType: "application/pdf", size: 7 },
       { id: "other-id", name: "same.pdf", contentType: "application/pdf", size: 5 }],
     attachment: async (_source: any, suffix: string) => {
-      assert.match(suffix, /invoice-id$/);
-      return { contentBytes: Buffer.from("invoice").toString("base64") };
+      assert.match(suffix, /(invoice-id|other-id)$/);
+      return { contentBytes: Buffer.from(suffix.endsWith("invoice-id") ? "invoice" : "other").toString("base64") };
     },
     save: async (owner: string, file: any) => {
       snapshots.push({ owner, ...file });
-      return { id: "upload-1", name: file.name, type: file.type, size: file.bytes.length, url: "/api/tasks/attachments/upload-1" };
+      const id = `upload-${snapshots.length}`;
+      return { id, name: file.name, type: file.type, size: file.bytes.length, url: `/api/tasks/attachments/${id}` };
     },
     email: async (config: any, context: any) => { sends.push({ config, context }); return { ok: true }; },
     verifyUser: async () => {}, verifyGroup: async () => {}, ...overrides };
@@ -36,11 +38,15 @@ test("whole email preserves original MIME and never interprets template tokens f
   assert.equal(Buffer.from(config.attachments[0].contentBase64, "base64").toString(), mime.toString());
   assert.equal(config.attachments[0].contentType, "message/rfc822");
   const subject = renderEmailValue(config.subject, context, false);
-  const body = renderEmailValue(config.body, context, true);
+  const body = sanitizeAutomationEmail(renderEmailValue(config.body, context, true));
   assert.ok(subject.includes("{{rule.privateField}}"));
   assert.ok(body.includes("{{rule.privateField}}"));
   assert.ok(!body.includes("MUST-NOT-EXPAND"));
   assert.ok(!body.includes("<script>"));
+  assert.ok(body.includes("<b>Invoice</b>"), "Original formatting is not displayed as escaped HTML");
+  assert.equal(config.attachments.length, 3, "Whole forward exposes PDFs separately from the RFC822 archive");
+  assert.deepEqual(config.attachments.slice(1).map((file: any) =>
+    Buffer.from(file.contentBase64, "base64").toString()), ["invoice", "other"]);
 });
 test("invoice attachments use exact source attachment IDs, not filenames", async () => {
   const f = fixtures();
@@ -54,10 +60,55 @@ test("Back Office receives a shared task with private original MIME, not public 
   assert.equal(f.sends.length, 0);
   assert.equal(f.tasks[0].config.taskGroupId, "bo");
   assert.equal(f.tasks[0].config.analysisAttachments, "all");
+  assert.equal(f.snapshots.length, 3);
+  assert.equal(f.tasks[0].context.analysis.attachments.length, 3);
+  assert.deepEqual(f.snapshots.slice(1).map(file => file.bytes.toString()), ["invoice", "other"]);
   assert.equal(f.snapshots[0].owner, "owner");
   assert.equal(f.snapshots[0].bytes.toString(), mime.toString());
   assert.ok(!f.tasks[0].config.description.includes("<script"));
   assert.ok(!f.tasks[0].config.description.includes("{{rule.privateField}}"));
+});
+test("personal task receives original archive and every separate email attachment", async () => {
+  const f = fixtures();
+  const result = await deliverForwardCommunication({
+    ...base, destination: "user", to: undefined, userId: "reviewer",
+  }, ctx, "run", f.task, f.dependencies);
+  assert.equal(result.ok, true);
+  assert.equal(f.sends.length, 0);
+  assert.equal(f.tasks[0].config.assignedUserId, "reviewer");
+  assert.equal(f.tasks[0].context.analysis.attachments.length, 3);
+  assert.equal(new Set(f.tasks[0].context.analysis.attachments.map((item: any) => item.id)).size, 3);
+});
+test("email content keeps paragraphs and formatting; task content decodes entities without HTML", () => {
+  const value = '<html><head><title>Hidden</title></head><body><p>Please review&nbsp;the invoice.</p>' +
+    '<div>Regards<br><b>Sender</b></div><ul><li>First item</li><li>Second item</li></ul>' +
+    '<script>bad()</script><img src="https://tracking.invalid/pixel"><a href="javascript:bad()">Unsafe</a></body></html>';
+  const content = forwardedMessageContent(value, "email");
+  assert.match(content.text, /Please review the invoice\.\n\nRegards\nSender/);
+  assert.match(content.text, /- First item/);
+  assert.ok(!/(&nbsp;|<[^>]+>|bad\(\)|Hidden)/.test(content.text));
+  assert.ok(content.html.includes("<b>Sender</b>"));
+  assert.ok(!/(tracking.invalid|javascript:|<script)/.test(content.html));
+  assert.equal(forwardedMessageContent("Literal <b>SMS</b>\nSecond line", "sms").text,
+    "Literal <b>SMS</b>\nSecond line");
+});
+test("whole email without attachments still forwards the original and readable body", async () => {
+  const f = fixtures({ attachments: async () => [] });
+  assert.equal((await deliverForwardCommunication(base, ctx, "run", f.task, f.dependencies)).ok, true);
+  assert.equal(f.sends[0].config.attachments.length, 1);
+});
+test("limits and missing attachment bytes block the complete forward before any save or send", async () => {
+  for (const overrides of [
+    { attachments: async () => Array.from({ length: 5 }, (_, i) => ({ id: `${i}` })) },
+    { attachment: async () => ({}) },
+    { original: async () => Buffer.alloc(10 * 1024 * 1024 + 1) },
+  ]) {
+    const f = fixtures(overrides);
+    assert.equal((await deliverForwardCommunication({
+      ...base, destination: "back_office", to: undefined, taskGroupId: "bo",
+    }, ctx, "run", f.task, f.dependencies)).ok, false);
+    assert.equal(f.sends.length + f.tasks.length + f.snapshots.length, 0);
+  }
 });
 test("SMS user handoff retains exact original text in a private UTF-8 file", async () => {
   const f = fixtures({ source: async () => ({ ...source, channel: "sms" }) });

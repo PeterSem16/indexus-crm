@@ -5,7 +5,7 @@ import { forwardActionIssues, type ForwardConfig } from "../../shared/automation
 import { loadAnalysisSource, listSourceAttachments, mailboxRequest, type AnalysisSource } from "./automation-analysis-source";
 import { originalEmailBytes, saveForwardedFile, MAX_FORWARDED_BYTES } from "./automation-forward-source";
 import { deliverAutomationEmail } from "./automation-email-delivery";
-import { sanitizeAutomationEmail } from "./automation-email-policy";
+import { forwardedMessageContent, literalForwardHtml } from "./automation-forward-content";
 
 type ActionResult = { ok: boolean; output?: any; error?: string };
 type TaskDelivery = (config: any, ctx: any, runId: string) => Promise<ActionResult>;
@@ -46,15 +46,21 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
       if (config.mode === "whole") {
         // RFC822 retains the complete original message, headers and ALL its attachments.
         files.push({ name: "original-email.eml", type: "message/rfc822", bytes: await dependencies.original(source) });
-      } else {
+      }
+      {
         const available = await dependencies.attachments(source);
         const invoiceIds = new Set((ctx.analysis?.attachments || [])
           .filter((item: any) => item.classification === "invoice" && typeof item.sourceAttachmentId === "string")
           .map((item: any) => item.sourceAttachmentId));
-        const selected = config.selection === "invoice" ? available.filter(item => invoiceIds.has(item.id)) : available;
-        if (!selected.length) throw new Error("forward_no_matching_attachments");
-        if (selected.length > 5) throw new Error("forward_attachment_limit");
-        let total = 0;
+        // Whole-message mode always includes every regular attachment separately
+        // as well as the untouched archive, irrespective of attachment selection.
+        const selected = config.mode === "attachments" && config.selection === "invoice"
+          ? available.filter(item => invoiceIds.has(item.id)) : available;
+        if (!selected.length && config.mode === "attachments") throw new Error("forward_no_matching_attachments");
+        if (selected.length + files.length > 5) throw new Error("forward_attachment_limit");
+        let total = files.reduce((sum, file) => sum + file.bytes.length, 0);
+        if (total > MAX_FORWARDED_BYTES || files.some(file => file.bytes.length > 10 * 1024 * 1024))
+          throw new Error("forward_attachment_limit");
         for (const item of selected) {
           const attachment = item.contentBytes ? item : await dependencies.attachment(source, `/attachments/${encodeURIComponent(item.id)}`);
           const encoded = attachment.contentBytes;
@@ -70,12 +76,12 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
     }
     const subject = source.channel === "email" ? String(source.communication.subject || "Email") : "SMS";
     const title = config.title?.trim() || `Fwd: ${subject}`;
-    const text = String(config.mode === "whole" ? source.text : subject);
+    const content = forwardedMessageContent(String(config.mode === "whole" ? source.text : subject), source.channel);
     if (config.destination === "email") {
       const result = await dependencies.email({ emailActionVersion: 2, senderMode: "personal",
-        to: config.to, subject: "{{forwarded.subject}}", body: "<p>{{forwarded.body}}</p>",
+        to: config.to, subject: "{{forwarded.subject}}", body: literalForwardHtml(content.html),
         attachments: files.map(file => ({ name: file.name, contentType: file.type, contentBase64: file.bytes.toString("base64") })) },
-        { ...ctx, forwarded: { subject: title, body: text || title } });
+        { ...ctx, forwarded: { subject: title } });
       return result.ok ? { ...result, output: { ...result.output, forwardedChannel: source.channel,
         mode: config.mode, attachmentCount: files.length } } : result;
     }
@@ -85,7 +91,7 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
       attachments: attachments.map(attachment => ({ ...attachment, classification: "other" })) } };
     // Reuse the complete existing Task authorization, country, group and private attachment transaction.
     // Do not interpret template tokens from untrusted source text as automation instructions.
-    const literalText = sanitizeAutomationEmail(text).replace(/<[^>]*>/g, " ").replace(/\{\{/g, "{\u200b{");
+    const literalText = content.text.replace(/\{\{/g, "{\u200b{");
     const result = await taskDelivery({ title: title.replace(/\{\{/g, "{\u200b{"), description: literalText,
       analysisAttachments: "all", priority: ctx.analysis?.isUrgent === true ? "high" : "medium",
       ...(config.destination === "user" ? { assignedUserId: config.userId } : { taskGroupId: config.taskGroupId }) }, forwardedContext, runId);

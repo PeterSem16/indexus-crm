@@ -48,5 +48,7 @@ assert.equal(getTaskRequestBrief(duplicated, "en").request, `First request\n${tr
 
 const longText = "Change " + "field ".repeat(500) + "\nsecond paragraph";
 assert.equal(getTaskRequestBrief(`${translations.de.quickCreate.reqChangeData}${longText}`, "de").request, longText);
+const forwardedParagraphs = `Please review the attached request.\n\nKind regards,\nMila Novak`;
+assert.equal(getTaskRequestBrief(forwardedParagraphs, "en").request, forwardedParagraphs);
 assert.equal(getTaskRequestBrief("", "hu").request, "");
 console.log("task request brief extraction checks passed");

@@ -10,7 +10,7 @@ import { useI18n } from "@/i18n";
 import { useAuth } from "@/contexts/auth-context";
 import { HelpCircle, Loader2, CornerDownLeft, ChevronDown, ChevronUp, ChevronRight, Send, User, Phone, Mail, MapPin, Building2, Clock, MessageSquare, Zap, Stethoscope, AlertTriangle, CheckCircle2, Sparkles, X, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-import { Timeline, BoAttachmentComposer, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
+import { Timeline, BoAttachmentComposer, AttachmentChips, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
 import { SendProcessingOverlay } from "./send-processing-animation";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
 import { UserAvatar } from "./user-avatar";
@@ -337,10 +337,15 @@ function QuestionDrawerContent({ item, onClose, onEntityOpenChange }: { item: BO
                 </div>
               )}
 
-              {item.task.description && (
+              {(item.task.description || item.task.attachments?.length) && (
                 <div>
-                  <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
-                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-description">{item.task.description}</p>
+                  {item.task.description && (
+                    <>
+                      <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t.backOffice.descriptionLabel}</div>
+                      <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap break-words" data-testid="text-bo-question-detail-description">{item.task.description}</p>
+                    </>
+                  )}
+                  <AttachmentChips attachments={item.task.attachments} />
                 </div>
               )}
 
