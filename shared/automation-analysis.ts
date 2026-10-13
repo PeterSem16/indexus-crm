@@ -1,3 +1,4 @@
+import { textSearchIssues, type TextSearchConfig } from "./automation-text-search";
 export const ANALYSIS_CHANNELS = ["email", "sms", "voice", "task", "chat"] as const;
 export type AnalysisChannel = typeof ANALYSIS_CHANNELS[number];
 export type CommunicationAnalysisConfig = {
@@ -7,6 +8,7 @@ export type CommunicationAnalysisConfig = {
   senderEmails?: string[];
   analyzeContent: boolean;
   analyzeAttachments: boolean;
+  textSearch?: TextSearchConfig;
 };
 export const METRIC_TYPES = [
   "pending_lab_results", "collections_without_hospital", "overdue_collections",
@@ -32,6 +34,13 @@ export function analysisConfigIssues(value: unknown): string[] {
   if (config.analyzeAttachments && !config.channels?.includes("email")) issues.push("attachment analysis requires the email channel");
   if (config.mailboxMode !== undefined && !["all", "selected"].includes(config.mailboxMode)) issues.push("invalid mailbox selection");
   if (config.mailboxMode === "selected" && !config.mailboxUserIds?.length) issues.push("choose at least one authorized mailbox");
+  if (config.textSearch !== undefined) {
+    issues.push(...textSearchIssues(config.textSearch));
+    if (["content", "all"].includes(config.textSearch?.scope) && !config.analyzeContent)
+      issues.push("text search requires content analysis");
+    if (["attachments", "all"].includes(config.textSearch?.scope) && !config.analyzeAttachments)
+      issues.push("text search requires attachment analysis");
+  }
   return issues;
 }
 
@@ -62,4 +71,8 @@ export const ANALYSIS_FIELDS = [
   { value: "analysis.invoiceCount", label: "Invoice count", type: "number" },
   { value: "analysis.attachmentCount", label: "Attachment count", type: "number" },
   { value: "analysis.failedAttachmentCount", label: "Unprocessed attachment count", type: "number" },
+  { value: "analysis.textMatched", label: "Requested text found", type: "boolean" },
+  { value: "analysis.textContentMatched", label: "Requested text found in message / call", type: "boolean" },
+  { value: "analysis.textAttachmentsMatched", label: "Requested text found in attachments", type: "boolean" },
+  { value: "analysis.textMatchCount", label: "Number of matched search terms", type: "number" },
 ] as const;

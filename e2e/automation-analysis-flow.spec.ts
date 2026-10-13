@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { ANALYSIS_FIELDS } from "../shared/automation-analysis";
 import { COMMUNICATION_SOURCE_FIELDS } from "../shared/automation-communication-context";
+import { getTextSearchCopy } from "../client/src/i18n/automation-text-search-copy";
 
 // Production page/providers, native fetch, isolated browser API fixtures. No actual account,
 // source data, automation execution, notification, email or SMS is created by these tests.
@@ -136,3 +137,58 @@ test("forwarding editor and optional NO routing persist their explicit configura
   expect(saved.trigger.noMatchRuleId).toBe("flow-target");
   expect(errors).toEqual([]);
 });
+
+for (const width of [1200, 390]) {
+  test(`literal search settings save and reopen with native multiline input at ${width}`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: 900 });
+    let saved: any;
+    const errors: string[] = [];
+    const writes: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const editable = { ...rule, conditions: { field: "analysis.textMatched", op: "eq", value: true }, actions: [] };
+    await page.route("**/api/**", async route => {
+      const request = route.request(), path = new URL(request.url()).pathname;
+      if (path === "/api/auth/heartbeat") return route.fulfill({ json: { ok: true } });
+      if (request.method() === "PATCH" && path === "/api/automation/rules/flow-source") {
+        saved = request.postDataJSON();
+        return route.fulfill({ json: { ...editable, ...saved } });
+      }
+      if (request.method() !== "GET") {
+        writes.push(path);
+        return route.fulfill({ status: 405, json: { error: "No writes or sends" } });
+      }
+      const body = path === "/api/auth/me" ? { user } : path === "/api/automation/rules" ? [{ ...editable, ...saved }, target]
+        : path === "/api/automation/catalog" ? catalog : path === "/api/automation/users" ? [user]
+          : path.includes("permissions") ? {} : [];
+      await route.fulfill({ json: body });
+    });
+    await page.goto("/automations", { waitUntil: "domcontentloaded" });
+    const edit = page.getByTestId("button-edit-flow-source");
+    if (!await edit.isVisible()) await page.getByRole("tab", { name: /^Rules$/ }).click();
+    await edit.click();
+    await page.getByTestId("search-text-enabled").click();
+    await expect(page.getByTestId("button-save-rule")).toBeDisabled();
+    const terms = page.getByTestId("search-text-terms");
+    await terms.fill("FAKTÚRA");
+    await terms.press("End");
+    await terms.press("Enter");
+    await terms.pressSequentially("#");
+    await expect(terms).toHaveValue("FAKTÚRA\n#");
+    await page.getByTestId("search-text-case-sensitive").click();
+    await page.getByTestId("search-text-match").click();
+    await page.getByRole("option", { name: getTextSearchCopy("sk").every, exact: true }).click();
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => saved?.trigger?.analysis?.textSearch?.terms).toEqual(["FAKTÚRA", "#"]);
+    expect(saved.trigger.analysis.textSearch).toEqual({ terms: ["FAKTÚRA", "#"], scope: "content", match: "all", caseSensitive: true });
+    expect(saved.conditions).toEqual(editable.conditions);
+    await edit.click();
+    await expect(terms).toHaveValue("FAKTÚRA\n#");
+    await expect(page.getByTestId("search-text-case-sensitive")).toHaveAttribute("aria-checked", "true");
+    await page.getByTestId("search-text-enabled").click();
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => saved?.trigger?.analysis?.textSearch).toBeUndefined();
+    expect(errors).toEqual([]);
+    expect(writes).toEqual([]);
+  });
+}

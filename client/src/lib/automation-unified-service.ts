@@ -55,4 +55,5 @@ export const ANALYSIS_RESULT_FIELDS = [
   "analysis.hasInvoice", "analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount",
   "analysis.mentionsInvoice", "analysis.hasComplaint", "analysis.needsReply", "analysis.isUrgent",
   "analysis.isThankYou", "analysis.requestsCallback",
+  "analysis.textMatched", "analysis.textContentMatched", "analysis.textAttachmentsMatched", "analysis.textMatchCount",
 ] as const;

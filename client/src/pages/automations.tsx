@@ -31,6 +31,8 @@ import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
 import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation-unified-copy";
 import { createAnalysisServiceDraft, createMetricServiceDraft, ANALYSIS_RESULT_FIELDS, type AnalysisServiceId } from "@/lib/automation-unified-service";
+import { AutomationTextSearchEditor } from "@/components/automation-text-search-editor";
+import { analysisConfigIssues } from "@shared/automation-analysis";
 import { getMetricAlertLabel } from "@/components/notification-alert-copy";
 import { SENTIMENT_CHANNELS, readSentimentSources, withSentimentSources, type AutomationCondition, type SentimentChannel } from "@/lib/sentiment-source-conditions";
 import { SentimentSourcePicker } from "@/components/sentiment-source-picker";
@@ -792,8 +794,9 @@ function RuleEditor({
     value,
     label: value.replace(/^analysis\./, "").replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`),
     type: ["analysis.wantsToCancel", "analysis.hasInvoice", "analysis.mentionsInvoice", "analysis.hasComplaint",
-      "analysis.needsReply", "analysis.isUrgent", "analysis.isThankYou", "analysis.requestsCallback"].includes(value) ? "boolean"
-      : ["analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount"].includes(value) ? "number"
+      "analysis.needsReply", "analysis.isUrgent", "analysis.isThankYou", "analysis.requestsCallback",
+      "analysis.textMatched", "analysis.textContentMatched", "analysis.textAttachmentsMatched"].includes(value) ? "boolean"
+      : ["analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount", "analysis.textMatchCount"].includes(value) ? "number"
         : ["analysis.sentiment", "analysis.tone"].includes(value) ? "enum" : "string",
     options: value === "analysis.sentiment" ? SENTIMENT_OPTIONS
       : value === "analysis.tone" ? TONE_OPTIONS : undefined,
@@ -1074,6 +1077,7 @@ function RuleEditor({
   };
   const draftEventType = draft.trigger.type === "event" ? draft.trigger.eventType : null;
   const incompatible = draft.actions.some(a => !actionsForModule.some(option => option.value === a.type)) ||
+    (Boolean(analysisConfig) && analysisConfigIssues(analysisConfig).length > 0) ||
     (draft.trigger.type === "event" && draft.trigger.assignmentTarget != null &&
       !isTaskAssignmentTriggerTarget(draft.trigger.assignmentTarget)) ||
     (draftEventType !== null && !eventsForModule.some(e => e.value === draftEventType)) ||
@@ -1414,6 +1418,10 @@ function RuleEditor({
                       {draft.trigger.analysis.analyzeAttachments && (
                         <p className="text-xs text-muted-foreground">{getUnifiedAutomationCopy(locale).attachmentFormats}</p>
                       )}
+                      <AutomationTextSearchEditor value={draft.trigger.analysis.textSearch}
+                        onChange={textSearch => updateAnalysisConfig({ textSearch })}
+                        contentEnabled={draft.trigger.analysis.analyzeContent === true}
+                        attachmentsEnabled={draft.trigger.analysis.analyzeAttachments === true} />
                     </section>
                   )}
                   {draft.trigger.type === "event" && draft.module === "metric" && draft.trigger.eventType === "metric.threshold" && draft.trigger.metric && (
