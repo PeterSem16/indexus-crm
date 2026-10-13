@@ -24,6 +24,52 @@ assert.ok(MODULE_EVENTS.call.includes("outbound.started"));
 assert.ok(MODULE_EVENTS.communication.includes("sentiment.negative"));
 assert.equal(ACTION_TARGETS.create_task, null);
 
+const analyzedEmailRule = {
+  module: "communication",
+  trigger: {
+    type: "event", entityType: "communication", eventType: "communication.received",
+    analysis: { channels: ["email"], analyzeContent: true, analyzeAttachments: true },
+  },
+  conditions: { field: "analysis.hasInvoice", op: "eq", value: true },
+  countryCodes: ["SK"],
+};
+const forwardConfig = {
+  forwardActionVersion: 1, destination: "back_office", taskGroupId: "back-office",
+  mode: "whole", selection: "all",
+};
+const forwardingIssues = (config: Record<string, unknown>, source = analyzedEmailRule) =>
+  validateRuleCapabilities({ ...source, actions: [{ type: "forward_message", config }] });
+for (const mode of ["whole", "attachments"]) {
+  for (const selection of ["all", "invoice"]) {
+    assert.deepEqual(forwardingIssues({ ...forwardConfig, mode, selection }), [],
+      `Analyzed email forwarding to Back Office supports ${mode}/${selection}`);
+  }
+}
+assert.deepEqual(forwardingIssues({
+  forwardActionVersion: 1, destination: "user", userId: "reviewer", mode: "whole", selection: "all",
+}), []);
+assert.deepEqual(forwardingIssues({
+  forwardActionVersion: 1, destination: "email", to: "review@example.test", mode: "whole", selection: "all",
+}), []);
+for (const invalidConfig of [
+  { ...forwardConfig, taskGroupId: "" },
+  { ...forwardConfig, userId: "reviewer" },
+  { ...forwardConfig, to: "review@example.test" },
+  { ...forwardConfig, targetRole: "manager" },
+  { ...forwardConfig, destination: "user", userId: "reviewer" },
+  { ...forwardConfig, destination: "email", to: "review@example.test" },
+]) assert.ok(forwardingIssues(invalidConfig).length, "Ambiguous or unsupported destinations remain blocked");
+assert.ok(validateRuleCapabilities({
+  ...analyzedEmailRule, trigger: { ...analyzedEmailRule.trigger, analysis: undefined },
+  actions: [{ type: "forward_message", config: forwardConfig }],
+}).length, "Forwarding still requires an authorized analysis source");
+assert.ok(validateRuleCapabilities({
+  ...analyzedEmailRule, actions: [{ type: "send_sms", config: {
+    to: "+421900000000", text: "Review", taskGroupId: "back-office",
+  } }],
+}).some(issue => issue.message === "This service does not support a group or role recipient"),
+"The Back Office forwarding exception does not enable groups for unrelated actions");
+
 assert.deepEqual(paths(rule("customer", "updated")), []);
 assert.deepEqual(paths(rule("customer", "created")), []);
 assert.ok(fieldsForEvent("customer", "created").some(field => field.value === "newValues.clientStatus"));

@@ -662,7 +662,11 @@ export function validateRuleCapabilities(rule: {
     const groupTarget = specified(config.taskGroupId) || specified(config.targetRole);
     if (specified(config.taskGroupId) && specified(config.targetRole) && !(a.type === "send_email" && config.emailActionVersion === 2))
       fail(`${path}.config`, "Choose either a task group or a role");
-    if (groupTarget && !["create_task", "notify_user", "send_email"].includes(a.type))
+    // Forwarding validates its own exclusive destination above. A Back Office
+    // handoff creates a private task for that group, not a provider delivery.
+    const backOfficeForward = a.type === "forward_message" &&
+      config.destination === "back_office" && !specified(config.targetRole);
+    if (groupTarget && !["create_task", "notify_user", "send_email"].includes(a.type) && !backOfficeForward)
       fail(`${path}.config`, "This service does not support a group or role recipient");
     if (a.type === "create_task") {
       if (!specified(config.title)) fail(`${path}.config.title`, "Task title is required");
