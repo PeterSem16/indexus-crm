@@ -64,3 +64,19 @@ export function communicationSourceContext(channel: AnalysisChannel, record: any
   }
   return safeCommunicationContext(base);
 }
+
+/** Envelope fetched from the already-authorized message in its own M365 mailbox.
+ * The CRM user's login email is not evidence of the delivery address. */
+export function emailEnvelopeContext(context: CommunicationContext, mailboxEmail: string, envelope: any): CommunicationContext {
+  if (!mailboxEmail?.trim()) throw new Error("analysis_mailbox_unavailable");
+  const recipients = [...(Array.isArray(envelope.toRecipients) ? envelope.toRecipients : []),
+    ...(Array.isArray(envelope.ccRecipients) ? envelope.ccRecipients : [])];
+  const deliveredTo = recipients.find(item =>
+    typeof item?.emailAddress?.address === "string" &&
+    item.emailAddress.address.trim().toLowerCase() === mailboxEmail.trim().toLowerCase());
+  return safeCommunicationContext({ ...context,
+    recipientEmail: context.recipientEmail || deliveredTo?.emailAddress.address || mailboxEmail.trim(),
+    sentAt: context.sentAt || envelope.sentDateTime,
+    receivedAt: context.receivedAt || envelope.receivedDateTime,
+  });
+}

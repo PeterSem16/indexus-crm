@@ -1,5 +1,6 @@
 import { taskStatusTemplateLabel } from "@shared/task-status-labels";
 import { automationDateDisplay } from "../../shared/automation-display-date";
+import { emptyCommunicationText } from "../../shared/automation-communication-context";
 
 export type ReferenceKind = "user" | "department" | "group" | "customer" | "clinic" | "hospital" | "collaborator" | "campaign" | "queue" | "task" | "contract" | "invoice";
 export type ReferenceLookup = (kind: ReferenceKind, id: string, country: string | null) => Promise<string | null>;
@@ -32,6 +33,7 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
   const cache = new Map<string, Promise<string | null>>();
   const country = ctx.event?.countryCode || ctx.countryCode || ctx.newValues?.countryCode || ctx.newValues?.country || null;
   await Promise.all([...paths].map(async path => {
+    if (emptyCommunicationText(ctx, path)) { result.set(path, ""); return; }
     const match = /^(newValues|oldValues|communication)\.([A-Za-z]+)$/.exec(path);
     if (!match) return;
     const [, scope, field] = match;
@@ -83,7 +85,9 @@ export function renderAutomationText(value: unknown, ctx: any, display: DisplayV
   const source = String(value ?? "");
   return source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_token, path, offset) => {
     const resolved = display.has(path) && !templateTokenInUrl(source, offset) ? display.get(path) : templatePath(ctx, path);
-    if (resolved == null && strict) throw new Error(`Task variable is unavailable: ${path}`);
+    if (resolved == null && strict &&
+        !(emptyCommunicationText(ctx, path) && !templateTokenInUrl(source, offset)))
+      throw new Error(`Task variable is unavailable: ${path}`);
     return resolved == null ? "" : String(resolved);
   });
 }

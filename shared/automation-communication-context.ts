@@ -27,6 +27,17 @@ export const COMMUNICATION_SOURCE_FIELDS = definitions.map(([key, type]) => ({
   ...(COMMUNICATION_CHOICE_VALUES[key] ? { options: [...COMMUNICATION_CHOICE_VALUES[key]] } : {}),
 }));
 
+/** Only known, explicitly null fields on a real communication may be empty in prose.
+ * Missing/unknown variables, addresses, and URL substitutions remain strict. */
+export function emptyCommunicationText(ctx: any, path: string): boolean {
+  const match = /^communication\.([A-Za-z]+)$/.exec(path);
+  const source = ctx?.communication;
+  return !!match && !!source && typeof source.id === "string" && !!source.id &&
+    ANALYSIS_CHANNELS.includes(source.type) &&
+    definitions.some(([key]) => key === match[1]) &&
+    Object.prototype.hasOwnProperty.call(source, match[1]) && source[match[1]] === null;
+}
+
 export function safeCommunicationContext(input: Record<string, unknown>): CommunicationContext {
   return Object.fromEntries(definitions.map(([key, type]) => {
     const value = input[key];

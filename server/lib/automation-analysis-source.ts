@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import { callLogs, callRecordings, chatMessages, communicationMessages, taskComments, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
-import { communicationSourceContext } from "./automation-communication-context";
+import { communicationSourceContext, emailEnvelopeContext } from "./automation-communication-context";
 import type { CommunicationContext } from "../../shared/automation-communication-context";
 import { analysisSourceMatches, type AnalysisChannel, type CommunicationAnalysisConfig } from "../../shared/automation-analysis";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./token-crypto";
@@ -82,7 +82,15 @@ export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEven
     source = { channel: "voice", ownerUserId: recording.userId, text: recording.transcriptionText,
       communication: communicationSourceContext("voice", recording, recording.userId, { call, sender }) };
   }
-  return source && analysisSourceMatches(config, source) ? source : null;
+  if (!source || !analysisSourceMatches(config, source)) return null;
+  // Legacy ingestion omitted envelope fields. Read only the authorized original;
+  // never guess its recipient from the responsible agent's CRM login address.
+  if (source.channel === "email" && source.message?.externalId &&
+      (!source.communication.recipientEmail || !source.communication.sentAt || !source.communication.receivedAt)) {
+    const envelope = await mailboxRequest(source, "?$select=toRecipients,ccRecipients,sentDateTime,receivedDateTime");
+    source.communication = emailEnvelopeContext(source.communication, source.mailboxEmail!, envelope);
+  }
+  return source;
 }
 
 export async function prepareSourceMailbox(source: AnalysisSource) {
@@ -93,6 +101,8 @@ export async function prepareSourceMailbox(source: AnalysisSource) {
   if (!connection?.isConnected || !connection.accessToken) throw new Error("analysis_mailbox_unavailable");
   if (source.systemMailboxCountry && (!source.mailboxEmail ||
       source.mailboxEmail.toLowerCase() !== (connection as any).email?.toLowerCase())) throw new Error("analysis_mailbox_changed");
+  if (!(connection as any).email?.trim()) throw new Error("analysis_mailbox_unavailable");
+  source.mailboxEmail = (connection as any).email.trim();
   const token = await getValidAccessToken(decryptTokenSafe(connection.accessToken), connection.tokenExpiresAt,
     connection.refreshToken ? decryptTokenSafe(connection.refreshToken) : null);
   if (!token?.accessToken) throw new Error("analysis_mailbox_unavailable");

@@ -108,7 +108,7 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
     try {
       await connection.query("SELECT pg_advisory_lock(hashtext($1))", [key]);
       const saved = await connection.query("SELECT result,error_code,created_at FROM workflow_analysis_cache WHERE cache_key=$1", [key]);
-      if (saved.rows[0]?.result) return saved.rows[0].result as ServiceAnalysis;
+      if (saved.rows[0]?.result) return { ...saved.rows[0].result, communication: source.communication } as ServiceAnalysis;
       if (saved.rows[0]?.error_code && Date.now() - new Date(saved.rows[0].created_at).getTime() < 60000)
         throw new Error(saved.rows[0].error_code);
       await connection.query("SELECT pg_advisory_lock(hashtext($1))", [`analysis-quota:${rule.createdByUserId}`]);

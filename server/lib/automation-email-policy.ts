@@ -1,5 +1,6 @@
 import { load } from "cheerio";
 import { templateTokenInUrl } from "./automation-display-values";
+import { emptyCommunicationText } from "../../shared/automation-communication-context";
 import { emailAddressList, EMAIL_RECIPIENT_LIMIT, validEmailTargets, type AutomationEmailTarget } from "../../shared/automation-email-action";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
 
@@ -65,7 +66,7 @@ export async function resolveEmailRecipients(config: any, deps: RecipientDeps) {
 export const escapeEmailText = (value: string) => value.replace(/[&<>"']/g, ch =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 
-export function renderEmailValue(value: unknown, ctx: any, html = false, display?: ReadonlyMap<string, string>): string {
+export function renderEmailValue(value: unknown, ctx: any, html = false, display?: ReadonlyMap<string, string>, allowEmptyText = true): string {
   const source = String(value ?? "");
   let scanned = 0, inTag = false, quote = "";
   return source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path: string, offset: number) => {
@@ -80,8 +81,10 @@ export function renderEmailValue(value: unknown, ctx: any, html = false, display
     const raw = path.split(".").reduce((current: any, key: string) =>
       ["__proto__", "prototype", "constructor"].includes(key) ? undefined : current?.[key], ctx);
     const resolved = display?.has(path) && !(html && inTag) && !templateTokenInUrl(source, offset) ? display.get(path) : raw;
-    if (resolved == null) throw new Error(`Email variable is unavailable: ${path}`);
-    const text = String(resolved);
+    if (resolved == null && !(allowEmptyText && emptyCommunicationText(ctx, path) &&
+        !(html && inTag) && !templateTokenInUrl(source, offset)))
+      throw new Error(`Email variable is unavailable: ${path}`);
+    const text = resolved == null ? "" : String(resolved);
     return html ? escapeEmailText(text) : text;
   });
 }
@@ -90,8 +93,8 @@ export function renderEmailAddressConfig(config: any, ctx: any) {
   const addresses = { ...config };
   for (const key of ["to", "cc", "bcc"])
     addresses[key] = Array.isArray(config[key])
-      ? config[key].map((value: unknown) => renderEmailValue(value, ctx))
-      : renderEmailValue(config[key], ctx);
+      ? config[key].map((value: unknown) => renderEmailValue(value, ctx, false, undefined, false))
+      : renderEmailValue(config[key], ctx, false, undefined, false);
   return addresses;
 }
 
