@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from "react";
+import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
+import { getRecordEntryCopy } from "@/i18n/automation-record-entry-copy";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { COUNTRIES } from "@shared/schema";
 import type { Hospital, Laboratory, SafeUser } from "@shared/schema";
-import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink, Navigation, UserCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Building2, MapPin, Users, Settings, ExternalLink, Navigation, UserCheck, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -76,12 +78,12 @@ const WIZARD_STEPS = [
 
 export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, onCallPhone, headerBadge }: HospitalFormWizardProps) {
   const roEx = readOnlyExceptions || {};
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings" | "representative">("basic");
+  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings" | "representative" | "history">("basic");
 
   const emptyForm: HospitalFormData = {
     legacyId: "",
@@ -721,6 +723,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
     { id: "contacts" as const, label: t.hospitals?.contactPerson || "Kontakty", icon: Users, step: 2 },
     { id: "settings" as const, label: t.settings?.title || "Nastavenia", icon: Settings, step: 3 },
     { id: "representative" as const, label: t.representantPanel.tabLabel, icon: UserCheck, step: -1 },
+    ...(initialData?.id ? [{ id: "history" as const, label: getRecordEntryCopy(locale).entries, icon: FileText, step: -2 }] : []),
   ];
 
   if (mode === "inline") {
@@ -762,6 +765,8 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
             <fieldset disabled={readOnly && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {inlineTab === "representative" && initialData?.id ? (
                 <RepresentativePanel entityType="hospital" entityId={initialData.id} />
+              ) : inlineTab === "history" && initialData?.id ? (
+                <div className="space-y-4"><AutomationRecordEntriesPanel entityType="hospital" entityId={String(initialData.id)} /><AutomationRecordEntriesPanel entityType="hospital" entityId={String(initialData.id)} documentsOnly /></div>
               ) : inlineTab === "representative" ? (
                 <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
                   <UserCheck className="h-10 w-10 opacity-40" />

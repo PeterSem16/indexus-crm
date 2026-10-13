@@ -1,4 +1,4 @@
-import { and, eq, ilike, inArray, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, sql, or } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
 import {
@@ -67,12 +67,18 @@ export async function searchUpdateRecords(type: string, q: string, owner: Owner,
   if (!Object.hasOwn(tables, type)) throw new Error("Unsupported entity");
   const label = labelExpression(type, table);
   const query = q.trim().slice(0, 100).replace(/[\\%_]/g, "\\$&");
+  const searchColumns = ["email", "email2", "email3", "phone", "phone2", "phone3", "mobile", "mobilePhone"]
+    .filter(key => table[key]).map(key => table[key]);
   const rows = await db.select({
     id: table.id, label, country: countryExpression(type, table),
     secondary: type === "collection" ? table.cbuNumber
       : table.city || table.contractNumber || table.invoiceNumber || sql<string>`''`,
   }).from(table).where(and(scopePredicate(type, table, owner, countries),
-    type === "contract" && !includeFinalContracts ? eq(table.status, "draft") : undefined, query ? ilike(label, `%${query}%`) : undefined))
+    type === "contract" && !includeFinalContracts ? eq(table.status, "draft") : undefined, query
+      ? or(eq(table.id, q.trim()), ilike(label, `%${query}%`), ...searchColumns.map(column => ilike(column, `%${query}%`)),
+        /^\+?[\d ()-]{7,}$/.test(q.trim()) && searchColumns.length
+          ? or(...searchColumns.map(column => sql`regexp_replace(coalesce(${column},''),'[^0-9]','','g') LIKE ${`%${q.replace(/\D/g, "")}%`}`))
+          : undefined) : undefined))
     .orderBy(label, table.id).limit(21);
   return { records: rows.slice(0, 20).map(row => ({ ...row, label: row.label || type })), truncated: rows.length > 20 };
 }

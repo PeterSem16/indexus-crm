@@ -1,4 +1,5 @@
 import { useI18n } from "@/i18n";
+import { getRecordEntryCopy } from "@/i18n/automation-record-entry-copy";
 import { buildAutomationFlowModel, type FlowRule } from "@/lib/automation-flow-model";
 import { getFlowchartCopy } from "@/i18n/automation-flowchart-copy";
 import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation-unified-copy";
@@ -55,7 +56,7 @@ export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = 
     operator: key => t.automationServices.conditionEditor.operators[key] ||
       catalog.operators?.find(item => item.value === key)?.label || key,
     event: eventLabel,
-    action: key => key === "forward_message" ? getForwardCopy(locale).heading
+    action: key => key === "record_analysis" ? getRecordEntryCopy(locale).actionLabel : key === "forward_message" ? getForwardCopy(locale).heading
       : (t.automationServices.names as Record<string, string>)[key] || catalog.actionTypes.find(item => item.value === key)?.label || key,
     value: (value, key) => {
       const text = String(value);

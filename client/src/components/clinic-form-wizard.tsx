@@ -1,5 +1,6 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
+import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -2770,6 +2771,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
           {activeTab === "history" && (
             <div className="pb-4" data-testid="tab-content-history-drawer">
+              {initialData?.id && <div className="mb-4 space-y-3"><AutomationRecordEntriesPanel entityType="clinic" entityId={String(initialData.id)} /><AutomationRecordEntriesPanel entityType="clinic" entityId={String(initialData.id)} documentsOnly /></div>}
               {eventsLoading ? (
                 <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
               ) : !clinicEventsData || clinicEventsData.length === 0 ? (
@@ -3537,10 +3539,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               )}
 
               {activeTab === "history" && (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <History className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">{(t.clinics as any).noHistory || "History will be available after saving."}</p>
-                </div>
+                initialData?.id ? <div className="space-y-4"><AutomationRecordEntriesPanel entityType="clinic" entityId={String(initialData.id)} /><AutomationRecordEntriesPanel entityType="clinic" entityId={String(initialData.id)} documentsOnly /></div>
+                  : <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground"><History className="h-10 w-10 mb-3 opacity-40" /><p className="text-sm">{(t.clinics as any).noHistory || "History will be available after saving."}</p></div>
               )}
 
               {activeTab === "personnel" && (

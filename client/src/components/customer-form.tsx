@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -999,6 +1000,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
             {activeSection === "notes" && (
               <div>
                 <SectionHeader icon={FileText} title={t.customers?.formSections?.notes || "Poznámky"} />
+                {initialData?.id && <AutomationRecordEntriesPanel entityType="customer" entityId={String(initialData.id)} />}
                 {!isHidden("notes") && (
                   <FormField control={form.control} name="notes" render={({ field }) => (
                     <FormItem><FormLabel>{t.customers.notes}</FormLabel><FormControl><Textarea placeholder={t.customers.fields.notesPlaceholder} className={`resize-none ${isReadonly("notes") ? "bg-muted" : ""}`} rows={6} {...field} data-testid="textarea-notes" disabled={isReadonly("notes")} /></FormControl><FormMessage /></FormItem>
@@ -1188,6 +1190,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
 
             {activeSection === "documents" && isEditMode && (
               <div>
+                {initialData?.id && <div className="mb-4"><AutomationRecordEntriesPanel entityType="customer" entityId={String(initialData.id)} documentsOnly /></div>}
                 <SectionHeader icon={FolderOpen} title={t.customers?.formSections?.documents || "Dokumenty"} badge={
                   customerDocuments.length > 0 ? (
                     <Badge className="bg-amber-100 text-amber-800 text-[10px] ml-auto">ISCBC</Badge>

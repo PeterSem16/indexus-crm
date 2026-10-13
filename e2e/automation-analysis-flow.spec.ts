@@ -2,11 +2,74 @@ import { test, expect } from "@playwright/test";
 import { ANALYSIS_FIELDS } from "../shared/automation-analysis";
 import { COMMUNICATION_SOURCE_FIELDS } from "../shared/automation-communication-context";
 import { getTextSearchCopy } from "../client/src/i18n/automation-text-search-copy";
+import { getRecordEntryCopy } from "../client/src/i18n/automation-record-entry-copy";
+import { getRecordReviewCopy } from "../client/src/i18n/automation-record-review-copy";
 
 // Production page/providers, native fetch, isolated browser API fixtures. No actual account,
 // source data, automation execution, notification, email or SMS is created by these tests.
 const user = { id: "flow-test-owner", username: "flow-test", fullName: "Flow Test",
   email: "flow@example.invalid", role: "admin", isActive: true, assignedCountries: ["SK"], preferredLanguage: "en" };
+for (const width of [1360, 390]) {
+  test(`record lookup, named IF values and invoice configuration survive save/reopen at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    test.setTimeout(60_000);
+    const c = getRecordEntryCopy("sk"), review = getRecordReviewCopy("sk"), recordId = "12345678-1234-4234-9234-123456789012";
+    let saved: any;
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const editable = { ...rule, trigger: { ...rule.trigger, analysis: { ...rule.trigger.analysis, analyzeAttachments: true } },
+      conditions: { field: "communication.customerId", op: "eq", value: recordId },
+      actions: [{ type: "record_analysis", config: { recordEntryVersion: 1, targetType: "auto", lookup: "sender",
+        mode: "history", title: c.defaultTitle, note: "{{analysis.summary}}" } }] };
+    await page.route("**/api/**", async route => {
+      const request = route.request(), url = new URL(request.url()), path = url.pathname;
+      if (path === "/api/auth/heartbeat") return route.fulfill({ json: { ok: true } });
+      if (request.method() === "PATCH" && path === "/api/automation/rules/flow-source") {
+        saved = request.postDataJSON(); return route.fulfill({ json: { ...editable, ...saved } });
+      }
+      if (request.method() === "POST" && path === "/api/automation/record-match")
+        return route.fulfill({ json: { status: "unique", records: [{ id: recordId, label: "Example customer", entityType: "customer" }], truncated: false } });
+      if (request.method() !== "GET") return route.fulfill({ status: 405, json: { error: "No real sends or writes" } });
+      const body = path === "/api/auth/me" ? { user } : path === "/api/automation/rules" ? [{ ...editable, ...saved }, target]
+        : path === "/api/automation/catalog" ? { ...catalog, actionTypes: [...catalog.actionTypes,
+          { value: "record_analysis", label: c.actionLabel, availableIn: ["communication"], configSchema: {} }] }
+          : path === "/api/automation/users" ? [user] : path === "/api/task-groups" ? [{ id: "bo-review", name: "Test Back Office", isBackOffice: true }] : path === "/api/automation/condition-options"
+            ? { options: [{ value: recordId, label: "Example customer" }], truncated: false } : path.includes("permissions") ? {} : [];
+      await route.fulfill({ json: body });
+    });
+    await page.goto("/automations", { waitUntil: "domcontentloaded" });
+    const edit = page.getByTestId("button-edit-flow-source");
+    if (!await edit.isVisible()) await page.getByRole("tab", { name: /^Rules$/ }).click();
+    await edit.click();
+    await page.getByTestId("automation-if-step").locator('button[aria-controls="automation-step-if-body"]').click();
+    await expect(page.getByTestId("condition-reference-picker")).toContainText("Example customer");
+    await page.getByTestId("automation-then-step").locator('button[aria-controls="automation-step-then-body"]').click();
+    await page.getByTestId("record-entry-lookup").click();
+    await page.getByRole("option", { name: c.configured, exact: true }).click();
+    await page.getByTestId("record-entry-email").fill("customer@example.test");
+    await page.getByTestId("record-entry-preview").click();
+    await expect(page.getByTestId("automation-record-entry-editor").getByRole("status")).toContainText(c.unique);
+    await page.getByTestId("record-entry-mode").click();
+    await page.getByRole("option", { name: c.invoice, exact: true }).click();
+    await expect(page.getByTestId("automation-record-entry-editor").getByRole("status")).toHaveCount(0);
+    await page.getByTestId("record-entry-title").fill("Invoice finding");
+    await page.getByTestId("record-entry-ambiguity").click();
+    await page.getByRole("option", { name: review.send, exact: true }).click();
+    await page.getByTestId("record-entry-review-group").click();
+    await page.getByRole("option", { name: "Test Back Office", exact: true }).click();
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => saved?.actions?.[0]?.config?.mode).toBe("invoice");
+    expect(saved.actions[0].config.email).toBe("customer@example.test");
+    expect(saved.conditions.value).toBe(recordId);
+    expect(saved.actions[0].config.onAmbiguous).toEqual({ taskGroupId: "bo-review" });
+    await page.getByTestId("button-edit-flow-source").click();
+    await page.getByTestId("automation-then-step").locator('button[aria-controls="automation-step-then-body"]').click();
+    await expect(page.getByTestId("record-entry-email")).toHaveValue("customer@example.test");
+    await expect(page.getByTestId("record-entry-title")).toHaveValue("Invoice finding");
+    await expect(page.getByTestId("record-entry-review-group")).toContainText("Test Back Office");
+    expect(errors).toEqual([]);
+  });
+}
 const rule = { id: "flow-source", name: "Message analysis test", createdByUserId: user.id,
   module: "communication", enabled: true, countryCode: null, countryCodes: null, isSystem: false,
   trigger: { type: "event", entityType: "communication", eventType: "communication.received",

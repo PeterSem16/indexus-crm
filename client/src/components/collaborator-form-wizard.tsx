@@ -1,4 +1,5 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
+import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -5432,6 +5433,8 @@ export function CollaboratorFormWizard({ initialData, onSuccess, onPhoneChange, 
       case "history":
         return initialData ? (
           <div className="space-y-6">
+            <AutomationRecordEntriesPanel entityType="collaborator" entityId={String(initialData.id)} />
+            <AutomationRecordEntriesPanel entityType="collaborator" entityId={String(initialData.id)} documentsOnly />
             <HistoryTabContent collaboratorId={initialData.id} t={t} />
             <Separator className="my-2" />
             <ConnectActivityTab collaboratorId={initialData.id} locale={locale} t={t} />

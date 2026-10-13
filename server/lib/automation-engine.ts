@@ -51,6 +51,7 @@ import type { AUTOMATION_ACTION_POLICY } from "./automation-action-policy";
 import { sendEmail as sendEmailViaProvider } from "../email";
 import { storage } from "../storage";
 import { executeUpdateRecord } from "./automation-update-record";
+import { executeRecordEntry } from "./automation-record-entry";
 import { executeRecordTagAction } from "./automation-record-tags";
 import { visibleRecordTags, recordTagsContain, recordTagsLack } from "../../shared/automation-record-tags";
 import { deliverAutomationEmail, planAutomationEmailRecipients } from "./automation-email-delivery";
@@ -1061,6 +1062,8 @@ async function actionTagMutation(
 
 // Keep the public action policy in sync with the handlers that can actually run.
 const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
+  record_analysis: (config, ctx, runId) => executeRecordEntry(config, ctx, undefined,
+    (taskConfig, taskCtx) => actionCreateTask(taskConfig, taskCtx, runId)),
   forward_message: (config, ctx, runId) => deliverForwardCommunication(config, ctx, runId, ACTION_HANDLERS.create_task),
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,

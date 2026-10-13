@@ -38,10 +38,13 @@ export const MODULE_LABELS: Record<string, string> = {
 
 import { assignOwnerIssues } from "../../shared/automation-assign-owner";
 import { ANALYSIS_FIELDS, analysisConfigIssues, METRIC_TYPES, METRIC_FREQUENCIES } from "../../shared/automation-analysis";
+import { recordEntryIssues } from "../../shared/automation-record-entry";
+import { COMMUNICATION_CHOICE_VALUES } from "../../shared/automation-condition-catalog";
 import { forwardActionIssues } from "../../shared/automation-forward-action";
 
 export const ACTION_TARGETS: Record<string, string[] | null> = {
   forward_message: ["communication"],
+  record_analysis: ["communication"],
   create_task: null,
   notify_user: null,
   send_email: null,
@@ -56,6 +59,7 @@ export const ACTION_TARGETS: Record<string, string[] | null> = {
 /** Service descriptions are tied to existing handlers, not promises of new integrations. */
 export const AUTOMATION_SERVICE_DETAILS: Record<string, { purpose: string; needs: string[] }> = {
   forward_message: { purpose: "Forward an authorized email/SMS or original invoice attachments to an email recipient, user or Back Office", needs: ["destination", "mode", "selection", "explicit recipient"] },
+  record_analysis: { purpose: "Match a unique authorized record by exact email/phone and record findings or original invoices in its history/documents", needs: ["targetType", "lookup", "mode", "title"] },
   create_task: { purpose: "Create a task for a user, department, task group or role", needs: ["title", "assignedUserId, assignedDepartmentId, taskGroupId or targetRole"] },
   notify_user: { purpose: "Notify a user, task group or role in the application", needs: ["userId, userIds, taskGroupId or targetRole", "title"] },
   send_email: { purpose: "Send email to an address, task group or role", needs: ["to, taskGroupId or targetRole", "subject and body or templateId"] },
@@ -372,13 +376,27 @@ for (const module of RECORD_TAG_ENTITY_TYPES) {
     { value: "oldValues.tags", label: "Previous record tags", type: "tags" },
   );
 }
+// Reuse the record editor's authoritative enums, including fields stored as text.
+for (const [module, fields] of Object.entries(FIELD_OPTIONS)) {
+  for (const field of fields) {
+    const key = field.value.split(".").pop()!;
+    const declared = UPDATE_RECORD_ENTITIES[module]?.find(item => item.key === key);
+    if (!field.options && declared?.options) field.options = [...declared.options];
+    if (key === "country" || key === "countryCode") field.options = COUNTRIES.map(country => country.code);
+    if (!field.options && COMMUNICATION_CHOICE_VALUES[key] && (module === "communication" ||
+      ["relatedEntityType", "contactType", "boState"].includes(key)))
+      field.options = [...COMMUNICATION_CHOICE_VALUES[key]];
+  }
+}
 
 export function fieldsForEvent(module: string, event: string): { value: string; label: string; type: string; options?: string[] }[] {
   if (event === "schedule.tick")
     return [...(SCHEDULE_RECORD_FIELDS[module] || []).flatMap(value =>
       (FIELD_OPTIONS[module] || []).filter(field => field.value === value)),
-      ...(SCHEDULE_RECORD_MODULES.includes(module) ? FIELD_OPTIONS[module].filter(field => field.value === "newValues.tags") : [])];
-  if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])];
+      ...(SCHEDULE_RECORD_MODULES.includes(module as typeof SCHEDULE_RECORD_MODULES[number]) ? FIELD_OPTIONS[module].filter(field => field.value === "newValues.tags") : [])];
+  if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])].map(field =>
+    field.value === "newValues.status" ? { ...field, options: [...COMMUNICATION_CHOICE_VALUES.status] }
+      : field.value === "newValues.reason" ? { ...field, options: ["no_agents", "caller_hangup", "caller_left_stasis", "timeout"] } : field);
   if (module === "communication") {
     if (event === "communication.received") return [
       ...COMMUNICATION_SOURCE_FIELDS,
@@ -567,6 +585,15 @@ export function validateRuleCapabilities(rule: {
   if (Array.isArray(rule.actions)) rule.actions.forEach((a, i) => {
     const path = `actions[${i}]`;
     const targets = ACTION_TARGETS[a?.type];
+    if (a?.type === "record_analysis") {
+      for (const issue of recordEntryIssues(a.config)) fail(`${path}.config`, issue);
+      if (rule.module !== "communication" || !record(trigger) || trigger.type !== "event" || !trigger.analysis)
+        fail(`${path}.type`, "History actions require an authorized analyzed source");
+      if (a.config?.mode === "invoice" && (!record(trigger) || !record(trigger.analysis) || !trigger.analysis.analyzeAttachments))
+        fail(`${path}.config.mode`, "Invoice storage requires attachment analysis");
+      if (a.config?.mode === "invoice" && record(trigger) && record(trigger.analysis) && !trigger.analysis.channels?.includes("email"))
+        fail(`${path}.config.mode`, "Invoice storage requires an email source");
+    }
     if (a?.type === "forward_message") {
       for (const issue of forwardActionIssues(a.config)) fail(`${path}.config`, issue);
       if (rule.module !== "communication" || !record(trigger) || trigger.type !== "event" || !trigger.analysis)

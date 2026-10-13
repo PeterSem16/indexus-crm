@@ -35,7 +35,7 @@ export type FlowLabels = {
   no: string;
   unknown: string;
 };
-const internalKey = /(?:ActionVersion$|^legacySource$|^acknowledged$|^ownershipAcknowledged$)/;
+const internalKey = /(?:ActionVersion$|^recordEntryVersion$|^legacySource$|^acknowledged$|^ownershipAcknowledged$)/;
 const secretKey = /password|secret|token|authorization|api[-_]?key/i;
 const humanize = (key: string) => key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[._-]/g, " ");
 

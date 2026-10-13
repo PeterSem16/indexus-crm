@@ -58,6 +58,7 @@ export const AUTOMATION_ACTION_POLICY = {
   send_email: { risk: "external_message", aiDraftEligible: false },
   send_sms: { risk: "external_message", aiDraftEligible: false },
   forward_message: { risk: "external_message", aiDraftEligible: false },
+  record_analysis: { risk: "state_change", aiDraftEligible: false },
   webhook: { risk: "external_system", aiDraftEligible: false },
   update_entity: { risk: "state_change", aiDraftEligible: false },
   assign_user: { risk: "state_change", aiDraftEligible: false },

@@ -1,3 +1,4 @@
+import { RECORD_ENTRY_SCHEMA } from "./lib/automation-record-entry";
 import express, { type Request, Response, NextFunction } from "express";
 import { gzip } from "zlib";
 import { registerRoutes } from "./routes";
@@ -699,6 +700,7 @@ app.use((req, res, next) => {
       ADD COLUMN IF NOT EXISTS association_history jsonb NOT NULL DEFAULT '[]'::jsonb;
     CREATE INDEX IF NOT EXISTS idx_task_attachment_uploads_uploader
       ON task_attachment_uploads (uploader_user_id);
+    ${RECORD_ENTRY_SCHEMA}
     WITH attachment_task_links AS (
       SELECT DISTINCT
         u.id AS upload_id,

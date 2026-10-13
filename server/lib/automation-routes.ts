@@ -34,6 +34,8 @@ import { resolve } from "node:path";
 import { registerUpdateRecordRoutes, updateRecordOwner, validateSavedUpdateRecord } from "./automation-update-record";
 import { registerRecordTagRoutes, validateSavedTagAction } from "./automation-record-tags";
 import { registerAssignOwnerRoutes, validateSavedAssignOwner } from "./automation-assign-owner";
+import { registerRecordEntryRoutes } from "./automation-record-entry";
+import { registerConditionOptionsRoute } from "./automation-condition-options";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -74,6 +76,8 @@ export function registerAutomationRoutes(app: Express) {
   });
   registerAssignOwnerRoutes(app, requireAutomationDesigner, requireAuth);
   registerUpdateRecordRoutes(app, requireAutomationDesigner);
+  registerRecordEntryRoutes(app, requireAuth, requireAutomationDesigner);
+  registerConditionOptionsRoute(app, requireAutomationDesigner);
   registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
   app.get("/api/automation/email-artwork/:name", (req, res) => {
@@ -525,6 +529,10 @@ export function registerAutomationRoutes(app: Express) {
         changeSnapshot: ["updated", "status_changed", "task.assigned", "contract.completed", "contract.cancelled"].includes(event.value),
       })),
       actionTypes: [
+        { value: "record_analysis", label: "Record analysis / save invoice to record", configSchema: {
+          targetType: "auto|customer|clinic|hospital|collaborator", lookup: "sender|recipient|configured",
+          mode: "history|invoice", title: "string (template)", note: "string (template)",
+        }, availableIn: ["communication"] },
         { value: "forward_message", label: "Forward email / SMS", configSchema: {
           destination: "email|user|back_office", mode: "whole|attachments", selection: "invoice|all",
           to: "explicit email addresses", userId: "selected user", taskGroupId: "selected Back Office group",

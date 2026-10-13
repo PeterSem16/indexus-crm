@@ -1215,6 +1215,22 @@ export const entityNotes = pgTable("entity_notes", {
 }));
 
 // Tasks - tasks assigned to users, optionally linked to customers
+export const automationRecordEntries = pgTable("automation_record_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  dedupeKey: text("dedupe_key").notNull().unique(),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  countryCode: text("country_code"),
+  userId: varchar("user_id").notNull(),
+  ruleId: varchar("rule_id").notNull(),
+  ruleName: text("rule_name").notNull(),
+  eventId: varchar("event_id").notNull(),
+  title: text("title").notNull(),
+  note: text("note").notNull().default(""),
+  attachments: jsonb("attachments").$type<{ id: string; name: string; type: string; size: number }[]>().notNull().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => ({ entityIdx: index("automation_record_entries_entity").on(table.entityType, table.entityId, table.createdAt) }));
+
 export const tasks = pgTable("tasks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),

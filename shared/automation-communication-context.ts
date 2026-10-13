@@ -1,4 +1,5 @@
 import { ANALYSIS_CHANNELS } from "./automation-analysis";
+import { COMMUNICATION_CHOICE_VALUES } from "./automation-condition-catalog";
 
 /** An allowlist, never a raw database row, metadata object, or mailbox credential. */
 const definitions = [
@@ -23,6 +24,7 @@ export const COMMUNICATION_SOURCE_FIELDS = definitions.map(([key, type]) => ({
   value: `communication.${key}`, label: key, type: type === "datetime" ? "date" : type,
   ...(key === "type" ? { options: [...ANALYSIS_CHANNELS] } : {}),
   ...(key === "direction" ? { options: ["inbound", "outbound", "internal"] } : {}),
+  ...(COMMUNICATION_CHOICE_VALUES[key] ? { options: [...COMMUNICATION_CHOICE_VALUES[key]] } : {}),
 }));
 
 export function safeCommunicationContext(input: Record<string, unknown>): CommunicationContext {

@@ -5,6 +5,10 @@ import { getNoMatchCopy } from "@/i18n/automation-no-match-copy";
 import { contentSignalLabels } from "@/i18n/automation-content-signal-copy";
 import { getForwardCopy } from "@/i18n/automation-forward-copy";
 import { AutomationForwardActionEditor } from "@/components/automation-forward-action-editor";
+import { AutomationRecordEntryEditor } from "@/components/automation-record-entry-editor";
+import { AutomationConditionReferencePicker } from "@/components/automation-condition-reference-picker";
+import { getRecordEntryCopy } from "@/i18n/automation-record-entry-copy";
+import { conditionChoiceSource } from "@shared/automation-condition-catalog";
 import { useAuth } from "@/contexts/auth-context";
 import { emailActionIssues } from "@shared/automation-email-action";
 import { useState, useMemo, useEffect, useRef, Fragment, lazy, Suspense } from "react";
@@ -917,13 +921,16 @@ function RuleEditor({
         ...Object.fromEntries(catalog.countries.map(country => [country.value, country.label])),
         ...t.customers.statuses,
         ...t.customers.clientStatuses,
+        ...t.tasks.statuses,
+        ...t.tasks.priorities,
+        ...getUpdateRecordCopy(locale).entity,
         cord_blood: t.customers.serviceTypes.cordBlood,
         cord_tissue: t.customers.serviceTypes.cordTissue,
         both: t.customers.serviceTypes.both,
         ...getCommunicationAnalysisCopy(locale).optionLabels,
         ...getConditionChoiceCopy(locale).values,
       } };
-    if (["countryCode", "newValues.countryCode", "newValues.country"].includes(field.value))
+    if (["countryCode", "newValues.countryCode", "newValues.country", "communication.countryCode", "oldValues.country", "oldValues.countryCode"].includes(field.value))
       localized.options = catalog.countries.map(country => country.value);
     if (["newValues.assignedUserId", "newValues.createdByUserId", "newValues.resolvedByUserId", "newValues.agentId", "newValues.assignedAgentId"].includes(field.value)) {
       return { ...localized, options: users.map(user => user.id),
@@ -1494,6 +1501,7 @@ function RuleEditor({
                         node={visibleConditions}
                         fields={conditionFields}
                         sourceModule={draft.module} countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])}
+                        eventType={selectedEvent}
                         operators={operatorsForModule.filter(op =>
                           (!op.value.startsWith("changed") || eventsForModule.some(event => event.value === selectedEvent && event.changeSnapshot)))}
                         onChange={updateConditions}
@@ -1823,6 +1831,7 @@ function RuleEditor({
                       node={visibleConditions!}
                     fields={conditionFields}
                     sourceModule={draft.module} countryCodes={(draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])) as string[]}
+                    eventType={selectedEvent}
                     operators={operatorsForModule.filter(op =>
                       (!op.value.startsWith("changed") || eventsForModule.some(e => e.value === selectedEvent && e.changeSnapshot)))}
                      onChange={updateConditions}
@@ -2088,6 +2097,7 @@ function ConditionsEditor({
   onChange,
   depth = 0,
   sourceModule = "",
+  eventType = "",
   countryCodes = [],
 }: {
   node: ConditionNode;
@@ -2096,6 +2106,7 @@ function ConditionsEditor({
   onChange: (n: ConditionNode) => void;
   depth?: number;
   sourceModule?: string;
+  eventType?: string;
   countryCodes?: string[];
 }) {
   const { t, locale } = useI18n();
@@ -2118,7 +2129,7 @@ function ConditionsEditor({
           operators={operators}
           onChange={(c) => onChange({ not: c })}
           depth={depth + 1}
-          sourceModule={sourceModule} countryCodes={countryCodes}
+          sourceModule={sourceModule} eventType={eventType} countryCodes={countryCodes}
         />
       </div>
     );
@@ -2174,7 +2185,7 @@ function ConditionsEditor({
                   update(next);
                 }}
                 depth={depth + 1}
-                sourceModule={sourceModule} countryCodes={countryCodes}
+                sourceModule={sourceModule} eventType={eventType} countryCodes={countryCodes}
               />
             </div>
             <Button size="icon" variant="ghost" className="h-7 w-7"
@@ -2269,6 +2280,17 @@ function ConditionsEditor({
       {opMeta && opMeta.arity > 0 && (
         fieldMeta?.type === "tags" ? <RecordTagConditionInput entityType={sourceModule} countryCodes={countryCodes}
           value={typeof leaf.value === "string" ? leaf.value : ""} onChange={value => onChange({ ...leaf, op: selectedOp, value })} /> :
+        fieldMeta && !fieldMeta.options && conditionChoiceSource(sourceModule, leaf.field) &&
+          !["contains", "starts_with"].includes(selectedOp) ? (
+          <div className="min-w-0 w-64 max-w-full">
+            <AutomationConditionReferencePicker field={leaf.field} module={sourceModule} eventType={eventType}
+              countryCodes={countryCodes}
+              value={Array.isArray(leaf.value) ? leaf.value.map(String) : leaf.value == null ? "" : String(leaf.value)}
+              multiple={fieldMeta.type === "list" || ["in", "not_in"].includes(selectedOp)}
+              onChange={value => setValue(fieldMeta.type === "number"
+                ? Array.isArray(value) ? value.map(Number) : Number(value) : value)} />
+          </div>
+        ) :
         usesConditionChoices(fieldMeta, selectedOp) && (fieldMeta?.type === "list" || ["in", "not_in"].includes(selectedOp)) ? (
           <AutomationChoicePicker
             options={valueOptions}
@@ -2478,7 +2500,9 @@ function ActionEditor({
         {(() => { const visual = serviceVisual(action.type); const Icon = visual.icon; return (
           <span className={`rounded-md p-1.5 ${visual.tile} ${visual.accent}`}><Icon className="h-4 w-4" /></span>
         ); })()}
-        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "forward_message" ? { forwardActionVersion: 1, destination: "back_office", mode: "attachments", selection: "invoice" } : v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : v === "create_task" && availableVariables.some(variable => variable.value.startsWith("analysis.")) ? { analysisAttachments: "invoice" } : {} })}>
+        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "record_analysis"
+          ? { recordEntryVersion: 1, targetType: "auto", lookup: "sender", mode: "history", title: getRecordEntryCopy(locale).defaultTitle, note: "{{analysis.summary}}" }
+          : v === "forward_message" ? { forwardActionVersion: 1, destination: "back_office", mode: "attachments", selection: "invoice" } : v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : v === "create_task" && availableVariables.some(variable => variable.value.startsWith("analysis.")) ? { analysisAttachments: "invoice" } : {} })}>
           <SelectTrigger aria-label={t.automationServices.conditionEditor.action}
             className="h-9 w-56 max-w-full min-w-0 text-xs [&>span]:truncate" data-testid={`select-action-type-${index}`}>
             <SelectValue />
@@ -2493,7 +2517,7 @@ function ActionEditor({
                     </span>
                   ); })()}
                   <span className="whitespace-normal leading-5">
-                    {a.value === "forward_message" ? getForwardCopy(locale).heading : a.value === "send_sms" ? getSmsActionCopy(locale).heading : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
+                    {a.value === "record_analysis" ? getRecordEntryCopy(locale).actionLabel : a.value === "forward_message" ? getForwardCopy(locale).heading : a.value === "send_sms" ? getSmsActionCopy(locale).heading : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
                   </span>
                 </span>
               </SelectItem>
@@ -2573,6 +2597,9 @@ function ActionEditor({
       {action.type === "forward_message" && <AutomationForwardActionEditor config={action.config || {}} users={users}
         taskGroups={taskGroups} onChange={config => onChange({ ...action, config })}
         onDraftValidityChange={onEmailDraftValidityChange} />}
+      {action.type === "record_analysis" && <AutomationRecordEntryEditor value={action.config as any}
+        onChange={config => onChange({ ...action, config })} availableVariables={availableVariables}
+        ruleId={ruleId} countries={countryCodes} taskGroups={taskGroups} />}
 
       {action.type === "webhook" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
