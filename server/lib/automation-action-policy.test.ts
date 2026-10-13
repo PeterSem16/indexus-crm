@@ -5,10 +5,10 @@ import {
   validateAutomationActions,
 } from "./automation-action-policy";
 
-test("catalogue includes the nine executable action types with explicit risk", () => {
+test("catalogue includes all executable action types with explicit risk", () => {
   assert.deepEqual(
     Object.keys(AUTOMATION_ACTION_POLICY).sort(),
-    ["create_task", "notify_user", "send_email", "send_sms", "webhook", "update_entity", "assign_user", "add_tag", "remove_tag"].sort(),
+    ["create_task", "notify_user", "send_email", "send_sms", "webhook", "update_entity", "assign_user", "add_tag", "remove_tag", "forward_message", "record_analysis"].sort(),
   );
   assert.equal(AUTOMATION_ACTION_POLICY.send_sms.risk, "external_message");
   assert.equal(AUTOMATION_ACTION_POLICY.update_entity.aiDraftEligible, false);

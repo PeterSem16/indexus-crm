@@ -1,4 +1,5 @@
 import { db, pool } from "../db";
+import { automationBranch, automationExecutableActions, automationAnalysisUnknown } from "../../shared/automation-branches";
 import { enterRuleEvaluation, type RuleEvaluationPass } from "./automation-no-match";
 import { automationDateDisplay } from "../../shared/automation-display-date";
 import { deliverForwardCommunication } from "./automation-forward-delivery";
@@ -1177,7 +1178,7 @@ async function countScheduledDeliveries(rule: WorkflowRule, candidates: Schedule
       countryCode: event.countryCode,
       actorUserId: null,
     };
-    for (const action of (rule.actions as any[]) || []) {
+    for (const action of automationExecutableActions(rule)) {
       if (!["send_email", "send_sms"].includes(action?.type)) continue;
       const config = action.config || {};
       const rendered = action.type === "send_email" && config.emailActionVersion === 2
@@ -1511,18 +1512,22 @@ export async function runRule(
 
   // Skip if conditions not met
   const eligibleConditions = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && permitsSentimentSource(rule.conditions, event);
-  if (!eligibleConditions || !evalCondition(rule.conditions as any, ctx)) {
+  const matched = eligibleConditions && evalCondition(rule.conditions as any, ctx);
+  const unknown = !matched && Boolean((rule.trigger as any)?.analysis) && automationAnalysisUnknown(rule.conditions, ctx.analysis);
+  const selectedBranch = automationBranch(rule.trigger, eligibleConditions, unknown ? null : matched);
+  ctx.branch = selectedBranch.branch === "else" ? "else" : "then";
+  if (!matched && selectedBranch.branch !== "else") {
     await db.insert(workflowRuns).values({
       ruleId: rule.id,
       eventId: event.id,
       status: "skipped",
-      skippedReason: "condition_false",
+      skippedReason: unknown ? "analysis_condition_unknown" : "condition_false",
       payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
         entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
       causationChain,
       finishedAt: new Date(),
     });
-    const fallbackId = (rule.trigger as any)?.noMatchRuleId;
+    const fallbackId = selectedBranch.ruleId;
     if (eligibleConditions && typeof fallbackId === "string" && rule.module === "communication" &&
         (rule.trigger as any)?.analysis && evaluationPass.path.length < 4) {
       const [target] = await findMatchingRules(event, [fallbackId]);
@@ -1560,7 +1565,7 @@ export async function runRule(
   if (!reservation.admitted) return;
   const run = { id: reservation.runId };
 
-  const actions = (rule.actions as any[]) || [];
+  const actions = selectedBranch.branch === "else" ? selectedBranch.actions : (rule.actions as any[]) || [];
   const results: any[] = [];
   let overallOk = true;
 
@@ -1737,9 +1742,12 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
   };
-  const conditionMet = taskStatusTriggerMatches(rule, ctx.newValues) &&
-    taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && evalCondition(rule.conditions as any, ctx);
-  const renderedActions = await Promise.all((rule.actions as any[]).map(async (a) => {
+  const eligible = taskStatusTriggerMatches(rule, ctx.newValues) && taskAssignmentTriggerMatches(rule.trigger, ctx.newValues);
+  // A dry-run has no analyzed message: don't invent an analysis failure as FALSE.
+  const conditionMet = (rule.trigger as any)?.analysis ? null : eligible && evalCondition(rule.conditions as any, ctx);
+  const selectedBranch = automationBranch(rule.trigger, eligible, conditionMet);
+  const actions = selectedBranch.branch === "then" ? (rule.actions as any[]) || [] : selectedBranch.actions;
+  const renderedActions = await Promise.all(actions.map(async (a) => {
     const config = a.config || {};
     const textCtx = taskTemplateContext(ctx, config.templateLanguage);
     const rendered = renderTemplate(config, ctx);
@@ -1762,5 +1770,5 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     }
     return { type: a.type, rendered };
   }));
-  return { conditionMet, ctx, actions: renderedActions };
+  return { conditionMet, branch: selectedBranch.branch, linkedRuleId: selectedBranch.ruleId, ctx, actions: renderedActions };
 }

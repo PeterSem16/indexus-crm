@@ -404,10 +404,10 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
               </section>
               <section className="indexus-flowchart__branch indexus-flowchart__branch--no" aria-label={copy.no} data-flow-branch="no">
                 <p className="indexus-flowchart__branch-label"><span>{copy.no}</span></p>
-                <div className="indexus-flowchart__terminal">
+                {model.elseActions?.length ? <ActionList actions={model.elseActions} copy={copy} locale={locale}/> : <div className="indexus-flowchart__terminal">
                   <strong>{model.noMatch ? getNoMatchCopy(locale).evaluate : copy.stop}</strong>
                   <span>{model.noMatch || copy.noAction}</span>
-                </div>
+                </div>}
               </section>
             </div>
           </>

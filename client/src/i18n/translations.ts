@@ -53,7 +53,10 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
   DE: 'de',
 };
 
+import { automationBlockEditorCopy } from "./automation-block-editor-copy";
+
 export interface Translations {
+  automationBlockEditor: import("./automation-block-editor-copy").AutomationBlockEditorCopy;
   forwardReview: {
     title: string;
     linkedCustomer: string;
@@ -64085,4 +64088,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
   translations[locale].forwardReview = forwardReviewTranslations[locale];
+  translations[locale].automationBlockEditor = automationBlockEditorCopy[locale];
 }

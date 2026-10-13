@@ -26,6 +26,7 @@ import {
   SCHEDULE_RECORD_MODULES, SCHEDULE_MAX_MATCHES,
 } from "./automation-capabilities";
 import { METRIC_TYPES } from "../../shared/automation-analysis";
+import { automationExecutableActions } from "../../shared/automation-branches";
 import { registerReviewedTransitionRoutes, isUnreviewedReplacement } from "./automation-reviewed-transition";
 import { users, userMs365Connections, systemMs365Connections } from "../../shared/schema";
 import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
@@ -197,7 +198,7 @@ export function registerAutomationRoutes(app: Express) {
   app.post("/api/automation/rules", requireAutomationAdmin, async (req, res) => {
     const parsed = insertWorkflowRuleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid", details: parsed.error.errors });
-    const actionIssues = validateAutomationActions(parsed.data.actions, "manual");
+    const actionIssues = validateAutomationActions(automationExecutableActions(parsed.data), "manual");
     if (actionIssues.length) return res.status(400).json({ error: "Invalid actions", details: actionIssues });
     const capabilityIssues = validateRuleCapabilities(parsed.data);
     if (capabilityIssues.length) return res.status(400).json({ error: "Unsupported capability", details: capabilityIssues });
@@ -213,13 +214,13 @@ export function registerAutomationRoutes(app: Express) {
     };
     try {
       const owner = await updateRecordOwner(userId);
-      for (const action of parsed.data.actions as any[]) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
+      for (const action of automationExecutableActions(parsed.data)) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
         await validateSavedAssignOwner(action.config, parsed.data.module, owner,
           parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
-      for (const action of parsed.data.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
+      for (const action of automationExecutableActions(parsed.data)) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
         await validateSavedUpdateRecord(action.config, parsed.data.module, owner,
           parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
-      for (const action of parsed.data.actions as any[]) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
+      for (const action of automationExecutableActions(parsed.data)) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
         await validateSavedTagAction(action.config, parsed.data.module, owner,
           parsed.data.countryCodes || (parsed.data.countryCode ? [parsed.data.countryCode] : null));
     } catch {
@@ -262,6 +263,8 @@ export function registerAutomationRoutes(app: Express) {
       executableChanged = (["module", "trigger", "conditions", "actions", "countryCode", "countryCodes"] as const).some(key =>
         key in partial.data && JSON.stringify(partial.data[key]) !== JSON.stringify(current[key]));
       if (executableChanged) {
+        const actionIssues = validateAutomationActions(automationExecutableActions({ ...current, ...partial.data }), "manual");
+        if (actionIssues.length) return res.status(400).json({ error: "Invalid actions", details: actionIssues });
         const routingIssue = noMatchRoutingIssue({ ...current, ...partial.data }, await db.select().from(workflowRules));
         if (routingIssue) return res.status(400).json({ error: routingIssue });
         const capabilityIssues = validateRuleCapabilities({ ...current, ...partial.data });
@@ -285,12 +288,12 @@ export function registerAutomationRoutes(app: Express) {
       if (!current) return res.status(404).json({ error: "Not found" });
       const next = { ...current, ...partial.data };
       try {
-        for (const action of next.actions as any[]) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
+        for (const action of automationExecutableActions(next)) if (action.type === "assign_user" && action.config?.assignOwnerVersion === 2)
           await validateSavedAssignOwner(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""),
             next.countryCodes || (next.countryCode ? [next.countryCode] : null));
-        for (const action of next.actions as any[]) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
+        for (const action of automationExecutableActions(next)) if (action.type === "update_entity" && action.config?.updateRecordVersion === 2)
           await validateSavedUpdateRecord(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
-        for (const action of next.actions as any[]) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
+        for (const action of automationExecutableActions(next)) if (["add_tag", "remove_tag"].includes(action.type) && action.config?.recordTagActionVersion === 2)
           await validateSavedTagAction(action.config, next.module, await updateRecordOwner(next.createdByUserId || ""), next.countryCodes || (next.countryCode ? [next.countryCode] : null));
       } catch {
         return res.status(400).json({ error: "Update record target or values unavailable; review the action" });

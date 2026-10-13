@@ -1,4 +1,6 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
+import { automationElseActions, automationExecutableActions, automationBranchIssue } from "@shared/automation-branches";
+import { AutomationBlockEditor, AutomationBlockActions } from "@/components/automation-block-editor";
 import { COMMUNICATION_SOURCE_FIELDS } from "@shared/automation-communication-context";
 import { communicationVariableLabels } from "@/i18n/automation-communication-variable-copy";
 import { getNoMatchCopy } from "@/i18n/automation-no-match-copy";
@@ -179,7 +181,7 @@ type RuleDraft = {
   countryCodes: string[] | null;
   enabled: boolean;
   trigger:
-    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any; noMatchRuleId?: string }
+    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any; noMatchRuleId?: string; noMatchActions?: ActionNode[] }
     | { type: "schedule"; interval: string; mode?: "once" | "per_record" };
   conditions: ConditionNode | null;
   actions: ActionNode[];
@@ -644,7 +646,7 @@ export default function AutomationsPage() {
 /* ============================================================
    Rule editor — Builder + live flowchart tabs
    ============================================================ */
-function RuleEditor({
+export function RuleEditor({
   open,
   rule,
   initialDraft,
@@ -701,7 +703,35 @@ function RuleEditor({
   const [selectedService, setSelectedService] = useState<ServiceId | null>(initialService || null);
   const [tab, setTab] = useState<string>("builder");
   const [showTest, setShowTest] = useState(false);
-  const [expandedStep, setExpandedStep] = useState<number | null>(0);
+  const [expandedStep, setExpandedStepState] = useState<number | null>(null);
+  const blockSnapshot = useRef<RuleDraft | null>(null);
+  const [editingAction, setEditingAction] = useState(false);
+  const [elseSearch, setElseSearch] = useState("");
+  const [pendingElseMode, setPendingElseMode] = useState<"link" | null>(null);
+  const setExpandedStep = (step: number | null) => {
+    if (step !== null && expandedStep === null) {
+      blockSnapshot.current = structuredClone(draft);
+      setEditingAction(false);
+      setElseSearch("");
+      setPendingElseMode(null);
+    }
+    setExpandedStepState(step);
+  };
+  const cancelBlock = () => {
+    if (blockSnapshot.current) setDraft(blockSnapshot.current);
+    blockSnapshot.current = null;
+    setEmailDraftInvalidByAction({});
+    setEditingAction(false);
+    setSourceResetNotice(false);
+    setExpandedStepState(null);
+    setPendingElseMode(null);
+  };
+  const applyBlock = () => {
+    blockSnapshot.current = null;
+    setEditingAction(false);
+    setExpandedStepState(null);
+    setPendingElseMode(null);
+  };
   const [inspectorTab, setInspectorTab] = useState<"summary" | "test">("summary");
   const [sourceResetNotice, setSourceResetNotice] = useState(false);
   const scheduleMode = draft.trigger.type === "schedule" ? draft.trigger.mode || "once" : null;
@@ -725,7 +755,7 @@ function RuleEditor({
     };
     setDraft(next);
     setSelectedService(service);
-    setExpandedStep(0);
+    setExpandedStepState(null);
   };
 
   useEffect(() => {
@@ -1083,7 +1113,8 @@ function RuleEditor({
     return Boolean(node.all?.some(hasConditionLeaf) || node.any?.some(hasConditionLeaf));
   };
   const draftEventType = draft.trigger.type === "event" ? draft.trigger.eventType : null;
-  const incompatible = draft.actions.some(a => !actionsForModule.some(option => option.value === a.type)) ||
+  const incompatible = automationExecutableActions(draft).some(a => !actionsForModule.some(option => option.value === a.type)) ||
+    Boolean(automationBranchIssue(draft.trigger)) ||
     (Boolean(analysisConfig) && analysisConfigIssues(analysisConfig).length > 0) ||
     (draft.trigger.type === "event" && draft.trigger.assignmentTarget != null &&
       !isTaskAssignmentTriggerTarget(draft.trigger.assignmentTarget)) ||
@@ -1114,7 +1145,7 @@ function RuleEditor({
       while ((match = matcher.exec(content)) !== null) if (!supported.has(match[1].trim())) return false;
       return true;
     };
-    return (candidate.actions || []).some((action) => {
+    return automationExecutableActions(candidate).some((action) => {
       if (action.type === "assign_user")
         return action.config?.assignOwnerVersion !== 2 || assignOwnerIssues(action.config, candidate.module).length > 0;
       if (["add_tag", "remove_tag"].includes(action.type))
@@ -1127,11 +1158,51 @@ function RuleEditor({
         !["to", "cc", "bcc"].every((field) => checkTokens(String(config[field] ?? ""), supportedRecipients));
     });
   };
-  const hasInvalidEmailDraft = draft.actions.some((action, index) =>
+  const hasInvalidEmailDraft = automationExecutableActions(draft).some((action, index) =>
     ["send_email", "send_sms", "update_entity", "add_tag", "remove_tag", "assign_user"].includes(action.type) && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
     setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
+
+  const blockCopy = t.automationBlockEditor;
+  const elseActions = automationElseActions(draft.trigger) as ActionNode[];
+  const elseMode = pendingElseMode || (draft.trigger.type === "event" && draft.trigger.noMatchActions !== undefined ? "actions"
+    : configuredNoMatchRuleId ? "link" : "stop");
+  const setElseMode = (mode: string) => {
+    if (draft.trigger.type !== "event") return;
+    setPendingElseMode(mode === "link" ? "link" : null);
+    const { noMatchRuleId: _ruleId, noMatchActions: _actions, ...trigger } = draft.trigger;
+    setDraft({ ...draft, trigger: { ...trigger,
+      ...(mode === "actions" ? { noMatchActions: elseActions } : {}),
+      ...(mode === "link" && configuredNoMatchRuleId ? { noMatchRuleId: configuredNoMatchRuleId } : {}),
+    } });
+  };
+  const actionList = (branch: "then" | "else") => <AutomationBlockActions
+    actions={branch === "then" ? draft.actions : elseActions}
+    options={actionsForModule.map(option => ({ value: option.value,
+      label: (t.automationServices.names as Record<string, string>)[option.value] || option.label }))}
+    onEditingChange={setEditingAction}
+    createAction={type => ({ type, config: type === "send_email" ? { emailActionVersion: 2, senderMode: "personal" }
+      : type === "notify_user" ? { notificationActionVersion: 2 }
+      : type === "forward_message" ? { forwardActionVersion: 1, destination: "back_office", mode: "attachments", selection: "invoice" }
+      : type === "record_analysis" ? { recordEntryVersion: 1, targetType: "auto", lookup: "sender", mode: "history", title: getRecordEntryCopy(locale).defaultTitle, note: "{{analysis.summary}}" }
+      : type === "create_task" && analysisConfig ? { analysisAttachments: "invoice" } : {} })}
+    onChange={actions => {
+      setEmailDraftInvalidByAction({});
+      if (branch === "then") setDraft({ ...draft, actions });
+      else if (draft.trigger.type === "event") setDraft({ ...draft, trigger: { ...draft.trigger, noMatchActions: actions } });
+    }}
+    renderEditor={(action, index, change, remove) => <ActionEditor
+      action={action} index={index} sourceModule={draft.module}
+      scheduleMode={draft.trigger.type === "schedule" ? scheduleMode || undefined : undefined}
+      actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
+      recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
+      availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
+      users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
+      countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])}
+      ruleId={rule?.id} onEmailDraftValidityChange={invalid => recordEmailDraftValidity(branch === "then" ? index : draft.actions.length + index, invalid)}
+      onChange={change} onRemove={remove}/>}
+  />;
 
   const submit = () => {
     let payload = draft;
@@ -1200,7 +1271,7 @@ function RuleEditor({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="task-modern-modal automation-editor-dialog automation-rule-dialog max-w-6xl max-h-[88vh]" overlayClassName="task-modern-modal-overlay">
+      <DialogContent className="task-modern-modal automation-editor-dialog automation-rule-dialog automation-compact-editor max-w-6xl max-h-[88vh]" overlayClassName="task-modern-modal-overlay">
         <TaskModalArtwork variant={rule ? "edit" : "create"} />
         <DialogHeader>
           <div className="automation-workspace-header">
@@ -1263,7 +1334,19 @@ function RuleEditor({
                         }}><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />{t.automationServices.workspace.scheduleModeLabel}</button>
                     </div>
                   </div>
+                  <AutomationBlockEditor open={expandedStep === 0} title={t.automationServices.workspace.when}
+                    onCancel={cancelBlock} onApply={applyBlock} disabled={Boolean(analysisConfig && analysisConfigIssues(analysisConfig).length)}>
                   {expandedStep === 0 && <div id="automation-step-when-body">
+                    <div className="automation-trigger-switch">
+                      <Button type="button" variant={draft.trigger.type === "event" ? "default" : "outline"} onClick={() => {
+                        if (draft.conditions) setSourceResetNotice(true);
+                        setDraft({ ...draft, conditions: null, trigger: { type: "event", entityType: draft.module, eventType: eventsForModule[0]?.value || "updated" } });
+                      }}>{t.automationServices.workspace.eventMode}</Button>
+                      <Button type="button" variant={draft.trigger.type === "schedule" ? "default" : "outline"} onClick={() => {
+                        if (draft.conditions) setSourceResetNotice(true);
+                        setDraft({ ...draft, conditions: null, trigger: { type: "schedule", interval: "hourly", mode: "once" } });
+                      }}>{t.automationServices.workspace.scheduleModeLabel}</Button>
+                    </div>
                   {draft.trigger.type === "event" ? (
                     <div className="automation-trigger-controls">
                       <div>
@@ -1467,6 +1550,7 @@ function RuleEditor({
                       ? <SentimentSourcePicker selected={sentimentSources.channels} onToggle={toggleSentimentSource} copy={t.automationServices.sentimentSources} />
                     : <p className="automation-reset-notice">{t.automationServices.sentimentSources.advancedSelection}</p>)}
                   </div>}
+                  </AutomationBlockEditor>
                 </section>
 
                 <div className="automation-logic-grid">
@@ -1493,6 +1577,8 @@ function RuleEditor({
                             }}
                             disabled={!fieldsForConditions.length} data-testid="button-add-conditions"><Plus className="h-3.5 w-3.5 mr-1" />{t.automationServices.conditionEditor.addCondition}</Button>}
                     </div>
+                    <AutomationBlockEditor open={expandedStep === 1} title={t.automationServices.workspace.if}
+                      onCancel={cancelBlock} onApply={applyBlock} disabled={invalidCondition(draft.conditions)}>
                     {expandedStep === 1 && <div id="automation-step-if-body">{draft.trigger.type === "schedule" && scheduleMode === "once" ? <p className="automation-inline-note">{t.automationServices.workspace.noIfOnce}</p> : <>
                       {!fieldsForConditions.length && <p className="automation-inline-note">{t.automationCatalog.noFields}</p>}
                       {invalidCondition(draft.conditions) && <p className="automation-validation">{t.automationCatalog.unavailableHere}</p>}
@@ -1507,51 +1593,78 @@ function RuleEditor({
                         onChange={updateConditions}
                       />}
                     </>}</div>}
+                    </AutomationBlockEditor>
                   </section>
                   <section className="automation-step automation-step-then automation-flow-node" data-testid="automation-then-step">
+                    <span className="automation-branch-label">{blockCopy.yes}</span>
                     <div className="automation-step-heading">
                       <span className="automation-step-number">03</span>
                       <span className="automation-step-icon" aria-hidden="true"><Sparkles size={15} /></span>
                       <button type="button" className="automation-step-toggle" aria-expanded={expandedStep === 2}
                         aria-controls="automation-step-then-body" onClick={() => setExpandedStep(expandedStep === 2 ? null : 2)}>
-                        <h2>{t.automationServices.workspace.then}</h2><p>{draft.actions.length} · {t.automationServices.workspace.actionCount}</p>
+                        <h2>{t.automationServices.workspace.then}</h2><p>{draft.actions.length} · {t.automationServices.workspace.actionCount} · {draft.actions.map(action => (t.automationServices.names as Record<string, string>)[action.type] || catalog.actionTypes.find(option => option.value === action.type)?.label || action.type).join(" → ")}</p>
                       </button>
                       <AutomationStepHelp step="then" copy={t.automationEditorHelp} />
-                      <Button size="sm" variant="outline" onClick={() => {
-                        setDraft({ ...draft, actions: [...draft.actions, { type: "notify_user", config: { notificationActionVersion: 2 } }] });
-                        setExpandedStep(2);
-                      }}
-                        data-testid="button-add-action"><Plus className="h-3.5 w-3.5 mr-1" />{t.automationServices.workspace.addAction}</Button>
+                      <Button size="sm" variant="outline" onClick={() => setExpandedStep(2)}
+                        data-testid="button-add-action"><Settings2 className="h-3.5 w-3.5 mr-1" />{blockCopy.edit}</Button>
                     </div>
-                    {expandedStep === 2 && <div id="automation-step-then-body">
-                      {noMatchControl}
-                    <div className="automation-actions">
-                      {draft.actions.length === 0 && <p className="automation-inline-note">{t.automationServices.workspace.noActions}</p>}
-                      {draft.actions.map((action, index) => <ActionEditor key={index} action={action} index={index}
-                        sourceModule={draft.module}
-                        scheduleMode={draft.trigger.type === "schedule" ? scheduleMode || undefined : undefined}
-                        actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
-                        recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
-                        availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
-                        users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
-                        countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])} ruleId={rule?.id}
-                        onEmailDraftValidityChange={invalid => recordEmailDraftValidity(index, invalid)}
-                        onChange={updated => { const next = [...draft.actions]; next[index] = updated; setDraft({ ...draft, actions: next }); }}
-                        onRemove={() => { const next = [...draft.actions]; next.splice(index, 1); setDraft({ ...draft, actions: next }); }} />)}
+                    <AutomationBlockEditor open={expandedStep === 2} title={t.automationServices.workspace.then}
+                      onCancel={cancelBlock} onApply={applyBlock} disabled={editingAction || emailActionsInvalid || incompatible}>
+                      {expandedStep === 2 && actionList("then")}
+                    </AutomationBlockEditor>
+                  </section>
+                  <section className="automation-step automation-step-else automation-flow-node" data-testid="automation-else-step">
+                    <span className="automation-branch-label">{blockCopy.no}</span>
+                    <div className="automation-step-heading">
+                      <span className="automation-step-number">04</span>
+                      <button type="button" className="automation-step-toggle" onClick={() => setExpandedStep(3)} data-testid="button-edit-else">
+                        <h2>{blockCopy.else}</h2><p>{elseMode === "actions" ? `${elseActions.length} · ${t.automationServices.workspace.actionCount}`
+                          : elseMode === "link" ? `${blockCopy.link} · ${rules.find(target => target.id === configuredNoMatchRuleId)?.name || noMatchCopy.unavailable}` : blockCopy.stop}</p>
+                      </button>
+                      <Button size="sm" variant="outline" onClick={() => setExpandedStep(3)}>{blockCopy.edit}</Button>
                     </div>
-                    {incompatible && <p className="automation-validation">{t.automationCatalog.unavailableHere}</p>}
-                    </div>}
+                    <AutomationBlockEditor open={expandedStep === 3} title={blockCopy.else} onCancel={cancelBlock} onApply={applyBlock}
+                      disabled={editingAction || emailActionsInvalid || Boolean(automationBranchIssue(draft.trigger)) ||
+                        (elseMode === "link" && !configuredNoMatchRuleId)}>
+                      {expandedStep === 3 && (draft.trigger.type === "schedule" ? <p>{blockCopy.schedule}</p> : <>
+                        <div className="automation-else-modes">
+                          {(["stop", "actions", ...(analysisConfig ? ["link"] : [])] as string[]).map(mode => <label key={mode}>
+                            <input type="radio" name="automation-else-mode" checked={elseMode === mode} disabled={mode === "link" && !noMatchTargets.length}
+                              onChange={() => setElseMode(mode)}/>
+                            <span>{mode === "stop" ? blockCopy.stop : mode === "actions" ? blockCopy.actions : blockCopy.link}</span>
+                          </label>)}
+                        </div>
+                        {elseMode === "actions" && actionList("else")}
+                        {elseMode === "link" && <div className="space-y-3">
+                          <Input placeholder={blockCopy.search} value={elseSearch} onChange={event => setElseSearch(event.target.value)}/>
+                          {noMatchTargets.filter(target => target.name.toLocaleLowerCase().includes(elseSearch.toLocaleLowerCase())).map(target =>
+                            <Button type="button" className="w-full justify-start" variant={configuredNoMatchRuleId === target.id ? "default" : "outline"} key={target.id}
+                              onClick={() => { if (draft.trigger.type === "event") setDraft({ ...draft, trigger: { ...draft.trigger, noMatchRuleId: target.id } }); }}>{target.name}</Button>)}
+                          {!noMatchTargets.length && <p>{blockCopy.unavailable}</p>}
+                          <p className="text-xs text-muted-foreground">{blockCopy.linkHelp}</p>
+                        </div>}
+                        <p className="text-xs text-muted-foreground mt-4">{blockCopy.unknown}</p>
+                      </>)}
+                    </AutomationBlockEditor>
                   </section>
                 </div>
                 </div>
                 {onceCountryUnsafe && <p className="automation-validation" role="alert">{t.automationServices.workspace.onceCountryRequired}</p>}
                 <section className="automation-advanced">
-                  <AutomationRuleExecutionSettings rateLimit={draft.rateLimitPerHour} enabled={draft.enabled} disabled={scheduleUnsafe || incompatible}
-                    onRateLimitChange={rateLimitPerHour => setDraft({ ...draft, rateLimitPerHour })}
-                    onEnabledChange={enabled => setDraft({ ...draft, enabled })} />
+                  <div className="flex items-center justify-between gap-3">
+                    <strong className="text-sm">{blockCopy.settings}</strong>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setExpandedStep(4)}>{blockCopy.edit}</Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{draft.enabled ? blockCopy.stateOn : blockCopy.stateOff} · {draft.rateLimitPerHour || "∞"}</p>
+                  <AutomationBlockEditor open={expandedStep === 4} title={blockCopy.settings}
+                    onCancel={cancelBlock} onApply={applyBlock}>
+                    <AutomationRuleExecutionSettings rateLimit={draft.rateLimitPerHour} enabled={draft.enabled} disabled={scheduleUnsafe || incompatible}
+                      onRateLimitChange={rateLimitPerHour => setDraft({ ...draft, rateLimitPerHour })}
+                      onEnabledChange={enabled => setDraft({ ...draft, enabled })} />
+                  </AutomationBlockEditor>
                 </section>
               </div>
-              <details className="automation-preview-panel" data-testid="automation-preview-panel">
+              <details open className="automation-preview-panel" data-testid="automation-preview-panel">
                 <summary>{t.automationServices.workspace.preview}</summary>
               <aside className="automation-preview-rail">
                 <div className="automation-preview-card">
@@ -1576,7 +1689,10 @@ function RuleEditor({
                       ? t.automationServices.workspace.noIfOnce
                       : hasConditionLeaf(draft.conditions) ? t.automationServices.workspace.conditionsAdded : t.automationServices.workspace.noConditions}</b></div></div>
                     <div className="automation-effect-connector" aria-hidden="true"><span /></div>
-                    <div className="automation-effect-node outcome"><span className="automation-effect-dot">03</span><div><small>{t.automationServices.workspace.then}</small><b>{draft.actions.length} · {t.automationServices.workspace.actionCount}</b></div></div>
+                    <div className="automation-preview-branches">
+                      <div className="automation-effect-node outcome"><span className="automation-effect-dot">03</span><div><small>{blockCopy.yes}</small><b>{draft.actions.length} · {t.automationServices.workspace.actionCount}</b></div></div>
+                      <div className="automation-effect-node outcome"><span className="automation-effect-dot">04</span><div><small>{blockCopy.no}</small><b>{elseMode === "actions" ? `${elseActions.length} · ${t.automationServices.workspace.actionCount}` : elseMode === "link" ? blockCopy.link : blockCopy.stop}</b></div></div>
+                    </div>
                   </div>
                   {draft.trigger.type === "schedule" && scheduleMode === "per_record" && (
                     <section className={`automation-preview-status ${schedulePreview.status === "error" || schedulePreview.overLimit ||
@@ -1960,6 +2076,7 @@ function DryRunDialog({
   draft: RuleDraft;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const { toast } = useToast();
   const sampleDefault = JSON.stringify(
     {
@@ -2043,13 +2160,14 @@ function DryRunDialog({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">Conditions:</span>
                 <Badge variant={result.conditionMet ? "default" : "secondary"} data-testid="badge-condition-result">
-                  {result.conditionMet ? "MATCH (actions would fire)" : "NO MATCH (rule skipped)"}
+                  {result.branch === "else" ? t.automationBlockEditor.else : result.conditionMet === null
+                    ? t.automationBlockEditor.unknown : result.conditionMet ? t.automationBlockEditor.yes : t.automationBlockEditor.stop}
                 </Badge>
               </div>
 
               <div>
                 <div className="text-sm font-semibold mb-1">
-                  Actions ({result.actions?.length || 0}) {result.conditionMet ? "would execute" : "(suppressed)"}
+                  {t.automationBlockEditor.order} ({result.actions?.length || 0})
                 </div>
                 <div className="space-y-2">
                   {(result.actions || []).map((a: any, i: number) => (

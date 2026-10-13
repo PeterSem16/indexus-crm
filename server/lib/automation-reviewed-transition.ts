@@ -6,6 +6,7 @@ import { alertRules, notificationRules, workflowRules, users } from "../../share
 import { notificationAutomationDraft } from "../../client/src/lib/notification-automation-draft";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import { validateAutomationActions } from "./automation-action-policy";
+import { automationExecutableActions } from "../../shared/automation-branches";
 import { ensureMetricServicesSchema } from "./automation-metric-services";
 
 let ready: Promise<void> | undefined;
@@ -97,7 +98,7 @@ export function registerReviewedTransitionRoutes(app: Express, requireAdmin: Req
         const [source]: any[] = await tx.select().from(table as any).where(eq(table.id, review.source_id));
         const [rule] = await tx.select().from(workflowRules).where(eq(workflowRules.id, req.params.id)).for("update");
         if (!source || !rule || rule.enabled || sourceFingerprint(source) !== review.source_fingerprint) throw new Error("review_stale");
-        if (validateRuleCapabilities(rule).length || validateAutomationActions(rule.actions, "manual").length) throw new Error("review_invalid");
+        if (validateRuleCapabilities(rule).length || validateAutomationActions(automationExecutableActions(rule), "manual").length) throw new Error("review_invalid");
         // No queued pre-transition communication can execute in both engines.
         const activationTime = new Date();
         await tx.update(table as any).set({ isActive: false }).where(eq(table.id, source.id));

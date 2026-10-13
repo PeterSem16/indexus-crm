@@ -1,9 +1,12 @@
+import { automationBranchIssue } from "../../shared/automation-branches";
 type LinkRule = {
   id?: string; module: string; createdByUserId?: string | null;
   trigger: any; enabled?: boolean;
 };
 /** Restrict handoff to the same authorized rule owner; the target still evaluates its own scope and IF. */
 export function noMatchRoutingIssue(source: LinkRule, rules: LinkRule[]): string | null {
+  const branchIssue = automationBranchIssue(source.trigger);
+  if (branchIssue) return branchIssue;
   const id = source.trigger?.noMatchRuleId;
   if (id == null || id === "") return null;
   if (typeof id !== "string" || !id.trim()) return "Invalid no-match rule";

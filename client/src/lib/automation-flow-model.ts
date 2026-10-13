@@ -13,6 +13,7 @@ export type AutomationFlowModel = {
   conditions: FlowCondition | null;
   conditionsIgnored?: boolean;
   actions: FlowStep[];
+  elseActions?: FlowStep[];
   noMatch?: string;
 };
 
@@ -89,7 +90,7 @@ export function buildAutomationFlowModel(rule: FlowRule, labels: FlowLabels): Au
             : format(node.value, node.field) } : {}) };
   };
   const trigger = rule.trigger || {};
-  const { analysis, legacySource: _legacySource, noMatchRuleId, ...triggerSettings } = trigger;
+  const { analysis, legacySource: _legacySource, noMatchRuleId, noMatchActions, ...triggerSettings } = trigger;
   const analysisSettings = analysis ? { ...analysis } : undefined;
   if (analysisSettings?.mailboxMode === "all" && !analysisSettings.mailboxUserIds?.length)
     delete analysisSettings.mailboxUserIds;
@@ -113,5 +114,9 @@ export function buildAutomationFlowModel(rule: FlowRule, labels: FlowLabels): Au
     conditionsIgnored: trigger.type === "schedule" && (trigger.mode || "once") === "once",
     ...(noMatchRuleId && trigger.type === "event" && analysis ? { noMatch: labels.value(noMatchRuleId, "noMatchRuleId") } : {}),
     actions: (rule.actions || []).map(action => ({ title: labels.action(action.type), details: details(action.config || {}) })),
+    ...(Array.isArray(noMatchActions) && noMatchActions.length ? {
+      elseActions: noMatchActions.map((action: { type: string; config?: Record<string, any> }) =>
+        ({ title: labels.action(action.type), details: details(action.config || {}) })),
+    } : {}),
   };
 }

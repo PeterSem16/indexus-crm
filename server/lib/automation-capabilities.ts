@@ -489,12 +489,20 @@ const conditionValueMatchesType = (value: unknown, type: string) => {
   return typeof value === "string";
 };
 
+import { automationBranchIssue, automationExecutableActions } from "../../shared/automation-branches";
+
 export function validateRuleCapabilities(rule: {
   module: string; trigger: unknown; conditions?: unknown; actions?: unknown;
   countryCode?: string | null; countryCodes?: string[] | null;
 }): CapabilityIssue[] {
+  const malformedActions = rule.actions !== undefined && !Array.isArray(rule.actions);
+  const thenCount = Array.isArray(rule.actions) ? rule.actions.length : 0;
+  const branchIssue = automationBranchIssue(rule.trigger);
+  rule = { ...rule, actions: automationExecutableActions(rule) };
   const issues: CapabilityIssue[] = [];
   const fail = (path: string, message: string) => issues.push({ path, message });
+  if (branchIssue) fail("trigger.noMatchActions", branchIssue);
+  if (malformedActions) fail("actions", "Actions must be an array");
   const events = MODULE_EVENTS[rule.module];
   if (!events) fail("module", "Module has no verified event source");
   const trigger = rule.trigger;
@@ -583,7 +591,7 @@ export function validateRuleCapabilities(rule: {
   }
   let staticallyKnownDeliveries = 0;
   if (Array.isArray(rule.actions)) rule.actions.forEach((a, i) => {
-    const path = `actions[${i}]`;
+    const path = i < thenCount ? `actions[${i}]` : `trigger.noMatchActions[${i - thenCount}]`;
     const targets = ACTION_TARGETS[a?.type];
     if (a?.type === "record_analysis") {
       for (const issue of recordEntryIssues(a.config)) fail(`${path}.config`, issue);
