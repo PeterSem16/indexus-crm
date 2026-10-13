@@ -1,4 +1,5 @@
 import { taskSalutationFields } from "../../shared/task-template-variables";
+import { COMMUNICATION_SOURCE_FIELDS } from "../../shared/automation-communication-context";
 import { RECORD_TAG_ENTITY_TYPES, tagActionIssues, normalizeTagName, isProtectedRecordTag } from "@shared/automation-record-tags";
 import { smsRecipientList } from "../../shared/automation-sms-policy";
 import { COUNTRIES, TASK_PRIORITIES, TASK_STATUSES } from "@shared/schema";
@@ -37,8 +38,10 @@ export const MODULE_LABELS: Record<string, string> = {
 
 import { assignOwnerIssues } from "../../shared/automation-assign-owner";
 import { ANALYSIS_FIELDS, analysisConfigIssues, METRIC_TYPES, METRIC_FREQUENCIES } from "../../shared/automation-analysis";
+import { forwardActionIssues } from "../../shared/automation-forward-action";
 
 export const ACTION_TARGETS: Record<string, string[] | null> = {
+  forward_message: ["communication"],
   create_task: null,
   notify_user: null,
   send_email: null,
@@ -52,6 +55,7 @@ export const ACTION_TARGETS: Record<string, string[] | null> = {
 
 /** Service descriptions are tied to existing handlers, not promises of new integrations. */
 export const AUTOMATION_SERVICE_DETAILS: Record<string, { purpose: string; needs: string[] }> = {
+  forward_message: { purpose: "Forward an authorized email/SMS or original invoice attachments to an email recipient, user or Back Office", needs: ["destination", "mode", "selection", "explicit recipient"] },
   create_task: { purpose: "Create a task for a user, department, task group or role", needs: ["title", "assignedUserId, assignedDepartmentId, taskGroupId or targetRole"] },
   notify_user: { purpose: "Notify a user, task group or role in the application", needs: ["userId, userIds, taskGroupId or targetRole", "title"] },
   send_email: { purpose: "Send email to an address, task group or role", needs: ["to, taskGroupId or targetRole", "subject and body or templateId"] },
@@ -377,6 +381,7 @@ export function fieldsForEvent(module: string, event: string): { value: string; 
   if (module === "call") return [...FIELD_OPTIONS.call, ...(CALL_EVENT_FIELDS[event] || [])];
   if (module === "communication") {
     if (event === "communication.received") return [
+      ...COMMUNICATION_SOURCE_FIELDS,
       ...ANALYSIS_FIELDS.map(field => ({ value: field.value, label: field.label, type: field.type,
         ...("options" in field ? { options: Array.from(field.options as readonly string[]) } : {}) })),
       { value: "newValues.type", label: "Communication channel", type: "string", options: ["email", "sms", "voice", "task", "chat"] },
@@ -520,7 +525,9 @@ export function validateRuleCapabilities(rule: {
       else node[key].forEach((n: unknown, i: number) => visit(n, `${path}.${key}[${i}]`, depth + 1));
     } else if ("not" in node) visit(node.not, `${path}.not`, depth + 1);
     else {
-      const field = fieldsForEvent(rule.module, event).find(f => f.value === node.field);
+      const field = [...fieldsForEvent(rule.module, event),
+        ...(rule.module === "communication" && record(trigger) && trigger.analysis ? COMMUNICATION_SOURCE_FIELDS : [])]
+        .find(f => f.value === node.field);
       if (!field) fail(`${path}.field`, "Field is not available on this event");
       const op = operatorsForEvent(event, field?.type).find(o => o.value === node.op);
       if (!op) fail(`${path}.op`, "Operator is not supported for this field and event");
@@ -560,6 +567,14 @@ export function validateRuleCapabilities(rule: {
   if (Array.isArray(rule.actions)) rule.actions.forEach((a, i) => {
     const path = `actions[${i}]`;
     const targets = ACTION_TARGETS[a?.type];
+    if (a?.type === "forward_message") {
+      for (const issue of forwardActionIssues(a.config)) fail(`${path}.config`, issue);
+      if (rule.module !== "communication" || !record(trigger) || trigger.type !== "event" || !trigger.analysis)
+        fail(`${path}.type`, "Forwarding requires an authorized communication analysis source");
+      if (a.config?.mode === "attachments" && a.config?.selection === "invoice" &&
+          (!record(trigger) || !record(trigger.analysis) || !trigger.analysis.analyzeAttachments))
+        fail(`${path}.config.selection`, "Invoice forwarding requires attachment content analysis");
+    }
     if (targets === undefined) return fail(`${path}.type`, "Action has no executable handler");
     const updateV2 = a?.type === "update_entity" && a?.config?.updateRecordVersion === 2;
     const tagV2 = ["add_tag", "remove_tag"].includes(a?.type) && a?.config?.recordTagActionVersion === 2;

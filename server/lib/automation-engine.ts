@@ -1,4 +1,7 @@
 import { db, pool } from "../db";
+import { enterRuleEvaluation, type RuleEvaluationPass } from "./automation-no-match";
+import { automationDateDisplay } from "../../shared/automation-display-date";
+import { deliverForwardCommunication } from "./automation-forward-delivery";
 import { analyzeCommunication, selectedAnalysisAttachments, ensureAutomationAnalysisSchema } from "./automation-analysis";
 import { executeAssignOwner } from "./automation-assign-owner";
 import { assignmentField } from "../../shared/automation-assign-owner";
@@ -74,6 +77,10 @@ function renderTemplate(input: any, ctx: any): any {
   if (typeof input === "string") {
     return input.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, p) => {
       const v = getPath(ctx, p);
+      if (p.startsWith("communication.") && v != null) {
+        const date = automationDateDisplay(p.slice("communication.".length), v, "communication", undefined, ctx.countryCode);
+        if (date !== undefined) return date;
+      }
       return v == null ? "" : String(v);
     });
   }
@@ -1054,6 +1061,7 @@ async function actionTagMutation(
 
 // Keep the public action policy in sync with the handlers that can actually run.
 const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, ctx: any, runId: string) => Promise<ActionResult>> = {
+  forward_message: (config, ctx, runId) => deliverForwardCommunication(config, ctx, runId, ACTION_HANDLERS.create_task),
   create_task: actionCreateTask,
   notify_user: actionNotifyUser,
   send_email: actionSendEmail,
@@ -1466,8 +1474,10 @@ export async function claimScheduledRuleDue(rule: WorkflowRule, intervalMs: numb
 export async function runRule(
   rule: WorkflowRule,
   event: WorkflowEvent,
-  causationChain: string[]
+  causationChain: string[],
+  evaluationPass: RuleEvaluationPass = { visited: new Set(), path: [] },
 ): Promise<void> {
+  if (!enterRuleEvaluation(rule.id, evaluationPass)) return;
   const scheduled = event.source === "schedule";
   const ctx: any = {
     rule,
@@ -1486,6 +1496,7 @@ export async function runRule(
         await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "skipped", skippedReason: "analysis_source_not_eligible" });
         return;
       }
+      ctx.communication = ctx.analysis.communication || {};
     } catch (error) {
       await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "failed",
         error: error instanceof Error && /^analysis_[a-z_]+$/.test(error.message) ? error.message : "analysis_failed",
@@ -1495,7 +1506,8 @@ export async function runRule(
   }
 
   // Skip if conditions not met
-  if (!taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) || !permitsSentimentSource(rule.conditions, event) || !evalCondition(rule.conditions as any, ctx)) {
+  const eligibleConditions = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && permitsSentimentSource(rule.conditions, event);
+  if (!eligibleConditions || !evalCondition(rule.conditions as any, ctx)) {
     await db.insert(workflowRuns).values({
       ruleId: rule.id,
       eventId: event.id,
@@ -1506,6 +1518,17 @@ export async function runRule(
       causationChain,
       finishedAt: new Date(),
     });
+    const fallbackId = (rule.trigger as any)?.noMatchRuleId;
+    if (eligibleConditions && typeof fallbackId === "string" && rule.module === "communication" &&
+        (rule.trigger as any)?.analysis && evaluationPass.path.length < 4) {
+      const [target] = await findMatchingRules(event, [fallbackId]);
+      if (target?.createdByUserId && target.createdByUserId === rule.createdByUserId &&
+          (target.trigger as any)?.analysis) {
+        await runRule(target, event, causationChain, {
+          visited: evaluationPass.visited, path: [...evaluationPass.path, rule.id],
+        });
+      }
+    }
     return;
   }
 
@@ -1539,7 +1562,7 @@ export async function runRule(
 
   for (let i = 0; i < actions.length; i++) {
     const action = actions[i];
-    const handler = ACTION_HANDLERS[action.type];
+    const handler = ACTION_HANDLERS[action.type as keyof typeof ACTION_HANDLERS];
     if (!handler) {
       const res = { ok: false, error: `Unknown action type: ${action.type}` };
       results.push({ index: i, type: action.type, ...res });
@@ -1667,9 +1690,10 @@ export async function processEvent(eventId: string, onlyRuleIds?: readonly strin
   const rules = await findMatchingRules(event, onlyRuleIds);
   if (!rules.length) return;
   const baseChain = event.causationRunId ? [event.causationRunId] : [];
+  const evaluationPass: RuleEvaluationPass = { visited: new Set(), path: [] };
   for (const rule of rules) {
     try {
-      await runRule(rule, event, baseChain);
+      await runRule(rule, event, baseChain, evaluationPass);
     } catch (err) {
       console.error(`[Automation] runRule error rule=${rule.id} event=${event.id}:`, err);
     }

@@ -16,6 +16,9 @@ const labels: Record<string, string[]> = {
   web_form: ["Web form", "Webový formulár", "Webový formulář", "Webes űrlap", "Formular web", "Modulo web", "Webformular"],
   phone: ["Phone", "Telefón", "Telefon", "Telefon", "Telefon", "Telefono", "Telefon"],
   in_person: ["In person", "Osobne", "Osobně", "Személyesen", "Personal", "Di persona", "Persönlich"],
+  inbound: ["Incoming", "Prichádzajúca", "Příchozí", "Bejövő", "Primită", "In entrata", "Eingehend"],
+  outbound: ["Outgoing", "Odchádzajúca", "Odchozí", "Kimenő", "Trimisă", "In uscita", "Ausgehend"],
+  internal: ["Internal", "Interná", "Interní", "Belső", "Internă", "Interna", "Intern"],
   referral: ["Referral", "Odporúčanie", "Doporučení", "Ajánlás", "Recomandare", "Segnalazione", "Empfehlung"],
 };
 export type ConditionChoiceCopy = { saved: string; choose: string; chooseOne: string; values: Record<string, string> };

@@ -8,6 +8,7 @@ import { dryRunRule, runRule } from "./automation-engine";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import { ensureAutomationNotificationTemplates, validNotificationMessageTemplate } from "./automation-notification-templates";
 import { NOTIFICATION_TEMPLATE_LANGUAGES, notificationTemplateDefaults } from "../../shared/automation-notification-templates";
+import { automationAnalysisNotificationDefaults } from "./automation-analysis-templates";
 import { taskStatusTemplateLabel } from "@shared/task-status-labels";
 
 after(async () => { await pool.end(); });
@@ -41,6 +42,18 @@ test("49 defaults are plain-text copies with language-specific Task status rende
   assert.equal(ids.size, 49);
 });
 
+test("56 communication-analysis defaults are localized internal notifications with the authorized summary only", () => {
+  for (const language of NOTIFICATION_TEMPLATE_LANGUAGES) {
+    const defaults = automationAnalysisNotificationDefaults(language);
+    assert.equal(defaults.length, 8);
+    assert.ok(defaults.every(validNotificationMessageTemplate));
+    assert.ok(defaults.every(template =>
+      template.type === "notification" && template.format === "text" &&
+      (template.content.includes("{{analysis.summary}}") || template.content.includes("{{analysis.invoiceCount}}")) &&
+      !/\{\{newValues\.(?:email|phone|sender|contactName)/i.test(template.content)));
+  }
+});
+
 test("new notification variables fail clearly; legacy rendering is unchanged", async () => {
   const base = { module: "task", enabled: true, trigger: { type: "event", eventType: "updated" },
     actions: [{ type: "notify_user", config: { notificationActionVersion: 2, userId: "user", title: "Review", message: "{{newValues.missing}}" } }] } as any;
@@ -70,9 +83,12 @@ test("notification startup seed preserves edits, deletions and unrelated saved s
       CREATE TEMP TABLE workflow_rules (id text,actions jsonb);
       INSERT INTO workflow_rules VALUES ('fixture','[{"type":"notify_user","config":{"title":"Saved edit","message":"Private snapshot"}}]');`);
     await ensureAutomationNotificationTemplates(client);
-    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 49);
+    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 105);
     await client.query(`UPDATE message_templates SET subject='Manager edit',content='Manager body' WHERE id='indexus-notification-template-created-sk';
-      DELETE FROM message_templates WHERE id='indexus-notification-template-overdue-de';`);
+      DELETE FROM message_templates WHERE id='indexus-notification-template-overdue-de';
+      UPDATE message_templates SET content='Analysis manager edit'
+        WHERE id='indexus-notification-template-analysis-complaint-sk';
+      DELETE FROM message_templates WHERE id='indexus-notification-template-analysis-thank-you-de';`);
     const before = (await client.query("SELECT * FROM message_templates ORDER BY id")).rows;
     await ensureAutomationNotificationTemplates(client);
     assert.deepEqual((await client.query("SELECT * FROM message_templates ORDER BY id")).rows, before);

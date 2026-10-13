@@ -1,7 +1,11 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { ArrowRight, Eye, GitBranch, Info, Minus, X } from "lucide-react";
 import type { AutomationFlowModel, FlowCondition, FlowDetail, FlowStep } from "../lib/automation-flow-model";
 import type { Locale } from "../i18n";
 import { getFlowchartCopy } from "../i18n/automation-flowchart-copy";
+import { isHtmlMessage, sanitizeFlowMessageHtml } from "../lib/automation-flow-message-preview";
+import { getNoMatchCopy } from "../i18n/automation-no-match-copy";
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogClose } from "./ui/dialog";
 import "./automation-rule-flowchart.css";
 
 type AutomationRuleFlowchartProps = {
@@ -10,14 +14,96 @@ type AutomationRuleFlowchartProps = {
   compact?: boolean;
 };
 
-function StepDetails({ details }: { details: FlowDetail[] }) {
+function formatConfiguredTimestamp(value: string, locale: Locale) {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(value)) return value;
+  const date = new Date(/[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`);
+  if (!Number.isFinite(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Europe/Bratislava",
+    }).format(date);
+  } catch {
+    return value;
+  }
+}
+
+function isMessageDetail(detail: FlowDetail) {
+  return detail.message !== undefined || /(?:message|body|html|template)/i.test(detail.label);
+}
+
+function MessagePreview({ detail, locale }: { detail: FlowDetail; locale: Locale }) {
+  detail = { ...detail, value: detail.message ?? detail.value };
+  const copy = getFlowchartCopy(locale);
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const html = isHtmlMessage(detail.value);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="indexus-flowchart__message-trigger"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+      >
+        <Eye aria-hidden="true" />
+        <span>{copy.openMessage}</span>
+      </button>
+      </DialogTrigger>
+      <DialogContent hideCloseButton className="indexus-flowchart indexus-flowchart__message-dialog"
+        overlayClassName="indexus-flowchart__message-backdrop"
+        onEscapeKeyDown={event => { event.preventDefault(); event.stopPropagation(); setOpen(false); }}
+        onCloseAutoFocus={event => { event.preventDefault(); triggerRef.current?.focus(); }}
+        data-flow-message-preview>
+            <header className="indexus-flowchart__message-head">
+              <div>
+                <p>{copy.messagePreview}</p>
+                <DialogTitle asChild><h2>{detail.label}</h2></DialogTitle>
+                <DialogDescription className="sr-only">{copy.messagePreview}</DialogDescription>
+              </div>
+              <DialogClose asChild>
+              <button
+                type="button"
+                className="indexus-flowchart__message-close"
+                onClick={() => setOpen(false)}
+                aria-label={copy.closeMessage}
+              >
+                <X aria-hidden="true" />
+              </button>
+              </DialogClose>
+            </header>
+            {html ? (
+              <iframe
+                className="indexus-flowchart__message-frame"
+                title={detail.label}
+                sandbox=""
+                referrerPolicy="no-referrer"
+                srcDoc={sanitizeFlowMessageHtml(detail.value)}
+              />
+            ) : (
+              <pre className="indexus-flowchart__message-text">{detail.value}</pre>
+            )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StepDetails({ details, locale }: { details: FlowDetail[]; locale: Locale }) {
   if (!details.length) return null;
   return (
     <dl className="indexus-flowchart__step-details">
       {details.map((detail, index) => (
         <div className="indexus-flowchart__detail" key={`${detail.label}-${index}`}>
           <dt className="indexus-flowchart__detail-label">{detail.label}</dt>
-          <dd className="indexus-flowchart__detail-value">{detail.value}</dd>
+          <dd className="indexus-flowchart__detail-value">
+            {isMessageDetail(detail)
+              ? <MessagePreview detail={detail} locale={locale} />
+              : formatConfiguredTimestamp(detail.value, locale)}
+          </dd>
         </div>
       ))}
     </dl>
@@ -29,11 +115,13 @@ function FlowStepCard({
   label,
   number,
   kind,
+  locale,
 }: {
   step: FlowStep;
   label: string;
   number: string;
   kind: "trigger" | "analysis";
+  locale: Locale;
 }) {
   return (
     <section className={`indexus-flowchart__node indexus-flowchart__node--${kind}`} aria-label={`${label}: ${step.title}`} data-flow-node={kind}>
@@ -44,7 +132,7 @@ function FlowStepCard({
           <h3 className="indexus-flowchart__node-title">{step.title}</h3>
         </div>
       </div>
-      <StepDetails details={step.details} />
+      <StepDetails details={step.details} locale={locale} />
     </section>
   );
 }
@@ -121,7 +209,7 @@ function FlowConnector({ from, to }: { from: string; to: string }) {
   );
 }
 
-function ActionList({ actions, copy }: { actions: FlowStep[]; copy: ReturnType<typeof getFlowchartCopy> }) {
+function ActionList({ actions, copy, locale }: { actions: FlowStep[]; copy: ReturnType<typeof getFlowchartCopy>; locale: Locale }) {
   if (!actions.length) return <div className="indexus-flowchart__no-action">{copy.noActions}</div>;
   return (
     <ol className="indexus-flowchart__actions" aria-label={copy.actions}>
@@ -136,7 +224,11 @@ function ActionList({ actions, copy }: { actions: FlowStep[]; copy: ReturnType<t
                   {action.details.map((detail, detailIndex) => (
                     <div className="indexus-flowchart__detail" key={`${detail.label}-${detailIndex}`}>
                       <dt className="indexus-flowchart__detail-label">{detail.label}</dt>
-                      <dd className="indexus-flowchart__detail-value">{detail.value}</dd>
+                      <dd className="indexus-flowchart__detail-value">
+                        {isMessageDetail(detail)
+                          ? <MessagePreview detail={detail} locale={locale} />
+                          : formatConfiguredTimestamp(detail.value, locale)}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -252,11 +344,11 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
       <ScopeItems details={model.scope} label={copy.scope} />
 
       <div className="indexus-flowchart__sequence" ref={sequenceRef}>
-        <FlowStepCard step={model.trigger} label={copy.trigger} number="01" kind="trigger" />
+        <FlowStepCard step={model.trigger} label={copy.trigger} number="01" kind="trigger" locale={locale} />
         {model.analysis && (
           <>
             <FlowConnector from="trigger" to="analysis" />
-            <FlowStepCard step={model.analysis} label={copy.analysis} number="02" kind="analysis" />
+            <FlowStepCard step={model.analysis} label={copy.analysis} number="02" kind="analysis" locale={locale} />
           </>
         )}
 
@@ -270,7 +362,7 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
               data-flow-node="decision"
             >
               <div className="indexus-flowchart__condition-heading">
-                <span className="indexus-flowchart__condition-icon" aria-hidden="true">?</span>
+                <span className="indexus-flowchart__condition-icon" aria-hidden="true"><GitBranch /></span>
                 <div>
                   <h3 className="indexus-flowchart__condition-label" id={conditionHeadingId}>{copy.conditions}</h3>
                   <p className="indexus-flowchart__condition-note">{copy.decisionSummary}</p>
@@ -308,13 +400,13 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
               )}
               <section className="indexus-flowchart__branch indexus-flowchart__branch--yes" aria-label={copy.yes} data-flow-branch="yes">
                 <p className="indexus-flowchart__branch-label"><span>{copy.yes}</span></p>
-                <ActionList actions={model.actions} copy={copy} />
+                <ActionList actions={model.actions} copy={copy} locale={locale} />
               </section>
               <section className="indexus-flowchart__branch indexus-flowchart__branch--no" aria-label={copy.no} data-flow-branch="no">
                 <p className="indexus-flowchart__branch-label"><span>{copy.no}</span></p>
                 <div className="indexus-flowchart__terminal">
-                  <strong>{copy.stop}</strong>
-                  <span>{copy.noAction}</span>
+                  <strong>{model.noMatch ? getNoMatchCopy(locale).evaluate : copy.stop}</strong>
+                  <span>{model.noMatch || copy.noAction}</span>
                 </div>
               </section>
             </div>
@@ -328,7 +420,7 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
                 <FlowConnector from={hasAnalysis ? "analysis" : "trigger"} to="conditions" />
                 <section className="indexus-flowchart__node indexus-flowchart__node--condition">
                   <div className="indexus-flowchart__condition-heading">
-                    <span className="indexus-flowchart__condition-icon" aria-hidden="true">—</span>
+                <span className="indexus-flowchart__condition-icon" aria-hidden="true"><Minus /></span>
                     <div>
                       <h3 className="indexus-flowchart__condition-label">{copy.conditions}</h3>
                       <p className="indexus-flowchart__condition-note">{copy.noConditions}</p>
@@ -343,13 +435,13 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
             )}
             <section className="indexus-flowchart__node indexus-flowchart__node--condition" data-flow-node="actions">
               <div className="indexus-flowchart__condition-heading">
-                <span className="indexus-flowchart__condition-icon" aria-hidden="true">→</span>
+                <span className="indexus-flowchart__condition-icon" aria-hidden="true"><ArrowRight /></span>
                 <div>
                   <h3 className="indexus-flowchart__condition-label">{copy.actions}</h3>
                   <p className="indexus-flowchart__condition-note">{copy.unconditional}</p>
                 </div>
               </div>
-              <ActionList actions={model.actions} copy={copy} />
+              <ActionList actions={model.actions} copy={copy} locale={locale} />
             </section>
           </>
         )}
@@ -359,7 +451,7 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
             <p className="indexus-flowchart__reference-label">{copy.reference}</p>
             <section className="indexus-flowchart__node indexus-flowchart__node--condition indexus-flowchart__node--ignored">
               <div className="indexus-flowchart__condition-heading">
-                <span className="indexus-flowchart__condition-icon" aria-hidden="true">i</span>
+                <span className="indexus-flowchart__condition-icon" aria-hidden="true"><Info /></span>
                 <div>
                   <h3 className="indexus-flowchart__condition-label">{copy.conditions}</h3>
                   <p className="indexus-flowchart__condition-note">{copy.conditionsIgnored}</p>

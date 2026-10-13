@@ -1,6 +1,7 @@
 import type { Locale } from "./translations";
 const languages = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
 const labels: Record<string, readonly string[]> = {
+  listenAfter: ["Listen from", "Spracovať od", "Zpracovat od", "Feldolgozás kezdete", "Procesează de la", "Elabora da", "Verarbeiten ab"],
   "analysis.hasInvoice": ["Contains an invoice", "Obsahuje faktúru", "Obsahuje fakturu", "Számlát tartalmaz", "Conține o factură", "Contiene una fattura", "Enthält eine Rechnung"],
   "analysis.invoiceCount": ["Invoice count", "Počet faktúr", "Počet faktur", "Számlák száma", "Număr de facturi", "Numero di fatture", "Rechnungsanzahl"],
   "analysis.attachmentCount": ["Attachment count", "Počet príloh", "Počet příloh", "Mellékletek száma", "Număr de atașamente", "Numero di allegati", "Anzahl der Anhänge"],

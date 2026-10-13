@@ -52,5 +52,7 @@ export function createMetricServiceDraft(input: {
 
 export const ANALYSIS_RESULT_FIELDS = [
   "analysis.sentiment", "analysis.tone", "analysis.summary", "analysis.wantsToCancel",
-  "analysis.hasInvoice", "analysis.invoiceCount", "analysis.failedAttachmentCount",
+  "analysis.hasInvoice", "analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount",
+  "analysis.mentionsInvoice", "analysis.hasComplaint", "analysis.needsReply", "analysis.isUrgent",
+  "analysis.isThankYou", "analysis.requestsCallback",
 ] as const;

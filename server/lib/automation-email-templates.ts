@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
+import { ensureAutomationAnalysisEmailTemplates } from "./automation-analysis-templates";
 
 /** Seed once; edits, deletions and rule snapshots are never overwritten. */
 export async function ensureAutomationEmailTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
@@ -44,4 +45,5 @@ export async function ensureAutomationEmailTemplates(pool: { query: (sql: string
     ON CONFLICT (id) DO NOTHING;
   `);
   }
+  await ensureAutomationAnalysisEmailTemplates(pool);
 }

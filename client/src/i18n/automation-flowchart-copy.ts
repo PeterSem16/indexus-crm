@@ -42,6 +42,9 @@ export type AutomationFlowchartCopy = {
   schedule: string;
   rateLimit: string;
   threshold: string;
+  openMessage: string;
+  messagePreview: string;
+  closeMessage: string;
   fields: Record<string, string>;
   boolean: { yes: string; no: string };
 };
@@ -66,7 +69,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "No condition check; actions follow the trigger directly.",
     and: "and", unknown: "Not specified", allCountries: "All countries", unlimited: "No limit",
     once: "Once", perRecord: "For each record", schedule: "Schedule", rateLimit: "Rate limit",
-    threshold: "Threshold", fields: {
+    threshold: "Threshold", openMessage: "Preview content", messagePreview: "Message preview", closeMessage: "Close preview", fields: {
       field: "Field", fieldName: "Field", field_name: "Field", fieldId: "Field", field_id: "Field",
       recordType: "Record type", record_type: "Record type", module: "Record type", country: "Country",
       countries: "Countries", countryCodes: "Countries", country_codes: "Countries", owner: "Owner",
@@ -100,7 +103,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Bez kontroly podmienok; akcie nasledujú priamo po spúšťači.",
     and: "a", unknown: "Neuvedené", allCountries: "Všetky krajiny", unlimited: "Bez limitu",
     once: "Raz", perRecord: "Pre každý záznam", schedule: "Plán", rateLimit: "Obmedzenie frekvencie",
-    threshold: "Prahová hodnota", fields: {
+    threshold: "Prahová hodnota", openMessage: "Zobraziť obsah", messagePreview: "Náhľad správy", closeMessage: "Zavrieť náhľad", fields: {
       field: "Pole", fieldName: "Pole", field_name: "Pole", fieldId: "Pole", field_id: "Pole",
       recordType: "Typ záznamu", record_type: "Typ záznamu", module: "Typ záznamu", country: "Krajina",
       countries: "Krajiny", countryCodes: "Krajiny", country_codes: "Krajiny", owner: "Vlastník",
@@ -134,7 +137,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Bez kontroly podmínek; akce následují přímo po spouštěči.",
     and: "a", unknown: "Neuvedeno", allCountries: "Všechny země", unlimited: "Bez limitu",
     once: "Jednou", perRecord: "Pro každý záznam", schedule: "Plán", rateLimit: "Omezení frekvence",
-    threshold: "Prahová hodnota", fields: {
+    threshold: "Prahová hodnota", openMessage: "Zobrazit obsah", messagePreview: "Náhled zprávy", closeMessage: "Zavřít náhled", fields: {
       field: "Pole", fieldName: "Pole", field_name: "Pole", fieldId: "Pole", field_id: "Pole",
       recordType: "Typ záznamu", record_type: "Typ záznamu", module: "Typ záznamu", country: "Země",
       countries: "Země", countryCodes: "Země", country_codes: "Země", owner: "Vlastník",
@@ -168,7 +171,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Nincs feltételvizsgálat; a műveletek közvetlenül az indítás után következnek.",
     and: "és", unknown: "Nincs megadva", allCountries: "Minden ország", unlimited: "Korlátlan",
     once: "Egyszer", perRecord: "Minden rekordnál", schedule: "Ütemezés", rateLimit: "Gyakorisági korlát",
-    threshold: "Küszöbérték", fields: {
+    threshold: "Küszöbérték", openMessage: "Tartalom előnézete", messagePreview: "Üzenet előnézete", closeMessage: "Előnézet bezárása", fields: {
       field: "Mező", fieldName: "Mező", field_name: "Mező", fieldId: "Mező", field_id: "Mező",
       recordType: "Rekordtípus", record_type: "Rekordtípus", module: "Rekordtípus", country: "Ország",
       countries: "Országok", countryCodes: "Országok", country_codes: "Országok", owner: "Felelős",
@@ -202,7 +205,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Fără verificarea condițiilor; acțiunile urmează direct declanșatorului.",
     and: "și", unknown: "Nespecificat", allCountries: "Toate țările", unlimited: "Fără limită",
     once: "O singură dată", perRecord: "Pentru fiecare înregistrare", schedule: "Programare", rateLimit: "Limită de frecvență",
-    threshold: "Prag", fields: {
+    threshold: "Prag", openMessage: "Previzualizează conținutul", messagePreview: "Previzualizare mesaj", closeMessage: "Închide previzualizarea", fields: {
       field: "Câmp", fieldName: "Câmp", field_name: "Câmp", fieldId: "Câmp", field_id: "Câmp",
       recordType: "Tip înregistrare", record_type: "Tip înregistrare", module: "Tip înregistrare", country: "Țară",
       countries: "Țări", countryCodes: "Țări", country_codes: "Țări", owner: "Responsabil",
@@ -236,7 +239,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Nessun controllo delle condizioni; le azioni seguono direttamente l’attivazione.",
     and: "e", unknown: "Non specificato", allCountries: "Tutti i paesi", unlimited: "Nessun limite",
     once: "Una volta", perRecord: "Per ogni record", schedule: "Programmazione", rateLimit: "Limite di frequenza",
-    threshold: "Soglia", fields: {
+    threshold: "Soglia", openMessage: "Anteprima contenuto", messagePreview: "Anteprima messaggio", closeMessage: "Chiudi anteprima", fields: {
       field: "Campo", fieldName: "Campo", field_name: "Campo", fieldId: "Campo", field_id: "Campo",
       recordType: "Tipo di record", record_type: "Tipo di record", module: "Tipo di record", country: "Paese",
       countries: "Paesi", countryCodes: "Paesi", country_codes: "Paesi", owner: "Responsabile",
@@ -270,7 +273,7 @@ const copy: Record<AutomationFlowchartLocale, AutomationFlowchartCopy> = {
     unconditional: "Keine Bedingungsprüfung; Aktionen folgen direkt auf den Auslöser.",
     and: "und", unknown: "Nicht angegeben", allCountries: "Alle Länder", unlimited: "Unbegrenzt",
     once: "Einmal", perRecord: "Für jeden Datensatz", schedule: "Zeitplan", rateLimit: "Ratenbegrenzung",
-    threshold: "Schwellenwert", fields: {
+    threshold: "Schwellenwert", openMessage: "Inhalt ansehen", messagePreview: "Nachrichtenvorschau", closeMessage: "Vorschau schließen", fields: {
       field: "Feld", fieldName: "Feld", field_name: "Feld", fieldId: "Feld", field_id: "Feld",
       recordType: "Datensatztyp", record_type: "Datensatztyp", module: "Datensatztyp", country: "Land",
       countries: "Länder", countryCodes: "Länder", country_codes: "Länder", owner: "Verantwortlich",

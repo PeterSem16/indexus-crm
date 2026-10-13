@@ -1,5 +1,6 @@
 import { NOTIFICATION_TEMPLATE_LANGUAGES, notificationTemplateDefaults } from "../../shared/automation-notification-templates";
 import { validTaskMessageTemplate } from "./task-message-templates";
+import { ensureAutomationAnalysisChannelTemplates } from "./automation-analysis-templates";
 
 export async function ensureAutomationNotificationTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
   const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
@@ -19,6 +20,7 @@ export async function ensureAutomationNotificationTemplates(pool: { query: (sql:
         FROM defaults CROSS JOIN seed
       ON CONFLICT (id) DO NOTHING;`);
   }
+  await ensureAutomationAnalysisChannelTemplates(pool, "notification");
 }
 
 export function validNotificationMessageTemplate(body: any): boolean {

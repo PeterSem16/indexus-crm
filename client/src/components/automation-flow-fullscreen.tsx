@@ -47,6 +47,7 @@ export function AutomationFlowFullscreen({
           overlayClassName="automation-flow-viewer__overlay"
           className="automation-flow-viewer__dialog"
           onKeyDownCapture={(event) => {
+            if ((event.target as HTMLElement).closest("[data-flow-message-preview]")) return;
             if (event.key !== "Escape") return;
             event.preventDefault();
             event.stopPropagation();

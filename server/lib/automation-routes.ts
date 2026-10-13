@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "../db";
+import { noMatchRoutingIssue } from "./automation-no-match";
 import { eq, desc, and, arrayContains, isNull, or } from "drizzle-orm";
 import OpenAI from "openai";
 import {
@@ -197,6 +198,11 @@ export function registerAutomationRoutes(app: Express) {
     const capabilityIssues = validateRuleCapabilities(parsed.data);
     if (capabilityIssues.length) return res.status(400).json({ error: "Unsupported capability", details: capabilityIssues });
     const userId = getSessionUser(req)!.id;
+    if ((parsed.data.trigger as any)?.noMatchRuleId) {
+      const rules = await db.select().from(workflowRules);
+      const issue = noMatchRoutingIssue({ ...parsed.data, createdByUserId: userId }, rules);
+      if (issue) return res.status(400).json({ error: issue });
+    }
     const countryScope = { ...parsed.data };
     if ((countryScope.trigger as any)?.analysis) countryScope.trigger = {
       ...(countryScope.trigger as object), listenAfter: new Date().toISOString(),
@@ -252,6 +258,8 @@ export function registerAutomationRoutes(app: Express) {
       executableChanged = (["module", "trigger", "conditions", "actions", "countryCode", "countryCodes"] as const).some(key =>
         key in partial.data && JSON.stringify(partial.data[key]) !== JSON.stringify(current[key]));
       if (executableChanged) {
+        const routingIssue = noMatchRoutingIssue({ ...current, ...partial.data }, await db.select().from(workflowRules));
+        if (routingIssue) return res.status(400).json({ error: routingIssue });
         const capabilityIssues = validateRuleCapabilities({ ...current, ...partial.data });
         if (capabilityIssues.length) return res.status(400).json({ error: "Unsupported capability", details: capabilityIssues });
       }
@@ -517,6 +525,10 @@ export function registerAutomationRoutes(app: Express) {
         changeSnapshot: ["updated", "status_changed", "task.assigned", "contract.completed", "contract.cancelled"].includes(event.value),
       })),
       actionTypes: [
+        { value: "forward_message", label: "Forward email / SMS", configSchema: {
+          destination: "email|user|back_office", mode: "whole|attachments", selection: "invoice|all",
+          to: "explicit email addresses", userId: "selected user", taskGroupId: "selected Back Office group",
+        }, availableIn: ["communication"] },
         {
           value: "create_task",
           label: "Create task",

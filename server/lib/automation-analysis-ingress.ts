@@ -79,9 +79,10 @@ export async function pollAnalysisMailboxes() {
               userId: mailbox.userId, countryCode: mailbox.country, status: "received",
               subject: mail.subject || "", content: mail.body.content,
               metadata: JSON.stringify({ from: senderEmail, senderName: mail.from?.emailAddress?.name || "",
+                receivedAt: mail.receivedDateTime || null,
                 conversationId: mail.conversationId || null, isHtml: mail.body.contentType?.toLowerCase() === "html",
                 mailboxSource: mailbox.systemCountry ? { kind: "system", countryCode: mailbox.systemCountry, mailboxEmail: mailbox.email }
-                  : { kind: "personal", ownerUserId: mailbox.ownerId } }),
+                  : { kind: "personal", ownerUserId: mailbox.ownerId, mailboxEmail: mailbox.email } }),
             });
             if (saved) await emitPersistedInboundEvent(saved.id, "email.received");
           }

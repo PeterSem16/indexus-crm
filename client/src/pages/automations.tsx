@@ -1,4 +1,11 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
+import { COMMUNICATION_SOURCE_FIELDS } from "@shared/automation-communication-context";
+import { communicationVariableLabels } from "@/i18n/automation-communication-variable-copy";
+import { getNoMatchCopy } from "@/i18n/automation-no-match-copy";
+import { contentSignalLabels } from "@/i18n/automation-content-signal-copy";
+import { getForwardCopy } from "@/i18n/automation-forward-copy";
+import { AutomationForwardActionEditor } from "@/components/automation-forward-action-editor";
+import { useAuth } from "@/contexts/auth-context";
 import { emailActionIssues } from "@shared/automation-email-action";
 import { useState, useMemo, useEffect, useRef, Fragment, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -97,6 +104,7 @@ const conditionOperatorIcons: Record<string, typeof CircleHelp> = {
 
 type Rule = {
   id: string;
+  createdByUserId?: string | null;
   name: string;
   description: string | null;
   module: string;
@@ -165,7 +173,7 @@ type RuleDraft = {
   countryCodes: string[] | null;
   enabled: boolean;
   trigger:
-    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any }
+    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any; noMatchRuleId?: string }
     | { type: "schedule"; interval: string; mode?: "once" | "per_record" };
   conditions: ConditionNode | null;
   actions: ActionNode[];
@@ -581,6 +589,7 @@ export default function AutomationsPage() {
           departments={departmentsQ.data || []}
           taskGroups={taskGroupsQ.data || []}
           roles={rolesQ.data || []}
+          rules={rulesQ.data || []}
           onClose={() => {
             setEditing(null);
             setShowCreate(false);
@@ -593,15 +602,17 @@ export default function AutomationsPage() {
       )}
 
       <Dialog open={!!flowFor} onOpenChange={open => !open && setFlowFor(null)}>
-        <DialogContent className="task-modern-modal max-w-5xl max-h-[90dvh] overflow-y-auto" overlayClassName="task-modern-modal-overlay">
-          <DialogHeader>
+        <DialogContent className="task-modern-modal automation-saved-flow-dialog max-w-5xl h-[90dvh] overflow-hidden p-0" overlayClassName="task-modern-modal-overlay">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-3">
             <DialogTitle>{getFlowchartCopy(locale).preview}</DialogTitle>
             <DialogDescription>{getFlowchartCopy(locale).definitionNotice}</DialogDescription>
           </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6" data-testid="saved-flow-scroll">
           {flowFor && catalogQ.data && <AutomationFlowPreview
             rule={(rulesQ.data || []).find(rule => rule.id === flowFor.id) || flowFor}
-            catalog={catalogQ.data} users={usersQ.data || []} taskGroups={taskGroupsQ.data || []}
+            catalog={catalogQ.data} users={usersQ.data || []} taskGroups={taskGroupsQ.data || []} rules={rulesQ.data || []}
             roles={rolesQ.data || []} departments={departmentsQ.data || []} />}
+          </div>
         </DialogContent>
       </Dialog>
       <Dialog open={showTagOverview} onOpenChange={setShowTagOverview}>
@@ -640,6 +651,7 @@ function RuleEditor({
   onClose,
   onSave,
   saving,
+  rules,
 }: {
   open: boolean;
   rule: Rule | null;
@@ -653,9 +665,12 @@ function RuleEditor({
   onClose: () => void;
   onSave: (draft: RuleDraft) => void;
   saving: boolean;
+  rules: Rule[];
 }) {
   const { toast } = useToast();
   const { t, locale } = useI18n();
+  const { user } = useAuth();
+  const noMatchCopy = getNoMatchCopy(locale);
   const countryNames = useMemo(() => new Intl.DisplayNames([locale], { type: "region" }), [locale]);
   const { data: analysisMailboxes = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/automation/analysis-mailboxes"], enabled: open,
@@ -746,6 +761,29 @@ function RuleEditor({
     if (draft.trigger.type !== "event") return;
     setDraft({ ...draft, trigger: { ...draft.trigger, analysis: { ...draft.trigger.analysis, ...patch } } });
   };
+  const noMatchTargets = rules.filter(target => target.id !== rule?.id && target.module === draft.module &&
+    target.createdByUserId === (rule?.createdByUserId || user?.id) &&
+    target.trigger?.type === "event" && target.trigger?.analysis);
+  const configuredNoMatchRuleId = draft.trigger.type === "event" ? draft.trigger.noMatchRuleId : undefined;
+  const noMatchControl = draft.module === "communication" && draft.trigger.type === "event" && analysisConfig ? (
+    <div className="rounded-xl border bg-muted/30 p-4 space-y-2 mb-4" data-testid="automation-no-match">
+      <Label>{noMatchCopy.title}</Label>
+      <Select value={configuredNoMatchRuleId || "__stop__"} onValueChange={value => {
+        if (draft.trigger.type !== "event") return;
+        const { noMatchRuleId: _previous, ...trigger } = draft.trigger;
+        setDraft({ ...draft, trigger: value === "__stop__" ? trigger : { ...trigger, noMatchRuleId: value } });
+      }}>
+        <SelectTrigger aria-label={noMatchCopy.title}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__stop__">{noMatchCopy.stop}</SelectItem>
+          {configuredNoMatchRuleId && !noMatchTargets.some(target => target.id === configuredNoMatchRuleId) &&
+            <SelectItem value={configuredNoMatchRuleId} disabled>{noMatchCopy.unavailable}</SelectItem>}
+          {noMatchTargets.map(target => <SelectItem key={target.id} value={target.id}>{noMatchCopy.evaluate} · {target.name}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">{noMatchCopy.help}</p>
+    </div>
+  ) : null;
   const updateMetricConfig = (patch: Record<string, any>) => {
     if (draft.trigger.type !== "event") return;
     setDraft({ ...draft, trigger: { ...draft.trigger, metric: { ...draft.trigger.metric, ...patch } } });
@@ -753,7 +791,8 @@ function RuleEditor({
   const analysisFields = ANALYSIS_RESULT_FIELDS.map(value => ({
     value,
     label: value.replace(/^analysis\./, "").replace(/[A-Z]/g, letter => ` ${letter.toLowerCase()}`),
-    type: ["analysis.wantsToCancel", "analysis.hasInvoice"].includes(value) ? "boolean"
+    type: ["analysis.wantsToCancel", "analysis.hasInvoice", "analysis.mentionsInvoice", "analysis.hasComplaint",
+      "analysis.needsReply", "analysis.isUrgent", "analysis.isThankYou", "analysis.requestsCallback"].includes(value) ? "boolean"
       : ["analysis.invoiceCount", "analysis.attachmentCount", "analysis.failedAttachmentCount"].includes(value) ? "number"
         : ["analysis.sentiment", "analysis.tone"].includes(value) ? "enum" : "string",
     options: value === "analysis.sentiment" ? SENTIMENT_OPTIONS
@@ -762,8 +801,10 @@ function RuleEditor({
   const fieldsForModule = [
     ...(catalog.fieldsByEvent?.[draft.module]?.[selectedEvent] || []),
     ...(draft.module === "communication" && analysisConfig ? analysisFields : []),
+    ...(draft.module === "communication" && analysisConfig ? COMMUNICATION_SOURCE_FIELDS : []),
     ...(draft.module === "metric" ? [{ value: "newValues.value", label: "Metric value", type: "number" }] : []),
-  ].filter((field, index, fields) => fields.findIndex(other => other.value === field.value) === index);
+  ].filter((field, index, fields) => fields.findIndex(other => other.value === field.value) === index)
+    .map(field => ({ ...field, label: contentSignalLabels(locale)[field.value] || communicationVariableLabels(locale)[field.value] || field.label }));
   const schedulePreviewInput = useMemo(() => JSON.stringify({
     module: draft.module,
     trigger: draft.trigger.type === "schedule"
@@ -1467,6 +1508,7 @@ function RuleEditor({
                         data-testid="button-add-action"><Plus className="h-3.5 w-3.5 mr-1" />{t.automationServices.workspace.addAction}</Button>
                     </div>
                     {expandedStep === 2 && <div id="automation-step-then-body">
+                      {noMatchControl}
                     <div className="automation-actions">
                       {draft.actions.length === 0 && <p className="automation-inline-note">{t.automationServices.workspace.noActions}</p>}
                       {draft.actions.map((action, index) => <ActionEditor key={index} action={action} index={index}
@@ -1782,6 +1824,7 @@ function RuleEditor({
             </Card>
 
             {/* Actions */}
+            {noMatchControl}
             <Card>
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm">Then do (Actions)</CardTitle>
@@ -1852,7 +1895,7 @@ function RuleEditor({
 
           <TabsContent value="flowchart" className="pt-4">
             <AutomationFlowPreview rule={draft} catalog={catalog} users={users}
-              taskGroups={taskGroups} roles={roles} departments={departments || []} />
+              taskGroups={taskGroups} roles={roles} departments={departments || []} rules={rules} />
           </TabsContent>
         </Tabs>
 
@@ -2427,7 +2470,7 @@ function ActionEditor({
         {(() => { const visual = serviceVisual(action.type); const Icon = visual.icon; return (
           <span className={`rounded-md p-1.5 ${visual.tile} ${visual.accent}`}><Icon className="h-4 w-4" /></span>
         ); })()}
-        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : v === "create_task" && availableVariables.some(variable => variable.value.startsWith("analysis.")) ? { analysisAttachments: "invoice" } : {} })}>
+        <Select value={action.type} onValueChange={(v) => onChange({ type: v, config: v === "forward_message" ? { forwardActionVersion: 1, destination: "back_office", mode: "attachments", selection: "invoice" } : v === "send_email" ? { emailActionVersion: 2, senderMode: "personal" } : v === "notify_user" ? { notificationActionVersion: 2 } : v === "create_task" && availableVariables.some(variable => variable.value.startsWith("analysis.")) ? { analysisAttachments: "invoice" } : {} })}>
           <SelectTrigger aria-label={t.automationServices.conditionEditor.action}
             className="h-9 w-56 max-w-full min-w-0 text-xs [&>span]:truncate" data-testid={`select-action-type-${index}`}>
             <SelectValue />
@@ -2442,7 +2485,7 @@ function ActionEditor({
                     </span>
                   ); })()}
                   <span className="whitespace-normal leading-5">
-                    {a.value === "send_sms" ? getSmsActionCopy(locale).heading : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
+                    {a.value === "forward_message" ? getForwardCopy(locale).heading : a.value === "send_sms" ? getSmsActionCopy(locale).heading : t.automationServices.names[a.value as keyof typeof t.automationServices.names] || a.label}
                   </span>
                 </span>
               </SelectItem>
@@ -2518,6 +2561,10 @@ function ActionEditor({
           onDraftValidityChange={onEmailDraftValidityChange}
         />
       )}
+
+      {action.type === "forward_message" && <AutomationForwardActionEditor config={action.config || {}} users={users}
+        taskGroups={taskGroups} onChange={config => onChange({ ...action, config })}
+        onDraftValidityChange={onEmailDraftValidityChange} />}
 
       {action.type === "webhook" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">

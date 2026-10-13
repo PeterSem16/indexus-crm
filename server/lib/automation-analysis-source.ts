@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db";
 import { storage } from "../storage";
-import { callRecordings, chatMessages, communicationMessages, taskComments, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
+import { callLogs, callRecordings, chatMessages, communicationMessages, taskComments, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
+import { communicationSourceContext } from "./automation-communication-context";
+import type { CommunicationContext } from "../../shared/automation-communication-context";
 import { analysisSourceMatches, type AnalysisChannel, type CommunicationAnalysisConfig } from "../../shared/automation-analysis";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./token-crypto";
 import { getValidAccessToken } from "./ms365";
@@ -10,11 +12,18 @@ import { canAccessTaskByPolicy } from "./task-contract";
 export type AnalysisSource = {
   channel: AnalysisChannel; ownerUserId: string; senderEmail?: string | null;
   text: string; message?: typeof communicationMessages.$inferSelect;
+  communication: CommunicationContext;
   mailboxToken?: string;
   systemMailboxCountry?: string;
   mailboxEmail?: string;
 };
 export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string };
+
+async function sourcePerson(id: string | null | undefined) {
+  if (!id) return undefined;
+  return (await db.select({ id: users.id, fullName: users.fullName, email: users.email })
+    .from(users).where(eq(users.id, id)))[0];
+}
 
 export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEvent): Promise<AnalysisSource | null> {
   if (!event.entityId || !rule.createdByUserId) return null;
@@ -39,28 +48,39 @@ export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEven
       const audience = await getOmniSmsNotificationAudience(message.id);
       if (!audience.some(user => user.id === creator.id)) return null;
     }
+    const recipient = systemMailbox ? undefined : await sourcePerson(message.userId);
     source = { channel: message.type as AnalysisChannel, ownerUserId: owner, senderEmail: from, text: message.content || "", message,
+      communication: communicationSourceContext(message.type as AnalysisChannel, message, owner, { recipient }),
       ...(systemMailbox ? { systemMailboxCountry: systemMailbox.countryCode, mailboxEmail: systemMailbox.mailboxEmail } : {}) };
   } else if (event.module === "communication" && event.eventType === "chat.received") {
     const [message] = await db.select().from(chatMessages).where(eq(chatMessages.id, event.entityId));
     if (!message || ![message.senderId, message.receiverId].includes(creator.id)) return null;
-    source = { channel: "chat", ownerUserId: message.receiverId, text: message.content };
+    const [sender, recipient] = await Promise.all([sourcePerson(message.senderId), sourcePerson(message.receiverId)]);
+    source = { channel: "chat", ownerUserId: message.receiverId, text: message.content,
+      communication: communicationSourceContext("chat", message, message.receiverId, { sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "task.body_received") {
     const [task] = await db.select().from(tasks).where(eq(tasks.id, event.entityId));
     if (!task || !canAccessTaskByPolicy(creator, task)) return null;
-    source = { channel: "task", ownerUserId: creator.id, text: `${task.title}\n${task.description || ""}` };
+    const [sender, recipient] = await Promise.all([sourcePerson(task.createdByUserId), sourcePerson(task.assignedUserId)]);
+    source = { channel: "task", ownerUserId: creator.id, text: `${task.title}\n${task.description || ""}`,
+      communication: communicationSourceContext("task", task, creator.id, { sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "task.message_received") {
     const [comment] = await db.select().from(taskComments).where(eq(taskComments.id, event.entityId));
     if (!comment) return null;
     const [task] = await db.select().from(tasks).where(eq(tasks.id, comment.taskId));
     if (!task || !canAccessTaskByPolicy(creator, task)) return null;
-    source = { channel: "task", ownerUserId: creator.id, text: comment.content || "" };
+    const [sender, recipient] = await Promise.all([sourcePerson(comment.userId), sourcePerson(task.assignedUserId)]);
+    source = { channel: "task", ownerUserId: creator.id, text: comment.content || "",
+      communication: communicationSourceContext("task", comment, creator.id, { task, sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "voice.transcribed") {
     const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, event.entityId));
     if (!recording?.transcriptionText || recording.analysisStatus !== "completed") return null;
     if (recording.userId !== creator.id && !["admin", "superadmin", "owner"].includes(creator.role)) return null;
     // Only the existing authorized recording/transcription path can supply voice text.
-    source = { channel: "voice", ownerUserId: recording.userId, text: recording.transcriptionText };
+    const [call] = await db.select().from(callLogs).where(and(eq(callLogs.id, recording.callLogId), eq(callLogs.userId, recording.userId)));
+    const sender = await sourcePerson(recording.userId);
+    source = { channel: "voice", ownerUserId: recording.userId, text: recording.transcriptionText,
+      communication: communicationSourceContext("voice", recording, recording.userId, { call, sender }) };
   }
   return source && analysisSourceMatches(config, source) ? source : null;
 }

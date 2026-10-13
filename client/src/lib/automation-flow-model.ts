@@ -1,4 +1,4 @@
-export type FlowDetail = { label: string; value: string };
+export type FlowDetail = { label: string; value: string; message?: string };
 export type FlowStep = { title: string; details: FlowDetail[] };
 export type FlowCondition =
   | { kind: "leaf"; field: string; operator: string; value?: string }
@@ -13,6 +13,7 @@ export type AutomationFlowModel = {
   conditions: FlowCondition | null;
   conditionsIgnored?: boolean;
   actions: FlowStep[];
+  noMatch?: string;
 };
 
 export type FlowRule = {
@@ -63,7 +64,9 @@ export function buildAutomationFlowModel(rule: FlowRule, labels: FlowLabels): Au
       // Render HTML-authored messages as readable text, never as executable HTML.
       const text = typeof value === "string" && /html|body|message|description/i.test(key)
         ? value.replace(/<br\s*\/?>|<\/(?:p|div|li)>/gi, "\n").replace(/<[^>]*>/g, "") : value;
-      return [{ label, value: format(text, key) }];
+      return [{ label, value: format(text, key),
+        ...(typeof value === "string" && /^(body|message|templateHtml|text|content|taskText|description)$/i.test(key)
+          ? { message: value } : {}) }];
     });
   const condition = (node: any): FlowCondition | null => {
     if (!node) return null;
@@ -86,7 +89,7 @@ export function buildAutomationFlowModel(rule: FlowRule, labels: FlowLabels): Au
             : format(node.value, node.field) } : {}) };
   };
   const trigger = rule.trigger || {};
-  const { analysis, legacySource: _legacySource, ...triggerSettings } = trigger;
+  const { analysis, legacySource: _legacySource, noMatchRuleId, ...triggerSettings } = trigger;
   const analysisSettings = analysis ? { ...analysis } : undefined;
   if (analysisSettings?.mailboxMode === "all" && !analysisSettings.mailboxUserIds?.length)
     delete analysisSettings.mailboxUserIds;
@@ -108,6 +111,7 @@ export function buildAutomationFlowModel(rule: FlowRule, labels: FlowLabels): Au
         ? { ...detail, value: labels.value("any_sender", "senderEmails") } : detail) } } : {}),
     conditions: condition(rule.conditions),
     conditionsIgnored: trigger.type === "schedule" && (trigger.mode || "once") === "once",
+    ...(noMatchRuleId && trigger.type === "event" && analysis ? { noMatch: labels.value(noMatchRuleId, "noMatchRuleId") } : {}),
     actions: (rule.actions || []).map(action => ({ title: labels.action(action.type), details: details(action.config || {}) })),
   };
 }

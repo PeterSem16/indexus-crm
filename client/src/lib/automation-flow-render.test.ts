@@ -4,6 +4,7 @@ import { buildSync } from "esbuild";
 import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { getFlowchartCopy } from "../i18n/automation-flowchart-copy";
+import { isHtmlMessage, sanitizeFlowMessageHtml } from "./automation-flow-message-preview";
 import type { AutomationFlowModel } from "./automation-flow-model";
 
 // Render the production component, omitting only CSS loading in Node.
@@ -16,7 +17,9 @@ const module = { exports: {} as { AutomationRuleFlowchart: ComponentType<any> } 
 new Function("require", "module", "exports", bundled.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const model: AutomationFlowModel = {
   title: "Routing test", enabled: false, scope: [],
-  trigger: { title: "Incoming communication", details: [] },
+  trigger: { title: "Incoming communication", details: [
+    { label: "Listen after", value: "2025-12-31T12:00:00.000Z" },
+  ] },
   conditions: { kind: "all", children: [
     { kind: "leaf", field: "Sentiment", operator: "Equal", value: "Negative" },
     { kind: "any", children: [
@@ -25,7 +28,7 @@ const model: AutomationFlowModel = {
     ] },
   ] },
   actions: [
-    { title: "First action", details: [{ label: "Message", value: "<script>must remain text</script>" }] },
+    { title: "First action", details: [{ label: "Message", value: "<div style=\"font-weight:700\">A long authored message</div><script>must not execute</script>" }] },
     { title: "Second action", details: [] },
   ],
 };
@@ -44,8 +47,11 @@ for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {
   const no = html.split('data-flow-branch="no"')[1]?.split("</section>")[0];
   assert.ok(no?.includes(copy.stop));
   assert.ok(!no?.includes("indexus-flowchart__action"));
+  assert.ok(!html.includes("A long authored message"), "Message bodies stay out of the compact node");
   assert.ok(!html.includes("<script>"));
-  assert.ok(html.includes("&lt;script&gt;"));
+  assert.ok(html.includes(copy.openMessage), "Message preview control is localized");
+  assert.ok(!html.includes("2025-12-31T12:00"), "Configured timestamps are localized, not shown as raw ISO");
+  if (locale === "en") assert.ok(html.includes("1:00"), "Timestamp is formatted in Bratislava time");
   const ignored = render({ ...model, conditionsIgnored: true }, locale);
   assert.ok(ignored.includes('data-flow-reference="ignored-conditions"'));
   assert.ok(ignored.includes('data-flow-connection="trigger-actions"'));
@@ -64,4 +70,7 @@ for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {
   }
 }
 assert.deepEqual(model, original, "Rendering never mutates the rule projection");
-console.log("Production flow rendering passed: nested logic, single gate, NO terminal, sequential actions, schedule bypass, empty groups, unary operators, text escaping, immutability and seven locales.");
+assert.ok(isHtmlMessage("<table><tr><td>Template</td></tr></table>"));
+assert.ok(!isHtmlMessage("Plain SMS text with {{contactName}}"));
+assert.ok(sanitizeFlowMessageHtml("<script>unsafe()</script>").includes("&lt;script&gt;"), "SSR fallback escapes HTML rather than rendering it");
+console.log("Production flow rendering passed: nested logic, single gate, NO terminal, sequential actions, schedule bypass, empty groups, localized timestamps, compact message previews, safe SSR escaping, immutability and seven locales.");

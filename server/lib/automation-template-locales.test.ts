@@ -127,8 +127,8 @@ test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy
     const counts = (await client.query(`SELECT type,language,count(*)::int AS count FROM message_templates
       WHERE id <> 'legacy-email' GROUP BY type,language ORDER BY type,language`)).rows;
     assert.equal(counts.length, 14);
-    for (const row of counts) assert.equal(row.count, row.type === "email" ? 10 : 11, `${row.type}/${row.language}`);
-    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 22);
+    for (const row of counts) assert.equal(row.count, row.type === "email" ? 18 : 11, `${row.type}/${row.language}`);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 29);
     assert.equal((await client.query("SELECT content FROM message_templates WHERE id='indexus-task-template-check-data-en'")).rows[0].content, "Edited body");
     await client.query(`UPDATE message_templates SET content='Manager edit',subject='Manager subject'
       WHERE id IN ('indexus-automation-email-completed-de','indexus-task-template-check-data');
@@ -136,6 +136,9 @@ test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy
       DELETE FROM message_templates WHERE id='indexus-automation-email-deadline';
       UPDATE message_templates SET content='Call manager edit' WHERE id='indexus-task-template-call-inbound-de';
       DELETE FROM message_templates WHERE id='indexus-automation-email-call-outbound-en';
+      UPDATE message_templates SET content='Analysis manager edit',subject='Analysis manager subject'
+        WHERE id='indexus-automation-email-analysis-negative-sentiment-de';
+      DELETE FROM message_templates WHERE id='indexus-automation-email-analysis-positive-sentiment-en';
       UPDATE template_categories SET name='Manager category',is_active=false;
     `);
     const before = (await client.query("SELECT * FROM message_templates ORDER BY id")).rows;
@@ -144,7 +147,7 @@ test("PostgreSQL seeds all languages once and preserves edits, deletions, legacy
     assert.deepEqual((await client.query("SELECT * FROM message_templates ORDER BY id")).rows, before);
     assert.deepEqual((await client.query("SELECT * FROM workflow_rules ORDER BY id")).rows, rules);
     assert.equal((await client.query("SELECT name FROM template_categories")).rows[0].name, "Manager category");
-    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 22);
+    assert.equal((await client.query("SELECT count(*)::int AS count FROM automation_template_seeds")).rows[0].count, 29);
   } finally {
     await client.query("ROLLBACK");
     client.release();

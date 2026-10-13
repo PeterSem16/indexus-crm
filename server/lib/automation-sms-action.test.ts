@@ -105,7 +105,7 @@ test("SMS templates render variables/status in all seven languages without chang
   await assert.rejects(() => dryRunRule(unsupported, { ...ctx.event, newValues: {} } as any), /unavailable/);
 });
 
-test("49 SMS defaults seed once and preserve manager edits and deletions", async () => {
+test("105 SMS defaults seed once and preserve manager edits and deletions", async () => {
   if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT)
     throw new Error("Development database test only");
   const client = await pool.connect();
@@ -115,9 +115,12 @@ test("49 SMS defaults seed once and preserve manager edits and deletions", async
       CREATE TEMP TABLE message_templates (id text PRIMARY KEY,name text,type text,format text,
         content text,language text,is_active boolean,country_codes text[]);`);
     await ensureAutomationSmsTemplates(client);
-    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 49);
+    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 105);
     await client.query(`UPDATE message_templates SET content='Manager edit' WHERE id='indexus-sms-template-created-sk';
-      DELETE FROM message_templates WHERE id='indexus-sms-template-overdue-de';`);
+      DELETE FROM message_templates WHERE id='indexus-sms-template-overdue-de';
+      UPDATE message_templates SET content='Analysis manager edit'
+        WHERE id='indexus-sms-template-analysis-negative-sentiment-sk';
+      DELETE FROM message_templates WHERE id='indexus-sms-template-analysis-callback-requested-de';`);
     const before = (await client.query("SELECT * FROM message_templates ORDER BY id")).rows;
     await ensureAutomationSmsTemplates(client);
     assert.deepEqual((await client.query("SELECT * FROM message_templates ORDER BY id")).rows, before);

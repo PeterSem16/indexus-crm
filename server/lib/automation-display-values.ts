@@ -32,7 +32,7 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
   const cache = new Map<string, Promise<string | null>>();
   const country = ctx.event?.countryCode || ctx.countryCode || ctx.newValues?.countryCode || ctx.newValues?.country || null;
   await Promise.all([...paths].map(async path => {
-    const match = /^(newValues|oldValues)\.([A-Za-z]+)$/.exec(path);
+    const match = /^(newValues|oldValues|communication)\.([A-Za-z]+)$/.exec(path);
     if (!match) return;
     const [, scope, field] = match;
     const data = ctx[scope] || {};
@@ -41,6 +41,8 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
       result.set(path, dateLabel);
       return;
     }
+    // Communication IDs are explicitly identified as IDs; source names are separate variables.
+    if (scope === "communication") return;
     if (field === "status" && ctx.event?.module === "task" && language && data.status != null) {
       result.set(path, taskStatusTemplateLabel(data.status, language));
       return;

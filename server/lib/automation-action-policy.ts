@@ -57,6 +57,7 @@ export const AUTOMATION_ACTION_POLICY = {
   notify_user: { risk: "internal", aiDraftEligible: true, draftSchema: notifyUserDraft },
   send_email: { risk: "external_message", aiDraftEligible: false },
   send_sms: { risk: "external_message", aiDraftEligible: false },
+  forward_message: { risk: "external_message", aiDraftEligible: false },
   webhook: { risk: "external_system", aiDraftEligible: false },
   update_entity: { risk: "state_change", aiDraftEligible: false },
   assign_user: { risk: "state_change", aiDraftEligible: false },

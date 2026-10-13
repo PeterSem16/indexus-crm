@@ -5,6 +5,9 @@ import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
 import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
 import { getConditionChoiceCopy } from "@/i18n/automation-condition-choice-copy";
+import { communicationVariableLabels } from "@/i18n/automation-communication-variable-copy";
+import { contentSignalLabels } from "@/i18n/automation-content-signal-copy";
+import { getForwardCopy } from "@/i18n/automation-forward-copy";
 import { AutomationRuleFlowchart } from "./automation-rule-flowchart";
 import { AutomationFlowFullscreen } from "./automation-flow-fullscreen";
 import { getAutomationFlowFullscreenCopy } from "@/i18n/automation-flow-fullscreen-copy";
@@ -15,16 +18,16 @@ export type FlowCatalog = {
   modules: Option[]; eventTypes: Option[]; actionTypes: Option[]; countries: Option[];
   fields?: Record<string, Option[]>; operators?: Option[]; metricTypes?: Option[];
 };
-export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = [], roles = [], departments = [], compact }: {
+export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = [], roles = [], departments = [], rules = [], compact }: {
   rule: FlowRule; catalog: FlowCatalog; users?: Named[]; taskGroups?: Named[]; roles?: Named[];
-  departments?: Named[]; compact?: boolean;
+  departments?: Named[]; rules?: Named[]; compact?: boolean;
 }) {
   const { locale, t } = useI18n();
   const copy = getFlowchartCopy(locale);
   const extra = getFlowExtraLabels(locale);
   const unified = getUnifiedAutomationCopy(locale);
   const editor = t.automationServices.editorCatalog;
-  const named = new Map([...users, ...taskGroups, ...roles, ...departments]
+  const named = new Map([...users, ...taskGroups, ...roles, ...departments, ...rules]
     .map(item => [item.id, item.displayAlias || item.fullName || item.name || item.email || item.id]));
   const moduleLabel = (id: string) => editor.moduleLabels[id] || catalog.modules.find(item => item.value === id)?.label || id;
   const eventLabel = (id: string) => editor.eventLabels[id] || catalog.eventTypes.find(item => item.value === id)?.label || id;
@@ -44,7 +47,7 @@ export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = 
         assignedDepartmentId: copy.fields.groupId, taskGroupIds: copy.fields.groupId,
         targetRole: extra.role, templateHtml: copy.fields.message,
       };
-      return extra[key] || aliases[key] ||
+      return contentSignalLabels(locale)[key] || communicationVariableLabels(locale)[key] || extra[key] || aliases[key] ||
         t.automationServices.taskRules.fieldLabels[key] || editor.fieldLabels[key] ||
         getCommunicationAnalysisCopy(locale).fieldLabels[key] || copy.fields[key] ||
         fields.find(field => field.value === key)?.label || key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[._-]/g, " ");
@@ -52,18 +55,23 @@ export function AutomationFlowPreview({ rule, catalog, users = [], taskGroups = 
     operator: key => t.automationServices.conditionEditor.operators[key] ||
       catalog.operators?.find(item => item.value === key)?.label || key,
     event: eventLabel,
-    action: key => (t.automationServices.names as Record<string, string>)[key] || catalog.actionTypes.find(item => item.value === key)?.label || key,
+    action: key => key === "forward_message" ? getForwardCopy(locale).heading
+      : (t.automationServices.names as Record<string, string>)[key] || catalog.actionTypes.find(item => item.value === key)?.label || key,
     value: (value, key) => {
       const text = String(value);
       if (named.has(text)) return named.get(text)!;
+      if (key === "destination" && ["email", "user", "back_office"].includes(text))
+        return text === "back_office" ? getForwardCopy(locale).backOffice : getForwardCopy(locale)[text as "email" | "user"];
+      if (key === "mode" && ["whole", "attachments"].includes(text)) return getForwardCopy(locale)[text as "whole" | "attachments"];
+      if (key === "selection" && ["invoice", "all"].includes(text)) return getForwardCopy(locale)[text as "invoice" | "all"];
       if (key === "module" || key === "entityType" || key === "recordType") return moduleLabel(text);
       if (key === "eventType") return eventLabel(text);
       if (key === "countryCodes" || key === "countryCode") return catalog.countries.find(item => item.value === text)?.label || text;
-      if (key && ["analysis.sentiment", "analysis.tone", "newValues.sentiment", "newValues.provider", "newValues.alertLevel", "newValues.type"].includes(key)) {
+      if (key && ["analysis.sentiment", "analysis.tone", "newValues.sentiment", "newValues.provider", "newValues.alertLevel", "newValues.type", "communication.type", "communication.provider", "communication.direction"].includes(key)) {
         const option = getConditionChoiceCopy(locale).values[text] || getCommunicationAnalysisCopy(locale).optionLabels[text];
         if (option) return option;
       }
-      if (key === "channels" || key === "newValues.type") return analysisChannelLabel(locale, text);
+      if (key === "channels" || key === "newValues.type" || key === "communication.type") return analysisChannelLabel(locale, text);
       if (key === "metricType") return catalog.metricTypes?.find(item => item.value === text)?.label || text;
       if (key === "attachmentSelectionMode") return text === "invoices" ? unified.invoicesOnly : text === "all" ? unified.allTrusted : text;
       if (/priority$/.test(key || "")) return (t.tasks.priorities as Record<string, string>)[text] || text;

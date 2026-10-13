@@ -1,4 +1,5 @@
 import { NOTIFICATION_TEMPLATE_LANGUAGES, notificationTemplateDefaults } from "../../shared/automation-notification-templates";
+import { ensureAutomationAnalysisChannelTemplates } from "./automation-analysis-templates";
 
 export function automationSmsDefaults(language: typeof NOTIFICATION_TEMPLATE_LANGUAGES[number]) {
   return notificationTemplateDefaults(language).map(template => ({
@@ -25,4 +26,5 @@ export async function ensureAutomationSmsTemplates(pool: { query: (sql: string) 
         FROM defaults CROSS JOIN seed
       ON CONFLICT (id) DO NOTHING;`);
   }
+  await ensureAutomationAnalysisChannelTemplates(pool, "sms");
 }
