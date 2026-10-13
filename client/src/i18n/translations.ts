@@ -54,6 +54,30 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 };
 
 export interface Translations {
+  forwardReview: {
+    title: string;
+    linkedCustomer: string;
+    noCustomer: string;
+    changeCustomer: string;
+    searchCustomer: string;
+    searchResults: string;
+    noSearchResults: string;
+    ambiguous: string;
+    senderMatched: string;
+    senderNotMatched: string;
+    clearCustomer: string;
+    saveCustomer: string;
+    invoices: string;
+    approve: string;
+    approved: string;
+    approvedBy: string;
+    loading: string;
+    loadError: string;
+    retry: string;
+    saveError: string;
+    approvalError: string;
+    matchSenderOption: string;
+  };
   systemMailboxCheck: typeof systemMailboxCheckTranslations.en;
   omniSms: typeof omniSmsTranslations.en;
   taskCommunication: TaskCommunicationCopy;
@@ -64039,6 +64063,16 @@ export const translations = {
   },
 } as unknown as Record<Locale, Translations>;
 
+const forwardReviewTranslations: Record<Locale, Translations["forwardReview"]> = {
+  en: { title: "Forward review", linkedCustomer: "Linked customer", noCustomer: "No customer linked", changeCustomer: "Assign or change customer", searchCustomer: "Search authorized customers", searchResults: "Matching customers", noSearchResults: "No matching customers", ambiguous: "Several possible customer matches", senderMatched: "Sender matched", senderNotMatched: "Sender did not match", clearCustomer: "Clear assignment", saveCustomer: "Assign customer", invoices: "Invoice documents", approve: "Approve invoice", approved: "Approved", approvedBy: "Approved by", loading: "Loading review…", loadError: "Could not load the forward review.", retry: "Retry", saveError: "Customer assignment could not be saved.", approvalError: "Invoice approval could not be saved.", matchSenderOption: "Match sender to an existing customer" },
+  sk: { title: "Kontrola preposlania", linkedCustomer: "Priradený zákazník", noCustomer: "Nie je priradený zákazník", changeCustomer: "Priradiť alebo zmeniť zákazníka", searchCustomer: "Hľadať oprávnených zákazníkov", searchResults: "Zodpovedajúci zákazníci", noSearchResults: "Nenašli sa žiadni zákazníci", ambiguous: "Viacero možných zhôd zákazníka", senderMatched: "Odosielateľ sa zhoduje", senderNotMatched: "Odosielateľ sa nezhoduje", clearCustomer: "Zrušiť priradenie", saveCustomer: "Priradiť zákazníka", invoices: "Fakturačné dokumenty", approve: "Schváliť faktúru", approved: "Schválené", approvedBy: "Schválil/a", loading: "Načítava sa kontrola…", loadError: "Kontrolu preposlania sa nepodarilo načítať.", retry: "Skúsiť znova", saveError: "Priradenie zákazníka sa nepodarilo uložiť.", approvalError: "Schválenie faktúry sa nepodarilo uložiť.", matchSenderOption: "Priradiť odosielateľa k existujúcemu zákazníkovi" },
+  cs: { title: "Kontrola přeposlání", linkedCustomer: "Přiřazený zákazník", noCustomer: "Není přiřazen zákazník", changeCustomer: "Přiřadit nebo změnit zákazníka", searchCustomer: "Hledat oprávněné zákazníky", searchResults: "Odpovídající zákazníci", noSearchResults: "Nebyli nalezeni žádní zákazníci", ambiguous: "Více možných shod zákazníka", senderMatched: "Odesílatel odpovídá", senderNotMatched: "Odesílatel neodpovídá", clearCustomer: "Zrušit přiřazení", saveCustomer: "Přiřadit zákazníka", invoices: "Fakturační dokumenty", approve: "Schválit fakturu", approved: "Schváleno", approvedBy: "Schválil/a", loading: "Načítá se kontrola…", loadError: "Kontrolu přeposlání se nepodařilo načíst.", retry: "Zkusit znovu", saveError: "Přiřazení zákazníka se nepodařilo uložit.", approvalError: "Schválení faktury se nepodařilo uložit.", matchSenderOption: "Spárovat odesílatele s existujícím zákazníkem" },
+  hu: { title: "Továbbítás ellenőrzése", linkedCustomer: "Kapcsolt ügyfél", noCustomer: "Nincs kapcsolt ügyfél", changeCustomer: "Ügyfél hozzárendelése vagy módosítása", searchCustomer: "Engedélyezett ügyfelek keresése", searchResults: "Találatok", noSearchResults: "Nincs találat", ambiguous: "Több lehetséges ügyfélegyezés", senderMatched: "A feladó egyezik", senderNotMatched: "A feladó nem egyezik", clearCustomer: "Hozzárendelés törlése", saveCustomer: "Ügyfél hozzárendelése", invoices: "Számladokumentumok", approve: "Számla jóváhagyása", approved: "Jóváhagyva", approvedBy: "Jóváhagyta", loading: "Ellenőrzés betöltése…", loadError: "A továbbítás ellenőrzése nem tölthető be.", retry: "Újra", saveError: "Az ügyfél-hozzárendelés nem menthető.", approvalError: "A számla jóváhagyása nem menthető.", matchSenderOption: "Feladó egyeztetése meglévő ügyféllel" },
+  ro: { title: "Verificare redirecționare", linkedCustomer: "Client asociat", noCustomer: "Niciun client asociat", changeCustomer: "Asociază sau schimbă clientul", searchCustomer: "Caută clienți autorizați", searchResults: "Clienți corespunzători", noSearchResults: "Nu s-au găsit clienți", ambiguous: "Mai multe potriviri posibile", senderMatched: "Expeditorul corespunde", senderNotMatched: "Expeditorul nu corespunde", clearCustomer: "Elimină asocierea", saveCustomer: "Asociază clientul", invoices: "Documente de factură", approve: "Aprobă factura", approved: "Aprobată", approvedBy: "Aprobată de", loading: "Se încarcă verificarea…", loadError: "Verificarea redirecționării nu a putut fi încărcată.", retry: "Reîncearcă", saveError: "Asocierea clientului nu a putut fi salvată.", approvalError: "Aprobarea facturii nu a putut fi salvată.", matchSenderOption: "Potrivește expeditorul cu un client existent" },
+  it: { title: "Verifica inoltro", linkedCustomer: "Cliente associato", noCustomer: "Nessun cliente associato", changeCustomer: "Assegna o cambia cliente", searchCustomer: "Cerca clienti autorizzati", searchResults: "Clienti corrispondenti", noSearchResults: "Nessun cliente trovato", ambiguous: "Più possibili corrispondenze", senderMatched: "Mittente corrispondente", senderNotMatched: "Mittente non corrispondente", clearCustomer: "Rimuovi associazione", saveCustomer: "Assegna cliente", invoices: "Documenti di fattura", approve: "Approva fattura", approved: "Approvata", approvedBy: "Approvata da", loading: "Caricamento verifica…", loadError: "Impossibile caricare la verifica dell’inoltro.", retry: "Riprova", saveError: "Impossibile salvare l’associazione del cliente.", approvalError: "Impossibile salvare l’approvazione della fattura.", matchSenderOption: "Abbina il mittente a un cliente esistente" },
+  de: { title: "Weiterleitung prüfen", linkedCustomer: "Zugeordneter Kunde", noCustomer: "Kein Kunde zugeordnet", changeCustomer: "Kunde zuordnen oder ändern", searchCustomer: "Berechtigte Kunden suchen", searchResults: "Passende Kunden", noSearchResults: "Keine passenden Kunden gefunden", ambiguous: "Mehrere mögliche Kundentreffer", senderMatched: "Absender stimmt überein", senderNotMatched: "Absender stimmt nicht überein", clearCustomer: "Zuordnung aufheben", saveCustomer: "Kunde zuordnen", invoices: "Rechnungsdokumente", approve: "Rechnung freigeben", approved: "Freigegeben", approvedBy: "Freigegeben von", loading: "Prüfung wird geladen…", loadError: "Weiterleitungsprüfung konnte nicht geladen werden.", retry: "Erneut versuchen", saveError: "Kundenzuordnung konnte nicht gespeichert werden.", approvalError: "Rechnungsfreigabe konnte nicht gespeichert werden.", matchSenderOption: "Absender einem bestehenden Kunden zuordnen" },
+};
+
 for (const locale of Object.keys(translations) as Locale[]) {
   const restored = automationNamespaceTranslations[locale];
   translations[locale].automationServices = restored.automationServices;
@@ -64050,4 +64084,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].sendEmailEditor = sendEmailEditorTranslations[locale];
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
+  translations[locale].forwardReview = forwardReviewTranslations[locale];
 }

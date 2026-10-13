@@ -31,7 +31,7 @@ type Owner = Awaited<ReturnType<typeof updateRecordOwner>>;
 type Match = { id: string; entityType: RecordEntryType; label: string; country: string | null };
 const contactColumns = (table: any, kind: "email" | "phone") => (kind === "email"
   ? ["email", "email2", "email3", "workEmail", "privateEmail"]
-  : ["phone", "phone2", "phone3", "mobile", "mobilePhone", "workPhone", "privatePhone"]).filter(key => table[key]).map(key => table[key]);
+  : ["phone", "phone2", "phone3", "mobile", "mobile2", "mobilePhone", "workPhone", "privatePhone"]).filter(key => table[key]).map(key => table[key]);
 function phoneSql(column: any, country: any) {
   const digits = sql`regexp_replace(coalesce(${column},''),'[^0-9]','','g')`;
   const prefix = sql`CASE ${country} ${sql.join(Object.entries(PHONE_COUNTRY_CODES).map(([c, code]) => sql`WHEN ${c} THEN ${code}`), sql` `)} END`;

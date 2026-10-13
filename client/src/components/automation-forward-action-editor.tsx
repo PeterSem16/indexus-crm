@@ -5,12 +5,13 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { useI18n } from "../i18n";
 import { getForwardCopy } from "../i18n/automation-forward-copy";
 import { forwardActionIssues } from "../../../shared/automation-forward-action";
+import { Checkbox } from "./ui/checkbox";
 type Props = { config: any; onChange: (config: any) => void;
   users: { id: string; fullName: string; email: string }[];
   taskGroups: { id: string; name: string; displayAlias?: string | null; isBackOffice?: boolean }[];
   onDraftValidityChange?: (invalid: boolean) => void };
 export function AutomationForwardActionEditor({ config, onChange, users, taskGroups, onDraftValidityChange }: Props) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const copy = getForwardCopy(locale);
   const invalid = forwardActionIssues(config).length > 0;
   useEffect(() => { onDraftValidityChange?.(invalid); }, [invalid, onDraftValidityChange]);
@@ -22,12 +23,21 @@ export function AutomationForwardActionEditor({ config, onChange, users, taskGro
       <div className="space-y-1"><Label>{copy.destination}</Label>
         <Select value={config.destination} onValueChange={destination => {
           const { to: _to, userId: _user, taskGroupId: _group, ...rest } = config;
-          onChange({ ...rest, destination });
+          if (destination === "email") {
+            const { matchSender: _matchSender, ...withoutMatchSender } = rest;
+          onChange({ ...(destination === "email" ? withoutMatchSender : rest), destination });
+          } else {
+            onChange({ ...rest, destination });
+          }
         }}><SelectTrigger aria-label={copy.destination}><SelectValue /></SelectTrigger><SelectContent>
           <SelectItem value="back_office">{copy.backOffice}</SelectItem>
           <SelectItem value="user">{copy.user}</SelectItem><SelectItem value="email">{copy.email}</SelectItem>
         </SelectContent></Select>
       </div>
+      {config.destination !== "email" && <label className="flex items-center gap-2 text-xs">
+        <Checkbox checked={config.matchSender === true} onCheckedChange={checked => onChange({ ...config, matchSender: checked === true })} />
+        <span>{t.forwardReview.matchSenderOption}</span>
+      </label>}
       <div className="space-y-1"><Label>{copy.mode}</Label>
         <Select value={config.mode} onValueChange={value => change("mode", value)}>
           <SelectTrigger aria-label={copy.mode}><SelectValue /></SelectTrigger><SelectContent>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { MessageSquareQuote } from "lucide-react";
 import { getTaskRequestBrief } from "@/lib/task-request-brief";
 import type { Locale } from "@/i18n/translations";
+import { ForwardReviewPanel } from "./forward-review-panel";
 
 interface TaskRequestBriefProps {
   description: string | null | undefined;
@@ -43,6 +44,7 @@ export function TaskRequestBrief({
           <p className="whitespace-pre-wrap">{brief.original}</p>
         </details>
       )}
+      <ForwardReviewPanel taskId={taskId} />
       {children}
     </section>
   );

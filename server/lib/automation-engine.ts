@@ -300,7 +300,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
         assignedUserId: owner,
         assignedDepartmentId: assignedDepartmentId || null,
         createdByUserId: ctx.analysis ? ctx.rule.createdByUserId : rendered.createdByUserId || ctx.event?.actorUserId || "system",
-        customerId: ctx.event?.source === "schedule"
+        customerId: ctx.forwardReview ? ctx.forwardedCustomerId || null : ctx.event?.source === "schedule"
           ? (ctx.event?.module === "customer" ? ctx.event.entityId : null)
           : rendered.customerId || (ctx.event?.entityType === "customer" ? ctx.event?.entityId : null),
         relatedEntityType: ctx.event?.source === "schedule"
@@ -311,6 +311,7 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
           : rendered.relatedEntityId || ctx.event?.entityId || null,
         country: taskCountry,
         attachments: analysisAttachments,
+        forwardReview: ctx.forwardReview || null,
         tags: assignment.tags,
         dueDate,
         sourceRunId: runId,

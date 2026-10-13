@@ -26,6 +26,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { format, isToday, isTomorrow, isPast, formatDistanceToNow } from "date-fns";
 import { enUS, sk, cs, hu, ro, it, de } from "date-fns/locale";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
+import { ForwardReviewPanel } from "./tasks/forward-review-panel";
 import { UserAvatar } from "./user-avatar";
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { motion } from "framer-motion";
@@ -949,6 +950,7 @@ function BackOfficeTaskDetailContent({ taskId, open, onClose }: { taskId: string
                   <AttachmentChips attachments={task.attachments} />
                 </div>
               )}
+              <ForwardReviewPanel taskId={task.id} />
 
               {thread?.reason && (
                 <div>

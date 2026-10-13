@@ -6,6 +6,8 @@ import { loadAnalysisSource, listSourceAttachments, mailboxRequest, type Analysi
 import { originalEmailBytes, saveForwardedFile, MAX_FORWARDED_BYTES } from "./automation-forward-source";
 import { deliverAutomationEmail } from "./automation-email-delivery";
 import { forwardedMessageContent, literalForwardHtml } from "./automation-forward-content";
+import { matchForwardSender } from "./automation-forward-matching";
+import { forwardSenderDecision, type ForwardReview } from "../../shared/automation-forward-review";
 
 type ActionResult = { ok: boolean; output?: any; error?: string };
 type TaskDelivery = (config: any, ctx: any, runId: string) => Promise<ActionResult>;
@@ -13,10 +15,12 @@ type ForwardServices = {
   source: typeof loadAnalysisSource; original: typeof originalEmailBytes; attachments: typeof listSourceAttachments;
   attachment: typeof mailboxRequest; save: typeof saveForwardedFile; email: typeof deliverAutomationEmail;
   verifyUser: (id: string) => Promise<void>; verifyGroup: (id: string) => Promise<void>;
+  matchSender?: typeof matchForwardSender;
 };
 const services: ForwardServices = {
   source: loadAnalysisSource, original: originalEmailBytes, attachments: listSourceAttachments,
   attachment: mailboxRequest, save: saveForwardedFile, email: deliverAutomationEmail,
+  matchSender: matchForwardSender,
   verifyUser: async id => {
     const [user] = await db.select({ id: users.id }).from(users).where(and(eq(users.id, id), eq(users.isActive, true)));
     if (!user) throw new Error("forward_recipient_unavailable");
@@ -41,7 +45,9 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
     if (config.destination === "back_office") {
       await dependencies.verifyGroup(config.taskGroupId!);
     }
-    const files: { name: string; type: string; bytes: Buffer }[] = [];
+    const match = config.matchSender === true ? await (dependencies.matchSender || matchForwardSender)(source, ctx)
+      : { ...forwardSenderDecision(false, []), country: source.communication.countryCode || null };
+    const files: { name: string; type: string; bytes: Buffer; invoice?: boolean }[] = [];
     if (source.channel === "email") {
       if (config.mode === "whole") {
         // RFC822 retains the complete original message, headers and ALL its attachments.
@@ -68,7 +74,8 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
           const bytes = Buffer.from(encoded, "base64");
           total += bytes.length;
           if (!bytes.length || total > MAX_FORWARDED_BYTES || bytes.length > 10 * 1024 * 1024) throw new Error("forward_attachment_limit");
-          files.push({ name: String(item.name || "attachment"), type: String(item.contentType || "application/octet-stream"), bytes });
+          files.push({ name: String(item.name || "attachment"), type: String(item.contentType || "application/octet-stream"), bytes,
+            invoice: invoiceIds.has(item.id) });
         }
       }
     } else if (config.destination !== "email") {
@@ -87,13 +94,20 @@ export async function deliverForwardCommunication(config: ForwardConfig, ctx: an
     }
     const owner = ctx.rule.createdByUserId;
     const attachments = await Promise.all(files.map(file => dependencies.save(owner, file)));
+    if (attachments.some(file => !file.id)) throw new Error("forward_attachment_unavailable");
+    const forwardReview: ForwardReview = { version: 1, matchSender: config.matchSender === true,
+      matchStatus: match.matchStatus, candidateIds: match.candidateIds,
+      invoices: attachments.flatMap((attachment, index) => files[index].invoice
+        ? [{ attachmentId: attachment.id!, name: attachment.name, approvedAt: null, approvedBy: null }] : []) };
     const forwardedContext = { ...ctx, analysis: { ...ctx.analysis,
-      attachments: attachments.map(attachment => ({ ...attachment, classification: "other" })) } };
+      attachments: attachments.map(attachment => ({ ...attachment, classification: "other" })) },
+      forwardReview, forwardedCustomerId: match.customerId };
     // Reuse the complete existing Task authorization, country, group and private attachment transaction.
     // Do not interpret template tokens from untrusted source text as automation instructions.
     const literalText = content.text.replace(/\{\{/g, "{\u200b{");
     const result = await taskDelivery({ title: title.replace(/\{\{/g, "{\u200b{"), description: literalText,
       analysisAttachments: "all", priority: ctx.analysis?.isUrgent === true ? "high" : "medium",
+      country: match.country,
       ...(config.destination === "user" ? { assignedUserId: config.userId } : { taskGroupId: config.taskGroupId }) }, forwardedContext, runId);
     return result.ok ? { ...result, output: { ...result.output, forwardedChannel: source.channel,
       mode: config.mode, attachmentCount: attachments.length, destination: config.destination } } : result;

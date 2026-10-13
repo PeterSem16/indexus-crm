@@ -78,6 +78,27 @@ test("personal task receives original archive and every separate email attachmen
   assert.equal(f.tasks[0].config.assignedUserId, "reviewer");
   assert.equal(f.tasks[0].context.analysis.attachments.length, 3);
   assert.equal(new Set(f.tasks[0].context.analysis.attachments.map((item: any) => item.id)).size, 3);
+  assert.deepEqual(f.tasks[0].context.forwardReview.invoices, [
+    { attachmentId: "upload-2", name: "same.pdf", approvedAt: null, approvedBy: null },
+  ]);
+});
+test("sender matching preserves exact customer authority and leaves ambiguous matches unlinked", async () => {
+  for (const customerId of ["customer-1", null]) {
+    const f = fixtures({ matchSender: async () => ({ customerId, country: "SK",
+      matchStatus: customerId ? "unique" : "ambiguous", candidateIds: customerId ? [customerId] : ["one", "two"] }) });
+    assert.equal((await deliverForwardCommunication({ ...base, destination: "user", to: undefined,
+      userId: "reviewer", matchSender: true }, ctx, "run", f.task, f.dependencies)).ok, true);
+    assert.equal(f.tasks[0].config.country, "SK");
+    assert.equal(f.tasks[0].context.forwardedCustomerId, customerId);
+    assert.equal(f.tasks[0].context.forwardReview.matchSender, true);
+  }
+});
+test("denied sender lookup does not save files or create a task", async () => {
+  const f = fixtures({ matchSender: async () => { throw new Error("forward_matching_country_required"); } });
+  const result = await deliverForwardCommunication({ ...base, destination: "user", to: undefined,
+    userId: "reviewer", matchSender: true }, ctx, "run", f.task, f.dependencies);
+  assert.equal(result.error, "forward_matching_country_required");
+  assert.equal(f.snapshots.length + f.tasks.length, 0);
 });
 test("email content keeps paragraphs and formatting; task content decodes entities without HTML", () => {
   const value = '<html><head><title>Hidden</title></head><body><p>Please review&nbsp;the invoice.</p>' +

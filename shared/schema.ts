@@ -1252,6 +1252,7 @@ export const tasks = pgTable("tasks", {
   workStartedAt: timestamp("work_started_at"), // first Start Working time in the current work cycle
   workStoppedAt: timestamp("work_stopped_at"), // terminal completion/cancellation time for the current cycle
   sourceRunId: varchar("source_run_id"), // automation_runs.id (Automation MVP-1)
+  forwardReview: jsonb("forward_review").$type<import("./automation-forward-review").ForwardReview>(),
   tags: text("tags").array().notNull().default(sql`ARRAY[]::text[]`), // Automation tags
   attachments: jsonb("attachments").$type<TaskAttachment[]>().notNull().default(sql`'[]'::jsonb`),
   boState: text("bo_state").notNull().default("received"), // Back Office workflow: received|in_progress|waiting_agent|done

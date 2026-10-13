@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { Timeline, BoAttachmentComposer, AttachmentChips, type ThreadData, type ThreadComment, type BoAttachment } from "./back-office-panel";
 import { SendProcessingOverlay } from "./send-processing-animation";
 import { EntityDetailDrawer, type EntityRef } from "./entity-detail-drawer";
+import { ForwardReviewPanel } from "./tasks/forward-review-panel";
 import { UserAvatar } from "./user-avatar";
 import {
   acknowledgeTaskCompletionNotice,
@@ -348,6 +349,7 @@ function QuestionDrawerContent({ item, onClose, onEntityOpenChange }: { item: BO
                   <AttachmentChips attachments={item.task.attachments} />
                 </div>
               )}
+              <ForwardReviewPanel taskId={item.task.id} />
 
               {item.question && (
                 <div>

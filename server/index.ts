@@ -644,6 +644,7 @@ app.use((req, res, next) => {
     ALTER TABLE tasks
       ADD COLUMN IF NOT EXISTS work_started_at timestamp,
       ADD COLUMN IF NOT EXISTS work_stopped_at timestamp;
+    ALTER TABLE tasks ADD COLUMN IF NOT EXISTS forward_review jsonb;
     CREATE TABLE IF NOT EXISTS task_checklist_items (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
       task_id varchar NOT NULL,

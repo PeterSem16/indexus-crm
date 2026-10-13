@@ -8,6 +8,7 @@ export type ForwardConfig = {
   userId?: string;
   taskGroupId?: string;
   title?: string;
+  matchSender?: boolean;
 };
 export function forwardActionIssues(value: any): string[] {
   const issues: string[] = [];
@@ -30,7 +31,9 @@ export function forwardActionIssues(value: any): string[] {
       issues.push("Choose a Back Office group");
     if (value.to || value.userId) issues.push("Back Office forwarding cannot contain another destination");
   }
-  const allowed = new Set(["forwardActionVersion", "destination", "mode", "selection", "to", "userId", "taskGroupId", "title"]);
+  if (value.matchSender !== undefined && typeof value.matchSender !== "boolean") issues.push("Sender matching must be a boolean");
+  if (value.destination === "email" && value.matchSender === true) issues.push("Sender matching requires an internal task");
+  const allowed = new Set(["forwardActionVersion", "destination", "mode", "selection", "to", "userId", "taskGroupId", "title", "matchSender"]);
   if (Object.keys(value).some(key => !allowed.has(key))) issues.push("Unsupported forwarding field");
   return issues;
 }

@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
 import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
 import { startInboundSmsAnalysis } from "./lib/inbound-sms-processing";
@@ -34050,6 +34051,12 @@ Respond ONLY with valid JSON in this exact format:
     if (!tc) return true;
     return boUserCountries(req).includes(tc);
   }
+
+  registerForwardReviewRoutes(app, requireAuth, {
+    canAccess: async (req, task) => await canAccessTaskForMutation(req.session.user!, task)
+      || (task.tags.includes("back_office") && canAccessBoTask(req, task)),
+    canApprove: (req, task) => task.tags.includes("back_office") && canAccessBoTask(req, task),
+  });
 
   // Enrich an already-authorized back-office task for human-readable display:
   //  - reason: the status-list item LABEL behind relatedEntityId (so the UI shows a
