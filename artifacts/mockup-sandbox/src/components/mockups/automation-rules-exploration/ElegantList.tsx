@@ -9,6 +9,7 @@ import {
   moduleLabels, whenLabel, type PrototypeRule,
 } from "./_fixtures";
 import { PrototypeDialog, PrototypeLegacyReview, usePrototypeRules } from "./_prototype";
+import { RunHistory } from "./RunHistory";
 import "./_group.css";
 import "./_elegant-list.css";
 
@@ -26,6 +27,12 @@ export function ElegantList() {
     model.setCountry("all");
     model.setStatus("all");
   };
+
+  const [showRunHistory, setShowRunHistory] = useState(false);
+
+  if (showRunHistory) {
+    return <RunHistory onBack={() => setShowRunHistory(false)} />;
+  }
 
   return (
     <main className="elegant-rules">
@@ -58,7 +65,7 @@ export function ElegantList() {
           <span>Služby</span>
           <span>AI návrh</span>
           <button type="button" className="is-current" aria-current="page">Pravidlá <span>{model.rules.length}</span></button>
-          <button type="button" onClick={() => model.dispatch("history")}>História spustení <ArrowRight size={13} /></button>
+          <button type="button" onClick={() => setShowRunHistory(true)}>História spustení <ArrowRight size={13} /></button>
         </nav>
 
         <section className="el-summary" aria-label="Súhrn pravidiel">
