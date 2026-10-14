@@ -140,7 +140,9 @@ export function ElegantList() {
                     </div>
                     <div className="el-status">
                       {errored ? (
-                        <span className="el-status-pill status-error"><CircleAlert size={13} />{rule.disabledReason ? "Pozastavené" : `${rule.consecutiveErrorCount} chyby`}</span>
+                        <button className="el-status-pill status-error" disabled={locked} onClick={() => model.dispatch("toggle", rule)} aria-label={`${rule.enabled ? "Vypnúť" : "Zapnúť"} pravidlo ${rule.name}`} aria-pressed={rule.enabled}>
+                          <CircleAlert size={13} />{rule.enabled ? `Zapnuté · ${rule.consecutiveErrorCount || 0} chyby` : rule.disabledReason ? "Pozastavené" : `Vypnuté · ${rule.consecutiveErrorCount || 0} chyby`}
+                        </button>
                       ) : locked ? (
                         <span className="el-status-pill status-review"><Clock3 size={13} />Kontrola</span>
                       ) : (
