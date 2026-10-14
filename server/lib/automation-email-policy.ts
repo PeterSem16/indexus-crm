@@ -3,6 +3,7 @@ import { templateTokenInUrl } from "./automation-display-values";
 import { emptyCommunicationText } from "../../shared/automation-communication-context";
 import { emailAddressList, EMAIL_RECIPIENT_LIMIT, validEmailTargets, type AutomationEmailTarget } from "../../shared/automation-email-action";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
+import { humanFindingLabel } from "./automation-human-copy";
 
 type RecipientDeps = {
   group: (target: AutomationEmailTarget) => Promise<string[]>;
@@ -67,9 +68,20 @@ export const escapeEmailText = (value: string) => value.replace(/[&<>"']/g, ch =
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]!));
 
 export function renderEmailValue(value: unknown, ctx: any, html = false, display?: ReadonlyMap<string, string>, allowEmptyText = true): string {
-  const source = String(value ?? "");
+  let source = String(value ?? "");
+  if (html && source.includes("data-indexus-optional")) {
+    const $ = load(source);
+    $("[data-indexus-optional]").each((_index, element) => {
+      const path = $(element).attr("data-indexus-optional")!;
+      const raw = path.split(".").reduce((current: any, key) =>
+        ["__proto__", "prototype", "constructor"].includes(key) ? undefined : current?.[key], ctx);
+      const shown = display?.get(path) ?? raw;
+      if (shown == null || shown === "" || (Array.isArray(shown) && !shown.length)) $(element).remove();
+    });
+    source = $.html();
+  }
   let scanned = 0, inTag = false, quote = "";
-  return source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path: string, offset: number) => {
+  const rendered = source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_match, path: string, offset: number) => {
     // HTML attributes (including links) need raw IDs, not display names.
     if (html) for (; scanned < offset; scanned++) {
       const ch = source[scanned];
@@ -87,6 +99,34 @@ export function renderEmailValue(value: unknown, ctx: any, html = false, display
     const text = resolved == null ? "" : String(resolved);
     return html ? escapeEmailText(text) : text;
   });
+  if (!html || !source.includes("data-indexus-")) return rendered;
+  const $ = load(rendered);
+  $("[data-indexus-optional]").each((_index, element) => {
+    const path = $(element).attr("data-indexus-optional")!;
+    const raw = path.split(".").reduce((current: any, key) =>
+      ["__proto__", "prototype", "constructor"].includes(key) ? undefined : current?.[key], ctx);
+    const shown = display?.get(path) ?? raw;
+    if (shown == null || shown === "" || (Array.isArray(shown) && !shown.length))
+      $(element).remove();
+    $(element).removeAttr("data-indexus-optional");
+  });
+  $("[data-indexus-result]").each((_index, element) => {
+    const field = $(element).attr("data-indexus-result");
+    const value = field === "sentiment" || field === "tone" ? ctx.analysis?.[field] : null;
+    const palette = field === "tone" ? ["#f2edfb", "#695486", "#ded4f0"]
+      : ["negative", "angry"].includes(value) ? ["#fff0e5", "#93503c", "#f3d2bf"]
+      : ["positive", "calm"].includes(value) ? ["#e9f3ef", "#176b5d", "#c9ded7"]
+      : ["#f2eef9", "#695589", "#dcd1ee"];
+    const text = typeof value === "string" ? humanFindingLabel($("html").attr("lang") || "en", value) : null;
+    if (!text) $(element).remove();
+    else {
+      const caption = $(element).find("small").first().clone();
+      $(element).empty().append('<i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:7px;"></i>').append(caption).append(escapeEmailText(text))
+        .attr("style", `display:inline-block;margin:0 8px 8px 0;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;background:${palette[0]};color:${palette[1]};border:1px solid ${palette[2]};`);
+    }
+    $(element).removeAttr("data-indexus-result");
+  });
+  return $.html();
 }
 
 export function renderEmailAddressConfig(config: any, ctx: any) {

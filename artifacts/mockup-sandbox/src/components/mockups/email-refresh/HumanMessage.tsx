@@ -131,9 +131,12 @@ export function HumanMessage() {
       .hm-finding{background:#fff8e9;border-left:3px solid #e8745e;padding:13px 15px;margin:14px 0 0;border-radius:0 10px 10px 0}
       .hm-finding-label{display:flex;gap:8px;align-items:center;font-size:9px;color:#93634d;text-transform:uppercase;letter-spacing:.12em;font-weight:700}
       .hm-finding p{font-size:13px;color:#4e625c;line-height:1.55;margin:6px 0 0}
-      .hm-call-distinction{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
-      .hm-call-distinction span{font-size:10px;color:#5f726d}
-      .hm-call-distinction b{color:#173c3a}
+      .hm-call-results{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+      .hm-result-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;border:1px solid transparent}
+      .hm-result-badge small{font-size:9px;letter-spacing:.06em;text-transform:uppercase;opacity:.78;font-weight:800}
+      .hm-result-sentiment{background:#fff0e5;border-color:#f3d2bf;color:#93503c}
+      .hm-result-tone{background:#f2edfb;border-color:#ded4f0;color:#695486}
+      .hm-result-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
       .hm-call-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:17px}
       .hm-text-link{border:0;background:none;padding:7px 0;color:#176b5d;font:700 12px 'DM Sans',sans-serif;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
       .hm-deadline{padding:24px clamp(18px,5vw,38px) 28px}
@@ -208,8 +211,9 @@ export function HumanMessage() {
               <div className="hm-finding-label">Zistenie po analýze <span>·</span> dokončené</div>
               <p>„Volajúca opisuje zhoršenie ťažkostí a žiada skorší termín.“</p>
             </div>
-            <div className="hm-call-distinction">
-              <span>Sentiment: <b>negatívny</b></span><span aria-hidden="true">·</span><span>Tón: <b>znepokojený</b></span>
+            <div className="hm-call-results" role="group" aria-label="Výsledky dokončenej analýzy hovoru">
+              <span className="hm-result-badge hm-result-sentiment"><i className="hm-result-dot" aria-hidden="true" /><small>Sentiment</small>Negatívny</span>
+              <span className="hm-result-badge hm-result-tone"><i className="hm-result-dot" aria-hidden="true" /><small>Tón hlasu</small>Znepokojený</span>
             </div>
             <div className="hm-call-actions">
               <LocalCta>Otvoriť hovor</LocalCta>

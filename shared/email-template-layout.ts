@@ -40,7 +40,8 @@ function styleWithRoundedFrame(style: string | undefined): string {
     if (existing >= 0) declarations[existing] = [property, value];
     else declarations.push([property, value]);
   };
-  set("border-radius", FRAME_RADIUS);
+  // Preserve the approved Human Message card; legacy defaults retain their 12px frame.
+  set("border-radius", /background\s*:\s*#fffefb/i.test(style || "") && /border-radius\s*:\s*22px/i.test(style || "") ? "22px" : FRAME_RADIUS);
   set("overflow", "hidden");
   set("border-collapse", "separate");
   set("border-spacing", "0");

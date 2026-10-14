@@ -35,7 +35,7 @@ export function legacyTemplateContextLines(template: LegacyDefault): Line[] {
   return common;
 }
 
-function previousLegacyDefaultUpgrade(template: LegacyDefault): LegacyDefault | null {
+export function previousLegacyDefaultUpgrade(template: LegacyDefault): LegacyDefault | null {
   const language = template.language as ActivityTemplateLanguage;
   const fields = legacyTemplateContextLines(template).filter(([, key]) =>
     !`${template.content}\n${template.contentHtml || ""}`.includes(`{{${key}}}`));

@@ -7,6 +7,14 @@ export async function automationEmailInlineAttachments(html: string) {
   const references = new Set([...html.matchAll(/cid:([^"'\s<>]+)/gi)].map(match => match[1]));
   const attachments: any[] = [];
   for (const contentId of references) {
+    const human = /^indexus-automation-human-(task|call|deadline)$/.exec(contentId);
+    if (human) {
+      const bytes = await readFile(resolve(process.cwd(), "server/assets/automation-email", `human-${human[1]}.png`));
+      attachments.push({ "@odata.type": "#microsoft.graph.fileAttachment",
+        name: `human-${human[1]}.png`, contentType: "image/png", isInline: true,
+        contentId, contentBytes: bytes.toString("base64") });
+      continue;
+    }
     const phoneName = contentId.replace(/^indexus-automation-/, "");
     const phoneArtwork = contentId.startsWith("indexus-automation-") && automationPhoneArtworkFor(phoneName);
     if (phoneArtwork) {

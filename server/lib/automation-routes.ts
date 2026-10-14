@@ -84,6 +84,10 @@ export function registerAutomationRoutes(app: Express) {
   registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
   app.get("/api/automation/email-artwork/:name", (req, res) => {
+    if (/^human-(task|call|deadline)$/.test(req.params.name)) {
+      res.type("image/png").set("Cache-Control", "public, max-age=86400");
+      return res.sendFile(resolve(process.cwd(), "server/assets/automation-email", `${req.params.name}.png`));
+    }
     const phoneArtwork = automationPhoneArtworkFor(req.params.name);
     if (phoneArtwork) {
       res.setHeader("Cache-Control", "public, max-age=86400");

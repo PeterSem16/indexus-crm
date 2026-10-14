@@ -85,4 +85,5 @@ export async function ensureStandaloneAutomationSchema(pool: {
   await ensureAutomationSmsTemplates(pool);
   await ensureAutomationActivityTemplates(pool);
   await ensureLegacyAutomationTemplateVariables(pool);
+  await (await import("./automation-human-templates")).ensureHumanAutomationTemplates(pool);
 }

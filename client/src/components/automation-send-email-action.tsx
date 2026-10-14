@@ -33,7 +33,7 @@ type Mailbox = { connected: boolean; email?: string; displayName?: string; hasSi
 
 const AUTOMATION_CATEGORY_ID = "indexus-automation-email-category";
 const rewriteArtworkForPreview = (html: string) => html.replace(
-  /cid:indexus-automation-(task|attention|success|deadline|phone(?:-(?:positive|negative|urgent|info|deadline))?)/gi,
+  /cid:indexus-automation-(human-(?:task|call|deadline)|task|attention|success|deadline|phone(?:-(?:positive|negative|urgent|info|deadline))?)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();

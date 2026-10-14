@@ -1,6 +1,7 @@
 import { taskStatusTemplateLabel } from "@shared/task-status-labels";
 import { automationDateDisplay } from "../../shared/automation-display-date";
 import { emptyCommunicationText } from "../../shared/automation-communication-context";
+import { humanPriorityLabel, humanFindingLabel } from "./automation-human-copy";
 
 export type ReferenceKind = "user" | "department" | "group" | "customer" | "clinic" | "hospital" | "collaborator" | "campaign" | "queue" | "task" | "contract" | "invoice";
 export type ReferenceLookup = (kind: ReferenceKind, id: string, country: string | null) => Promise<string | null>;
@@ -34,10 +35,24 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
   const country = ctx.event?.countryCode || ctx.countryCode || ctx.newValues?.countryCode || ctx.newValues?.country || null;
   await Promise.all([...paths].map(async path => {
     if (emptyCommunicationText(ctx, path)) { result.set(path, ""); return; }
-    const match = /^(newValues|oldValues|communication|activity)\.([A-Za-z]+)$/.exec(path);
+    const match = /^(newValues|oldValues|communication|activity|analysis)\.([A-Za-z]+)$/.exec(path);
     if (!match) return;
     const [, scope, field] = match;
     const data = ctx[scope] || {};
+    if (scope === "analysis" && (field === "sentiment" || field === "tone") && typeof data[field] === "string") {
+      const label = humanFindingLabel(language || "en", data[field]);
+      if (label) { result.set(path, label); return; }
+    }
+    if (field === "priority" || field === "taskPriority") {
+      const label = humanPriorityLabel(language || "en", data[field]);
+      if (label) { result.set(path, label); return; }
+    }
+    if (field === "durationSeconds" && typeof data[field] === "number" && Number.isFinite(data[field]) && data[field] >= 0) {
+      const seconds = Math.floor(data[field]);
+      const format = (unit: "minute" | "second", value: number) => new Intl.NumberFormat(language || "en", { style: "unit", unit, unitDisplay: "short" }).format(value);
+      result.set(path, `${format("minute", Math.floor(seconds / 60))} ${format("second", seconds % 60)}`);
+      return;
+    }
     const dateLabel = automationDateDisplay(field === "occurredAt" ? "createdAt" : field, data[field],
       scope === "communication" && field === "dueDate" ? "task" : ctx.event?.module, language, country);
     if (dateLabel !== undefined) {
