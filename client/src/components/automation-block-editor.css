@@ -51,3 +51,297 @@
 .automation-else-modes input { accent-color:#b12b35; }
 @media(max-width:900px) { .automation-rule-dialog.automation-compact-editor .automation-workspace { grid-template-columns:1fr; }.automation-compact-editor .automation-preview-panel { display:none; } }
 @media(max-width:560px) { .automation-block-modal { width:calc(100vw - 16px); max-height:calc(100dvh - 16px); }.automation-block-body { padding:14px; }.automation-compact-action { grid-template-columns:22px minmax(0,1fr); }.automation-action-controls { grid-column:2; flex-wrap:wrap; }.automation-action-catalog > div:last-child { grid-template-columns:1fr; }.automation-compact-editor .automation-logic-grid { grid-template-columns:1fr; } }
+
+/* RuleEditor preview: give the compact flow a little room to breathe. */
+.task-modern-modal.automation-editor-dialog.automation-compact-editor {
+  width: min(1340px, calc(100vw - 40px)) !important;
+  max-width: min(1340px, calc(100vw - 40px)) !important;
+  height: min(92dvh, 920px);
+  max-height: min(92dvh, 920px) !important;
+  transition-property: opacity, box-shadow, background-color, border-color;
+}
+
+.automation-rule-dialog.automation-compact-editor .automation-workspace {
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+
+.automation-compact-editor .automation-preview-panel {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+}
+
+.automation-compact-editor .automation-preview-rail {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+}
+
+.automation-compact-editor .automation-preview-card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid #ead8d6;
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(177, 43, 53, .055), transparent 38%),
+    #fbf5f2;
+  box-shadow: 0 10px 28px rgba(94, 47, 49, .075);
+}
+
+.automation-compact-editor .automation-preview-card::before {
+  position: absolute;
+  top: 0;
+  left: 19px;
+  width: 38px;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: #b12b35;
+  content: "";
+}
+
+.automation-compact-editor .automation-preview-title {
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #8e3038;
+}
+
+.automation-compact-editor .automation-preview-title > svg {
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border: 1px solid #ead8d6;
+  border-radius: 10px;
+  background: #fffdfa;
+  animation: automation-preview-sparkle 6s ease-in-out infinite;
+}
+
+.automation-compact-editor .automation-inspector-tabs {
+  margin-bottom: 16px;
+  padding: 3px;
+  border: 1px solid #ead8d6;
+  border-radius: 10px;
+  background: rgba(255, 253, 250, .8);
+}
+
+.automation-compact-editor .automation-preview-name {
+  display: block;
+  margin-top: 0;
+  color: #342d2e;
+  font-size: 16px;
+  line-height: 1.35;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.automation-compact-editor .automation-preview-country {
+  margin: 4px 0 0;
+  line-height: 1.45;
+}
+
+.automation-compact-editor .automation-preview-flow {
+  gap: 0;
+  margin: 16px 0;
+}
+
+.automation-compact-editor .automation-preview-flow > .automation-effect-node {
+  gap: 10px;
+  padding: 11px;
+  border-color: #e9deda;
+  border-radius: 11px;
+  background: #fffdfa;
+  box-shadow: 0 2px 5px rgba(94, 47, 49, .035);
+}
+
+.automation-compact-editor .automation-preview-flow > .automation-effect-node.cause {
+  border-inline-start: 3px solid #b12b35;
+}
+
+.automation-compact-editor .automation-preview-flow > .automation-effect-node.filter {
+  border-inline-start: 3px solid #8b7772;
+}
+
+.automation-compact-editor .automation-effect-dot {
+  width: 23px;
+  height: 23px;
+  border-color: #ead8d6;
+  border-radius: 7px;
+  color: #9d3a40;
+  background: #fbefed;
+  font-size: 9px;
+}
+
+.automation-compact-editor .automation-effect-node small {
+  font-size: 9px;
+  letter-spacing: .07em;
+}
+
+.automation-compact-editor .automation-effect-node b {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.automation-compact-editor .automation-effect-node em {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.automation-compact-editor .automation-preview-flow > .automation-effect-connector {
+  height: 16px;
+  margin-left: 22px;
+}
+
+.automation-compact-editor .automation-preview-flow > .automation-preview-branches {
+  position: relative;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node {
+  min-height: 72px;
+  gap: 7px;
+  padding: 10px;
+  border-color: #e8dcd7;
+  border-radius: 11px;
+  background: #fffdfa;
+  box-shadow: 0 2px 5px rgba(94, 47, 49, .035);
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node:first-child {
+  border-color: #d3e2d8;
+  border-inline-start: 3px solid #5b8d70;
+  background: #f3faf5;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node:last-child {
+  border-color: #eadbce;
+  border-inline-start: 3px solid #b88961;
+  background: #fff7ef;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node:first-child .automation-effect-dot {
+  border-color: #d3e2d8;
+  color: #427354;
+  background: #e9f3ec;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node:last-child .automation-effect-dot {
+  border-color: #eadbce;
+  color: #986b45;
+  background: #faeee1;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node small {
+  color: #66544d;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.automation-compact-editor .automation-preview-branches .automation-effect-node b {
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.automation-compact-editor .automation-preview-status {
+  margin-top: 13px;
+  padding: 11px 12px;
+  border: 1px solid #e9deda;
+  border-radius: 11px;
+  background: #fffdfa;
+}
+
+.automation-compact-editor .automation-preview-status.unsafe {
+  border-color: #d6a9a6;
+  background: #fff5f3;
+}
+
+@media (max-width: 900px) {
+  .task-modern-modal.automation-editor-dialog.automation-compact-editor {
+    width: min(760px, calc(100vw - 32px)) !important;
+    max-width: min(760px, calc(100vw - 32px)) !important;
+  }
+
+  .automation-rule-dialog.automation-compact-editor .automation-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .automation-compact-editor .automation-preview-panel {
+    display: block;
+    border-top: 1px solid #e8dcd7;
+    padding-top: 4px;
+  }
+
+  .automation-compact-editor .automation-preview-panel > summary {
+    display: flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 2px;
+    color: #342d2e;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .automation-compact-editor .automation-preview-panel > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .automation-compact-editor .automation-preview-panel > summary::after {
+    color: #8b7772;
+    content: "+";
+    font-size: 19px;
+    font-weight: 400;
+  }
+
+  .automation-compact-editor .automation-preview-panel[open] > summary::after {
+    content: "−";
+  }
+
+  .automation-compact-editor .automation-preview-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 560px) {
+  .task-modern-modal.automation-editor-dialog.automation-compact-editor {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px) !important;
+  }
+
+  .automation-compact-editor .automation-preview-card {
+    padding: 16px;
+    border-radius: 13px;
+  }
+
+  .automation-compact-editor .automation-preview-branches .automation-effect-node {
+    min-height: 68px;
+    gap: 6px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  .automation-compact-editor .automation-preview-flow > .automation-preview-branches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@keyframes automation-preview-sparkle {
+  0%, 85%, 100% { transform: rotate(-6deg); }
+  90% { transform: rotate(7deg) scale(1.08); }
+  95% { transform: rotate(-10deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .automation-compact-editor .automation-preview-title > svg { animation: none; }
+}
