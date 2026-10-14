@@ -125,3 +125,4 @@
 - [Mission call report parity](mission-call-report-parity.md) — preserve ingress Mission across queue overflow; share display/export/email scope and fail closed on recording conflicts.
 - [Call recording identity boundary](call-recording-identity-boundary.md) — bind each audio stream to its SIP session; persist labels from the call log, and allocate unique temp paths before writing.
 - [Analysis record review](analysis-record-review-policy.md) — ambiguous matches can go to Back Office for a human decision; never auto-assign a candidate or turn documents into accounting invoices.
+- [Rules overview direction](automation-rules-overview-approval.md) — retain A's structure, but all four tabs use native INDEXUS typography, shared navigation, global palettes and light/dark mode.

@@ -45,6 +45,7 @@ async function fixture(page: Page, tab = "rules") {
     let data: unknown = [];
     if (path === "/api/auth/me") data = { user: { id: "test-admin", username: "test", fullName: "Test Admin", role: "admin", roleId: null, assignedCountries: [], nexusEnabled: false, showNotificationBell: false, showEmailQueue: false, showSipPhone: false } };
     else if (path === "/api/automation/catalog") data = catalog;
+    else if (path === "/api/automation/draft-context/events") data = { sources: [], countries: ["SK"], intents: [] };
     else if (path === "/api/automation/rules") data = rules;
     else if (path === "/api/automation/users" || path === "/api/users") data = [{ id: "anna", fullName: "Anna Test", email: "anna@example.test" }];
     else if (path === "/api/automation/runs") {
@@ -152,8 +153,9 @@ test("History: real status vocabulary, historical actions, JSON, selection, rule
 
 test("Approved layout is responsive inside the real app, with mobile selection and reduced motion", async ({ page }) => {
   const state = await fixture(page);
-  await expect(page.locator(".el-heading h1")).toHaveCSS("font-family", /Georgia/);
-  await expect(page.locator(".el-button-primary")).toHaveCSS("background-color", "rgb(168, 50, 59)");
+  const appFont = await page.getByTestId("text-page-title").evaluate(element => getComputedStyle(element).fontFamily);
+  await expect(page.locator(".el-heading h2")).toHaveCSS("font-family", appFont);
+  await expect(page.locator(".el-topbar,.rh-topbar")).toHaveCount(0);
   for (const width of [1280, 1024, 390]) {
     await page.setViewportSize({ width, height: 850 });
     await expect(page.locator(".el-workspace")).toBeVisible();
@@ -170,7 +172,44 @@ test("Approved layout is responsive inside the real app, with mobile selection a
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.screenshot({ path: "/tmp/automation-production-history-mobile.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.locator(".rh-topbar").scrollIntoViewIfNeeded();
+  await page.getByTestId("text-page-title").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "/tmp/automation-production-history-desktop.png", fullPage: true });
+  expect(state.errors).toEqual([]);
+});
+
+test("All four sections share navigation and obey every global INDEXUS palette in light and dark mode", async ({ page }) => {
+  const state = await fixture(page);
+  const tokenColor = async (token: string) => page.evaluate(token => {
+    const probe = document.createElement("span");
+    probe.style.color = `hsl(var(--${token}))`;
+    document.body.appendChild(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, token);
+  for (const mode of ["light", "dark"]) {
+    if (await page.locator("html").evaluate(element => element.classList.contains("dark")) !== (mode === "dark"))
+      await page.getByTestId("button-theme-toggle").click();
+    for (const palette of ["burgundy", "ocean", "forest", "purple", "sunset", "slate"]) {
+      await page.getByTestId("button-palette-picker").click();
+      await page.getByTestId(`palette-option-${palette}`).click();
+      const primary = await tokenColor("primary");
+      await expect(page.getByTestId("button-create-rule")).toHaveCSS("background-color", primary);
+      for (const tab of ["tab-automation-services", "tab-automation-assistant", "tab-rules", "tab-runs"]) {
+        await page.getByTestId(tab).click();
+        await expect(page.getByTestId("text-page-title")).toBeVisible();
+        await expect(page.locator(".automation-workspace [role=tablist]")).toHaveCount(1);
+        await expect(page.locator(".el-topbar,.rh-topbar")).toHaveCount(0);
+        await expect(page.getByTestId("button-create-rule")).toHaveCSS("background-color", primary);
+        if (tab === "tab-rules" || tab === "tab-runs") {
+          await expect(page.locator(tab === "tab-rules" ? ".el-workspace" : ".rh-workspace"))
+            .toHaveCSS("background-color", await tokenColor("card"));
+          await expect(page.locator(".automation-production-overview")).toHaveCSS("color", await tokenColor("foreground"));
+        }
+      }
+      if (palette === "ocean" || palette === "burgundy")
+        await page.screenshot({ path: `/tmp/indexus-automation-${mode}-${palette}.png`, fullPage: true });
+    }
+  }
   expect(state.errors).toEqual([]);
 });

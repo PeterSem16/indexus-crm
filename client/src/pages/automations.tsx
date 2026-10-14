@@ -349,8 +349,8 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className={topTab === "rules" || topTab === "runs" ? "automation-overview-page" : "space-y-6"}>
-      {topTab !== "rules" && topTab !== "runs" && <div className="flex items-center justify-between">
+    <div className="space-y-6 automation-workspace">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2" data-testid="text-page-title">
             <Settings2 className="h-6 w-6" />
@@ -366,10 +366,10 @@ export default function AutomationsPage() {
           {t.automationServices.choose}
         </Button>
         </div>
-      </div>}
+      </div>
 
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as any)}>
-        {topTab !== "rules" && topTab !== "runs" && <TabsList className="h-auto flex-wrap justify-start">
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="services" data-testid="tab-automation-services">{t.automationServices.servicesTab}</TabsTrigger>
           <TabsTrigger value="assistant" data-testid="tab-automation-assistant">
             <Sparkles className="h-3.5 w-3.5 mr-1" />{t.automationDraft.button}
@@ -378,7 +378,7 @@ export default function AutomationsPage() {
           <TabsTrigger value="runs" data-testid="tab-runs">
             <History className="h-3.5 w-3.5 mr-1" /> {t.automationOverview.history}
           </TabsTrigger>
-        </TabsList>}
+        </TabsList>
 
         <TabsContent value="services" className="pt-4">
           {catalogQ.isLoading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
@@ -455,14 +455,13 @@ export default function AutomationsPage() {
           <AutomationDraftAssistant />
         </TabsContent>
 
-        <TabsContent value="rules" className="mt-0 pt-0">
+        <TabsContent value="rules" className="pt-4">
           <AutomationRulesOverview
             rules={rulesQ.data || []} catalog={catalogQ.data}
             loading={rulesQ.isLoading || catalogQ.isLoading} error={rulesQ.isError || catalogQ.isError}
             busy={updateMut.isPending || deleteMut.isPending || resetErrorsMut.isPending || activateReviewedMut.isPending}
             onRetry={() => { void rulesQ.refetch(); void catalogQ.refetch(); }}
             onCreate={() => { setNewService(null); setShowCreate(true); }}
-            onTags={() => setShowTagOverview(true)}
             onToggle={toggleEnabled} onEdit={setEditing} onFlow={setFlowFor} onHistory={setHistoryFor}
             onReset={rule => resetErrorsMut.mutate(rule)}
             onReview={rule => { if (window.confirm(getUnifiedAutomationCopy(locale).confirmReviewedActivation)) activateReviewedMut.mutate(rule); }}
@@ -484,7 +483,7 @@ export default function AutomationsPage() {
           </AutomationRulesOverview>
         </TabsContent>
 
-        <TabsContent value="runs" className="mt-0 pt-0">
+        <TabsContent value="runs" className="pt-4">
           <AutomationRunHistory rules={rulesQ.data || []} catalog={catalogQ.data}
             onBack={() => setTopTab("rules")}
             onOpenRule={rule => { setTopTab("rules"); setEditing(rule); }} />

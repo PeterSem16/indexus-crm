@@ -1,8 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Activity, ArrowRight, ChevronDown, ChevronRight, CircleAlert, Clock3, Globe2,
-  History, Loader2, Plus, RotateCcw, Search, Settings2, ShieldCheck, SlidersHorizontal,
-  Tag, Trash2, Workflow, X } from "lucide-react";
-import { TabsList, TabsTrigger } from "@/components/ui/tabs";
+  History, Loader2, RotateCcw, Search, Settings2, ShieldCheck, SlidersHorizontal,
+  Trash2, Workflow, X } from "lucide-react";
 import { useI18n } from "@/i18n";
 import { getFlowchartCopy } from "@/i18n/automation-flowchart-copy";
 import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
@@ -15,7 +14,7 @@ import "./automation-overview.css";
 
 type Props = {
   rules: OverviewRule[]; catalog?: OverviewCatalog; loading: boolean; error: boolean; busy: boolean;
-  onRetry: () => void; onCreate: () => void; onTags: () => void;
+  onRetry: () => void; onCreate: () => void;
   onToggle: (rule: OverviewRule) => void; onEdit: (rule: OverviewRule) => void;
   onFlow: (rule: OverviewRule) => void; onHistory: (rule: OverviewRule) => void;
   onReset: (rule: OverviewRule) => void; onReview: (rule: OverviewRule) => void;
@@ -61,24 +60,10 @@ export function AutomationRulesOverview(props: Props) {
   const showCount = (value: number) => props.loading ? "—" : value;
 
   return <main className="elegant-rules automation-production-overview">
-    <header className="el-topbar">
-      <div className="el-brand"><span className="el-mark" aria-hidden="true">i</span><span>INDEXUS <i>/</i> {copy.automationTitle}</span></div>
-      <div className="el-top-note"><span className="el-live-dot" />{copy.operational}</div>
-    </header>
     <div className="el-shell">
       <div className="el-heading">
-        <div><div className="el-eyebrow"><Settings2 size={14}/>{copy.rules}</div><h1>{copy.title}</h1><p>{copy.subtitle}</p></div>
-        <div className="el-header-actions">
-          <button className="el-button el-button-secondary" onClick={props.onTags} data-testid="button-record-tag-overview"><Tag size={15}/>{copy.tags}</button>
-          <button className="el-button el-button-primary" onClick={props.onCreate} disabled={!props.catalog || props.busy} data-testid="button-create-rule"><Plus size={16}/>{copy.addRule}</button>
-        </div>
+        <div><h2>{copy.rules}</h2><p>{copy.subtitle}</p></div>
       </div>
-      <TabsList className="el-tabs">
-        <TabsTrigger value="services" data-testid="tab-automation-services">{t.automationServices.servicesTab}</TabsTrigger>
-        <TabsTrigger value="assistant" data-testid="tab-automation-assistant">{t.automationDraft.button}</TabsTrigger>
-        <TabsTrigger value="rules" data-testid="tab-rules">{copy.rules}<span>{showCount(props.rules.length)}</span></TabsTrigger>
-        <TabsTrigger value="runs" data-testid="tab-runs">{copy.history}<ArrowRight size={13}/></TabsTrigger>
-      </TabsList>
       <section className="el-summary" aria-label={copy.summary}>
         <div className="el-summary-lead"><span className="el-summary-icon"><Activity size={18}/></span><div><b>{copy.summary}</b><small>{copy.summaryHint}</small></div></div>
         <div className="el-summary-stat"><strong>{showCount(props.rules.filter(rule => rule.enabled).length)}</strong><span>{copy.active}</span></div>

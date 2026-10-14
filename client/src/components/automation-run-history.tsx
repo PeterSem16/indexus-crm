@@ -109,18 +109,12 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
     }
   };
   const statusIcon = (value: string) => value === "success" ? CircleCheck : value === "failed" ? CircleAlert : Clock3;
-  const split = copy.historyTitle.lastIndexOf(" ");
   const count = (value: number) => runsQ.isLoading || runsQ.isError ? "—" : value;
   return <main className={`rules-history automation-production-overview ${compact ? "is-compact" : ""}`}>
-    {!compact && <header className="rh-topbar">
-      <div className="rh-brand"><span className="rh-mark" aria-hidden="true">i</span><span>INDEXUS <i>/</i> {copy.automationTitle}</span></div>
-      <span className="rh-mode"><span className="rh-mode-dot"/>{copy.operational}</span>
-    </header>}
     <div className="rh-shell">
       {onBack && <button className="rh-back" onClick={onBack} aria-label={copy.backRules}><ArrowLeft size={15}/>{copy.rules}</button>}
       {!compact && <section className="rh-heading"><div>
-        <div className="rh-eyebrow"><History size={14}/>{copy.automationTitle} / {copy.operational}</div>
-        <h1>{copy.historyTitle.slice(0, split + 1)}<span>{copy.historyTitle.slice(split + 1)}</span></h1><p>{copy.historySubtitle}</p>
+        <h2>{copy.history}</h2><p>{copy.historySubtitle}</p>
       </div><button className="rh-demo-seal rh-refresh-button" disabled={runsQ.isFetching} onClick={() => { void runsQ.refetch(); if (selected) void detailQ.refetch(); }}><RotateCcw size={15}/>{copy.refresh}</button></section>}
       <section className="rh-summary" aria-label={copy.loadedHistory}>
         <div className="rh-summary-lead"><span className="rh-summary-icon"><CalendarDays size={18}/></span><div><b>{copy.loadedHistory}</b><small>{copy.loadedOnly}</small></div></div>
