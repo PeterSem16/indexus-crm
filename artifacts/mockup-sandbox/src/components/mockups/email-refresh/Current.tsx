@@ -1,0 +1,3 @@
+import source from "./_source-current.json";
+function fill(text:string){return text.replace(/{{\s*([^{}]+?)\s*}}/g,(_,key:string)=>(source.variables as Record<string,string>)[key] || "");}
+export function Current(){return <main style={{background:"#f5f5f5",padding:24,minHeight:"100vh",fontFamily:"Arial, sans-serif"}}><p style={{fontSize:12,color:"#777"}}>SÚČASNÁ ŠABLÓNA · vybraná z vývojového katalógu · ukážkové údaje</p><h2 style={{fontSize:16,lineHeight:1.5,marginBottom:20}}>Predmet: {fill(source.subject)}</h2><iframe title="Súčasná šablóna bez vizuálnych úprav" sandbox="" srcDoc={fill(source.content_html)} style={{width:"100%",height:930,border:0,background:"white"}}/></main>;}

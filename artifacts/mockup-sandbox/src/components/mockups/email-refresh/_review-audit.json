@@ -1,0 +1,45 @@
+{
+  "scope": "Active predefined templates in development only; no production query or writes.",
+  "languages": 7,
+  "types": [
+    {
+      "type": "email",
+      "language": "sk",
+      "total": 112,
+      "id_in_subject": 23,
+      "id_in_content": 99,
+      "raw_event_variable": 15
+    },
+    {
+      "type": "notification",
+      "language": "sk",
+      "total": 100,
+      "id_in_subject": 14,
+      "id_in_content": 90,
+      "raw_event_variable": 7
+    },
+    {
+      "type": "sms",
+      "language": "sk",
+      "total": 100,
+      "id_in_subject": 15,
+      "id_in_content": 91,
+      "raw_event_variable": 7
+    },
+    {
+      "type": "task",
+      "language": "sk",
+      "total": 105,
+      "id_in_subject": 16,
+      "id_in_content": 92,
+      "raw_event_variable": 16
+    }
+  ],
+  "rules": [
+    "Visible UUIDs/internal IDs must be removed from subjects and bodies; internal links can retain IDs.",
+    "Choose a visual family on Canvas before replacing system defaults.",
+    "Use source identity once, meaningful actual times and human-readable values; no raw created/updated event keys.",
+    "Use separate sentiment and tone only after completed authorized analysis.",
+    "Preserve manager edits, deleted defaults and saved rule snapshots."
+  ]
+}
