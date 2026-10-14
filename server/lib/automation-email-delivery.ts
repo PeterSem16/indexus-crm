@@ -34,7 +34,7 @@ export async function deliverAutomationEmail(config: any, context: any) {
         (!context.newValues?.campaignId || !context.event?.countryCode))
       throw new Error("Inbound email requires verified Mission and queue country");
     const ctx = taskTemplateContext(context, config.templateLanguage);
-    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference);
+    const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
     const addresses = renderEmailAddressConfig(config, ctx);
     const recipients = await planAutomationEmailRecipients(addresses);
     const sender = selectAutomationEmailSender(config, context);

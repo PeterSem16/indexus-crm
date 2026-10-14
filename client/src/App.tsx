@@ -87,6 +87,7 @@ function LegacyMedicalPartnerSettingsRedirect({ tab }: { tab: "data-updates" | "
 }
 const RepresentativeQualityPage = lazy(() => import("@/pages/representative-quality"));
 const VoiceNetworkIncidentsPage = lazy(() => import("@/pages/voice-network-incidents"));
+const AutomationCallDetailsPage = lazy(() => import("@/pages/automation-call-details"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -315,6 +316,7 @@ function AuthenticatedApp() {
                     <Route path="/settings" component={SettingsPage} />
                     <Route path="/status-management" component={StatusManagementPage} />
                     <Route path="/automations" component={AutomationsPage} />
+                    <Route path="/automation-calls/:callLogId" component={AutomationCallDetailsPage} />
                     <Route path="/scraping" component={ScrapingPage} />
                     <Route path="/configurator" component={ConfiguratorPage} />
                     <Route path="/pricing" component={PricingPage} />

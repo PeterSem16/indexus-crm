@@ -1,4 +1,5 @@
 import { taskSalutationFields } from "../../shared/task-template-variables";
+import { ACTIVITY_TEMPLATE_FIELDS } from "../../shared/automation-activity-context";
 import { COMMUNICATION_SOURCE_FIELDS } from "../../shared/automation-communication-context";
 import { RECORD_TAG_ENTITY_TYPES, tagActionIssues, normalizeTagName, isProtectedRecordTag } from "@shared/automation-record-tags";
 import { smsRecipientList } from "../../shared/automation-sms-policy";
@@ -698,6 +699,7 @@ export function validateRuleCapabilities(rule: {
             !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
           fail(`${path}.config.templateLanguage`, "Unsupported Task template language");
         const variables = new Set([
+          ...ACTIVITY_TEMPLATE_FIELDS.map(field => field.value),
           ...fieldsForEvent(rule.module, event).map(field => field.value),
           ...taskSalutationFields(rule.module, event).map(field => field.value),
           "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
@@ -728,6 +730,7 @@ export function validateRuleCapabilities(rule: {
             !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
           fail(`${path}.config.templateLanguage`, "Unsupported notification template language");
         const variables = new Set([
+          ...ACTIVITY_TEMPLATE_FIELDS.map(field => field.value),
           ...fieldsForEvent(rule.module, event).map(field => field.value),
           ...taskSalutationFields(rule.module, event).map(field => field.value),
           "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
@@ -743,6 +746,7 @@ export function validateRuleCapabilities(rule: {
       if (config.emailActionVersion === 2) {
         for (const message of emailActionIssues(config)) fail(`${path}.config`, message);
         const variables = new Set([
+          ...ACTIVITY_TEMPLATE_FIELDS.map(field => field.value),
           ...fieldsForEvent(rule.module, event).map(field => field.value),
           ...taskSalutationFields(rule.module, event).map(field => field.value),
           "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",
@@ -772,6 +776,7 @@ export function validateRuleCapabilities(rule: {
           !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))
         fail(`${path}.config.templateLanguage`, "Unsupported SMS template language");
       const variables = new Set([
+        ...ACTIVITY_TEMPLATE_FIELDS.map(field => field.value),
         ...fieldsForEvent(rule.module, event).map(field => field.value),
         ...taskSalutationFields(rule.module, event).map(field => field.value),
         "entityId", "countryCode", "actorUserId", "event.entityId", "event.countryCode", "event.actorUserId",

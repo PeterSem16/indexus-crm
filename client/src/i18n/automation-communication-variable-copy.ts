@@ -1,6 +1,10 @@
 import type { Locale } from "./translations";
 const locales = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
 const labels: Record<string, string[]> = {
+  detailUrl: ["Call detail link", "Odkaz na detail hovoru", "Odkaz na detail hovoru", "Hívás részleteinek linkje", "Link detalii apel", "Link ai dettagli della chiamata", "Link zu Anrufdetails"],
+  playbackUrl: ["Call playback link (sign-in required)", "Odkaz na prehratie hovoru (po prihlásení)", "Odkaz na přehrání hovoru (po přihlášení)", "Híváslejátszás linkje (bejelentkezés szükséges)", "Link redare apel (autentificare necesară)", "Link riproduzione chiamata (accesso richiesto)", "Link zur Anrufwiedergabe (Anmeldung erforderlich)"],
+  recordingId: ["Recording ID", "ID nahrávky", "ID nahrávky", "Felvételazonosító", "ID înregistrare", "ID registrazione", "Aufnahme-ID"],
+  dueDate: ["Task deadline", "Termín úlohy", "Termín úkolu", "Feladat határideje", "Termen sarcină", "Scadenza attività", "Aufgabenfrist"],
   type: ["Message type", "Typ správy", "Typ zprávy", "Üzenet típusa", "Tipul mesajului", "Tipo di messaggio", "Nachrichtentyp"],
   id: ["Source ID", "ID zdroja", "ID zdroje", "Forrásazonosító", "ID sursă", "ID origine", "Quell-ID"],
   direction: ["Direction", "Smer komunikácie", "Směr komunikace", "Kommunikáció iránya", "Direcție", "Direzione", "Richtung"],

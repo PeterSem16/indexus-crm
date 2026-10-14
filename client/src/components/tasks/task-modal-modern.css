@@ -22,6 +22,11 @@ body:has(.task-modern-modal[data-state="open"]) [data-radix-popper-content-wrapp
   color: hsl(var(--foreground));
   box-shadow: 0 28px 90px hsl(220 30% 12% / .24) !important;
 }
+/* Automation history uses its native dialog styling rather than task-modern-modal.
+   Keep this portal content above the shared blurred task overlay. */
+.automation-history-dialog {
+  z-index: 10020 !important;
+}
 .task-modern-modal--fullscreen {
   top: 0 !important;
   left: 0 !important;

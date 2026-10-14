@@ -46,6 +46,15 @@ export function communicationSourceContext(channel: AnalysisChannel, record: any
       startedAt: call.startedAt, answeredAt: call.answeredAt, endedAt: call.endedAt,
       durationSeconds: call.durationSeconds ?? record.durationSeconds, endedBy: call.hungUpBy,
       status: call.status, transcriptionLanguage: record.transcriptionLanguage });
+    // Application-owned, authenticated page, never a public audio or signed URL.
+    // Use the same configured origin as existing INDEXUS OAuth/share links.
+    const origin = new URL(process.env.APP_BASE_URL || "https://indexus.cordbloodcenter.com");
+    if (!["https:", "http:"].includes(origin.protocol)) throw new Error("Invalid application origin");
+    if (record.callLogId) {
+      const detailUrl = `${origin.origin}/automation-calls/${encodeURIComponent(record.callLogId)}`;
+      Object.assign(base, { detailUrl, recordingId: record.id,
+        playbackUrl: `${detailUrl}?recordingId=${encodeURIComponent(record.id)}` });
+    }
   } else if (channel === "chat") {
     Object.assign(base, { direction: "internal", senderUserId: record.senderId,
       senderName: related.sender?.fullName, senderEmail: related.sender?.email,
@@ -61,6 +70,7 @@ export function communicationSourceContext(channel: AnalysisChannel, record: any
       recipientUserId: task.assignedUserId, recipientName: related.recipient?.fullName,
       text: isComment ? record.content : `${task.title}\n${task.description || ""}`,
       commentKind: isComment ? record.kind : null, receivedAt: record.createdAt });
+    base.dueDate = task.dueDate;
   }
   return safeCommunicationContext(base);
 }

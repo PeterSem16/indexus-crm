@@ -60,7 +60,7 @@ async function fixture(page: Page, tab = "rules") {
     else if (path.includes("/preferences") || path.includes("/settings") || path.includes("/configuration")) data = {};
     return route.fulfill({ json: data });
   });
-  await page.goto(`/automations?tab=${tab}`);
+  await page.goto(`/automations?tab=${tab}`, { waitUntil: "domcontentloaded" });
   await expect(page.locator(".automation-production-overview")).toBeVisible({ timeout: 60_000 });
   return { mutations, errors, setListError: (value: boolean) => { failList = value; },
     setDetailError: (value: boolean) => { failDetail = value; }, setEmpty: () => { noRuns = true; } };
@@ -102,6 +102,15 @@ test("Rules: native requests, filters, toggle, guarded review/reset/delete, edit
   await page.getByTestId("button-history-regular").click();
   await expect(page.locator("[role=dialog] .rules-history")).toBeVisible();
   await expect(page.locator("[role=dialog] [data-run-id]")).toHaveCount(2);
+  const stacking = await page.locator(".automation-history-dialog").evaluate(dialog => {
+    const overlay = document.querySelector(".task-modern-modal-overlay");
+    return { dialog: Number(getComputedStyle(dialog).zIndex),
+      overlay: overlay ? Number(getComputedStyle(overlay).zIndex) : 0 };
+  });
+  expect(stacking.dialog).toBeGreaterThan(stacking.overlay);
+  // Visibility alone misses a dialog rendered behind its blurred overlay.
+  await page.locator("[role=dialog] [data-run-id]").first().click();
+  await page.screenshot({ path: ".local/screenshots/automation-history-dialog-fixed.png" });
   await page.keyboard.press("Escape");
   page.once("dialog", dialog => dialog.dismiss());
   await page.getByTestId("button-delete-regular").click();

@@ -34,6 +34,7 @@ export interface PlaybackState {
 
 interface CallRecordingPlayerProps {
   callLogId: string | number;
+  recordingId?: string;
   compact?: boolean;
   onTimeUpdate?: (state: PlaybackState) => void;
   agentLabel?: string;
@@ -541,7 +542,7 @@ function CallOutcomeBadges({ badges, compact }: { badges: CallOutcomeBadge[]; co
 }
 
 export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
-  const { callLogId, compact = false, onTimeUpdate, outcomeBadges } = props;
+  const { callLogId, recordingId, compact = false, onTimeUpdate, outcomeBadges } = props;
   const { data: recordings = [], isLoading } = useQuery<CallRecording[]>({
     queryKey: ["/api/call-recordings", { callLogId: String(callLogId) }],
     queryFn: async () => {
@@ -555,13 +556,16 @@ export function CallRecordingPlayer(props: CallRecordingPlayerProps) {
   });
 
   if (isLoading) return null;
-  if (!recordings.length) return null;
+  const visibleRecordings = recordingId
+    ? recordings.filter(recording => String(recording.id) === recordingId)
+    : recordings;
+  if (!visibleRecordings.length) return null;
 
   const waveNames: string[] = [props.agentLabel ?? "", props.customerLabel ?? ""];
 
   return (
     <div className="space-y-1.5 mt-2">
-      {recordings.map((rec) => (
+      {visibleRecordings.map((rec) => (
         <RecordingItem key={rec.id} recording={rec} compact={compact} onTimeUpdate={onTimeUpdate} waveNames={waveNames} outcomeBadges={outcomeBadges} />
       ))}
     </div>

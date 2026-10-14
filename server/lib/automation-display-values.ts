@@ -34,11 +34,12 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
   const country = ctx.event?.countryCode || ctx.countryCode || ctx.newValues?.countryCode || ctx.newValues?.country || null;
   await Promise.all([...paths].map(async path => {
     if (emptyCommunicationText(ctx, path)) { result.set(path, ""); return; }
-    const match = /^(newValues|oldValues|communication)\.([A-Za-z]+)$/.exec(path);
+    const match = /^(newValues|oldValues|communication|activity)\.([A-Za-z]+)$/.exec(path);
     if (!match) return;
     const [, scope, field] = match;
     const data = ctx[scope] || {};
-    const dateLabel = automationDateDisplay(field, data[field], ctx.event?.module, language, country);
+    const dateLabel = automationDateDisplay(field === "occurredAt" ? "createdAt" : field, data[field],
+      scope === "communication" && field === "dueDate" ? "task" : ctx.event?.module, language, country);
     if (dateLabel !== undefined) {
       result.set(path, dateLabel);
       return;
@@ -50,6 +51,7 @@ export async function automationDisplayValues(ctx: any, content: unknown[], look
       return;
     }
     let kind = references[field];
+    if (field === "actorUserId" && scope === "activity") kind = "user";
     if (field === "relatedEntityId") {
       const type = data.relatedEntityType || ctx.newValues?.relatedEntityType;
       if (contactKinds.has(type) || ["campaign", "task", "contract", "invoice"].includes(type)) kind = type;

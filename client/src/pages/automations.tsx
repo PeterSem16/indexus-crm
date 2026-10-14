@@ -1,4 +1,6 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
+import { ACTIVITY_TEMPLATE_FIELDS } from "@shared/automation-activity-context";
+import { activityTemplateLabel } from "@shared/automation-activity-template-copy";
 import { automationElseActions, automationExecutableActions, automationBranchIssue } from "@shared/automation-branches";
 import { AutomationBlockEditor, AutomationBlockActions } from "@/components/automation-block-editor";
 import { COMMUNICATION_SOURCE_FIELDS } from "@shared/automation-communication-context";
@@ -73,6 +75,7 @@ import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from 
 import "./automations-workspace.css";
 import { AutomationRulesOverview } from "@/components/automation-rules-overview";
 import { AutomationRunHistory } from "@/components/automation-run-history";
+import type { Locale } from "@/i18n";
 
 const AlertRulesManager = lazy(() => import("@/components/automation-alert-rules").then(m => ({ default: m.AlertRulesManager })));
 
@@ -111,6 +114,31 @@ const conditionOperatorIcons: Record<string, typeof CircleHelp> = {
   is_null: CircleDashed, is_not_null: CircleCheck, changed: ArrowRightLeft,
   changed_to: ArrowRight, changed_from: ArrowLeft,
 };
+const activityTemplateLabelKeys: Record<string, string> = {
+  actorUserId: "from",
+  assignedUserId: "to",
+  assignedDepartmentId: "to",
+  taskGroupIds: "to",
+  occurredAt: "time",
+  createdAt: "created",
+  updatedAt: "updated",
+  dueDate: "due",
+  priority: "priority",
+  status: "status",
+  eventType: "event",
+  id: "id",
+  title: "subject",
+  campaignId: "mission",
+  customerId: "to",
+  value: "value",
+  metricType: "subject",
+  contractNumber: "subject",
+  invoiceNumber: "subject",
+};
+const activityTemplateVariables = (locale: Locale) => ACTIVITY_TEMPLATE_FIELDS.map(({ value }) => {
+  const key = value.slice("activity.".length);
+  return { value, label: activityTemplateLabel(locale, activityTemplateLabelKeys[key] || key) };
+});
 
 type Rule = {
   id: string;
@@ -1040,6 +1068,7 @@ export function RuleEditor({
       ...(catalog.fields?.[candidate.module] || []),
       ...(catalog.fieldsByEvent?.[candidate.module]?.[eventType] || []),
       ...taskSalutationFields(candidate.module, eventType),
+      ...ACTIVITY_TEMPLATE_FIELDS,
     ];
     const supportedFields = new Set(fields.map((field) => field.value.replace(/^{{|}}$/g, "")));
     const supportedRecipients = new Set((catalog.recipientTemplatesByEvent?.[candidate.module]?.[eventType] || [])
@@ -1102,7 +1131,7 @@ export function RuleEditor({
       scheduleMode={draft.trigger.type === "schedule" ? scheduleMode || undefined : undefined}
       actionTypes={catalog.actionTypes} supportedActions={actionsForModule.map(option => option.value)}
       recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
-      availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
+      availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent), ...activityTemplateVariables(locale)].map(({ value, label }) => ({ value, label }))}
       users={users} departments={departments || []} taskGroups={taskGroups} roles={roles}
       countryCodes={draft.countryCodes?.filter((code): code is string => Boolean(code)) || (typeof draft.countryCode === "string" ? [draft.countryCode] : [])}
       ruleId={rule?.id} onEmailDraftValidityChange={invalid => recordEmailDraftValidity(branch === "then" ? index : draft.actions.length + index, invalid)}
@@ -1895,7 +1924,7 @@ export function RuleEditor({
                     actionTypes={catalog.actionTypes}
                     supportedActions={actionsForModule.map(a => a.value)}
                     recipientTemplates={catalog.recipientTemplatesByEvent?.[draft.module]?.[selectedEvent] || []}
-                    availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent)].map(({ value, label }) => ({ value, label }))}
+                    availableVariables={[...fieldsForConditions, ...taskSalutationFields(draft.module, selectedEvent), ...activityTemplateVariables(locale)].map(({ value, label }) => ({ value, label }))}
                     users={users}
                     departments={departments || []}
                     taskGroups={taskGroups}
@@ -2573,6 +2602,7 @@ function ActionEditor({
             config={action.config}
             onChange={changeNotifyConfig}
             availableVariables={availableVariables}
+            sourceModule={sourceModule}
             index={index}
             recipientSelector={<RecipientTargetSelect mode="notify" config={action.config} userOptions={userOptions}
               groups={taskGroups} roles={roles} onChange={(config) => onChange({ ...action, config })} index={index} />}
@@ -2588,6 +2618,7 @@ function ActionEditor({
           groups={taskGroups}
           roles={roles}
           availableVariables={availableVariables}
+          sourceModule={sourceModule}
           testId={`create-task-action-${index}`}
         />
       )}
@@ -2602,6 +2633,7 @@ function ActionEditor({
         countryCodes={countryCodes}
         ruleId={ruleId}
         availableVariables={availableVariables}
+        sourceModule={sourceModule}
         recipientTemplates={recipientTemplates}
         testId={`send-email-action-${index}`}
       />}
@@ -2611,6 +2643,7 @@ function ActionEditor({
           config={action.config}
           onChange={(config) => onChange({ ...action, config })}
           availableVariables={availableVariables}
+          sourceModule={sourceModule}
           countryCodes={countryCodes}
           testId={`send-sms-action-${index}`}
           onDraftValidityChange={onEmailDraftValidityChange}

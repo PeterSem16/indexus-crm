@@ -12,11 +12,13 @@ const definitions = [
   ["campaignId", "string"], ["campaignName", "string"], ["customerId", "string"],
   ["entityType", "string"], ["entityId", "string"], ["conversationId", "string"],
   ["callId", "string"], ["agentUserId", "string"], ["agentName", "string"],
+  ["detailUrl", "string"], ["playbackUrl", "string"], ["recordingId", "string"],
   ["initiatorName", "string"], ["initiatorUserId", "string"], ["contactName", "string"],
   ["startedAt", "datetime"], ["answeredAt", "datetime"], ["endedAt", "datetime"],
   ["durationSeconds", "number"], ["endedBy", "string"], ["transcriptionLanguage", "string"],
   ["taskId", "string"], ["taskTitle", "string"], ["taskStatus", "string"],
   ["taskPriority", "string"], ["commentKind", "string"], ["attachmentCount", "number"],
+  ["dueDate", "datetime"],
 ] as const;
 export type CommunicationVariable = typeof definitions[number][0];
 export type CommunicationContext = Partial<Record<CommunicationVariable, string | number | null>>;
@@ -43,6 +45,7 @@ export function safeCommunicationContext(input: Record<string, unknown>): Commun
     const value = input[key];
     if (type === "datetime") {
       if (value == null || value === "") return [key, null];
+      if (key === "dueDate" && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return [key, value];
       const date = value instanceof Date ? value : typeof value === "string" ? new Date(value) : null;
       return [key, date && Number.isFinite(date.getTime()) ? date.toISOString() : null];
     }

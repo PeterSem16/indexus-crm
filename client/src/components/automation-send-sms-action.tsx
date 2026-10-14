@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type SmsTemplate = { id: string; name: string; language?: string; content?: string; isActive?: boolean };
 const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();
@@ -27,7 +29,7 @@ const languageName = (value: string) => ({
   en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch",
 }[languageCode(value)] || value);
 export function AutomationSendSmsAction({
-  config, onChange, availableVariables, countryCodes, testId, onDraftValidityChange,
+  config, onChange, availableVariables, countryCodes, testId, onDraftValidityChange, sourceModule,
 }: {
   config: Record<string, any>;
   onChange: (config: Record<string, any>) => void;
@@ -35,6 +37,7 @@ export function AutomationSendSmsAction({
   countryCodes: string[];
   testId: string;
   onDraftValidityChange?: (invalid: boolean) => void;
+  sourceModule?: string;
 }) {
   const { locale } = useI18n();
   const copy = getSmsActionCopy(locale);
@@ -81,8 +84,12 @@ export function AutomationSendSmsAction({
   const templates = templatesQuery.data || [];
   const languages = useMemo(() => Array.from(new Set([locale, ...templates.map(item => item.language).filter(Boolean) as string[]]))
     .filter((value, index, all) => all.findIndex(candidate => languageCode(candidate) === languageCode(value)) === index), [locale, templates]);
-  const visibleTemplates = templates.filter(item => item.isActive !== false &&
-    (templateLanguage === "all" || languageCode(item.language) === languageCode(templateLanguage)));
+  const visibleTemplates = filterActivityCatalogTemplates(
+    templates.filter(item => item.isActive !== false &&
+      (templateLanguage === "all" || languageCode(item.language) === languageCode(templateLanguage))),
+    sourceModule,
+    availableVariables,
+  );
   const supported = new Set(availableVariables.map(item => cleanVariable(item.value)));
   const unsupportedIn = (text: string) => Array.from(new Set(
     Array.from(text.matchAll(/{{\s*([^{}]+?)\s*}}/g), match => match[1].trim()).filter(value => !supported.has(value)),
@@ -340,14 +347,18 @@ export function AutomationSendSmsAction({
               <SelectContent>
                 <SelectItem value="__custom">{copy.custom}</SelectItem>
                 {draft.templateId && !visibleTemplates.some(item => item.id === draft.templateId) && <SelectItem value={draft.templateId}>
-                  {draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.currentSnapshot}
+                  <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={draft.templateId} />
+                    <span>{draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.currentSnapshot}</span>
+                  </span>
                 </SelectItem>}
                 {visibleTemplates.map(template => {
                   const unsupportedVariables = unsupportedIn(template.content || "");
                   return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
                     data-testid={`${testId}-template-option-${template.id}`}>
-                    {template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
-                    {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}: ${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}
+                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+                      <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
+                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}: ${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
+                    </span>
                   </SelectItem>;
                 })}
               </SelectContent>

@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/components/automation-email-content-editor";
+import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -31,14 +33,14 @@ type Mailbox = { connected: boolean; email?: string; displayName?: string; hasSi
 
 const AUTOMATION_CATEGORY_ID = "indexus-automation-email-category";
 const rewriteArtworkForPreview = (html: string) => html.replace(
-  /cid:indexus-automation-(task|attention|success|deadline)/gi,
+  /cid:indexus-automation-(task|attention|success|deadline|phone)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();
 const emailPattern = /^[^@\s<>,;{}]+@[^@\s<>,;{}]+\.[^@\s<>,;{}]+$/;
 
 export function AutomationSendEmailAction({
-  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange,
+  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange, sourceModule,
 }: {
   config: any;
   onChange: (config: any) => void;
@@ -51,6 +53,7 @@ export function AutomationSendEmailAction({
   recipientTemplates: string[];
   testId: string;
   onDraftValidityChange?: (invalid: boolean) => void;
+  sourceModule?: string;
 }) {
   const { t, locale } = useI18n();
   const copy = t.sendEmailAction;
@@ -165,8 +168,11 @@ export function AutomationSendEmailAction({
   };
   const templateLanguages = Array.from(new Set([locale, ...templates.map(template => template.language).filter(Boolean) as string[]]))
     .filter((language, index, all) => all.findIndex(candidate => languageCode(candidate) === languageCode(language)) === index);
-  const filteredTemplates = templates.filter(template =>
-    templateLanguage === "all" || languageCode(template.language) === languageCode(templateLanguage));
+  const filteredTemplates = filterActivityCatalogTemplates(
+    templates.filter(template => templateLanguage === "all" || languageCode(template.language) === languageCode(templateLanguage)),
+    sourceModule,
+    availableVariables,
+  );
   const selectedTemplate = templates.find(template => template.id === config.templateId);
   const showSavedSnapshotOption = Boolean(config.templateId && (!filteredTemplates.some(template => template.id === config.templateId)));
   const languageLabel = (code: string) => ({ en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch" }[languageCode(code)] || code);
@@ -371,12 +377,19 @@ export function AutomationSendEmailAction({
       <SelectContent className="z-[10041]">
         <SelectItem value="__custom">{copy.customText}</SelectItem>
         {showSavedSnapshotOption &&
-          <SelectItem value={config.templateId}>{config.templateName || selectedTemplate?.name || copy.savedSnapshot} · {t.automationEditorHelp.currentSnapshot}</SelectItem>}
+          <SelectItem value={config.templateId}>
+            <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={config.templateId} />
+              <span>{config.templateName || selectedTemplate?.name || copy.savedSnapshot} · {t.automationEditorHelp.currentSnapshot}</span>
+            </span>
+          </SelectItem>}
         {filteredTemplates.map((template, index) => <SelectItem key={template.id} value={template.id}>
-          {index === 0 || filteredTemplates[index - 1].categoryId !== template.categoryId
-            ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
-            : ""}
-          {template.name}{template.language ? ` · ${languageLabel(template.language)}` : ""}
+          <span className="inline-flex items-center gap-2">
+            <AutomationActivityTemplateIcon templateId={template.id} />
+            <span>{index === 0 || filteredTemplates[index - 1].categoryId !== template.categoryId
+              ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
+              : ""}
+            {template.name}{template.language ? ` · ${languageLabel(template.language)}` : ""}</span>
+          </span>
         </SelectItem>)}
       </SelectContent>
     </Select>

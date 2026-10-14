@@ -12,6 +12,8 @@ import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 import { AutomationTaskRecipientDialog, type TaskRecipient } from "./automation-task-recipient-dialog";
 import automationEditorHelpTranslations from "@/i18n/automation-editor-help-translations";
 import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
+import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 import "./automation-create-task-action.css";
 
 type Recipient = { kind: "user" | "group" | "role"; id: string };
@@ -27,6 +29,7 @@ export function AutomationCreateTaskAction({
   groups,
   roles,
   availableVariables,
+  sourceModule,
   testId = "create-task-action",
 }: {
   config: Record<string, any>;
@@ -35,6 +38,7 @@ export function AutomationCreateTaskAction({
   groups: GroupOption[];
   roles: RoleOption[];
   availableVariables: Array<{ value: string; label: string }>;
+  sourceModule?: string;
   testId?: string;
 }) {
   const { locale } = useI18n();
@@ -143,8 +147,11 @@ export function AutomationCreateTaskAction({
     return aliases[normalized] || normalized.split(/[-_]/)[0];
   };
   const templates = templateQuery.data || [];
-  const matchingTemplates = templates.filter(template =>
-    templateLanguage === "all" || localeCode(template.language) === localeCode(templateLanguage));
+  const matchingTemplates = filterActivityCatalogTemplates(
+    templates.filter(template => templateLanguage === "all" || localeCode(template.language) === localeCode(templateLanguage)),
+    sourceModule,
+    availableVariables,
+  );
   const visibleTemplates = matchingTemplates.filter(template => template.isActive !== false || template.id === config.templateId);
   const currentTemplate = config.templateId
     ? templates.find(template => template.id === config.templateId) || {
@@ -289,8 +296,15 @@ export function AutomationCreateTaskAction({
             <SelectContent>
               <SelectItem value="custom">{copy.customText}</SelectItem>
               {currentTemplate && !visibleTemplates.some(template => template.id === currentTemplate.id) &&
-                <SelectItem value={currentTemplate.id}>{currentTemplate.name} · {editorCopy.currentSnapshot}</SelectItem>}
-              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}</SelectItem>)}
+                <SelectItem value={currentTemplate.id}><span className="inline-flex items-center gap-2">
+                  <AutomationActivityTemplateIcon templateId={currentTemplate.id} />
+                  <span>{currentTemplate.name} · {editorCopy.currentSnapshot}</span>
+                </span></SelectItem>}
+              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}>
+                <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+                  <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}</span>
+                </span>
+              </SelectItem>)}
             </SelectContent>
           </Select>
           {templateQuery.isError && <p className="automation-create-task__error" role="status">{copy.templateLoadError}</p>}

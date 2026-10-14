@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type Template = { id: string; name: string; language?: string; subject?: string; content?: string; isActive?: boolean };
 type Field = "title" | "message";
@@ -22,13 +24,14 @@ const languageCode = (value?: string) => {
 const languageName = (value: string) => ({ en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch" }[languageCode(value)] || value);
 
 export function AutomationNotifyUserAction({
-  config, onChange, availableVariables, recipientSelector, index,
+  config, onChange, availableVariables, recipientSelector, index, sourceModule,
 }: {
   config: Record<string, any>;
   onChange: (config: Record<string, any>) => void;
   availableVariables: Array<{ value: string; label: string }>;
   recipientSelector: ReactNode;
   index: number;
+  sourceModule?: string;
 }) {
   const { locale } = useI18n();
   const copy = getNotificationCopy(locale);
@@ -50,8 +53,12 @@ export function AutomationNotifyUserAction({
   const templates = query.data || [];
   const languages = useMemo(() => Array.from(new Set([locale, ...templates.map(item => item.language).filter(Boolean) as string[]]))
     .filter((value, index, all) => all.findIndex(candidate => languageCode(candidate) === languageCode(value)) === index), [locale, templates]);
-  const visibleTemplates = templates.filter(item => item.isActive !== false &&
-    (templateLanguage === "all" || languageCode(item.language) === languageCode(templateLanguage)));
+  const visibleTemplates = filterActivityCatalogTemplates(
+    templates.filter(item => item.isActive !== false &&
+      (templateLanguage === "all" || languageCode(item.language) === languageCode(templateLanguage))),
+    sourceModule,
+    availableVariables,
+  );
   const selectedTemplate = templates.find(item => item.id === draft.templateId);
   const keepSelectedVisible = Boolean(draft.templateId && !visibleTemplates.some(item => item.id === draft.templateId));
   const supported = new Set(availableVariables.map(item => clean(item.value)));
@@ -161,16 +168,20 @@ export function AutomationNotifyUserAction({
                   const unsupportedVariables = selectedTemplate ? unsupportedIn(selectedTemplate) : unsupported;
                   return <SelectItem value={draft.templateId} disabled={unsupportedVariables.length > 0}
                     data-testid={`notify-template-option-${draft.templateId}`}>
-                    {draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.snapshot}
-                    {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}
+                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={draft.templateId} />
+                      <span>{draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.snapshot}
+                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
+                    </span>
                   </SelectItem>;
                 })()}
                 {visibleTemplates.map(template => {
                   const unsupportedVariables = unsupportedIn(template);
                   return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
                     data-testid={`notify-template-option-${template.id}`}>
-                    {template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
-                    {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}
+                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+                      <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
+                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
+                    </span>
                   </SelectItem>;
                 })}
               </SelectContent>

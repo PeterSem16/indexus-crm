@@ -1,6 +1,7 @@
 import { ensureTaskMessageTemplates } from "./task-message-templates";
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
 import { ensureAutomationCallTemplates } from "./automation-call-templates";
+import { ensureAutomationActivityTemplates } from "./automation-activity-templates";
 import { ensureAutomationTaskEventTemplates } from "./automation-task-event-templates";
 import { ensureAutomationNotificationTemplates } from "./automation-notification-templates";
 import { ensureAutomationSmsTemplates } from "./automation-sms-templates";
@@ -81,4 +82,5 @@ export async function ensureStandaloneAutomationSchema(pool: {
   await ensureAutomationTaskEventTemplates(pool);
   await ensureAutomationNotificationTemplates(pool);
   await ensureAutomationSmsTemplates(pool);
+  await ensureAutomationActivityTemplates(pool);
 }

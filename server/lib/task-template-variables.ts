@@ -1,3 +1,4 @@
+import { activityTemplateContext } from "../../shared/automation-activity-context";
 type Gender = "male" | "female";
 // Mirror the existing Nexus Pulse synchronous salutation rules and language tables.
 const SHORT: Record<Gender, Record<string, string>> = {
@@ -14,6 +15,7 @@ const DOCTOR: Record<Gender, Record<string, string>> = {
 };
 
 export function taskTemplateContext(ctx: any, templateLanguage?: string) {
+  ctx = activityTemplateContext(ctx);
   const module = ctx.event?.module;
   if (ctx.event?.source === "schedule" || !["customer", "clinic", "collaborator"].includes(module)) return ctx;
   const data = ctx.newValues || {};

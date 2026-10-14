@@ -11756,7 +11756,7 @@ const TEMPLATE_LANGUAGES = [
 ];
 
 const rewriteEmailArtworkPreview = (html: string) => html.replace(
-  /cid:indexus-automation-(task|attention|success|deadline)/gi,
+  /cid:indexus-automation-(task|attention|success|deadline|phone)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 
