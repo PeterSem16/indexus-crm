@@ -9,7 +9,7 @@ type CallCopy = { badge: string; detailHeading: string; detailText: string; open
 export const CALL_TEMPLATE_KEYS = ["inbound", "inbound-missed", "outbound", "outbound-unanswered"] as const;
 
 /** Reuses the approved record-notification design; no numbers, identities or new artwork. */
-export async function loadAutomationCallTemplates(visualStyle: "semantic" | "original" = "semantic") {
+export async function loadAutomationCallTemplates(visualStyle: "semantic" | "original" | "historical" = "semantic") {
   const originals: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"));
   const source = originals.find(template => template.id === "indexus-automation-email-data-change");
   if (!source) throw new Error("Approved automation record-notification design missing");
@@ -30,7 +30,7 @@ export async function loadAutomationCallTemplates(visualStyle: "semantic" | "ori
             copy.detailHeading, copy.detailText, copy.openCall],
         } },
       });
-      email.contentHtml = normalizeEmailTemplateLayout(email.contentHtml);
+      if (visualStyle !== "historical") email.contentHtml = normalizeEmailTemplateLayout(email.contentHtml);
       if (!variant.taskName?.trim() || !variant.taskBody?.trim()) throw new Error(`Missing call Task copy: ${language}/${variant.key}`);
       const suffix = `${variant.key}${language === "sk" ? "" : `-${language}`}`;
       if (visualStyle === "semantic") email.contentHtml = automationTemplateVisuals(`call-${variant.key}`, email.contentHtml);

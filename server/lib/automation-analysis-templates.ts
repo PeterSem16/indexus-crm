@@ -10,7 +10,7 @@ import { normalizeEmailTemplateLayout } from "@shared/email-template-layout";
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
 import { automationTemplateVisuals, refreshPristineTemplateVisuals } from "./automation-template-visuals";
 
-export async function loadAutomationAnalysisEmailTemplates(visualStyle: "semantic" | "original" = "semantic") {
+export async function loadAutomationAnalysisEmailTemplates(visualStyle: "semantic" | "original" | "historical" = "semantic") {
   const sources: AutomationEmailDefault[] = JSON.parse(
     await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"),
   );
@@ -48,7 +48,8 @@ export async function loadAutomationAnalysisEmailTemplates(visualStyle: "semanti
         id: `indexus-automation-email-analysis-${key}-${language}`,
         name: variant.name,
         subject: variant.name,
-        contentHtml: normalizeEmailTemplateLayout(visualStyle === "semantic" ? automationTemplateVisuals(`analysis-${key}`, generated.contentHtml) : generated.contentHtml),
+        contentHtml: visualStyle === "historical" ? generated.contentHtml :
+          normalizeEmailTemplateLayout(visualStyle === "semantic" ? automationTemplateVisuals(`analysis-${key}`, generated.contentHtml) : generated.contentHtml),
       };
     });
     return { language, templates };

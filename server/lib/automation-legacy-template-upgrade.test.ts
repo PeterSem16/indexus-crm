@@ -8,6 +8,8 @@ import { activityTemplateMissingVariables } from "../../client/src/components/au
 import { ACTIVITY_TEMPLATE_FIELDS } from "../../shared/automation-activity-context";
 import { ANALYSIS_FIELDS } from "../../shared/automation-analysis";
 import { COMMUNICATION_SOURCE_FIELDS } from "../../shared/automation-communication-context";
+import { activityTemplateContext } from "../../shared/automation-activity-context";
+import { renderEmailValue } from "./automation-email-policy";
 
 test("each voice direction has separate real sentiment and tone templates in all locales and delivery types", async () => {
   const all = await loadAutomationActivityTemplates();
@@ -57,8 +59,10 @@ test("PostgreSQL upgrades pristine legacy defaults but preserves edits, deletion
       INSERT INTO workflow_rules VALUES('snapshot','[{"config":{"body":"saved legacy copy"}}]');`);
     const originals = await legacyAutomationDefaults();
     const ids = ["indexus-task-template-check-data", "indexus-automation-email-analysis-negative-sentiment-sk",
-      "indexus-automation-email-call-outbound", "indexus-task-template-contact-verify", "indexus-task-template-overdue"];
-    const selected = ids.map(id => originals.find(item => item.id === id)!);
+      "indexus-automation-email-call-outbound", "indexus-task-template-contact-verify", "indexus-task-template-overdue",
+      "indexus-automation-email-deadline-en", "indexus-automation-email-task-event-overdue-en"];
+    // Use the real historically seeded raw/localized frame, not a normalized reconstruction.
+    const selected = ids.map(id => originals.filter(item => item.id === id).at(-1)!);
     assert.ok(selected.every(Boolean));
     for (const [index, item] of selected.entries()) {
       await client.query("INSERT INTO message_templates VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)", [
@@ -67,16 +71,38 @@ test("PostgreSQL upgrades pristine legacy defaults but preserves edits, deletion
       ]);
     }
     await ensureLegacyAutomationTemplateVariables(client);
-    const { rows } = await client.query("SELECT id,content FROM message_templates ORDER BY id");
+    const { rows } = await client.query("SELECT id,subject,content,content_html FROM message_templates ORDER BY id");
     const byId = new Map(rows.map(row => [row.id, row.content]));
     assert.ok(byId.get(ids[0]).includes("{{activity.title}}"));
     assert.ok(byId.get(ids[2]).includes("{{entityId}}"));
     assert.equal(byId.get(ids[1]), "manager-edited");
     assert.equal(byId.get(ids[3]), selected[3].content);
     assert.equal(byId.get(ids[4]), selected[4].content);
+    for (const id of [ids[5], ids[6]]) {
+      const deadline = rows.find(row => row.id === id)!;
+      assert.ok(deadline.subject.includes("{{activity.title}}"));
+      assert.ok(deadline.subject.includes("{{activity.id}}"));
+      assert.ok(deadline.content.includes("{{activity.dueDate}}"));
+      assert.ok(deadline.content_html.includes("{{activity.title}}"));
+      assert.ok(deadline.content_html.includes("{{activity.id}}"));
+      assert.ok(deadline.content_html.includes("{{activity.dueDate}}"));
+      assert.ok(deadline.content_html.indexOf("{{activity.title}}") < deadline.content_html.indexOf("cid:"));
+      const context = activityTemplateContext({
+        entityId: "task-identity-test", newValues: { title: "Verify <documents>", dueDate: "2026-10-20", status: "pending" },
+        event: { eventType: "task.overdue", createdAt: "2026-10-21T08:00:00Z" },
+      });
+      const sentHtml = renderEmailValue(deadline.content_html, context, true);
+      const sentSubject = renderEmailValue(deadline.subject, context);
+      assert.ok(sentSubject.includes("Verify <documents>"));
+      assert.ok(sentSubject.includes("task-identity-test"));
+      assert.ok(sentHtml.includes("Verify &lt;documents&gt;"));
+      assert.ok(sentHtml.includes("2026-10-20"));
+      assert.ok(sentHtml.includes("task-identity-test"));
+      assert.ok(!sentHtml.includes("{{"));
+    }
     await ensureLegacyAutomationTemplateVariables(client);
-    assert.deepEqual((await client.query("SELECT id,content FROM message_templates ORDER BY id")).rows, rows);
-    assert.equal((await client.query("SELECT count(*)::int AS n FROM message_templates")).rows[0].n, 5);
+    assert.deepEqual((await client.query("SELECT id,subject,content,content_html FROM message_templates ORDER BY id")).rows, rows);
+    assert.equal((await client.query("SELECT count(*)::int AS n FROM message_templates")).rows[0].n, selected.length);
     assert.equal((await client.query("SELECT actions->0->'config'->>'body' AS body FROM workflow_rules")).rows[0].body, "saved legacy copy");
   } finally {
     await client.query("ROLLBACK");

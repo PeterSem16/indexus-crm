@@ -9,6 +9,7 @@ import { loadAutomationAnalysisEmailTemplates, automationAnalysisNotificationDef
 import { notificationTemplateDefaults } from "../../shared/automation-notification-templates";
 import { automationSmsDefaults } from "./automation-sms-templates";
 import { automationTemplateVisuals } from "./automation-template-visuals";
+import { loadAutomationTaskEventTemplates } from "./automation-task-event-templates";
 
 export type LegacyDefault = {
   id: string; name: string; type: string; language: string;
@@ -34,7 +35,7 @@ export function legacyTemplateContextLines(template: LegacyDefault): Line[] {
   return common;
 }
 
-export function upgradeLegacyDefault(template: LegacyDefault): LegacyDefault {
+function previousLegacyDefaultUpgrade(template: LegacyDefault): LegacyDefault | null {
   const language = template.language as ActivityTemplateLanguage;
   const fields = legacyTemplateContextLines(template).filter(([, key]) =>
     !`${template.content}\n${template.contentHtml || ""}`.includes(`{{${key}}}`));
@@ -45,21 +46,49 @@ export function upgradeLegacyDefault(template: LegacyDefault): LegacyDefault {
     const detail = `<tr><td style="padding:0 28px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e1eaf0;border-radius:12px;border-collapse:separate;border-spacing:0;">${rows}</table></td></tr>`;
     // Insert within the approved 560px frame, never an unbounded afterthought.
     const closing = /(<\/tbody>\s*<\/table>\s*<\/td>\s*<\/tr>\s*<\/tbody>\s*<\/table>\s*<\/body>)/;
-    if (!closing.test(html)) throw new Error(`Legacy automation frame missing: ${template.id}`);
+    // This historical representation was never upgradable by the previous
+    // algorithm. Do not invent a prior persisted shape for it.
+    if (!closing.test(html)) return null;
     html = normalizeEmailTemplateLayout(automationTemplateVisuals(template.id, html.replace(closing, `${detail}$1`)));
   }
   return { ...template, content: text ? `${template.content}\n\n${text}` : template.content, contentHtml: html };
 }
 
+export function upgradeLegacyDefault(template: LegacyDefault): LegacyDefault {
+  const language = template.language as ActivityTemplateLanguage;
+  const fields = legacyTemplateContextLines(template);
+  const title = template.id.includes("-analysis-") ? "communication.subject" : template.id.includes("-call-") ? "entityId" : "activity.title";
+  const identity = template.id.includes("-analysis-") ? "communication.id" : template.id.includes("-call-") ? "entityId" : "activity.id";
+  const heading = `${activityTemplateLabel(language, "subject")}: {{${title}}}\n${activityTemplateLabel(language, "id")}: {{${identity}}}`;
+  const context = fields.map(([label, key]) => `${activityTemplateLabel(language, label)}: {{${key}}}`).join("\n");
+  let html = template.contentHtml;
+  if (html) {
+    const rows = fields.map(([label, key]) => `<tr><td style="padding:8px 12px;font-size:12px;color:#57768d;">${activityTemplateLabel(language, label)}</td><td style="padding:8px 12px;font-size:14px;color:#21384c;">{{${key}}}</td></tr>`).join("");
+    // Show identification before the generic artwork/prose, not below the whole email.
+    const contextBlock = `<tr><td style="padding:20px 28px 12px;"><div style="font-size:19px;font-weight:bold;color:#21384c;">{{${title}}}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;border:1px solid #e1eaf0;">${rows}</table></td></tr>`;
+    const frame = /(<table\b[^>]*width="[456]\d{2}"[^>]*>\s*(?:<tbody>)?)/;
+    if (!frame.test(html)) throw new Error(`Legacy automation frame missing: ${template.id}`);
+    html = normalizeEmailTemplateLayout(automationTemplateVisuals(template.id, html.replace(frame, `$1${contextBlock}`)));
+    if (/deadline/.test(template.id)) html = html.replace(/>—</, ">{{activity.dueDate}}<");
+  }
+  return { ...template,
+    subject: `${template.subject || template.name} · {{${title}}} [{{${identity}}}]`,
+    content: `${heading}\n${context}\n\n${template.content}`, contentHtml: html };
+}
+
 /** Reconstruct approved originals to distinguish untouched defaults from edits. */
 export async function legacyAutomationDefaults(): Promise<LegacyDefault[]> {
-  const originals: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"))
-    .map((item: AutomationEmailDefault) => ({ ...item, contentHtml: normalizeEmailTemplateLayout(item.contentHtml) }));
+  const raw: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"));
+  const originals = raw.map(item => ({ ...item, contentHtml: normalizeEmailTemplateLayout(item.contentHtml) }));
   const locales = await loadAutomationTemplateLocales();
   const result: LegacyDefault[] = originals.map(item => ({ ...item, type: "email", language: "sk", contentHtml: normalizeEmailTemplateLayout(item.contentHtml) }));
   result.push(...locales.flatMap(locale => originals.map(item => ({
     ...localizeAutomationEmail(item, locale), type: "email", language: locale.language,
   }))));
+  // Earlier seeds localized the RAW approved frame. Normalizing it first loses
+  // byte equality and silently skips all untouched generic email defaults.
+  result.push(...raw.map(item => ({ ...item, type: "email", language: "sk" })),
+    ...locales.flatMap(locale => raw.map(item => ({ ...localizeAutomationEmail(item, locale), type: "email", language: locale.language }))));
   for (const language of ACTIVITY_TEMPLATE_LANGUAGES) {
     const locale = locales.find(item => item.language === language);
     const tasks = locale ? localizedTaskDefaults(DEFAULT_TASK_MESSAGE_TEMPLATES, locale) : DEFAULT_TASK_MESSAGE_TEMPLATES;
@@ -71,7 +100,7 @@ export async function legacyAutomationDefaults(): Promise<LegacyDefault[]> {
       ...automationAnalysisNotificationDefaults(language), ...automationAnalysisSmsDefaults(language));
   }
   // Older installations can contain the original frame OR its color correction.
-  for (const style of ["original", "semantic"] as const) {
+  for (const style of ["original", "semantic", "historical"] as const) {
     for (const batch of await loadAutomationCallTemplates(style))
       for (const item of batch.templates) result.push(
         { ...item.email, type: "email", language: batch.language },
@@ -79,6 +108,10 @@ export async function legacyAutomationDefaults(): Promise<LegacyDefault[]> {
     for (const batch of await loadAutomationAnalysisEmailTemplates(style))
       result.push(...batch.templates.map(item => ({ ...item, type: "email", language: batch.language })));
   }
+  for (const batch of await loadAutomationTaskEventTemplates())
+    for (const item of batch.templates) result.push(
+      { ...item.email, type: "email", language: batch.language },
+      { ...item.task, type: "task", language: batch.language });
   return result;
 }
 
@@ -87,10 +120,11 @@ export async function ensureLegacyAutomationTemplateVariables(pool: { query: (sq
   const defaults = await legacyAutomationDefaults();
   const quote = (value: string | null | undefined) => value == null ? "NULL" : `'${value.replaceAll("'", "''")}'`;
   for (const language of ACTIVITY_TEMPLATE_LANGUAGES) {
-    const rows = defaults.filter(item => item.language === language).map(old => {
+    const rows = defaults.filter(item => item.language === language).flatMap(old => {
       const next = upgradeLegacyDefault(old);
-      return `(${[old.id, old.name, old.type, old.subject, old.content, old.contentHtml,
-        next.subject, next.content, next.contentHtml].map(quote).join(",")})`;
+      return [old, previousLegacyDefaultUpgrade(old)].filter((item): item is LegacyDefault => item !== null).map(previous =>
+        `(${[old.id, old.name, old.type, previous.subject, previous.content, previous.contentHtml,
+          next.subject, next.content, next.contentHtml].map(quote).join(",")})`);
     }).join(",\n");
     await pool.query(`WITH upgrades(id,name,type,old_subject,old_content,old_html,new_subject,new_content,new_html) AS (VALUES ${rows})
       UPDATE message_templates AS template SET subject=upgrades.new_subject, content=upgrades.new_content, content_html=upgrades.new_html
