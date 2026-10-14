@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Copy, Plus, Search, Settings2, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -32,14 +32,19 @@ export function AutomationBlockActions({ actions, options, onChange, createActio
   actions: Action[]; options: { value: string; label: string }[];
   onChange: (actions: Action[]) => void; createAction: (type: string) => Action;
   renderEditor: (action: Action, index: number, change: (action: Action) => void, remove: () => void) => ReactNode;
-  onEditingChange: (editing: boolean) => void;
+  onEditingChange: (actionType: string | null) => void;
 }) {
   const { t } = useI18n();
   const copy = t.automationBlockEditor;
   const [editing, setEditing] = useState<{ index: number; original: Action | null } | null>(null);
   const [catalog, setCatalog] = useState(false);
   const [search, setSearch] = useState("");
-  const select = (next: typeof editing) => { setEditing(next); onEditingChange(Boolean(next)); };
+  const editingType = editing ? actions[editing.index]?.type || null : null;
+  useEffect(() => { onEditingChange(editingType); }, [editingType, onEditingChange]);
+  const select = (next: typeof editing, actionType?: string) => {
+    setEditing(next);
+    onEditingChange(next ? actionType || actions[next.index]?.type || null : null);
+  };
   const update = (index: number, action: Action) => onChange(actions.map((item, i) => i === index ? action : item));
   const remove = (index: number) => { onChange(actions.filter((_, i) => i !== index)); select(null); };
   const cancel = () => {
@@ -81,7 +86,7 @@ export function AutomationBlockActions({ actions, options, onChange, createActio
       <div>{options.filter(option => option.label.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(option =>
         <Button type="button" key={option.value} variant="outline" onClick={() => {
           const index = actions.length; onChange([...actions, createAction(option.value)]);
-          setCatalog(false); select({ index, original: null });
+          setCatalog(false); select({ index, original: null }, option.value);
         }}><Plus size={14}/>{option.label}</Button>)}</div>
     </div>}
     <div className="automation-actions-add"><Button type="button" onClick={() => { setSearch(""); setCatalog(!catalog); }}><Plus size={14}/>{copy.add}</Button></div>

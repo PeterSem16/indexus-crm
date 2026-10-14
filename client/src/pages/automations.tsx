@@ -16,6 +16,7 @@ import { getRecordEntryCopy } from "@/i18n/automation-record-entry-copy";
 import { conditionChoiceSource } from "@shared/automation-condition-catalog";
 import { useAuth } from "@/contexts/auth-context";
 import { emailActionIssues } from "@shared/automation-email-action";
+import { forwardActionIssues } from "@shared/automation-forward-action";
 import { useState, useMemo, useEffect, useRef, Fragment, lazy, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -639,13 +640,13 @@ export function RuleEditor({
   const [showTest, setShowTest] = useState(false);
   const [expandedStep, setExpandedStepState] = useState<number | null>(null);
   const blockSnapshot = useRef<RuleDraft | null>(null);
-  const [editingAction, setEditingAction] = useState(false);
+  const [editingAction, setEditingAction] = useState<string | null>(null);
   const [elseSearch, setElseSearch] = useState("");
   const [pendingElseMode, setPendingElseMode] = useState<"link" | null>(null);
   const setExpandedStep = (step: number | null) => {
     if (step !== null && expandedStep === null) {
       blockSnapshot.current = structuredClone(draft);
-      setEditingAction(false);
+      setEditingAction(null);
       setElseSearch("");
       setPendingElseMode(null);
     }
@@ -655,14 +656,14 @@ export function RuleEditor({
     if (blockSnapshot.current) setDraft(blockSnapshot.current);
     blockSnapshot.current = null;
     setEmailDraftInvalidByAction({});
-    setEditingAction(false);
+    setEditingAction(null);
     setSourceResetNotice(false);
     setExpandedStepState(null);
     setPendingElseMode(null);
   };
   const applyBlock = () => {
     blockSnapshot.current = null;
-    setEditingAction(false);
+    setEditingAction(null);
     setExpandedStepState(null);
     setPendingElseMode(null);
   };
@@ -1086,6 +1087,8 @@ export function RuleEditor({
       return true;
     };
     return automationExecutableActions(candidate).some((action) => {
+      if (action.type === "forward_message")
+        return forwardActionIssues(action.config).length > 0;
       if (action.type === "assign_user")
         return action.config?.assignOwnerVersion !== 2 || assignOwnerIssues(action.config, candidate.module).length > 0;
       if (["add_tag", "remove_tag"].includes(action.type))
@@ -1099,8 +1102,9 @@ export function RuleEditor({
     });
   };
   const hasInvalidEmailDraft = automationExecutableActions(draft).some((action, index) =>
-    ["send_email", "send_sms", "update_entity", "add_tag", "remove_tag", "assign_user"].includes(action.type) && emailDraftInvalidByAction[index]);
+    ["send_email", "send_sms", "forward_message", "update_entity", "add_tag", "remove_tag", "assign_user"].includes(action.type) && emailDraftInvalidByAction[index]);
   const emailActionsInvalid = emailActionInvalid(draft) || hasInvalidEmailDraft;
+  const actionNeedsDone = editingAction !== null && editingAction !== "forward_message";
   const recordEmailDraftValidity = (index: number, invalid: boolean) =>
     setEmailDraftInvalidByAction(current => current[index] === invalid ? current : { ...current, [index]: invalid });
 
@@ -1552,7 +1556,7 @@ export function RuleEditor({
                         data-testid="button-add-action"><Settings2 className="h-3.5 w-3.5 mr-1" />{blockCopy.edit}</Button>
                     </div>
                     <AutomationBlockEditor open={expandedStep === 2} title={t.automationServices.workspace.then}
-                      onCancel={cancelBlock} onApply={applyBlock} disabled={editingAction || emailActionsInvalid || incompatible}>
+                      onCancel={cancelBlock} onApply={applyBlock} disabled={actionNeedsDone || emailActionsInvalid || incompatible}>
                       {expandedStep === 2 && actionList("then")}
                     </AutomationBlockEditor>
                   </section>
@@ -1567,7 +1571,7 @@ export function RuleEditor({
                       <Button size="sm" variant="outline" onClick={() => setExpandedStep(3)}>{blockCopy.edit}</Button>
                     </div>
                     <AutomationBlockEditor open={expandedStep === 3} title={blockCopy.else} onCancel={cancelBlock} onApply={applyBlock}
-                      disabled={editingAction || emailActionsInvalid || Boolean(automationBranchIssue(draft.trigger)) ||
+                      disabled={actionNeedsDone || emailActionsInvalid || Boolean(automationBranchIssue(draft.trigger)) ||
                         (elseMode === "link" && !configuredNoMatchRuleId)}>
                       {expandedStep === 3 && (draft.trigger.type === "schedule" ? <p>{blockCopy.schedule}</p> : <>
                         <div className="automation-else-modes">
