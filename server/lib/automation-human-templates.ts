@@ -3,6 +3,7 @@ import { templateVisualTone } from "../../shared/automation-template-visual";
 import { legacyAutomationDefaults, upgradeLegacyDefault, previousLegacyDefaultUpgrade, legacyTemplateContextLines, type LegacyDefault } from "./automation-legacy-template-upgrade";
 import { activityTemplateBriefs, loadAutomationActivityTemplates } from "./automation-activity-templates";
 import { humanTemplateCopy } from "./automation-human-copy";
+import { expressiveHumanEmail } from "./automation-expressive-email";
 
 type Line = [string, string];
 const escape = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -11,7 +12,7 @@ const technical = (path: string) => path === "entityId" || /(?:^|\.)(?:id|callId
 const colors = { positive: "#176b5d", negative: "#b34e40", urgent: "#916117", deadline: "#7656a1", info: "#176b5d" };
 
 /** Variant B, expressed as portable email HTML, not a browser-only mockup. */
-export function humanizeAutomationTemplate(template: LegacyDefault, sourceLines: Line[]): LegacyDefault {
+export function humanizeAutomationTemplate(template: LegacyDefault, sourceLines: Line[], appearance: "classic" | "expressive" = "expressive"): LegacyDefault {
   const language = template.language as ActivityTemplateLanguage;
   const c = (key: string) => humanTemplateCopy(language, key);
   const label = (key: string) => key === "count" ? c("count") : activityTemplateLabel(language, key);
@@ -70,7 +71,7 @@ ${prose}
 <div style="margin-top:24px;">${buttons}</div></td></tr>
 <tr><td style="padding:19px 28px;border-top:1px solid #dce9df;color:#587371;font-size:11px;line-height:1.7;">INDEXUS · ${escape(c("tagline"))}<br>${escape(c("footer"))}</td></tr>
 </table></td></tr></table></body></html>`;
-  return { ...template, subject, content, contentHtml: html };
+  return { ...template, subject, content, contentHtml: appearance === "classic" ? html : expressiveHumanEmail(html, template.id) };
 }
 
 export async function humanAutomationCatalog() {
@@ -93,9 +94,13 @@ export async function ensureHumanAutomationTemplates(pool: { query: (sql: string
   const next = new Map(templates.map(template => [template.id, template]));
   const quote = (value?: string | null) => value == null ? "NULL" : `'${value.replaceAll("'", "''")}'`;
   for (const language of ACTIVITY_TEMPLATE_LANGUAGES) {
-    const values = sources.filter(({ old }) => old.language === language).flatMap(({ old }) => {
+    const values = sources.filter(({ old }) => old.language === language).flatMap(({ old, lines }) => {
       const modern = next.get(old.id)!;
-      const predecessors = old.id.startsWith("indexus-activity-") ? [old] : [old, upgradeLegacyDefault(old), previousLegacyDefaultUpgrade(old)];
+      const classic = humanizeAutomationTemplate(old, lines, "classic");
+      const predecessors = [
+        ...(old.id.startsWith("indexus-activity-") ? [old] : [old, upgradeLegacyDefault(old), previousLegacyDefaultUpgrade(old)]),
+        ...(old.type === "email" ? [classic] : []),
+      ];
       return predecessors.filter((v): v is LegacyDefault => Boolean(v)).map(previous =>
         `(${[old.id, old.name, old.type, previous.subject, previous.content, previous.contentHtml,
           modern.subject, modern.content, modern.contentHtml].map(quote).join(",")})`);
@@ -106,6 +111,7 @@ export async function ensureHumanAutomationTemplates(pool: { query: (sql: string
       FROM revisions AS r WHERE t.id=r.id AND t.name=r.name AND t.type=r.type AND t.language=${quote(language)}
         AND t.format=CASE WHEN r.type='email' THEN 'html' ELSE 'text' END
         AND t.is_active=true AND cardinality(t.country_codes)=0
-        AND t.subject IS NOT DISTINCT FROM r.old_subject AND t.content=r.old_content AND t.content_html IS NOT DISTINCT FROM r.old_html;`);
+        AND t.subject IS NOT DISTINCT FROM r.old_subject AND t.content=r.old_content AND t.content_html IS NOT DISTINCT FROM r.old_html
+        AND (t.subject IS DISTINCT FROM r.subject OR t.content IS DISTINCT FROM r.content OR t.content_html IS DISTINCT FROM r.html);`);
   }
 }

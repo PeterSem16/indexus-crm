@@ -3,7 +3,9 @@ import { templateTokenInUrl } from "./automation-display-values";
 import { emptyCommunicationText } from "../../shared/automation-communication-context";
 import { emailAddressList, EMAIL_RECIPIENT_LIMIT, validEmailTargets, type AutomationEmailTarget } from "../../shared/automation-email-action";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
-import { humanFindingLabel } from "./automation-human-copy";
+import { humanFindingLabel, humanPriorityLabel } from "./automation-human-copy";
+import { taskStatusTemplateLabel } from "../../shared/task-status-labels";
+import { emailBadgeStyle, emailStateImage, EMAIL_BADGE_PALETTES, priorityBadgePalette, stateBadgePalette, stateIcon } from "../../shared/automation-email-decoration";
 
 type RecipientDeps = {
   group: (target: AutomationEmailTarget) => Promise<string[]>;
@@ -121,10 +123,31 @@ export function renderEmailValue(value: unknown, ctx: any, html = false, display
     if (!text) $(element).remove();
     else {
       const caption = $(element).find("small").first().clone();
-      $(element).empty().append('<i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:7px;"></i>').append(caption).append(escapeEmailText(text))
+      const emotive = $(element).attr("data-indexus-emotive") === "true";
+      const icon = emotive ? stateIcon(value) : null;
+      $(element).empty().append(icon ? emailStateImage(icon) : '<i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:7px;"></i>').append(caption).append(escapeEmailText(text))
         .attr("style", `display:inline-block;margin:0 8px 8px 0;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;background:${palette[0]};color:${palette[1]};border:1px solid ${palette[2]};`);
+      if (emotive) $(element).attr("style", emailBadgeStyle(field === "tone" ? EMAIL_BADGE_PALETTES.lavender : stateBadgePalette(value)));
     }
-    $(element).removeAttr("data-indexus-result");
+    $(element).removeAttr("data-indexus-result").removeAttr("data-indexus-emotive");
+  });
+  const language = $("html").attr("lang") || "en";
+  for (const kind of ["priority", "status"] as const) $(`[data-indexus-${kind}]`).each((_index, element) => {
+    const block = $(element);
+    const path = block.attr(`data-indexus-${kind}`)!;
+    const raw = path.split(".").reduce((current: any, key) =>
+      ["__proto__", "prototype", "constructor"].includes(key) ? undefined : current?.[key], ctx);
+    if (raw == null || raw === "") { block.remove(); return; }
+    const taskStatus = kind === "status" && (ctx.event?.module === "task" || path === "communication.taskStatus") &&
+      ["pending", "in_progress", "completed", "cancelled"].includes(raw);
+    const text = display?.get(path) ?? (kind === "priority" ? humanPriorityLabel(language, raw)
+      : taskStatus ? taskStatusTemplateLabel(raw, language) : null) ?? block.text();
+    const icon = taskStatus ? stateIcon(raw) : null;
+    const palette = kind === "priority" ? priorityBadgePalette(raw) : stateBadgePalette(taskStatus ? raw : null);
+    block.empty().append(icon ? emailStateImage(icon) : kind === "priority"
+      ? '<i style="display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:currentColor;vertical-align:middle;"></i>' : "")
+      .append(escapeEmailText(text)).attr("style", `${emailBadgeStyle(palette)}margin-top:6px;`)
+      .removeAttr(`data-indexus-${kind}`);
   });
   return $.html();
 }

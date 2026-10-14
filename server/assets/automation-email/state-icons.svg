@@ -1,0 +1,105 @@
+<!-- Source artwork for the INDEXUS automation-email state icon family.
+     Render each symbol into a standalone transparent 64x64 PNG. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <g id="portrait">
+      <circle cx="29" cy="31" r="28" fill="#eaf4e9"/>
+      <circle cx="29" cy="30" r="22" fill="#fffaf0" stroke="#176b5d" stroke-width="2.6"/>
+      <path d="M13 19c4-7 11-11 19-11" fill="none" stroke="#fffefb" stroke-width="2" stroke-linecap="round" opacity=".9"/>
+    </g>
+    <g id="eyes">
+      <circle cx="22" cy="28" r="1.8" fill="#176b5d"/>
+      <circle cx="36" cy="28" r="1.8" fill="#176b5d"/>
+    </g>
+    <g id="happy-mouth">
+      <path d="M21 36c2.2 4 5 5.8 8 5.8s5.8-1.8 8-5.8" fill="none" stroke="#176b5d" stroke-width="2.8" stroke-linecap="round"/>
+    </g>
+    <g id="badge-check">
+      <circle cx="49" cy="47" r="10" fill="#f2c95c" stroke="#fffaf0" stroke-width="2"/>
+      <path d="m44.5 47 3 3 6-6.5" fill="none" stroke="#176b5d" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="badge-cross">
+      <circle cx="49" cy="47" r="10" fill="#e87a68" stroke="#fffaf0" stroke-width="2"/>
+      <path d="m46 44 6 6m0-6-6 6" fill="none" stroke="#fffaf0" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+  </defs>
+
+  <symbol id="happy" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="M20 27q2-2 4 0m10 0q2-2 4 0" fill="none" stroke="#176b5d" stroke-width="2.1" stroke-linecap="round"/>
+    <path d="M20 35c2.5 5.4 5.5 7.2 9 7.2s6.5-1.8 9-7.2" fill="none" stroke="#176b5d" stroke-width="2.8" stroke-linecap="round"/>
+    <ellipse cx="16.5" cy="34" rx="2.2" ry="1.2" fill="#e87a68" opacity=".62"/>
+    <ellipse cx="41.5" cy="34" rx="2.2" ry="1.2" fill="#e87a68" opacity=".62"/>
+  </symbol>
+
+  <symbol id="neutral" viewBox="0 0 64 64">
+    <use href="#portrait"/><use href="#eyes"/>
+    <path d="M22 38h14" fill="none" stroke="#176b5d" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M21 20h4m10 0h4" stroke="#b7cec3" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="concerned" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="m19.5 24 5-2m9 0 5 2" fill="none" stroke="#176b5d" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="22" cy="29" r="1.7" fill="#176b5d"/><circle cx="36" cy="29" r="1.7" fill="#176b5d"/>
+    <path d="M23 40q6-6 12 0" fill="none" stroke="#176b5d" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M40 31c2 2 2 4 0 6" fill="none" stroke="#79b9a2" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="angry" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="m19 23 7 3m12-3-7 3" fill="none" stroke="#176b5d" stroke-width="2.7" stroke-linecap="round"/>
+    <path d="M22 29h.1m14 0h.1" fill="none" stroke="#176b5d" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M23 40q6-7 12 0" fill="none" stroke="#176b5d" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M14 14l3 3m25 4 3-3" fill="none" stroke="#e87a68" stroke-width="2" stroke-linecap="round"/>
+    <path d="M17 34h3m18 0h3" stroke="#e87a68" stroke-width="1.7" stroke-linecap="round" opacity=".8"/>
+  </symbol>
+
+  <symbol id="calm" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="M19 28q3 3 6 0m8 0q3 3 6 0" fill="none" stroke="#176b5d" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M23 37q6 5 12 0" fill="none" stroke="#176b5d" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M49 12v8m-4-4h8" fill="none" stroke="#f2c95c" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="13" cy="44" r="1.5" fill="#e87a68"/>
+  </symbol>
+
+  <symbol id="urgent" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="m19.5 23 5 2m9-2 5-2" fill="none" stroke="#176b5d" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="22" cy="29" r="1.8" fill="#176b5d"/><circle cx="36" cy="29" r="1.8" fill="#176b5d"/>
+    <ellipse cx="29" cy="39" rx="3.2" ry="4" fill="none" stroke="#176b5d" stroke-width="2.4"/>
+    <circle cx="49" cy="47" r="10" fill="#e87a68" stroke="#fffaf0" stroke-width="2"/>
+    <path d="M49 41.5v6m0 3v.2" stroke="#fffaf0" stroke-width="2.3" stroke-linecap="round"/>
+    <path d="M12 20l2 2m-3 1 .4 2.8" stroke="#e87a68" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+
+  <symbol id="pending" viewBox="0 0 64 64">
+    <use href="#portrait"/><use href="#eyes"/>
+    <path d="M23 38q6 4 12 0" fill="none" stroke="#176b5d" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="49" cy="47" r="10" fill="#f2c95c" stroke="#fffaf0" stroke-width="2"/>
+    <circle cx="49" cy="47" r="5.3" fill="none" stroke="#176b5d" stroke-width="1.7"/>
+    <path d="M49 43.5V47l2.7 1.8" fill="none" stroke="#176b5d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="progress" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="M20 28q2 2 4 0m10 0q2 2 4 0" fill="none" stroke="#176b5d" stroke-width="2" stroke-linecap="round"/>
+    <path d="M23 37q6 5 12 0" fill="none" stroke="#176b5d" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="49" cy="47" r="10" fill="#79b9a2" stroke="#fffaf0" stroke-width="2"/>
+    <path d="M45 48a4.5 4.5 0 0 1 7.4-3.4M53 44v3.3h-3.3" fill="none" stroke="#fffaf0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+
+  <symbol id="completed" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="M20 27q2-2 4 0m10 0q2 2 4 0" fill="none" stroke="#176b5d" stroke-width="2" stroke-linecap="round"/>
+    <path d="M22 36q7 7 14 0" fill="none" stroke="#176b5d" stroke-width="2.6" stroke-linecap="round"/>
+    <use href="#badge-check"/>
+  </symbol>
+
+  <symbol id="cancelled" viewBox="0 0 64 64">
+    <use href="#portrait"/>
+    <path d="M20 28q2-2 4 0m10 0q2 2 4 0" fill="none" stroke="#176b5d" stroke-width="2" stroke-linecap="round"/>
+    <path d="M23 40q6-5 12 0" fill="none" stroke="#176b5d" stroke-width="2.5" stroke-linecap="round"/>
+    <use href="#badge-cross"/>
+  </symbol>
+</svg>

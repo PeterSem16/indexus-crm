@@ -1,0 +1,28 @@
+{
+  "family": "INDEXUS automation email emotional states",
+  "source": "state-icons.svg",
+  "format": "PNG",
+  "dimensions": "64x64",
+  "background": "transparent",
+  "displaySize": "24-28px",
+  "palette": {
+    "deepGreen": "#176b5d",
+    "cream": "#fffaf0",
+    "mint": "#eaf4e9",
+    "softMint": "#79b9a2",
+    "coral": "#e87a68",
+    "marigold": "#f2c95c"
+  },
+  "icons": [
+    { "file": "state-happy.png", "symbol": "happy", "meaning": "Warm, positive response" },
+    { "file": "state-neutral.png", "symbol": "neutral", "meaning": "Neutral or informational state" },
+    { "file": "state-concerned.png", "symbol": "concerned", "meaning": "Concern or an issue to review" },
+    { "file": "state-angry.png", "symbol": "angry", "meaning": "Strongly negative response" },
+    { "file": "state-calm.png", "symbol": "calm", "meaning": "Calm, reassuring state" },
+    { "file": "state-urgent.png", "symbol": "urgent", "meaning": "Urgent attention required" },
+    { "file": "state-pending.png", "symbol": "pending", "meaning": "Waiting for action; clock indicator" },
+    { "file": "state-progress.png", "symbol": "progress", "meaning": "Work in progress; motion indicator" },
+    { "file": "state-completed.png", "symbol": "completed", "meaning": "Completed successfully; check indicator" },
+    { "file": "state-cancelled.png", "symbol": "cancelled", "meaning": "Cancelled; cross indicator" }
+  ]
+}

@@ -1,12 +1,21 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { automationPhoneArtworkFor } from "./automation-phone-artwork";
+import { isAutomationStateArtwork } from "../../shared/automation-email-decoration";
 
 /** Only application-owned artwork, never a client-supplied file path. */
 export async function automationEmailInlineAttachments(html: string) {
   const references = new Set([...html.matchAll(/cid:([^"'\s<>]+)/gi)].map(match => match[1]));
   const attachments: any[] = [];
   for (const contentId of references) {
+    const state = contentId.replace(/^indexus-automation-/, "");
+    if (contentId.startsWith("indexus-automation-") && isAutomationStateArtwork(state)) {
+      const bytes = await readFile(resolve(process.cwd(), "server/assets/automation-email", `${state}.png`));
+      attachments.push({ "@odata.type": "#microsoft.graph.fileAttachment",
+        name: `${state}.png`, contentType: "image/png", isInline: true,
+        contentId, contentBytes: bytes.toString("base64") });
+      continue;
+    }
     const human = /^indexus-automation-human-(task|call|deadline)$/.exec(contentId);
     if (human) {
       const bytes = await readFile(resolve(process.cwd(), "server/assets/automation-email", `human-${human[1]}.png`));

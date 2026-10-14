@@ -73,7 +73,7 @@ test("real substituted HTML escapes content, uses distinct localized findings, a
     assert.match(html, /border-radius:22px/);
     assert.equal($("a").first().attr("href"), context.communication.detailUrl);
     const assets = await automationEmailInlineAttachments(html);
-    assert.equal(assets.length, 1);
+    assert.equal(assets.length, 2);
     assert.equal(assets[0].contentType, "image/png");
     assert.deepEqual(Buffer.from(assets[0].contentBytes, "base64").subarray(0, 8), Buffer.from([137,80,78,71,13,10,26,10]));
   }
