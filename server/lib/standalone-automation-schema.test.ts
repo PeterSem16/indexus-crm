@@ -26,7 +26,7 @@ test("SQL errors propagate before route initialization", async () => {
   let count = 0;
   await ensureStandaloneAutomationSchema({ query: async sql => {
     if (count === 0) assert.equal(sql, ddl);
-    else assert.match(sql, /automation_template_seeds|WITH visuals/);
+    else assert.match(sql, /automation_template_seeds|WITH visuals|WITH upgrades/);
     count++;
   } });
   assert.ok(count > 1, "bootstrap also seeds the additive template catalogs");

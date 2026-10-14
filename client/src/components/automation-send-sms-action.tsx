@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { AutomationTemplatePicker } from "./automation-template-picker";
 import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type SmsTemplate = { id: string; name: string; language?: string; content?: string; isActive?: boolean };
@@ -345,27 +345,10 @@ export function AutomationSendSmsAction({
                 {languages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={draft.templateId || "__custom"} onValueChange={chooseTemplate}>
-              <SelectTrigger data-testid={`${testId}-template`}><SelectValue placeholder={copy.chooseTemplate} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__custom">{copy.custom}</SelectItem>
-                {draft.templateId && !visibleTemplates.some(item => item.id === draft.templateId) && <SelectItem value={draft.templateId}>
-                  <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={draft.templateId} />
-                    <span>{draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.currentSnapshot}</span>
-                  </span>
-                </SelectItem>}
-                {visibleTemplates.map(template => {
-                  const unsupportedVariables = unsupportedIn(template.content || "");
-                  return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
-                    data-testid={`${testId}-template-option-${template.id}`}>
-                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="sms" />
-                      <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
-                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}: ${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
-                    </span>
-                  </SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
+            <AutomationTemplatePicker locale={locale} templates={visibleTemplates} value={draft.templateId || "__custom"}
+              availableVariables={availableVariables} sourceModule={sourceModule} customLabel={copy.custom}
+              onRefresh={() => templatesQuery.refetch()} onSelect={chooseTemplate} testId={`${testId}-template`}
+              snapshot={draft.templateId ? { id: draft.templateId, name: draft.templateName || selectedTemplate?.name || draft.templateId } : undefined} />
             {templatesQuery.isLoading && <p className="text-xs text-muted-foreground">{copy.loading}</p>}
             {templatesQuery.isSuccess && visibleTemplates.length === 0 && <p className="text-xs text-muted-foreground">{copy.noTemplates}</p>}
             {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templateError}</button>}

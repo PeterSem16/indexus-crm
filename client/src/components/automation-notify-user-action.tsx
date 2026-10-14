@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
+import { AutomationTemplatePicker } from "./automation-template-picker";
 import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type Template = { id: string; name: string; language?: string; subject?: string; content?: string; isActive?: boolean };
@@ -163,32 +163,10 @@ export function AutomationNotifyUserAction({
                 {languages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={draft.templateId || "__custom"} onValueChange={chooseTemplate}>
-              <SelectTrigger data-testid={`notify-user-template-${index}`}><SelectValue placeholder={copy.chooseTemplate} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__custom">{copy.custom}</SelectItem>
-                {draft.templateId && keepSelectedVisible && (() => {
-                  const unsupportedVariables = selectedTemplate ? unsupportedIn(selectedTemplate) : unsupported;
-                  return <SelectItem value={draft.templateId} disabled={unsupportedVariables.length > 0}
-                    data-testid={`notify-template-option-${draft.templateId}`}>
-                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={draft.templateId} />
-                      <span>{draft.templateName || selectedTemplate?.name || draft.templateId} · {copy.snapshot}
-                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
-                    </span>
-                  </SelectItem>;
-                })()}
-                {visibleTemplates.map(template => {
-                  const unsupportedVariables = unsupportedIn(template);
-                  return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
-                    data-testid={`notify-template-option-${template.id}`}>
-                  <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="notification" />
-                      <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
-                        {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
-                    </span>
-                  </SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
+            <AutomationTemplatePicker locale={locale} templates={visibleTemplates} value={draft.templateId || "__custom"}
+              availableVariables={availableVariables} sourceModule={sourceModule} customLabel={copy.custom}
+              onRefresh={() => query.refetch()} onSelect={chooseTemplate} testId={`notify-user-template-${index}`}
+              snapshot={draft.templateId ? { id: draft.templateId, name: draft.templateName || selectedTemplate?.name || draft.templateId } : undefined} />
             {query.isLoading && <p className="text-xs text-muted-foreground">{copy.loading}</p>}
             {query.isError && <button type="button" className="text-xs text-destructive" onClick={() => query.refetch()}>{copy.templateError}</button>}
           </div>

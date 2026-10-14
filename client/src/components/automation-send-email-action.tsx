@@ -10,8 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/components/automation-email-content-editor";
-import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
-import { filterActivityCatalogTemplates, activityTemplateMissingVariables } from "@/components/automation-activity-template-utils";
+import { AutomationTemplatePicker } from "./automation-template-picker";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -355,7 +355,11 @@ export function AutomationSendEmailAction({
         {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageLabel(language)}</SelectItem>)}
       </SelectContent>
     </Select>
-    <Select value={config.templateId || "__custom"} onOpenChange={open => { if (open) void templatesQuery.refetch(); }} onValueChange={(value) => {
+    <AutomationTemplatePicker locale={locale} templates={filteredTemplates} value={config.templateId || "__custom"}
+      availableVariables={availableVariables} sourceModule={sourceModule} customLabel={copy.customText}
+      onRefresh={() => templatesQuery.refetch()} testId={`${testId}-editor-template`}
+      snapshot={config.templateId ? { id: config.templateId, name: config.templateName || selectedTemplate?.name || copy.savedSnapshot } : undefined}
+      onSelect={(value) => {
       if (value === "__custom") {
         update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
         return;
@@ -372,32 +376,7 @@ export function AutomationSendEmailAction({
         templateId: template.id, templateSnapshot: true, templateName: template.name, templateLanguage: template.language,
         subject: nextSubject, body: nextBody,
       });
-    }}>
-      <SelectTrigger id={`${testId}-editor-template`} data-testid={`${testId}-editor-template`}>
-        <SelectValue placeholder={copy.chooseTemplate} />
-      </SelectTrigger>
-      <SelectContent className="z-[10041]">
-        <SelectItem value="__custom">{copy.customText}</SelectItem>
-        {showSavedSnapshotOption &&
-          <SelectItem value={config.templateId}>
-            <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={config.templateId} />
-              <span>{config.templateName || selectedTemplate?.name || copy.savedSnapshot} · {t.automationEditorHelp.currentSnapshot}</span>
-            </span>
-          </SelectItem>}
-        {filteredTemplates.map((template, index) => <SelectItem key={template.id} value={template.id}
-          disabled={activityTemplateMissingVariables(template, availableVariables).length > 0}>
-          <span className="inline-flex items-center gap-2">
-            <AutomationActivityTemplateIcon templateId={template.id} type="email" />
-            <span>{index === 0 || filteredTemplates[index - 1].categoryId !== template.categoryId
-              ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
-              : ""}
-            {template.name}{template.language ? ` · ${languageLabel(template.language)}` : ""}</span>
-          </span>
-          {activityTemplateMissingVariables(template, availableVariables).length > 0 &&
-            <span className="ml-2 text-xs">{copy.unsupportedVariables}: {activityTemplateMissingVariables(template, availableVariables).map(value => `{{${value}}}`).join(", ")}</span>}
-        </SelectItem>)}
-      </SelectContent>
-    </Select>
+    }} />
     {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
   </div>;
   return <section className="space-y-4" data-testid={testId}>

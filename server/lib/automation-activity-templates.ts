@@ -8,6 +8,7 @@ import { TEMPLATE_VISUAL_PALETTES, templateVisualTone } from "../../shared/autom
 
 type Line = [label: string, variable: string];
 type Brief = { key: string; label: string; lines: Line[]; voice?: boolean; criterion?: string; event?: string };
+export const VOICE_FINDING_CRITERIA = ["sentiment-neutral", "sentiment-angry", "tone-calm", "tone-concerned", "tone-angry", "tone-rude"] as const;
 const eventLabels: Record<string, string> = {
   created: "eventCreated", updated: "eventUpdated", status_changed: "eventStatus",
   assigned: "eventAssigned", completed: "eventCompleted", overdue: "eventOverdue",
@@ -32,7 +33,7 @@ export function activityTemplateBriefs(): Brief[] {
   // Separate direction-specific call briefs, plus an explicit both-directions family.
   for (const channel of ["email", "sms", "chat", "task", "inbound", "outbound", "voice"]) {
     const voice = ["inbound", "outbound", "voice"].includes(channel);
-    for (const criterion of ["summary", "positive", "negative", "urgent"])
+    for (const criterion of ["summary", "positive", "negative", "urgent", ...(voice ? VOICE_FINDING_CRITERIA : [])])
       briefs.push({ key: `analysis-${channel}-${criterion}`, label: channel, criterion, voice,
         lines: communicationLines(voice ? "voice" : channel) });
   }
@@ -134,6 +135,19 @@ export async function ensureAutomationActivityTemplates(pool: { query: (sql: str
       INSERT INTO automation_template_seeds(id) VALUES (${sqlValue(`activity-briefs-${language}`)})
       ON CONFLICT(id) DO NOTHING RETURNING id
     ), defaults(id,name,subject,type,format,content,html) AS (VALUES ${rows})
+    INSERT INTO message_templates(id,name,subject,type,format,content,content_html,language,category_id,is_active,country_codes)
+    SELECT defaults.id,name,subject,type,format,content,html,${sqlValue(language)},
+      CASE WHEN type='email' THEN 'indexus-automation-email-category' ELSE NULL END,true,ARRAY[]::text[]
+    FROM defaults CROSS JOIN seed ON CONFLICT(id) DO NOTHING;`);
+    // Separate marker: existing installations already seeded activity-briefs.
+    // Adding voice findings must not resurrect any previously deleted default.
+    const voiceRows = templates.filter(item => item.language === language &&
+      VOICE_FINDING_CRITERIA.some(criterion => item.id.includes(`-${criterion}-${language}`)))
+      .map(item => `(${[item.id, item.name, item.subject, item.type, item.format, item.content, item.contentHtml].map(sqlValue).join(",")})`).join(",\n");
+    await pool.query(`WITH seed AS (
+      INSERT INTO automation_template_seeds(id) VALUES (${sqlValue(`activity-voice-findings-${language}`)})
+      ON CONFLICT(id) DO NOTHING RETURNING id
+    ), defaults(id,name,subject,type,format,content,html) AS (VALUES ${voiceRows})
     INSERT INTO message_templates(id,name,subject,type,format,content,content_html,language,category_id,is_active,country_codes)
     SELECT defaults.id,name,subject,type,format,content,html,${sqlValue(language)},
       CASE WHEN type='email' THEN 'indexus-automation-email-category' ELSE NULL END,true,ARRAY[]::text[]

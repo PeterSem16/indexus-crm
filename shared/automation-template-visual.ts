@@ -8,9 +8,9 @@ export const TEMPLATE_VISUAL_PALETTES = {
 } as const;
 /** Meaning is conveyed by labels/icons too; color never substitutes for a condition. */
 export function templateVisualTone(id: string): TemplateVisualTone {
-  if (/negative|cancel|abandon|complaint|reject|failed|missed|unanswered/.test(id)) return "negative";
-  if (/urgent|angry|attention|action-required/.test(id)) return "urgent";
-  if (/positive|success|completed|thank/.test(id)) return "positive";
+  if (/negative|tone-rude|sentiment-angry|cancel|abandon|complaint|reject|failed|missed|unanswered/.test(id)) return "negative";
+  if (/urgent|angry|tone-concerned|attention|action-required/.test(id)) return "urgent";
+  if (/positive|tone-calm|success|completed|thank/.test(id)) return "positive";
   if (/deadline|overdue|reminder|due-date/.test(id)) return "deadline";
   return "info";
 }

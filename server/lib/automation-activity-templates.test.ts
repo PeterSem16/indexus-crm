@@ -98,13 +98,13 @@ test("activity fields are allowlisted snapshots; names, deadlines and localized 
 test("additive seeding is language-gated and does not overwrite or restore saved templates", async () => {
   const sql: string[] = [];
   await ensureAutomationActivityTemplates({ query: async value => { sql.push(value); } });
-  assert.equal(sql.length, 14);
-  for (const query of sql.slice(0, 7)) {
+  assert.equal(sql.length, 21);
+  for (const query of sql.slice(0, 14)) {
     assert.match(query, /ON CONFLICT\(id\) DO NOTHING RETURNING id/);
     assert.match(query, /FROM defaults CROSS JOIN seed ON CONFLICT\(id\) DO NOTHING/);
     assert.doesNotMatch(query, /DO UPDATE|DELETE|UPDATE workflow_rules/);
   }
-  for (const query of sql.slice(7)) {
+  for (const query of sql.slice(14)) {
     assert.match(query, /template\.content_html=visuals\.old_html/);
     assert.match(query, /template\.name=visuals\.name/);
     assert.match(query, /template\.is_active=true/);

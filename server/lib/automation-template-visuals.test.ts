@@ -64,7 +64,7 @@ test("all four editor catalogs and Configurator refetch instead of inheriting in
     const source = await readFile(`client/src/components/${filename}`, "utf8");
     assert.match(source, /staleTime:\s*0/);
     assert.match(source, /refetchOnMount:\s*"always"/);
-    assert.match(source, /AutomationActivityTemplateIcon/);
+    assert.match(source, /AutomationTemplatePicker/);
   }
   const configurator = await readFile("client/src/pages/configurator.tsx", "utf8");
   assert.match(configurator, /queryKey:\s*\["\/api\/message-templates"\],\s*staleTime:\s*0,\s*refetchOnMount:\s*"always"/);

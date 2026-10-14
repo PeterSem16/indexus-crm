@@ -12,9 +12,8 @@ import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
 import { AutomationTaskRecipientDialog, type TaskRecipient } from "./automation-task-recipient-dialog";
 import automationEditorHelpTranslations from "@/i18n/automation-editor-help-translations";
 import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
-import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
-import { filterActivityCatalogTemplates, activityTemplateMissingVariables } from "@/components/automation-activity-template-utils";
-import { activityTemplateLabel } from "@shared/automation-activity-template-copy";
+import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
+import { AutomationTemplatePicker } from "./automation-template-picker";
 import "./automation-create-task-action.css";
 
 type Recipient = { kind: "user" | "group" | "role"; id: string };
@@ -289,30 +288,16 @@ export function AutomationCreateTaskAction({
               {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={currentTemplate?.id || "custom"} onOpenChange={open => { if (open) void templateQuery.refetch(); }} onValueChange={(value) => {
+          <AutomationTemplatePicker locale={locale} templates={visibleTemplates} availableVariables={availableVariables}
+            sourceModule={sourceModule} value={currentTemplate?.id || "custom"} customValue="custom" customLabel={copy.customText}
+            testId="select-task-action-template" onRefresh={() => templateQuery.refetch()}
+            snapshot={currentTemplate ? { id: currentTemplate.id, name: currentTemplate.name } : undefined}
+            onSelect={(value) => {
             if (value === "custom") { set("templateId", undefined); return; }
             const template = templates.find((item) => item.id === value);
               if (template) onChange({ ...config, templateId: template.id, templateLanguage: template.language,
                 title: template.subject || config.title || template.name, taskText: template.content || "" });
-          }}>
-            <SelectTrigger data-testid="select-task-action-template"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="custom">{copy.customText}</SelectItem>
-              {currentTemplate && !visibleTemplates.some(template => template.id === currentTemplate.id) &&
-                <SelectItem value={currentTemplate.id}><span className="inline-flex items-center gap-2">
-                  <AutomationActivityTemplateIcon templateId={currentTemplate.id} />
-                  <span>{currentTemplate.name} · {editorCopy.currentSnapshot}</span>
-                </span></SelectItem>}
-              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}
-                disabled={activityTemplateMissingVariables(template, availableVariables).length > 0}>
-                <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="task" />
-                  <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}</span>
-                </span>
-                {activityTemplateMissingVariables(template, availableVariables).length > 0 &&
-                  <span className="ml-2 text-xs">{activityTemplateLabel(locale, "unavailable")}: {activityTemplateMissingVariables(template, availableVariables).map(value => `{{${value}}}`).join(", ")}</span>}
-              </SelectItem>)}
-            </SelectContent>
-          </Select>
+          }} />
           {templateQuery.isError && <p className="automation-create-task__error" role="status">{copy.templateLoadError}</p>}
         </div>
         <div className="automation-create-task__span">
