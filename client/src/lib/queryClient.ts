@@ -106,3 +106,12 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Catalogs may change while a compose/editor page remains open. Apply to every
+// typed/country/language variant, including native email/SMS/contact composers.
+// Keep the rest of the CRM's existing cache policy unchanged.
+queryClient.setQueryDefaults(["/api/message-templates"], {
+  staleTime: 0,
+  refetchOnMount: "always",
+  refetchOnWindowFocus: true,
+});

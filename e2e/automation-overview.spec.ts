@@ -108,6 +108,10 @@ test("Rules: native requests, filters, toggle, guarded review/reset/delete, edit
       overlay: overlay ? Number(getComputedStyle(overlay).zIndex) : 0 };
   });
   expect(stacking.dialog).toBeGreaterThan(stacking.overlay);
+  const historyBounds = await page.locator(".automation-history-dialog").boundingBox();
+  const summaryBounds = await page.locator(".automation-history-dialog .rh-summary").boundingBox();
+  expect(summaryBounds!.x - historyBounds!.x).toBeGreaterThanOrEqual(20);
+  expect(historyBounds!.x + historyBounds!.width - summaryBounds!.x - summaryBounds!.width).toBeGreaterThanOrEqual(20);
   // Visibility alone misses a dialog rendered behind its blurred overlay.
   await page.locator("[role=dialog] [data-run-id]").first().click();
   await page.screenshot({ path: ".local/screenshots/automation-history-dialog-fixed.png" });

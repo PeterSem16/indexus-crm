@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/components/automation-email-content-editor";
 import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
-import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
+import { filterActivityCatalogTemplates, activityTemplateMissingVariables } from "@/components/automation-activity-template-utils";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -33,7 +33,7 @@ type Mailbox = { connected: boolean; email?: string; displayName?: string; hasSi
 
 const AUTOMATION_CATEGORY_ID = "indexus-automation-email-category";
 const rewriteArtworkForPreview = (html: string) => html.replace(
-  /cid:indexus-automation-(task|attention|success|deadline|phone)/gi,
+  /cid:indexus-automation-(task|attention|success|deadline|phone(?:-(?:positive|negative|urgent|info|deadline))?)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();
@@ -86,6 +86,8 @@ export function AutomationSendEmailAction({
   });
   const templatesQuery = useQuery<EmailTemplate[]>({
     queryKey: ["/api/message-templates", "email", true],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const response = await fetch("/api/message-templates?type=email&isActive=true", { credentials: "include" });
       if (!response.ok) throw new Error("templates");
@@ -353,7 +355,7 @@ export function AutomationSendEmailAction({
         {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageLabel(language)}</SelectItem>)}
       </SelectContent>
     </Select>
-    <Select value={config.templateId || "__custom"} onValueChange={(value) => {
+    <Select value={config.templateId || "__custom"} onOpenChange={open => { if (open) void templatesQuery.refetch(); }} onValueChange={(value) => {
       if (value === "__custom") {
         update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
         return;
@@ -382,14 +384,17 @@ export function AutomationSendEmailAction({
               <span>{config.templateName || selectedTemplate?.name || copy.savedSnapshot} · {t.automationEditorHelp.currentSnapshot}</span>
             </span>
           </SelectItem>}
-        {filteredTemplates.map((template, index) => <SelectItem key={template.id} value={template.id}>
+        {filteredTemplates.map((template, index) => <SelectItem key={template.id} value={template.id}
+          disabled={activityTemplateMissingVariables(template, availableVariables).length > 0}>
           <span className="inline-flex items-center gap-2">
-            <AutomationActivityTemplateIcon templateId={template.id} />
+            <AutomationActivityTemplateIcon templateId={template.id} type="email" />
             <span>{index === 0 || filteredTemplates[index - 1].categoryId !== template.categoryId
               ? `${template.categoryId === AUTOMATION_CATEGORY_ID ? automationCategoryName : categoriesQuery.data?.find((category) => category.id === template.categoryId)?.name || copy.otherTemplates}: `
               : ""}
             {template.name}{template.language ? ` · ${languageLabel(template.language)}` : ""}</span>
           </span>
+          {activityTemplateMissingVariables(template, availableVariables).length > 0 &&
+            <span className="ml-2 text-xs">{copy.unsupportedVariables}: {activityTemplateMissingVariables(template, availableVariables).map(value => `{{${value}}}`).join(", ")}</span>}
         </SelectItem>)}
       </SelectContent>
     </Select>

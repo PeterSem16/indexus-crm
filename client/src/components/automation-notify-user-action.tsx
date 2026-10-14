@@ -43,6 +43,8 @@ export function AutomationNotifyUserAction({
   const selections = useRef<Record<Field, { start: number; end: number }>>({ title: { start: 0, end: 0 }, message: { start: 0, end: 0 } });
   const query = useQuery<Template[]>({
     queryKey: ["/api/message-templates", "notification"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const response = await fetch("/api/message-templates?type=notification", { credentials: "include" });
       if (!response.ok) throw new Error("notification templates");
@@ -50,6 +52,7 @@ export function AutomationNotifyUserAction({
     },
   });
   useEffect(() => setTemplateLanguage(locale), [locale]);
+  useEffect(() => { if (open) void query.refetch(); }, [open]);
   const templates = query.data || [];
   const languages = useMemo(() => Array.from(new Set([locale, ...templates.map(item => item.language).filter(Boolean) as string[]]))
     .filter((value, index, all) => all.findIndex(candidate => languageCode(candidate) === languageCode(value)) === index), [locale, templates]);
@@ -178,7 +181,7 @@ export function AutomationNotifyUserAction({
                   const unsupportedVariables = unsupportedIn(template);
                   return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
                     data-testid={`notify-template-option-${template.id}`}>
-                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+                  <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="notification" />
                       <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
                         {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
                     </span>

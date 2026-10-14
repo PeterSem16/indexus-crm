@@ -1209,7 +1209,10 @@
   background: hsl(var(--background));
   color: hsl(var(--foreground));
 }
-.automation-history-dialog>[class*="space-y"] { padding: 20px 22px 8px; }
+.automation-history-dialog>[class*="space-y"] { padding: 24px 24px 12px; }
+.automation-history-dialog > .automation-production-overview {
+  padding: 0 24px 24px;
+}
 
 /* Layout tracks the available automation panel/drawer width, not the viewport. */
 @container (max-width: 1100px) {
@@ -1328,7 +1331,8 @@
   .automation-production-overview .rh-per-rule { flex-wrap: wrap; }
   .automation-production-overview .rh-mode,
   .automation-production-overview .el-top-note { font-size: 0; }
-  .automation-history-dialog>[class*="space-y"] { padding: 16px 14px 6px; }
+  .automation-history-dialog>[class*="space-y"] { padding: 20px 16px 10px; }
+  .automation-history-dialog > .automation-production-overview { padding: 0 16px 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .automation-production-overview *,

@@ -1,5 +1,12 @@
-/** Small static telephone icon; contains no external content or personal data. */
-export const automationPhoneArtwork = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABYUlEQVR4nO2WQRaCMAwFuZLn8sLepq7c8FCa5MdJCovZtfX/IVi2McZ2ZfAANHgAGjwADR6ABg9AgwegwQPQ4AFo8AA0eAAaPACNecPj+Rpn0KXSBMyU7yYhpXwnCe7yM+vocmkCVGsrYBaQsX5pAdUlpAjoNAV/EVBZQurTXFLAalNwC/CU8ZRfSoD1Y6hq+RQBncqbBOzLKSalAm4BR+W6lb8FWAXsS15ewAoSbgGeTStJkAjYl+z0LeDeaJ2CqhJCm1eQED6guwS5ALWEbHGSQ7IkHO1Ri5AdNBPSUuZbebUI6Th5Jcxco1kSpAKiEs5KZohIFxCVYN2LC/gVUF1GISFFgCect0BZAdGnG/mtMgK807CcgGwRZV8Bi4SIiFYC1CJKXoMKCZZbIzJBqACLiE9B9SuEl/eIUP5/4KUVUxEBL+qVoTobL0eDB6DBA9DgAWjwADR4ABo8AA0egOYN/63TuT1138oAAAAASUVORK5CYII=",
-  "base64",
-);
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+export const PHONE_ARTWORK_NAMES = ["phone", "phone-info", "phone-positive", "phone-negative", "phone-urgent", "phone-deadline"] as const;
+const illustrations = new Map(PHONE_ARTWORK_NAMES.map(name => [name,
+  readFileSync(resolve(process.cwd(), "server/assets/automation-email",
+    `automation-${name === "phone" ? "phone-info" : name}.gif`))]));
+/** Static, application-owned GIFs only. Never resolve a user-supplied file path. */
+export function automationPhoneArtworkFor(name: string): Buffer | undefined {
+  return illustrations.get(name as typeof PHONE_ARTWORK_NAMES[number]);
+}
+export const automationPhoneArtwork = illustrations.get("phone")!;

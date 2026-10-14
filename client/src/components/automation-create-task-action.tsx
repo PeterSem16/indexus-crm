@@ -13,7 +13,8 @@ import { AutomationTaskRecipientDialog, type TaskRecipient } from "./automation-
 import automationEditorHelpTranslations from "@/i18n/automation-editor-help-translations";
 import { AutomationTaskChecklistEditor } from "./automation-task-checklist-editor";
 import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
-import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
+import { filterActivityCatalogTemplates, activityTemplateMissingVariables } from "@/components/automation-activity-template-utils";
+import { activityTemplateLabel } from "@shared/automation-activity-template-copy";
 import "./automation-create-task-action.css";
 
 type Recipient = { kind: "user" | "group" | "role"; id: string };
@@ -60,6 +61,8 @@ export function AutomationCreateTaskAction({
   );
   const templateQuery = useQuery<Template[]>({
     queryKey: ["/api/message-templates", "task"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const response = await fetch("/api/message-templates?type=task", { credentials: "include" });
       if (!response.ok) throw new Error(`Request failed: ${response.status}`);
@@ -286,7 +289,7 @@ export function AutomationCreateTaskAction({
               {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageName(language)}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={currentTemplate?.id || "custom"} onValueChange={(value) => {
+          <Select value={currentTemplate?.id || "custom"} onOpenChange={open => { if (open) void templateQuery.refetch(); }} onValueChange={(value) => {
             if (value === "custom") { set("templateId", undefined); return; }
             const template = templates.find((item) => item.id === value);
               if (template) onChange({ ...config, templateId: template.id, templateLanguage: template.language,
@@ -300,10 +303,13 @@ export function AutomationCreateTaskAction({
                   <AutomationActivityTemplateIcon templateId={currentTemplate.id} />
                   <span>{currentTemplate.name} · {editorCopy.currentSnapshot}</span>
                 </span></SelectItem>}
-              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}>
-                <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+              {visibleTemplates.map((template) => <SelectItem key={template.id} value={template.id}
+                disabled={activityTemplateMissingVariables(template, availableVariables).length > 0}>
+                <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="task" />
                   <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}</span>
                 </span>
+                {activityTemplateMissingVariables(template, availableVariables).length > 0 &&
+                  <span className="ml-2 text-xs">{activityTemplateLabel(locale, "unavailable")}: {activityTemplateMissingVariables(template, availableVariables).map(value => `{{${value}}}`).join(", ")}</span>}
               </SelectItem>)}
             </SelectContent>
           </Select>

@@ -2,13 +2,14 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AUTOMATION_TRANSLATION_LANGUAGES, loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
+import { automationTemplateVisuals, refreshPristineTemplateVisuals } from "./automation-template-visuals";
 
 type CallVariant = { key: string; name: string; emailBody: string; taskName: string; taskBody: string };
 type CallCopy = { badge: string; detailHeading: string; detailText: string; openCall: string; linkTitle: string; artworkAlt: string; variants: CallVariant[] };
 export const CALL_TEMPLATE_KEYS = ["inbound", "inbound-missed", "outbound", "outbound-unanswered"] as const;
 
 /** Reuses the approved record-notification design; no numbers, identities or new artwork. */
-export async function loadAutomationCallTemplates() {
+export async function loadAutomationCallTemplates(visualStyle: "semantic" | "original" = "semantic") {
   const originals: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"));
   const source = originals.find(template => template.id === "indexus-automation-email-data-change");
   if (!source) throw new Error("Approved automation record-notification design missing");
@@ -32,6 +33,7 @@ export async function loadAutomationCallTemplates() {
       email.contentHtml = normalizeEmailTemplateLayout(email.contentHtml);
       if (!variant.taskName?.trim() || !variant.taskBody?.trim()) throw new Error(`Missing call Task copy: ${language}/${variant.key}`);
       const suffix = `${variant.key}${language === "sk" ? "" : `-${language}`}`;
+      if (visualStyle === "semantic") email.contentHtml = automationTemplateVisuals(`call-${variant.key}`, email.contentHtml);
       return {
         email: { ...email, id: `indexus-automation-email-call-${suffix}` },
         task: { id: `indexus-task-template-call-${suffix}`, name: variant.taskName, subject: variant.taskName, content: variant.taskBody, language },
@@ -65,4 +67,7 @@ export async function ensureAutomationCallTemplates(pool: { query: (sql: string)
       ON CONFLICT (id) DO NOTHING;
     `);
   }
+  await refreshPristineTemplateVisuals(pool,
+    (await loadAutomationCallTemplates("original")).flatMap(batch => batch.templates.map(item => item.email)),
+    batches.flatMap(batch => batch.templates.map(item => item.email)));
 }

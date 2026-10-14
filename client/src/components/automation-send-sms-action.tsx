@@ -73,6 +73,8 @@ export function AutomationSendSmsAction({
   const selection = useRef({ start: String(config.text ?? config.message ?? "").length, end: String(config.text ?? config.message ?? "").length });
   const templatesQuery = useQuery<SmsTemplate[]>({
     queryKey: ["/api/message-templates", "sms"],
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const response = await fetch("/api/message-templates?type=sms", { credentials: "include" });
       if (!response.ok) throw new Error("SMS templates");
@@ -80,6 +82,7 @@ export function AutomationSendSmsAction({
     },
   });
   useEffect(() => setTemplateLanguage(locale), [locale]);
+  useEffect(() => { if (open) void templatesQuery.refetch(); }, [open]);
 
   const templates = templatesQuery.data || [];
   const languages = useMemo(() => Array.from(new Set([locale, ...templates.map(item => item.language).filter(Boolean) as string[]]))
@@ -355,7 +358,7 @@ export function AutomationSendSmsAction({
                   const unsupportedVariables = unsupportedIn(template.content || "");
                   return <SelectItem key={template.id} value={template.id} disabled={unsupportedVariables.length > 0}
                     data-testid={`${testId}-template-option-${template.id}`}>
-                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} />
+                    <span className="inline-flex items-center gap-2"><AutomationActivityTemplateIcon templateId={template.id} type="sms" />
                       <span>{template.name}{template.language ? ` · ${languageName(template.language)}` : ""}
                         {unsupportedVariables.length ? ` · ${copy.unsupportedTemplate}: ${unsupportedVariables.map(value => `{{${value}}}`).join(", ")}` : ""}</span>
                     </span>

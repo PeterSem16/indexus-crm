@@ -4,6 +4,7 @@ import { ACTIVITY_TEMPLATE_LANGUAGES, activityTemplateLabel, type ActivityTempla
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
 import { normalizeEmailTemplateLayout } from "../../shared/email-template-layout";
 import { MODULE_EVENTS, fieldsForEvent } from "./automation-capabilities";
+import { TEMPLATE_VISUAL_PALETTES, templateVisualTone } from "../../shared/automation-template-visual";
 
 type Line = [label: string, variable: string];
 type Brief = { key: string; label: string; lines: Line[]; voice?: boolean; criterion?: string; event?: string };
@@ -75,7 +76,7 @@ export function activityTemplateBriefs(): Brief[] {
 const escape = (text: string) => text.replace(/[&<>"']/g, value =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[value]!));
 const token = (path: string) => `{{${path}}}`;
-export async function loadAutomationActivityTemplates() {
+export async function loadAutomationActivityTemplates(visualStyle: "semantic" | "original" = "semantic") {
   const sources: AutomationEmailDefault[] = JSON.parse(await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"));
   const frame = sources.find(item => item.id === "indexus-automation-email-data-change");
   if (!frame) throw new Error("Approved automation template frame missing");
@@ -99,9 +100,19 @@ export async function loadAutomationActivityTemplates() {
       const rows = brief.lines.map(([key, path]) => `<tr><td style="padding:9px 12px;border-bottom:1px solid #e1eaf0;font-size:12px;color:#57768d;vertical-align:top;width:35%;">${escape(label(key))}</td><td style="padding:9px 12px;border-bottom:1px solid #e1eaf0;font-size:14px;color:#21384c;word-break:break-word;">${token(path)}</td></tr>`).join("");
       const table = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e1eaf0;border-radius:12px;overflow:hidden;border-collapse:separate;border-spacing:0;">${rows}</table>`;
       let html = localized.contentHtml.replace(/<p style="margin:18px 0 0;">[\s\S]*?<\/p>/, table);
+      const tone = templateVisualTone(brief.key);
       if (brief.voice) html = html.replace(/<img src="cid:indexus-automation-task"[^>]*>/,
-        `<img src="cid:indexus-automation-phone" width="64" height="64" alt="${escape(label(brief.label))}" style="display:block;width:64px;height:64px;border:0;">`);
+        visualStyle === "original"
+          ? `<img src="cid:indexus-automation-phone" width="64" height="64" alt="${escape(label(brief.label))}" style="display:block;width:64px;height:64px;border:0;">`
+          : `<img src="cid:indexus-automation-phone-${tone}" width="128" height="128" alt="${escape(label(brief.label))}" style="display:block;width:128px;max-width:100%;height:auto;border:0;">`);
       if (links) html = html.replace(table, `${table}<p style="margin:18px 0 0;"><a href="{{communication.playbackUrl}}" style="display:inline-block;padding:12px 19px;background:#316bd8;border-radius:9px;color:#ffffff;font-weight:bold;text-decoration:none;">${escape(label("playback"))}</a></p><p><a href="{{communication.detailUrl}}">${escape(label("open"))}</a></p>`);
+      if (visualStyle === "semantic") {
+        const palette = TEMPLATE_VISUAL_PALETTES[tone];
+        html = html.replace(/#316bd8/gi, palette.accent)
+          .replace(/#edf3f8|#edf4ff|#f3f7fa/gi, palette.background)
+          .replace(/#d9e4ed|#e1eaf0|#e8eef3/gi, palette.border)
+          .replace(/#173852|#3779a6|#426c8d|#57768d/gi, palette.foreground);
+      }
       return (["email", "task", "notification", "sms"] as const).map(type => ({
         id: `indexus-activity-${type}-${brief.key}-${language}`, name, subject, type,
         format: type === "email" ? "html" : "text", language,
@@ -127,5 +138,22 @@ export async function ensureAutomationActivityTemplates(pool: { query: (sql: str
     SELECT defaults.id,name,subject,type,format,content,html,${sqlValue(language)},
       CASE WHEN type='email' THEN 'indexus-automation-email-category' ELSE NULL END,true,ARRAY[]::text[]
     FROM defaults CROSS JOIN seed ON CONFLICT(id) DO NOTHING;`);
+  }
+  // Only pristine defaults receive the requested visual correction. Edited,
+  // deleted, disabled templates and saved rule snapshots are never overwritten.
+  const originals = await loadAutomationActivityTemplates("original");
+  const oldById = new Map(originals.map(item => [item.id, item]));
+  for (const language of ACTIVITY_TEMPLATE_LANGUAGES) {
+    const visualRows = templates.filter(item => item.language === language && item.type === "email").map(item => {
+      const old = oldById.get(item.id)!;
+      return `(${[item.id, old.name, old.subject, old.content, old.contentHtml, item.contentHtml].map(sqlValue).join(",")})`;
+    }).join(",\n");
+    await pool.query(`WITH visuals(id,name,subject,content,old_html,new_html) AS (VALUES ${visualRows})
+      UPDATE message_templates AS template SET content_html=visuals.new_html
+      FROM visuals WHERE template.id=visuals.id AND template.type='email' AND template.format='html'
+        AND template.language=${sqlValue(language)} AND template.is_active=true
+        AND template.name=visuals.name AND template.subject=visuals.subject
+        AND template.content=visuals.content AND template.content_html=visuals.old_html
+        AND cardinality(template.country_codes)=0;`);
   }
 }

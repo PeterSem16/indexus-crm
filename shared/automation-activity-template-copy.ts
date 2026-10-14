@@ -2,6 +2,7 @@
 export const ACTIVITY_TEMPLATE_LANGUAGES = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
 export type ActivityTemplateLanguage = typeof ACTIVITY_TEMPLATE_LANGUAGES[number];
 const copy: Record<string, readonly string[]> = {
+  unavailable: ["Unavailable variables for this trigger", "Nedostupné premenné pre túto udalosť", "Nedostupné proměnné pro tuto událost", "Ehhez az eseményhez nem elérhető változók", "Variabile indisponibile pentru acest eveniment", "Variabili non disponibili per questo evento", "Für dieses Ereignis nicht verfügbare Variablen"],
   detail: ["Activity brief", "Prehľad aktivity", "Přehled aktivity", "Tevékenység áttekintése", "Rezumat activitate", "Riepilogo attività", "Aktivitätsübersicht"],
   from: ["From / created by", "Od / vytvoril", "Od / vytvořil", "Feladó / létrehozó", "De la / creat de", "Da / creato da", "Von / erstellt von"],
   to: ["To / assigned to", "Pre / priradené", "Pro / přiřazeno", "Címzett / felelős", "Către / atribuit", "A / assegnato a", "An / zugewiesen"],

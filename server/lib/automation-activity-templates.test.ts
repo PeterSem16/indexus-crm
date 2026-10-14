@@ -30,7 +30,7 @@ test("source-specific briefs cover every executable module/event and seven local
         assert.ok(entries.every(item => item.content.includes("{{analysis.summary}}") &&
           item.content.includes("{{analysis.sentiment}}") && item.content.includes("{{analysis.tone}}")));
         if (["inbound", "outbound", "voice"].includes(channel)) {
-          assert.match(entries[0].contentHtml!, /cid:indexus-automation-phone/);
+          assert.match(entries[0].contentHtml!, /cid:indexus-automation-phone-(?:info|positive|negative|urgent)/);
           assert.match(entries[0].contentHtml!, /href="{{communication.playbackUrl}}"/);
         }
       }
@@ -65,11 +65,11 @@ test("call links bind saved call+recording identities and never expose public au
   assert.doesNotMatch(rendered, /<script|<img onerror/);
   assert.match(rendered, /9:00/);
   assert.match(rendered, /href="https?:\/\/[^"]+\/automation-calls\//);
-  assert.deepEqual(automationPhoneArtwork.subarray(0, 8), Buffer.from([137,80,78,71,13,10,26,10]));
+  assert.equal(automationPhoneArtwork.subarray(0, 6).toString(), "GIF89a");
   const assets = await automationEmailInlineAttachments(rendered);
   assert.equal(assets.length, 1);
-  assert.equal(assets[0].contentType, "image/png");
-  assert.equal(assets[0].contentId, "indexus-automation-phone");
+  assert.equal(assets[0].contentType, "image/gif");
+  assert.equal(assets[0].contentId, "indexus-automation-phone-negative");
   assert.equal(communication.senderPhone, "+421900000000");
   assert.equal(communication.recipientName, "Agent");
 });
@@ -98,10 +98,16 @@ test("activity fields are allowlisted snapshots; names, deadlines and localized 
 test("additive seeding is language-gated and does not overwrite or restore saved templates", async () => {
   const sql: string[] = [];
   await ensureAutomationActivityTemplates({ query: async value => { sql.push(value); } });
-  assert.equal(sql.length, 7);
-  for (const query of sql) {
+  assert.equal(sql.length, 14);
+  for (const query of sql.slice(0, 7)) {
     assert.match(query, /ON CONFLICT\(id\) DO NOTHING RETURNING id/);
     assert.match(query, /FROM defaults CROSS JOIN seed ON CONFLICT\(id\) DO NOTHING/);
     assert.doesNotMatch(query, /DO UPDATE|DELETE|UPDATE workflow_rules/);
+  }
+  for (const query of sql.slice(7)) {
+    assert.match(query, /template\.content_html=visuals\.old_html/);
+    assert.match(query, /template\.name=visuals\.name/);
+    assert.match(query, /template\.is_active=true/);
+    assert.doesNotMatch(query, /workflow_rules|DELETE|INSERT/);
   }
 });

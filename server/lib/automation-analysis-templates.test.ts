@@ -19,7 +19,8 @@ const skeleton = (html: string) => html
   .replace(/>([^<>]*)</g, "><")
   .replace(/lang="[^"]*"/g, 'lang="LANG"')
   .replace(/alt="[^"]*"/g, 'alt="ALT"')
-  .replace(/title="[^"]*"/g, 'title="TITLE"');
+  .replace(/title="[^"]*"/g, 'title="TITLE"').replace(/#[a-f0-9]{6}/gi, "#COLOR")
+  .replace(/cid:indexus-automation-phone-(?:info|positive|negative|urgent|deadline)/g, "cid:indexus-automation-task");
 
 test("analysis email, SMS and internal notification catalogs cover seven languages and eight criteria", async () => {
   const emails = await loadAutomationAnalysisEmailTemplates();
@@ -40,7 +41,7 @@ test("analysis email, SMS and internal notification catalogs cover seven languag
       assert.equal(skeleton(template.contentHtml), skeleton(normalizeEmailTemplateLayout(approvedFrame.contentHtml)));
       assert.match(template.contentHtml, /border-radius:12px/);
       assert.ok(template.contentHtml.includes(variant.summary));
-      assert.doesNotMatch(template.contentHtml + template.content, /{{|@example|phone|email address|contact name/i);
+      assert.doesNotMatch(template.contentHtml.replace(/cid:indexus-automation-phone-[\w-]+/g, "") + template.content, /{{|@example|phone|email address|contact name/i);
       assert.doesNotMatch(template.contentHtml, /<script|\/__mockup/);
     }
     const sms = automationAnalysisSmsDefaults(language);
@@ -58,7 +59,7 @@ test("analysis email, SMS and internal notification catalogs cover seven languag
 test("analysis catalog seeds use separate durable markers and insert-only defaults", async () => {
   const emailSql: string[] = [];
   await ensureAutomationAnalysisEmailTemplates({ query: async sql => { emailSql.push(sql); } });
-  assert.equal(emailSql.length, 7);
+  assert.equal(emailSql.length, 8);
   for (const [index, language] of AUTOMATION_ANALYSIS_TEMPLATE_LANGUAGES.entries()) {
     const query = emailSql[index];
     assert.match(query, new RegExp(`approved-automation-analysis-email-${language}`));

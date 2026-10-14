@@ -46,6 +46,7 @@ import type { ServiceConfiguration, ServiceInstance, InvoiceTemplate, InvoiceLay
 import { EMAIL_PRIORITIES, EMAIL_IMPORTANCE, EMAIL_CONDITION_TYPES, EMAIL_ACTION_TYPES, GSM_SENDER_ID_TYPES } from "@shared/schema";
 import { CRM_MODULES, MODULE_CATEGORIES, DEPARTMENTS, getModulesByCategory, type ModuleDefinition, type FieldPermission, type ModuleAccess } from "@shared/permissions-config";
 import { Smartphone, Wallet, MessageSquare, Calendar, Clock, Star, Heart, Folder, Send, Inbox, Archive, Bookmark, Tag, Gift, Briefcase, Building, ShoppingCart, Truck } from "lucide-react";
+import { AutomationActivityTemplateIcon } from "@/components/automation-activity-template-icon";
 import { DepartmentTree } from "@/components/department-tree";
 import WebFormsPage from "@/pages/web-forms";
 import ScrapingPage from "@/pages/scraping";
@@ -11756,7 +11757,7 @@ const TEMPLATE_LANGUAGES = [
 ];
 
 const rewriteEmailArtworkPreview = (html: string) => html.replace(
-  /cid:indexus-automation-(task|attention|success|deadline|phone)/gi,
+  /cid:indexus-automation-(task|attention|success|deadline|phone(?:-(?:positive|negative|urgent|info|deadline))?)/gi,
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 
@@ -11906,6 +11907,8 @@ function MessageTemplatesTab() {
   // Queries
   const { data: templates = [], isLoading: templatesLoading } = useQuery<MessageTemplate[]>({
     queryKey: ["/api/message-templates"],
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<TemplateCategory[]>({
@@ -12612,7 +12615,7 @@ function MessageTemplatesTab() {
                       </td>
                       <td className="px-4 py-3">
                         <div>
-                          <span className="font-medium">{template.name}</span>
+                          <span className="inline-flex items-center gap-2 font-medium"><AutomationActivityTemplateIcon templateId={template.id} type={template.type} />{template.name}</span>
                           {template.description && (
                             <p className="text-xs text-muted-foreground">{template.description}</p>
                           )}

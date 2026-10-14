@@ -8,8 +8,9 @@ import {
 } from "@shared/automation-analysis-template-copy";
 import { normalizeEmailTemplateLayout } from "@shared/email-template-layout";
 import { loadAutomationTemplateLocales, localizeAutomationEmail, type AutomationEmailDefault } from "./automation-template-locales";
+import { automationTemplateVisuals, refreshPristineTemplateVisuals } from "./automation-template-visuals";
 
-export async function loadAutomationAnalysisEmailTemplates() {
+export async function loadAutomationAnalysisEmailTemplates(visualStyle: "semantic" | "original" = "semantic") {
   const sources: AutomationEmailDefault[] = JSON.parse(
     await readFile(resolve(process.cwd(), "server/assets/automation-email/templates.json"), "utf8"),
   );
@@ -47,7 +48,7 @@ export async function loadAutomationAnalysisEmailTemplates() {
         id: `indexus-automation-email-analysis-${key}-${language}`,
         name: variant.name,
         subject: variant.name,
-        contentHtml: normalizeEmailTemplateLayout(generated.contentHtml),
+        contentHtml: normalizeEmailTemplateLayout(visualStyle === "semantic" ? automationTemplateVisuals(`analysis-${key}`, generated.contentHtml) : generated.contentHtml),
       };
     });
     return { language, templates };
@@ -118,6 +119,9 @@ export async function ensureAutomationAnalysisEmailTemplates(pool: { query: (sql
       ON CONFLICT (id) DO NOTHING;
     `);
   }
+  await refreshPristineTemplateVisuals(pool,
+    (await loadAutomationAnalysisEmailTemplates("original")).flatMap(batch => batch.templates),
+    (await loadAutomationAnalysisEmailTemplates()).flatMap(batch => batch.templates));
 }
 
 export async function ensureAutomationAnalysisChannelTemplates(

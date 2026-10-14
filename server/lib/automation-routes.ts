@@ -32,7 +32,7 @@ import { users, userMs365Connections, systemMs365Connections } from "../../share
 import { withUnmanagedTaskCreatorNoticeCondition } from "./task-contract";
 import { storage } from "../storage";
 import { resolve } from "node:path";
-import { automationPhoneArtwork } from "./automation-phone-artwork";
+import { automationPhoneArtworkFor } from "./automation-phone-artwork";
 import { registerUpdateRecordRoutes, updateRecordOwner, validateSavedUpdateRecord } from "./automation-update-record";
 import { registerRecordTagRoutes, validateSavedTagAction } from "./automation-record-tags";
 import { registerAssignOwnerRoutes, validateSavedAssignOwner } from "./automation-assign-owner";
@@ -83,9 +83,10 @@ export function registerAutomationRoutes(app: Express) {
   registerRecordTagRoutes(app, requireAutomationDesigner, requireAuth);
   // Static, non-personal artwork only; this allow-list cannot serve uploads.
   app.get("/api/automation/email-artwork/:name", (req, res) => {
-    if (req.params.name === "phone") {
+    const phoneArtwork = automationPhoneArtworkFor(req.params.name);
+    if (phoneArtwork) {
       res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.type("png").send(automationPhoneArtwork);
+      return res.type("gif").send(phoneArtwork);
     }
     if (!["task", "attention", "success", "deadline"].includes(req.params.name))
       return res.status(404).end();

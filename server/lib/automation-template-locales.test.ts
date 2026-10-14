@@ -17,7 +17,8 @@ const sources = async (): Promise<AutomationEmailDefault[]> =>
   JSON.parse(await readFile("server/assets/automation-email/templates.json", "utf8"));
 const skeleton = (html: string) => html
   .replace(/>([^<>]*)</g, "><").replace(/lang="[^"]*"/g, 'lang="LANG"')
-  .replace(/alt="[^"]*"/g, 'alt="ALT"').replace(/title="[^"]*"/g, 'title="TITLE"');
+  .replace(/alt="[^"]*"/g, 'alt="ALT"').replace(/title="[^"]*"/g, 'title="TITLE"')
+  .replace(/#[a-f0-9]{6}/gi, "#COLOR").replace(/cid:indexus-automation-phone-(?:info|positive|negative|urgent|deadline)/g, "cid:indexus-automation-task");
 
 test("all six locales provide the six approved email designs and seven Task texts without SK fallbacks", async () => {
   const originals = await sources();
