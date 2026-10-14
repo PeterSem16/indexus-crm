@@ -8801,5 +8801,3 @@ export type PricingPriceList = typeof pricingPriceLists.$inferSelect;
 export type PricingIncompleteRule = typeof pricingIncompleteRules.$inferSelect;
 
 export type WallboardAlarmHistoryRow = typeof wallboardAlarmHistory.$inferSelect;
-
-export type QueueForwardedCall = typeof queueForwardedCalls.$inferSelect;
