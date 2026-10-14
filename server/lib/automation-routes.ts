@@ -1,4 +1,5 @@
 import type { Express, Request, Response, NextFunction } from "express";
+import { ANALYSIS_RESULT_TRIGGERS, analysisResultLabel } from "../../shared/automation-analysis-triggers";
 import { db } from "../db";
 import { noMatchRoutingIssue } from "./automation-no-match";
 import { eq, desc, and, arrayContains, isNull, or } from "drizzle-orm";
@@ -517,6 +518,7 @@ export function registerAutomationRoutes(app: Express) {
         { value: "sentiment.negative", label: "Negative sentiment in inbound message" },
         { value: "communication.analyzed", label: "Content and sentiment analysis completed" },
         { value: "communication.received", label: "Analyze selected communication" },
+        ...ANALYSIS_RESULT_TRIGGERS.map(item => ({ value: item.eventType, label: analysisResultLabel("en", item.eventType)! })),
         { value: "metric.threshold", label: "Metric threshold reached" },
         { value: "task.assigned", label: "Task assigned to a user" },
         { value: "task.completed", label: "Task completed" },

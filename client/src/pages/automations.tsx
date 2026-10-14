@@ -1,5 +1,6 @@
 import { taskSalutationFields } from "@shared/task-template-variables";
 import { ACTIVITY_TEMPLATE_FIELDS } from "@shared/automation-activity-context";
+import { isAnalysisServiceEvent, analysisResultTrigger, analysisResultLabel, analysisResultDescription, communicationEventTrigger, legacyNegativeTriggerLabel } from "@shared/automation-analysis-triggers";
 import { activityTemplateLabel } from "@shared/automation-activity-template-copy";
 import { automationElseActions, automationExecutableActions, automationBranchIssue } from "@shared/automation-branches";
 import { AutomationBlockEditor, AutomationBlockActions } from "@/components/automation-block-editor";
@@ -852,6 +853,9 @@ export function RuleEditor({
       (getUpdateRecordCopy(locale).entity as Record<string, string>)[id] || fallback;
   }).join(", ");
   const eventLabel = (event: Catalog["eventTypes"][number]) => {
+    if (event.value === "sentiment.negative") return legacyNegativeTriggerLabel(locale);
+    const resultLabel = analysisResultLabel(locale, event.value);
+    if (resultLabel) return resultLabel;
     if (event.value === "contract.completed") return t.automationCatalog.contractCompleted;
     if (event.value === "contract.cancelled") return t.automationCatalog.contractCancelled;
     const preset = event.value === "communication.received" && analysisConfig?.analyzeAttachments
@@ -863,6 +867,7 @@ export function RuleEditor({
           : t.automationServices.triggerPresets.labels[preset.id] : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
   };
   const eventDescription = (event: Catalog["eventTypes"][number]) =>
+    analysisResultTrigger(event.value) ? analysisResultDescription(locale, event.value) :
     event.value === "communication.analyzed" ? getCommunicationAnalysisCopy(locale).analysisDescription :
     (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
@@ -992,7 +997,7 @@ export function RuleEditor({
         <div role="group" aria-label={t.automationServices.editor.eventLabel}
           className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
           {eventsForModule.map((event) => {
-            const Icon = triggerEventIcons[event.value] || Bell;
+            const Icon = triggerEventIcons[event.value] || (analysisResultTrigger(event.value) ? Sparkles : Bell);
             const active = selectedEvent === event.value;
             return (
               <button
@@ -1004,7 +1009,8 @@ export function RuleEditor({
                 onClick={() => setDraft({
                   ...draft,
                   conditions: resetSourceConditions(),
-                  trigger: { type: "event", entityType: draft.module, eventType: event.value },
+                  trigger: draft.module === "communication" ? communicationEventTrigger(event.value, analysisConfig)
+                    : { type: "event", entityType: draft.module, eventType: event.value },
                 })}
                 className={`flex min-h-[76px] items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/60"}`}
               >
@@ -1299,11 +1305,13 @@ export function RuleEditor({
                         <Label>{t.automationServices.editor.eventLabel}</Label>
                         <Select value={selectedEvent} onValueChange={eventType => {
                           if (draft.conditions) setSourceResetNotice(true);
-                          setDraft({ ...draft, conditions: null, trigger: { type: "event", entityType: draft.module, eventType } });
+                          setDraft({ ...draft, conditions: null, trigger: draft.module === "communication"
+                            ? communicationEventTrigger(eventType, analysisConfig)
+                            : { type: "event", entityType: draft.module, eventType } });
                         }}>
                           <SelectTrigger data-testid="select-event"><SelectValue /></SelectTrigger>
                           <SelectContent className="automation-rule-select-content">{eventsForModule.map(event => {
-                            const Icon = triggerEventIcons[event.value] || Bell;
+                             const Icon = triggerEventIcons[event.value] || (analysisResultTrigger(event.value) ? Sparkles : Bell);
                             return <SelectItem key={event.value} value={event.value} textValue={eventLabel(event)} data-testid={`select-event-${event.value}`}>
                               <span className="flex items-center gap-2"><Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />{eventLabel(event)}</span>
                             </SelectItem>;
@@ -1379,11 +1387,12 @@ export function RuleEditor({
                   )}
                   {sourceResetNotice && <p className="automation-reset-notice" role="status">{t.automationServices.editor.conditionsReset}</p>}
                   {selectedPreset && <AutomationTriggerContext preset={selectedPreset} copy={t.automationServices.triggerPresets} />}
-                  {draft.trigger.type === "event" && draft.module === "communication" && draft.trigger.eventType === "communication.received" && draft.trigger.analysis && (
+                  {draft.trigger.type === "event" && draft.module === "communication" && isAnalysisServiceEvent(draft.trigger.eventType) && draft.trigger.analysis && (
                     <section className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.035] p-4" data-testid="communication-analysis-config">
                       <div>
                         <h3 className="text-sm font-semibold">{selectedPreset?.id === "attachmentAnalysis" ? getUnifiedAutomationCopy(locale).attachment : getCommunicationAnalysisCopy(locale).analysisTitle}</h3>
-                        <p className="mt-1 text-xs text-muted-foreground">{getCommunicationAnalysisCopy(locale).analysisWhen}</p>
+                         <p className="mt-1 text-xs text-muted-foreground">{analysisResultTrigger(selectedEvent)
+                           ? analysisResultDescription(locale, selectedEvent) : getCommunicationAnalysisCopy(locale).analysisWhen}</p>
                         <p className="mt-1 text-xs font-medium text-primary">{getUnifiedAutomationCopy(locale).paused}</p>
                       </div>
                       <div className="space-y-2">
@@ -1431,7 +1440,7 @@ export function RuleEditor({
                       </div>
                       <div className="grid gap-2 sm:grid-cols-2">
                         <label className="flex min-h-12 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
-                          <Switch checked={draft.trigger.analysis.analyzeContent !== false} onCheckedChange={analyzeContent => updateAnalysisConfig({ analyzeContent })} />
+                          <Switch checked={draft.trigger.analysis.analyzeContent !== false} disabled={Boolean(analysisResultTrigger(selectedEvent))} onCheckedChange={analyzeContent => updateAnalysisConfig({ analyzeContent })} />
                           {getUnifiedAutomationCopy(locale).content}
                         </label>
                         <label className="flex min-h-12 items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">

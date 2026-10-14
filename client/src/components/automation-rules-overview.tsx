@@ -1,3 +1,4 @@
+import { analysisResultLabel, legacyNegativeTriggerLabel } from "@shared/automation-analysis-triggers";
 import { useState, type ReactNode } from "react";
 import { Activity, ArrowRight, ChevronDown, ChevronRight, CircleAlert, Clock3, Globe2,
   History, Loader2, RotateCcw, Search, Settings2, ShieldCheck, SlidersHorizontal,
@@ -34,7 +35,7 @@ export function AutomationRulesOverview(props: Props) {
   const resetFilters = () => { setSearch(""); setCountry("all"); setState("all"); };
   const moduleLabel = (key: string) => t.automationServices.editorCatalog.moduleLabels[key]
     || props.catalog?.modules.find(option => option.value === key)?.label || key;
-  const eventLabel = (key: string) => t.automationServices.editorCatalog.eventLabels[key]
+  const eventLabel = (key: string) => (key === "sentiment.negative" ? legacyNegativeTriggerLabel(locale) : analysisResultLabel(locale, key)) || t.automationServices.editorCatalog.eventLabels[key]
     || props.catalog?.eventTypes.find(option => option.value === key)?.label || key;
   const actionLabel = (key: string) => key === "record_analysis" ? getRecordEntryCopy(locale).actionLabel
     : key === "forward_message" ? getForwardCopy(locale).heading

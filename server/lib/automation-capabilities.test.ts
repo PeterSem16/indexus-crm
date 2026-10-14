@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { isAnalysisServiceEvent } from "../../shared/automation-analysis-triggers";
 import {
   ACTION_TARGETS, AUTOMATION_SERVICE_DETAILS, FIELD_OPTIONS, MODULE_EVENTS, OPERATORS,
   RECIPIENT_CAPABILITIES, RECIPIENT_TEMPLATES, compareOrderedValues, conditionValuesEqual, fieldsForEvent, matchesRuleCountryScope, operatorsForEvent,
@@ -364,7 +365,7 @@ assert.deepEqual(paths(rule("task", "created", {
 for (const [module, events] of Object.entries(MODULE_EVENTS)) {
   assert.ok(FIELD_OPTIONS[module], `missing fields for ${module}`);
   for (const event of events) {
-    const serviceTrigger = event === "communication.received" ? {
+    const serviceTrigger = isAnalysisServiceEvent(event) ? {
       analysis: { channels: ["email"], analyzeContent: true, analyzeAttachments: false },
     } : event === "metric.threshold" ? {
       metric: { metricType: "pending_invoices", checkFrequency: "hourly", cooldownMinutes: 60 },

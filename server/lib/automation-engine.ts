@@ -1,4 +1,5 @@
 import { db, pool } from "../db";
+import { ANALYSIS_SOURCE_EVENTS, isAnalysisServiceEvent, analysisResultMatches } from "../../shared/automation-analysis-triggers";
 import { automationBranch, automationExecutableActions, automationAnalysisUnknown } from "../../shared/automation-branches";
 import { enterRuleEvaluation, type RuleEvaluationPass } from "./automation-no-match";
 import { automationDateDisplay } from "../../shared/automation-display-date";
@@ -1109,8 +1110,8 @@ export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): bool
     if (t.listenAfter && new Date(event.createdAt).getTime() < new Date(t.listenAfter).getTime()) return false;
     if (t.type === "event") {
       if (t.entityType && t.entityType !== event.entityType) return false;
-      const communicationSource = t.eventType === "communication.received" && t.analysis &&
-        ["email.received", "sms.received", "chat.received", "task.message_received", "task.body_received", "voice.transcribed"].includes(event.eventType);
+      const communicationSource = isAnalysisServiceEvent(t.eventType) && t.analysis &&
+        (ANALYSIS_SOURCE_EVENTS as readonly string[]).includes(event.eventType);
       if (t.eventType && t.eventType !== event.eventType && !communicationSource) return false;
       // Inbound services must fail closed on unknown queue country. Keep the
       // legacy matching behavior of unrelated modules unchanged.
@@ -1510,6 +1511,15 @@ export async function runRule(
     }
   }
 
+  // A result-specific WHEN is not an IF: a different/unknown result must not
+  // execute ELSE, hand off to another rule, or consume an execution quota.
+  const resultMatch = analysisResultMatches((rule.trigger as any)?.eventType, ctx.analysis);
+  if (resultMatch !== true) {
+    await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "skipped",
+      skippedReason: resultMatch === null ? "analysis_trigger_unknown" : "analysis_trigger_not_matched",
+      finishedAt: new Date() });
+    return;
+  }
   // Skip if conditions not met
   const eligibleConditions = taskAssignmentTriggerMatches(rule.trigger, ctx.newValues) && permitsSentimentSource(rule.conditions, event);
   const matched = eligibleConditions && evalCondition(rule.conditions as any, ctx);

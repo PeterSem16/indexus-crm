@@ -1,5 +1,6 @@
 import { taskSalutationFields } from "../../shared/task-template-variables";
 import { ACTIVITY_TEMPLATE_FIELDS } from "../../shared/automation-activity-context";
+import { ANALYSIS_RESULT_TRIGGERS, isAnalysisServiceEvent, analysisResultTrigger } from "../../shared/automation-analysis-triggers";
 import { COMMUNICATION_SOURCE_FIELDS } from "../../shared/automation-communication-context";
 import { RECORD_TAG_ENTITY_TYPES, tagActionIssues, normalizeTagName, isProtectedRecordTag } from "@shared/automation-record-tags";
 import { smsRecipientList } from "../../shared/automation-sms-policy";
@@ -13,7 +14,8 @@ import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "@shared/automation-u
 export const MODULE_EVENTS: Record<string, string[]> = {
   customer: ["created", "updated", "status_changed"],
   task: ["created", "updated", "status_changed", "task.assigned", "task.completed", "task.overdue"],
-  communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed", "communication.received"],
+  communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed", "communication.received",
+    ...ANALYSIS_RESULT_TRIGGERS.map(item => item.eventType)],
   metric: ["metric.threshold"],
   contract: ["created", "updated", "status_changed", "contract.completed", "contract.cancelled"],
   hospital: ["created", "updated"],
@@ -399,7 +401,7 @@ export function fieldsForEvent(module: string, event: string): { value: string; 
     field.value === "newValues.status" ? { ...field, options: [...COMMUNICATION_CHOICE_VALUES.status] }
       : field.value === "newValues.reason" ? { ...field, options: ["no_agents", "caller_hangup", "caller_left_stasis", "timeout"] } : field);
   if (module === "communication") {
-    if (event === "communication.received") return [
+    if (isAnalysisServiceEvent(event)) return [
       ...COMMUNICATION_SOURCE_FIELDS,
       ...ANALYSIS_FIELDS.map(field => ({ value: field.value, label: field.label, type: field.type,
         ...("options" in field ? { options: Array.from(field.options as readonly string[]) } : {}) })),
@@ -514,8 +516,10 @@ export function validateRuleCapabilities(rule: {
     event = trigger.eventType;
     if (trigger.entityType !== rule.module) fail("trigger.entityType", "Entity must match module");
     if (!events?.includes(event)) fail("trigger.eventType", "Event is not emitted by this module");
-    if (event === "communication.received") {
+    if (isAnalysisServiceEvent(event)) {
       for (const message of analysisConfigIssues(trigger.analysis)) fail("trigger.analysis", message);
+      if (analysisResultTrigger(event) && record(trigger.analysis) && trigger.analysis.analyzeContent !== true)
+        fail("trigger.analysis.analyzeContent", "Sentiment and tone triggers require content analysis");
     } else if (trigger.analysis !== undefined) fail("trigger.analysis", "Analysis requires a communication service source");
     if (event === "metric.threshold") {
       const metric = trigger.metric;

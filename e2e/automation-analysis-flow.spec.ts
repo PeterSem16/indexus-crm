@@ -4,6 +4,7 @@ import { COMMUNICATION_SOURCE_FIELDS } from "../shared/automation-communication-
 import { getTextSearchCopy } from "../client/src/i18n/automation-text-search-copy";
 import { getRecordEntryCopy } from "../client/src/i18n/automation-record-entry-copy";
 import { getRecordReviewCopy } from "../client/src/i18n/automation-record-review-copy";
+import { ANALYSIS_RESULT_TRIGGERS, analysisResultLabel } from "../shared/automation-analysis-triggers";
 
 // Production page/providers, native fetch, isolated browser API fixtures. No actual account,
 // source data, automation execution, notification, email or SMS is created by these tests.
@@ -92,6 +93,69 @@ const catalog = { modules: [{ value: "communication", label: "Communications" }]
   operators: [{ value: "eq", label: "Equals", arity: 1, availableIn: ["communication"] }],
   recipients: [], recipientTemplatesByEvent: {},
   countries: [{ value: "SK", label: "Slovakia" }] };
+
+for (const width of [1360, 390]) {
+  test(`direct sentiment and tone WHEN without IF saves and reopens with voice scope at ${width}px`, async ({ page }) => {
+    test.setTimeout(90_000);
+    page.setDefaultTimeout(15_000);
+    await page.setViewportSize({ width, height: 900 });
+    let saved: any;
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const editable = { ...rule, conditions: null,
+      trigger: { type: "event", entityType: "communication", eventType: "communication.received",
+        analysis: { channels: ["voice"], analyzeContent: true, analyzeAttachments: false, mailboxMode: "selected",
+          mailboxUserIds: [user.id], senderEmails: ["sender@example.invalid"] } },
+      actions: [{ type: "notify_user", config: { notificationActionVersion: 2, userIds: [user.id], title: "Tone alert", message: "{{analysis.tone}}" } }] };
+    const expandedCatalog = { ...catalog,
+      eventTypes: [...catalog.eventTypes, ...ANALYSIS_RESULT_TRIGGERS.map(item => ({ value: item.eventType,
+        label: analysisResultLabel("en", item.eventType), availableIn: ["communication"], changeSnapshot: false }))],
+      fieldsByEvent: { communication: Object.fromEntries(["communication.received", ...ANALYSIS_RESULT_TRIGGERS.map(item => item.eventType)]
+        .map(event => [event, [...ANALYSIS_FIELDS, ...COMMUNICATION_SOURCE_FIELDS]])) },
+    };
+    await page.route("**/api/**", async route => {
+      const request = route.request(), path = new URL(request.url()).pathname;
+      if (request.method() === "PATCH" && path === "/api/automation/rules/flow-source") {
+        saved = request.postDataJSON(); return route.fulfill({ json: { ...editable, ...saved } });
+      }
+      if (path === "/api/auth/heartbeat") return route.fulfill({ json: { ok: true } });
+      if (request.method() !== "GET") return route.fulfill({ status: 405, json: { error: "No real writes or sends" } });
+      return route.fulfill({ json: path === "/api/auth/me" ? { user } :
+        path === "/api/automation/rules" ? [{ ...editable, ...saved }] :
+        path === "/api/automation/catalog" ? expandedCatalog :
+        path === "/api/automation/users" || path === "/api/automation/analysis-mailboxes" ? [user] :
+        path.includes("permissions") ? {} : [] });
+    });
+    await page.goto("/automations", { waitUntil: "domcontentloaded" });
+    const edit = page.getByTestId("button-edit-flow-source");
+    if (!await edit.isVisible()) await page.getByRole("tab", { name: /^(Rules|Pravidlá)$/ }).click();
+    if (!await edit.isVisible()) await page.getByRole("button", { name: /^(Details|Podrobnosti): Message analysis test$/ }).click();
+    await edit.click();
+    const openWhen = () => page.getByTestId("rule-source-event").locator('button[aria-controls="automation-step-when-body"]').click();
+    await openWhen();
+    for (const item of ANALYSIS_RESULT_TRIGGERS) {
+      await page.getByTestId("select-event").click();
+      await page.getByTestId(`select-event-${item.eventType}`).click();
+      await expect(page.getByTestId("communication-analysis-config")).toBeVisible();
+      await expect(page.getByTestId("task-event-description")).toContainText("IF");
+    }
+    await page.getByTestId("select-event").click();
+    await page.getByTestId("select-event-communication.tone.calm").click();
+    await page.screenshot({ path: `.local/screenshots/automation-direct-tone-${width}.png` });
+    await page.getByRole("button", { name: /^(Apply changes|Použiť zmeny)$/ }).click();
+    await page.getByTestId("button-save-rule").click();
+    await expect.poll(() => saved?.trigger?.eventType).toBe("communication.tone.calm");
+    expect(saved.conditions).toBeNull();
+    expect(saved.trigger.analysis.channels).toEqual(["voice"]);
+    expect(saved.trigger.analysis.mailboxUserIds).toEqual([user.id]);
+    expect(saved.trigger.analysis.senderEmails).toEqual(["sender@example.invalid"]);
+    expect(saved.trigger.analysis.analyzeContent).toBe(true);
+    await edit.click();
+    await openWhen();
+    await expect(page.getByTestId("select-event")).toContainText(/Calm tone|Pokojný tón/);
+    expect(errors).toEqual([]);
+  });
+}
 
 for (const viewport of [{ width: 1200, height: 760 }, { width: 768, height: 760 }, { width: 390, height: 844 }]) {
   test(`saved flow scroll, message isolation and nested fullscreen at ${viewport.width}`, async ({ page }) => {
