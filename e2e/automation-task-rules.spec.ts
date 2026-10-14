@@ -80,6 +80,7 @@ async function fixture(page: Page, taskAction = false) {
   await page.goto("/automations");
   await expect(page.getByTestId("button-create-rule")).toBeVisible({ timeout: 60_000 });
   await page.getByTestId("tab-rules").click();
+  await page.getByTestId("card-rule-test-rule").locator(".el-expand").click();
   await page.getByTestId("button-edit-test-rule").click();
   await expect(page.getByTestId("input-rule-name")).toBeVisible();
   return { requests, errors };

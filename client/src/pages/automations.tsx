@@ -71,6 +71,8 @@ import { conditionValueOptions, usesConditionChoices, SENTIMENT_OPTIONS, TONE_OP
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
 import "./automations-workspace.css";
+import { AutomationRulesOverview } from "@/components/automation-rules-overview";
+import { AutomationRunHistory } from "@/components/automation-run-history";
 
 const AlertRulesManager = lazy(() => import("@/components/automation-alert-rules").then(m => ({ default: m.AlertRulesManager })));
 
@@ -264,12 +266,15 @@ export default function AutomationsPage() {
     window.history.replaceState({}, "", "/automations");
   }, []);
 
-  const legacyTab = new URLSearchParams(window.location.search).get("tab") === "notifications";
-  const [topTab, setTopTab] = useState<"assistant" | "services" | "rules" | "runs">(legacyTab ? "rules" : "services");
+  const [topTab, setTopTab] = useState<"assistant" | "services" | "rules" | "runs">(() => {
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    return tab === "notifications" ? "rules"
+      : tab === "assistant" || tab === "rules" || tab === "runs" ? tab : "services";
+  });
   useEffect(() => {
     const url = new URL(window.location.href);
-    if (url.searchParams.get("tab") === "notifications") url.searchParams.set("tab", "rules");
-    if (url.searchParams.get("tab") === "rules") url.searchParams.delete("tab");
+    if (topTab === "services") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", topTab);
     url.searchParams.delete("section");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, [topTab]);
@@ -332,18 +337,24 @@ export default function AutomationsPage() {
   const toggleEnabled = (rule: Rule) =>
     updateMut.mutate({ id: rule.id, data: { enabled: !rule.enabled } });
 
+  const resetErrorsMut = useMutation({
+    mutationFn: async (rule: Rule) => apiRequest("POST", `/api/automation/rules/${rule.id}/reset-errors`, { reEnable: !!rule.disabledReason }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/automation/rules"] }),
+    onError: (error: Error) => toast({ title: t.automationOverview.failed, description: error.message, variant: "destructive" }),
+  });
+
   const onSave = (draft: RuleDraft) => {
     if (editing) updateMut.mutate({ id: editing.id, data: draft });
     else createMut.mutate(draft);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className={topTab === "rules" || topTab === "runs" ? "automation-overview-page" : "space-y-6"}>
+      {topTab !== "rules" && topTab !== "runs" && <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2" data-testid="text-page-title">
             <Settings2 className="h-6 w-6" />
-            Automations
+            {t.automationOverview.automationTitle}
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -355,19 +366,19 @@ export default function AutomationsPage() {
           {t.automationServices.choose}
         </Button>
         </div>
-      </div>
+      </div>}
 
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as any)}>
-        <TabsList className="h-auto flex-wrap justify-start">
+        {topTab !== "rules" && topTab !== "runs" && <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="services" data-testid="tab-automation-services">{t.automationServices.servicesTab}</TabsTrigger>
           <TabsTrigger value="assistant" data-testid="tab-automation-assistant">
             <Sparkles className="h-3.5 w-3.5 mr-1" />{t.automationDraft.button}
           </TabsTrigger>
-          <TabsTrigger value="rules" data-testid="tab-rules">Rules</TabsTrigger>
+          <TabsTrigger value="rules" data-testid="tab-rules">{t.automationOverview.rules}</TabsTrigger>
           <TabsTrigger value="runs" data-testid="tab-runs">
-            <History className="h-3.5 w-3.5 mr-1" /> Run history
+            <History className="h-3.5 w-3.5 mr-1" /> {t.automationOverview.history}
           </TabsTrigger>
-        </TabsList>
+        </TabsList>}
 
         <TabsContent value="services" className="pt-4">
           {catalogQ.isLoading && <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
@@ -444,130 +455,22 @@ export default function AutomationsPage() {
           <AutomationDraftAssistant />
         </TabsContent>
 
-        <TabsContent value="rules" className="pt-4">
-          <div className="space-y-8">
-      {rulesQ.isLoading ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(rulesQ.data || []).map((rule) => (
-            <Card key={rule.id} data-testid={`card-rule-${rule.id}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-base flex items-center gap-2">
-                      {rule.name}
-                      {rule.isSystem && <Badge variant="secondary">system</Badge>}
-                      {!rule.enabled && <Badge variant="outline">disabled</Badge>}
-                      {rule.trigger?.legacySource && <Badge variant="secondary">{getUnifiedAutomationCopy(locale).legacy}</Badge>}
-                      {rule.disabledReason && (
-                        <Badge variant="destructive" data-testid={`badge-auto-disabled-${rule.id}`}>
-                          auto-disabled
-                        </Badge>
-                      )}
-                      {!rule.disabledReason && (rule.consecutiveErrorCount ?? 0) > 0 && (
-                        <Badge variant="outline" className="border-amber-500 text-amber-600 dark:text-amber-400" data-testid={`badge-error-count-${rule.id}`}>
-                          {rule.consecutiveErrorCount} err
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    {rule.description && (
-                      <CardDescription className="mt-1">{rule.description}</CardDescription>
-                    )}
-                    {rule.disabledReason && (
-                      <CardDescription className="mt-1 text-destructive text-xs" data-testid={`text-disabled-reason-${rule.id}`}>
-                        {rule.disabledReason}
-                      </CardDescription>
-                    )}
-                    {!rule.disabledReason && rule.lastErrorMessage && (
-                      <CardDescription className="mt-1 text-amber-600 dark:text-amber-400 text-xs" data-testid={`text-last-error-${rule.id}`}>
-                        Posledná chyba: {rule.lastErrorMessage}
-                      </CardDescription>
-                    )}
-                  </div>
-                  <Switch
-                    checked={rule.enabled}
-                    disabled={!!(rule.trigger?.legacySource && !rule.trigger.legacySource.reviewActivatedAt)}
-                    onCheckedChange={() => toggleEnabled(rule)}
-                    data-testid={`switch-enabled-${rule.id}`}
-                  />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 text-xs">
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="outline">module: {rule.module}</Badge>
-                  {(rule.countryCodes?.length ? rule.countryCodes : rule.countryCode ? [rule.countryCode] : []).map(code =>
-                    <Badge key={code} variant="outline">{catalogQ.data?.countries.find(country => country.value === code)?.label || code}</Badge>)}
-                  {rule.trigger?.eventType && (
-                    <Badge variant="outline">on: {rule.trigger.eventType}</Badge>
-                  )}
-                  <Badge variant="outline">{(rule.actions || []).length} action(s)</Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {rule.trigger?.legacySource && !rule.trigger.legacySource.reviewActivatedAt && (
-                    <Button size="sm" onClick={() => {
-                      if (window.confirm(getUnifiedAutomationCopy(locale).confirmReviewedActivation)) activateReviewedMut.mutate(rule);
-                    }}
-                      disabled={activateReviewedMut.isPending} data-testid={`button-activate-reviewed-${rule.id}`}>
-                      {getUnifiedAutomationCopy(locale).activateReviewed}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => setEditing(rule)} data-testid={`button-edit-${rule.id}`}>
-                    Edit
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setFlowFor(rule)} data-testid={`button-flowchart-${rule.id}`}>
-                    <ArrowRightLeft className="h-3.5 w-3.5 mr-1" aria-hidden="true" />
-                    {getFlowchartCopy(locale).preview}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setHistoryFor(rule)} data-testid={`button-history-${rule.id}`}>
-                    <History className="h-3.5 w-3.5 mr-1" />
-                    Runs
-                  </Button>
-                  {(rule.disabledReason || (rule.consecutiveErrorCount ?? 0) > 0) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => {
-                        await apiRequest(
-                          "POST",
-                          `/api/automation/rules/${rule.id}/reset-errors`,
-                          { reEnable: !!rule.disabledReason },
-                        );
-                        queryClient.invalidateQueries({ queryKey: ["/api/automation/rules"] });
-                      }}
-                      data-testid={`button-reset-errors-${rule.id}`}
-                    >
-                      Reset errors
-                    </Button>
-                  )}
-                  {!rule.isSystem && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        if (confirm(`Delete "${rule.name}"?`)) deleteMut.mutate(rule.id);
-                      }}
-                      data-testid={`button-delete-${rule.id}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {(rulesQ.data || []).length === 0 && (
-            <div className="col-span-full text-center text-muted-foreground py-12">
-              No rules yet. Click <strong>New rule</strong> to create your first automation.
-            </div>
-          )}
-        </div>
-      )}
+        <TabsContent value="rules" className="mt-0 pt-0">
+          <AutomationRulesOverview
+            rules={rulesQ.data || []} catalog={catalogQ.data}
+            loading={rulesQ.isLoading || catalogQ.isLoading} error={rulesQ.isError || catalogQ.isError}
+            busy={updateMut.isPending || deleteMut.isPending || resetErrorsMut.isPending || activateReviewedMut.isPending}
+            onRetry={() => { void rulesQ.refetch(); void catalogQ.refetch(); }}
+            onCreate={() => { setNewService(null); setShowCreate(true); }}
+            onTags={() => setShowTagOverview(true)}
+            onToggle={toggleEnabled} onEdit={setEditing} onFlow={setFlowFor} onHistory={setHistoryFor}
+            onReset={rule => resetErrorsMut.mutate(rule)}
+            onReview={rule => { if (window.confirm(getUnifiedAutomationCopy(locale).confirmReviewedActivation)) activateReviewedMut.mutate(rule); }}
+            onDelete={rule => { if (!rule.isSystem && window.confirm(t.automationOverview.confirmDelete.replace("{name}", rule.name))) deleteMut.mutate(rule.id); }}
+          >
             <section className="space-y-5 border-t border-border/70 pt-7" data-testid="legacy-rules-review">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">INDEXUS / Rules</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">INDEXUS / {t.automationOverview.rules}</p>
                 <h2 className="mt-1 text-xl font-semibold">{t.automationServices.managed.heading}</h2>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{getUnifiedAutomationCopy(locale).reviewHint}</p>
               </div>
@@ -578,11 +481,13 @@ export default function AutomationsPage() {
                 <AlertRulesManager onConvertForReview={(rule) => legacyDraftMut.mutate({ kind: "metric", id: rule.id })} />
               </Suspense>
             </section>
-          </div>
+          </AutomationRulesOverview>
         </TabsContent>
 
-        <TabsContent value="runs" className="pt-4">
-          <GlobalRunsView rules={rulesQ.data || []} />
+        <TabsContent value="runs" className="mt-0 pt-0">
+          <AutomationRunHistory rules={rulesQ.data || []} catalog={catalogQ.data}
+            onBack={() => setTopTab("rules")}
+            onOpenRule={rule => { setTopTab("rules"); setEditing(rule); }} />
         </TabsContent>
       </Tabs>
 
@@ -631,12 +536,13 @@ export default function AutomationsPage() {
         </DialogContent>
       </Dialog>
       <Dialog open={!!historyFor} onOpenChange={(o) => !o && setHistoryFor(null)}>
-        <DialogContent className="task-modern-modal automation-history-dialog max-w-3xl" overlayClassName="task-modern-modal-overlay">
-          <TaskModalArtwork variant="detail" />
+        <DialogContent className="automation-history-dialog max-w-6xl max-h-[90dvh] overflow-y-auto p-0" overlayClassName="task-modern-modal-overlay">
           <DialogHeader>
-            <DialogTitle>Run history: {historyFor?.name}</DialogTitle>
+            <DialogTitle>{t.automationOverview.history}: {historyFor?.name}</DialogTitle>
+            <DialogDescription>{t.automationOverview.historySubtitle}</DialogDescription>
           </DialogHeader>
-          {historyFor && <div className="task-modern-modal-body"><RunHistory ruleId={historyFor.id} /></div>}
+          {historyFor && <AutomationRunHistory rules={rulesQ.data || []} catalog={catalogQ.data} ruleId={historyFor.id} compact
+            onOpenRule={rule => { setHistoryFor(null); setEditing(rule); }} />}
         </DialogContent>
       </Dialog>
     </div>

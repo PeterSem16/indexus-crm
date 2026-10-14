@@ -1,4 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 import personEmailTranslations from "./person-email-translations";
@@ -92,6 +93,7 @@ export interface Translations {
   taskAction: TaskActionCopy;
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
+  automationOverview: AutomationOverviewCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
   automationDraft: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationDraft>;
   backOffice: {
@@ -9242,6 +9244,7 @@ const inboundUiByLocale = {
 export const translations = {
   en: {
     systemMailboxCheck: systemMailboxCheckTranslations.en,
+    automationOverview: automationOverviewTranslations.en,
     omniSms: omniSmsTranslations.en,
     taskCommunication: taskCommunicationTranslations.en,
     datePicker: { selectDate: 'Select date', now: 'Now', noTimeLimit: 'The agreement has no time limit' },
@@ -17107,6 +17110,7 @@ export const translations = {
   },
   sk: {
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
+    automationOverview: automationOverviewTranslations.sk,
     omniSms: omniSmsTranslations.sk,
     taskCommunication: taskCommunicationTranslations.sk,
     datePicker: { selectDate: 'Vyberte dátum', now: 'Teraz', noTimeLimit: 'Zmluva nemá časové obmedzenie platnosti' },
@@ -24968,6 +24972,7 @@ export const translations = {
   },
   cs: {
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
+    automationOverview: automationOverviewTranslations.cs,
     omniSms: omniSmsTranslations.cs,
     taskCommunication: taskCommunicationTranslations.cs,
     datePicker: { selectDate: 'Vyberte datum', now: 'Nyní', noTimeLimit: 'Smlouva nemá časové omezení platnosti' },
@@ -32788,6 +32793,7 @@ export const translations = {
   },
   hu: {
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
+    automationOverview: automationOverviewTranslations.hu,
     omniSms: omniSmsTranslations.hu,
     taskCommunication: taskCommunicationTranslations.hu,
     datePicker: { selectDate: 'Válasszon dátumot', now: 'Most', noTimeLimit: 'A szerződés határozatlan ideig érvényes' },
@@ -40606,6 +40612,7 @@ export const translations = {
   },
   ro: {
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
+    automationOverview: automationOverviewTranslations.ro,
     omniSms: omniSmsTranslations.ro,
     taskCommunication: taskCommunicationTranslations.ro,
     datePicker: { selectDate: 'Selectați data', now: 'Acum', noTimeLimit: 'Contractul nu are termen de expirare' },
@@ -48432,6 +48439,7 @@ export const translations = {
   },
   it: {
     systemMailboxCheck: systemMailboxCheckTranslations.it,
+    automationOverview: automationOverviewTranslations.it,
     omniSms: omniSmsTranslations.it,
     taskCommunication: taskCommunicationTranslations.it,
     datePicker: { selectDate: 'Seleziona data', now: 'Adesso', noTimeLimit: 'Il contratto non ha limiti temporali di validità' },
@@ -56249,6 +56257,7 @@ export const translations = {
   },
   de: {
     systemMailboxCheck: systemMailboxCheckTranslations.de,
+    automationOverview: automationOverviewTranslations.de,
     omniSms: omniSmsTranslations.de,
     taskCommunication: taskCommunicationTranslations.de,
     datePicker: { selectDate: 'Datum auswählen', now: 'Jetzt', noTimeLimit: 'Der Vertrag ist unbefristet gültig' },
