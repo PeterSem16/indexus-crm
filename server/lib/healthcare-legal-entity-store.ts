@@ -92,6 +92,8 @@ export async function confirmFacilityLink(client: PoolClient, actor: LegalEntity
   return rows[0].id as string;
 }
 export async function saveLegalVerification(actor: LegalEntityActor, body: any) {
+  if (body.applyFields !== undefined && (!Array.isArray(body.applyFields) || body.applyFields.length > 0))
+    throw new LegalEntityError("invalid");
   return inLegalTransaction(async client => {
     const { rows } = await client.query(`SELECT * FROM healthcare_legal_entity_verifications
       WHERE id=$1 AND created_by=$2 FOR UPDATE`, [body.verificationId, actor.id]);
@@ -112,17 +114,10 @@ export async function saveLegalVerification(actor: LegalEntityActor, body: any) 
     // Old previews must never overwrite a newer completed verification.
     if (existing.rows[0] && new Date(existing.rows[0].checked_at) > new Date(verification.checked_at))
       throw new LegalEntityError("stale_verification", 409);
-    const fields = body.applyFields || [];
-    if (fields.length && !body.facilityId) throw new LegalEntityError("invalid");
     if (body.facilityId) {
       const facility = await readLegalFacility(body.facilityType, body.facilityId, actor, true, client);
-      if (facility.ico && facility.ico.replace(/\s/g, "") !== company.ico) {
-        if (!fields.includes("ico")) throw new LegalEntityError("ico_mismatch", 409);
-        // An explicit field selection may change the operator IČO. This stays
-        // in the same transaction: a missing replacement confirmation rolls it back.
-        await client.query(`UPDATE ${body.facilityType === "clinic" ? "clinics" : "hospitals"} SET ico=$2 WHERE id=$1`,
-          [body.facilityId, company.ico]);
-      }
+      if (facility.ico && facility.ico.replace(/\s/g, "") !== company.ico)
+        throw new LegalEntityError("ico_mismatch", 409);
     }
     const saved = await client.query(`INSERT INTO healthcare_legal_entities(country_code,ico,normalized,checked_at,source_updated_at,created_by)
       VALUES('SK',$1,$2,$3,$4,$5) ON CONFLICT(country_code,ico) DO UPDATE SET
@@ -135,26 +130,6 @@ export async function saveLegalVerification(actor: LegalEntityActor, body: any) 
     let linkId: string | null = null;
     if (body.facilityId) {
       linkId = await confirmFacilityLink(client, actor, entityId, body.facilityType, body.facilityId, body.confirmOperator, body.replaceExisting);
-      const mapping: Record<string, [string, any]> = {
-        name: ["name", company.name], ico: ["ico", company.ico],
-        address: [body.facilityType === "clinic" ? "address" : "street_number", company.registeredAddress],
-        city: ["city", company.city], postalCode: ["postal_code", company.postalCode],
-      };
-      if (fields.length) {
-        const values: unknown[] = [body.facilityId];
-        const updates = fields.map((field: string) => {
-          const [column, value] = mapping[field];
-          if (value === null || value === undefined || value === "") throw new LegalEntityError("source_field_empty");
-          values.push(value);
-          return `${column}=$${values.length}`;
-        });
-        if (body.facilityType === "hospital" && fields.includes("name")) {
-          values.push(company.name);
-          updates.push(`full_name=$${values.length}`);
-        }
-        await client.query(`UPDATE ${body.facilityType === "clinic" ? "clinics" : "hospitals"} SET ${updates.join(",")} WHERE id=$1`, values);
-        await legalAudit(client, entityId, actor, "facility_fields_updated", { facilityType: body.facilityType, facilityId: body.facilityId, fields });
-      }
     }
     await client.query(`UPDATE healthcare_legal_entity_verifications SET used_at=now(),result_entity_id=$2 WHERE id=$1`, [verification.id, entityId]);
     await legalAudit(client, entityId, actor, "registry_saved");

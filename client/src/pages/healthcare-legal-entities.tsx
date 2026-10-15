@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { LegalEntityTable } from "@/components/healthcare-legal-entities/LegalEntityTable";
 import { LegalEntityCompanyForm } from "@/components/healthcare-legal-entities/LegalEntityCompanyForm";
 import { RegistryRolesTimeline } from "@/components/healthcare-legal-entities/RegistryRolesTimeline";
+import { RegistryCompanySiteComparison } from "@/components/healthcare-legal-entities/RegistryCompanySiteComparison";
 import { cn } from "@/lib/utils";
 
 const base = "/api/healthcare-legal-entities";
@@ -245,14 +246,14 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
   const [confirmOperator, setConfirmOperator] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [facilityType, setFacilityType] = useState<FacilityType>(preview.facility?.type || "clinic");
-  const [facilityId, setFacilityId] = useState(preview.facility?.id || "");
-  const [apply, setApply] = useState<string[]>([]);
+  const initialFacilityIsSlovak = preview.facility?.countryCode === "SK";
+  const [facilityId, setFacilityId] = useState(initialFacilityIsSlovak ? preview.facility.id : "");
   const [search, setSearch] = useState("");
-  const [option, setOption] = useState<Facility | null>(preview.facility || null);
+  const [option, setOption] = useState<Facility | null>(initialFacilityIsSlovak ? preview.facility : null);
   const options = useQuery<{ items: Array<{ id: string; type: FacilityType; name: string; ico: string | null; countryCode: string | null }> }>({
     queryKey: [base, "facility-options", search],
     queryFn: () => request(`/facility-options?search=${encodeURIComponent(search)}`),
-    enabled: !!search && !preview.facility,
+    enabled: !!search && !initialFacilityIsSlovak,
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -263,22 +264,31 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
     staleTime: 0,
     refetchOnMount: "always",
   });
-  useEffect(() => { if (preview.facility) { setOption(preview.facility); setFacilityId(preview.facility.id); setFacilityType(preview.facility.type); } }, [preview.verificationId, preview.facility]);
-  const fields = [["name", c.companyName, preview.company.name], ["address", c.address, preview.company.registeredAddress], ["city", c.city, preview.company.city], ["postalCode", c.postalCode, preview.company.postalCode], ["ico", c.ico, preview.company.ico]] as const;
-  const currentValues: Record<string, string | null | undefined> = {
-    name: facilityQuery.data?.facility.name,
-    address: facilityQuery.data?.facility.address,
-    city: facilityQuery.data?.facility.city,
-    postalCode: facilityQuery.data?.facility.postalCode,
-    ico: facilityQuery.data?.facility.ico,
-  };
-  const boundFacility = !!preview.facility;
+  useEffect(() => {
+    if (preview.facility?.countryCode === "SK") {
+      setOption(preview.facility);
+      setFacilityId(preview.facility.id);
+      setFacilityType(preview.facility.type);
+    } else {
+      setOption(null);
+      setFacilityId("");
+    }
+  }, [preview.verificationId, preview.facility]);
+  const boundFacility = preview.facility?.countryCode === "SK";
+  const site = facilityQuery.data?.facility;
   return <div className="space-y-4">
     <div className="rounded-xl bg-primary/[0.045] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{preview.company.name}</h3><p className="mt-1 font-mono text-sm">{preview.company.ico}</p></div><Badge variant={preview.company.status === "active" ? "secondary" : "outline"}>{preview.company.status === "active" ? c.active : c.terminated}</Badge></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{fields.slice(1).map(([key, label, value]) => <div key={key}><span className="text-muted-foreground">{label}: </span>{value || "—"}</div>)}<div>{c.legalForm}: {preview.company.legalForm || "—"}</div></div><div className="mt-3 text-xs text-muted-foreground">{c.expires}: {dateLabel(preview.expiresAt)}</div></div>
     {errorCode && <ErrorLine code={errorCode} c={c} />}
-    <div className="space-y-2"><LabelText label={c.addFacility} /><div className="grid gap-2 sm:grid-cols-[150px_1fr]"><Select value={facilityType} disabled={boundFacility} onValueChange={(v) => { setFacilityType(v as FacilityType); setFacilityId(""); setOption(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><div className="relative"><Input placeholder={c.facilitySearch} value={option?.name || search} disabled={boundFacility} onChange={(e) => { setOption(null); setFacilityId(""); setSearch(e.target.value); }} />{options.data?.items?.length && !boundFacility ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">{options.data.items.filter((item) => item.type === facilityType).map((item) => <button type="button" key={item.id} className="block w-full px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOption(item as Facility); setFacilityId(item.id); setSearch(""); }}>{item.name} <span className="text-xs text-muted-foreground">{item.ico || ""}</span></button>)}</div> : null}</div></div>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</div>
-    {facilityId && <div className="space-y-3 rounded-lg border p-3"><label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox checked={confirmOperator} onCheckedChange={(value) => setConfirmOperator(!!value)} /><span>{c.confirmOperator}</span></label><div className="grid grid-cols-[minmax(80px,.6fr)_1fr_1fr] gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><span>{c.applySelected}</span><span>{c.existingValue}</span><span>{c.verifiedValue}</span></div>{fields.map(([key, label, value]) => { const current = currentValues[key]; return <label key={key} className="grid cursor-pointer grid-cols-[minmax(80px,.6fr)_1fr_1fr] items-center gap-2 border-t py-2 text-xs"><span className="flex items-center gap-2"><Checkbox checked={apply.includes(key)} disabled={!value || facilityQuery.isError} onCheckedChange={(checked) => setApply(checked ? [...apply, key] : apply.filter((item) => item !== key))} /><span>{label}</span></span><span className="break-words text-muted-foreground">{facilityQuery.isLoading ? c.loading : current || "—"}</span><span className="break-words">{value || "—"}</span></label>; })}{facilityQuery.isError && <div className="flex items-center justify-between gap-2 text-sm text-destructive"><span>{c.siteLoadError}</span><Button type="button" size="sm" variant="outline" onClick={() => facilityQuery.refetch()}>{c.retry}</Button></div>}<label className="flex cursor-pointer items-start gap-2 text-sm text-destructive"><Checkbox checked={replaceExisting} onCheckedChange={(value) => setReplaceExisting(!!value)} /><span>{c.replaceOperator}</span></label><p className="text-xs text-muted-foreground">{c.noChange}</p></div>}
-    <div className="flex flex-wrap justify-between gap-2 border-t pt-4">{onBack && <Button variant="outline" onClick={onBack}>{c.cancel}</Button>}<Button className="ml-auto" disabled={saving || (!!facilityId && !confirmOperator)} onClick={() => onSave({ verificationId: preview.verificationId, ...(facilityId ? { facilityType, facilityId, confirmOperator: true, ...(replaceExisting ? { replaceExisting: true } : {}) } : {}), ...(apply.length ? { applyFields: apply } : {}) })} data-testid="button-save-verified-entity">{saving ? c.loading : facilityId ? c.saveLink : c.saveToEntity}</Button></div>
+    <div className="space-y-2"><LabelText label={c.addFacility} /><div className="grid gap-2 sm:grid-cols-[150px_1fr]"><Select value={facilityType} disabled={boundFacility} onValueChange={(v) => { setFacilityType(v as FacilityType); setFacilityId(""); setOption(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><div className="relative"><Input placeholder={c.facilitySearch} value={option?.name || search} disabled={boundFacility} onChange={(e) => { setOption(null); setFacilityId(""); setSearch(e.target.value); }} />{options.data?.items?.length && !boundFacility ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">{options.data.items.filter((item) => item.type === facilityType && item.countryCode === "SK").map((item) => <button type="button" key={item.id} className="block w-full px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOption(item as Facility); setFacilityId(item.id); setSearch(""); }}>{item.name} <span className="text-xs text-muted-foreground">{item.ico || ""}</span></button>)}</div> : null}</div></div>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</div>
+    {facilityId && <div className="space-y-3">
+      <RegistryCompanySiteComparison site={site} registryCompany={preview.company} c={c} loading={facilityQuery.isLoading} />
+      {facilityQuery.isError && <div className="flex items-center justify-between gap-2 text-sm text-destructive"><span>{c.siteLoadError}</span><Button type="button" size="sm" variant="outline" onClick={() => facilityQuery.refetch()}>{c.retry}</Button></div>}
+      <div className="space-y-3 rounded-lg border p-3">
+        <label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox checked={confirmOperator} onCheckedChange={(value) => setConfirmOperator(!!value)} /><span>{c.confirmOperator}</span></label>
+        <label className="flex cursor-pointer items-start gap-2 text-sm text-destructive"><Checkbox checked={replaceExisting} onCheckedChange={(value) => setReplaceExisting(!!value)} /><span>{c.replaceOperator}</span></label>
+      </div>
+    </div>}
+    <div className="flex flex-wrap justify-between gap-2 border-t pt-4">{onBack && <Button variant="outline" onClick={onBack}>{c.cancel}</Button>}<Button className="ml-auto" disabled={saving || (!!facilityId && !confirmOperator)} onClick={() => onSave({ verificationId: preview.verificationId, ...(facilityId ? { facilityType, facilityId, confirmOperator: true, ...(replaceExisting ? { replaceExisting: true } : {}) } : {}) })} data-testid="button-save-verified-entity">{saving ? c.loading : facilityId ? c.saveLink : c.saveToEntity}</Button></div>
   </div>;
 }
 function FacilityLinkDialog({ entityId, c, onClose, onSaved }: any) {

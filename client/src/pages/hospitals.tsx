@@ -376,7 +376,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
                   <Label htmlFor="ed-hospital-ico">{t.healthcareLegalEntity.ico}</Label>
                   <Input id="ed-hospital-ico" value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} data-testid="input-ed-hospital-ico" />
                 </div>
-                {hospital.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} onIcoChange={(ico) => setFormData((current) => ({ ...current, ico }))} onAppliedFields={(values) => setFormData((current) => ({ ...current, ...(values.name ? { name: values.name, fullName: values.name } : {}), ...(values.address ? { streetNumber: values.address } : {}), ...(values.city ? { city: values.city } : {}), ...(values.postalCode ? { postalCode: values.postalCode } : {}), ...(values.ico ? { ico: values.ico } : {}) }))} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
+                {hospital.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>

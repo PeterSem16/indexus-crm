@@ -202,15 +202,34 @@ test("Healthcare Legal Entity real database/API: identity, privacy, links, histo
       assert.ok(old.facilities.find((f: any) => f.facilityId === secondClinic).validTo);
       assert.equal((await pool.query(`SELECT count(*)::int AS count FROM healthcare_legal_entity_facilities WHERE facility_id=$1 AND valid_to IS NULL`, [secondClinic])).rows[0].count, 1);
     });
-    await t.test("selective updates apply only chosen server-verified fields", async () => {
-      const preview = await (await request("/verify", "POST", { ico, facilityType: "clinic", facilityId: clinic })).json();
-      assert.equal((await request("/save", "POST", { verificationId: preview.verificationId, facilityType: "clinic", facilityId: hospital, confirmOperator: true })).status, 409);
-      const updated = await request("/save", "POST", { verificationId: preview.verificationId, facilityType: "clinic", facilityId: clinic, confirmOperator: true, applyFields: ["city"] });
-      assert.equal(updated.status, 200, await updated.clone().text());
-      const site = (await pool.query(`SELECT name,address,city FROM clinics WHERE id=$1`, [clinic])).rows[0];
-      assert.equal(site.city, "Bratislava");
-      assert.equal(site.name, "Synthetic clinic");
-      assert.equal(site.address, "Actual clinic address");
+    await t.test("verification only links the clinic or hospital and never copies registry values into its fields", async () => {
+      const verified = await (await request("/verify", "POST", { ico, facilityType: "clinic", facilityId: clinic })).json();
+      for (const [facilityType, facilityId, table] of [
+        ["clinic", clinic, "clinics"], ["hospital", hospital, "hospitals"],
+      ] as const) {
+        const before = (await pool.query(`SELECT row_to_json(site) AS data FROM ${table} site WHERE id=$1`, [facilityId])).rows[0].data;
+        // Reuse the verified source for the second site without spending an
+        // additional official-lookup rate-limit slot in this combined suite.
+        const preview = facilityType === "clinic" ? verified : {
+          verificationId: (await pool.query(`INSERT INTO healthcare_legal_entity_verifications
+            (created_by,normalized,registry_people,raw_data,checked_at,source_updated_at,expires_at,facility_type,facility_id)
+            SELECT created_by,normalized,registry_people,raw_data,checked_at+interval '1 millisecond',
+              source_updated_at,expires_at,'hospital',$2 FROM healthcare_legal_entity_verifications WHERE id=$1 RETURNING id`,
+            [verified.verificationId, facilityId])).rows[0].id,
+        };
+        const payload = { verificationId: preview.verificationId, facilityType, facilityId, confirmOperator: true };
+        for (const field of ["name", "address", "city", "postalCode", "ico"]) {
+          assert.equal((await request("/save", "POST", { ...payload, applyFields: [field] })).status, 400);
+        }
+        const saved = await request("/save", "POST", payload);
+        assert.equal(saved.status, 200, await saved.clone().text());
+        const after = (await pool.query(`SELECT row_to_json(site) AS data FROM ${table} site WHERE id=$1`, [facilityId])).rows[0].data;
+        assert.deepEqual(after, before, "not a single facility field may change");
+        const linked = await (await request(`/facilities/${facilityType}/${facilityId}`)).json();
+        assert.equal(linked.links.find((link: any) => !link.validTo)?.legalEntityId, entityId);
+        assert.equal(linked.registryCompany.name, "Synthetic operator s.r.o.");
+        assert.equal(linked.facility.name, before.name);
+      }
     });
     await t.test("ending a relationship retains history and removes the current indirect chain", async () => {
       assert.equal((await request(`/${entityId}/facilities/${linkId}/end`, "POST", {})).status, 200);

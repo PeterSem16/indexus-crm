@@ -17,8 +17,9 @@ const verifySchema = z.object({ ico: z.string().max(32), ...facilityContext }).s
 const linkSchema = z.object({ facilityType, facilityId: id, confirmOperator: z.literal(true), replaceExisting: z.boolean().optional() }).strict();
 const saveSchema = z.object({
   verificationId: id, ...facilityContext, confirmOperator: z.literal(true).optional(), replaceExisting: z.boolean().optional(),
-  applyFields: z.array(z.enum(["name", "address", "city", "postalCode", "ico"])).max(5)
-    .refine(fields => new Set(fields).size === fields.length).optional(),
+  // Old clients may send an empty selection, but registry values must never
+  // be copied into the operational clinic/hospital record.
+  applyFields: z.array(z.never()).max(0).optional(),
 }).strict();
 type Handler = (req: Request, res: Response, actor: LegalEntityActor) => Promise<unknown>;
 
@@ -93,7 +94,13 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
   }));
   app.get(`${root}/facilities/:type/:id`, requireAuth, route("read", async (req, res, actor) => {
     const facility = await readLegalFacility(req.params.type, req.params.id, actor);
+    const registry = await pool.query(`SELECT entity.normalized
+      FROM healthcare_legal_entity_facilities link
+      JOIN healthcare_legal_entities entity ON entity.id=link.legal_entity_id
+      WHERE link.facility_type=$1 AND link.facility_id=$2 AND link.valid_to IS NULL
+        AND entity.country_code='SK' LIMIT 1`, [facility.type, facility.id]);
     res.json({ facility, links: await facilityLinks(null, facility.type, facility.id),
+      registryCompany: registry.rows[0]?.normalized || null,
       canManage: actor.canManage && actor.canEditFacilities });
   }));
   app.get(`${root}/persons/:id`, requireAuth, route("read", async (req, res, actor) => {
