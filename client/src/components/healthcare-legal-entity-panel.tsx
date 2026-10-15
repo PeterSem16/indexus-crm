@@ -56,8 +56,6 @@ export function HealthcareLegalEntityPanel({ facilityType, facilityId, ico, site
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: [api, "facilities", facilityType, facilityId] }),
         queryClient.invalidateQueries({ queryKey: [api] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/hospitals"] }),
       ]);
        setOpen(false); setPreview(null);
        if (result.entityId) setSavedEntityId(result.entityId);

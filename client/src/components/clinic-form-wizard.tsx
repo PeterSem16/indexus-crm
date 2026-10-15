@@ -68,6 +68,7 @@ import { Wand2 } from "lucide-react";
 import { PulseClinicDialButton } from "@/components/pulse-dial-button";
 import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
 import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity-panel";
+import { clinicSaveAddress } from "@/lib/clinic-save-address";
 
 interface ClinicFormData {
   name: string;
@@ -553,6 +554,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     };
   };
   const [formData, setFormData] = useState<ClinicFormData>(() => ({ ...buildFormData(initialData), ...(prefillData || {}) }));
+  const originalAddressRef = useRef(formData);
 
   const lookupPostalCode = async () => {
     if (!formData.city) {
@@ -746,7 +748,9 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       setIsLoadingLocation(false);
       setPipelineMenuOpen(false);
       setExpandedCategory(null);
-      setFormData(buildFormData(initialData));
+      const nextFormData = buildFormData(initialData);
+      originalAddressRef.current = nextFormData;
+      setFormData(nextFormData);
       setSavedClinicId(null);
       userEditedReferralsRef.current = false;
       pendingSuccessRef.current = false;
@@ -908,9 +912,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   const saveMutation = useMutation({
     mutationFn: async (data: ClinicFormData) => {
-      const composedAddress = [
-        [data.street, data.streetNumber, data.orientationNumber ? `/${data.orientationNumber}` : ""].filter(Boolean).join(" ").trim(),
-      ].filter(Boolean).join(" ").trim();
       const payload = {
         name: data.name,
         doctorTitle: data.doctorTitle || null,
@@ -921,7 +922,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         pzsCode: data.pzsCode || null,
         pzsName: data.pzsName || null,
         ico: data.ico || null,
-        address: composedAddress || data.address || null,
+        address: clinicSaveAddress(data, originalAddressRef.current),
         street: data.street || null,
         streetNumber: data.streetNumber || null,
         orientationNumber: data.orientationNumber || null,
