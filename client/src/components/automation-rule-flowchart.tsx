@@ -398,12 +398,18 @@ export function AutomationRuleFlowchart({ model, locale, compact = false }: Auto
                   ))}
                 </svg>
               )}
-              <section className="indexus-flowchart__branch indexus-flowchart__branch--yes" aria-label={copy.yes} data-flow-branch="yes">
-                <p className="indexus-flowchart__branch-label"><span>{copy.yes}</span></p>
+              <section className="indexus-flowchart__branch indexus-flowchart__branch--yes" aria-label={`${copy.branchThen}: ${copy.branchThenHint}`} data-flow-branch="yes">
+                <p className="indexus-flowchart__branch-label">
+                  <span>{copy.branchThen}</span>
+                  <small>{copy.branchThenHint}</small>
+                </p>
                 <ActionList actions={model.actions} copy={copy} locale={locale} />
               </section>
-              <section className="indexus-flowchart__branch indexus-flowchart__branch--no" aria-label={copy.no} data-flow-branch="no">
-                <p className="indexus-flowchart__branch-label"><span>{copy.no}</span></p>
+              <section className="indexus-flowchart__branch indexus-flowchart__branch--no" aria-label={`${copy.branchElse}: ${copy.branchElseHint}`} data-flow-branch="no">
+                <p className="indexus-flowchart__branch-label">
+                  <span>{copy.branchElse}</span>
+                  <small>{copy.branchElseHint}</small>
+                </p>
                 {model.elseActions?.length ? <ActionList actions={model.elseActions} copy={copy} locale={locale}/> : <div className="indexus-flowchart__terminal">
                   <strong>{model.noMatch ? getNoMatchCopy(locale).evaluate : copy.stop}</strong>
                   <span>{model.noMatch || copy.noAction}</span>

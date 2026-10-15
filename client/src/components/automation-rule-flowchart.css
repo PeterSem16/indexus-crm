@@ -273,7 +273,7 @@
   letter-spacing: .05em;
 }
 .indexus-flowchart__logic-badge--any { color: var(--ifc-amber); background: var(--ifc-amber-soft); }
-.indexus-flowchart__logic-badge--not { color: var(--ifc-coral); background: var(--ifc-coral-soft); }
+.indexus-flowchart__logic-badge--not { color: var(--ifc-amber); background: var(--ifc-amber-soft); }
 .indexus-flowchart__group-explainer { color: var(--ifc-muted); font-size: 11px; }
 .indexus-flowchart__leaf {
   display: grid;
@@ -337,15 +337,34 @@
   margin: 0 0 8px;
 }
 .indexus-flowchart__branch-label span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
   padding: 3px 9px;
-  border: 1px solid var(--ifc-line);
+  border: 1px solid color-mix(in srgb, var(--ifc-accent) 38%, var(--ifc-line));
   border-radius: 999px;
   color: var(--ifc-accent);
-  background: var(--ifc-bg);
+  background: var(--ifc-accent-soft);
   font-size: 10px;
   font-weight: 800;
 }
-.indexus-flowchart__branch--no .indexus-flowchart__branch-label span { color: var(--ifc-muted); }
+.indexus-flowchart__branch-label {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+}
+.indexus-flowchart__branch-label small {
+  color: var(--ifc-muted);
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+}
+.indexus-flowchart__branch--no .indexus-flowchart__branch-label span {
+  border-color: color-mix(in srgb, var(--ifc-amber) 42%, var(--ifc-line));
+  color: var(--ifc-amber);
+  background: var(--ifc-amber-soft);
+}
+.indexus-flowchart__branch--no .indexus-flowchart__branch-label small { color: var(--ifc-amber); }
 .indexus-flowchart__actions {
   display: grid;
   gap: 10px;
@@ -571,15 +590,15 @@
   justify-content: center;
   gap: 4px;
   padding: 12px;
-  border: 1px dashed var(--ifc-coral);
+  border: 1px dashed var(--ifc-amber);
   border-radius: 12px;
   color: var(--ifc-muted);
-  background: color-mix(in srgb, var(--ifc-coral-soft) 48%, var(--ifc-surface));
+  background: color-mix(in srgb, var(--ifc-amber-soft) 58%, var(--ifc-surface));
   text-align: center;
   font-size: 11px;
 }
 .indexus-flowchart__terminal strong {
-  color: var(--ifc-coral);
+  color: var(--ifc-amber);
   font: 700 10px/1.2 "DM Mono", monospace;
   letter-spacing: .12em;
 }
