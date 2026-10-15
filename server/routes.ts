@@ -45504,6 +45504,12 @@ Return ONLY a JSON array of query strings.`;
 
           if (allSnippets.length === 0 && scrapedPages.length === 0) {
             await storage.updateSearchJob(job.id, { status: "completed", totalResults: 0, completedAt: new Date() } as any);
+            try {
+              const { emitLeadSearchOutcome } = await import("./lib/automation-lead-search");
+              await emitLeadSearchOutcome(job.id, "completed");
+            } catch {
+              console.error("[LeadSearch] Empty completion automation event unavailable");
+            }
             return;
           }
 
@@ -46205,25 +46211,8 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
                 await storage.updateLeadCampaign(matchingCampaign.id, {
                   totalLeadsFound: (matchingCampaign.totalLeadsFound || 0) + newLeadsSaved,
                 });
-                if (newLeadsSaved > 0) {
-                  try {
-                    const allUsers = await storage.getAllUsers();
-                    const roles = await storage.getAllRoles();
-                    const adminRole = roles.find((r: Record<string, unknown>) => r.name === "Admin");
-                    const adminIds = allUsers.filter((u: Record<string, unknown>) => u.role === "admin" || (adminRole && u.roleId === adminRole.id)).map((u: Record<string, unknown>) => u.id as string);
-                    if (adminIds.length > 0) {
-                      await notificationService.sendNotificationToUsers(adminIds, {
-                        type: "lead_campaign_results",
-                        title: `Nové leady z kampane "${matchingCampaign.name}"`,
-                        message: `Kampaň "${matchingCampaign.name}" našla ${newLeadsSaved} nových leadov (Job #${job.id}).`,
-                        priority: "normal",
-                        entityType: "lead_campaign",
-                        entityId: String(matchingCampaign.id),
-                        metadata: { campaignName: matchingCampaign.name, jobId: job.id, newLeads: newLeadsSaved },
-                      });
-                    }
-                  } catch (notifErr) { console.log("[LeadSearch] Campaign result notification error:", notifErr); }
-                }
+                // Delivery is opt-in through campaign-scoped Automation rules.
+                // Never notify all admins directly from the search pipeline.
                 console.log(`[LeadSearch] Campaign "${matchingCampaign.name}" updated: +${newLeadsSaved} new leads saved (${deduped.length} total found, ${deduped.length - newLeadsSaved} already known)`);
               }
             } catch (campErr) { console.log("[LeadSearch] Campaign stats update error:", campErr); }
@@ -46234,17 +46223,36 @@ Return ONLY a JSON array of NEW contacts (same format: company_name, contact_per
             totalResults: deduped.length || allSnippets.length,
             completedAt: new Date(),
           } as any);
+          try {
+            const { emitLeadSearchOutcome } = await import("./lib/automation-lead-search");
+            await emitLeadSearchOutcome(job.id, "completed", leadsToSave.length);
+          } catch {
+            console.error("[LeadSearch] Completion automation event unavailable");
+          }
 
         } catch (error: any) {
           if (error.message === "CANCELLED_BY_USER") {
             console.log(`[LeadSearch] Job ${job.id}: Stopped by user, saving partial results`);
             await storage.updateSearchJob(job.id, { status: "cancelled", completedAt: new Date() } as any);
+            try {
+              const { emitLeadSearchOutcome } = await import("./lib/automation-lead-search");
+              await emitLeadSearchOutcome(job.id, "cancelled");
+            } catch {
+              console.error("[LeadSearch] Cancellation automation event unavailable");
+            }
           } else {
             console.error("[LeadSearch] Job error:", error);
             await storage.updateSearchJob(job.id, {
               status: "failed",
               errorMessage: error.message,
+              completedAt: new Date(),
             } as any);
+            try {
+              const { emitLeadSearchOutcome } = await import("./lib/automation-lead-search");
+              await emitLeadSearchOutcome(job.id, "failed");
+            } catch {
+              console.error("[LeadSearch] Failure automation event unavailable");
+            }
           }
         }
       })();

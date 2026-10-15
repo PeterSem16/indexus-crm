@@ -40,6 +40,8 @@ import { registerRecordTagRoutes, validateSavedTagAction } from "./automation-re
 import { registerAssignOwnerRoutes, validateSavedAssignOwner } from "./automation-assign-owner";
 import { registerRecordEntryRoutes } from "./automation-record-entry";
 import { registerConditionOptionsRoute } from "./automation-condition-options";
+import { registerLeadSearchAutomationRoutes, validateLeadCampaignSelection } from "./automation-lead-search";
+import { LEAD_SEARCH_EVENTS, leadSearchEventLabel } from "../../shared/automation-lead-search";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -69,6 +71,7 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  registerLeadSearchAutomationRoutes(app, requireAutomationDesigner);
   registerReviewedTransitionRoutes(app, requireAutomationAdmin);
   app.get("/api/automation/analysis-mailboxes", requireAutomationAdmin, async (_req, res) => {
     const personal = await db.select({ id: users.id, name: users.fullName })
@@ -208,6 +211,9 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   app.post("/api/automation/rules", requireAutomationAdmin, async (req, res) => {
+    if (req.body.module === "lead_search" && req.body.enabled !== true) req.body.enabled = false;
+    if (req.body.module === "lead_search" && !await validateLeadCampaignSelection(req.body, getSessionUser(req)!))
+      return res.status(400).json({ error: "Search campaign selection unavailable; review the selected campaigns" });
     const parsed = insertWorkflowRuleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid", details: parsed.error.errors });
     const actionIssues = validateAutomationActions(automationExecutableActions(parsed.data), "manual");
@@ -249,6 +255,16 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   app.patch("/api/automation/rules/:id", requireAutomationAdmin, async (req, res) => {
+    {
+      const [saved] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id));
+      if (!saved) return res.status(404).json({ error: "Not found" });
+      const next = { ...saved, ...req.body };
+      // Always permit stopping an existing rule, even if its campaign was deleted.
+      const disablingOnly = req.body.enabled === false && Object.keys(req.body).every(key => key === "enabled");
+      if (!disablingOnly && next.module === "lead_search" &&
+          !await validateLeadCampaignSelection(next, getSessionUser(req)!))
+        return res.status(400).json({ error: "Search campaign selection unavailable; review the selected campaigns" });
+    }
     if (req.body.enabled === true && await isUnreviewedReplacement(req.params.id))
       return res.status(409).json({ error: "Activate this replacement through the reviewed transition; the original is still unchanged" });
     if ("createdByUserId" in req.body)
@@ -515,6 +531,7 @@ export function registerAutomationRoutes(app: Express) {
         maxMatches: SCHEDULE_MAX_MATCHES,
       },
       eventTypes: [
+        ...LEAD_SEARCH_EVENTS.map(value => ({ value, label: leadSearchEventLabel("en", value)! })),
         { value: "created", label: "Entity created" },
         { value: "updated", label: "Entity updated" },
         { value: "status_changed", label: "Status changed" },

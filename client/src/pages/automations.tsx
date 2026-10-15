@@ -74,6 +74,8 @@ import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
 import { conditionValueOptions, usesConditionChoices, SENTIMENT_OPTIONS, TONE_OPTIONS } from "@/lib/automation-condition-options";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { isTaskAssignmentTriggerTarget, type TaskAssignmentTriggerTarget } from "@shared/task-automation";
+import { getLeadSearchCopy, leadSearchEventLabel, LEAD_SEARCH_EVENTS, LEAD_SEARCH_FIELDS, leadCampaignSelectionValid } from "@shared/automation-lead-search";
+import { AutomationLeadCampaignPicker, type LeadCampaignOption } from "@/components/automation-lead-campaign-picker";
 import "./automations-workspace.css";
 import { AutomationRulesOverview } from "@/components/automation-rules-overview";
 import { AutomationRunHistory } from "@/components/automation-run-history";
@@ -213,12 +215,13 @@ type RuleDraft = {
   countryCodes: string[] | null;
   enabled: boolean;
   trigger:
-    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any; noMatchRuleId?: string; noMatchActions?: ActionNode[] }
+    | { type: "event"; entityType: string; eventType: string; assignmentTarget?: TaskAssignmentTriggerTarget; analysis?: any; metric?: any; legacySource?: any; noMatchRuleId?: string; noMatchActions?: ActionNode[]; leadCampaignIds?: number[] }
     | { type: "schedule"; interval: string; mode?: "once" | "per_record" };
   conditions: ConditionNode | null;
   actions: ActionNode[];
   rateLimitPerHour: number | null;
 };
+type EventTriggerDraft = Extract<RuleDraft["trigger"], { type: "event" }>;
 
 const EMPTY_DRAFT = (): RuleDraft => ({
   name: "",
@@ -310,6 +313,14 @@ export default function AutomationsPage() {
   }, [topTab]);
   const rulesQ = useQuery<Rule[]>({ queryKey: ["/api/automation/rules"] });
   const catalogQ = useQuery<Catalog>({ queryKey: ["/api/automation/catalog"] });
+  const leadCampaignsQ = useQuery<LeadCampaignOption[]>({
+    queryKey: ["/api/automation/lead-campaigns"],
+    queryFn: async () => {
+      const response = await fetch("/api/automation/lead-campaigns", { credentials: "include" });
+      if (!response.ok) throw new Error("Could not load search campaigns");
+      return response.json();
+    },
+  });
   const usersQ = useQuery<UserOpt[]>({ queryKey: ["/api/automation/users"] });
   const departmentsQ = useQuery<Array<{ id: string; name: string }>>({ queryKey: ["/api/departments"] });
   const taskGroupsQ = useQuery<TaskGroupOpt[]>({ queryKey: ["/api/task-groups"] });
@@ -488,6 +499,7 @@ export default function AutomationsPage() {
         <TabsContent value="rules" className="pt-4">
           <AutomationRulesOverview
             rules={rulesQ.data || []} catalog={catalogQ.data}
+            leadCampaigns={leadCampaignsQ.data || []}
             loading={rulesQ.isLoading || catalogQ.isLoading} error={rulesQ.isError || catalogQ.isError}
             busy={updateMut.isPending || deleteMut.isPending || resetErrorsMut.isPending || activateReviewedMut.isPending}
             onRetry={() => { void rulesQ.refetch(); void catalogQ.refetch(); }}
@@ -553,7 +565,7 @@ export default function AutomationsPage() {
           {flowFor && catalogQ.data && <AutomationFlowPreview
             rule={(rulesQ.data || []).find(rule => rule.id === flowFor.id) || flowFor}
             catalog={catalogQ.data} users={usersQ.data || []} taskGroups={taskGroupsQ.data || []} rules={rulesQ.data || []}
-            roles={rolesQ.data || []} departments={departmentsQ.data || []} />}
+            roles={rolesQ.data || []} departments={departmentsQ.data || []} leadCampaigns={leadCampaignsQ.data || []} />}
           </div>
         </DialogContent>
       </Dialog>
@@ -618,6 +630,7 @@ export function RuleEditor({
   const { data: analysisMailboxes = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: ["/api/automation/analysis-mailboxes"], enabled: open,
   });
+  const leadCopy = getLeadSearchCopy(locale);
   const [emailDraftInvalidByAction, setEmailDraftInvalidByAction] = useState<Record<number, boolean>>({});
   const [draft, setDraft] = useState<RuleDraft>(() =>
     rule
@@ -635,6 +648,15 @@ export function RuleEditor({
         }
       : (initialDraft || EMPTY_DRAFT())
   );
+  const leadCampaignsQ = useQuery<LeadCampaignOption[]>({
+    queryKey: ["/api/automation/lead-campaigns"],
+    enabled: open && draft.module === "lead_search",
+    queryFn: async () => {
+      const response = await fetch("/api/automation/lead-campaigns", { credentials: "include" });
+      if (!response.ok) throw new Error("Could not load search campaigns");
+      return response.json();
+    },
+  });
   const [selectedService, setSelectedService] = useState<ServiceId | null>(initialService || null);
   const [tab, setTab] = useState<string>("builder");
   const [showTest, setShowTest] = useState(false);
@@ -698,6 +720,17 @@ export function RuleEditor({
   }, [initialService]);
 
   const selectedEvent = draft.trigger.type === "event" ? draft.trigger.eventType : "schedule.tick";
+  const leadCampaignIds = draft.trigger.type === "event" && Array.isArray(draft.trigger.leadCampaignIds)
+    ? draft.trigger.leadCampaignIds : [];
+  const leadCampaigns = leadCampaignsQ.data || [];
+  const leadCampaignsExist = leadCampaignIds.every(id => leadCampaigns.some(campaign => campaign.id === id));
+  const leadSelectionValid = draft.module !== "lead_search" ||
+    (leadCampaignSelectionValid(leadCampaignIds) && leadCampaignsExist && !leadCampaignsQ.isLoading && !leadCampaignsQ.isError);
+  const eventTrigger = (module: string, eventType: string): EventTriggerDraft => ({
+    type: "event" as const, entityType: module, eventType,
+    ...(module === "lead_search" && draft.trigger.type === "event" && draft.module === module && draft.trigger.leadCampaignIds
+      ? { leadCampaignIds: draft.trigger.leadCampaignIds } : {}),
+  });
   const analysisConfig = draft.trigger.type === "event" ? draft.trigger.analysis : undefined;
   const selectedPreset = draft.trigger.type === "event"
     ? draft.module === "metric" ? AUTOMATION_TRIGGER_PRESETS.find(preset => preset.id === "metricMonitor")
@@ -775,6 +808,9 @@ export function RuleEditor({
     ...(draft.module === "communication" && analysisConfig ? analysisFields : []),
     ...(draft.module === "communication" && analysisConfig ? COMMUNICATION_SOURCE_FIELDS : []),
     ...(draft.module === "metric" ? [{ value: "newValues.value", label: "Metric value", type: "number" }] : []),
+    ...(draft.module === "lead_search" ? LEAD_SEARCH_FIELDS.map(field => ({
+      value: `newValues.${field.key}`, label: leadCopy[field.key], type: field.type,
+    })) : []),
   ].filter((field, index, fields) => fields.findIndex(other => other.value === field.value) === index)
     .map(field => ({ ...field, label: contentSignalLabels(locale)[field.value] || communicationVariableLabels(locale)[field.value] || field.label }));
   const schedulePreviewInput = useMemo(() => JSON.stringify({
@@ -822,6 +858,11 @@ export function RuleEditor({
     : fieldsForModule;
   const eventsForModule = [
     ...catalog.eventTypes.filter(e => e.availableIn.includes(draft.module)),
+    ...(draft.module === "lead_search" ? LEAD_SEARCH_EVENTS.filter(value =>
+      !catalog.eventTypes.some(event => event.value === value && event.availableIn.includes("lead_search")),
+    ).map(value => ({
+      value, label: leadSearchEventLabel(locale, value) || value, availableIn: ["lead_search"], changeSnapshot: false,
+    })) : []),
     ...(draft.module === "metric" && !catalog.eventTypes.some(event => event.value === "metric.threshold")
       ? [{ value: "metric.threshold", label: getUnifiedAutomationCopy(locale).metric, availableIn: ["metric"], changeSnapshot: false }]
       : []),
@@ -833,6 +874,7 @@ export function RuleEditor({
   const editorModules = [
     ...catalog.modules,
     ...(!catalog.modules.some(module => module.value === "metric") ? [{ value: "metric", label: getUnifiedAutomationCopy(locale).metric }] : []),
+    ...(!catalog.modules.some(module => module.value === "lead_search") ? [{ value: "lead_search", label: leadCopy.module }] : []),
   ];
   const actionsForModule = catalog.actionTypes.filter(a => a.availableIn.includes(draft.module));
   if (draft.module === "metric" && !actionsForModule.some(action => action.value === "notify_user")) {
@@ -849,11 +891,14 @@ export function RuleEditor({
     const fallback = id === "collaborator" ? t.automationCatalog.collaborator
       : id === "communication" ? t.automationServices.triggerPresets.moduleLabel
       : id === "metric" ? getUnifiedAutomationCopy(locale).metric
+      : id === "lead_search" ? leadCopy.module
       : catalog.modules.find(m => m.value === id)?.label || id;
     return t.automationServices.editorCatalog.moduleLabels[id] ||
       (getUpdateRecordCopy(locale).entity as Record<string, string>)[id] || fallback;
   }).join(", ");
   const eventLabel = (event: Catalog["eventTypes"][number]) => {
+    const leadSearchLabel = leadSearchEventLabel(locale, event.value);
+    if (leadSearchLabel) return leadSearchLabel;
     if (event.value === "sentiment.negative") return legacyNegativeTriggerLabel(locale);
     const resultLabel = analysisResultLabel(locale, event.value);
     if (resultLabel) return resultLabel;
@@ -868,11 +913,16 @@ export function RuleEditor({
           : t.automationServices.triggerPresets.labels[preset.id] : t.automationServices.editorCatalog.eventLabels[event.value] || event.label;
   };
   const eventDescription = (event: Catalog["eventTypes"][number]) =>
+    draft.module === "lead_search" ? leadCopy.help :
     analysisResultTrigger(event.value) ? analysisResultDescription(locale, event.value) :
     event.value === "communication.analyzed" ? getCommunicationAnalysisCopy(locale).analysisDescription :
     (draft.module === "task" ? t.automationServices.taskRules.eventDescriptions[event.value] : undefined) ||
     t.automationServices.editorCatalog.eventDescriptions[event.value] || t.automationServices.editorCatalog.eventDescriptionFallback;
   const fieldLabel = (field: { value: string; label: string }) => {
+    if (draft.module === "lead_search") {
+      const key = field.value.replace(/^newValues\./, "");
+      if (LEAD_SEARCH_FIELDS.some(item => item.key === key)) return leadCopy[key as keyof typeof leadCopy];
+    }
     const flowLabel = getFlowExtraLabels(locale)[field.value];
     if (flowLabel) return flowLabel;
     const analysisLabel = draft.module === "communication" ? field.value === "countryCode" ? getCommunicationAnalysisCopy(locale).countryCode
@@ -941,7 +991,7 @@ export function RuleEditor({
             setDraft({
               ...draft,
               conditions: resetSourceConditions(),
-              trigger: { type: "event", entityType: draft.module, eventType: eventsForModule[0]?.value || "updated" },
+              trigger: eventTrigger(draft.module, eventsForModule[0]?.value || "updated"),
             });
           }
         }}
@@ -970,7 +1020,8 @@ export function RuleEditor({
                 aria-label={moduleNames([module.value])}
                 data-testid={`select-module-${module.value}`}
                 onClick={() => {
-                  const nextEvent = catalog.eventTypes.find(event => event.value === selectedEvent && event.availableIn.includes(module.value))?.value ||
+                  const nextEvent = module.value === "lead_search" ? LEAD_SEARCH_EVENTS[0] :
+                    catalog.eventTypes.find(event => event.value === selectedEvent && event.availableIn.includes(module.value))?.value ||
                     (module.value === "metric" ? "metric.threshold"
                       : module.value === "communication" && draft.trigger.type === "event" && draft.trigger.analysis ? "communication.received"
                         : catalog.eventTypes.find(event => event.availableIn.includes(module.value))?.value) || "updated";
@@ -978,7 +1029,7 @@ export function RuleEditor({
                     ...draft,
                     conditions: resetSourceConditions(),
                     module: module.value,
-                    trigger: { type: "event", entityType: module.value, eventType: nextEvent },
+                    trigger: eventTrigger(module.value, nextEvent),
                   });
                 }}
                 className={`flex min-h-14 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/60"}`}
@@ -1010,8 +1061,8 @@ export function RuleEditor({
                 onClick={() => setDraft({
                   ...draft,
                   conditions: resetSourceConditions(),
-                  trigger: draft.module === "communication" ? communicationEventTrigger(event.value, analysisConfig)
-                    : { type: "event", entityType: draft.module, eventType: event.value },
+                  trigger: draft.module === "communication" ? communicationEventTrigger(event.value, analysisConfig) as EventTriggerDraft
+                    : eventTrigger(draft.module, event.value),
                 })}
                 className={`flex min-h-[76px] items-start gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-muted/60"}`}
               >
@@ -1149,6 +1200,7 @@ export function RuleEditor({
   />;
 
   const submit = () => {
+    if (!leadSelectionValid) return;
     let payload = draft;
     if (isNegativeSentimentRule(payload)) {
       const parsed = readSentimentSources(payload.conditions as AutomationCondition | null);
@@ -1258,7 +1310,7 @@ export function RuleEditor({
                       <button type="button" className="automation-step-toggle" aria-expanded={expandedStep === 0}
                         aria-controls="automation-step-when-body" onClick={() => setExpandedStep(expandedStep === 0 ? null : 0)}>
                         <h2>{t.automationServices.workspace.when}</h2><p>{draft.trigger.type === "event"
-                          ? eventLabel(eventsForModule.find(event => event.value === selectedEvent) || eventsForModule[0] || { value: selectedEvent, label: selectedEvent, availableIn: [], changeSnapshot: false })
+                          ? `${eventLabel(eventsForModule.find(event => event.value === selectedEvent) || eventsForModule[0] || { value: selectedEvent, label: selectedEvent, availableIn: [], changeSnapshot: false })}${draft.module === "lead_search" && leadCampaignIds.length ? ` · ${leadCampaignIds.map(id => leadCampaigns.find(campaign => campaign.id === id)?.name || `${leadCopy.missing} (${id})`).join(", ")}` : ""}`
                           : t.automationServices.workspace.scheduleModeLabel}</p>
                       </button>
                     <AutomationStepHelp step="when" copy={t.automationEditorHelp} />
@@ -1279,12 +1331,12 @@ export function RuleEditor({
                     </div>
                   </div>
                   <AutomationBlockEditor open={expandedStep === 0} title={t.automationServices.workspace.when}
-                    onCancel={cancelBlock} onApply={applyBlock} disabled={Boolean(analysisConfig && analysisConfigIssues(analysisConfig).length)}>
+                    onCancel={cancelBlock} onApply={applyBlock} disabled={Boolean(analysisConfig && analysisConfigIssues(analysisConfig).length) || !leadSelectionValid}>
                   {expandedStep === 0 && <div id="automation-step-when-body">
                     <div className="automation-trigger-switch">
                       <Button type="button" variant={draft.trigger.type === "event" ? "default" : "outline"} onClick={() => {
                         if (draft.conditions) setSourceResetNotice(true);
-                        setDraft({ ...draft, conditions: null, trigger: { type: "event", entityType: draft.module, eventType: eventsForModule[0]?.value || "updated" } });
+                        setDraft({ ...draft, conditions: null, trigger: eventTrigger(draft.module, eventsForModule[0]?.value || "updated") });
                       }}>{t.automationServices.workspace.eventMode}</Button>
                       <Button type="button" variant={draft.trigger.type === "schedule" ? "default" : "outline"} onClick={() => {
                         if (draft.conditions) setSourceResetNotice(true);
@@ -1296,10 +1348,11 @@ export function RuleEditor({
                       <div>
                         <Label>{t.automationServices.editor.sourceLabel}</Label>
                         <Select value={draft.module} onValueChange={module => {
-                          const nextEvent = catalog.eventTypes.find(event => event.value === selectedEvent && event.availableIn.includes(module))?.value
+                           const nextEvent = module === "lead_search" ? LEAD_SEARCH_EVENTS[0] :
+                             catalog.eventTypes.find(event => event.value === selectedEvent && event.availableIn.includes(module))?.value
                             || catalog.eventTypes.find(event => event.availableIn.includes(module))?.value || "updated";
                           if (draft.conditions) setSourceResetNotice(true);
-                          setDraft({ ...draft, module, conditions: null, trigger: { type: "event", entityType: module, eventType: nextEvent } });
+                           setDraft({ ...draft, module, conditions: null, trigger: eventTrigger(module, nextEvent) });
                         }}>
                           <SelectTrigger data-testid="select-module"><SelectValue /></SelectTrigger>
                           <SelectContent className="automation-rule-select-content">{editorModules.map(module => <SelectItem key={module.value} value={module.value} data-testid={`select-module-${module.value}`}>{moduleNames([module.value])}</SelectItem>)}</SelectContent>
@@ -1309,9 +1362,9 @@ export function RuleEditor({
                         <Label>{t.automationServices.editor.eventLabel}</Label>
                         <Select value={selectedEvent} onValueChange={eventType => {
                           if (draft.conditions) setSourceResetNotice(true);
-                          setDraft({ ...draft, conditions: null, trigger: draft.module === "communication"
-                            ? communicationEventTrigger(eventType, analysisConfig)
-                            : { type: "event", entityType: draft.module, eventType } });
+                           setDraft({ ...draft, conditions: null, trigger: draft.module === "communication"
+                            ? communicationEventTrigger(eventType, analysisConfig) as EventTriggerDraft
+                             : eventTrigger(draft.module, eventType) });
                         }}>
                           <SelectTrigger data-testid="select-event"><SelectValue /></SelectTrigger>
                           <SelectContent className="automation-rule-select-content">{eventsForModule.map(event => {
@@ -1330,6 +1383,13 @@ export function RuleEditor({
                         groups={taskGroups.map(group => ({ value: group.id, label: group.displayAlias || group.name }))}
                         users={users.map(user => ({ value: user.id, label: user.fullName || user.email || user.id }))}
                         onChange={assignmentTarget => setDraft({ ...draft, trigger: { type: "event", entityType: "task", eventType: "task.assigned", assignmentTarget } })} />}
+                      {draft.module === "lead_search" && <AutomationLeadCampaignPicker
+                        locale={locale} value={leadCampaignIds} campaigns={leadCampaigns}
+                        loading={leadCampaignsQ.isLoading} error={leadCampaignsQ.isError}
+                        retryLabel={t.automationOverview.retry}
+                        onRetry={() => { void leadCampaignsQ.refetch(); }}
+                        onChange={ids => setDraft({ ...draft, trigger: { ...eventTrigger("lead_search", selectedEvent), leadCampaignIds: ids } })}
+                      />}
                     </div>
                   ) : (
                     <div className="automation-trigger-controls automation-schedule-controls">
@@ -1975,7 +2035,7 @@ export function RuleEditor({
 
           <TabsContent value="flowchart" className="pt-4">
             <AutomationFlowPreview rule={draft} catalog={catalog} users={users}
-              taskGroups={taskGroups} roles={roles} departments={departments || []} rules={rules} />
+              taskGroups={taskGroups} roles={roles} departments={departments || []} rules={rules} leadCampaigns={leadCampaigns} />
           </TabsContent>
         </Tabs>
 
@@ -1992,7 +2052,7 @@ export function RuleEditor({
           </Button>
           <div className="flex-1" />
           <Button variant="outline" onClick={onClose}>{t.common.cancel}</Button>
-          <Button onClick={submit} disabled={saving || scheduleUnsafe || incompatible || emailActionsInvalid} data-testid="button-save-rule">
+          <Button onClick={submit} disabled={saving || scheduleUnsafe || incompatible || emailActionsInvalid || !leadSelectionValid} data-testid="button-save-rule">
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {t.automationServices.workspace.save}
           </Button>

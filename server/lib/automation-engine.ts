@@ -66,6 +66,8 @@ import {
 } from "./ms365";
 
 const MAX_CAUSATION_DEPTH = 5;
+import { leadSearchTriggerMatches } from "../../shared/automation-lead-search";
+import { leadSearchExecutionAllowed } from "./automation-lead-search";
 
 /* ------------------------------------------------------------
  *  Template engine — {{path.to.field}} substitution
@@ -1103,6 +1105,7 @@ function taskStatusTriggerMatches(rule: WorkflowRule, newValues: any): boolean {
 
 export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): boolean {
     if (!rule.enabled || rule.module !== event.module) return false;
+    if (!leadSearchTriggerMatches(rule.trigger, event)) return false;
     // Also exclude legacy completion status_changed events already waiting in the queue.
     if (!taskStatusTriggerMatches(rule, event.newValues)) return false;
     const t: any = rule.trigger || {};
@@ -1483,6 +1486,9 @@ export async function runRule(
   causationChain: string[],
   evaluationPass: RuleEvaluationPass = { visited: new Set(), path: [] },
 ): Promise<void> {
+  // A linked ELSE rule must not bypass the selected LEAD SEARCH campaigns.
+  if (!leadSearchTriggerMatches(rule.trigger, event)) return;
+  if (!await leadSearchExecutionAllowed(rule)) return;
   if (!enterRuleEvaluation(rule.id, evaluationPass)) return;
   const scheduled = event.source === "schedule";
   const ctx: any = {
@@ -1752,7 +1758,8 @@ export async function dryRunRule(rule: WorkflowRule, sampleEvent: Partial<Workfl
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
   };
-  const eligible = taskStatusTriggerMatches(rule, ctx.newValues) && taskAssignmentTriggerMatches(rule.trigger, ctx.newValues);
+  const eligible = leadSearchTriggerMatches(rule.trigger, event) &&
+    taskStatusTriggerMatches(rule, ctx.newValues) && taskAssignmentTriggerMatches(rule.trigger, ctx.newValues);
   // A dry-run has no analyzed message: don't invent an analysis failure as FALSE.
   const conditionMet = (rule.trigger as any)?.analysis ? null : eligible && evalCondition(rule.conditions as any, ctx);
   const selectedBranch = automationBranch(rule.trigger, eligible, conditionMet);

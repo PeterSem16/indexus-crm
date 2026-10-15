@@ -18,7 +18,7 @@ test("source-specific briefs cover every executable module/event and seven local
   assert.equal(new Set(templates.map(item => item.id)).size, templates.length);
   const briefs = activityTemplateBriefs();
   for (const [module, events] of Object.entries(MODULE_EVENTS)) {
-    if (module === "communication") continue;
+    if (module === "communication" || module === "lead_search") continue; // Dedicated template families.
     for (const event of events) assert.ok(briefs.some(brief => brief.event === event &&
       (module === "call" ? brief.key.startsWith("call-") : brief.key.startsWith(`${module}-`))), `${module}/${event}`);
   }

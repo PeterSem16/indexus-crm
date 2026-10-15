@@ -1,8 +1,10 @@
 import { NOTIFICATION_TEMPLATE_LANGUAGES, notificationTemplateDefaults } from "../../shared/automation-notification-templates";
 import { validTaskMessageTemplate } from "./task-message-templates";
 import { ensureAutomationAnalysisChannelTemplates } from "./automation-analysis-templates";
+import { ensureLeadSearchNotificationTemplates } from "./automation-lead-search";
 
 export async function ensureAutomationNotificationTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
+  await ensureLeadSearchNotificationTemplates(pool);
   const literal = (value: string) => `'${value.replace(/'/g, "''")}'`;
   for (const language of NOTIFICATION_TEMPLATE_LANGUAGES) {
     const values = notificationTemplateDefaults(language).map(template =>

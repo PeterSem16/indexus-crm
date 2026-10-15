@@ -365,7 +365,7 @@ assert.deepEqual(paths(rule("task", "created", {
 for (const [module, events] of Object.entries(MODULE_EVENTS)) {
   assert.ok(FIELD_OPTIONS[module], `missing fields for ${module}`);
   for (const event of events) {
-    const serviceTrigger = isAnalysisServiceEvent(event) ? {
+    const serviceTrigger = module === "lead_search" ? { leadCampaignIds: [1] } : isAnalysisServiceEvent(event) ? {
       analysis: { channels: ["email"], analyzeContent: true, analyzeAttachments: false },
     } : event === "metric.threshold" ? {
       metric: { metricType: "pending_invoices", checkFrequency: "hourly", cooldownMinutes: 60 },

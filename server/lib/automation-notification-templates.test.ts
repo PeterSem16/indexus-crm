@@ -8,6 +8,7 @@ import { dryRunRule, runRule } from "./automation-engine";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import { ensureAutomationNotificationTemplates, validNotificationMessageTemplate } from "./automation-notification-templates";
 import { NOTIFICATION_TEMPLATE_LANGUAGES, notificationTemplateDefaults } from "../../shared/automation-notification-templates";
+import { leadSearchNotificationDefaults } from "./automation-lead-search";
 import { automationAnalysisNotificationDefaults } from "./automation-analysis-templates";
 import { taskStatusTemplateLabel } from "@shared/task-status-labels";
 
@@ -83,7 +84,7 @@ test("notification startup seed preserves edits, deletions and unrelated saved s
       CREATE TEMP TABLE workflow_rules (id text,actions jsonb);
       INSERT INTO workflow_rules VALUES ('fixture','[{"type":"notify_user","config":{"title":"Saved edit","message":"Private snapshot"}}]');`);
     await ensureAutomationNotificationTemplates(client);
-    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 105);
+    assert.equal(Number((await client.query("SELECT count(*) AS n FROM message_templates")).rows[0].n), 105 + leadSearchNotificationDefaults().length);
     await client.query(`UPDATE message_templates SET subject='Manager edit',content='Manager body' WHERE id='indexus-notification-template-created-sk';
       DELETE FROM message_templates WHERE id='indexus-notification-template-overdue-de';
       UPDATE message_templates SET content='Analysis manager edit'

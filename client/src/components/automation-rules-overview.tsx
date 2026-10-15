@@ -9,12 +9,13 @@ import { getFlowExtraLabels } from "@/i18n/automation-flow-labels";
 import { getRecordEntryCopy } from "@/i18n/automation-record-entry-copy";
 import { getForwardCopy } from "@/i18n/automation-forward-copy";
 import { getUnifiedAutomationCopy } from "@/lib/automation-unified-copy";
+import { getLeadSearchCopy, leadSearchEventLabel } from "@shared/automation-lead-search";
 import { matchesRuleState, ruleCountries, ruleHasErrors, ruleNeedsReview,
   type OverviewCatalog, type OverviewRule } from "@/lib/automation-overview-model";
 import "./automation-overview.css";
 
 type Props = {
-  rules: OverviewRule[]; catalog?: OverviewCatalog; loading: boolean; error: boolean; busy: boolean;
+  rules: OverviewRule[]; catalog?: OverviewCatalog; leadCampaigns?: Array<{ id: number; name: string; country: string | null; isActive: boolean }>; loading: boolean; error: boolean; busy: boolean;
   onRetry: () => void; onCreate: () => void;
   onToggle: (rule: OverviewRule) => void; onEdit: (rule: OverviewRule) => void;
   onFlow: (rule: OverviewRule) => void; onHistory: (rule: OverviewRule) => void;
@@ -28,22 +29,30 @@ export function AutomationRulesOverview(props: Props) {
   const flow = getFlowchartCopy(locale);
   const extra = getFlowExtraLabels(locale);
   const unified = getUnifiedAutomationCopy(locale);
+  const leadCopy = getLeadSearchCopy(locale);
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("all");
   const [state, setState] = useState("all");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const resetFilters = () => { setSearch(""); setCountry("all"); setState("all"); };
   const moduleLabel = (key: string) => t.automationServices.editorCatalog.moduleLabels[key]
+    || (key === "lead_search" ? leadCopy.module : undefined)
     || props.catalog?.modules.find(option => option.value === key)?.label || key;
-  const eventLabel = (key: string) => (key === "sentiment.negative" ? legacyNegativeTriggerLabel(locale) : analysisResultLabel(locale, key)) || t.automationServices.editorCatalog.eventLabels[key]
+  const eventLabel = (key: string) => leadSearchEventLabel(locale, key) || (key === "sentiment.negative" ? legacyNegativeTriggerLabel(locale) : analysisResultLabel(locale, key)) || t.automationServices.editorCatalog.eventLabels[key]
     || props.catalog?.eventTypes.find(option => option.value === key)?.label || key;
   const actionLabel = (key: string) => key === "record_analysis" ? getRecordEntryCopy(locale).actionLabel
     : key === "forward_message" ? getForwardCopy(locale).heading
       : (t.automationServices.names as Record<string, string>)[key]
         || props.catalog?.actionTypes.find(option => option.value === key)?.label || key;
-  const triggerLabel = (rule: OverviewRule) => rule.trigger?.type === "schedule"
-    ? `${flow.schedule}${extra[`value.${rule.trigger.interval}`] ? ` · ${extra[`value.${rule.trigger.interval}`]}` : ""}`
-    : eventLabel(rule.trigger?.eventType || rule.module);
+  const campaignNames = (rule: OverviewRule) => (Array.isArray(rule.trigger?.leadCampaignIds) ? rule.trigger.leadCampaignIds : [])
+    .map((id: number) => props.leadCampaigns?.find(campaign => campaign.id === id)?.name || `${leadCopy.missing} (${id})`);
+  const triggerLabel = (rule: OverviewRule) => {
+    const base = rule.trigger?.type === "schedule"
+      ? `${flow.schedule}${extra[`value.${rule.trigger.interval}`] ? ` · ${extra[`value.${rule.trigger.interval}`]}` : ""}`
+      : eventLabel(rule.trigger?.eventType || rule.module);
+    const names = campaignNames(rule);
+    return names.length ? `${base} · ${names.join(", ")}` : base;
+  };
   const countriesLabel = (rule: OverviewRule) => ruleCountries(rule).map(code =>
     props.catalog?.countries.find(option => option.value === code)?.label || code).join(", ") || copy.allCountries;
   const filtered = props.rules.filter(rule =>

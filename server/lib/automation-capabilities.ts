@@ -9,9 +9,11 @@ import { isTaskAssignmentTriggerTarget } from "@shared/task-automation";
 import { taskActionDeadline, validTaskActionRecipients } from "@shared/automation-task-action";
 import { emailActionIssues } from "@shared/automation-email-action";
 import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "@shared/automation-update-record";
+import { LEAD_SEARCH_EVENTS, LEAD_SEARCH_FIELDS, getLeadSearchCopy, leadCampaignSelectionValid } from "../../shared/automation-lead-search";
 
 /** Executable event and action capabilities of the standalone Automation Engine. */
 export const MODULE_EVENTS: Record<string, string[]> = {
+  lead_search: [...LEAD_SEARCH_EVENTS],
   customer: ["created", "updated", "status_changed"],
   task: ["created", "updated", "status_changed", "task.assigned", "task.completed", "task.overdue"],
   communication: ["email.received", "sms.received", "sentiment.negative", "communication.analyzed", "communication.received",
@@ -32,6 +34,7 @@ export const MODULE_EVENTS: Record<string, string[]> = {
 };
 
 export const MODULE_LABELS: Record<string, string> = {
+  lead_search: "LEAD SEARCH",
   customer: "Customer", task: "Task", contract: "Contract", hospital: "Hospital",
   clinic: "Clinic", collaborator: "Collaborator", invoice: "Invoice", call: "Call",
   communication: "Communications and analyzed text",
@@ -112,6 +115,10 @@ export const RECIPIENT_TEMPLATES: Record<string, Record<string, string[]>> = {
 };
 
 export const FIELD_OPTIONS: Record<string, { value: string; label: string; type: string; options?: string[] }[]> = {
+  lead_search: LEAD_SEARCH_FIELDS.map(field => ({
+    value: `newValues.${field.key}`, label: getLeadSearchCopy("en")[field.key], type: field.type,
+    ...(field.key === "status" ? { options: ["completed", "failed", "cancelled"] } : {}),
+  })),
   metric: [
     { value: "newValues.value", label: "Metric value", type: "number" },
     { value: "newValues.metricType", label: "Metric", type: "string", options: [...METRIC_TYPES] },
@@ -509,6 +516,10 @@ export function validateRuleCapabilities(rule: {
   const events = MODULE_EVENTS[rule.module];
   if (!events) fail("module", "Module has no verified event source");
   const trigger = rule.trigger;
+  if (rule.module === "lead_search" && (!record(trigger) || trigger.type !== "event" ||
+      !leadCampaignSelectionValid(trigger.leadCampaignIds))) {
+    fail("trigger.leadCampaignIds", "Select at least one search campaign");
+  }
   let event = "";
   let scheduleMode: "once" | "per_record" | null = null;
   if (!record(trigger)) fail("trigger", "Trigger is required");

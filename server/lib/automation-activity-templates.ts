@@ -37,7 +37,9 @@ export function activityTemplateBriefs(): Brief[] {
       briefs.push({ key: `analysis-${channel}-${criterion}`, label: channel, criterion, voice,
         lines: communicationLines(voice ? "voice" : channel) });
   }
-  for (const module of Object.keys(MODULE_EVENTS).filter(module => !["communication", "call"].includes(module))) {
+  // LEAD SEARCH owns a separate notification-only family. Do not invent generic
+  // email/SMS/Task defaults or change previously approved activity templates.
+  for (const module of Object.keys(MODULE_EVENTS).filter(module => !["communication", "call", "lead_search"].includes(module))) {
     for (const event of MODULE_EVENTS[module]) {
       const lines: Line[] = [["subject", "activity.title"], ["id", "activity.id"],
         ["from", "activity.actorUserId"], ["time", "activity.occurredAt"]];
