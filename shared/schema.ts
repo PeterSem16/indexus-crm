@@ -1,4 +1,5 @@
 import { sql, relations } from "drizzle-orm";
+export * from "./healthcare-legal-entity-schema";
 import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -311,6 +312,7 @@ export const hospitals = pgTable("hospitals", {
   legacyId: text("legacy_id"), // Legacy ID from previous CRM
   isActive: boolean("is_active").notNull().default(true), // Aktívna nemocnica
   name: text("name").notNull(), // Meno
+  ico: text("ico"), // IČO of the operator; legal verification is separately confirmed.
   fullName: text("full_name"), // Plné meno
   streetNumber: text("street_number"), // Ulica číslo
   representativeId: varchar("representative_id"), // Reprezentant (FK to users)

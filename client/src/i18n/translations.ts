@@ -9,6 +9,7 @@ import automationEditorHelpTranslations, { type AutomationEditorCopy } from "./a
 import { taskCommunicationTranslations, type TaskCommunicationCopy } from "./task-communication-translations";
 import systemMailboxCheckTranslations from "./system-mailbox-check-translations";
 import omniSmsTranslations from "./omni-sms-translations";
+import { healthcareLegalEntityTranslations, type HealthcareLegalEntityCopy } from "./healthcare-legal-entity-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -94,6 +95,7 @@ export interface Translations {
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationOverview: AutomationOverviewCopy;
+  healthcareLegalEntity: HealthcareLegalEntityCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
   automationDraft: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationDraft>;
   backOffice: {
@@ -9243,6 +9245,7 @@ const inboundUiByLocale = {
 
 export const translations = {
   en: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.en,
     systemMailboxCheck: systemMailboxCheckTranslations.en,
     automationOverview: automationOverviewTranslations.en,
     omniSms: omniSmsTranslations.en,
@@ -17109,6 +17112,7 @@ export const translations = {
 
   },
   sk: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.sk,
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
     omniSms: omniSmsTranslations.sk,
@@ -24971,6 +24975,7 @@ export const translations = {
 
   },
   cs: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.cs,
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
     omniSms: omniSmsTranslations.cs,
@@ -32792,6 +32797,7 @@ export const translations = {
 
   },
   hu: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.hu,
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
     omniSms: omniSmsTranslations.hu,
@@ -40611,6 +40617,7 @@ export const translations = {
 
   },
   ro: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.ro,
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
     omniSms: omniSmsTranslations.ro,
@@ -48438,6 +48445,7 @@ export const translations = {
 
   },
   it: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.it,
     systemMailboxCheck: systemMailboxCheckTranslations.it,
     automationOverview: automationOverviewTranslations.it,
     omniSms: omniSmsTranslations.it,
@@ -56256,6 +56264,7 @@ export const translations = {
 
   },
   de: {
+    healthcareLegalEntity: healthcareLegalEntityTranslations.de,
     systemMailboxCheck: systemMailboxCheckTranslations.de,
     automationOverview: automationOverviewTranslations.de,
     omniSms: omniSmsTranslations.de,

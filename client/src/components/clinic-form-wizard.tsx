@@ -67,6 +67,7 @@ import { PhoneNumberField } from "@/components/phone-number-field";
 import { Wand2 } from "lucide-react";
 import { PulseClinicDialButton } from "@/components/pulse-dial-button";
 import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
+import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity-panel";
 
 interface ClinicFormData {
   name: string;
@@ -2712,6 +2713,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 </div>
                 <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} placeholder={t.clinics.ico} className="h-9" data-testid="input-clinic-ico" />
               </div>
+              {initialData?.id && formData.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="clinic" facilityId={String(initialData.id)} ico={formData.ico} onIcoChange={(ico) => setFormData((current) => ({ ...current, ico }))} onAppliedFields={(values) => setFormData((current) => ({ ...current, ...(values.name ? { name: values.name } : {}), ...(values.address ? { address: values.address } : {}), ...(values.city ? { city: values.city } : {}), ...(values.postalCode ? { postalCode: values.postalCode } : {}), ...(values.ico ? { ico: values.ico } : {}) }))} siteName={formData.name} address={formData.address} city={formData.city} postalCode={formData.postalCode} />}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-xs">{getGeoLabels(formData.countryCode).region}</Label>

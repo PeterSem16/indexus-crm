@@ -66,6 +66,7 @@ export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
+  const [healthcareNetworkOpen, setHealthcareNetworkOpen] = useState(false);
   const { canAccessModule } = usePermissions();
   const { t } = useI18n();
   const chat = useChatContext();
@@ -97,6 +98,7 @@ export function AppSidebar() {
       ? [{ title: t.representantPanel?.myClinicsTitle || "My Network", url: "/my-clinics", testId: "my-clinics", moduleKey: "hospitals", repOnly: true }]
       : []),
     { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
+    { title: (t as any).healthcareLegalEntity?.title || "Legal entities", url: "/healthcare-legal-entities", testId: "healthcare-legal-entities", moduleKey: "healthcare_legal_entities" },
   ];
 
   const nexusNavItems = [
@@ -218,10 +220,10 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               </Collapsible>
 
-              <Collapsible defaultOpen={location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics"} className="group/collapsible-mpn">
+              <Collapsible open={healthcareNetworkOpen || location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics" || location.startsWith("/healthcare-legal-entities")} onOpenChange={setHealthcareNetworkOpen} className="group/collapsible-mpn">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics"}>
+                    <SidebarMenuButton isActive={location === "/medical-partner-network" || location === "/hospitals" || location === "/my-clinics" || location.startsWith("/healthcare-legal-entities")}>
                       <HeartPulse className="h-4 w-4" />
                       <span>{t.nav.medicalPartnerNetwork}</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible-mpn:rotate-180" />

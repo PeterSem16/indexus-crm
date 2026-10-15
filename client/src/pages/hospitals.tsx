@@ -63,11 +63,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity-panel";
 
 interface HospitalFormData {
   isActive: boolean;
   name: string;
   fullName: string;
+  ico: string;
   streetNumber: string;
   representativeId: string;
   city: string;
@@ -88,6 +90,7 @@ const defaultFormData: HospitalFormData = {
   isActive: true,
   name: "",
   fullName: "",
+  ico: "",
   streetNumber: "",
   representativeId: "",
   city: "",
@@ -225,6 +228,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
     isActive: hospital.isActive,
     name: hospital.name,
     fullName: hospital.fullName || "",
+    ico: (hospital as any).ico || "",
     streetNumber: hospital.streetNumber || "",
     representativeId: hospital.representativeId || "",
     city: hospital.city || "",
@@ -368,6 +372,11 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
                   <Label htmlFor="ed-fullName">{t.hospitals.fullName} *</Label>
                   <Input id="ed-fullName" value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value, name: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-ed-hospital-fullname" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ed-hospital-ico">{t.healthcareLegalEntity.ico}</Label>
+                  <Input id="ed-hospital-ico" value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} data-testid="input-ed-hospital-ico" />
+                </div>
+                {hospital.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} onIcoChange={(ico) => setFormData((current) => ({ ...current, ico }))} onAppliedFields={(values) => setFormData((current) => ({ ...current, ...(values.name ? { name: values.name, fullName: values.name } : {}), ...(values.address ? { streetNumber: values.address } : {}), ...(values.city ? { city: values.city } : {}), ...(values.postalCode ? { postalCode: values.postalCode } : {}), ...(values.ico ? { ico: values.ico } : {}) }))} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>
@@ -688,6 +697,10 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                 <div className="space-y-2">
                   <Label>{t.hospitals.fullName} *</Label>
                   <Input value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value, name: e.target.value })} placeholder={t.hospitals.fullName} data-testid="input-hospital-fullname" />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t.healthcareLegalEntity.ico}</Label>
+                  <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} data-testid="input-hospital-ico" />
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
@@ -1303,7 +1316,7 @@ function NetworkFormSheet({ open, onOpenChange, network, onSuccess }: { open: bo
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Network className="h-5 w-5 text-amber-600" />
-            {isEdit ? (t.common?.edit || "Edit") : (t.common?.add || "Add")} - {t.hospitals?.tabs?.healthcareNetworks || "Healthcare Network"}
+            {isEdit ? (t.common?.edit || "Edit") : (t.common?.add || "Add")} - {t.hospitals?.tabs?.healthcareNetworks}
           </SheetTitle>
         </SheetHeader>
         <div className="space-y-4 mt-4">

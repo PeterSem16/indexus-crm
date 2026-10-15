@@ -159,11 +159,15 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
+  // Legal-registry responses can contain protected source data. Keep only
+  // method/path/status/timing in access logs, never their JSON payload.
+  const logResponseBody = path !== "/api/healthcare-legal-entities" &&
+    !path.startsWith("/api/healthcare-legal-entities/");
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
+    if (logResponseBody) capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 
@@ -187,6 +191,9 @@ app.use((req, res, next) => {
   // be stored. Production deploys do not run drizzle-kit/db:push.
   const { ensureForwardedCallSchema } = await import("./lib/forwarded-call-schema");
   await ensureForwardedCallSchema(pool);
+  // Authoritative legal-entity records must exist before their APIs can serve.
+  const { ensureHealthcareLegalEntitySchema } = await import("./lib/healthcare-legal-entity-schema");
+  await ensureHealthcareLegalEntitySchema(pool);
 
   // Standalone Automation tables and recurring-schedule claim metadata are
   // runtime requirements for production deploys that skip drizzle db:push.

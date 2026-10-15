@@ -3003,6 +3003,8 @@ export async function registerRoutes(
   registerOmniSmsRoutes(app, requireAuth);
   const { registerClinicAgreementRoutes } = await import("./lib/clinic-agreement-routes");
   registerClinicAgreementRoutes(app, requireAuth);
+  const { registerHealthcareLegalEntityRoutes } = await import("./lib/healthcare-legal-entity-routes");
+  registerHealthcareLegalEntityRoutes(app, requireAuth);
 
   // Coarse operational telemetry only. The deliberately tiny allowlist makes
   // it impossible for callers to submit call content, addresses, SDP or SIP

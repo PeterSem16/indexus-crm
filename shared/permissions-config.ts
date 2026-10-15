@@ -30,6 +30,18 @@ export interface ModuleDefinition {
 
 export const CRM_MODULES: ModuleDefinition[] = [
   {
+    key: "healthcare_legal_entities",
+    label: "Healthcare Legal Entity",
+    icon: "Landmark",
+    category: "main",
+    defaultAccess: "visible",
+    fields: [
+      { key: "company", label: "Legal entity identity", defaultPermission: "readonly" },
+      { key: "relationships", label: "Confirmed relationships", defaultPermission: "readonly" },
+      { key: "registry_raw", label: "Complete registry data (personal information)", defaultPermission: "hidden" },
+    ],
+  },
+  {
     key: "dashboard",
     label: "Dashboard",
     icon: "LayoutDashboard",

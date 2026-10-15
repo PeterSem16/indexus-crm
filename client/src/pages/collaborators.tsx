@@ -82,6 +82,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { PersonLegalEntityRelations } from "@/components/person-legal-entity-relations";
 
 interface CollaboratorFormData {
   countryCode: string;
@@ -1531,6 +1532,7 @@ function CollaboratorForm({
         </TabsList>
 
         <TabsContent value="collaborator" className="space-y-4">
+          {collaborator && <PersonLegalEntityRelations personId={String(collaborator.id)} />}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>{t.collaborators.fields.country} *</Label>

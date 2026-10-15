@@ -88,6 +88,7 @@ function LegacyMedicalPartnerSettingsRedirect({ tab }: { tab: "data-updates" | "
 const RepresentativeQualityPage = lazy(() => import("@/pages/representative-quality"));
 const VoiceNetworkIncidentsPage = lazy(() => import("@/pages/voice-network-incidents"));
 const AutomationCallDetailsPage = lazy(() => import("@/pages/automation-call-details"));
+const HealthcareLegalEntitiesPage = lazy(() => import("@/pages/healthcare-legal-entities"));
 import { AgentSessionProvider } from "@/contexts/agent-session-context";
 import NotFound from "@/pages/not-found";
 import { Loader2 } from "lucide-react";
@@ -327,6 +328,7 @@ function AuthenticatedApp() {
                     <Route path="/sop" component={SopManagementPage} />
                     <Route path="/training-room" component={TrainingRoomPage} />
                     <Route path="/medical-partner-network" component={MedicalPartnerNetworkPage} />
+                    <Route path="/healthcare-legal-entities" component={HealthcareLegalEntitiesPage} />
                     <Route path="/agent-workspace">
                       <PulseGate>
                         <ErrorBoundary>
