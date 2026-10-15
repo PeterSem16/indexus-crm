@@ -1,5 +1,6 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from "react";
+import { useLocation, useSearch } from "wouter";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Search, Building2, FileText, Award, Gift, ListChecks, FileEdit, MapPin, Navigation, ExternalLink, Database, Loader2, Globe, Stethoscope, RefreshCw, ChevronLeft, ChevronRight, ChevronDown, ArrowUpDown, ArrowUp, ArrowDown, ArrowRight, Filter, X, Download, FileSpreadsheet, Target, UserCheck, UserX, GraduationCap, Users, ListFilter, Activity, ShieldCheck, ShieldOff, Hospital, Settings, StickyNote, Star, Phone, Mail, Smartphone, UserPlus, Save, Network, User, Baby, Calendar } from "lucide-react";
@@ -21,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
+const HealthcareLegalEntitiesPage = lazy(() => import("@/pages/healthcare-legal-entities"));
 import {
   Dialog,
   DialogContent,
@@ -1731,7 +1733,11 @@ export default function HospitalsPage() {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { selectedCountries } = useCountryFilter();
-  const { canAdd, canEdit } = usePermissions();
+  const { canAdd, canEdit, canAccessModule } = usePermissions();
+  const [, setLocation] = useLocation();
+  const search = useSearch();
+  const requestedTab = new URLSearchParams(search).get("tab");
+  const canViewLegalEntities = canAccessModule("healthcare_legal_entities");
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [clinicSearchQuery, setClinicSearchQuery] = useState("");
@@ -1744,7 +1750,18 @@ export default function HospitalsPage() {
   const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null);
   const [clinicToDelete, setClinicToDelete] = useState<Clinic | null>(null);
   const [enrichTarget, setEnrichTarget] = useState<{ type: "clinic" | "hospital"; id: string; name: string; city?: string | null } | null>(null);
-  const [activeTab, setActiveTab] = useState("networks");
+  const activeTab = requestedTab === "legal-entities"
+    ? (canViewLegalEntities ? "legal-entities" : "networks")
+    : ["networks", "hospital", "clinics", "midwifes", "collaborators"].includes(requestedTab || "")
+      ? requestedTab!
+      : canAccessModule("hospitals") ? "networks" : canViewLegalEntities ? "legal-entities" : "networks";
+  const setActiveTab = (tab: string) => {
+    const params = new URLSearchParams(search);
+    params.set("tab", tab);
+    params.delete("id");
+    params.delete("history");
+    setLocation(`/hospitals?${params.toString()}`);
+  };
   const [personnelEntity, setPersonnelEntity] = useState<{ type: "hospital" | "clinic"; id: string; name: string } | null>(null);
   const [clinicCountryTab, setClinicCountryTab] = useState<string>("ALL");
   const [countryTab, setCountryTab] = useState<string>("ALL");
@@ -2833,6 +2850,10 @@ export default function HospitalsPage() {
               <Users className="h-3.5 w-3.5 mr-1.5" />
               {t.hospitals.tabs.persons || "Persons"}
             </TabsTrigger>
+            {canViewLegalEntities && <TabsTrigger value="legal-entities" data-testid="tab-legal-entities" className="h-6 text-xs px-3">
+              <Building2 className="h-3.5 w-3.5 mr-1.5" />
+              {t.healthcareLegalEntity.title}
+            </TabsTrigger>}
           </TabsList>
         </div>
 
@@ -3402,6 +3423,11 @@ export default function HospitalsPage() {
         <TabsContent value="collaborators" className="mt-6">
           <CollaboratorsContent embedded={true} excludeScope="independent" addButtonLabel={t.hospitals.tabs.addPerson || "Add Person"} showHeader headerTitle={t.hospitals.tabs.persons || "Persons"} headerCountWord={{ sk: "osôb", en: "persons" }} />
         </TabsContent>
+        {canViewLegalEntities && <TabsContent value="legal-entities" className="mt-6">
+          <Suspense fallback={<div className="py-8 text-sm text-muted-foreground">{t.common.loading}</div>}>
+            <HealthcareLegalEntitiesPage embedded />
+          </Suspense>
+        </TabsContent>}
 
         <TabsContent value="networks" className="mt-6">
           <HospitalNetworksTab />

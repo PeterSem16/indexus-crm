@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation, useSearch } from "wouter";
+import { Redirect, useLocation, useSearch } from "wouter";
+import { healthcareLegalEntitiesUrl } from "@/lib/healthcare-legal-entity-navigation";
 import { Activity, Building2, Clock3, Download, FileJson2, History, Plus, RefreshCw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import type { Facility, FacilityLink, FacilityType, LegalEntityDetail, LegalEntitySummary, RegistryPerson, SnapshotSummary, VerificationPreview } from "@shared/healthcare-legal-entity";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
@@ -33,7 +34,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 function dateLabel(value?: string | null) { return value ? new Date(value).toLocaleString() : "—"; }
 function siteLabel(type: FacilityType, c: HealthcareLegalEntityCopy) { return type === "clinic" ? c.clinic : c.hospital; }
 
-export default function HealthcareLegalEntitiesPage() {
+export default function HealthcareLegalEntitiesPage({ embedded = false }: { embedded?: boolean } = {}) {
+  const search = useSearch();
+  return embedded ? <HealthcareLegalEntitiesContent /> : <Redirect to={healthcareLegalEntitiesUrl(search)} replace />;
+}
+
+function HealthcareLegalEntitiesContent() {
   const { t, locale } = useI18n();
   const c = t.healthcareLegalEntity as HealthcareLegalEntityCopy;
   const { canAccessModule, canAdd, canEdit } = usePermissions();
@@ -67,7 +73,7 @@ export default function HealthcareLegalEntitiesPage() {
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: [base] });
       setVerifyOpen(false); setPreview(null); setIco("");
-      setLocation(`/healthcare-legal-entities?id=${result.entityId}`);
+      setLocation(healthcareLegalEntitiesUrl(`id=${encodeURIComponent(result.entityId)}`));
     },
     onError: (error: any) => setErrorCode(error.code || "request_failed"),
   });
@@ -75,8 +81,8 @@ export default function HealthcareLegalEntitiesPage() {
   const canManage = canAdd("healthcare_legal_entities") || canEdit("healthcare_legal_entities");
   const canEditEntity = canEdit("healthcare_legal_entities");
   const canCreate = !!list.data?.canManage && canAccessModule("healthcare_legal_entities") && canAdd("healthcare_legal_entities");
-  const openEntity = (id: string) => setLocation(`/healthcare-legal-entities?id=${encodeURIComponent(id)}`);
-  const closeEntity = () => setLocation("/healthcare-legal-entities");
+  const openEntity = (id: string, pendingHistory = false) => setLocation(healthcareLegalEntitiesUrl(`id=${encodeURIComponent(id)}${pendingHistory ? "&history=pending" : ""}`));
+  const closeEntity = () => setLocation(healthcareLegalEntitiesUrl());
 
   if (!allowed) return <div className="p-8 text-center text-muted-foreground">{c.forbidden}</div>;
   return (

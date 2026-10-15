@@ -63,7 +63,8 @@ for (const width of [1360, 390]) {
     });
     await page.goto("/healthcare-legal-entities", { waitUntil: "networkidle" });
     await expect(page.getByTestId("healthcare-legal-entities-page")).toBeVisible({ timeout: 30_000 });
-    if (width >= 768) await expect(page.getByTestId("nav-healthcare-legal-entities")).toBeVisible();
+    await expect(page.getByTestId("nav-healthcare-legal-entities")).toHaveCount(0);
+    await expect(page.getByTestId("tab-legal-entities")).toHaveAttribute("data-state", "active");
     await page.getByTestId("button-new-legal-entity").click();
     await page.getByTestId("input-verify-ico").fill(company.ico);
     await page.getByTestId("button-verify-ico").click();

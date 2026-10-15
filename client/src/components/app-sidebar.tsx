@@ -98,7 +98,6 @@ export function AppSidebar() {
       ? [{ title: t.representantPanel?.myClinicsTitle || "My Network", url: "/my-clinics", testId: "my-clinics", moduleKey: "hospitals", repOnly: true }]
       : []),
     { title: t.nav.medicalPartnerNetwork, url: "/medical-partner-network", testId: "mpn", moduleKey: "hospitals" },
-    { title: (t as any).healthcareLegalEntity?.title || "Legal entities", url: "/healthcare-legal-entities", testId: "healthcare-legal-entities", moduleKey: "healthcare_legal_entities" },
   ];
 
   const nexusNavItems = [
@@ -233,6 +232,7 @@ export function AppSidebar() {
                     <SidebarMenuSub>
                       {mpnSubItems.filter(item =>
                         canAccessModule(item.moduleKey) ||
+                        (item.testId === "hospitals" && canAccessModule("healthcare_legal_entities")) ||
                         (item.testId === "mpn" &&
                           (user?.role?.toLowerCase() === "admin" || userRoleName?.toLowerCase() === "admin") &&
                           canAccessModule("collaborators"))
