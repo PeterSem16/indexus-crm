@@ -8,6 +8,7 @@ export const healthcareLegalEntities = pgTable("healthcare_legal_entities", {
   ico: text("ico").notNull(),
   normalized: jsonb("normalized").$type<NormalizedCompany>().notNull(),
   notes: text("notes").notNull().default(""),
+  details: jsonb("details").$type<import("./healthcare-legal-entity").LegalEntityDetails>().notNull().default({}),
   checkedAt: timestamp("checked_at", { withTimezone: true }).notNull(),
   sourceUpdatedAt: text("source_updated_at"),
   createdBy: varchar("created_by"),

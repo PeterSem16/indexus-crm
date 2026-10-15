@@ -15,6 +15,7 @@ export async function ensureHealthcareLegalEntitySchema(pool: { query: (sql: str
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE(country_code,ico)
     );
+    ALTER TABLE healthcare_legal_entities ADD COLUMN IF NOT EXISTS details jsonb NOT NULL DEFAULT '{}';
     CREATE TABLE IF NOT EXISTS healthcare_legal_entity_snapshots (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
       legal_entity_id varchar NOT NULL REFERENCES healthcare_legal_entities(id),

@@ -9,7 +9,12 @@ export interface NormalizedCompany {
 export interface LegalEntitySummary extends NormalizedCompany {
   id: string; sourceUpdatedAt: string | null; checkedAt: string; notes: string;
   facilityCount?: number; personCount?: number;
+  registryCompany?: NormalizedCompany;
+  details?: LegalEntityDetails;
 }
+export const LEGAL_ENTITY_EDITABLE_FIELDS = ["name", "legalForm", "registeredAddress", "city", "postalCode"] as const;
+export type LegalEntityDetailField = typeof LEGAL_ENTITY_EDITABLE_FIELDS[number];
+export type LegalEntityDetails = Partial<Record<LegalEntityDetailField, string>>;
 export interface RegistryPerson {
   key: string; name: string; role: string; kind: string; current: boolean;
   validFrom: string | null; validTo: string | null;

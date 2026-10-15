@@ -8,6 +8,7 @@ import {
   legalAudit, legalEntityRow, legalEntitySummary, relatedLegalPeople, saveLegalVerification,
 } from "./healthcare-legal-entity-store";
 import type { VerificationPreview } from "../../shared/healthcare-legal-entity";
+import { healthcareLegalEntityExport } from "./healthcare-legal-entity-export";
 
 const id = z.string().trim().min(1).max(128);
 const facilityType = z.enum(["clinic", "hospital"]);
@@ -119,17 +120,43 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
     res.json({ snapshot: { id: rows[0].id, checkedAt: rows[0].checked_at, sourceUpdatedAt: rows[0].source_updated_at },
       ...(actor.canViewSensitive ? { rawData: rows[0].raw_data } : {}) });
   }));
+  app.get(`${root}/:id/export`, requireAuth, route("read", async (req, res, actor) => {
+    const snapshotId = req.query.snapshotId === undefined ? undefined : id.parse(req.query.snapshotId);
+    const exported = await healthcareLegalEntityExport(id.parse(req.params.id), snapshotId, actor);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${exported.filename}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Length", Buffer.byteLength(exported.content));
+    res.end(exported.content);
+  }));
   app.post(`${root}/:id/verify`, requireAuth, route("edit", async (req, res, actor) => {
     const entity = await legalEntityRow(id.parse(req.params.id));
     res.json(await verify(actor, entity.ico));
   }));
   app.patch(`${root}/:id`, requireAuth, route("edit", async (req, res, actor) => {
-    const body = z.object({ notes: z.string().max(10_000) }).strict().parse(req.body);
+    const body = z.object({
+      notes: z.string().max(10_000).optional(),
+      details: z.object({
+        name: z.string().trim().min(1).max(500).nullable().optional(),
+        legalForm: z.string().trim().max(500).nullable().optional(),
+        registeredAddress: z.string().trim().max(2000).nullable().optional(),
+        city: z.string().trim().max(500).nullable().optional(),
+        postalCode: z.string().trim().max(32).nullable().optional(),
+      }).strict().optional(),
+    }).strict().refine(value => value.notes !== undefined || Object.keys(value.details || {}).length > 0).parse(req.body);
     const entityId = id.parse(req.params.id);
     await inLegalTransaction(async client => {
-      await legalEntityRow(entityId, client);
-      await client.query(`UPDATE healthcare_legal_entities SET notes=$2,updated_at=now() WHERE id=$1`, [entityId, body.notes]);
-      await legalAudit(client, entityId, actor, "notes_updated");
+      const locked = await client.query(`SELECT * FROM healthcare_legal_entities WHERE id=$1 FOR UPDATE`, [entityId]);
+      if (!locked.rows[0]) throw new LegalEntityError("not_found", 404);
+      const details = { ...locked.rows[0].details };
+      for (const [field, value] of Object.entries(body.details || {})) {
+        if (value === null) delete details[field];
+        else details[field] = value;
+      }
+      await client.query(`UPDATE healthcare_legal_entities SET notes=$2,details=$3,updated_at=now() WHERE id=$1`,
+        [entityId, body.notes === undefined ? locked.rows[0].notes : body.notes, JSON.stringify(details)]);
+      if (body.notes !== undefined) await legalAudit(client, entityId, actor, "notes_updated");
+      if (body.details) await legalAudit(client, entityId, actor, "entity_details_updated", { fields: Object.keys(body.details) });
     });
     res.json({ ok: true });
   }));

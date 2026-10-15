@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
-import { Activity, Building2, Clock3, FileJson2, History, Plus, RefreshCw, Search, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
+import { Activity, Building2, Clock3, Download, FileJson2, History, Plus, RefreshCw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import type { Facility, FacilityLink, FacilityType, LegalEntityDetail, LegalEntitySummary, RegistryPerson, SnapshotSummary, VerificationPreview } from "@shared/healthcare-legal-entity";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
 import { useI18n } from "@/i18n";
@@ -9,8 +9,6 @@ import { usePermissions } from "@/contexts/permissions-context";
 import { queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +16,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { LegalEntityTable } from "@/components/healthcare-legal-entities/LegalEntityTable";
+import { LegalEntityCompanyForm } from "@/components/healthcare-legal-entities/LegalEntityCompanyForm";
 import { cn } from "@/lib/utils";
 
 const base = "/api/healthcare-legal-entities";
@@ -31,18 +32,16 @@ function dateLabel(value?: string | null) { return value ? new Date(value).toLoc
 function siteLabel(type: FacilityType, c: HealthcareLegalEntityCopy) { return type === "clinic" ? c.clinic : c.hospital; }
 
 export default function HealthcareLegalEntitiesPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const c = t.healthcareLegalEntity as HealthcareLegalEntityCopy;
   const { canAccessModule, canAdd, canEdit } = usePermissions();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const selectedId = new URLSearchParams(searchString).get("id");
-  const [search, setSearch] = useState("");
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [ico, setIco] = useState("");
   const [preview, setPreview] = useState<VerificationPreview | null>(null);
   const [errorCode, setErrorCode] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
   const list = useQuery<{ items: LegalEntitySummary[]; canManage: boolean }>({
     queryKey: [base],
     queryFn: () => request("/"),
@@ -72,58 +71,40 @@ export default function HealthcareLegalEntitiesPage() {
   });
   const allowed = canAccessModule("healthcare_legal_entities");
   const canManage = canAdd("healthcare_legal_entities") || canEdit("healthcare_legal_entities");
+  const canEditEntity = canEdit("healthcare_legal_entities");
   const canCreate = !!list.data?.canManage && canAccessModule("healthcare_legal_entities") && canAdd("healthcare_legal_entities");
-  const filtered = useMemo(() => (list.data?.items || []).filter((e) => `${e.name} ${e.ico} ${e.city || ""}`.toLowerCase().includes(search.toLowerCase())), [list.data?.items, search]);
-  useEffect(() => { setActiveTab("overview"); }, [selectedId]);
+  const openEntity = (id: string) => setLocation(`/healthcare-legal-entities?id=${encodeURIComponent(id)}`);
+  const closeEntity = () => setLocation("/healthcare-legal-entities");
 
   if (!allowed) return <div className="p-8 text-center text-muted-foreground">{c.forbidden}</div>;
   return (
     <div className="min-h-[calc(100dvh-6rem)] text-foreground" data-testid="healthcare-legal-entities-page">
-      <div className="mb-6 flex flex-col justify-between gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end">
-        <div>
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary"><ShieldCheck className="h-4 w-4" /> INDEXUS / {t.nav.medicalPartnerNetwork}</div>
-          <h1 className="font-serif text-3xl font-semibold tracking-tight sm:text-4xl">{c.title}</h1>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{c.subtitle}</p>
+      <div className="mb-5 flex flex-col justify-between gap-4 rounded-xl border bg-card px-4 py-4 shadow-sm sm:flex-row sm:items-center sm:px-5">
+        <div className="min-w-0">
+          <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-primary"><ShieldCheck className="h-3.5 w-3.5" /> {t.nav.medicalPartnerNetwork}</div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[27px]">{c.title}</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{c.subtitle}</p>
         </div>
         {canCreate && <Button onClick={() => { setVerifyOpen(true); setErrorCode(""); }} data-testid="button-new-legal-entity"><Plus className="mr-2 h-4 w-4" />{c.newEntity}</Button>}
       </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(300px,370px)_minmax(0,1fr)]">
-        <aside className={cn(selectedId && "hidden xl:block")}>
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{c.title}</span>
-            <span className="font-mono text-xs text-muted-foreground">{list.data?.items.length ?? "—"}</span>
-          </div>
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={c.search} className="pl-9" aria-label={c.search} />
-          </div>
-          {list.isLoading ? <div className="space-y-2">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}</div> :
-            list.isError ? <Card><CardContent className="p-6 text-sm"><p>{c.loadError}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => list.refetch()}>{c.retry}</Button></CardContent></Card> :
-            filtered.length === 0 ? <Card className="border-dashed"><CardContent className="px-5 py-10 text-center"><Building2 className="mx-auto mb-3 h-8 w-8 text-primary/60" /><h3 className="font-medium">{search ? c.noResults : c.empty}</h3><p className="mt-2 text-sm text-muted-foreground">{search ? "" : c.emptyHint}</p></CardContent></Card> :
-            <div className="space-y-2">
-              {filtered.map((entity) => <button type="button" key={entity.id} onClick={() => setLocation(`/healthcare-legal-entities?id=${entity.id}`)} className={cn("w-full rounded-xl border p-4 text-left transition-colors hover:border-primary/50 hover:bg-primary/[0.025]", selectedId === entity.id ? "border-primary bg-primary/[0.045] shadow-sm" : "border-border bg-card")} data-testid={`legal-entity-row-${entity.id}`}>
-                <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate font-semibold">{entity.name}</div><div className="mt-1 font-mono text-xs tracking-wide text-muted-foreground">{entity.ico}</div></div><Badge variant={entity.status === "active" ? "secondary" : "outline"} className="shrink-0">{entity.status === "active" ? c.active : c.terminated}</Badge></div>
-                <div className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span className="truncate">{[entity.city, entity.legalForm].filter(Boolean).join(" · ") || c.recordSource}</span><span className="shrink-0">{entity.facilityCount ?? 0} {c.facilities.toLowerCase()}</span></div>
-              </button>)}
-            </div>}
-        </aside>
-        <section className={cn(!selectedId && "hidden xl:block")}>
-          {selectedId && <Button variant="ghost" size="sm" className="mb-2 xl:hidden" onClick={() => setLocation("/healthcare-legal-entities")}>← {c.title}</Button>}
-          {!selectedId ? <Card className="hidden min-h-[420px] border-dashed xl:flex"><CardContent className="m-auto max-w-sm text-center"><div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Building2 className="h-7 w-7" /></div><h2 className="font-serif text-2xl font-semibold">{c.details}</h2><p className="mt-2 text-sm text-muted-foreground">{c.subtitle}</p></CardContent></Card> :
-            detail.isLoading ? <div className="space-y-3"><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-12 rounded-xl" /><Skeleton className="h-72 rounded-xl" /></div> :
-            detail.isError || !detail.data ? <Card><CardContent className="p-6"><p>{c.loadError}</p><Button className="mt-3" variant="outline" onClick={() => detail.refetch()}>{c.retry}</Button></CardContent></Card> :
-             <EntityDetail key={selectedId} detail={detail.data} c={c} canManage={canManage} activeTab={activeTab} setActiveTab={setActiveTab} />}
-        </section>
-      </div>
+      <LegalEntityTable items={list.data?.items || []} c={c} locale={locale} loading={list.isLoading} failed={list.isError} onRetry={() => list.refetch()} onOpen={(entity) => openEntity(entity.id)} />
+      <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) closeEntity(); }}>
+        <SheetContent side="right" drawerWidth="wide" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+          {selectedId && (detail.isLoading ? <div className="space-y-4 p-6"><Skeleton className="h-12" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
+            : detail.isError || !detail.data ? <div className="p-8"><p>{c.loadError}</p><Button className="mt-3" variant="outline" onClick={() => detail.refetch()}>{c.retry}</Button></div>
+            : <EntityDetail key={selectedId} detail={detail.data} c={c} canManage={canManage} canEditEntity={canEditEntity} onClose={closeEntity} />)}
+        </SheetContent>
+      </Sheet>
       <VerifyDialog open={verifyOpen} onOpenChange={setVerifyOpen} c={c} ico={ico} setIco={setIco} preview={preview} setPreview={setPreview} errorCode={errorCode} onVerify={() => createVerify.mutate(ico)} verifying={createVerify.isPending} saving={savePreview.isPending} onSave={(payload: unknown) => savePreview.mutate(payload)} />
     </div>
   );
 }
 
-function EntityDetail({ detail, c, canManage, activeTab, setActiveTab }: { detail: LegalEntityDetail; c: HealthcareLegalEntityCopy; canManage: boolean; activeTab: string; setActiveTab: (tab: string) => void }) {
+function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail: LegalEntityDetail; c: HealthcareLegalEntityCopy; canManage: boolean; canEditEntity: boolean; onClose: () => void }) {
   const entity = detail.entity;
   const mayManage = canManage && detail.canManage;
+  const mayEdit = canEditEntity && detail.canManage;
+  const [activeTab, setActiveTab] = useState("overview");
   const [notes, setNotes] = useState(entity.notes || "");
   const [snapshot, setSnapshot] = useState<{ snapshot: SnapshotSummary; rawData?: object; audit?: Array<Record<string, any>> } | null>(null);
   const [raw, setRaw] = useState<Record<string, unknown> | undefined>(detail.rawData);
@@ -135,6 +116,9 @@ function EntityDetail({ detail, c, canManage, activeTab, setActiveTab }: { detai
   const [verifySaveError, setVerifySaveError] = useState("");
   const [pendingEnd, setPendingEnd] = useState<{ type: "facility" | "person"; id: string } | null>(null);
   const [statusError, setStatusError] = useState("");
+  const [downloadPending, setDownloadPending] = useState(false);
+  const [companySaveVersion, setCompanySaveVersion] = useState(0);
+  const notesInitializedForId = useRef<string | null>(null);
   const invalidateRelated = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: [base] }),
     queryClient.invalidateQueries({ queryKey: ["/api/clinics"] }),
@@ -142,11 +126,17 @@ function EntityDetail({ detail, c, canManage, activeTab, setActiveTab }: { detai
     queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] }),
     queryClient.invalidateQueries({ queryKey: [`${base}/persons`] }),
   ]);
-  const notesMutation = useMutation({ mutationFn: () => request(`/${entity.id}`, { method: "PATCH", body: JSON.stringify({ notes }) }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [base, entity.id] }); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
+  const notesMutation = useMutation({ mutationFn: (payload: { details?: Record<string, string | null>; notes?: string }) => request(`/${entity.id}`, { method: "PATCH", body: JSON.stringify(payload) }), onSuccess: async () => { setCompanySaveVersion((v) => v + 1); await queryClient.invalidateQueries({ queryKey: [base, entity.id] }); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
   const verifyMutation = useMutation({ mutationFn: () => request<VerificationPreview>(`/${entity.id}/verify`, { method: "POST" }), onSuccess: setVerifyPreview, onError: (e: any) => setStatusError(e.code || "request_failed") });
   const endFacility = useMutation({ mutationFn: (linkId: string) => request(`/${entity.id}/facilities/${linkId}/end`, { method: "POST" }), onSuccess: async () => { setPendingEnd(null); setStatusError(""); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
   const endPerson = useMutation({ mutationFn: (linkId: string) => request(`/${entity.id}/person-links/${linkId}/end`, { method: "POST" }), onSuccess: async () => { setPendingEnd(null); setStatusError(""); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
-  useEffect(() => { setNotes(entity.notes || ""); setRaw(detail.rawData); }, [entity.id, entity.notes, detail.rawData]);
+  useEffect(() => {
+    if (notesInitializedForId.current !== entity.id) {
+      notesInitializedForId.current = entity.id;
+      setNotes(entity.notes || "");
+    }
+    setRaw(detail.rawData);
+  }, [entity.id, entity.notes, detail.rawData]);
   const tabs = [["overview", c.overview], ["facilities", c.facilities], ["people", c.people], ["history", c.history]] as const;
   const reload = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: [base, entity.id] }),
@@ -170,33 +160,67 @@ function EntityDetail({ detail, c, canManage, activeTab, setActiveTab }: { detai
     }
   };
   const eligibleRegistryPeople = detail.registryPeople.filter((person) => (person as RegistryPerson & { isNaturalPerson?: boolean }).isNaturalPerson !== false);
-  return <div className="space-y-4" data-testid="legal-entity-detail">
-    <Card className="overflow-hidden border-primary/15">
-      <div className="h-1 bg-gradient-to-r from-primary via-primary/50 to-transparent" />
-      <CardContent className="p-5 sm:p-6">
-        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-          <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2"><Badge variant="outline">{entity.countryCode}</Badge><Badge variant={entity.status === "active" ? "secondary" : "outline"}>{entity.status === "active" ? c.active : c.terminated}</Badge><span className="font-mono text-xs text-muted-foreground">{entity.ico}</span></div><h2 className="font-serif text-2xl font-semibold leading-tight">{entity.name}</h2><p className="mt-2 text-sm text-muted-foreground">{entity.registeredAddress || "—"}{entity.city ? `, ${entity.city}` : ""} {entity.postalCode || ""}</p></div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {mayManage && <Button variant="outline" size="sm" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><RefreshCw className={cn("mr-2 h-4 w-4", verifyMutation.isPending && "animate-spin")} />{c.refresh}</Button>}
-          </div>
+  const downloadExport = async () => {
+    if (!detail.canViewSensitive || downloadPending) return;
+    setDownloadPending(true); setStatusError("");
+    try {
+      const response = await fetch(`${base}/${entity.id}/export`, { credentials: "include" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw Object.assign(new Error(body?.error || "request_failed"), { code: body?.error || (response.status === 403 ? "forbidden" : "request_failed") });
+      }
+      const blob = await response.blob();
+      if (!blob.size) throw Object.assign(new Error("request_failed"), { code: "request_failed" });
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+      const filename = (encoded ? decodeURIComponent(encoded) : plain) || `legal-entity-${entity.ico}.json`;
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error: any) {
+      setStatusError(error?.code || "request_failed");
+    } finally { setDownloadPending(false); }
+  };
+  const rawObject = raw as Record<string, any> | undefined;
+  const sourceDocuments: Array<Record<string, unknown>> = Array.isArray(rawObject?.documents)
+    ? rawObject.documents
+    : Array.isArray(rawObject?.data?.documents) ? rawObject.data.documents : [];
+  return <div className="flex min-h-0 flex-1 flex-col" data-testid="legal-entity-detail">
+    <SheetHeader className="shrink-0 border-b px-5 py-4 pr-14 sm:px-7">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0"><div className="mb-1 flex items-center gap-2"><Badge variant="outline">{entity.countryCode}</Badge><Badge variant={entity.status === "active" ? "secondary" : "outline"}>{entity.status === "active" ? c.active : c.terminated}</Badge><span className="font-mono text-xs text-muted-foreground">{entity.ico}</span></div><SheetTitle className="truncate text-xl">{entity.name}</SheetTitle><SheetDescription>{[entity.registeredAddress, entity.city, entity.postalCode].filter(Boolean).join(", ") || c.recordSource}</SheetDescription></div>
+        <div className="flex flex-wrap gap-2">
+          {mayManage && <Button variant="outline" size="sm" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><RefreshCw className={cn("mr-2 h-4 w-4", verifyMutation.isPending && "animate-spin")} />{c.fetchCompleteData}</Button>}
+          {detail.canViewSensitive && <Button variant="outline" size="sm" onClick={downloadExport} disabled={downloadPending} data-testid="button-download-legal-entity"><Download className="mr-2 h-4 w-4" />{downloadPending ? c.downloading : c.downloadSourceData}</Button>}
+          <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-legal-entity">{c.close}</Button>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-5">
-          <Metric icon={Building2} label={c.facilities} value={String(detail.facilities.length)} />
-          <Metric icon={UserRound} label={c.people} value={String(detail.registryPeople.length)} />
-          <Metric icon={Clock3} label={c.checkedAt} value={dateLabel(entity.checkedAt)} />
-          <Metric icon={Activity} label={c.sourceUpdatedAt} value={entity.sourceUpdatedAt ? dateLabel(entity.sourceUpdatedAt) : "—"} />
-          <Metric icon={ShieldCheck} label={c.providerSource} value={c.recordSource} />
-        </div>
-      </CardContent>
-    </Card>
-    <div className="flex gap-1 overflow-x-auto border-b">
-      {tabs.map(([id, label]) => <button type="button" key={id} onClick={() => setActiveTab(id)} className={cn("whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors", activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
+      </div>
+      <div className="grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-5">
+        <Metric icon={Building2} label={c.facilities} value={String(detail.facilities.length)} />
+        <Metric icon={UserRound} label={c.people} value={String(detail.registryPeople.length)} />
+        <Metric icon={Clock3} label={c.checkedAt} value={dateLabel(entity.checkedAt)} />
+        <Metric icon={Activity} label={c.sourceUpdatedAt} value={entity.sourceUpdatedAt ? dateLabel(entity.sourceUpdatedAt) : "—"} />
+        <Metric icon={ShieldCheck} label={c.providerSource} value={c.recordSource} />
+      </div>
+    </SheetHeader>
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 sm:px-7">
+    <div className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b bg-background/95 px-4 backdrop-blur sm:-mx-7 sm:px-7">
+      {tabs.map(([id, label]) => <button type="button" key={id} data-testid={`legal-entity-tab-${id}`} aria-current={activeTab === id ? "page" : undefined} onClick={() => setActiveTab(id)} className={cn("whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors", activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
     </div>
     {statusError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{statusError === "operator_conflict" ? c.conflict : statusError === "forbidden" ? c.forbidden : c.errors}</p>}
-    {activeTab === "overview" && <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
-      <Card><CardContent className="p-5"><h3 className="mb-4 flex items-center gap-2 font-semibold"><Building2 className="h-4 w-4 text-primary" />{c.details}</h3><div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">{[[c.ico, entity.ico], [c.legalForm, entity.legalForm], [c.address, entity.registeredAddress], [c.city, entity.city], [c.postalCode, entity.postalCode], [c.status, entity.status === "active" ? c.active : c.terminated]].map(([label, value]) => <div key={label}><div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div><div className="mt-1 text-sm font-medium">{value || "—"}</div></div>)}</div><div className="mt-5 border-t pt-4"><LabelText label={c.notes} /><Textarea className="mt-2 min-h-24 resize-y" value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!mayManage} /><Button className="mt-2" size="sm" disabled={!mayManage || notesMutation.isPending || notes === (entity.notes || "")} onClick={() => notesMutation.mutate()}>{c.saveNotes}</Button></div></CardContent></Card>
-      <Card><CardContent className="p-5"><div className="mb-4 flex items-center justify-between"><h3 className="flex items-center gap-2 font-semibold"><FileJson2 className="h-4 w-4 text-primary" />{c.rawData}</h3></div>{detail.canViewSensitive && raw ? <pre className="max-h-72 overflow-auto rounded-lg bg-muted/60 p-3 text-xs leading-relaxed">{JSON.stringify(raw, null, 2)}</pre> : <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{c.sensitiveDenied}</p>}</CardContent></Card>
-    </div>}
+    <div className={cn("mx-auto w-full max-w-3xl space-y-4 py-4", activeTab !== "overview" && "hidden")} aria-hidden={activeTab !== "overview"}>
+      <LegalEntityCompanyForm entity={entity as any} c={c} canEdit={mayEdit} pending={notesMutation.isPending} saveVersion={companySaveVersion} notes={notes} setNotes={setNotes} onSave={(payload) => notesMutation.mutate(payload)} />
+      <details className="group rounded-xl border bg-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4"><span className="flex items-center gap-2 font-medium"><FileJson2 className="h-4 w-4 text-primary" />{c.rawData}</span><span className="text-xs text-muted-foreground">{detail.canViewSensitive ? c.expandTechnicalData : c.sensitiveDenied}</span></summary>
+        {detail.canViewSensitive && raw && <div className="space-y-4 border-t p-4">
+          <div className="rounded-lg bg-primary/[0.045] p-3"><p className="text-sm font-medium text-foreground">{c.completeDataSaved}</p><p className="mt-1 text-xs text-muted-foreground">{c.checkedAt}: {dateLabel(entity.checkedAt)}{entity.sourceUpdatedAt ? ` · ${c.sourceUpdatedAt}: ${dateLabel(entity.sourceUpdatedAt)}` : ""}</p></div>
+          <section className="space-y-2"><h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{c.sourceDocuments}</h4>{sourceDocuments.length ? <div className="grid gap-2 sm:grid-cols-2">{sourceDocuments.map((document, index) => <div key={String(document.id || document.number || index)} className="rounded-lg border p-3"><p className="break-words text-sm font-medium">{String(document.title || document.name || document.documentType || c.sourceDocuments)}</p><p className="mt-1 break-words text-xs text-muted-foreground">{[document.number, document.type, document.date || document.createdAt, document.url || document.fileName].filter(Boolean).map(String).join(" · ") || c.documentMetadataUnavailable}</p></div>)}</div> : <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{c.documentMetadataUnavailable}</p>}</section>
+          <pre className="max-h-80 overflow-auto rounded-lg bg-muted/70 p-3 text-xs leading-relaxed">{JSON.stringify(raw, null, 2)}</pre>
+        </div>}
+      </details>
+    </div>
     {activeTab === "facilities" && <Card><CardContent className="p-5"><div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">{c.facilities}</h3>{mayManage && <Button size="sm" onClick={() => setLinkOpen(true)}><Plus className="mr-2 h-4 w-4" />{c.addFacility}</Button>}</div>{detail.facilities.length ? <div className="divide-y">{detail.facilities.map((link) => <FacilityRow key={link.id} link={link} c={c} canManage={mayManage} onEnd={() => setPendingEnd({ type: "facility", id: link.id })} ending={endFacility.isPending} />)}</div> : <EmptyInline icon={Stethoscope} text={c.noFacilities} />}</CardContent></Card>}
     {activeTab === "people" && <div className="space-y-4">
       <Card><CardContent className="p-5"><div className="mb-2 flex items-center justify-between gap-3"><h3 className="font-semibold">{c.people}</h3>{mayManage && <Button size="sm" variant="outline" onClick={() => setPersonOpen(true)}><Plus className="mr-2 h-4 w-4" />{c.addPerson}</Button>}</div><p className="mb-4 text-xs text-muted-foreground">{c.registryNote}</p>{detail.registryPeople.length ? <div className="grid gap-2 md:grid-cols-2">{detail.registryPeople.map((person: RegistryPerson) => <div key={person.key} className="rounded-lg border p-3"><div className="flex items-start justify-between gap-2"><div className="font-medium">{person.name}</div><Badge variant={person.current ? "secondary" : "outline"}>{person.current ? c.current : c.ended}</Badge></div><div className="mt-1 text-sm text-muted-foreground">{person.role}</div><div className="mt-2 font-mono text-[11px] text-muted-foreground">{dateLabel(person.validFrom)} — {dateLabel(person.validTo)}</div></div>)}</div> : <EmptyInline icon={UserRound} text={c.noRegistryPeople} />}</CardContent></Card>
@@ -206,14 +230,15 @@ function EntityDetail({ detail, c, canManage, activeTab, setActiveTab }: { detai
     {activeTab === "history" && <Card><CardContent className="p-5"><h3 className="mb-4 flex items-center gap-2 font-semibold"><History className="h-4 w-4 text-primary" />{c.history}</h3>{detail.history.length ? <div className="relative space-y-3 before:absolute before:bottom-3 before:left-[11px] before:top-3 before:w-px before:bg-border">{detail.history.map((item) => <div key={item.id} className="relative flex flex-wrap items-center justify-between gap-3 pl-8"><span className="absolute left-1.5 top-2 h-3 w-3 rounded-full border-2 border-primary bg-background" /><div><div className="font-medium">{dateLabel(item.checkedAt)}</div><div className="text-xs text-muted-foreground">{item.createdByName || c.recordSource}</div></div><Button size="sm" variant="outline" onClick={async () => { try { const res = await request<{ snapshot: SnapshotSummary; rawData?: object; audit?: Array<Record<string, any>> }>(`/${entity.id}/snapshots/${item.id}`); setSnapshot(res); setStatusError(""); } catch { setStatusError("request_failed"); } }}>{c.snapshot}</Button></div>)}</div> : <EmptyInline icon={History} text={c.empty} />}</CardContent></Card>}
     {linkOpen && mayManage && <FacilityLinkDialog entityId={entity.id} c={c} onClose={() => setLinkOpen(false)} onSaved={reload} />}
     {personOpen && mayManage && <PersonLinkDialog entityId={entity.id} registryPeople={eligibleRegistryPeople} c={c} onClose={() => setPersonOpen(false)} onSaved={reload} />}
-    <Dialog open={!!snapshot} onOpenChange={(open) => { if (!open) setSnapshot(null); }}><DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{c.snapshot} · {dateLabel(snapshot?.snapshot.checkedAt)}</DialogTitle></DialogHeader><div className="space-y-4">{snapshot?.audit?.length ? <section className="space-y-2"><h3 className="text-sm font-semibold">{c.auditEvent}</h3>{snapshot.audit.map((event, index) => { const change = event.details ?? event.description ?? event.note ?? event.changes ?? event.metadata ?? event.beforeAfter ?? event.before ?? event.after; return <div key={`${event.id || event.createdAt || index}`} className="rounded-lg border p-3"><div className="flex flex-wrap justify-between gap-2 text-sm font-medium"><span>{event.summary || event.label || event.actionLabel || c.auditEvent}</span><span className="text-xs text-muted-foreground">{dateLabel(event.createdAt || event.occurredAt || event.at)}</span></div>{change != null && <div className="mt-2"><div className="mb-1 text-xs font-semibold text-muted-foreground">{c.auditDetails}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{typeof change === "string" ? change : JSON.stringify(change, null, 2)}</pre></div>}</div>; })}</section> : null}{detail.canViewSensitive && snapshot?.rawData && <section><h3 className="mb-2 text-sm font-semibold">{c.rawData}</h3><pre className="max-h-[55dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot.rawData, null, 2)}</pre></section>}{!snapshot?.audit?.length && !(detail.canViewSensitive && snapshot?.rawData) && <pre className="max-h-[65dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot?.snapshot, null, 2)}</pre>}</div></DialogContent></Dialog>
-    <Dialog open={!!verifyPreview} onOpenChange={(open) => { if (!open) { setVerifyPreview(null); setVerifySaveError(""); } }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{c.verifyTitle}</DialogTitle></DialogHeader>{verifyPreview && <PreviewBody preview={verifyPreview} c={c} onSave={saveReverification} saving={verifySavePending} errorCode={verifySaveError} />}</DialogContent></Dialog>
+    <Dialog open={!!snapshot} onOpenChange={(open) => { if (!open) setSnapshot(null); }}><DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{c.snapshot} · {dateLabel(snapshot?.snapshot.checkedAt)}</DialogTitle></DialogHeader><div className="space-y-4">{snapshot?.audit?.length ? <section className="space-y-2"><h3 className="text-sm font-semibold">{c.auditEvent}</h3>{snapshot.audit.map((event, index) => { const change = event.details ?? event.description ?? event.note ?? event.changes ?? event.metadata ?? event.beforeAfter ?? event.before ?? event.after; const kind = event.kind || event.action || event.type; const eventLabel = kind === "entity_details_updated" ? c.entityDetailsUpdated : event.summary || event.label || event.actionLabel || c.auditEvent; return <div key={`${event.id || event.createdAt || index}`} className="rounded-lg border p-3"><div className="flex flex-wrap justify-between gap-2 text-sm font-medium"><span>{eventLabel}</span><span className="text-xs text-muted-foreground">{dateLabel(event.createdAt || event.occurredAt || event.at)}</span></div>{change != null && <div className="mt-2"><div className="mb-1 text-xs font-semibold text-muted-foreground">{c.auditDetails}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{typeof change === "string" ? change : JSON.stringify(change, null, 2)}</pre></div>}</div>; })}</section> : null}{detail.canViewSensitive && snapshot?.rawData && <section><h3 className="mb-2 text-sm font-semibold">{c.rawData}</h3><pre className="max-h-[55dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot.rawData, null, 2)}</pre></section>}{!snapshot?.audit?.length && !(detail.canViewSensitive && snapshot?.rawData) && <pre className="max-h-[65dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot?.snapshot, null, 2)}</pre>}</div></DialogContent></Dialog>
+      <Dialog open={!!verifyPreview} onOpenChange={(open) => { if (!open) { setVerifyPreview(null); setVerifySaveError(""); } }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{c.verifyTitle}</DialogTitle></DialogHeader>{verifyPreview && <PreviewBody preview={verifyPreview} c={c} onSave={saveReverification} saving={verifySavePending} errorCode={verifySaveError} />}</DialogContent></Dialog>
     <AlertDialog open={!!pendingEnd} onOpenChange={(open) => { if (!open) setPendingEnd(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{c.confirmEnd}</AlertDialogTitle><AlertDialogDescription>{c.confirmEndDescription}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{c.cancel}</AlertDialogCancel><AlertDialogAction disabled={endFacility.isPending || endPerson.isPending} onClick={(event) => { event.preventDefault(); if (!pendingEnd) return; if (pendingEnd.type === "facility") endFacility.mutate(pendingEnd.id); else endPerson.mutate(pendingEnd.id); }}>{c.confirm}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+    </div>
   </div>;
 }
 
 function VerifyDialog({ open, onOpenChange, c, ico, setIco, preview, setPreview, errorCode, onVerify, verifying, saving, onSave }: any) {
-  return <Dialog open={open} onOpenChange={(value) => { onOpenChange(value); if (!value) setPreview(null); }}><DialogContent className="w-[calc(100%-2rem)] max-h-[min(92dvh,850px)] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle className="font-serif text-2xl">{preview ? c.verifyTitle : c.newEntity}</DialogTitle></DialogHeader>{!preview ? <div className="space-y-4"><p className="text-sm text-muted-foreground">{c.recordSource}</p><div><LabelText label={c.ico} /><Input className="mt-2 font-mono" inputMode="numeric" autoFocus value={ico} onChange={(e) => setIco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onVerify(); }} data-testid="input-verify-ico" /></div>{errorCode && <ErrorLine code={errorCode} c={c} />}<div className="flex justify-end"><Button onClick={onVerify} disabled={verifying || !ico.trim()} data-testid="button-verify-ico">{verifying ? c.loading : c.verify}</Button></div></div> : <PreviewBody preview={preview} c={c} onSave={onSave} saving={saving} errorCode={errorCode} onBack={() => setPreview(null)} />}</DialogContent></Dialog>;
+  return <Dialog open={open} onOpenChange={(value) => { onOpenChange(value); if (!value) setPreview(null); }}><DialogContent className="w-[calc(100%-2rem)] max-h-[min(92dvh,850px)] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle className="text-2xl">{preview ? c.verifyTitle : c.newEntity}</DialogTitle></DialogHeader>{!preview ? <div className="space-y-4"><p className="text-sm text-muted-foreground">{c.recordSource}</p><div><LabelText label={c.ico} /><Input className="mt-2 font-mono" inputMode="numeric" autoFocus value={ico} onChange={(e) => setIco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onVerify(); }} data-testid="input-verify-ico" /></div>{errorCode && <ErrorLine code={errorCode} c={c} />}<div className="flex justify-end"><Button onClick={onVerify} disabled={verifying || !ico.trim()} data-testid="button-verify-ico">{verifying ? c.loading : c.verify}</Button></div></div> : <PreviewBody preview={preview} c={c} onSave={onSave} saving={saving} errorCode={errorCode} onBack={() => setPreview(null)} />}</DialogContent></Dialog>;
 }
 function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
   const [confirmOperator, setConfirmOperator] = useState(false);
@@ -252,7 +277,7 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
     {errorCode && <ErrorLine code={errorCode} c={c} />}
     <div className="space-y-2"><LabelText label={c.addFacility} /><div className="grid gap-2 sm:grid-cols-[150px_1fr]"><Select value={facilityType} disabled={boundFacility} onValueChange={(v) => { setFacilityType(v as FacilityType); setFacilityId(""); setOption(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><div className="relative"><Input placeholder={c.facilitySearch} value={option?.name || search} disabled={boundFacility} onChange={(e) => { setOption(null); setFacilityId(""); setSearch(e.target.value); }} />{options.data?.items?.length && !boundFacility ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">{options.data.items.filter((item) => item.type === facilityType).map((item) => <button type="button" key={item.id} className="block w-full px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOption(item as Facility); setFacilityId(item.id); setSearch(""); }}>{item.name} <span className="text-xs text-muted-foreground">{item.ico || ""}</span></button>)}</div> : null}</div></div>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</div>
     {facilityId && <div className="space-y-3 rounded-lg border p-3"><label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox checked={confirmOperator} onCheckedChange={(value) => setConfirmOperator(!!value)} /><span>{c.confirmOperator}</span></label><div className="grid grid-cols-[minmax(80px,.6fr)_1fr_1fr] gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"><span>{c.applySelected}</span><span>{c.existingValue}</span><span>{c.verifiedValue}</span></div>{fields.map(([key, label, value]) => { const current = currentValues[key]; return <label key={key} className="grid cursor-pointer grid-cols-[minmax(80px,.6fr)_1fr_1fr] items-center gap-2 border-t py-2 text-xs"><span className="flex items-center gap-2"><Checkbox checked={apply.includes(key)} disabled={!value || facilityQuery.isError} onCheckedChange={(checked) => setApply(checked ? [...apply, key] : apply.filter((item) => item !== key))} /><span>{label}</span></span><span className="break-words text-muted-foreground">{facilityQuery.isLoading ? c.loading : current || "—"}</span><span className="break-words">{value || "—"}</span></label>; })}{facilityQuery.isError && <div className="flex items-center justify-between gap-2 text-sm text-destructive"><span>{c.siteLoadError}</span><Button type="button" size="sm" variant="outline" onClick={() => facilityQuery.refetch()}>{c.retry}</Button></div>}<label className="flex cursor-pointer items-start gap-2 text-sm text-destructive"><Checkbox checked={replaceExisting} onCheckedChange={(value) => setReplaceExisting(!!value)} /><span>{c.replaceOperator}</span></label><p className="text-xs text-muted-foreground">{c.noChange}</p></div>}
-    <div className="flex flex-wrap justify-between gap-2 border-t pt-4">{onBack && <Button variant="outline" onClick={onBack}>{c.cancel}</Button>}<Button className="ml-auto" disabled={saving || (!!facilityId && !confirmOperator)} onClick={() => onSave({ verificationId: preview.verificationId, ...(facilityId ? { facilityType, facilityId, confirmOperator: true, ...(replaceExisting ? { replaceExisting: true } : {}) } : {}), ...(apply.length ? { applyFields: apply } : {}) })} data-testid="button-save-verified-entity">{saving ? c.loading : facilityId ? c.saveLink : c.saveCompany}</Button></div>
+    <div className="flex flex-wrap justify-between gap-2 border-t pt-4">{onBack && <Button variant="outline" onClick={onBack}>{c.cancel}</Button>}<Button className="ml-auto" disabled={saving || (!!facilityId && !confirmOperator)} onClick={() => onSave({ verificationId: preview.verificationId, ...(facilityId ? { facilityType, facilityId, confirmOperator: true, ...(replaceExisting ? { replaceExisting: true } : {}) } : {}), ...(apply.length ? { applyFields: apply } : {}) })} data-testid="button-save-verified-entity">{saving ? c.loading : facilityId ? c.saveLink : c.saveToEntity}</Button></div>
   </div>;
 }
 function FacilityLinkDialog({ entityId, c, onClose, onSaved }: any) {

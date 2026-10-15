@@ -1,12 +1,16 @@
 import type { PoolClient } from "pg";
 import { pool } from "../db";
-import type { FacilityType, LegalEntitySummary, RegistryPerson } from "../../shared/healthcare-legal-entity";
+import { LEGAL_ENTITY_EDITABLE_FIELDS, type FacilityType, type LegalEntitySummary, type RegistryPerson } from "../../shared/healthcare-legal-entity";
 import { LegalEntityError } from "./orsr-client";
 import type { LegalEntityActor } from "./healthcare-legal-entity-access";
 import { readLegalFacility } from "./healthcare-legal-entity-access";
 
 export function legalEntitySummary(row: any): LegalEntitySummary {
-  return { ...row.normalized, id: row.id, notes: row.notes, checkedAt: new Date(row.checked_at).toISOString(),
+  const details = Object.fromEntries(LEGAL_ENTITY_EDITABLE_FIELDS
+    .filter(field => typeof row.details?.[field] === "string")
+    .map(field => [field, row.details[field]]));
+  return { ...row.normalized, ...details, details, registryCompany: row.normalized,
+    id: row.id, notes: row.notes, checkedAt: new Date(row.checked_at).toISOString(),
     sourceUpdatedAt: row.source_updated_at, facilityCount: row.facility_count == null ? undefined : Number(row.facility_count),
     personCount: row.person_count == null ? undefined : Number(row.person_count) };
 }

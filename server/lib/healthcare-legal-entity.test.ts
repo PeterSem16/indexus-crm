@@ -256,6 +256,78 @@ test("Healthcare Legal Entity real database/API: identity, privacy, links, histo
       assert.equal(saved[0].entityId, secondEntityId);
       assert.equal((await pool.query(`SELECT count(*)::int AS count FROM healthcare_legal_entities WHERE ico=$1`, [otherIco])).rows[0].count, 1);
     });
+    await t.test("drawer edits persist separately from the official source and reject identity changes", async () => {
+      assert.equal((await request(`/${entityId}`, "PATCH", {
+        notes: "Drawer note", details: { name: "Local display name", city: "Local city" },
+      })).status, 200);
+      let detail = await (await request(`/${entityId}`)).json();
+      assert.equal(detail.entity.name, "Local display name");
+      assert.equal(detail.entity.city, "Local city");
+      assert.equal(detail.entity.registryCompany.name, "Synthetic operator s.r.o.");
+      assert.equal(detail.entity.registryCompany.city, "Bratislava");
+      assert.equal(detail.entity.notes, "Drawer note");
+      assert.equal(detail.rawData.extract.legalPerson.corporateBody.corporateBodyFullName[1].value, "Synthetic operator s.r.o.");
+      assert.equal((await request(`/${entityId}`, "PATCH", { details: { ico: "99999999" } })).status, 400);
+      assert.equal((await request(`/${entityId}`, "PATCH", { details: { name: "" } })).status, 400);
+      assert.equal((await request(`/${entityId}`, "PATCH", {})).status, 400);
+      assert.equal((await request(`/${entityId}`, "PATCH", { details: { name: "Unauthorized" } }, viewer)).status, 403);
+      const verification = await loader(ico);
+      const pending = await pool.query(`INSERT INTO healthcare_legal_entity_verifications(created_by,normalized,registry_people,
+        raw_data,checked_at,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes') RETURNING id`,
+      [admin, JSON.stringify(verification.company), JSON.stringify(verification.registryPeople),
+        JSON.stringify(verification.rawData), verification.checkedAt]);
+      await saveLegalVerification(await legalEntityActor(admin), { verificationId: pending.rows[0].id });
+      detail = await (await request(`/${entityId}`)).json();
+      assert.equal(detail.entity.name, "Local display name", "verification must not silently erase an operator edit");
+      assert.equal(detail.entity.notes, "Drawer note");
+      assert.equal((await request(`/${entityId}`, "PATCH", { details: { name: null } })).status, 200);
+      detail = await (await request(`/${entityId}`)).json();
+      assert.equal(detail.entity.name, "Synthetic operator s.r.o.");
+      assert.equal(detail.entity.city, "Local city");
+      await request(`/${entityId}`, "PATCH", { notes: "Preserved operational note", details: { city: null } });
+    });
+    await t.test("complete saved export is a private attachment and preserves every API field", async () => {
+      const response = await request(`/${entityId}/export`);
+      assert.equal(response.status, 200, await response.clone().text());
+      assert.match(response.headers.get("content-type") || "", /^application\/json/);
+      assert.match(response.headers.get("content-disposition") || "", new RegExp(`attachment; filename="healthcare-legal-entity-${ico}`));
+      assert.equal(response.headers.get("cache-control"), "private, no-store");
+      assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+      const exported = await response.json();
+      assert.equal(exported.entity.id, entityId);
+      assert.equal(exported.entity.ico, ico);
+      assert.deepEqual(exported.snapshot.rawData.futureField, { retain: true });
+      assert.deepEqual(exported.snapshot.rawData.fullExtract.legalPerson.corporateBody.futureApiField, { arbitrary: ["all", "retained"] });
+      assert.equal(exported.snapshot.rawData.documents.length, 1);
+      assert.equal(exported.snapshot.registryPeople.length, 2);
+      assert.equal(exported.source.documentFilesIncluded, false);
+      assert.ok(exported.history.length > 1);
+      assert.ok(exported.audit.length > 0);
+      assert.ok(exported.relationships.facilities.length > 0);
+      const sourceId = exported.history[exported.history.length - 1].id;
+      const older = await (await request(`/${entityId}/export?snapshotId=${sourceId}`)).json();
+      assert.equal(older.snapshot.id, sourceId);
+      assert.equal((await request(`/${secondEntityId}/export?snapshotId=${sourceId}`)).status, 404);
+      for (const actor of [viewer, foreign, hidden]) {
+        const denied = await request(`/${entityId}/export`, "GET", undefined, actor);
+        assert.equal(denied.status, 403);
+        assert.ok(!(await denied.text()).includes("PRIVATE_TEST"));
+        assert.equal(denied.headers.get("content-disposition"), null);
+      }
+    });
+    await t.test("explicit read-only source permission allows download without allowing drawer edits", async () => {
+      try {
+        await pool.query(`UPDATE role_module_permissions SET access='visible' WHERE role_id=$1 AND module_key='healthcare_legal_entities'`, [hiddenRole]);
+        await pool.query(`INSERT INTO role_field_permissions(role_id,module_key,field_key,permission)
+          VALUES($1,'healthcare_legal_entities','registry_raw','readonly')`, [hiddenRole]);
+        assert.equal((await request(`/${entityId}/export`, "GET", undefined, hidden)).status, 200);
+        assert.equal((await request(`/${entityId}`, "PATCH", { notes: "Not permitted" }, hidden)).status, 403);
+        assert.equal((await request(`/${entityId}/verify`, "POST", {}, hidden)).status, 403);
+      } finally {
+        await pool.query(`DELETE FROM role_field_permissions WHERE role_id=$1`, [hiddenRole]);
+        await pool.query(`UPDATE role_module_permissions SET access='hidden' WHERE role_id=$1 AND module_key='healthcare_legal_entities'`, [hiddenRole]);
+      }
+    });
     await t.test("upstream failure never changes persisted source or facility records", async () => {
       failLoader = true;
       assert.equal((await request(`/${entityId}/verify`, "POST", {})).status, 502);
