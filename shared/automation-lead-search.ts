@@ -5,17 +5,23 @@ export type LeadSearchEvent = typeof LEAD_SEARCH_EVENTS[number];
 export const LEAD_SEARCH_LANGUAGES = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
 type Language = typeof LEAD_SEARCH_LANGUAGES[number];
 const rows = {
-  module: ["LEAD SEARCH", "LEAD SEARCH", "LEAD SEARCH", "LEAD SEARCH", "LEAD SEARCH", "LEAD SEARCH", "LEAD SEARCH"],
+  module: ["Internet contact search", "Vyhľadávanie kontaktov na internete", "Vyhledávání kontaktů na internetu", "Internetes kapcsolatkeresés", "Căutare de contacte pe internet", "Ricerca di contatti su Internet", "Kontaktsuche im Internet"],
   help: [
-    "Searches never send notifications by themselves. Choose campaigns and enable a rule with your own recipients and message.",
-    "Vyhľadávanie samo neposiela notifikácie. Vyberte kampane a zapnite pravidlo s vlastnými príjemcami a správou.",
-    "Vyhledávání samo neposílá oznámení. Vyberte kampaně a zapněte pravidlo s vlastními příjemci a zprávou.",
-    "A keresések önmagukban nem küldenek értesítést. Válasszon kampányokat, és engedélyezzen szabályt saját címzettekkel és üzenettel.",
-    "Căutările nu trimit singure notificări. Selectați campanii și activați o regulă cu destinatarii și mesajul propriu.",
-    "Le ricerche non inviano notifiche autonomamente. Seleziona le campagne e attiva una regola con destinatari e messaggio.",
-    "Suchen versenden selbst keine Benachrichtigungen. Wählen Sie Kampagnen und aktivieren Sie eine Regel mit eigenen Empfängern und Nachricht.",
+    "Internet searches never send notifications by themselves. Select one, several or all current campaigns, then enable a rule with your recipients and message. New campaigns are not selected automatically.",
+    "Internetové vyhľadávanie samo neposiela notifikácie. Vyberte jednu, niekoľko alebo všetky aktuálne kampane a zapnite pravidlo s vlastnými príjemcami a správou. Nové kampane sa nevyberajú automaticky.",
+    "Internetové vyhledávání samo neposílá oznámení. Vyberte jednu, několik nebo všechny aktuální kampaně a zapněte pravidlo s vlastními příjemci a zprávou. Nové kampaně se nevybírají automaticky.",
+    "Az internetes keresések önmagukban nem küldenek értesítést. Jelöljön ki egy, több vagy minden jelenlegi kampányt, majd engedélyezzen szabályt saját címzettekkel és üzenettel. Az új kampányok nem lesznek automatikusan kijelölve.",
+    "Căutările pe internet nu trimit singure notificări. Selectați una, mai multe sau toate campaniile actuale, apoi activați o regulă cu destinatarii și mesajul propriu. Campaniile noi nu sunt selectate automat.",
+    "Le ricerche su Internet non inviano notifiche autonomamente. Seleziona una, più o tutte le campagne attuali, poi attiva una regola con destinatari e messaggio propri. Le nuove campagne non vengono selezionate automaticamente.",
+    "Internet-Suchen versenden selbst keine Benachrichtigungen. Wählen Sie eine, mehrere oder alle aktuellen Kampagnen und aktivieren Sie eine Regel mit eigenen Empfängern und Nachricht. Neue Kampagnen werden nicht automatisch ausgewählt.",
   ],
-  campaigns: ["Search campaigns", "Vyhľadávacie kampane", "Vyhledávací kampaně", "Keresési kampányok", "Campanii de căutare", "Campagne di ricerca", "Suchkampagnen"],
+  campaigns: ["Internet search campaigns", "Kampane internetového vyhľadávania", "Kampaně internetového vyhledávání", "Internetes keresési kampányok", "Campanii de căutare pe internet", "Campagne di ricerca su Internet", "Internet-Suchkampagnen"],
+  selectAll: ["Select all", "Vybrať všetky", "Vybrat všechny", "Összes kijelölése", "Selectează toate", "Seleziona tutte", "Alle auswählen"],
+  clearSelection: ["Clear selection", "Zrušiť výber", "Zrušit výběr", "Kijelölés törlése", "Șterge selecția", "Cancella selezione", "Auswahl aufheben"],
+  selectedCount: ["Selected {selected} of {total} campaigns", "Vybrané kampane: {selected} z {total}", "Vybrané kampaně: {selected} z {total}", "Kijelölve: {selected} / {total} kampány", "Campanii selectate: {selected} din {total}", "Campagne selezionate: {selected} di {total}", "Ausgewählte Kampagnen: {selected} von {total}"],
+  filteredEmpty: ["No campaigns match your search", "Vyhľadávaniu nezodpovedá žiadna kampaň", "Vyhledávání neodpovídá žádná kampaň", "Nincs a keresésnek megfelelő kampány", "Nicio campanie nu corespunde căutării", "Nessuna campagna corrisponde alla ricerca", "Keine Kampagne entspricht Ihrer Suche"],
+  emptyHelp: ["Create an internet search campaign in this environment, or check your country access. This list does not include Mission campaigns.", "Vytvorte v tomto prostredí kampaň internetového vyhľadávania alebo skontrolujte prístup ku krajinám. Tento zoznam neobsahuje Mission kampane.", "Vytvořte v tomto prostředí kampaň internetového vyhledávání nebo zkontrolujte přístup k zemím. Tento seznam neobsahuje Mission kampaně.", "Hozzon létre internetes keresési kampányt ebben a környezetben, vagy ellenőrizze az országokhoz való hozzáférést. Ez a lista nem tartalmaz Mission-kampányokat.", "Creați o campanie de căutare pe internet în acest mediu sau verificați accesul la țări. Lista nu include campanii Mission.", "Crea una campagna di ricerca su Internet in questo ambiente oppure verifica l'accesso ai paesi. Questo elenco non include le campagne Mission.", "Erstellen Sie in dieser Umgebung eine Internet-Suchkampagne oder prüfen Sie Ihren Länderzugriff. Diese Liste enthält keine Mission-Kampagnen."],
+  refresh: ["Refresh campaigns", "Obnoviť kampane", "Obnovit kampaně", "Kampányok frissítése", "Reîmprospătează campaniile", "Aggiorna campagne", "Kampagnen aktualisieren"],
   select: ["Select at least one search campaign", "Vyberte aspoň jednu vyhľadávaciu kampaň", "Vyberte alespoň jednu vyhledávací kampaň", "Válasszon legalább egy keresési kampányt", "Selectați cel puțin o campanie de căutare", "Seleziona almeno una campagna di ricerca", "Wählen Sie mindestens eine Suchkampagne"],
   empty: ["No search campaigns available", "Nie sú dostupné vyhľadávacie kampane", "Nejsou dostupné vyhledávací kampaně", "Nincsenek elérhető keresési kampányok", "Nu sunt disponibile campanii de căutare", "Nessuna campagna di ricerca disponibile", "Keine Suchkampagnen verfügbar"],
   loading: ["Loading campaigns…", "Načítavam kampane…", "Načítání kampaní…", "Kampányok betöltése…", "Se încarcă campaniile…", "Caricamento campagne…", "Kampagnen werden geladen…"],
@@ -55,13 +61,13 @@ const rows = {
     'Suche „{{newValues.jobName}}“ für Kampagne „{{newValues.campaignName}}“ ist abgeschlossen. Gespeicherte Ergebnisse: {{newValues.totalResults}}; neue Leads: {{newValues.newLeads}}.',
   ],
   failedMessage: [
-    'Search "{{newValues.jobName}}" for campaign "{{newValues.campaignName}}" failed. Check search run #{{newValues.jobId}} in LEAD SEARCH.',
-    'Vyhľadávanie „{{newValues.jobName}}“ kampane „{{newValues.campaignName}}“ zlyhalo. Skontrolujte vyhľadávanie #{{newValues.jobId}} v LEAD SEARCH.',
-    'Vyhledávání „{{newValues.jobName}}“ kampaně „{{newValues.campaignName}}“ selhalo. Zkontrolujte vyhledávání #{{newValues.jobId}} v LEAD SEARCH.',
-    'A(z) „{{newValues.campaignName}}” kampány „{{newValues.jobName}}” keresése sikertelen. Ellenőrizze a(z) #{{newValues.jobId}} keresést a LEAD SEARCH modulban.',
-    'Căutarea „{{newValues.jobName}}” a campaniei „{{newValues.campaignName}}” a eșuat. Verificați rularea #{{newValues.jobId}} în LEAD SEARCH.',
-    'La ricerca “{{newValues.jobName}}” della campagna “{{newValues.campaignName}}” non è riuscita. Controlla l’esecuzione #{{newValues.jobId}} in LEAD SEARCH.',
-    'Suche „{{newValues.jobName}}“ für Kampagne „{{newValues.campaignName}}“ ist fehlgeschlagen. Prüfen Sie Suchlauf #{{newValues.jobId}} in LEAD SEARCH.',
+     'Search "{{newValues.jobName}}" for campaign "{{newValues.campaignName}}" failed. Check internet search run #{{newValues.jobId}}.',
+     'Vyhľadávanie „{{newValues.jobName}}“ kampane „{{newValues.campaignName}}“ zlyhalo. Skontrolujte internetové vyhľadávanie #{{newValues.jobId}}.',
+     'Vyhledávání „{{newValues.jobName}}“ kampaně „{{newValues.campaignName}}“ selhalo. Zkontrolujte internetové vyhledávání #{{newValues.jobId}}.',
+     'A(z) „{{newValues.campaignName}}” kampány „{{newValues.jobName}}” keresése sikertelen. Ellenőrizze a(z) #{{newValues.jobId}} internetes keresést.',
+     'Căutarea „{{newValues.jobName}}” a campaniei „{{newValues.campaignName}}” a eșuat. Verificați rularea căutării pe internet #{{newValues.jobId}}.',
+     'La ricerca “{{newValues.jobName}}” della campagna “{{newValues.campaignName}}” non è riuscita. Controlla l’esecuzione della ricerca su Internet #{{newValues.jobId}}.',
+     'Suche „{{newValues.jobName}}“ für Kampagne „{{newValues.campaignName}}“ ist fehlgeschlagen. Prüfen Sie Internet-Suchlauf #{{newValues.jobId}}.',
   ],
   cancelledMessage: [
     'Search "{{newValues.jobName}}" for campaign "{{newValues.campaignName}}" was stopped. Search run #{{newValues.jobId}}.',
@@ -89,7 +95,7 @@ export const LEAD_SEARCH_FIELDS = [
   { key: "completedAt", type: "string" }, { key: "country", type: "string" },
 ] as const;
 export function leadCampaignSelectionValid(ids: unknown): ids is number[] {
-  return Array.isArray(ids) && ids.length > 0 && ids.length <= 200 &&
+  return Array.isArray(ids) && ids.length > 0 &&
     ids.every(id => Number.isSafeInteger(id) && id > 0) && new Set(ids).size === ids.length;
 }
 export function leadSearchTriggerMatches(trigger: any, event: { module: string; newValues?: unknown }): boolean {

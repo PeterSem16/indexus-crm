@@ -34,7 +34,7 @@ export const MODULE_EVENTS: Record<string, string[]> = {
 };
 
 export const MODULE_LABELS: Record<string, string> = {
-  lead_search: "LEAD SEARCH",
+  lead_search: "Internet contact search",
   customer: "Customer", task: "Task", contract: "Contract", hospital: "Hospital",
   clinic: "Clinic", collaborator: "Collaborator", invoice: "Invoice", call: "Call",
   communication: "Communications and analyzed text",

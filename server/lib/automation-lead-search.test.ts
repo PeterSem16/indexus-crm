@@ -34,18 +34,30 @@ test("LEAD SEARCH has no direct notification delivery and covers empty and all t
   assert.ok(pipeline.includes('emitLeadSearchOutcome(job.id, "cancelled")'));
 });
 
-test("campaign selection is explicit, numeric, bounded and independent of Mission IDs", () => {
-  for (const ids of [undefined, [], ["222"], [0], [-1], [1.1], [222, 222], [NaN], Array.from({ length: 201 }, (_, i) => i + 1)]) {
+test("campaign selection is explicit, numeric, unique and independent of Mission IDs", () => {
+  for (const ids of [undefined, [], ["222"], [0], [-1], [1.1], [222, 222], [NaN]]) {
     assert.equal(leadCampaignSelectionValid(ids), false);
     assert.ok(validateRuleCapabilities({ ...rule, trigger: { ...rule.trigger, leadCampaignIds: ids } })
       .some(issue => issue.path === "trigger.leadCampaignIds"));
   }
   assert.deepEqual(validateRuleCapabilities(rule), []);
+  assert.equal(leadCampaignSelectionValid(Array.from({ length: 201 }, (_, i) => i + 1)), true, "Select all must not stop at 200 campaigns");
   assert.ok(validateRuleCapabilities({ ...rule, trigger: { type: "schedule", interval: "hourly", mode: "once" } }).length);
   assert.ok(!leadSearchTriggerMatches({ campaignIds: [222] }, { module: "lead_search", newValues: { campaignId: 222 } }));
   assert.ok(leadSearchTriggerMatches(rule.trigger, { module: "lead_search", newValues: { campaignId: 222 } }));
   assert.ok(!leadSearchTriggerMatches(rule.trigger, { module: "lead_search", newValues: { campaignId: 333 } }));
   assert.ok(!leadSearchTriggerMatches(rule.trigger, { module: "lead_search", newValues: { campaignId: "222" } }));
+});
+
+test("internet-search labels and bulk selection guidance are localized without changing saved module identifiers", () => {
+  for (const language of LEAD_SEARCH_LANGUAGES) {
+    const copy = getLeadSearchCopy(language);
+    assert.notEqual(copy.module, "LEAD SEARCH");
+    assert.ok(copy.selectAll && copy.clearSelection && copy.filteredEmpty && copy.emptyHelp && copy.refresh);
+    assert.ok(copy.selectedCount.includes("{selected}") && copy.selectedCount.includes("{total}"));
+  }
+  assert.ok(leadSearchNotificationDefaults().every(template => !template.name.startsWith("LEAD SEARCH")));
+  assert.ok(LEAD_SEARCH_EVENTS.every(event => event.startsWith("lead_search.")));
 });
 
 test("outcomes use persisted campaign identity, actual counts, safe metadata and meaningful event types", () => {
@@ -227,7 +239,7 @@ test("enabled campaign rule sends the localized template only to selected users;
 
 test("real Automation API saves and reopens campaign selection, rejects missing/deleted IDs and allows disabling", async () => {
   const ownerId = randomUUID(), prefix = `lead-api-${randomUUID()}`;
-  let campaignId: number | undefined, ruleId: string | undefined;
+  let campaignId: number | undefined, secondCampaignId: number | undefined, ruleId: string | undefined;
   // Isolated HTTP harness only. The application's authentication is unchanged.
   const app = express();
   app.use(express.json());
@@ -248,6 +260,8 @@ test("real Automation API saves and reopens campaign selection, rejects missing/
       fullName: "Synthetic API owner", passwordHash: randomUUID(), role: "admin", assignedCountries: ["SK"], isActive: true });
     const [campaign] = await db.insert(leadCampaigns).values({ name: prefix, targetModule: "clinics", country: "SK" }).returning();
     campaignId = campaign.id;
+    const [secondCampaign] = await db.insert(leadCampaigns).values({ name: `${prefix}-second`, targetModule: "clinics", country: "SK", isActive: false }).returning();
+    secondCampaignId = secondCampaign.id;
     const available = await request("/lead-campaigns");
     assert.equal(available.status, 200);
     assert.ok((await available.json()).some((row: any) => row.id === campaignId && row.name === prefix));
@@ -263,6 +277,14 @@ test("real Automation API saves and reopens campaign selection, rejects missing/
     const reopened = await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId!));
     assert.deepEqual((reopened[0].trigger as any).leadCampaignIds, [campaignId]);
     assert.equal(reopened[0].enabled, true);
+    const bothIds = [campaignId, secondCampaignId];
+    assert.equal((await request(`/rules/${ruleId}`, "PATCH", { trigger: { ...rule.trigger, leadCampaignIds: bothIds } })).status, 200, "all selected campaigns, including paused campaigns, persist explicitly");
+    const [multiple] = await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId!));
+    assert.deepEqual((multiple.trigger as any).leadCampaignIds, bothIds);
+    assert.equal((await request(`/rules/${ruleId}`, "PATCH", { trigger: { ...rule.trigger, leadCampaignIds: [secondCampaignId] } })).status, 200, "selection can narrow back to just one campaign");
+    const [single] = await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId!));
+    assert.deepEqual((single.trigger as any).leadCampaignIds, [secondCampaignId]);
+    assert.equal((await request(`/rules/${ruleId}`, "PATCH", { trigger: { ...rule.trigger, leadCampaignIds: bothIds } })).status, 200);
     await db.delete(leadCampaigns).where(eq(leadCampaigns.id, campaignId));
     assert.equal((await request(`/rules/${ruleId}`, "PATCH", { enabled: true })).status, 400);
     assert.equal((await request(`/rules/${ruleId}`, "PATCH", { enabled: false })).status, 200);
@@ -271,6 +293,7 @@ test("real Automation API saves and reopens campaign selection, rejects missing/
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     if (ruleId) await db.delete(workflowRules).where(eq(workflowRules.id, ruleId));
     if (campaignId) await db.delete(leadCampaigns).where(eq(leadCampaigns.id, campaignId));
+    if (secondCampaignId) await db.delete(leadCampaigns).where(eq(leadCampaigns.id, secondCampaignId));
     await db.delete(users).where(eq(users.id, ownerId));
   }
 });

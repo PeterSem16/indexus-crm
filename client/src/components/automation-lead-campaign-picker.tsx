@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Search, X } from "lucide-react";
+import { Check, RefreshCw, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getLeadSearchCopy, leadCampaignSelectionValid } from "@shared/automation-lead-search";
@@ -39,10 +39,33 @@ export function AutomationLeadCampaignPicker({
 
   return <section className="space-y-3 rounded-xl border border-primary/20 bg-primary/[0.025] p-3 sm:p-4"
     aria-labelledby="lead-search-campaigns-label" data-testid="lead-search-campaign-picker">
-    <div>
-      <label id="lead-search-campaigns-label" className="text-sm font-medium">{copy.campaigns}</label>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{copy.help}</p>
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <label id="lead-search-campaigns-label" className="text-sm font-medium">{copy.campaigns}</label>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{copy.help}</p>
+      </div>
+      <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={loading}
+        data-testid="lead-search-campaign-refresh">
+        <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden="true"/>
+        {copy.refresh}
+      </Button>
     </div>
+
+    {!loading && !error && <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs text-muted-foreground" aria-live="polite" data-testid="lead-search-selected-count">
+        {copy.selectedCount.replace("{selected}", String(selected.filter(item => item.campaign).length)).replace("{total}", String(campaigns.length))}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" disabled={campaigns.length === 0}
+          data-testid="lead-search-select-all" onClick={() => onChange(campaigns.map(campaign => campaign.id))}>
+          {copy.selectAll}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" disabled={value.length === 0}
+          data-testid="lead-search-clear-selection" onClick={() => onChange([])}>
+          {copy.clearSelection}
+        </Button>
+      </div>
+    </div>}
 
     {selected.length > 0 && <div className="flex flex-wrap gap-2" aria-label={copy.campaigns}>
       {selected.map(({ id, campaign }) => <span key={id}
@@ -66,8 +89,11 @@ export function AutomationLeadCampaignPicker({
             <Input value={search} onChange={event => setSearch(event.target.value)} placeholder={copy.campaigns}
               aria-label={copy.campaigns} className="pl-9" data-testid="lead-search-campaign-search"/>
           </label>
-          {campaigns.length === 0 ? <p className="rounded-lg bg-muted/50 px-3 py-4 text-sm text-muted-foreground" role="status">{copy.empty}</p>
-            : filtered.length === 0 ? <p className="px-1 py-2 text-sm text-muted-foreground" role="status">—</p>
+          {campaigns.length === 0 ? <div className="space-y-1 rounded-lg bg-muted/50 px-3 py-4" role="status">
+            <p className="text-sm text-muted-foreground">{copy.empty}</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">{copy.emptyHelp}</p>
+          </div>
+            : filtered.length === 0 ? <p className="px-1 py-2 text-sm text-muted-foreground" role="status">{copy.filteredEmpty}</p>
               : <div className="grid max-h-52 grid-cols-1 gap-1 overflow-y-auto rounded-lg border bg-background p-1 sm:grid-cols-2">
                 {filtered.map(campaign => {
                   const checked = value.includes(campaign.id);

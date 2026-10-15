@@ -84,7 +84,7 @@ export function leadSearchNotificationDefaults() {
     return LEAD_SEARCH_EVENTS.map(event => {
       const key = event.slice("lead_search.".length) as "results_found" | Outcome;
       return { id: `indexus-lead-search-notification-${key}-${language}`,
-        name: `LEAD SEARCH · ${copy[key]}`, type: "notification", format: "text",
+        name: `${copy.module} · ${copy[key]}`, type: "notification", format: "text",
         subject: `${copy[key]} · {{newValues.campaignName}}`,
         content: copy[key === "results_found" ? "resultsMessage" : `${key}Message`],
         language };

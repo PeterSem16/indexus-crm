@@ -315,6 +315,9 @@ export default function AutomationsPage() {
   const catalogQ = useQuery<Catalog>({ queryKey: ["/api/automation/catalog"] });
   const leadCampaignsQ = useQuery<LeadCampaignOption[]>({
     queryKey: ["/api/automation/lead-campaigns"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const response = await fetch("/api/automation/lead-campaigns", { credentials: "include" });
       if (!response.ok) throw new Error("Could not load search campaigns");
@@ -651,6 +654,10 @@ export function RuleEditor({
   const leadCampaignsQ = useQuery<LeadCampaignOption[]>({
     queryKey: ["/api/automation/lead-campaigns"],
     enabled: open && draft.module === "lead_search",
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: open && draft.module === "lead_search" ? 60_000 : false,
     queryFn: async () => {
       const response = await fetch("/api/automation/lead-campaigns", { credentials: "include" });
       if (!response.ok) throw new Error("Could not load search campaigns");
