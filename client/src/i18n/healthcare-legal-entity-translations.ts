@@ -2,6 +2,7 @@ import type { Locale } from "./translations";
 
 const languages = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
 const rows = {
+  linkedBy: ["Linked by", "Priradil/a", "Přiřadil/a", "Hozzárendelte", "Asociat de", "Collegato da", "Zugeordnet von"],
   operatorTitle: ["Site operator", "Prevádzkovateľ pracoviska", "Provozovatel pracoviště", "A telephely üzemeltetője", "Operatorul unității", "Gestore della struttura", "Standortbetreiber"],
   operatorSubtitle: ["Registry verification and confirmation of the legal entity operating this site.", "Overenie v registri a potvrdenie právnickej osoby prevádzkujúcej pracovisko.", "Ověření v registru a potvrzení právnické osoby provozující pracoviště.", "A telephelyet üzemeltető jogi személy nyilvántartási ellenőrzése és megerősítése.", "Verificarea în registru și confirmarea persoanei juridice care operează unitatea.", "Verifica nel registro e conferma della persona giuridica che gestisce la struttura.", "Registerprüfung und Bestätigung der juristischen Person, die diesen Standort betreibt."],
   verifiedLink: ["Verified link", "Overené prepojenie", "Ověřené propojení", "Ellenőrzött kapcsolat", "Asociere verificată", "Collegamento verificato", "Geprüfte Verknüpfung"],

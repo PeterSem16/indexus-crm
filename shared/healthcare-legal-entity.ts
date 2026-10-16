@@ -28,6 +28,7 @@ export interface FacilityLink {
   id: string; legalEntityId: string; facilityType: FacilityType; facilityId: string;
   facilityName: string; relationship: "operator"; validFrom: string; validTo: string | null; confirmedAt: string;
   legalEntityName?: string;
+  confirmedByName?: string | null;
 }
 export interface PersonViaFacility {
   personId: string; personName: string; facilityType: FacilityType; facilityId: string;

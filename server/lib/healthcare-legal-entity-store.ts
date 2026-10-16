@@ -32,9 +32,11 @@ export async function legalEntityRow(id: string, client: any = pool) {
 export async function facilityLinks(entityId: string | null, facilityType?: FacilityType, facilityId?: string, client: any = pool) {
   const { rows } = await client.query(`SELECT l.id,l.legal_entity_id AS "legalEntityId",l.facility_type AS "facilityType",
     l.facility_id AS "facilityId",COALESCE(c.name,h.name,'') AS "facilityName",l.relationship,
-    l.valid_from AS "validFrom",l.valid_to AS "validTo",l.confirmed_at AS "confirmedAt",e.normalized->>'name' AS "legalEntityName"
+    l.valid_from AS "validFrom",l.valid_to AS "validTo",l.confirmed_at AS "confirmedAt",e.normalized->>'name' AS "legalEntityName",
+    u.full_name AS "confirmedByName"
     FROM healthcare_legal_entity_facilities l
     JOIN healthcare_legal_entities e ON e.id=l.legal_entity_id
+    LEFT JOIN users u ON u.id=l.confirmed_by
     LEFT JOIN clinics c ON l.facility_type='clinic' AND c.id=l.facility_id AND c.country_code='SK'
     LEFT JOIN hospitals h ON l.facility_type='hospital' AND h.id=l.facility_id AND h.country_code='SK'
     WHERE ($1::varchar IS NULL OR l.legal_entity_id=$1)

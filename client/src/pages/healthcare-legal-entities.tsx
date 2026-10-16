@@ -339,6 +339,7 @@ export function FacilityRow({ link, c, canManage, onEnd, ending }: { link: Facil
             </button>
           ) : <div className="truncate font-medium">{link.facilityName}</div>}
           <div className="text-xs text-muted-foreground">{siteLabel(link.facilityType, c)} · {c.relationship} · {dateLabel(link.validFrom)}{link.validTo ? ` — ${dateLabel(link.validTo)}` : ""}</div>
+          {link.confirmedByName && <div className="text-xs text-muted-foreground" data-testid={`legal-entity-site-confirmed-by-${link.id}`}>{c.linkedBy}: {link.confirmedByName}</div>}
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
