@@ -1,7 +1,7 @@
-import { AlertTriangle, Check, Minus } from "lucide-react";
+import { ArrowRight, Check, Minus, Scale } from "lucide-react";
 import type { Facility, NormalizedCompany } from "@shared/healthcare-legal-entity";
-import { Badge } from "@/components/ui/badge";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
+import "@/components/healthcare-legal-entity.css";
 
 type SiteValues = Pick<Facility, "name" | "address" | "city" | "postalCode" | "ico">;
 
@@ -10,6 +10,7 @@ type RegistryCompanySiteComparisonProps = {
   registryCompany: NormalizedCompany | null | undefined;
   c: HealthcareLegalEntityCopy;
   loading?: boolean;
+  embedded?: boolean;
 };
 
 const fields = [
@@ -26,7 +27,7 @@ function displayValue(value: string | null | undefined) {
 }
 
 function comparableValue(value: string | null | undefined, isIco = false) {
-  const cleaned = value?.normalize("NFKC").trim().replace(/\s+/gu, isIco ? "" : " ");
+  const cleaned = value?.normalize("NFKC").trim().replace(/\s+/g, isIco ? "" : " ");
   return cleaned ? cleaned.toLowerCase() : null;
 }
 
@@ -35,6 +36,7 @@ export function RegistryCompanySiteComparison({
   registryCompany,
   c,
   loading = false,
+  embedded = true,
 }: RegistryCompanySiteComparisonProps) {
   const comparisons = registryCompany
     ? fields.map((field) => {
@@ -42,7 +44,7 @@ export function RegistryCompanySiteComparison({
         const registryValue = registryCompany[field.source];
         const siteComparable = comparableValue(siteValue, field.key === "ico");
         const registryComparable = comparableValue(registryValue, field.key === "ico");
-        const status = siteComparable && registryComparable
+        const status: "match" | "different" | "missing" | "empty" = siteComparable && registryComparable
           ? siteComparable === registryComparable ? "match" : "different"
           : siteComparable || registryComparable
             ? "missing"
@@ -52,53 +54,52 @@ export function RegistryCompanySiteComparison({
     : [];
   const hasDifferences = comparisons.some((field) => field.status === "different" || field.status === "missing");
   const allEmpty = comparisons.length > 0 && comparisons.every((field) => field.status === "empty");
+  const matchCount = comparisons.filter((field) => field.status === "match").length;
+  const differenceCount = comparisons.filter((field) => field.status === "different").length;
+  const missingCount = comparisons.filter((field) => field.status === "missing").length;
 
   return (
     <section
-      className="overflow-hidden rounded-lg border"
+      className={`ler-compare ${embedded ? "is-embedded" : "is-dialog-content"}`}
       aria-label={c.siteComparisonTitle}
       data-testid="registry-company-site-comparison"
     >
-      <div className="border-b bg-muted/35 px-3 py-3 sm:px-4">
-        <h4 className="text-sm font-semibold">{c.siteComparisonTitle}</h4>
-        <p className="mt-1 text-xs text-muted-foreground">{c.siteComparisonNotice}</p>
-      </div>
+      {embedded && <header className="ler-compare-head">
+        <span className="ler-compare-mark" aria-hidden="true"><Scale size={16} /></span>
+        <div><h3>{c.siteComparisonTitle}</h3><p>{c.siteComparisonNotice}</p></div>
+      </header>}
 
       {loading ? (
-        <div className="space-y-3 p-3 sm:p-4" aria-label={c.loading} aria-busy="true">
-          <div className="h-4 w-2/5 animate-pulse rounded bg-muted" />
-          <div className="h-12 animate-pulse rounded bg-muted/70" />
-          <div className="h-12 animate-pulse rounded bg-muted/70" />
+        <div className="ler-compare-loading" aria-label={c.loading} aria-busy="true">
+          <i /><i /><i />
         </div>
       ) : !site ? (
-        <div className="space-y-1 px-3 py-4 text-sm text-muted-foreground sm:px-4">
+        <div className="ler-compare-empty">
           <p>{c.siteComparisonSiteUnavailable}</p>
           {!registryCompany && <p>{c.siteComparisonSourceUnavailable}</p>}
         </div>
       ) : !registryCompany ? (
-        <p className="px-3 py-4 text-sm text-muted-foreground sm:px-4">{c.siteComparisonSourceUnavailable}</p>
+        <p className="ler-compare-empty">{c.siteComparisonSourceUnavailable}</p>
       ) : (
         <>
-          {hasDifferences && (
-            <div role="status" className="flex items-start gap-2 border-b border-destructive/20 bg-destructive/[0.055] px-3 py-2.5 text-sm text-destructive sm:px-4">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{c.siteComparisonMismatchWarning}</span>
-            </div>
-          )}
-          {allEmpty && <p className="px-3 py-3 text-xs text-muted-foreground sm:px-4">{c.siteComparisonNoValues}</p>}
-          <div className="divide-y px-3 sm:px-4">
-            {comparisons.map((field) => (
-              <div key={field.key} className="grid gap-x-3 gap-y-2 py-3 sm:grid-cols-[minmax(90px,.55fr)_1fr_1fr_auto] sm:items-center">
-                <div className="flex items-center justify-between gap-2 sm:contents">
-                  <div className="text-xs font-medium text-muted-foreground">{c[field.label]}</div>
-                  <div className="sm:hidden">{renderStatus(field.status, c)}</div>
-                </div>
-                <div className="grid min-w-0 grid-cols-2 gap-2 sm:contents">
+          <div className="ler-counts" aria-label={c.comparisonSummary}>
+            <span className="ler-count-match"><Check size={14} aria-hidden="true" /><b>{matchCount}</b><small>{c.siteComparisonMatch}</small></span>
+            <span className="ler-count-different"><Scale size={14} aria-hidden="true" /><b>{differenceCount}</b><small>{c.siteComparisonDifference}</small></span>
+            <span className="ler-count-missing"><Minus size={14} aria-hidden="true" /><b>{missingCount}</b><small>{c.siteComparisonMissing}</small></span>
+            <span className="ler-count-caption">{c.comparedFields.replace("{count}", String(comparisons.length))}</span>
+          </div>
+          {hasDifferences && <p role="status" className="sr-only">{c.siteComparisonMismatchWarning}</p>}
+          {allEmpty && <p className="ler-compare-empty">{c.siteComparisonNoValues}</p>}
+          <div className="ler-compare-list">
+            {comparisons.map((field, index) => (
+              <article key={field.key} className={`ler-compare-row ler-row-${field.status}`} style={{ animationDelay: `${index * 45}ms` }}>
+                <div className="ler-row-heading"><strong>{c[field.label]}</strong>{renderStatus(field.status, c)}</div>
+                <div className="ler-value-pair">
                   <ValueCell label={c.existingValue} value={field.siteValue} missing={!comparableValue(field.siteValue) && field.status === "missing"} />
+                  <ArrowRight className="ler-value-arrow" size={15} aria-hidden="true" />
                   <ValueCell label={c.verifiedValue} value={field.registryValue} missing={!comparableValue(field.registryValue) && field.status === "missing"} />
                 </div>
-                <div className="hidden sm:block">{renderStatus(field.status, c)}</div>
-              </div>
+              </article>
             ))}
           </div>
         </>
@@ -109,22 +110,22 @@ export function RegistryCompanySiteComparison({
 
 function ValueCell({ label, value, missing }: { label: string; value: string | null | undefined; missing: boolean }) {
   return (
-    <div className={`min-w-0 rounded-md border px-2 py-1.5 ${missing ? "border-destructive/35 bg-destructive/[0.035]" : "border-transparent bg-muted/30"}`}>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 break-words text-xs ${missing ? "text-destructive" : "text-foreground"}`}>{displayValue(value)}</div>
+    <div className={`ler-value-card ${missing ? "is-missing" : ""}`}>
+      <small>{label}</small>
+      <strong>{displayValue(value)}</strong>
     </div>
   );
 }
 
 function renderStatus(status: "match" | "different" | "missing" | "empty", c: HealthcareLegalEntityCopy) {
   if (status === "match") {
-    return <Badge variant="secondary" className="gap-1"><Check className="h-3 w-3" aria-hidden="true" />{c.siteComparisonMatch}</Badge>;
+    return <span className="ler-status match"><Check size={13} aria-hidden="true" />{c.siteComparisonMatch}</span>;
   }
   if (status === "different") {
-    return <Badge variant="destructive" className="gap-1"><AlertTriangle className="h-3 w-3" aria-hidden="true" />{c.siteComparisonDifference}</Badge>;
+    return <span className="ler-status different"><Scale size={13} aria-hidden="true" />{c.siteComparisonDifference}</span>;
   }
   if (status === "missing") {
-    return <Badge variant="outline" className="gap-1 border-destructive/40 text-destructive"><Minus className="h-3 w-3" aria-hidden="true" />{c.siteComparisonMissing}</Badge>;
+    return <span className="ler-status missing"><Minus size={13} aria-hidden="true" />{c.siteComparisonMissing}</span>;
   }
-  return <Badge variant="outline" className="gap-1 text-muted-foreground"><Minus className="h-3 w-3" aria-hidden="true" />{c.siteComparisonNoValues}</Badge>;
+  return <span className="ler-status empty"><Minus size={13} aria-hidden="true" />{c.siteComparisonNoValues}</span>;
 }
