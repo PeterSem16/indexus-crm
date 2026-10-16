@@ -54,7 +54,10 @@ export type FinderResult = Pick<FinderProvider, "id" | "type" | "name" | "addres
   distanceKm: number; contracted?: boolean; recentContact?: boolean;
   cooperating?: boolean; uploadedContract?: boolean; hasRepresentative?: boolean; priorityScore?: number;
 };
-export type FinderContext = { billingCompanyId: string; country: string; companyName: string; policy: FinderPolicy; mapsReady: boolean };
+export type FinderContext = {
+  billingCompanyId: string; country: string; companyName: string; policy: FinderPolicy;
+  mapsReady: boolean; mapReady?: boolean; geocodingReady?: boolean; mapsProvider?: "google";
+};
 export type FinderSelection = { id: string; type: "clinic" | "hospital"; personId?: string; billingCompanyId: string; country: string };
 export const selectionSchema = z.object({
   id: z.string().min(1).max(128), type: providerType, personId: z.string().min(1).max(128).optional(),

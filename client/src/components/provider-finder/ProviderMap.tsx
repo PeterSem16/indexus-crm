@@ -1,11 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import type { FinderPoint, FinderResult } from "@shared/provider-finder";
 import type { ProviderFinderCopy } from "@/i18n/provider-finder-translations";
 import { finderApi } from "./api";
+import { importGoogleMapsLibraries, loadGoogleMaps, onGoogleMapsAuthorizationFailure } from "./google-maps-loader";
 
-type ResultMarker = { key: string; marker: L.Marker; button: HTMLButtonElement; onClick: () => void };
+type MapLibraries = {
+  map: any;
+  Marker: any;
+  Bounds: any;
+};
+type MapMarkerRecord = { marker: any; cleanup?: () => void };
+
+function mapErrorMessage(error: unknown, c: ProviderFinderCopy) {
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String((error as { code?: unknown }).code || "")
+    : error instanceof Error ? error.message : "";
+  if (code === "maps_not_configured") return c.mapsMissing;
+  if (["maps_authorization", "maps_auth", "maps_unauthorized", "maps_forbidden"].includes(code)) return c.mapsAuthorization;
+  if (["maps_billing_or_quota", "maps_over_query_limit"].includes(code)) return c.mapsBillingOrQuota;
+  if (["maps_quota", "rate_limited"].includes(code)) return c.mapsQuota;
+  return c.mapUnavailable;
+}
 
 export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
   prefix: string;
@@ -16,96 +31,95 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
   c: ProviderFinderCopy;
 }) {
   const container = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const resultMarkers = useRef<ResultMarker[]>([]);
   const selectRef = useRef(onSelect);
   selectRef.current = onSelect;
-  const [map, setMap] = useState<L.Map | null>(null);
+  const markerButtons = useRef<{ key: string; button: HTMLButtonElement }[]>([]);
+  const [libraries, setLibraries] = useState<MapLibraries | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    let leafletMap: L.Map | null = null;
-    let tileLayer: L.TileLayer | null = null;
-    let resizeObserver: ResizeObserver | undefined;
+    let authFailed = false;
+    let observer: ResizeObserver | undefined;
+    let map: any;
     const host = container.current;
-
     setError("");
     setLoading(true);
+    setLibraries(null);
     if (!host) return;
 
-    finderApi<{ tileUrl: string }>(`${prefix}/map-config`)
-      .then(({ tileUrl }) => {
-        if (cancelled || !container.current) return;
-        leafletMap = L.map(container.current, {
-          center: [point.lat, point.lng],
-          zoom: 12,
-          zoomControl: true,
-          scrollWheelZoom: true,
-        });
-        mapRef.current = leafletMap;
-        tileLayer = L.tileLayer(tileUrl, {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-        });
-        tileLayer.on("tileerror", () => {
-          if (!cancelled) setError(c.error);
-        });
-        tileLayer.addTo(leafletMap);
-
-        resizeObserver = new ResizeObserver(() => leafletMap?.invalidateSize({ pan: false }));
-        resizeObserver.observe(host);
-        window.addEventListener("resize", invalidate);
-        setMap(leafletMap);
+    const unsubscribeAuth = onGoogleMapsAuthorizationFailure(() => {
+      authFailed = true;
+      if (!cancelled) {
+        setLibraries(null);
+        setError(c.mapsAuthorization);
         setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setError(c.error);
-          setLoading(false);
+      }
+    });
+    void (async () => {
+      const config = await finderApi<{ browserKey: string }>(`${prefix}/map-config`);
+      if (!config.browserKey) throw new Error("maps_not_configured");
+      const google = await loadGoogleMaps(config.browserKey);
+      const [mapsLibrary, markerLibrary, coreLibrary] = await importGoogleMapsLibraries(google);
+      if (cancelled || authFailed || !container.current) return;
+      map = new mapsLibrary.Map(container.current, {
+        center: { lat: point.lat, lng: point.lng },
+        zoom: 12,
+        mapId: "DEMO_MAP_ID",
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+      });
+      observer = new ResizeObserver(() => {
+        if (map && !cancelled) {
+          // Google Maps observes its container, but a resize event is needed when
+          // a responsive modal changes from the list pane to the map pane.
+          window.dispatchEvent(new Event("resize"));
         }
       });
-
-    function invalidate() {
-      leafletMap?.invalidateSize({ pan: false });
-    }
+      observer.observe(container.current);
+      if (cancelled) return;
+      setLibraries({ map, Marker: markerLibrary.AdvancedMarkerElement, Bounds: coreLibrary.LatLngBounds });
+      setLoading(false);
+    })().catch((reason: unknown) => {
+      if (!cancelled) {
+        setError(mapErrorMessage(reason, c));
+        setLoading(false);
+      }
+    });
 
     return () => {
       cancelled = true;
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", invalidate);
-      if (tileLayer) {
-        tileLayer.off("tileerror");
-        tileLayer.remove();
-      }
-      leafletMap?.off();
-      leafletMap?.remove();
-      if (mapRef.current === leafletMap) mapRef.current = null;
-      resultMarkers.current = [];
-      setMap((current) => current === leafletMap ? null : current);
+      unsubscribeAuth();
+      observer?.disconnect();
+      markerButtons.current = [];
+      if (map) window.google?.maps?.event?.clearInstanceListeners?.(map);
+      map = null;
     };
-  }, [prefix, point.lat, point.lng, c.error]);
+  }, [prefix, c.mapsAuthorization, c.mapsMissing, c.mapsQuota, c.mapUnavailable]);
 
   useEffect(() => {
-    if (!map) return;
-    const markers: ResultMarker[] = [];
-    const bounds = L.latLngBounds([point.lat, point.lng], [point.lat, point.lng]);
+    if (!libraries) return;
+    const { map, Marker, Bounds } = libraries;
+    const markers: MapMarkerRecord[] = [];
+    const bounds = new Bounds();
+    bounds.extend({ lat: point.lat, lng: point.lng });
 
-    const origin = L.circleMarker([point.lat, point.lng], {
-      radius: 8,
-      color: "#fffefa",
-      weight: 3,
-      fillColor: "#3c7e7b",
-      fillOpacity: 1,
-      bubblingMouseEvents: false,
-    }).addTo(map);
-    origin.bindTooltip(c.origin, { direction: "top", offset: [0, -8] });
+    const origin = document.createElement("div");
+    origin.className = "pf-map-origin-marker";
+    origin.setAttribute("aria-hidden", "true");
+    markers.push({ marker: new Marker({
+      map,
+      position: { lat: point.lat, lng: point.lng },
+      content: origin,
+      title: c.origin,
+    }) });
 
-    for (const [index, row] of results.entries()) {
-      if (row.lat === null || row.lng === null) continue;
+    const visibleResults = results.flatMap((row, index) => {
+      if (row.lat === null || row.lng === null) return [];
       const key = `${row.type}:${row.id}`;
-      const position: L.LatLngExpression = [row.lat, row.lng];
+      const position = { lat: row.lat, lng: row.lng };
       bounds.extend(position);
 
       const button = document.createElement("button");
@@ -113,52 +127,38 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
       button.className = `pf-map-marker${selected === key ? " selected" : ""}`;
       button.textContent = String(index + 1);
       button.setAttribute("aria-label", `${index + 1}. ${row.name}`);
+      button.setAttribute("aria-pressed", String(selected === key));
       button.title = row.name;
-      const onClick = () => selectRef.current(key);
-      button.addEventListener("click", onClick);
-
-      const marker = L.marker(position, {
-        title: row.name,
-        keyboard: false,
-        icon: L.divIcon({
-          className: "pf-leaflet-marker",
-          html: button,
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
-        }),
-      }).addTo(map);
-      markers.push({ key, marker, button, onClick });
-    }
-    resultMarkers.current = markers;
-
-    if (markers.length) {
-      map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
-    } else {
-      map.setView([point.lat, point.lng], 12);
-    }
+      const marker = new Marker({ map, position, content: button, title: row.name });
+      const select = () => selectRef.current(key);
+      button.addEventListener("click", select);
+      markers.push({ marker, cleanup: () => button.removeEventListener("click", select) });
+      return [{ key, button }];
+    });
+    markerButtons.current = visibleResults;
+    if (visibleResults.length) map.fitBounds(bounds, 36);
+    else map.setCenter({ lat: point.lat, lng: point.lng });
 
     return () => {
-      origin.remove();
-      for (const { marker, button, onClick } of markers) {
-        button.removeEventListener("click", onClick);
-        marker.off();
-        marker.remove();
+      for (const { marker, cleanup } of markers) {
+        cleanup?.();
+        marker.map = null;
       }
-      if (resultMarkers.current === markers) resultMarkers.current = [];
+      markerButtons.current = [];
     };
-  }, [map, point.lat, point.lng, results, c.origin]);
+  }, [libraries, point.lat, point.lng, results, c.origin]);
 
   useEffect(() => {
-    for (const { key, button } of resultMarkers.current) {
+    for (const { key, button } of markerButtons.current) {
       const isSelected = key === selected;
       button.classList.toggle("selected", isSelected);
       button.setAttribute("aria-pressed", String(isSelected));
     }
-  }, [selected, map, results]);
+  }, [selected, libraries, results]);
 
-  return <div className="pf-map-host" aria-label={c.map}>
+  return <div className="pf-map-host" aria-label={c.map} data-testid="provider-results-map">
     <div className="pf-map-canvas" ref={container} />
-    {(loading || error) && <div className={`pf-message ${error ? "pf-error" : ""}`} role={error ? "alert" : "status"} style={{ position: "relative", margin: 12 }}>
+    {(loading || error) && <div className={`pf-message ${error ? "pf-error" : ""}`} role={error ? "alert" : "status"}>
       {error || c.loading}
     </div>}
   </div>;

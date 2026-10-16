@@ -57,8 +57,12 @@
 .pf-map-canvas{position:absolute;inset:0;min-height:300px}
 .pf-map-marker{border:3px solid white;border-radius:50%;background:#b9424d;color:white;width:30px;height:30px;display:grid;place-items:center;font-size:12px;font-weight:700;box-shadow:0 2px 7px #263a4044;cursor:pointer}
 .pf-map-marker.selected{background:#3c7e7b;transform:scale(1.15)}
-.pf-map-canvas .pf-leaflet-marker{background:transparent;border:0}
-.pf-map-marker:focus-visible{outline:3px solid #263a40;outline-offset:3px;z-index:1000}
+.pf-map-marker:focus-visible{outline:3px solid #263a40;outline-offset:3px}
+.pf-map-origin-marker{width:20px;height:20px;border:4px solid var(--pf-surface);border-radius:50%;background:var(--pf-teal);box-shadow:0 2px 9px #263a4055}
+.pf-candidate-confirmation{display:flex;flex-direction:column;gap:9px;padding:13px;background:var(--pf-surface);border:1px solid var(--pf-line);border-radius:11px}
+.pf-candidate-approximate{display:block;margin-top:3px}
+.pf-google-attribution{align-self:flex-end;color:#666;font-family:sans-serif;font-size:12px;font-weight:400;line-height:1.3}
+.pf-candidates-visible{grid-template-columns:minmax(0,1fr)}
 .pf-public{height:100%;margin:0}
 .pf-panel{min-height:0}
 .pf-panel>*{flex-shrink:0}

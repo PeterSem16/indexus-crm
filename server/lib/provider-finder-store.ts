@@ -2,6 +2,7 @@ import { pool } from "../db";
 import { DEFAULT_FINDER_POLICY, finderPolicySchema, pointSchema, matchesFinderRequirements, type FinderContext, type FinderProvider, type FinderSelection } from "../../shared/provider-finder";
 
 import { FinderError } from "./provider-finder-error";
+import { finderMapsReadiness } from "./provider-finder-maps-config";
 export { FinderError } from "./provider-finder-error";
 export async function finderActor(userId: string, country: string, configure = false) {
   const { rows } = await pool.query(`SELECT u.role,u.role_id,u.assigned_countries,u.is_active,
@@ -32,7 +33,7 @@ export async function finderContext(company: string, country: string, allowMissi
   if (!rows.length && !allowMissing) throw new FinderError("not_configured", 409);
   return { billingCompanyId: "country", country, companyName: country,
     policy: rows[0] ? finderPolicySchema.parse(rows[0].settings) : { ...DEFAULT_FINDER_POLICY },
-    mapsReady: true };
+    ...finderMapsReadiness() };
 }
 export async function publicFinderContext(slug: string) {
   const { rows } = await pool.query(`SELECT w.id,w.country_code FROM web_forms w

@@ -26,36 +26,78 @@ Legacy company policy/profile tables are preserved but no longer control eligibi
 The customer selection is stored separately; an alternate search address does not update the customer.
 Public selections are revalidated on submission and stored with the order submission, not silently applied to an existing customer.
 
-## OpenStreetMap and address lookup
-Leaflet renders OpenStreetMap raster tiles with visible copyright attribution.
-No Google API key, account or billing setup is needed for this finder.
-The map loads only when shown; standard browser caching/referrer behavior applies, with no offline download or tile prefetch.
-Tile URL can be replaced through the server-side `PROVIDER_FINDER_TILE_URL` setting (default `https://tile.openstreetmap.org/{z}/{x}/{y}.png`).
-Operators using a different tile provider must preserve its required attribution.
+## Google Maps and address lookup
+Google Maps JavaScript API renders the map with Advanced Markers and Google's attribution.
+Geocoding API converts an explicitly entered address to candidates on the server.
+There is no manual origin picker, background enrichment, autocomplete, Places search, or paid routing.
+The old Photon endpoint/tile settings are no longer used by this module. Unrelated maps are unchanged.
 
-Address conversion uses the Photon API (`https://photon.komoot.io/api/`), backed by OpenStreetMap.
-`PROVIDER_FINDER_GEOCODER_URL` can point to a compatible private/hosted Photon endpoint without a rebuild.
-This is an explicit user-triggered lookup, not autocomplete, bulk geocoding, or background enrichment.
 Country restriction is sent upstream and independently checked on every returned candidate.
-Only the entered search address is sent, never customer name, card, phone or email.
-Results must be confirmed by the user; matches without a house number are marked approximate.
-The public Photon index supports English/German and local names; the other UI languages use local names, not unsupported language codes.
-Queries are deduplicated and cached in bounded process memory for 24 hours; keys are hashes and no address cache is persisted to disk.
-The upstream request gate uses a dedicated database advisory lock shared by workers, allowing at most one request at a time with at least 1.1 seconds between starts.
-Existing user/IP and application rate limits apply as well. Busy/quota/failure states are explicit and do not invent coordinates.
-GPS-based search and existing CRM coordinate ranking do not depend on successful address lookup or tile loading.
-Distances are straight-line kilometres, not driving distances.
+All seven UI languages are sent directly to Google. Partial matches and approximate locality centres are marked approximate.
+Every match requires explicit confirmation. Only the entered address, country and language are sent for geocoding, not customer identity/contact data.
+The map/browser also communicates directly with Google; inform public users in the site's privacy policy and review applicable consent requirements.
+Finder responses are excluded from JSON-body access logging; upstream URLs, keys, raw vendor errors and addresses are not logged by this module.
+There is no stored geocoding-result cache. Concurrent identical requests share an in-flight lookup only.
+Existing user/IP and application rate limits apply, with at most 20 distinct in-flight lookups per worker.
+No automatic paid retries or silent provider fallback occurs.
+Readiness flags distinguish map setup from geocoding setup. Missing keys, denied credentials, quota/billing problems and outages fail explicitly.
+GPS search and ranking existing CRM coordinates still work if Google is unconfigured or unavailable.
+Distances remain straight-line kilometres calculated in INDEXUS, not road distance or journey time.
 
-Public OSM tiles and the Photon demo are best-effort services without an availability guarantee.
-They are intended for moderate interactive use; high-traffic production needs an appropriate hosted or private service.
-Review [Photon usage](https://github.com/komoot/photon#demo-server) and
-[OSM tile policy](https://operations.osmfoundation.org/policies/tiles/) before enabling high-volume public traffic.
-The public Nominatim endpoint is deliberately not used.
-Finder responses are excluded from JSON-body access logging.
+### EEA presentation and retention
+Under [EEA service terms, Geocoding §6](https://cloud.google.com/terms/maps-platform/eea/maps-service-terms),
+only latitude, longitude and place_id from geocoding may be used with any map.
+Google formatted-address candidates are therefore shown in a separate confirmation step without a map and with Google Maps attribution.
+After confirmation they are discarded; the map caption contains the user's original input, never the Google formatted address.
+CRM provider names/coordinates are INDEXUS data, not a Google Places directory.
+Google results are not persisted to customer/provider addresses or shared caches.
+Operators must review their current contract, public Terms of Use and Privacy Policy before launch.
+
+### Enable the two APIs and create separate restricted keys
+1. Open [Google Cloud Console](https://console.cloud.google.com/), select/create a project and attach a billing account.
+2. Under **APIs & Services → Library**, enable **Maps JavaScript API** and **Geocoding API**.
+   Do not enable Places, Routes, Distance Matrix or Address Validation for this implementation.
+3. Under **APIs & Services → Credentials → Create credentials → API key**, create a browser key:
+   - Application restrictions: **Websites / HTTP referrers**.
+   - Allow only each real development and production origin, e.g. `https://YOUR-ACTUAL-HOST/*`. Do not use an unrestricted `*`.
+   - API restrictions: **Restrict key → Maps JavaScript API** only.
+   - Store as `GOOGLE_MAPS_BROWSER_API_KEY` in the running server's environment. This deliberately public key is returned to authorised finder clients;
+     it must never be the server key.
+4. Create a second, different server key:
+   - Application restrictions: **IP addresses**; allow the actual public outbound IP of the server performing geocoding.
+     For CORPCRM01 use its NAT/egress IP, not its internal LAN address, the browser's IP or an assumed inbound address.
+   - API restrictions: **Restrict key → Geocoding API** only.
+   - Store as `GOOGLE_MAPS_SERVER_API_KEY` in the server environment/secret manager. Never put it in React, a `VITE_` variable, source control, screenshots or chat.
+   - If a development host has changing outbound IPs, use a separately controlled stable-egress development setup/key. Do not weaken the production key.
+5. Restart the server after configuring environment values (for external PM2, refresh that process environment).
+   This repository never copies Replit secrets to CORPCRM01 automatically. Different environments may use separate projects/keys.
+   Same browser/server keys deliberately make both services unready.
+6. In Google Cloud, configure supported request quotas/rate limits and billing budget alerts.
+   Budget alerts notify; they do **not** stop charges. Quota enforcement can stop requests, so monitor the resulting service outages too.
+7. Verify in both the customer-card modal and the enabled public-form modal: address confirmation, map/markers, GPS, selection and mobile reopening.
+   If credentials are rejected, check API restrictions, enabled APIs, referrers, egress IP, billing and quota dashboards.
+
+The map currently uses Google's `DEMO_MAP_ID` with Advanced Markers; a custom styled map ID is optional, not required for this setup.
+See [API security](https://developers.google.com/maps/api-security-best-practices) and
+[Maps JS setup](https://developers.google.com/maps/documentation/javascript/get-api-key).
+
+### Costs and comparison
+Compared with the public OSM/Photon combination, Google provides managed project quotas, billing/usage diagnostics,
+broader language support, and a large maintained address/map database. Coverage and accuracy still vary by country/address;
+no provider guarantees every address or uninterrupted availability. Maps and geocoding are separate billable services.
+The current [global price list](https://developers.google.com/maps/billing-and-pricing/pricing) lists 10,000 free monthly events
+for each of Dynamic Maps and Geocoding. The next tier is USD 7/1,000 map loads and USD 5/1,000 geocodes, respectively,
+before applicable tax and local/account terms. Check the current price list and your account before enabling billing.
+For example, 15,000 map loads plus 15,000 geocodes/month in those tiers costs USD 35 + USD 25 = USD 60,
+not counting any other Google services. Reopening a map can create another map-load event.
+INDEXUS distance calculations and ranking do not call Routes API and add no Google routing charge.
 
 ## Verification
 ```
-npx tsx --test shared/provider-finder.test.ts server/lib/provider-finder-geocode.test.ts server/lib/provider-finder-routes.test.ts
+npx tsx --test shared/provider-finder.test.ts server/lib/provider-finder-geocode.test.ts server/lib/provider-finder-routes.test.ts client/src/components/provider-finder/google-maps-loader.test.ts
+npx tsx scripts/provider-finder-browser.test.ts
 ```
 The database integration test creates only uniquely named synthetic fixtures and cleans them up.
+API tests use synthetic keys and mocked Google responses; browser tests cover no-key/GPS flows and stubbed address confirmation.
+They do not prove real Google credentials, billing, actual map tiles or real address accuracy. Those need the live verification above.
 Startup creates the additive tables idempotently, including on the external production server. This feature does not change existing customer addresses or globally publish existing providers.

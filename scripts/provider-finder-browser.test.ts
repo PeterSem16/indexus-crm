@@ -65,7 +65,10 @@ async function main() {
       geolocation: { latitude: 48.15, longitude: 17.11 }, permissions: ["geolocation"] });
     const page = await context.newPage();
     const errors: string[] = [];
-    page.on("pageerror", e => errors.push(e.message));
+    page.on("pageerror", e => {
+      errors.push(e.message);
+      console.error("Browser exception:", e.stack || e.message);
+    });
     const response = await context.request.post("/api/auth/login", { data: { username, password } });
     assert.equal(response.status(), 200, "synthetic account login");
     async function openCountrySettings(country: string) {
@@ -103,29 +106,40 @@ async function main() {
     await open.waitFor({ timeout: 45000 }); await open.click();
     if (await page.locator("#pf-company").count()) await page.locator("#pf-company").selectOption(ids.company);
     await page.getByTestId("provider-finder").waitFor();
-    // Real upstream lookup: no mocked coordinates, Google requests or API keys.
+    // No-key verification: real app/API/DB, no paid Google network calls.
     const googleRequests: string[] = [];
-    page.on("request", req => { if (/maps\.googleapis\.com|maps\.gstatic\.com/.test(req.url())) googleRequests.push(req.url()); });
+    page.on("request", req => { if (/maps\.googleapis\.com|maps\.gstatic\.com/.test(req.url())) googleRequests.push("Google request"); });
+    const modal = page.getByTestId("provider-finder");
+    assert.equal(await modal.getByTestId("provider-map-picker-open").count(), 0, "discarded manual picker is absent");
     await page.locator("#pf-address").fill("Bratislava");
     const geocoded = page.waitForResponse(r => r.url().endsWith("/geocode") && r.request().method() === "POST");
     await page.locator("#pf-address").press("Enter");
     const geocodedResponse = await geocoded;
-    assert.equal(geocodedResponse.status(), 200, "live Photon address lookup");
-    const liveCandidates = (await geocodedResponse.json()).candidates;
-    assert.ok(liveCandidates.length && liveCandidates[0].point.lat > 47 && liveCandidates[0].point.lat < 50);
-    await page.locator(".pf-stack[aria-label] .pf-result").first().click();
-    await page.locator(".leaflet-container").waitFor();
-    await page.locator(".leaflet-tile-loaded").first().waitFor({ timeout: 30000 });
-    await page.locator(".pf-map-marker").first().waitFor();
-    await page.screenshot({ path: "generated-artifacts/provider-finder/osm-desktop.png" });
-    assert.equal(googleRequests.length, 0, "finder makes no Google requests");
-    console.log("PASS live Photon conversion and rendered OpenStreetMap tiles on desktop");
-    // Prefer the dedicated synthetic company if other configured companies are present.
-    if (await page.locator("#pf-company").count()) await page.locator("#pf-company").selectOption(ids.company);
+    assert.equal(geocodedResponse.status(), 503, "unconfigured Google address lookup fails explicitly");
+    assert.equal((await geocodedResponse.json()).error, "maps_not_configured");
+    await modal.getByRole("alert").waitFor();
+    assert.equal(await modal.locator(".pf-candidate-confirmation").count(), 0, "no invented coordinates");
+    const internalGeocodePattern = "**/api/provider-finder/context/*/*/geocode";
+    await page.route(internalGeocodePattern, route => route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ candidates: [{ label: "GOOGLE CONFIRMATION ONLY", point: { lat: 48.15, lng: 17.11 }, approximate: true }] }) }));
+    await modal.locator("#pf-address").fill("ORIGINAL OPERATOR INPUT");
+    await modal.locator("#pf-address").press("Enter");
+    const confirmation = modal.locator(".pf-candidate-confirmation");
+    await confirmation.waitFor();
+    assert.equal(await modal.getByTestId("provider-results-map").count(), 0, "Google address content is not associated with a map");
+    assert.equal(await confirmation.locator('[translate="no"]').innerText(), "Google Maps");
+    await confirmation.locator("button").first().click();
+    await modal.getByTestId("provider-results-map").waitFor();
+    assert.equal(await modal.getByText("GOOGLE CONFIRMATION ONLY", { exact: true }).count(), 0, "formatted address discarded after confirmation");
+    assert.ok((await modal.innerText()).includes("ORIGINAL OPERATOR INPUT"), "map uses operator input, not Google address");
+    await modal.getByTestId("provider-results-map").getByRole("alert").waitFor();
+    await page.unroute(internalGeocodePattern);
+    console.log("PASS missing Google configuration and stubbed address confirmation, EEA separation and original-input map caption");
     await page.locator("#pf-address").fill("ALTERNATE TEST ADDRESS");
     await page.locator(".pf-button").filter({ hasText: /Použiť polohu|Use device location/ }).first().click();
     const result = page.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" }).first();
     await result.waitFor({ timeout: 20000 }); await result.click();
+    await modal.getByTestId("provider-results-map").getByRole("alert").waitFor();
     await page.screenshot({ path: "generated-artifacts/provider-finder/operator-desktop.png" });
     await page.locator(".pf-modal-foot .primary").click();
     await page.getByTestId("provider-finder").waitFor({ state: "hidden" });
@@ -135,7 +149,6 @@ async function main() {
     console.log("PASS: real customer-card entry, GPS search, selection persistence, alternate address isolation");
     await page.goto(`/customers?view=${ids.customer}`); await open.waitFor({ timeout: 30000 });
     await open.click();
-    if (await page.locator("#pf-company").count()) await page.locator("#pf-company").selectOption(ids.company);
     await page.getByTestId("provider-finder").waitFor(); await page.getByRole("button", { name: /Zavrieť|Close/, exact: true }).last().click();
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/f/${slug}`);
@@ -144,22 +157,52 @@ async function main() {
     await publicFinder.locator("button").first().click();
     const publicModal = page.getByTestId("provider-finder");
     await publicModal.waitFor();
-    await publicModal.locator("#pf-address").fill("Bratislava");
+    const publicGeocodePattern = "**/api/public/web-form/*/providers/geocode";
+    await page.route(publicGeocodePattern, route => route.fulfill({
+      status: 429, contentType: "application/json", body: JSON.stringify({ error: "maps_quota" }),
+    }));
+    await publicModal.locator("#pf-address").fill("UNAVAILABLE TEST ADDRESS");
+    await publicModal.locator("#pf-address").press("Enter");
+    await publicModal.getByRole("alert").waitFor();
+    assert.equal(await publicModal.getByTestId("provider-map-picker-open").count(), 0);
+    assert.equal(await publicModal.locator(".pf-modal-foot .primary").isDisabled(), true);
+    await page.unroute(publicGeocodePattern);
+    await page.route(publicGeocodePattern, route => route.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ candidates: [{ label: "GOOGLE PUBLIC CONFIRMATION ONLY", point: { lat: 48.15, lng: 17.11 }, approximate: false }] }) }));
+    await publicModal.locator("#pf-address").fill("PUBLIC ORIGINAL INPUT");
     const publicGeocoded = page.waitForResponse(r => r.url().endsWith("/geocode") && r.request().method() === "POST");
     await publicModal.locator("#pf-address").press("Enter");
-    assert.equal((await publicGeocoded).status(), 200, "public address conversion");
-    await publicModal.locator(".pf-stack[aria-label] .pf-result").first().click();
+    assert.equal((await publicGeocoded).status(), 200, "stubbed public address conversion");
+    await publicModal.locator(".pf-candidate-confirmation button").first().click();
     const mobileResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
     await mobileResult.waitFor({ timeout: 20000 });
-    assert.equal(await publicModal.locator(".leaflet-container").count(), 0, "hidden mobile map does not load tiles");
+    assert.equal(await publicModal.getByTestId("provider-results-map").count(), 0, "hidden mobile map does not load Google");
     await publicModal.getByRole("button", { name: "Mapa", exact: true }).click();
-    await publicModal.locator(".leaflet-tile-loaded").first().waitFor({ timeout: 30000 });
-    const mapAttribution = publicModal.locator(".leaflet-control-attribution");
-    await mapAttribution.scrollIntoViewIfNeeded();
-    assert.ok((await mapAttribution.innerText()).includes("OpenStreetMap"));
-    await page.screenshot({ path: "generated-artifacts/provider-finder/osm-mobile.png" });
+    await publicModal.getByTestId("provider-results-map").getByRole("alert").waitFor();
+    assert.equal(await publicModal.getByText("GOOGLE PUBLIC CONFIRMATION ONLY", { exact: true }).count(), 0);
+    await page.screenshot({ path: "generated-artifacts/provider-finder/google-unconfigured-mobile.png" });
     await publicModal.getByRole("button", { name: "Zoznam", exact: true }).click();
-    console.log("PASS public address conversion, mobile map switch and visible OSM attribution");
+    await page.unroute(publicGeocodePattern);
+    console.log("PASS public stubbed confirmation and mobile map switch without credentials");
+    // Editing the address invalidates any late geocoding response.
+    let finishLate!: () => void;
+    const lateReady = new Promise<void>(resolve => { finishLate = resolve; });
+    await page.route(publicGeocodePattern, async route => {
+      await lateReady;
+      await route.fulfill({ status: 200, contentType: "application/json",
+        body: JSON.stringify({ candidates: [{ label: "LATE CANDIDATE MUST NOT APPEAR", point: { lat: 0, lng: 0 }, approximate: false }] }) });
+    });
+    await publicModal.locator("#pf-address").fill("DELAYED TEST ADDRESS");
+    const delayedStarted = page.waitForRequest(r => r.url().endsWith("/providers/geocode"));
+    await publicModal.locator("#pf-address").press("Enter");
+    await delayedStarted;
+    await publicModal.locator("#pf-address").fill("NEW INPUT INVALIDATES OLD LOOKUP");
+    const delayedFinished = page.waitForResponse(r => r.url().endsWith("/providers/geocode"));
+    finishLate();
+    await delayedFinished;
+    await page.unroute(publicGeocodePattern);
+    assert.equal(await publicModal.getByText("LATE CANDIDATE MUST NOT APPEAR").count(), 0);
+    console.log("PASS a late geocoding response cannot override edited address");
     await publicModal.locator(".pf-button").filter({ hasText: /Použiť polohu/ }).first().click();
     const publicResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
     await publicResult.waitFor({ timeout: 20000 }); await publicResult.click();
@@ -192,6 +235,7 @@ async function main() {
     const optionalRow = await pool.query("SELECT data FROM web_form_submissions WHERE form_id=$1 ORDER BY created_at DESC LIMIT 1", [ids.form]);
     const optionalData = typeof optionalRow.rows[0].data === "string" ? JSON.parse(optionalRow.rows[0].data) : optionalRow.rows[0].data;
     assert.ok(!optionalData.providerSelection, "optional locator is never silently required");
+    assert.equal(googleRequests.length, 0, "no paid Google calls without credentials");
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log("PASS: real public order form, mobile GPS search, public provider choice and order persistence; no browser exceptions");
     console.log(`Public fixture: /f/${slug}`);

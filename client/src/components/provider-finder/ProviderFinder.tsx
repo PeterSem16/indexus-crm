@@ -33,6 +33,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   const [selected, setSelected] = useState("");
   const [selectedPerson, setSelectedPerson] = useState("");
   const [busy, setBusy] = useState(false);
+  const [geoBusy, setGeoBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
@@ -48,15 +49,24 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   const onInvalidateRef = useRef(onInvalidate); onInvalidateRef.current = onInvalidate;
   const invalidate = () => {
     generation.current++; setSelected(""); setSelectedPerson(""); setResults([]);
-    setSearched(false); setError(""); setBusy(false); onInvalidateRef.current?.();
+    setSearched(false); setError(""); setBusy(false); setGeoBusy(false); onInvalidateRef.current?.();
   };
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => {
     setAddress(initialAddress); setPoint(null); setOriginLabel(""); setCandidates([]);
+    setView("list");
     setRadius(context.policy.defaultRadiusKm); invalidate(); setBusy(false);
   }, [context.billingCompanyId, context.country, initialAddress]);
-  const errorMessage = (e: { code?: string }) => ["maps_not_configured", "maps_unavailable"].includes(e.code || "")
-    ? c.mapsMissing : ["maps_quota", "rate_limited"].includes(e.code || "") ? c.mapsQuota : c.error;
+  const errorMessage = (e: { code?: string }) => {
+    const code = e.code || "";
+    if (code === "maps_not_configured") return c.mapsMissing;
+    if (["maps_authorization", "maps_auth", "maps_unauthorized", "maps_forbidden"].includes(code)) return c.mapsAuthorization;
+    if (["maps_billing_or_quota", "maps_over_query_limit"].includes(code)) return c.mapsBillingOrQuota;
+    if (["maps_quota", "rate_limited"].includes(code)) return c.mapsQuota;
+    if (["maps_unavailable", "maps_timeout"].includes(code)) return c.mapUnavailable;
+    if (["queue_full", "geocode_queue_full", "geocode_wait_timeout"].includes(code)) return c.geocodeRetry;
+    return c.error;
+  };
   async function searchAt(origin: FinderPoint) {
     const request = ++generation.current; setBusy(true); setError(""); setSelected(""); setSelectedPerson("");
     onInvalidateRef.current?.();
@@ -76,7 +86,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   }, [point, radius, types, peopleOnly, personQuery]);
   async function geocode() {
     invalidate(); setPoint(null); setCandidates([]); setOriginLabel("");
-    const request = ++generation.current; setBusy(true);
+    const request = ++generation.current; setBusy(true); setGeoBusy(true); setError("");
     try {
       const response = await finderApi<{ candidates: Candidate[] }>(`${prefix}/geocode`, "POST", { address, language: locale });
       if (request !== generation.current) return;
@@ -84,7 +94,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
       if (!response.candidates.length) setError(c.empty);
       // Even one match requires explicit confirmation; never guess an ambiguous or approximate address.
     } catch (e) { if (request === generation.current) setError(errorMessage(e as any)); }
-    finally { if (request === generation.current) setBusy(false); }
+    finally { if (request === generation.current) { setBusy(false); setGeoBusy(false); } }
   }
   function gps() {
     invalidate(); setPoint(null); setOriginLabel(""); setCandidates([]);
@@ -94,6 +104,15 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
       if (generation.current !== request) return;
       setPoint({ lat: position.coords.latitude, lng: position.coords.longitude }); setOriginLabel(c.gps); setBusy(false);
     }, () => { if (generation.current === request) { setError(c.error); setBusy(false); } }, { timeout: 10000, maximumAge: 0 });
+  }
+  function confirmCandidate(candidate: Candidate) {
+    invalidate();
+    setError("");
+    setCandidates([]);
+    // Keep the user's own input as the map caption; Google formatted addresses
+    // must not be displayed alongside a map in the EEA.
+    setOriginLabel(address.trim());
+    setPoint(candidate.point);
   }
   const current = results.find(r => `${r.type}:${r.id}` === selected);
   function pick(key: string) { setSelected(key); setSelectedPerson(""); setError(""); }
@@ -111,7 +130,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
       <div><div className="pf-kicker">INDEXUS · {context.country}</div><h2 className="pf-title">{c.title}</h2></div>
       {onClose && <button type="button" className="pf-button" onClick={onClose} aria-label={c.close}><X size={16} /></button>}
     </header>
-    <div className="pf-modal-body">
+    <div className={`pf-modal-body${candidates.length ? " pf-candidates-visible" : ""}`}>
       <section className={`pf-panel${view === "map" ? " pf-hide-mobile" : ""}`}>
         <div className="pf-origin"><div className="pf-kicker">{customerName || c.origin}</div>
           <strong>{initialAddress || c.address}</strong><p className="pf-note">{context.companyName} · {context.country}</p></div>
@@ -126,13 +145,16 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
           <p className="pf-note">{c.addressHint}</p>
         </div>
         <div className="pf-row"><button type="button" className="pf-button" onClick={gps} disabled={busy || saving}><Navigation size={13} />{c.gps}</button></div>
-        <p className="pf-note">{c.privacy} <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p>
+        <p className="pf-note">{c.privacy}</p>
         {!context.mapsReady && <div className="pf-message" role="status">{c.mapsMissing}</div>}
-        {candidates.length > 0 && <div className="pf-stack" aria-label={c.confirmAddress}>
+        {candidates.length > 0 && <div className="pf-candidate-confirmation" aria-label={c.confirmAddress}>
           <strong>{c.confirmAddress}</strong>
-          {candidates.map((candidate, index) => <button type="button" className="pf-result" key={index} onClick={() => {
-            invalidate(); setPoint(candidate.point); setOriginLabel(address); setCandidates([]);
-          }}><MapPin size={14} /> {candidate.label}{candidate.approximate && <p className="pf-note">{c.approximate}</p>}</button>)}
+          <p className="pf-note">{c.candidateHint}</p>
+          <div className="pf-stack">{candidates.map((candidate, index) => <button type="button" className="pf-result" key={`${candidate.point.lat}:${candidate.point.lng}:${index}`}
+            onClick={() => confirmCandidate(candidate)}>
+            <MapPin size={14} /> <span>{candidate.label}{candidate.approximate && <span className="pf-note pf-candidate-approximate">{c.approximate}</span>}</span>
+          </button>)}</div>
+          <div className="pf-google-attribution" translate="no">{c.googleAttribution}</div>
         </div>}
         <div className="pf-fields">
           <div className="pf-control"><label htmlFor="pf-radius">{c.radius}</label><div className="pf-row" style={{ flexWrap: "nowrap" }}>
@@ -151,7 +173,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
         <div className="pf-view-switch pf-row"><button type="button" className="pf-button" onClick={() => setView("map")}>{c.map}</button></div>
         <p className="pf-note">{publicView ? c.publicHint : c.orderHint}</p>
         {error && <div className="pf-message pf-error" role="alert">{error}</div>}
-        {busy && <p role="status">{c.loading}</p>}
+        {busy && <p role="status">{geoBusy ? c.geocodeWaiting : c.loading}</p>}
         {searched && !busy && <><div className="pf-row pf-space"><strong>{c.results}: {results.length}</strong><span className="pf-note">{radius} km</span></div>
           {!publicView && missing > 0 && <p className="pf-note">{c.missingLocations}: {missing}</p>}
           {results.length ? <div className="pf-result-list">{results.map((row, index) => <div key={`${row.type}:${row.id}`}>
@@ -174,13 +196,13 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
             }}>{c.expand} · {Math.min(context.policy.maxRadiusKm, radius + 25)} km</button>}</div>}
         </>}
       </section>
-      <section className={`pf-panel${view === "list" ? " pf-hide-mobile" : ""}`} aria-label={c.map}>
+      {candidates.length === 0 && <section className={`pf-panel${view === "list" ? " pf-hide-mobile" : ""}`} aria-label={c.map}>
         <div className="pf-row pf-space"><div><div className="pf-kicker">{c.origin}</div><strong>{originLabel || c.confirmAddress}</strong></div>
           <button type="button" className="pf-button pf-view-switch" onClick={() => setView("list")}>{c.list}</button></div>
         {point && (desktop || view === "map") ? <ProviderMap point={point} results={results} prefix={prefix} selected={selected} onSelect={pick} c={c} />
           : <div className="pf-empty" style={{ flex: 1 }}><MapPin size={28} /><p>{c.confirmAddress}</p></div>}
         <p className="pf-note">{c.radius}</p>
-      </section>
+      </section>}
     </div>
     <footer className="pf-modal-foot"><div className="pf-stack" style={{ gap: 4 }}>
       <strong>{current?.name || c.select}</strong><span className="pf-note">{c.publicHint}</span>

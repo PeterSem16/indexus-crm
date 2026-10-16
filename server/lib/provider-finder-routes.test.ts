@@ -34,6 +34,10 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
   const policy = { ...DEFAULT_FINDER_POLICY, enabled: true, publicEnabled: true, preferContract: false };
   const selection = { id: clinic, type: "clinic", billingCompanyId: "country", country, personId: person };
   const save = (overrides = {}, formIds = [form]) => request(configPath, "PUT", { policy: { ...policy, ...overrides }, formIds });
+  const savedServerKey = process.env.GOOGLE_MAPS_SERVER_API_KEY;
+  const savedBrowserKey = process.env.GOOGLE_MAPS_BROWSER_API_KEY;
+  process.env.GOOGLE_MAPS_SERVER_API_KEY = "synthetic-server-test-only";
+  process.env.GOOGLE_MAPS_BROWSER_API_KEY = "synthetic-browser-test-only";
   try {
     await pool.query("INSERT INTO roles(id,name) VALUES($1,$2)", [role, slug]);
     await pool.query(`INSERT INTO role_module_permissions(role_id,module_key,access,can_edit) VALUES
@@ -65,13 +69,14 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
       assert.equal((await save()).status, 200);
       const config = await (await request(configPath)).json();
       assert.equal(config.billingCompanyId, "country"); assert.deepEqual(config.formIds, [form]);
-      assert.equal(config.mapsReady, true, "OSM finder needs no Google keys");
+      assert.equal(config.mapsReady, true);
       for (const path of [prefix, publicPath]) {
         const map = await request(path + "/map-config");
         assert.equal(map.status, 200);
         const mapConfig = await map.json();
-        assert.equal(mapConfig.tileUrl, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-        assert.ok(!("browserKey" in mapConfig));
+        assert.equal(mapConfig.provider, "google");
+        assert.equal(mapConfig.browserKey, "synthetic-browser-test-only");
+        assert.ok(!JSON.stringify(mapConfig).includes("synthetic-server-test-only"));
       }
       assert.equal((await request(prefix + "/map-config", "GET", undefined, "")).status, 401);
       assert.equal((await request(`/public/web-form/${slug}-off/providers/map-config`)).status, 404);
@@ -87,6 +92,64 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
       assert.equal((await request(`/public/web-form/${slug}-off/providers/config`)).status, 404);
       const hidden = await (await request(prefix + "/search", "POST", search, viewer)).json();
       assert.ok(hidden.results.every((r: any) => r.people.length === 0));
+    });
+    await t.test("missing or reused keys fail closed but GPS/coordinate ranking still works", async () => {
+      try {
+        delete process.env.GOOGLE_MAPS_SERVER_API_KEY;
+        delete process.env.GOOGLE_MAPS_BROWSER_API_KEY;
+        for (const path of [prefix, publicPath]) {
+          const context = await (await request(path === prefix ? path : path + "/config")).json();
+          assert.equal(context.mapReady, false);
+          assert.equal(context.geocodingReady, false);
+          assert.equal((await request(path + "/map-config")).status, 503);
+          const geocode = await request(path + "/geocode", "POST", { address: "Synthetic missing credentials", language: "sk" });
+          assert.equal(geocode.status, 503);
+          assert.equal((await geocode.json()).error, "maps_not_configured");
+          assert.equal((await request(path + "/search", "POST", search)).status, 200);
+        }
+        process.env.GOOGLE_MAPS_SERVER_API_KEY = "synthetic-must-not-be-public";
+        process.env.GOOGLE_MAPS_BROWSER_API_KEY = "synthetic-must-not-be-public";
+        const reused = await request(prefix + "/map-config");
+        assert.equal(reused.status, 503);
+        assert.ok(!(await reused.text()).includes("synthetic-must-not-be-public"));
+      } finally {
+        process.env.GOOGLE_MAPS_SERVER_API_KEY = "synthetic-server-test-only";
+        process.env.GOOGLE_MAPS_BROWSER_API_KEY = "synthetic-browser-test-only";
+      }
+    });
+    await t.test("Google geocodes work concurrently without the public Photon's shared database gate", async () => {
+      const originalFetch = globalThis.fetch;
+      const blocker = await pool.connect();
+      let released = false;
+      const starts: number[] = [];
+      globalThis.fetch = (async (input: any, init: any) => {
+        const url = new URL(String(input));
+        if (url.hostname !== "maps.googleapis.com") return originalFetch(input, init);
+        starts.push(Date.now());
+        return Response.json({ status: "OK", results: [{
+          formatted_address: "Synthetic lookup",
+          address_components: [{ short_name: country, types: ["country"] }],
+          geometry: { location: { lat: 48.15, lng: 17.11 }, location_type: "ROOFTOP" },
+        }] });
+      }) as typeof fetch;
+      try {
+        await blocker.query("SELECT pg_advisory_lock(714290311)");
+        const one = request(prefix + "/geocode", "POST", { address: "Synthetic queue one", language: "en" });
+        const two = request(publicPath + "/geocode", "POST", { address: "Synthetic queue two", language: "en" });
+        await new Promise(resolve => setTimeout(resolve, 200));
+        assert.equal(starts.length, 2, "an old Photon slot cannot block Google lookups");
+        await blocker.query("SELECT pg_advisory_unlock(714290311)");
+        released = true;
+        const responses = await Promise.all([one, two]);
+        assert.deepEqual(responses.map(r => r.status), [200, 200]);
+        assert.equal(starts.length, 2);
+        assert.ok(Math.abs(starts[1] - starts[0]) < 1000, "no artificial one-per-second Google bottleneck");
+        for (const response of responses) assert.equal((await response.json()).candidates.length, 1);
+      } finally {
+        if (!released) await blocker.query("SELECT pg_advisory_unlock(714290311)");
+        blocker.release();
+        globalThis.fetch = originalFetch;
+      }
     });
     await t.test("real CRM evidence affects ranking, filters and selection revalidation", async () => {
       await pool.query(`INSERT INTO clinic_cooperation_statuses(id,clinic_id,status_key,phase) VALUES($1,$2,'retention_active','retention')`, [status, clinic]);
@@ -125,6 +188,10 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
       assert.equal((await request(publicPath + "/search", "POST", { ...search, radiusKm: 201 })).status, 400);
     });
   } finally {
+    if (savedServerKey === undefined) delete process.env.GOOGLE_MAPS_SERVER_API_KEY;
+    else process.env.GOOGLE_MAPS_SERVER_API_KEY = savedServerKey;
+    if (savedBrowserKey === undefined) delete process.env.GOOGLE_MAPS_BROWSER_API_KEY;
+    else process.env.GOOGLE_MAPS_BROWSER_API_KEY = savedBrowserKey;
     await new Promise<void>((resolve, reject) => server.close(e => e ? reject(e) : resolve()));
     await pool.query("DELETE FROM provider_finder_country_policies WHERE country=$1", [country]);
     await pool.query("DELETE FROM clinic_cooperation_statuses WHERE id=$1", [status]);
