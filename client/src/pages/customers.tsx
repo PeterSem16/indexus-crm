@@ -54,6 +54,7 @@ import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-fil
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
+import { CustomerProviderFinder } from "@/components/provider-finder/CustomerProviderFinder";
 import { CustomerFormWizard, type CustomerFormData as WizardCustomerFormData } from "@/components/customer-form-wizard";
 import { PotentialCaseForm, EmbeddedPotentialCaseForm } from "@/components/potential-case-form";
 import { CallCustomerButton } from "@/components/sip-phone";
@@ -3772,6 +3773,7 @@ export function CustomerDetailsContent({
     <div className={compact ? "space-y-2" : "mt-6 space-y-6"}>
       <RecordTagsBadges entityType="customer" entityId={customer.id} tags={customer.tags} />
       <CustomerOwnerBadge customerId={customer.id} />
+      <CustomerProviderFinder key={customer.id} customer={customer} />
       {compact ? null : (
         <>
           <div className="flex items-center gap-4">

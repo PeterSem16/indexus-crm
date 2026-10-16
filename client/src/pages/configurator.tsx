@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
 import { SystemMailboxCheckPanel } from "@/components/system-mailbox-check-panel";
+import { ProviderFinderSettings } from "@/components/provider-finder/ProviderFinderSettings";
 import { useCountryFilter } from "@/contexts/country-filter-context";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
@@ -17383,6 +17384,7 @@ function BillingCompanyDialog({
               { key: "couriers", label: t.konfigurator.couriers || "Couriers" },
               { key: "laboratories", label: t.settings.laboratories },
               { key: "collaborators", label: t.collaborators?.title || "Collaborators" },
+              { key: "provider-finder", label: t.providerFinder.config },
               { key: "history", label: t.konfigurator.historicalData || "History" },
             ] : [])
           ].map((step, index, arr) => (
@@ -17417,7 +17419,13 @@ function BillingCompanyDialog({
             <TabsTrigger value="laboratories">{t.konfigurator.tabLabs}</TabsTrigger>
             <TabsTrigger value="collaborators">{t.konfigurator.tabCollaborators}</TabsTrigger>
             <TabsTrigger value="history">{t.konfigurator.tabHistory}</TabsTrigger>
+            <TabsTrigger value="provider-finder">{t.providerFinder.config}</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="provider-finder" className="mt-4">
+            {billingCompany && <ProviderFinderSettings companyId={billingCompany.id}
+              countries={billingCompany.countryCodes?.length ? billingCompany.countryCodes : [billingCompany.countryCode]} />}
+          </TabsContent>
 
           <TabsContent value="postal" className="space-y-4 mt-4">
             <div className="grid grid-cols-2 gap-4">

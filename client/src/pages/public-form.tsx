@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "wouter";
+import { PublicProviderFinder } from "@/components/provider-finder/PublicProviderFinder";
+import type { Locale } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1718,6 +1720,10 @@ export default function PublicFormPage() {
                 </div>
               );
             })}
+
+            <PublicProviderFinder slug={slug} locale={formLang as Locale}
+              address={[formValues.address, formValues.postalCode, formValues.city].filter(Boolean).join(", ")}
+              onChange={selection => setFormValues(previous => ({ ...previous, providerSelection: selection }))} />
 
             {f.showProgressPipeline !== false && overallPct >= 80 && totalSections > 1 && (
               <div

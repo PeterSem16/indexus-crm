@@ -2641,8 +2641,10 @@ function SubmissionsSheet({ formId, onClose }: { formId: string; onClose: () => 
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                   {Object.entries(JSON.parse(selectedSubmission.data || "{}")).map(([key, value]) => (
                     <div key={key} className="flex justify-between text-sm border-b pb-1">
-                      <span className="text-muted-foreground">{fieldLabels[key] || key}</span>
-                      <span className="font-medium text-right max-w-[60%]">{formatValue(key, value)}</span>
+                      <span className="text-muted-foreground">{key === "providerSelection" ? t.providerFinder.selected : fieldLabels[key] || key}</span>
+                      <span className="font-medium text-right max-w-[60%]">{key === "providerSelection" && value && typeof value === "object"
+                        ? [(value as any).name, (value as any).address, (value as any).city, (value as any).personName].filter(Boolean).join(" · ")
+                        : formatValue(key, value)}</span>
                     </div>
                   ))}
                   {selectedSubmission.metadata && (() => {

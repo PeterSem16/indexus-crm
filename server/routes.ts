@@ -3005,6 +3005,8 @@ export async function registerRoutes(
   registerClinicAgreementRoutes(app, requireAuth);
   const { registerHealthcareLegalEntityRoutes } = await import("./lib/healthcare-legal-entity-routes");
   registerHealthcareLegalEntityRoutes(app, requireAuth);
+  const { registerProviderFinderRoutes } = await import("./lib/provider-finder-routes");
+  registerProviderFinderRoutes(app, requireAuth);
 
   // Coarse operational telemetry only. The deliberately tiny allowlist makes
   // it impossible for callers to submit call content, addresses, SDP or SIP
@@ -57979,6 +57981,14 @@ ${data.hospitalName || data.hospitalId ? `Nemocnica: ${data.hospitalName || data
       const { formData, customerId, verificationToken, clientMetadata } = req.body;
       console.log(`[WebForm Submit] slug=${req.params.slug}, customerId=${customerId || 'none'}, hasToken=${!!verificationToken}, email=${formData?.email}`);
       if (!formData) return res.status(400).json({ error: "No form data" });
+      if (formData.providerSelection) {
+        try {
+          const { normalizePublicFinderSelection } = await import("./lib/provider-finder-routes");
+          formData.providerSelection = await normalizePublicFinderSelection(req.params.slug, formData.providerSelection);
+        } catch {
+          return res.status(409).json({ error: "provider_selection_unavailable" });
+        }
+      }
 
       const schema = await import("@shared/schema");
       let resolvedHospitalName = formData.hospitalName || null;

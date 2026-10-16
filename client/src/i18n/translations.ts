@@ -10,6 +10,7 @@ import { taskCommunicationTranslations, type TaskCommunicationCopy } from "./tas
 import systemMailboxCheckTranslations from "./system-mailbox-check-translations";
 import omniSmsTranslations from "./omni-sms-translations";
 import { healthcareLegalEntityTranslations, type HealthcareLegalEntityCopy } from "./healthcare-legal-entity-translations";
+import { providerFinderTranslations, type ProviderFinderCopy } from "./provider-finder-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -96,6 +97,7 @@ export interface Translations {
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationOverview: AutomationOverviewCopy;
   healthcareLegalEntity: HealthcareLegalEntityCopy;
+  providerFinder: ProviderFinderCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
   automationDraft: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationDraft>;
   backOffice: {
@@ -9246,6 +9248,7 @@ const inboundUiByLocale = {
 export const translations = {
   en: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.en,
+    providerFinder: providerFinderTranslations.en,
     systemMailboxCheck: systemMailboxCheckTranslations.en,
     automationOverview: automationOverviewTranslations.en,
     omniSms: omniSmsTranslations.en,
@@ -17113,6 +17116,7 @@ export const translations = {
   },
   sk: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.sk,
+    providerFinder: providerFinderTranslations.sk,
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
     omniSms: omniSmsTranslations.sk,
@@ -24976,6 +24980,7 @@ export const translations = {
   },
   cs: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.cs,
+    providerFinder: providerFinderTranslations.cs,
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
     omniSms: omniSmsTranslations.cs,
@@ -32798,6 +32803,7 @@ export const translations = {
   },
   hu: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.hu,
+    providerFinder: providerFinderTranslations.hu,
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
     omniSms: omniSmsTranslations.hu,
@@ -40618,6 +40624,7 @@ export const translations = {
   },
   ro: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.ro,
+    providerFinder: providerFinderTranslations.ro,
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
     omniSms: omniSmsTranslations.ro,
@@ -48446,6 +48453,7 @@ export const translations = {
   },
   it: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.it,
+    providerFinder: providerFinderTranslations.it,
     systemMailboxCheck: systemMailboxCheckTranslations.it,
     automationOverview: automationOverviewTranslations.it,
     omniSms: omniSmsTranslations.it,
@@ -56265,6 +56273,7 @@ export const translations = {
   },
   de: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.de,
+    providerFinder: providerFinderTranslations.de,
     systemMailboxCheck: systemMailboxCheckTranslations.de,
     automationOverview: automationOverviewTranslations.de,
     omniSms: omniSmsTranslations.de,
