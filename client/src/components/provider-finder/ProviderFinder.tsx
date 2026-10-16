@@ -37,6 +37,13 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
   const [view, setView] = useState<"list" | "map">("list");
+  const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 761px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 761px)");
+    const update = () => setDesktop(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
   const generation = useRef(0);
   const onInvalidateRef = useRef(onInvalidate); onInvalidateRef.current = onInvalidate;
   const invalidate = () => {
@@ -48,7 +55,8 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
     setAddress(initialAddress); setPoint(null); setOriginLabel(""); setCandidates([]);
     setRadius(context.policy.defaultRadiusKm); invalidate(); setBusy(false);
   }, [context.billingCompanyId, context.country, initialAddress]);
-  const errorMessage = (e: { code?: string }) => e.code === "maps_not_configured" ? c.mapsMissing : c.error;
+  const errorMessage = (e: { code?: string }) => ["maps_not_configured", "maps_unavailable"].includes(e.code || "")
+    ? c.mapsMissing : ["maps_quota", "rate_limited"].includes(e.code || "") ? c.mapsQuota : c.error;
   async function searchAt(origin: FinderPoint) {
     const request = ++generation.current; setBusy(true); setError(""); setSelected(""); setSelectedPerson("");
     onInvalidateRef.current?.();
@@ -118,7 +126,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
           <p className="pf-note">{c.addressHint}</p>
         </div>
         <div className="pf-row"><button type="button" className="pf-button" onClick={gps} disabled={busy || saving}><Navigation size={13} />{c.gps}</button></div>
-        <p className="pf-note">{c.privacy}</p>
+        <p className="pf-note">{c.privacy} <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p>
         {!context.mapsReady && <div className="pf-message" role="status">{c.mapsMissing}</div>}
         {candidates.length > 0 && <div className="pf-stack" aria-label={c.confirmAddress}>
           <strong>{c.confirmAddress}</strong>
@@ -169,7 +177,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
       <section className={`pf-panel${view === "list" ? " pf-hide-mobile" : ""}`} aria-label={c.map}>
         <div className="pf-row pf-space"><div><div className="pf-kicker">{c.origin}</div><strong>{originLabel || c.confirmAddress}</strong></div>
           <button type="button" className="pf-button pf-view-switch" onClick={() => setView("list")}>{c.list}</button></div>
-        {point ? <ProviderMap point={point} results={results} prefix={prefix} selected={selected} onSelect={pick} c={c} />
+        {point && (desktop || view === "map") ? <ProviderMap point={point} results={results} prefix={prefix} selected={selected} onSelect={pick} c={c} />
           : <div className="pf-empty" style={{ flex: 1 }}><MapPin size={28} /><p>{c.confirmAddress}</p></div>}
         <p className="pf-note">{c.radius}</p>
       </section>

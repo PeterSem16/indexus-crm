@@ -1,9 +1,8 @@
 import { pool } from "../db";
 import { DEFAULT_FINDER_POLICY, finderPolicySchema, pointSchema, matchesFinderRequirements, type FinderContext, type FinderProvider, type FinderSelection } from "../../shared/provider-finder";
 
-export class FinderError extends Error {
-  constructor(public code: string, public status = 400) { super(code); }
-}
+import { FinderError } from "./provider-finder-error";
+export { FinderError } from "./provider-finder-error";
 export async function finderActor(userId: string, country: string, configure = false) {
   const { rows } = await pool.query(`SELECT u.role,u.role_id,u.assigned_countries,u.is_active,
     (SELECT row_to_json(p) FROM role_module_permissions p WHERE p.role_id=u.role_id AND p.module_key='configurator' LIMIT 1) AS config,
@@ -33,7 +32,7 @@ export async function finderContext(company: string, country: string, allowMissi
   if (!rows.length && !allowMissing) throw new FinderError("not_configured", 409);
   return { billingCompanyId: "country", country, companyName: country,
     policy: rows[0] ? finderPolicySchema.parse(rows[0].settings) : { ...DEFAULT_FINDER_POLICY },
-    mapsReady: !!process.env.GOOGLE_MAPS_SERVER_API_KEY && !!process.env.GOOGLE_MAPS_BROWSER_API_KEY };
+    mapsReady: true };
 }
 export async function publicFinderContext(slug: string) {
   const { rows } = await pool.query(`SELECT w.id,w.country_code FROM web_forms w

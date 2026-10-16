@@ -65,6 +65,16 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
       assert.equal((await save()).status, 200);
       const config = await (await request(configPath)).json();
       assert.equal(config.billingCompanyId, "country"); assert.deepEqual(config.formIds, [form]);
+      assert.equal(config.mapsReady, true, "OSM finder needs no Google keys");
+      for (const path of [prefix, publicPath]) {
+        const map = await request(path + "/map-config");
+        assert.equal(map.status, 200);
+        const mapConfig = await map.json();
+        assert.equal(mapConfig.tileUrl, "https://tile.openstreetmap.org/{z}/{x}/{y}.png");
+        assert.ok(!("browserKey" in mapConfig));
+      }
+      assert.equal((await request(prefix + "/map-config", "GET", undefined, "")).status, 401);
+      assert.equal((await request(`/public/web-form/${slug}-off/providers/map-config`)).status, 404);
       for (const id of [company, otherCompany]) {
         const ctx = await (await request(`/provider-finder/context/${id}/${country}`)).json();
         assert.equal(ctx.billingCompanyId, "country"); assert.deepEqual(ctx.policy, config.policy);

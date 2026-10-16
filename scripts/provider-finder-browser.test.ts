@@ -103,6 +103,23 @@ async function main() {
     await open.waitFor({ timeout: 45000 }); await open.click();
     if (await page.locator("#pf-company").count()) await page.locator("#pf-company").selectOption(ids.company);
     await page.getByTestId("provider-finder").waitFor();
+    // Real upstream lookup: no mocked coordinates, Google requests or API keys.
+    const googleRequests: string[] = [];
+    page.on("request", req => { if (/maps\.googleapis\.com|maps\.gstatic\.com/.test(req.url())) googleRequests.push(req.url()); });
+    await page.locator("#pf-address").fill("Bratislava");
+    const geocoded = page.waitForResponse(r => r.url().endsWith("/geocode") && r.request().method() === "POST");
+    await page.locator("#pf-address").press("Enter");
+    const geocodedResponse = await geocoded;
+    assert.equal(geocodedResponse.status(), 200, "live Photon address lookup");
+    const liveCandidates = (await geocodedResponse.json()).candidates;
+    assert.ok(liveCandidates.length && liveCandidates[0].point.lat > 47 && liveCandidates[0].point.lat < 50);
+    await page.locator(".pf-stack[aria-label] .pf-result").first().click();
+    await page.locator(".leaflet-container").waitFor();
+    await page.locator(".leaflet-tile-loaded").first().waitFor({ timeout: 30000 });
+    await page.locator(".pf-map-marker").first().waitFor();
+    await page.screenshot({ path: "generated-artifacts/provider-finder/osm-desktop.png" });
+    assert.equal(googleRequests.length, 0, "finder makes no Google requests");
+    console.log("PASS live Photon conversion and rendered OpenStreetMap tiles on desktop");
     // Prefer the dedicated synthetic company if other configured companies are present.
     if (await page.locator("#pf-company").count()) await page.locator("#pf-company").selectOption(ids.company);
     await page.locator("#pf-address").fill("ALTERNATE TEST ADDRESS");
@@ -127,6 +144,22 @@ async function main() {
     await publicFinder.locator("button").first().click();
     const publicModal = page.getByTestId("provider-finder");
     await publicModal.waitFor();
+    await publicModal.locator("#pf-address").fill("Bratislava");
+    const publicGeocoded = page.waitForResponse(r => r.url().endsWith("/geocode") && r.request().method() === "POST");
+    await publicModal.locator("#pf-address").press("Enter");
+    assert.equal((await publicGeocoded).status(), 200, "public address conversion");
+    await publicModal.locator(".pf-stack[aria-label] .pf-result").first().click();
+    const mobileResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
+    await mobileResult.waitFor({ timeout: 20000 });
+    assert.equal(await publicModal.locator(".leaflet-container").count(), 0, "hidden mobile map does not load tiles");
+    await publicModal.getByRole("button", { name: "Mapa", exact: true }).click();
+    await publicModal.locator(".leaflet-tile-loaded").first().waitFor({ timeout: 30000 });
+    const mapAttribution = publicModal.locator(".leaflet-control-attribution");
+    await mapAttribution.scrollIntoViewIfNeeded();
+    assert.ok((await mapAttribution.innerText()).includes("OpenStreetMap"));
+    await page.screenshot({ path: "generated-artifacts/provider-finder/osm-mobile.png" });
+    await publicModal.getByRole("button", { name: "Zoznam", exact: true }).click();
+    console.log("PASS public address conversion, mobile map switch and visible OSM attribution");
     await publicModal.locator(".pf-button").filter({ hasText: /Použiť polohu/ }).first().click();
     const publicResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
     await publicResult.waitFor({ timeout: 20000 }); await publicResult.click();

@@ -3,7 +3,31 @@ import { z } from "zod";
 import { pool } from "../db";
 import { finderPolicySchema, rankProviders, searchSchema, selectionSchema, type FinderContext } from "../../shared/provider-finder";
 import { FinderError, finderActor, finderContext, finderProviders, publicFinderContext, validateFinderSelection } from "./provider-finder-store";
-import { addressSchema, geocodeFinderAddress } from "./provider-finder-google";
+import { addressSchema, createFinderGeocoder } from "./provider-finder-geocode";
+
+const geocodeFinderAddress = createFinderGeocoder({
+  endpoint: () => process.env.PROVIDER_FINDER_GEOCODER_URL || "https://photon.komoot.io/api/",
+  fetcher: (...args) => fetch(...args),
+  // Shared DB lock bounds upstream traffic across PM2 workers, not just one process.
+  withSlot: async (run) => {
+    const client = await pool.connect();
+    let locked = false;
+    let destroyed = false;
+    const started = Date.now();
+    try {
+      locked = (await client.query("SELECT pg_try_advisory_lock(714290311) AS locked")).rows[0].locked;
+      if (!locked) throw new FinderError("maps_quota", 429);
+      return await run();
+    } finally {
+      if (locked) {
+        await new Promise(resolve => setTimeout(resolve, Math.max(0, 1100 - (Date.now() - started))));
+        try { await client.query("SELECT pg_advisory_unlock(714290311)"); }
+        catch { client.release(true); destroyed = true; }
+      }
+      if (!destroyed) client.release();
+    }
+  },
+});
 
 const countrySchema = z.string().regex(/^[A-Z]{2}$/);
 const idSchema = z.string().min(1).max(128);
@@ -123,9 +147,7 @@ export function registerProviderFinderRoutes(app: Express, requireAuth: RequestH
     };
     app.get(`${prefix}/map-config`, ...auth, route(async (req, res) => {
       await scope(req);
-      if (!process.env.GOOGLE_MAPS_BROWSER_API_KEY) throw new FinderError("maps_not_configured", 503);
-      // The browser-only key MUST have HTTP referrer + Maps JS API restrictions.
-      res.json({ browserKey: process.env.GOOGLE_MAPS_BROWSER_API_KEY });
+      res.json({ tileUrl: process.env.PROVIDER_FINDER_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png" });
     }));
     app.post(`${prefix}/geocode`, ...auth, route(async (req, res) => {
       const { context } = await scope(req);
