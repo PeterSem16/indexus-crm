@@ -6119,7 +6119,7 @@ export async function registerRoutes(
   app.get("/api/users/:userId/ms365-unread-counts", requireAuth, async (req, res) => {
     try {
       const userId = req.params.userId;
-      if (userId !== req.session.userId) {
+      if (userId !== req.session.user?.id) {
         return res.status(403).json({ error: "Forbidden" });
       }
       const ms365Connection = await storage.getUserMs365Connection(userId);
