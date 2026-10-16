@@ -8,16 +8,31 @@ import { finderApi } from "./api";
 import "./provider-finder.css";
 
 type Config = FinderContext & { forms: { id: string; name: string; boundCompanyId?: string | null }[]; formIds: string[] };
-export function ProviderFinderSettings({ companyId, countries }: { companyId: string; countries: string[] }) {
+type BillingCompany = { id: string; companyName: string; countryCode: string; countryCodes?: string[] | null };
+export function CountryProviderFinderSettings({ country }: { country: string }) {
   const { t } = useI18n(); const c = t.providerFinder;
-  const [country, setCountry] = useState(countries[0] || "");
-  useEffect(() => { if (!countries.includes(country)) setCountry(countries[0] || ""); }, [countries.join(","), country]);
-  return <section className="pf-root pf-config pf-stack">
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const companies = useQuery<BillingCompany[]>({
+    queryKey: ["/api/billing-details"],
+    queryFn: () => finderApi("/api/billing-details"),
+  });
+  const available = (companies.data || []).filter(company =>
+    company.countryCodes?.length ? company.countryCodes.includes(country) : company.countryCode === country);
+  const companyId = available.some(company => company.id === selectedCompany)
+    ? selectedCompany : available.length === 1 ? available[0].id : "";
+  useEffect(() => { setSelectedCompany(""); }, [country]);
+  return <section className="pf-root pf-config pf-stack" data-testid="country-provider-finder-settings" data-country={country}>
     <h2 className="pf-title">{c.config}</h2>
-    <div className="pf-control"><label htmlFor="pf-config-country">{c.country}</label>
-      <select id="pf-config-country" value={country} onChange={e => setCountry(e.target.value)}>
-        {countries.map(x => <option key={x}>{x}</option>)}</select></div>
-    {country && <CountrySettings key={`${companyId}:${country}`} companyId={companyId} country={country} />}
+    {companies.isLoading ? <p role="status">{c.loading}</p> : companies.isError
+      ? <p role="alert">{c.error}</p> : available.length === 0
+      ? <p role="status">{t.konfigurator.noBillingCompanies}</p>
+      : <div className="pf-control"><label htmlFor="pf-config-company">{c.company}</label>
+        <select id="pf-config-company" value={companyId} onChange={e => setSelectedCompany(e.target.value)}
+          data-testid="select-provider-finder-company">
+          <option value="">{t.common.select}</option>
+          {available.map(company => <option key={company.id} value={company.id}>{company.companyName}</option>)}
+        </select></div>}
+    {companyId && <CountrySettings key={`${companyId}:${country}`} companyId={companyId} country={country} />}
   </section>;
 }
 function CountrySettings({ companyId, country }: { companyId: string; country: string }) {

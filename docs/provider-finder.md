@@ -2,7 +2,9 @@
 
 ## Entry points
 - Existing customer: **Find a suitable provider** in the detail view or edit card.
-- Configurator → Billing company → **Provider recommendations** → country.
+- Configurator → **Billing Companies → System Settings → country** → Provider recommendations.
+  The existing country selector controls the module. Where a country has multiple billing companies,
+  select the company inside this section; policies remain company/country-scoped.
 - Existing public `/f/:slug` form, when explicitly linked in that country configuration.
 
 Internal and public channels are independent and off by default. Configure and save the policy before editing site profiles.
