@@ -14,9 +14,9 @@ test("distance uses valid coordinates, retains zero coordinates and handles iden
   assert.equal(distanceKm({ lat: 0, lng: 0 }, { lat: 0, lng: 0 }), 0);
   assert.ok(distanceKm({ lat: 48, lng: 17 }, { lat: 48.1, lng: 17 }) > 11);
 });
-test("contract preference applies only within eligibility and radius; ties are stable", () => {
+test("weighted contract upload applies only within eligibility and radius; ties are stable", () => {
   const results = rankProviders([
-    site("near"), site("far-contract", { lng: 17.2, contracted: true }),
+    site("near"), site("far-contract", { lng: 17.2, contracted: true, uploadedContract: true }),
     site("outside", { lng: 18, contracted: true }), site("paused", { paused: true, contracted: true }),
     site("inactive", { active: false }), site("unknown", { lat: null }), site("invalid", { lat: NaN }),
   ], policy, search);
@@ -32,10 +32,24 @@ test("service, type, Persons and only-contract filters fail closed", () => {
   assert.throws(() => rankProviders(sites, policy, { ...search, radiusKm: 201 }));
   assert.throws(() => rankProviders(sites, policy, { ...search, service: "unknown" }));
 });
-test("public output is explicitly projected and never contains business activity or contract state", () => {
+test("country-wide public output includes same-country sites without individual opt-in and hides CRM evidence", () => {
   const results = rankProviders([site("private", { publicVisible: false }), site("public", { contracted: true, lastContactAt: new Date().toISOString() })], policy, search, true);
-  assert.equal(results.length, 1);
-  for (const key of ["contracted", "lastContactAt", "recentContact", "contractProfile", "publicPersonIds", "enabled", "publicVisible"]) assert.ok(!(key in results[0]));
+  assert.equal(results.length, 2);
+  for (const key of ["contracted", "lastContactAt", "recentContact", "contractProfile", "publicPersonIds", "enabled", "publicVisible", "cooperating", "uploadedContract", "hasRepresentative", "priorityScore"]) assert.ok(!(key in results[0]));
+});
+test("each required criterion filters independently and cannot be replaced by a high score", () => {
+  const sites = [site("none"), site("coop", { cooperating: true }),
+    site("upload", { uploadedContract: true }), site("rep", { hasRepresentative: true }),
+    site("all", { cooperating: true, uploadedContract: true, hasRepresentative: true })];
+  for (const [criterion, id] of [["requireCooperation", "coop"], ["requireUploadedContract", "upload"], ["requireRepresentative", "rep"]] as const)
+    assert.deepEqual(new Set(rankProviders(sites, { ...policy, [criterion]: true }, search).map(p => p.id)), new Set([id, "all"]));
+  assert.deepEqual(rankProviders(sites, { ...policy, requireCooperation: true, requireUploadedContract: true, requireRepresentative: true }, search).map(p => p.id), ["all"]);
+});
+test("weights change actual ordering, zero weights are valid, distance remains the deterministic tie-breaker", () => {
+  const sites = [site("near"), site("far", { lng: 17.2, hasRepresentative: true })];
+  assert.equal(rankProviders(sites, { ...policy, priorityWeights: { ...policy.priorityWeights, representative: 100, distance: 0 } }, search)[0].id, "far");
+  assert.equal(rankProviders(sites, { ...policy, priorityWeights: { distance: 100, representative: 0, uploadedContract: 0, cooperation: 0, recentContact: 0 } }, search)[0].id, "near");
+  assert.equal(finderPolicySchema.safeParse({ priorityWeights: { ...policy.priorityWeights, distance: 101 } }).success, false);
 });
 test("policy and profile validate all inputs without silent extra field drops", () => {
   assert.equal(DEFAULT_FINDER_POLICY.enabled, false);

@@ -9,6 +9,18 @@ import { ensureProviderFinderSchema } from "../server/lib/provider-finder-schema
 
 const fixturePath = "generated-artifacts/provider-finder/browser-fixtures.json";
 async function cleanup(ids: Record<string, string>) {
+  if (ids.countrySnapshot) {
+    const snapshot = JSON.parse(ids.countrySnapshot);
+    await pool.query("DELETE FROM provider_finder_country_forms WHERE country='SK'");
+    if (snapshot.policy) {
+      const p = snapshot.policy;
+      await pool.query(`INSERT INTO provider_finder_country_policies(country,settings,updated_by,updated_at)
+        VALUES('SK',$1,$2,$3) ON CONFLICT(country) DO UPDATE SET settings=EXCLUDED.settings,
+        updated_by=EXCLUDED.updated_by,updated_at=EXCLUDED.updated_at`, [p.settings, p.updated_by, p.updated_at]);
+      for (const form of snapshot.forms)
+        await pool.query("INSERT INTO provider_finder_country_forms(form_id,country) VALUES($1,'SK')", [form.form_id]);
+    } else await pool.query("DELETE FROM provider_finder_country_policies WHERE country='SK'");
+  }
   await pool.query("DELETE FROM user_sessions WHERE user_id=$1", [ids.user]);
   await pool.query("DELETE FROM customers WHERE id=$1", [ids.customer]);
   await pool.query("DELETE FROM web_form_submissions WHERE form_id=$1", [ids.form]);
@@ -22,6 +34,10 @@ async function main() {
   if (process.argv.includes("--cleanup")) { await cleanup(JSON.parse(await fs.readFile(fixturePath, "utf8"))); return; }
   await ensureProviderFinderSchema(pool);
   const ids = Object.fromEntries(["user", "customer", "form", "company", "clinic"].map(key => [key, randomUUID()]));
+  ids.countrySnapshot = JSON.stringify({
+    policy: (await pool.query("SELECT * FROM provider_finder_country_policies WHERE country='SK'")).rows[0] || null,
+    forms: (await pool.query("SELECT form_id FROM provider_finder_country_forms WHERE country='SK'")).rows,
+  });
   const slug = `finder-browser-${ids.form}`; const username = `finder-browser-${ids.user}`;
   const password = randomBytes(24).toString("hex");
   await fs.mkdir("generated-artifacts/provider-finder", { recursive: true });
@@ -38,11 +54,11 @@ async function main() {
       VALUES($1,'Synthetic','FinderBrowser',$2,'SK','ORIGINAL TEST ADDRESS','Test city','00000')`, [ids.customer, `${ids.customer}@example.invalid`]);
     await pool.query(`INSERT INTO web_forms(id,name,slug,country_code,language,confirm_email_enabled)
       VALUES($1,'Synthetic provider finder order',$2,'SK','sk',false)`, [ids.form, slug]);
-    await pool.query(`INSERT INTO provider_finder_policies(billing_company_id,country,settings) VALUES($1,'SK',$2)`,
-      [ids.company, JSON.stringify({ ...DEFAULT_FINDER_POLICY, enabled: true, publicEnabled: true, services: ["Test service"] })]);
-    await pool.query(`INSERT INTO provider_finder_profiles(billing_company_id,country,facility_type,facility_id,settings)
-      VALUES($1,'SK','clinic',$2,$3)`, [ids.company, ids.clinic, JSON.stringify({ publicVisible: true, services: ["Test service"], contractReference: "SYNTHETIC TEST CONTRACT" })]);
-    await pool.query(`INSERT INTO provider_finder_form_bindings(form_id,billing_company_id,country) VALUES($1,$2,'SK')`, [ids.form, ids.company]);
+    await pool.query(`INSERT INTO provider_finder_country_policies(country,settings) VALUES('SK',$1)
+      ON CONFLICT(country) DO UPDATE SET settings=EXCLUDED.settings`,
+      [JSON.stringify({ ...DEFAULT_FINDER_POLICY, enabled: true, publicEnabled: true, preferContract: false,
+        priorityWeights: { distance: 100, cooperation: 0, uploadedContract: 0, representative: 0, recentContact: 0 } })]);
+    await pool.query(`INSERT INTO provider_finder_country_forms(form_id,country) VALUES($1,'SK')`, [ids.form]);
     browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
     const baseURL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
     const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 },
@@ -63,9 +79,10 @@ async function main() {
     const countryFinder = page.getByTestId("country-provider-finder-settings");
     await countryFinder.waitFor();
     assert.equal(await countryFinder.getAttribute("data-country"), "SK");
-    await page.getByTestId("select-provider-finder-company").selectOption(ids.company);
+    assert.equal(await page.getByTestId("select-provider-finder-company").count(), 0, "no company selector");
     await countryFinder.locator("#pf-default-radius").fill("17");
-    const policySaved = page.waitForResponse(r => r.url().includes(`/api/provider-finder/config/${ids.company}/SK`) && r.request().method() === "PUT");
+    await countryFinder.locator("#pf-weight-representative").fill("42");
+    const policySaved = page.waitForResponse(r => r.url().includes("/api/provider-finder/country-config/SK") && r.request().method() === "PUT");
     await countryFinder.locator("button.primary").first().click();
     assert.equal((await policySaved).status(), 200);
     await page.screenshot({ path: "generated-artifacts/provider-finder/system-settings-desktop.png", fullPage: true });
@@ -73,9 +90,9 @@ async function main() {
     assert.equal(await countryFinder.getAttribute("data-country"), "CZ");
     assert.equal(await countryFinder.locator(`option[value="${ids.company}"]`).count(), 0, "SK company cannot leak into CZ settings");
     await openCountrySettings("SK");
-    await page.getByTestId("select-provider-finder-company").selectOption(ids.company);
     await countryFinder.locator("#pf-default-radius").waitFor();
     assert.equal(await countryFinder.locator("#pf-default-radius").inputValue(), "17", "country settings survive reload");
+    assert.equal(await countryFinder.locator("#pf-weight-representative").inputValue(), "42", "criterion weight survives reload");
     await page.setViewportSize({ width: 390, height: 844 });
     await countryFinder.scrollIntoViewIfNeeded();
     await page.screenshot({ path: "generated-artifacts/provider-finder/system-settings-mobile.png" });
@@ -106,13 +123,26 @@ async function main() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/f/${slug}`);
     const publicFinder = page.getByTestId("public-provider-finder"); await publicFinder.waitFor({ timeout: 30000 });
-    await publicFinder.locator(".pf-button").filter({ hasText: /Použiť polohu/ }).first().click();
-    const publicResult = publicFinder.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
+    assert.equal(await page.getByTestId("provider-finder").count(), 0, "locator is closed and optional");
+    await publicFinder.locator("button").first().click();
+    const publicModal = page.getByTestId("provider-finder");
+    await publicModal.waitFor();
+    await publicModal.locator(".pf-button").filter({ hasText: /Použiť polohu/ }).first().click();
+    const publicResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
     await publicResult.waitFor({ timeout: 20000 }); await publicResult.click();
+    for (const selector of [".pf-modal-head", ".pf-modal-foot"]) {
+      const box = await publicModal.locator(selector).boundingBox();
+      assert.ok(box && box.y >= 0 && box.y + box.height <= 845, `${selector} stays visible within the mobile viewport`);
+    }
     await page.screenshot({ path: "generated-artifacts/provider-finder/public-mobile.png", fullPage: true });
-    await publicFinder.locator(".pf-modal-foot .primary").click();
+    await publicModal.locator(".pf-modal-foot .primary").click();
     await publicFinder.locator(".pf-selected-card").waitFor();
     assert.ok(await publicFinder.locator(".pf-selected-card").innerText());
+    await publicFinder.getByRole("button", { name: /Zmeniť|Change/ }).click();
+    await publicModal.waitFor();
+    await publicModal.getByRole("button", { name: /Zavrieť|Close/, exact: true }).last().click();
+    assert.ok((await publicFinder.locator(".pf-selected-card").innerText()).includes("Synthetic finder browser clinic"),
+      "closing locator without choosing preserves confirmed selection");
     const submitted = page.waitForResponse(r => r.url().endsWith(`/api/public/web-form/${slug}/submit`) && r.request().method() === "POST");
     await page.getByRole("button", { name: "Odoslať žiadosť", exact: true }).click();
     const submissionResponse = await submitted;
@@ -120,6 +150,15 @@ async function main() {
     const submittedRow = await pool.query("SELECT data FROM web_form_submissions WHERE form_id=$1 ORDER BY created_at DESC LIMIT 1", [ids.form]);
     const submittedData = typeof submittedRow.rows[0].data === "string" ? JSON.parse(submittedRow.rows[0].data) : submittedRow.rows[0].data;
     assert.equal(submittedData.providerSelection.id, ids.clinic, "selected provider stored with order");
+    await page.goto(`/f/${slug}`);
+    await page.getByTestId("public-provider-finder").waitFor();
+    assert.equal(await page.getByTestId("provider-finder").count(), 0);
+    const optionalSubmitted = page.waitForResponse(r => r.url().endsWith(`/api/public/web-form/${slug}/submit`) && r.request().method() === "POST");
+    await page.getByRole("button", { name: "Odoslať žiadosť", exact: true }).click();
+    assert.equal((await optionalSubmitted).status(), 200, "an order can be submitted without opening the optional locator");
+    const optionalRow = await pool.query("SELECT data FROM web_form_submissions WHERE form_id=$1 ORDER BY created_at DESC LIMIT 1", [ids.form]);
+    const optionalData = typeof optionalRow.rows[0].data === "string" ? JSON.parse(optionalRow.rows[0].data) : optionalRow.rows[0].data;
+    assert.ok(!optionalData.providerSelection, "optional locator is never silently required");
     assert.equal(errors.length, 0, errors.join("\n"));
     console.log("PASS: real public order form, mobile GPS search, public provider choice and order persistence; no browser exceptions");
     console.log(`Public fixture: /f/${slug}`);

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import { z } from "zod";
 import { pool } from "../db";
-import { finderPolicySchema, profileSchema, rankProviders, searchSchema, selectionSchema, type FinderContext } from "../../shared/provider-finder";
+import { finderPolicySchema, rankProviders, searchSchema, selectionSchema, type FinderContext } from "../../shared/provider-finder";
 import { FinderError, finderActor, finderContext, finderProviders, publicFinderContext, validateFinderSelection } from "./provider-finder-store";
 import { addressSchema, geocodeFinderAddress } from "./provider-finder-google";
 
@@ -49,55 +49,52 @@ export function registerProviderFinderRoutes(app: Express, requireAuth: RequestH
   app.get(`${root}/contexts/:country`, requireAuth, route(async (req, res) => {
     const country = countrySchema.parse(req.params.country);
     await finderActor(uid(req), country);
-    const { rows } = await pool.query(`SELECT p.billing_company_id FROM provider_finder_policies p
-      WHERE p.country=$1 AND p.settings->>'enabled'='true' ORDER BY p.billing_company_id`, [country]);
-    const contexts = [];
-    for (const row of rows) {
-      try { contexts.push(await finderContext(row.billing_company_id, country)); }
-      catch (e) { if (!(e instanceof FinderError && e.status === 404)) throw e; }
-    }
-    res.json(contexts);
+    const context = await finderContext("country", country, true);
+    res.json(context.policy.enabled ? [context] : []);
   }));
-  app.get(`${root}/config/:company/:country`, requireAuth, route(async (req, res) => {
-    const { context } = await internal(req, true);
-    const { rows: forms } = await pool.query(`SELECT w.id,w.name,b.billing_company_id AS "boundCompanyId"
-      FROM web_forms w LEFT JOIN provider_finder_form_bindings b ON b.form_id=w.id
+  const getCountryConfig = route(async (req, res) => {
+    const country = countrySchema.parse(req.params.country);
+    await finderActor(uid(req), country, true);
+    const context = await finderContext("country", country, true);
+    const { rows: forms } = await pool.query(`SELECT w.id,w.name,b.country AS "boundCountry"
+      FROM web_forms w LEFT JOIN provider_finder_country_forms b ON b.form_id=w.id
       WHERE w.country_code=$1 AND w.is_active=true ORDER BY w.name`, [context.country]);
-    res.json({ ...context, forms, formIds: forms.filter(f => f.boundCompanyId === context.billingCompanyId).map(f => f.id) });
-  }));
-  app.put(`${root}/config/:company/:country`, requireAuth, route(async (req, res) => {
-    const { context } = await internal(req, true);
+    res.json({ ...context, forms: forms.map(({ id, name }) => ({ id, name })),
+      formIds: forms.filter(f => f.boundCountry === context.country).map(f => f.id) });
+  });
+  const putCountryConfig = route(async (req, res) => {
+    const country = countrySchema.parse(req.params.country);
+    await finderActor(uid(req), country, true);
     const body = z.object({ policy: finderPolicySchema, formIds: z.array(idSchema).max(100) }).strict().parse(req.body);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      // Lock the company, serializing same-company policy/form-binding saves.
-      await client.query("SELECT id FROM billing_details WHERE id=$1 FOR UPDATE", [context.billingCompanyId]);
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`provider-finder:${country}`]);
       if (body.formIds.length) {
-        const valid = await client.query(`SELECT id FROM web_forms WHERE id=ANY($1::varchar[]) AND country_code=$2 AND is_active=true FOR UPDATE`, [body.formIds, context.country]);
+        const valid = await client.query(`SELECT id FROM web_forms WHERE id=ANY($1::varchar[]) AND country_code=$2 AND is_active=true FOR UPDATE`, [body.formIds, country]);
         if (valid.rows.length !== new Set(body.formIds).size) throw new FinderError("invalid");
-        const bound = await client.query(`SELECT form_id FROM provider_finder_form_bindings WHERE form_id=ANY($1::varchar[])
-          AND billing_company_id<>$2`, [body.formIds, context.billingCompanyId]);
-        if (bound.rows.length) throw new FinderError("form_already_bound", 409);
       }
-      await client.query(`INSERT INTO provider_finder_policies(billing_company_id,country,settings,updated_by)
-        VALUES($1,$2,$3,$4) ON CONFLICT(billing_company_id,country) DO UPDATE
+      // The retired per-site service/publication controls no longer determine eligibility.
+      const policy = { ...body.policy, services: [], requireContract: false, preferContract: false, preferRecentContact: false };
+      await client.query(`INSERT INTO provider_finder_country_policies(country,settings,updated_by)
+        VALUES($1,$2,$3) ON CONFLICT(country) DO UPDATE
         SET settings=EXCLUDED.settings,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-      [context.billingCompanyId, context.country, JSON.stringify(body.policy), uid(req)]);
-      await client.query(`DELETE FROM provider_finder_form_bindings WHERE billing_company_id=$1 AND country=$2 AND NOT(form_id=ANY($3::varchar[]))`,
-        [context.billingCompanyId, context.country, body.formIds]);
+      [country, JSON.stringify(policy), uid(req)]);
+      await client.query(`DELETE FROM provider_finder_country_forms WHERE country=$1 AND NOT(form_id=ANY($2::varchar[]))`,
+        [country, body.formIds]);
       for (const id of new Set(body.formIds)) {
-        const result = await client.query(`INSERT INTO provider_finder_form_bindings(form_id,billing_company_id,country) VALUES($1,$2,$3)
-          ON CONFLICT(form_id) DO UPDATE SET country=EXCLUDED.country
-          WHERE provider_finder_form_bindings.billing_company_id=EXCLUDED.billing_company_id RETURNING form_id`,
-        [id, context.billingCompanyId, context.country]);
-        if (!result.rows.length) throw new FinderError("form_already_bound", 409);
+        await client.query(`INSERT INTO provider_finder_country_forms(form_id,country) VALUES($1,$2)
+          ON CONFLICT(form_id) DO UPDATE SET country=EXCLUDED.country`, [id, country]);
       }
       await client.query("COMMIT");
       res.json({ saved: true });
     } catch (e) { await client.query("ROLLBACK"); throw e; }
     finally { client.release(); }
-  }));
+  });
+  app.get(`${root}/country-config/:country`, requireAuth, getCountryConfig);
+  app.put(`${root}/country-config/:country`, requireAuth, putCountryConfig);
+  app.get(`${root}/config/:company/:country`, requireAuth, getCountryConfig);
+  app.put(`${root}/config/:company/:country`, requireAuth, putCountryConfig);
   app.get(`${root}/directory/:company/:country`, requireAuth, route(async (req, res) => {
     const { context, actor } = await internal(req, true);
     const q = z.string().max(100).parse(req.query.q || "").toLocaleLowerCase();
@@ -106,29 +103,8 @@ export function registerProviderFinderRoutes(app: Express, requireAuth: RequestH
     res.json({ total: matches.length, providers: matches.slice(0, 100) });
   }));
   app.put(`${root}/profile/:company/:country`, requireAuth, route(async (req, res) => {
-    const { context } = await internal(req, true);
-    const profile = profileSchema.parse(req.body);
-    const policyRow = await pool.query("SELECT 1 FROM provider_finder_policies WHERE billing_company_id=$1 AND country=$2", [context.billingCompanyId, context.country]);
-    if (!policyRow.rows.length) throw new FinderError("not_configured", 409);
-    if (profile.contractValidFrom && profile.contractValidTo && profile.contractValidFrom > profile.contractValidTo) throw new FinderError("invalid");
-    if (profile.services.some(s => !context.policy.services.includes(s))) throw new FinderError("invalid");
-    const table = profile.type === "clinic" ? "clinics" : "hospitals";
-    const { rows } = await pool.query(`SELECT id FROM ${table} WHERE id=$1 AND country_code=$2`, [profile.id, context.country]);
-    if (!rows.length) throw new FinderError("not_found", 404);
-    if (profile.publicPersonIds.length) {
-      const { rows: people } = await pool.query(`SELECT DISTINCT p.id FROM contact_assignments a JOIN collaborators p ON p.id=a.person_id
-        WHERE a.entity_type=$1 AND a.entity_id=$2 AND a.is_active=true AND p.is_active=true
-        AND (a.start_date IS NULL OR a.start_date<=now()) AND (a.end_date IS NULL OR a.end_date>now())
-        AND (p.country_code=$3 OR $3=ANY(p.country_codes))`, [profile.type, profile.id, context.country]);
-      if (profile.publicPersonIds.some(id => !people.some(p => p.id === id))) throw new FinderError("invalid");
-      const actor = await finderActor(uid(req), context.country, true);
-      if (!actor.canReadPeople) throw new FinderError("forbidden", 403);
-    }
-    await pool.query(`INSERT INTO provider_finder_profiles(billing_company_id,country,facility_type,facility_id,settings,updated_by)
-      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(billing_company_id,country,facility_type,facility_id)
-      DO UPDATE SET settings=EXCLUDED.settings,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-    [context.billingCompanyId, context.country, profile.type, profile.id, JSON.stringify(profile), uid(req)]);
-    res.json({ saved: true });
+    await finderActor(uid(req), countrySchema.parse(req.params.country), true);
+    throw new FinderError("site_profiles_retired", 410);
   }));
   app.get(`${publicRoot}/config`, route(async (req, res) => res.json(await outputConfig(await publicFinderContext(req.params.slug), true))));
   app.get(`${root}/context/:company/:country`, requireAuth, route(async (req, res) => {

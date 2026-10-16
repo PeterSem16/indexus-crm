@@ -8,6 +8,12 @@ import { finderApi } from "./api";
 import "./provider-finder.css";
 
 type Candidate = { label: string; point: FinderPoint; approximate: boolean };
+type RankedFinderResult = FinderResult & {
+  cooperating?: boolean;
+  uploadedContract?: boolean;
+  hasRepresentative?: boolean;
+  priorityScore?: number;
+};
 export function ProviderFinder({ context, prefix, initialAddress = "", customerName, locale, publicView = false, onSelect, onClose, onInvalidate }: {
   context: FinderContext; prefix: string; initialAddress?: string; customerName?: string; locale: Locale;
   publicView?: boolean; onSelect: (selection: FinderSelection, result: FinderResult) => Promise<void> | void;
@@ -18,12 +24,11 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   const [point, setPoint] = useState<FinderPoint | null>(null);
   const [originLabel, setOriginLabel] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [service, setService] = useState("");
   const [radius, setRadius] = useState(context.policy.defaultRadiusKm);
   const [types, setTypes] = useState<("clinic" | "hospital")[]>(["clinic", "hospital"]);
   const [peopleOnly, setPeopleOnly] = useState(false);
   const [personQuery, setPersonQuery] = useState("");
-  const [results, setResults] = useState<FinderResult[]>([]);
+  const [results, setResults] = useState<RankedFinderResult[]>([]);
   const [missing, setMissing] = useState(0);
   const [selected, setSelected] = useState("");
   const [selectedPerson, setSelectedPerson] = useState("");
@@ -41,15 +46,15 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => {
     setAddress(initialAddress); setPoint(null); setOriginLabel(""); setCandidates([]);
-    setRadius(context.policy.defaultRadiusKm); setService(""); invalidate(); setBusy(false);
+    setRadius(context.policy.defaultRadiusKm); invalidate(); setBusy(false);
   }, [context.billingCompanyId, context.country, initialAddress]);
   const errorMessage = (e: { code?: string }) => e.code === "maps_not_configured" ? c.mapsMissing : c.error;
   async function searchAt(origin: FinderPoint) {
     const request = ++generation.current; setBusy(true); setError(""); setSelected(""); setSelectedPerson("");
     onInvalidateRef.current?.();
     try {
-      const response = await finderApi<{ results: FinderResult[]; missingLocations?: number }>(`${prefix}/search`, "POST",
-        { point: origin, radiusKm: radius, service, types, peopleOnly, personQuery });
+      const response = await finderApi<{ results: RankedFinderResult[]; missingLocations?: number }>(`${prefix}/search`, "POST",
+        { point: origin, radiusKm: radius, service: "", types, peopleOnly, personQuery });
       if (request !== generation.current) return;
       setResults(response.results); setMissing(response.missingLocations || 0); setSearched(true);
     } catch (e) {
@@ -60,7 +65,7 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
     if (!point) return;
     const timer = window.setTimeout(() => { void searchAt(point); }, 250);
     return () => window.clearTimeout(timer);
-  }, [point, radius, service, types, peopleOnly, personQuery]);
+  }, [point, radius, types, peopleOnly, personQuery]);
   async function geocode() {
     invalidate(); setPoint(null); setCandidates([]); setOriginLabel("");
     const request = ++generation.current; setBusy(true);
@@ -122,9 +127,6 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
           }}><MapPin size={14} /> {candidate.label}{candidate.approximate && <p className="pf-note">{c.approximate}</p>}</button>)}
         </div>}
         <div className="pf-fields">
-          <div className="pf-control"><label htmlFor="pf-service">{c.service}</label><select id="pf-service" value={service} disabled={saving} onChange={e => {
-            invalidate(); setService(e.target.value);
-          }}><option value="">{c.all}</option>{context.policy.services.map(s => <option key={s}>{s}</option>)}</select></div>
           <div className="pf-control"><label htmlFor="pf-radius">{c.radius}</label><div className="pf-row" style={{ flexWrap: "nowrap" }}>
             <input id="pf-radius" type="range" min={1} max={context.policy.maxRadiusKm} value={radius} disabled={saving} onChange={e => { invalidate(); setRadius(Number(e.target.value)); }} />
             <strong style={{ whiteSpace: "nowrap" }}>{radius} km</strong></div></div>
@@ -151,8 +153,11 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
                 <strong>{row.name}</strong><p className="pf-note">{c[row.type]} · {row.address}, {row.city}</p></div>
                 <span className="pf-result-distance">{row.distanceKm.toLocaleString(locale)} km</span></div>
               <div className="pf-row" style={{ marginTop: 8 }}>
-                {row.contracted && <span className="pf-tag">{c.contracted}</span>}{row.recentContact && <span className="pf-tag">{c.recent}</span>}
-                {row.services.map(s => <span className="pf-tag" key={s}>{s}</span>)}</div>
+                {!publicView && typeof row.cooperating === "boolean" && <span className="pf-tag">{c.cooperation}: {row.cooperating ? c.yes : c.no}</span>}
+                {!publicView && typeof row.uploadedContract === "boolean" && <span className="pf-tag">{c.uploadedContract}: {row.uploadedContract ? c.yes : c.no}</span>}
+                {!publicView && typeof row.hasRepresentative === "boolean" && <span className="pf-tag">{c.representative}: {row.hasRepresentative ? c.yes : c.no}</span>}
+                {!publicView && typeof row.priorityScore === "number" && <span className="pf-tag">{c.priorityScore}: {row.priorityScore}</span>}
+                {!publicView && row.recentContact && <span className="pf-tag">{c.recent}</span>}</div>
               {row.people.length > 0 && <p className="pf-note" style={{ marginTop: 5 }}>{row.people.map(p => p.name).join(" · ")}</p>}
             </button>
           </div>)}</div> : <div className="pf-empty"><MapPin size={24} /><strong>{c.empty}</strong>

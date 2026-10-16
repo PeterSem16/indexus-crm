@@ -3,17 +3,26 @@
 ## Entry points
 - Existing customer: **Find a suitable provider** in the detail view or edit card.
 - Configurator → **Billing Companies → System Settings → country** → Provider recommendations.
-  The existing country selector controls the module. Where a country has multiple billing companies,
-  select the company inside this section; policies remain company/country-scoped.
+  The existing country selector controls the module for all billing companies in that country.
 - Existing public `/f/:slug` form, when explicitly linked in that country configuration.
 
-Internal and public channels are independent and off by default. Configure and save the policy before editing site profiles.
-Services are country/company-specific labels; assign them to each site. Public sites, public contacts and public Persons all require explicit publication.
-Persons use current active workplace assignments, never private addresses.
+Internal and public channels are independent and off by default. There is no company chooser and no site-publication/services editor.
+All active clinics/hospitals in the selected country are eligible when they have valid coordinates and meet the configured criteria.
+Persons are shown through current active same-country workplace assignments, never private addresses or private contact details.
+Enable the optional locator for each intended public form in country settings. The form shows a button, not an expanded locator.
+Clicking opens the locator in a modal. Cancelling preserves a confirmed choice; explicit clear removes it. Submitting without a choice is allowed.
 
-Eligibility precedes ranking: active, enabled, not paused, known valid coordinates, requested service/type/Person and allowed straight-line radius.
-Optional contract priority comes before distance. Optional recent cooperation activity breaks equal-distance ties; it is not a claim about availability or a quality score.
-Clinic agreements/statuses are not automatically attributed to a billing company: explicitly confirm their applicability, or record a verified signed contract reference for the company with optional validity dates.
+Eligibility precedes ranking: active, not paused, known valid coordinates, requested type/Person, configured required criteria and straight-line radius.
+Independent required criteria are confirmed cooperation, a current uploaded contract and current representative assignment.
+Weights (0–100 each) control distance, cooperation, uploaded contract, representative and recent cooperation activity.
+Score is the sum of each satisfied criterion's weight plus distanceWeight × (1 − distance/radius).
+Higher score ranks first; distance and stable entity identity break ties. Zero-weight criteria do not influence ranking.
+Cooperation is the latest confirmed clinic `retention_active` status. An uploaded contract requires a current active clinic agreement file record;
+a signed-status label alone is not an upload. Representatives require a current temporal assignment to an active user.
+Hospitals currently have representative evidence but no equivalent facility cooperation/contract evidence; unknown does not count as true.
+Recent activity is confirmed cooperation-event activity, not a claim about capacity, availability or service quality.
+Policy is shared across the country; `billingCompanyId: "country"` is a compatibility marker in saved selections, not a real billing company.
+Legacy company policy/profile tables are preserved but no longer control eligibility. No existing public forms are enabled automatically.
 The customer selection is stored separately; an alternate search address does not update the customer.
 Public selections are revalidated on submission and stored with the order submission, not silently applied to an existing customer.
 
