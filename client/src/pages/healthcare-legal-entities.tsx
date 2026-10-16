@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Redirect, useLocation, useSearch } from "wouter";
 import { healthcareLegalEntitiesUrl } from "@/lib/healthcare-legal-entity-navigation";
-import { Activity, Building2, Clock3, Download, FileJson2, History, Plus, RefreshCw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
+import { Activity, Building2, Clock3, Download, ExternalLink, FileJson2, History, Plus, RefreshCw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
 import type { Facility, FacilityLink, FacilityType, LegalEntityDetail, LegalEntitySummary, RegistryPerson, SnapshotSummary, VerificationPreview } from "@shared/healthcare-legal-entity";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
 import { useI18n } from "@/i18n";
@@ -22,6 +22,7 @@ import { LegalEntityTable } from "@/components/healthcare-legal-entities/LegalEn
 import { LegalEntityCompanyForm } from "@/components/healthcare-legal-entities/LegalEntityCompanyForm";
 import { RegistryRolesTimeline } from "@/components/healthcare-legal-entities/RegistryRolesTimeline";
 import { RegistryCompanySiteComparison } from "@/components/healthcare-legal-entities/RegistryCompanySiteComparison";
+import { EntityDetailDrawer } from "@/components/entity-detail-drawer";
 import { cn } from "@/lib/utils";
 
 const base = "/api/healthcare-legal-entities";
@@ -282,6 +283,13 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
   }, [preview.verificationId, preview.facility]);
   const boundFacility = preview.facility?.countryCode === "SK";
   const site = facilityQuery.data?.facility;
+  const fields: Array<[string, string, string | null | undefined]> = [
+    ["name", c.companyName, preview.company.name],
+    ["ico", c.ico, preview.company.ico],
+    ["registeredAddress", c.address, preview.company.registeredAddress],
+    ["city", c.city, preview.company.city],
+    ["postalCode", c.postalCode, preview.company.postalCode],
+  ];
   return <div className="space-y-4">
     <div className="rounded-xl bg-primary/[0.045] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{preview.company.name}</h3><p className="mt-1 font-mono text-sm">{preview.company.ico}</p></div><Badge variant={preview.company.status === "active" ? "secondary" : "outline"}>{preview.company.status === "active" ? c.active : c.terminated}</Badge></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{fields.slice(1).map(([key, label, value]) => <div key={key}><span className="text-muted-foreground">{label}: </span>{value || "—"}</div>)}<div>{c.legalForm}: {preview.company.legalForm || "—"}</div></div><div className="mt-3 text-xs text-muted-foreground">{c.expires}: {dateLabel(preview.expiresAt)}</div></div>
     {errorCode && <ErrorLine code={errorCode} c={c} />}
@@ -309,8 +317,40 @@ function PersonLinkDialog({ entityId, registryPeople, c, onClose, onSaved }: any
   const mutation = useMutation({ mutationFn: () => request(`/${entityId}/person-links`, { method: "POST", body: JSON.stringify({ registryPersonKey: key, ...(create ? { createPerson: true } : { personId }), confirm: true }) }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [base, entityId] }); onSaved(); onClose(); }, onError: (e: any) => setError(e.code || "request_failed") });
   return <Dialog open onOpenChange={(v) => !v && onClose()}><DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto"><DialogHeader><DialogTitle>{c.addPerson}</DialogTitle></DialogHeader><div className="space-y-4">{registryPeople.length ? <Select value={key} onValueChange={setKey}><SelectTrigger><SelectValue placeholder={c.chooseRole} /></SelectTrigger><SelectContent>{registryPeople.map((p: RegistryPerson) => <SelectItem key={p.key} value={p.key}>{p.name} · {p.role}</SelectItem>)}</SelectContent></Select> : <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">{c.noPersonEligible}</p>}<div className="flex gap-2"><Button variant={!create ? "default" : "outline"} onClick={() => setCreate(false)}>{c.existingPerson}</Button><Button variant={create ? "default" : "outline"} onClick={() => setCreate(true)}>{c.createPerson}</Button></div>{!create && <><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={c.searchPerson} /><Select value={personId} onValueChange={setPersonId}><SelectTrigger><SelectValue placeholder={c.searchPerson} /></SelectTrigger><SelectContent>{(options.data?.items || []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</>}<label className="flex items-start gap-2 text-sm"><Checkbox checked={confirm} onCheckedChange={(v) => setConfirm(!!v)} /><span>{c.confirmRole}</span></label>{error && <ErrorLine code={error} c={c} />}<Button className="w-full" disabled={!key || !confirm || (!create && !personId) || mutation.isPending} onClick={() => mutation.mutate()}>{c.linkPerson}</Button></div></DialogContent></Dialog>;
 }
-function FacilityRow({ link, c, canManage, onEnd, ending }: { link: FacilityLink; c: HealthcareLegalEntityCopy; canManage: boolean; onEnd: () => void; ending: boolean }) {
-  return <div className="flex flex-wrap items-center justify-between gap-3 py-3"><div className="flex min-w-0 items-center gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">{link.facilityType === "clinic" ? <Stethoscope className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}</div><div className="min-w-0"><div className="truncate font-medium">{link.facilityName}</div><div className="text-xs text-muted-foreground">{siteLabel(link.facilityType, c)} · {c.relationship} · {dateLabel(link.validFrom)}{link.validTo ? ` — ${dateLabel(link.validTo)}` : ""}</div></div></div><div className="flex items-center gap-2"><Badge variant={link.validTo ? "outline" : "secondary"}>{link.validTo ? c.ended : c.current}</Badge>{canManage && !link.validTo && <Button size="sm" variant="ghost" disabled={ending} onClick={onEnd}>{c.endLink}</Button>}</div></div>;
+export function FacilityRow({ link, c, canManage, onEnd, ending }: { link: FacilityLink; c: HealthcareLegalEntityCopy; canManage: boolean; onEnd: () => void; ending: boolean }) {
+  const { t } = useI18n();
+  const { canAccessModule } = usePermissions();
+  const [cardOpen, setCardOpen] = useState(false);
+  const canOpenCard = canAccessModule("hospitals");
+  const closeCard = () => {
+    setCardOpen(false);
+    queryClient.invalidateQueries({ queryKey: [base, link.legalEntityId] });
+  };
+  return <>
+    <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          {link.facilityType === "clinic" ? <Stethoscope className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+        </div>
+        <div className="min-w-0">
+          {canOpenCard ? (
+            <button type="button" onClick={() => setCardOpen(true)} className="block max-w-full truncate text-left font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`legal-entity-open-site-name-${link.id}`}>
+              {link.facilityName}
+            </button>
+          ) : <div className="truncate font-medium">{link.facilityName}</div>}
+          <div className="text-xs text-muted-foreground">{siteLabel(link.facilityType, c)} · {c.relationship} · {dateLabel(link.validFrom)}{link.validTo ? ` — ${dateLabel(link.validTo)}` : ""}</div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={link.validTo ? "outline" : "secondary"}>{link.validTo ? c.ended : c.current}</Badge>
+        {canOpenCard && <Button type="button" size="sm" variant="ghost" onClick={() => setCardOpen(true)} data-testid={`legal-entity-open-site-${link.id}`}>
+          <ExternalLink className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{t.callAnalysis.reviewOpenFullCard}
+        </Button>}
+        {canManage && !link.validTo && <Button type="button" size="sm" variant="ghost" disabled={ending} onClick={onEnd}>{c.endLink}</Button>}
+      </div>
+    </div>
+    {cardOpen && canOpenCard && <EntityDetailDrawer entity={{ type: link.facilityType, id: link.facilityId }} onClose={closeCard} />}
+  </>;
 }
 function Metric({ icon: Icon, label, value }: any) { return <div className="min-w-0"><div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"><Icon className="h-3 w-3" />{label}</div><div className="mt-1 truncate text-sm font-medium">{value}</div></div>; }
 function LabelText({ label }: { label: string }) { return <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>; }
