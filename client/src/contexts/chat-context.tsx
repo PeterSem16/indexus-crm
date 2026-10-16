@@ -212,8 +212,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
               const next = new Map(previous); next.delete(data.senderId); return next;
             });
             void queryClient.invalidateQueries({ predicate: query =>
-              String(query.queryKey[0]).startsWith("/api/notifications") ||
-              query.queryKey[0] === "/api/chat/conversations" });
+              String(query.queryKey[0]).startsWith("/api/notifications") });
             window.dispatchEvent(new CustomEvent("chat_read_confirmed", { detail: { senderId: data.senderId } }));
             break;
            case "error":

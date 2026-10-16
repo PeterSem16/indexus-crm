@@ -41080,6 +41080,11 @@ Rules:
             });
             void notificationService.broadcastExistingNotification(chatNotification)
               .catch(() => console.error("[Chat] Notification delivery failed; persisted for recipient"));
+            // This transaction bypasses storage.createChatMessage. Publish only
+            // after commit, without allowing analysis failures to block delivery.
+            void import("./lib/automation-communication-sources")
+              .then(module => module.publishCommunicationServiceSource("chat", chatMsg.id))
+              .catch(() => console.error("[Automation] chat source event unavailable"));
             
             // Send confirmation to sender
             ws.send(JSON.stringify({ 

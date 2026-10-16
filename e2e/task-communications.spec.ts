@@ -30,7 +30,7 @@ test("Inbox excludes other authors and changes its request scope with the Missio
   await expect(page.getByText("Own request in mission-one")).toHaveCount(0);
   await expect(page.getByText("Another agent's request")).toHaveCount(0);
 });
-async function setup(page: Page) {
+async function setup(page: Page, { echoReceipts = false } = {}) {
   const currentTasks: any[] = structuredClone(tasks);
   const unread: Record<string, number> = { a: 1, b: 0 };
   let chatSocket: any;
@@ -98,6 +98,7 @@ async function setup(page: Page) {
       } else if (message.type === "mark_read") {
         unread[message.senderId] = 0;
         socket.send(JSON.stringify({ type: "read_confirmed", senderId: message.senderId }));
+        if (echoReceipts) socket.send(JSON.stringify({ type: "messages_read", readBy: message.senderId }));
       } else if (message.type === "chat_message" && deliveries) {
         const saved = { id: `sent-${messages[message.receiverId].length}`, senderId: "viewer", receiverId: message.receiverId, content: message.content, attachments: message.attachments || [], isRead: false, createdAt: new Date().toISOString() };
         messages[message.receiverId].push(saved);
@@ -113,6 +114,28 @@ async function setup(page: Page) {
     },
   };
 }
+for (const surface of ["pulse", "omni"]) test(`peer read receipts do not cause a refresh loop while composing a reply in ${surface}`, async ({ page }) => {
+  test.setTimeout(90_000);
+  const state = await setup(page, { echoReceipts: true });
+  let chatRequests = 0;
+  page.on("request", request => { if (request.url().includes("/api/chat/")) chatRequests++; });
+  await page.goto(`/test-fixtures/task-communications.html${surface === "omni" ? "?omni" : ""}`);
+  if (surface === "pulse") await page.getByTestId("pulse-communication-center").getByRole("button", { name: new RegExp(c.directMessages) }).click();
+  await page.locator(".icp-roster").getByRole("button", { name: /Test Colleague A/ }).click();
+  const draft = page.locator(".icp-root textarea");
+  await draft.fill("Reply stays in the composer");
+  for (let i = 0; i < 5; i++) state.emitChat({ type: "messages_read", readBy: "a" });
+  await page.waitForTimeout(1500);
+  await expect(draft).toHaveValue("Reply stays in the composer");
+  expect(state.socketWrites.filter(message => message.type === "mark_read" && message.senderId === "a").length).toBeLessThanOrEqual(2);
+  expect(chatRequests).toBeLessThan(20);
+  await page.getByRole("button", { name: c.send, exact: true }).click();
+  await expect(draft).toHaveValue("");
+  state.incoming("a", "A fresh incoming reply");
+  await expect(page.locator(".icp-thread").getByText("A fresh incoming reply")).toBeVisible();
+  await expect.poll(() => state.socketWrites.filter(message => message.type === "mark_read" && message.senderId === "a").length).toBeGreaterThanOrEqual(2);
+  expect(state.errors).toEqual([]);
+});
 test("real communication center separates histories, retains per-thread drafts and answers BO questions", async ({ page }) => {
   test.setTimeout(90_000); // Cold Vite transforms the real CRM component graph.
   const state = await setup(page);

@@ -223,6 +223,9 @@ export function InternalChatPanel({
     : [], [activeId, messagesQuery.data, messagesByPartner]);
   const threadLoaded = active && !!activeId && !!partner && messagesQuery.isSuccess;
   const threadVisible = !!threadLoaded && isVisible && windowFocused;
+  const latestIncomingId = [...visibleMessages].reverse().find(message =>
+    messageValue<string>(message, "senderId") === activeId)?.id || null;
+  const readReceiptsRef = useRef(new Map<string, string | null>());
   threadVisibleRef.current = threadVisible;
   const hasPendingForActive = !!activeId && Object.values(pending).some(item => item.partnerId === activeId);
   const sendBlocked = !activeId || !activeDraft || !chat.isConnected || activeDraft.busy || activeDraft.uploadError
@@ -328,10 +331,16 @@ export function InternalChatPanel({
     };
   }, [active, threadVisible, activeId, chat.setCommunicationView]);
   useEffect(() => {
-    if (!threadVisible || !activeId) return;
+    if (!chat.isConnected) { readReceiptsRef.current.clear(); return; }
+    if (!threadVisible || !activeId || !user?.id) return;
+    const key = `${user.id}:${activeId}`;
+    // Read receipts are tied to incoming messages, not query timestamps.
+    // A peer's receipt updates query data too; acknowledging that creates a
+    // two-browser receipt/refetch loop even when no new message arrived.
+    if (readReceiptsRef.current.has(key) && readReceiptsRef.current.get(key) === latestIncomingId) return;
+    readReceiptsRef.current.set(key, latestIncomingId);
     chat.markAsRead(activeId);
-    void queryClient.invalidateQueries({ queryKey: ["/api/chat/conversations", user?.id] });
-  }, [threadVisible, activeId, messagesQuery.dataUpdatedAt, chat.markAsRead, queryClient, user?.id]);
+  }, [threadVisible, activeId, latestIncomingId, chat.isConnected, chat.markAsRead, user?.id]);
   useEffect(() => {
     if (messagesQuery.data && activeId) mergeMessages(activeId, messagesQuery.data);
   }, [messagesQuery.data, activeId, mergeMessages]);
