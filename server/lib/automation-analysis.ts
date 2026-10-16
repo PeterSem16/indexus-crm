@@ -6,7 +6,7 @@ import { eq, sql } from "drizzle-orm";
 import { db, pool } from "../db";
 import { taskAttachmentUploads, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
 import type { TaskAttachment } from "../../shared/task-attachments";
-import { loadAnalysisSource, listSourceAttachments, mailboxRequest, prepareSourceMailbox, type SourceAttachment } from "./automation-analysis-source";
+import { loadAnalysisSource, listSourceAttachments, readSourceAttachment, prepareSourceMailbox, type SourceAttachment } from "./automation-analysis-source";
 import { DATA_ROOT } from "../config/storage-paths";
 import { attachmentExtensions as extensions, prepareAnalysisAttachment, type PreparedAttachment } from "./automation-attachment-document";
 import type { CommunicationContext } from "../../shared/automation-communication-context";
@@ -97,12 +97,12 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
   if (!config) return null;
   await ensureAutomationAnalysisSchema();
   // Updated rule/source identities do not reuse a different source/configuration's result.
-  const key = createHash("sha256").update(JSON.stringify(["communication-literal-search-v1", rule.id, event.id, config])).digest("hex");
+  const key = createHash("sha256").update(JSON.stringify(["communication-private-attachments-v2", rule.id, event.id, config])).digest("hex");
   if (active.has(key)) return active.get(key)!;
   const work = (async () => {
     const source = await loadAnalysisSource(rule, event);
     if (!source) return null;
-    if (!config.analyzeContent && source.channel !== "email") return null;
+    if (!config.analyzeContent && !config.analyzeAttachments) return null;
     if (config.analyzeAttachments && source.channel === "email") await prepareSourceMailbox(source);
     const connection = await pool.connect();
     try {
@@ -126,9 +126,9 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
       try {
         if (config.analyzeContent) {
           if (source.text.trim()) Object.assign(result, await askAnalysis(source.text));
-          else if (!(source.channel === "email" && config.analyzeAttachments)) throw new Error("analysis_text_unavailable");
+          else if (!config.analyzeAttachments) throw new Error("analysis_text_unavailable");
         }
-        if (config.analyzeAttachments && source.channel === "email") {
+        if (config.analyzeAttachments) {
           const attachments = await listSourceAttachments(source);
           if (attachments.length > 10) throw new Error("analysis_attachment_limit");
           result.attachmentCount = attachments.length;
@@ -138,15 +138,13 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
             try {
               if (attachment.size > 15 * 1024 * 1024 || attachment.size < 0)
                 throw new Error("analysis_unsupported_attachment");
-              const downloaded = attachment.contentBytes ? attachment : await mailboxRequest(source, `/attachments/${encodeURIComponent(attachment.id)}`);
-              if (typeof downloaded.contentBytes !== "string") throw new Error("analysis_attachment_unavailable");
-              const bytes = Buffer.from(downloaded.contentBytes, "base64");
+              const bytes = await readSourceAttachment(source, attachment);
               totalBytes += bytes.length;
               if (bytes.length > 15 * 1024 * 1024 || totalBytes > 25 * 1024 * 1024) throw new Error("analysis_attachment_limit");
               const prepared = await prepareAnalysisAttachment(bytes, attachment.contentType, attachment.name);
               if (prepared.text !== undefined) searchDocument = { text: prepared.text, complete: true };
               const extractText = !!config.textSearch && config.textSearch.scope !== "content" && prepared.text === undefined;
-              const classified = await askAnalysis("Classify this email attachment by its document content.", prepared, extractText);
+              const classified = await askAnalysis("Classify this communication attachment by its document content.", prepared, extractText);
               if (extractText) searchDocument = { text: classified.documentText ?? null, complete: classified.documentTextComplete === true };
               // Keep the original Office/image bytes, not the extracted text, on the Task.
               const snapshot = await storeSnapshot({ ...attachment, contentType: prepared.mime }, bytes, rule.createdByUserId!, connection);
@@ -159,8 +157,8 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
           result.hasInvoice = result.invoiceCount > 0 ? true : result.failedAttachmentCount ? null : false;
         }
         if (config.textSearch) {
-          // No email attachments can exist on an SMS/call/Task/chat. Do not search filenames or AI summaries.
-          if (source.channel === "email" && !config.analyzeAttachments) searchAttachmentsComplete = false;
+          // Do not treat skipped email/chat/task attachments as a completed negative search.
+          if (["email", "chat", "task"].includes(source.channel) && !config.analyzeAttachments) searchAttachmentsComplete = false;
           Object.assign(result, evaluateTextSearch(config.textSearch,
             { text: source.text || null, complete: !!source.text }, searchDocuments, searchAttachmentsComplete));
         }

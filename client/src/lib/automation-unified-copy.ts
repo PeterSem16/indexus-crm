@@ -2,7 +2,7 @@ import type { Locale } from "@/i18n";
 
 const copy = {
   en: {
-    communication: "Communication analysis", attachment: "Email attachment analysis", metric: "Metric monitor",
+    communication: "Communication analysis", attachment: "Attachment analysis · email, tasks and chat", metric: "Metric monitor",
     communicationInfo: "Analyze incoming messages before rule conditions run. Choose channels and mailbox owners.",
     attachmentInfo: "Analyze message content and attachments independently, then use the results in IF conditions.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP and TXT/CSV · up to 15 MB per file. IMG must contain a supported image, not a disk image.",
@@ -21,7 +21,7 @@ const copy = {
     confirmReviewedActivation: "Activate this replacement and disable its original rule? Confirm that you reviewed its recipients and actions.",
   },
   sk: {
-    communication: "Analýza komunikácie", attachment: "Analýza e-mailových príloh", metric: "Monitor metrík",
+    communication: "Analýza komunikácie", attachment: "Analýza príloh · email, úlohy a chat", metric: "Monitor metrík",
     communicationInfo: "Analyzujte prichádzajúce správy pred vyhodnotením podmienok. Vyberte kanály a vlastníkov schránok.",
     attachmentInfo: "Samostatne analyzujte obsah správy a prílohy a použite výsledky v podmienkach.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP a TXT/CSV · do 15 MB na súbor. IMG musí obsahovať podporovaný obrázok, nie diskový obraz.",
@@ -40,7 +40,7 @@ const copy = {
     confirmReviewedActivation: "Aktivovať náhradu a vypnúť pôvodné pravidlo? Potvrďte kontrolu príjemcov a akcií.",
   },
   cs: {
-    communication: "Analýza komunikace", attachment: "Analýza e-mailových příloh", metric: "Monitor metrik",
+    communication: "Analýza komunikace", attachment: "Analýza příloh · email, úkoly a chat", metric: "Monitor metrik",
     communicationInfo: "Analyzujte příchozí zprávy před vyhodnocením podmínek. Vyberte kanály a vlastníky schránek.",
     attachmentInfo: "Samostatně analyzujte obsah zprávy a přílohy a výsledky použijte v podmínkách.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP a TXT/CSV · do 15 MB na soubor. IMG musí obsahovat podporovaný obrázek, ne obraz disku.",
@@ -59,7 +59,7 @@ const copy = {
     confirmReviewedActivation: "Aktivovat náhradu a vypnout původní pravidlo? Potvrďte kontrolu příjemců a akcí.",
   },
   hu: {
-    communication: "Kommunikációelemzés", attachment: "E-mail-mellékletek elemzése", metric: "Metrikamonitor",
+    communication: "Kommunikációelemzés", attachment: "Mellékletelemzés · e-mail, feladatok és chat", metric: "Metrikamonitor",
     communicationInfo: "A bejövő üzenetek elemzése a feltételek előtt. Válasszon csatornákat és postafiók-tulajdonosokat.",
     attachmentInfo: "Az üzenettartalom és a mellékletek külön elemzése, majd az eredmények használata a feltételekben.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP és TXT/CSV · fájlonként legfeljebb 15 MB. Az IMG támogatott képet tartalmazhat, lemezképet nem.",
@@ -78,7 +78,7 @@ const copy = {
     confirmReviewedActivation: "Aktiválja a helyettesítőt és kapcsolja ki az eredeti szabályt? Erősítse meg a címzettek és műveletek ellenőrzését.",
   },
   ro: {
-    communication: "Analiza comunicării", attachment: "Analiza atașamentelor e-mail", metric: "Monitor de metrici",
+    communication: "Analiza comunicării", attachment: "Analiza atașamentelor · e-mail, sarcini și chat", metric: "Monitor de metrici",
     communicationInfo: "Analizați mesajele primite înaintea condițiilor. Alegeți canalele și proprietarii căsuțelor.",
     attachmentInfo: "Analizați separat conținutul și atașamentele, apoi folosiți rezultatele în condiții.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP și TXT/CSV · maximum 15 MB per fișier. IMG trebuie să conțină o imagine acceptată, nu o imagine de disc.",
@@ -97,7 +97,7 @@ const copy = {
     confirmReviewedActivation: "Activați înlocuitorul și dezactivați regula originală? Confirmați că ați verificat destinatarii și acțiunile.",
   },
   it: {
-    communication: "Analisi delle comunicazioni", attachment: "Analisi allegati e-mail", metric: "Monitor metriche",
+    communication: "Analisi delle comunicazioni", attachment: "Analisi allegati · email, attività e chat", metric: "Monitor metriche",
     communicationInfo: "Analizza i messaggi in arrivo prima delle condizioni. Scegli canali e proprietari delle caselle.",
     attachmentInfo: "Analizza separatamente contenuto e allegati, poi usa i risultati nelle condizioni.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP e TXT/CSV · fino a 15 MB per file. IMG deve contenere un'immagine supportata, non un'immagine disco.",
@@ -116,7 +116,7 @@ const copy = {
     confirmReviewedActivation: "Attivare la sostituzione e disabilitare la regola originale? Conferma di aver controllato destinatari e azioni.",
   },
   de: {
-    communication: "Kommunikationsanalyse", attachment: "E-Mail-Anlagenanalyse", metric: "Metrikmonitor",
+    communication: "Kommunikationsanalyse", attachment: "Anlagenanalyse · E-Mail, Aufgaben und Chat", metric: "Metrikmonitor",
     communicationInfo: "Eingehende Nachrichten vor den Bedingungen analysieren. Kanäle und Postfachinhaber auswählen.",
     attachmentInfo: "Nachrichteninhalt und Anhänge getrennt analysieren und Ergebnisse in Bedingungen verwenden.",
     attachmentFormats: "PDF, Word (DOC/DOCX), Excel (XLS/XLSX), JPEG/JPG, PNG, WebP und TXT/CSV · bis zu 15 MB pro Datei. IMG muss ein unterstütztes Bild enthalten, kein Datenträgerabbild.",

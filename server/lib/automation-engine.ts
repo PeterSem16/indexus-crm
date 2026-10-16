@@ -1,4 +1,5 @@
 import { db, pool } from "../db";
+import { taskCommunicationSourceChanged } from "../../shared/automation-task-source";
 import { ANALYSIS_SOURCE_EVENTS, isAnalysisServiceEvent, analysisResultMatches } from "../../shared/automation-analysis-triggers";
 import { automationBranch, automationExecutableActions, automationAnalysisUnknown } from "../../shared/automation-branches";
 import { enterRuleEvaluation, type RuleEvaluationPass } from "./automation-no-match";
@@ -1706,9 +1707,7 @@ export async function processEvent(eventId: string, onlyRuleIds?: readonly strin
   const [event] = await db.select().from(workflowEvents).where(eq(workflowEvents.id, eventId));
   if (!event) return;
   if (event.source === "status-list" || event.module === "status_list") return;
-  if (event.module === "task" && !event.causationRunId && event.entityId &&
-      (event.eventType === "created" || (event.eventType === "updated" &&
-        ["title", "description", "taskText"].some(field => (event.newValues as any)?.[field] !== (event.oldValues as any)?.[field])))) {
+  if (event.entityId && taskCommunicationSourceChanged(event)) {
     try { await (await import("./automation-communication-sources")).publishTaskBodySource(event.entityId, event.id); }
     catch { console.error("[Automation] task body source event unavailable"); }
   }

@@ -1,6 +1,7 @@
 import { textSearchIssues, type TextSearchConfig } from "./automation-text-search";
 export const ANALYSIS_CHANNELS = ["email", "sms", "voice", "task", "chat"] as const;
 export type AnalysisChannel = typeof ANALYSIS_CHANNELS[number];
+export const ATTACHMENT_ANALYSIS_CHANNELS: readonly AnalysisChannel[] = ["email", "task", "chat"];
 export type CommunicationAnalysisConfig = {
   channels: AnalysisChannel[];
   mailboxUserIds?: string[];
@@ -31,7 +32,8 @@ export function analysisConfigIssues(value: unknown): string[] {
         config[key]!.some(value => typeof value !== "string" || !value.trim() || value.length > 254))) issues.push(`invalid ${key}`);
   }
   if (config.senderEmails?.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) issues.push("invalid sender email");
-  if (config.analyzeAttachments && !config.channels?.includes("email")) issues.push("attachment analysis requires the email channel");
+  if (config.analyzeAttachments && !config.channels?.some(channel => ATTACHMENT_ANALYSIS_CHANNELS.includes(channel)))
+    issues.push("attachment analysis requires email, task or chat");
   if (config.mailboxMode !== undefined && !["all", "selected"].includes(config.mailboxMode)) issues.push("invalid mailbox selection");
   if (config.mailboxMode === "selected" && !config.mailboxUserIds?.length) issues.push("choose at least one authorized mailbox");
   if (config.textSearch !== undefined) {

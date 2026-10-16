@@ -93,7 +93,7 @@ export async function executeRecordEntry(config: RecordEntryConfig, ctx: any, so
     }
     let files: any[] = [];
     if (config.mode === "invoice") {
-      if (source.channel !== "email") throw new Error("record_entry_invoice_missing");
+      if (!["email", "task", "chat"].includes(source.channel)) throw new Error("record_entry_invoice_missing");
       const invoices = (ctx.analysis?.attachments || []).filter((file: any) => file.classification === "invoice" && file.sourceAttachmentId);
       if (!invoices.length || invoices.length > 10) throw new Error("record_entry_invoice_missing");
       files = await db.select({ id: taskAttachmentUploads.id, name: taskAttachmentUploads.name,
@@ -110,7 +110,7 @@ export async function executeRecordEntry(config: RecordEntryConfig, ctx: any, so
         phone: contact.phone ? String(contact.phone) : undefined }, owner, scoped, tx);
       if ((plan.truncated || plan.records.length > 1) && config.onAmbiguous) {
         let reviewFiles = files;
-        if (!reviewFiles.length && source.channel === "email") {
+        if (!reviewFiles.length && ["email", "task", "chat"].includes(source.channel)) {
           const invoices = (ctx.analysis?.attachments || []).filter((file: any) => file.classification === "invoice" && file.sourceAttachmentId);
           if (invoices.length > 10) throw new Error("record_entry_invoice_missing");
           if (invoices.length) {

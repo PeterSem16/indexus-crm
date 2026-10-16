@@ -1,13 +1,16 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { dirname, join } from "node:path";
 import { db } from "../db";
 import { storage } from "../storage";
-import { callLogs, callRecordings, chatMessages, communicationMessages, taskComments, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
+import { callLogs, callRecordings, chatMessages, communicationMessages, taskComments, taskGroupMembers, taskAttachmentUploads, tasks, users, type WorkflowEvent, type WorkflowRule } from "../../shared/schema";
 import { communicationSourceContext, emailEnvelopeContext } from "./automation-communication-context";
 import type { CommunicationContext } from "../../shared/automation-communication-context";
 import { analysisSourceMatches, type AnalysisChannel, type CommunicationAnalysisConfig } from "../../shared/automation-analysis";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./token-crypto";
 import { getValidAccessToken } from "./ms365";
 import { canAccessTaskByPolicy } from "./task-contract";
+import { DATA_ROOT } from "../config/storage-paths";
+import { privateAnalysisAttachmentIds, readPrivateAnalysisAttachment } from "./automation-private-attachment";
 
 export type AnalysisSource = {
   channel: AnalysisChannel; ownerUserId: string; senderEmail?: string | null;
@@ -16,8 +19,15 @@ export type AnalysisSource = {
   mailboxToken?: string;
   systemMailboxCountry?: string;
   mailboxEmail?: string;
+  privateAttachments?: unknown;
 };
-export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string };
+export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string; privateStorageKey?: string };
+
+async function canReadTask(creator: any, task: typeof tasks.$inferSelect) {
+  const memberships = ["admin", "manager"].includes(creator.role) ? [] :
+    await db.select({ groupId: taskGroupMembers.groupId }).from(taskGroupMembers).where(eq(taskGroupMembers.userId, creator.id));
+  return canAccessTaskByPolicy(creator, task, new Set(memberships.map(member => member.groupId)));
+}
 
 async function sourcePerson(id: string | null | undefined) {
   if (!id) return undefined;
@@ -57,20 +67,23 @@ export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEven
     if (!message || ![message.senderId, message.receiverId].includes(creator.id)) return null;
     const [sender, recipient] = await Promise.all([sourcePerson(message.senderId), sourcePerson(message.receiverId)]);
     source = { channel: "chat", ownerUserId: message.receiverId, text: message.content,
+      privateAttachments: message.attachments,
       communication: communicationSourceContext("chat", message, message.receiverId, { sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "task.body_received") {
     const [task] = await db.select().from(tasks).where(eq(tasks.id, event.entityId));
-    if (!task || !canAccessTaskByPolicy(creator, task)) return null;
+    if (!task || !await canReadTask(creator, task)) return null;
     const [sender, recipient] = await Promise.all([sourcePerson(task.createdByUserId), sourcePerson(task.assignedUserId)]);
     source = { channel: "task", ownerUserId: creator.id, text: `${task.title}\n${task.description || ""}`,
+      privateAttachments: task.attachments,
       communication: communicationSourceContext("task", task, creator.id, { sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "task.message_received") {
     const [comment] = await db.select().from(taskComments).where(eq(taskComments.id, event.entityId));
     if (!comment) return null;
     const [task] = await db.select().from(tasks).where(eq(tasks.id, comment.taskId));
-    if (!task || !canAccessTaskByPolicy(creator, task)) return null;
+    if (!task || !await canReadTask(creator, task)) return null;
     const [sender, recipient] = await Promise.all([sourcePerson(comment.userId), sourcePerson(task.assignedUserId)]);
     source = { channel: "task", ownerUserId: creator.id, text: comment.content || "",
+      privateAttachments: (comment.metadata as any)?.attachments,
       communication: communicationSourceContext("task", comment, creator.id, { task, sender, recipient }) };
   } else if (event.module === "communication" && event.eventType === "voice.transcribed") {
     const [recording] = await db.select().from(callRecordings).where(eq(callRecordings.id, event.entityId));
@@ -126,6 +139,16 @@ export async function mailboxRequest(source: AnalysisSource, suffix: string) {
 }
 
 export async function listSourceAttachments(source: AnalysisSource): Promise<SourceAttachment[]> {
+  if (source.channel === "chat" || source.channel === "task") {
+    const ids = privateAnalysisAttachmentIds(source.privateAttachments);
+    if (!ids.length) return [];
+    const uploads = await db.select().from(taskAttachmentUploads).where(inArray(taskAttachmentUploads.id, ids));
+    return ids.map(id => {
+      const upload = uploads.find(row => row.id === id);
+      if (!upload) throw new Error("analysis_attachment_unavailable");
+      return { id, name: upload.name, contentType: upload.type, size: upload.size, privateStorageKey: upload.storageKey };
+    });
+  }
   if (source.channel !== "email") return [];
   const result = await mailboxRequest(source, "/attachments");
   if (!Array.isArray(result.value) || result["@odata.nextLink"]) throw new Error("analysis_attachment_limit");
@@ -133,4 +156,19 @@ export async function listSourceAttachments(source: AnalysisSource): Promise<Sou
     id: attachment.id, name: attachment.name, contentType: attachment.contentType, size: attachment.size,
     contentBytes: attachment.contentBytes,
   }));
+}
+
+export async function readSourceAttachment(source: AnalysisSource, attachment: SourceAttachment): Promise<Buffer> {
+  if (source.channel === "chat" || source.channel === "task") {
+    if (!attachment.privateStorageKey) throw new Error("analysis_attachment_unavailable");
+    return readPrivateAnalysisAttachment(join(dirname(DATA_ROOT), "private-task-attachments"),
+      attachment.privateStorageKey, attachment.size);
+  }
+  if (source.channel !== "email") throw new Error("analysis_attachment_unavailable");
+  const downloaded = typeof attachment.contentBytes === "string" ? attachment :
+    await mailboxRequest(source, `/attachments/${encodeURIComponent(attachment.id)}`);
+  if (typeof downloaded.contentBytes !== "string") throw new Error("analysis_attachment_unavailable");
+  if (downloaded.contentBytes.length > 4 * Math.ceil(15 * 1024 * 1024 / 3) + 4)
+    throw new Error("analysis_attachment_limit");
+  return Buffer.from(downloaded.contentBytes, "base64");
 }

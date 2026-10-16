@@ -615,8 +615,9 @@ export function validateRuleCapabilities(rule: {
         fail(`${path}.type`, "History actions require an authorized analyzed source");
       if (a.config?.mode === "invoice" && (!record(trigger) || !record(trigger.analysis) || !trigger.analysis.analyzeAttachments))
         fail(`${path}.config.mode`, "Invoice storage requires attachment analysis");
-      if (a.config?.mode === "invoice" && record(trigger) && record(trigger.analysis) && !trigger.analysis.channels?.includes("email"))
-        fail(`${path}.config.mode`, "Invoice storage requires an email source");
+      if (a.config?.mode === "invoice" && record(trigger) && record(trigger.analysis) &&
+          !trigger.analysis.channels?.some((channel: string) => ["email", "task", "chat"].includes(channel)))
+        fail(`${path}.config.mode`, "Invoice storage requires an email, task or chat source");
     }
     if (a?.type === "forward_message") {
       for (const issue of forwardActionIssues(a.config)) fail(`${path}.config`, issue);

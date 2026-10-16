@@ -17,7 +17,8 @@ for (const source of [
 ]) assert.equal(analysisSourceMatches(config, source), false);
 for (const channel of ["sms", "voice", "task", "chat"] as const)
   assert.equal(analysisSourceMatches(config, { channel, ownerUserId: "source-owner" }), true);
-assert.ok(analysisConfigIssues({ ...config, channels: ["chat"], analyzeContent: false }).length);
+assert.deepEqual(analysisConfigIssues({ ...config, channels: ["chat"], analyzeContent: false }), []);
+assert.ok(analysisConfigIssues({ ...config, channels: ["sms"], analyzeContent: false }).length);
 assert.ok(analysisConfigIssues({ ...config, senderEmails: ["malformed"] }).length);
 const rule = { module: "communication", trigger: { type: "event", entityType: "communication",
   eventType: "communication.received", analysis: config }, conditions: { field: "analysis.hasInvoice", op: "eq", value: true },

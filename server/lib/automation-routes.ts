@@ -516,7 +516,7 @@ export function registerAutomationRoutes(app: Express) {
       managedServices: [],
       analysisServices: [
         { id: "communication_analysis", label: "Communication content and sentiment analysis" },
-        { id: "attachment_analysis", label: "Email attachment classification" },
+        { id: "attachment_analysis", label: "Communication attachment classification" },
         { id: "metric_monitor", label: "Metric monitoring" },
       ],
       metricTypes: METRIC_TYPES.map(value => ({ value, label: value })),
