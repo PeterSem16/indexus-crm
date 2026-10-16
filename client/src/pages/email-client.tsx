@@ -3753,6 +3753,16 @@ export default function EmailClientPage() {
     const composeTo = params.get("compose");
     const contactSearch = params.get("contactSearch");
     const tabParam = params.get("tab");
+    if (tabParam === "email") {
+      setActiveTab("email");
+      setSelectedMailbox("all");
+      setSelectedFolderId(null);
+      setPage(0);
+      setAccumulatedEmails([]);
+      setSelectedEmail(null);
+      navigateOmni("/email", { replace: true });
+      return;
+    }
     if (tabParam === "sms" || params.has("sms")) {
       setActiveTab("sms");
       setRouteSmsId(params.get("sms"));
@@ -4000,6 +4010,7 @@ export default function EmailClientPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-email", variables.emailId] });
       refetchFolders();
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-unread-counts"] });
     },
     onError: () => {
       toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.email.readStatusError, variant: "destructive" });

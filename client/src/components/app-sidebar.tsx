@@ -36,7 +36,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { useI18n } from "@/i18n";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { SidebarNotificationBadge } from "@/components/sidebar-notification-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -60,6 +60,7 @@ import { CountryFilter } from "./country-filter";
 import { UserSettingsDialog } from "./user-settings-dialog";
 import { useMyOpenTasks } from "@/hooks/use-my-open-tasks";
 import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
+import { useOmniEmailUnread } from "@/hooks/use-omni-email-unread";
 import { useChatContext } from "@/contexts/chat-context";
 
 export function AppSidebar() {
@@ -74,6 +75,14 @@ export function AppSidebar() {
 
   const { tasks: openTasks, isError: openTasksError } = useMyOpenTasks();
   const { unread: unreadSms } = useOmniSmsUnread();
+  const { unread: unreadEmails } = useOmniEmailUnread(canAccessModule("email"));
+  const emailUnreadLabel = `${t.nexusOmni.tabs.email} · ${t.nexusOmni.notificationCenter.unread}`;
+  const omniHref = unreadSms > 0 ? "/email?tab=sms" : unreadChats > 0 ? "/email?tab=chats" : "/email?tab=email";
+  const omniCountLabel = [
+    unreadSms > 0 ? `${t.omniSms.unread}: ${unreadSms}` : "",
+    unreadChats > 0 ? `${t.taskCommunication.unreadChats}: ${unreadChats}` : "",
+    unreadEmails > 0 ? `${emailUnreadLabel}: ${unreadEmails}` : "",
+  ].filter(Boolean).join(", ");
 
   const { data: sidebarRoles = [] } = useQuery<Array<{ id: string; name: string }>>({
     queryKey: ["/api/roles"],
@@ -278,24 +287,28 @@ export function AppSidebar() {
                 <SidebarMenu>
                   {visibleNexusItems.map((item) => (
                     <SidebarMenuItem key={item.testId}>
+                      {item.testId === "nexus-omni" ? (
+                        <div className={`flex min-w-0 items-center rounded-md ${location === item.url ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}>
+                          <SidebarMenuButton asChild isActive={location === item.url} className="min-w-0 flex-1 gap-1.5">
+                            <Link href={omniHref} data-testid="nav-nexus-omni" title={omniCountLabel || item.title} aria-label={omniCountLabel ? `${item.title}, ${omniCountLabel}` : item.title}>
+                              <item.icon className="h-4 w-4" />
+                              <span className="min-w-0 truncate text-xs">{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                          <div className="sidebar-omni-counts flex shrink-0 items-center gap-1 pr-2">
+                            <SidebarNotificationBadge kind="sms" count={unreadSms} label={t.omniSms.unread} href="/email?tab=sms" testId="nexus-omni-unread-sms" />
+                            <SidebarNotificationBadge kind="chat" count={unreadChats} label={t.taskCommunication.unreadChats} href="/email?tab=chats" testId="nexus-omni-unread-chat" />
+                            <SidebarNotificationBadge kind="email" count={unreadEmails} label={emailUnreadLabel} href="/email?tab=email" testId="nexus-omni-unread-email" />
+                          </div>
+                        </div>
+                      ) : (
                       <SidebarMenuButton asChild isActive={location === item.url}>
-                        <Link className="relative" href={item.testId === "nexus-omni" && unreadSms > 0 ? "/email?tab=sms" : item.testId === "nexus-omni" && unreadChats > 0 ? "/email?tab=chats" : item.url} data-testid={`nav-${item.testId}`}>
+                        <Link className="relative" href={item.url} data-testid={`nav-${item.testId}`}>
                           <item.icon className="h-4 w-4" />
                           <span>{item.title}</span>
-                          {item.testId === "nexus-omni" && unreadSms > 0 && <Badge
-                            className="ml-auto bg-cyan-600 text-white hover:bg-cyan-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
-                            title={`${t.omniSms.title}: ${t.omniSms.unread}`}
-                            aria-label={`${t.omniSms.unread}: ${unreadSms}`}
-                            data-testid="nexus-omni-unread-sms"
-                          >{unreadSms > 99 ? "99+" : unreadSms}</Badge>}
-                          {item.testId === "nexus-omni" && unreadChats > 0 && <Badge
-                            className="ml-auto bg-violet-600 text-white hover:bg-violet-600 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:bottom-0 group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-[10px]"
-                            title={t.taskCommunication.unreadChats}
-                            aria-label={`${t.taskCommunication.unreadChats}: ${unreadChats}`}
-                            data-testid="nexus-omni-unread-chat"
-                          >{unreadChats > 99 ? "99+" : unreadChats}</Badge>}
                         </Link>
                       </SidebarMenuButton>
+                      )}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -370,7 +383,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 space-y-3">
         {user && (
           <div className="flex items-center justify-between gap-2 p-2 rounded-md bg-sidebar-accent">
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-1 items-center gap-2 min-w-0">
               <Avatar className="h-8 w-8 shrink-0">
                 <AvatarImage src={(user as any).avatarUrl || undefined} className="object-cover" />
                 <AvatarFallback className="text-xs">
@@ -380,20 +393,6 @@ export function AppSidebar() {
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium truncate">{user.fullName}</span>
-                  {openTasksCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setLocation("/email?tab=tasks&filter=open&view=my")}
-                      aria-label={`${openTasksCount} ${t.tasks.openTasks}`}
-                      title={`${openTasksCount} ${t.tasks.openTasks}`}
-                      className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      data-testid="button-open-my-tasks"
-                    >
-                      <Badge variant="destructive" className="cursor-pointer text-xs px-1.5 py-0" data-testid="badge-pending-tasks">
-                        {openTasksCount}
-                      </Badge>
-                    </button>
-                  )}
                 </div>
                 <span className="text-xs text-muted-foreground truncate">{user.role}</span>
                 {openTasksError && (
@@ -403,12 +402,16 @@ export function AppSidebar() {
                 )}
               </div>
             </div>
+            <span data-testid="badge-pending-tasks" className="contents">
+              <SidebarNotificationBadge kind="task" count={openTasksCount} label={t.tasks.openTasks} href="/email?tab=tasks&filter=open&view=my" testId="button-open-my-tasks" />
+            </span>
             <div className="flex items-center gap-1">
               <Button
                 size="icon"
                 variant="ghost"
                 onClick={() => setUserSettingsOpen(true)}
                 data-testid="button-user-settings"
+                className="h-7 w-7 shrink-0"
                 title={t.settings.tabs.profile}
               >
                 <Settings className="h-4 w-4" />
@@ -418,6 +421,7 @@ export function AppSidebar() {
                 variant="ghost"
                 onClick={handleLogout}
                 data-testid="button-logout"
+                className="h-7 w-7 shrink-0"
                 title={t.nav.logout}
               >
                 <LogOut className="h-4 w-4" />

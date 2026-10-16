@@ -1,0 +1,34 @@
+.sidebar-count-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 31px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: filter .15s ease, box-shadow .15s ease;
+}
+.sidebar-count-pill svg { width: 11px; height: 11px; flex: 0 0 11px; stroke-width: 2; }
+.sidebar-count-pill-sms { color: #075e6b; background: #d9f2f4; border-color: #b9e5e9; }
+.sidebar-count-pill-chat { color: #563789; background: #eee7f8; border-color: #ddd0f0; }
+.sidebar-count-pill-email { color: #795613; background: #f7efd9; border-color: #eadbb3; }
+.sidebar-count-pill-task { color: #922232; background: #f7e8ea; border-color: #edcdd1; }
+a.sidebar-count-pill:hover { filter: brightness(.96); text-decoration: none; }
+a.sidebar-count-pill:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.dark .sidebar-count-pill-sms { color: #a8e9ed; background: #25464a; border-color: #39666b; }
+.dark .sidebar-count-pill-chat { color: #d5c1ff; background: #423650; border-color: #675286; }
+.dark .sidebar-count-pill-email { color: #f5d995; background: #4b422d; border-color: #74613a; }
+.dark .sidebar-count-pill-task { color: #ffc2ca; background: #50363c; border-color: #774650; }
+/* A collapsed rail retains the full accessible count descriptions on its link. */
+[data-collapsible="icon"] .sidebar-omni-counts { display: none; }

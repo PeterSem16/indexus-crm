@@ -10,13 +10,9 @@ import {
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/auth-context";
+import { useOmniEmailUnread } from "@/hooks/use-omni-email-unread";
 import { formatDistanceToNow } from "date-fns";
 import { sk } from "date-fns/locale";
-
-interface UnreadCount {
-  mailbox: string;
-  unreadCount: number;
-}
 
 interface Email {
   id: string;
@@ -32,13 +28,6 @@ interface Email {
   bodyPreview: string;
 }
 
-interface UnreadCountsResponse {
-  connected: boolean;
-  counts: UnreadCount[];
-  totalUnread: number;
-  requiresReauth?: boolean;
-}
-
 interface RecentEmailsResponse {
   connected: boolean;
   emails: Email[];
@@ -51,19 +40,7 @@ export function EmailNotifications() {
   const [previousTotal, setPreviousTotal] = useState<number | null>(null);
   const [hasNewEmails, setHasNewEmails] = useState(false);
 
-  const { data: unreadData } = useQuery<UnreadCountsResponse>({
-    queryKey: ["/api/users", user?.id, "ms365-unread-counts"],
-    queryFn: async () => {
-      if (!user?.id) return { connected: false, counts: [], totalUnread: 0 };
-      const res = await fetch(`/api/users/${user.id}/ms365-unread-counts`, { credentials: "include" });
-      if (!res.ok) return { connected: false, counts: [], totalUnread: 0 };
-      return res.json();
-    },
-    enabled: !!user?.id,
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-    staleTime: 10000,
-  });
+  const { data: unreadData } = useOmniEmailUnread();
 
   const { data: recentEmails, refetch: refetchEmails } = useQuery<RecentEmailsResponse>({
     queryKey: ["/api/users", user?.id, "ms365-recent-emails", "unread"],
