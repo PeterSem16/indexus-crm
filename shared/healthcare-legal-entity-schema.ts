@@ -28,6 +28,13 @@ export const healthcareLegalEntitySnapshots = pgTable("healthcare_legal_entity_s
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const healthcareLegalEntitySnapshotReviews = pgTable("healthcare_legal_entity_snapshot_reviews", {
+  snapshotId: varchar("snapshot_id").primaryKey().references(() => healthcareLegalEntitySnapshots.id),
+  reviewedBy: varchar("reviewed_by").notNull(),
+  reviewedByName: text("reviewed_by_name").notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const healthcareLegalEntityVerifications = pgTable("healthcare_legal_entity_verifications", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   createdBy: varchar("created_by").notNull(),

@@ -1,6 +1,7 @@
 import { ArrowRight, Check, Minus, Scale } from "lucide-react";
 import type { Facility, NormalizedCompany } from "@shared/healthcare-legal-entity";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
+import { registryIdLabel } from "@/lib/healthcare-legal-entity-registry-copy";
 import "@/components/healthcare-legal-entity.css";
 
 type SiteValues = Pick<Facility, "name" | "address" | "city" | "postalCode" | "ico">;
@@ -9,6 +10,7 @@ type RegistryCompanySiteComparisonProps = {
   site: SiteValues | null | undefined;
   registryCompany: NormalizedCompany | null | undefined;
   c: HealthcareLegalEntityCopy;
+  countryCode?: string | null;
   loading?: boolean;
   embedded?: boolean;
 };
@@ -35,6 +37,7 @@ export function RegistryCompanySiteComparison({
   site,
   registryCompany,
   c,
+  countryCode,
   loading = false,
   embedded = true,
 }: RegistryCompanySiteComparisonProps) {
@@ -93,7 +96,7 @@ export function RegistryCompanySiteComparison({
           <div className="ler-compare-list">
             {comparisons.map((field, index) => (
               <article key={field.key} className={`ler-compare-row ler-row-${field.status}`} style={{ animationDelay: `${index * 45}ms` }}>
-                <div className="ler-row-heading"><strong>{c[field.label]}</strong>{renderStatus(field.status, c)}</div>
+                <div className="ler-row-heading"><strong>{field.key === "ico" ? registryIdLabel(countryCode, c) : c[field.label]}</strong>{renderStatus(field.status, c)}</div>
                 <div className="ler-value-pair">
                   <ValueCell label={c.existingValue} value={field.siteValue} missing={!comparableValue(field.siteValue) && field.status === "missing"} />
                   <ArrowRight className="ler-value-arrow" size={15} aria-hidden="true" />

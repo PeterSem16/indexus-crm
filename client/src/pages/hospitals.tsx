@@ -378,7 +378,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
                   <Label htmlFor="ed-hospital-ico">{t.healthcareLegalEntity.ico}</Label>
                   <Input id="ed-hospital-ico" value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} data-testid="input-ed-hospital-ico" />
                 </div>
-                {hospital.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
+                {["SK", "CZ", "RO"].includes(hospital.countryCode || "") && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>

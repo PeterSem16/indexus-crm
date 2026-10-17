@@ -4,8 +4,8 @@ export async function ensureHealthcareLegalEntitySchema(pool: { query: (sql: str
     ALTER TABLE hospitals ADD COLUMN IF NOT EXISTS ico text;
     CREATE TABLE IF NOT EXISTS healthcare_legal_entities (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      country_code text NOT NULL DEFAULT 'SK' CHECK(country_code='SK'),
-      ico text NOT NULL CHECK(ico ~ '^[0-9]{8}$'),
+      country_code text NOT NULL DEFAULT 'SK',
+      ico text NOT NULL,
       normalized jsonb NOT NULL,
       notes text NOT NULL DEFAULT '',
       checked_at timestamptz NOT NULL,
@@ -15,6 +15,22 @@ export async function ensureHealthcareLegalEntitySchema(pool: { query: (sql: str
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE(country_code,ico)
     );
+    -- Replace only the original SK-only checks. Keep country+identifier identity and every saved row.
+    ALTER TABLE healthcare_legal_entities DROP CONSTRAINT IF EXISTS healthcare_legal_entities_country_code_check;
+    ALTER TABLE healthcare_legal_entities DROP CONSTRAINT IF EXISTS healthcare_legal_entities_ico_check;
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='healthcare_legal_entities'::regclass
+        AND conname='hle_supported_registry_country') THEN
+        ALTER TABLE healthcare_legal_entities ADD CONSTRAINT hle_supported_registry_country
+          CHECK(country_code IN ('SK','CZ','RO'));
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='healthcare_legal_entities'::regclass
+        AND conname='hle_country_identifier') THEN
+        ALTER TABLE healthcare_legal_entities ADD CONSTRAINT hle_country_identifier CHECK(
+          (country_code IN ('SK','CZ') AND ico ~ '^[0-9]{8}$') OR
+          (country_code='RO' AND ico ~ '^[1-9][0-9]{1,9}$'));
+      END IF;
+    END $$;
     ALTER TABLE healthcare_legal_entities ADD COLUMN IF NOT EXISTS details jsonb NOT NULL DEFAULT '{}';
     CREATE TABLE IF NOT EXISTS healthcare_legal_entity_snapshots (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -26,6 +42,20 @@ export async function ensureHealthcareLegalEntitySchema(pool: { query: (sql: str
       created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS hle_snapshots_entity ON healthcare_legal_entity_snapshots(legal_entity_id,checked_at DESC);
+    CREATE INDEX IF NOT EXISTS hle_snapshots_history_order
+      ON healthcare_legal_entity_snapshots(legal_entity_id,checked_at,created_at,id);
+    CREATE TABLE IF NOT EXISTS healthcare_legal_entity_snapshot_comparison_keys (
+      snapshot_id varchar PRIMARY KEY REFERENCES healthcare_legal_entity_snapshots(id) ON DELETE CASCADE,
+      key_version integer NOT NULL,
+      comparison_key text NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS healthcare_legal_entity_snapshot_reviews (
+      snapshot_id varchar PRIMARY KEY REFERENCES healthcare_legal_entity_snapshots(id),
+      reviewed_by varchar NOT NULL REFERENCES users(id),
+      reviewed_by_name text NOT NULL,
+      reviewed_at timestamptz NOT NULL DEFAULT now()
+    );
+    ALTER TABLE healthcare_legal_entity_snapshot_reviews ADD COLUMN IF NOT EXISTS note text;
     CREATE TABLE IF NOT EXISTS healthcare_legal_entity_verifications (
       id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
       created_by varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,

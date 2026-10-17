@@ -1,19 +1,24 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { pool } from "../db";
-import { LegalEntityError, loadOrsrCompany, normalizeIco, type RegistryLoader } from "./orsr-client";
-import { facilityTypeValid, legalEntityActor, readLegalFacility, type LegalEntityActor } from "./healthcare-legal-entity-access";
+import { LegalEntityError } from "./orsr-client";
+import { loadCompanyRegistry, normalizeCompanyId, registryCountry, type CountryRegistryLoader } from "./company-registry-client";
+import { facilityTypeValid, legalEntityActor, readLegalFacility, assertLegalCountry, legalActorCountries, type LegalEntityActor } from "./healthcare-legal-entity-access";
 import {
   confirmFacilityLink, directLegalPeople, facilityLinks, inLegalTransaction, latestRegistryPeople,
-  legalAudit, legalEntityRow, legalEntitySummary, relatedLegalPeople, saveLegalVerification,
+  legalAudit, legalEntityRow, legalEntitySummary, relatedLegalPeople, saveLegalVerification, savedSnapshotComparison,
+  reviewSavedSnapshot, snapshotHistory, listLegalEntities,
 } from "./healthcare-legal-entity-store";
 import type { VerificationPreview } from "../../shared/healthcare-legal-entity";
+import { REGISTRY_REVIEW_NOTE_MAX_LENGTH } from "../../shared/healthcare-legal-entity";
 import { healthcareLegalEntityExport } from "./healthcare-legal-entity-export";
+import { healthcareLegalEntityComparisonExport } from "./healthcare-legal-entity-comparison-export";
 
 const id = z.string().trim().min(1).max(128);
 const facilityType = z.enum(["clinic", "hospital"]);
 const facilityContext = { facilityType: facilityType.optional(), facilityId: id.optional() };
-const verifySchema = z.object({ ico: z.string().max(32), ...facilityContext }).strict();
+const countrySchema = z.enum(["SK", "CZ", "RO"]);
+const verifySchema = z.object({ ico: z.string().max(32), countryCode: countrySchema.optional(), ...facilityContext }).strict();
 const linkSchema = z.object({ facilityType, facilityId: id, confirmOperator: z.literal(true), replaceExisting: z.boolean().optional() }).strict();
 const saveSchema = z.object({
   verificationId: id, ...facilityContext, confirmOperator: z.literal(true).optional(), replaceExisting: z.boolean().optional(),
@@ -23,7 +28,7 @@ const saveSchema = z.object({
 }).strict();
 type Handler = (req: Request, res: Response, actor: LegalEntityActor) => Promise<unknown>;
 
-export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: any, loader: RegistryLoader = loadOrsrCompany) {
+export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: any, loader: CountryRegistryLoader = loadCompanyRegistry) {
   const root = "/api/healthcare-legal-entities";
   const recentRequests = new Map<string, number[]>();
   const route = (permission: "read" | "manage" | "edit", handler: Handler) => async (req: Request, res: Response) => {
@@ -32,6 +37,12 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       const actor = await legalEntityActor(req.session.user!.id);
       if (!(permission === "read" ? actor.canRead : permission === "edit" ? actor.canEdit : actor.canManage))
         throw new LegalEntityError("forbidden", 403);
+      // All entity-id routes, including export, review, history and mutations, share this boundary.
+      const firstSegment = req.path.slice(root.length + 1).split("/")[0];
+      if (req.params.id && !["facilities", "persons"].includes(firstSegment)) {
+        const entity = await legalEntityRow(id.parse(req.params.id));
+        assertLegalCountry(actor, entity.country_code);
+      }
       return await handler(req, res, actor);
     } catch (error) {
       if (error instanceof LegalEntityError) return res.status(error.status).json({ error: error.code });
@@ -43,10 +54,13 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       return res.status(500).json({ error: "request_failed" });
     }
   };
-  async function verify(actor: LegalEntityActor, icoValue: string, type?: any, facilityId?: string): Promise<VerificationPreview> {
-    const ico = normalizeIco(icoValue);
+  async function verify(actor: LegalEntityActor, icoValue: string, type?: any, facilityId?: string, countryValue?: string): Promise<VerificationPreview> {
     if (Boolean(type) !== Boolean(facilityId)) throw new LegalEntityError("invalid");
     const facility = facilityId ? await readLegalFacility(type, facilityId, actor, true) : undefined;
+    const country = registryCountry(facility?.countryCode || countryValue || "SK");
+    assertLegalCountry(actor, country);
+    if (countryValue && countryValue !== country) throw new LegalEntityError("country_mismatch", 409);
+    const ico = normalizeCompanyId(icoValue, country);
     const now = Date.now();
     recentRequests.forEach((times, key) => {
       if (!times.some(time => time > now - 60_000)) recentRequests.delete(key);
@@ -54,8 +68,8 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
     const times = (recentRequests.get(actor.id) || []).filter(time => time > now - 60_000);
     if (times.length >= 6) throw new LegalEntityError("rate_limited", 429);
     recentRequests.set(actor.id, [...times, now]);
-    const result = await loader(ico);
-    if (result.company.ico !== ico || result.company.countryCode !== "SK") throw new LegalEntityError("registry_identity_conflict", 502);
+    const result = await loader(ico, country);
+    if (result.company.ico !== ico || result.company.countryCode !== country) throw new LegalEntityError("registry_identity_conflict", 502);
     const expiresAt = new Date(Date.now() + 30 * 60_000).toISOString();
     const { rows } = await pool.query(`INSERT INTO healthcare_legal_entity_verifications
       (created_by,facility_type,facility_id,normalized,registry_people,raw_data,checked_at,source_updated_at,expires_at)
@@ -64,32 +78,34 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       result.checkedAt, result.sourceUpdatedAt, expiresAt]);
     // Only temporary previews expire; saved source snapshots and audit remain durable.
     await pool.query(`DELETE FROM healthcare_legal_entity_verifications WHERE expires_at < now()-interval '2 days'`);
-    const existing = await pool.query(`SELECT id FROM healthcare_legal_entities WHERE country_code='SK' AND ico=$1`, [ico]);
+    const existing = await pool.query(`SELECT id FROM healthcare_legal_entities WHERE country_code=$2 AND ico=$1`, [ico, country]);
     return { verificationId: rows[0].id, expiresAt, company: result.company, existingEntityId: existing.rows[0]?.id || null,
       facility, registryPeople: result.registryPeople, documents: result.documents, checkedAt: result.checkedAt, sourceUpdatedAt: result.sourceUpdatedAt };
   }
 
   app.get(root, requireAuth, route("read", async (_req, res, actor) => {
-    const { rows } = await pool.query(`SELECT e.*,
-      (SELECT count(*) FROM healthcare_legal_entity_facilities l WHERE l.legal_entity_id=e.id AND l.valid_to IS NULL) AS facility_count
-      FROM healthcare_legal_entities e ORDER BY e.normalized->>'name',e.id`);
-    res.json({ items: rows.map(legalEntitySummary), canManage: actor.canManage });
+    res.json({ items: await listLegalEntities(legalActorCountries(actor)), canManage: actor.canManage,
+      countries: legalActorCountries(actor) });
   }));
   app.get(`${root}/person-options`, requireAuth, route("read", async (req, res, actor) => {
     if (!actor.canReadPersons) throw new LegalEntityError("forbidden", 403);
     const search = z.string().max(120).parse(req.query.search || "");
+    const country = countrySchema.default("SK").parse(req.query.countryCode);
+    assertLegalCountry(actor, country);
     const { rows } = await pool.query(`SELECT id,concat_ws(' ',first_name,last_name) AS name FROM collaborators
-      WHERE (country_code='SK' OR 'SK'=ANY(country_codes)) AND is_active=true
-      AND concat_ws(' ',first_name,last_name) ILIKE $1 ORDER BY last_name,first_name,id LIMIT 100`, [`%${search}%`]);
+      WHERE (country_code=$2 OR $2=ANY(country_codes)) AND is_active=true
+      AND concat_ws(' ',first_name,last_name) ILIKE $1 ORDER BY last_name,first_name,id LIMIT 100`, [`%${search}%`, country]);
     res.json({ items: rows });
   }));
   app.get(`${root}/facility-options`, requireAuth, route("read", async (req, res, actor) => {
     if (!actor.canReadFacilities) throw new LegalEntityError("forbidden", 403);
     const search = z.string().max(120).parse(req.query.search || "");
+    const country = countrySchema.default("SK").parse(req.query.countryCode);
+    assertLegalCountry(actor, country);
     const { rows } = await pool.query(`SELECT * FROM (
-      SELECT id,'clinic' AS type,name,ico,country_code AS "countryCode" FROM clinics WHERE country_code='SK'
-      UNION ALL SELECT id,'hospital' AS type,name,ico,country_code AS "countryCode" FROM hospitals WHERE country_code='SK'
-      ) f WHERE name ILIKE $1 OR ico ILIKE $1 ORDER BY name,id LIMIT 100`, [`%${search}%`]);
+      SELECT id,'clinic' AS type,name,ico,country_code AS "countryCode" FROM clinics WHERE country_code=$2
+      UNION ALL SELECT id,'hospital' AS type,name,ico,country_code AS "countryCode" FROM hospitals WHERE country_code=$2
+      ) f WHERE name ILIKE $1 OR ico ILIKE $1 ORDER BY name,id LIMIT 100`, [`%${search}%`, country]);
     res.json({ items: rows });
   }));
   app.get(`${root}/facilities/:type/:id`, requireAuth, route("read", async (req, res, actor) => {
@@ -98,21 +114,25 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       FROM healthcare_legal_entity_facilities link
       JOIN healthcare_legal_entities entity ON entity.id=link.legal_entity_id
       WHERE link.facility_type=$1 AND link.facility_id=$2 AND link.valid_to IS NULL
-        AND entity.country_code='SK' LIMIT 1`, [facility.type, facility.id]);
+        AND entity.country_code=$3 LIMIT 1`, [facility.type, facility.id, facility.countryCode]);
     res.json({ facility, links: await facilityLinks(null, facility.type, facility.id),
       registryCompany: registry.rows[0]?.normalized || null,
       canManage: actor.canManage && actor.canEditFacilities });
   }));
   app.get(`${root}/persons/:id`, requireAuth, route("read", async (req, res, actor) => {
     if (!actor.canReadPersons) throw new LegalEntityError("forbidden", 403);
-    const person = await pool.query(`SELECT id FROM collaborators WHERE id=$1 AND (country_code='SK' OR 'SK'=ANY(country_codes))`, [id.parse(req.params.id)]);
+    const countries = legalActorCountries(actor);
+    const person = await pool.query(`SELECT id FROM collaborators WHERE id=$1 AND
+      (country_code=ANY($2::text[]) OR country_codes && $2::text[])`, [id.parse(req.params.id), countries]);
     if (!person.rows.length) throw new LegalEntityError("not_found", 404);
-    res.json({ facilities: actor.canReadFacilities ? await relatedLegalPeople(null, req.params.id) : [],
-      direct: await directLegalPeople(null, req.params.id) });
+    const allowed = await pool.query(`SELECT id FROM healthcare_legal_entities WHERE country_code=ANY($1::text[])`, [countries]);
+    const ids = new Set(allowed.rows.map(row => row.id));
+    res.json({ facilities: actor.canReadFacilities ? (await relatedLegalPeople(null, req.params.id)).filter((row: { legalEntityId: string }) => ids.has(row.legalEntityId)) : [],
+      direct: (await directLegalPeople(null, req.params.id)).filter((row: { legalEntityId: string }) => ids.has(row.legalEntityId)) });
   }));
   app.post(`${root}/verify`, requireAuth, route("manage", async (req, res, actor) => {
     const body = verifySchema.parse(req.body);
-    res.json(await verify(actor, body.ico, body.facilityType, body.facilityId));
+    res.json(await verify(actor, body.ico, body.facilityType, body.facilityId, body.countryCode));
   }));
   app.post(`${root}/save`, requireAuth, route("manage", async (req, res, actor) => {
     const body = saveSchema.parse(req.body);
@@ -125,7 +145,24 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       [id.parse(req.params.snapshotId), req.params.id]);
     if (!rows[0]) throw new LegalEntityError("not_found", 404);
     res.json({ snapshot: { id: rows[0].id, checkedAt: rows[0].checked_at, sourceUpdatedAt: rows[0].source_updated_at },
+      comparison: await savedSnapshotComparison(req.params.id, req.params.snapshotId),
       ...(actor.canViewSensitive ? { rawData: rows[0].raw_data } : {}) });
+  }));
+  app.post(`${root}/:id/snapshots/:snapshotId/review`, requireAuth, route("edit", async (req, res, actor) => {
+    const { note } = z.object({ confirm: z.literal(true),
+      note: z.string().max(REGISTRY_REVIEW_NOTE_MAX_LENGTH).trim().optional(),
+    }).strict().parse(req.body);
+    res.json(await reviewSavedSnapshot(actor, id.parse(req.params.id), id.parse(req.params.snapshotId), note));
+  }));
+  app.get(`${root}/:id/snapshots/:snapshotId/comparison-export`, requireAuth, route("read", async (req, res, actor) => {
+    const locale = z.enum(["en", "sk", "cs", "hu", "ro", "it", "de"]).default("en").parse(req.query.locale);
+    const exported = await healthcareLegalEntityComparisonExport(id.parse(req.params.id), id.parse(req.params.snapshotId), actor, locale);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${exported.filename}"`);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'");
+    res.setHeader("Content-Length", Buffer.byteLength(exported.content));
+    res.end(exported.content);
   }));
   app.get(`${root}/:id/export`, requireAuth, route("read", async (req, res, actor) => {
     const snapshotId = req.query.snapshotId === undefined ? undefined : id.parse(req.query.snapshotId);
@@ -138,7 +175,7 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
   }));
   app.post(`${root}/:id/verify`, requireAuth, route("edit", async (req, res, actor) => {
     const entity = await legalEntityRow(id.parse(req.params.id));
-    res.json(await verify(actor, entity.ico));
+    res.json(await verify(actor, entity.ico, undefined, undefined, entity.country_code));
   }));
   app.patch(`${root}/:id`, requireAuth, route("edit", async (req, res, actor) => {
     const body = z.object({
@@ -194,7 +231,7 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
     if (!(actor.canReadPersons && (body.createPerson ? actor.canAddPersons : actor.canEditPersons))) throw new LegalEntityError("forbidden", 403);
     const personId = await inLegalTransaction(async client => {
       const entityId = id.parse(req.params.id);
-      await legalEntityRow(entityId, client);
+      const entity = await legalEntityRow(entityId, client);
       await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`hle-person:${entityId}:${body.registryPersonKey}`]);
       const source = (await latestRegistryPeople(entityId, client)).find(person => person.key === body.registryPersonKey);
       if (!source || !source.current) throw new LegalEntityError("registry_person_unavailable", 409);
@@ -208,14 +245,14 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       let selectedId = body.personId;
       if (selectedId) {
         const selected = await client.query(`SELECT id FROM collaborators WHERE id=$1
-          AND (country_code='SK' OR 'SK'=ANY(country_codes)) FOR SHARE`, [selectedId]);
+          AND (country_code=$2 OR $2=ANY(country_codes)) FOR SHARE`, [selectedId, entity.country_code]);
         if (!selected.rows.length) throw new LegalEntityError("forbidden", 403);
       } else {
         // Preserve the authoritative formatted name intact; never guess title/family-name boundaries.
         // A corporate member is not a natural person and cannot become a CRM Person.
         const created = await client.query(`INSERT INTO collaborators(country_code,country_codes,first_name,last_name)
-          VALUES('SK',ARRAY['SK'],$1,$2) RETURNING id`,
-        [source.lastName ? source.firstName || "" : "", source.lastName || source.name]);
+          VALUES($3,ARRAY[$3]::text[],$1,$2) RETURNING id`,
+        [source.lastName ? source.firstName || "" : "", source.lastName || source.name, entity.country_code]);
         selectedId = created.rows[0].id;
       }
       await client.query(`INSERT INTO healthcare_legal_entity_person_links(legal_entity_id,person_id,registry_person_key,role,confirmed_by)
@@ -239,10 +276,7 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
   }));
   app.get(`${root}/:id`, requireAuth, route("read", async (req, res, actor) => {
     const entity = await legalEntityRow(id.parse(req.params.id));
-    const snapshots = await pool.query(`SELECT s.id,s.checked_at AS "checkedAt",s.source_updated_at AS "sourceUpdatedAt",
-      concat_ws(' ',u.full_name) AS "createdByName",'registry' AS kind
-      FROM healthcare_legal_entity_snapshots s LEFT JOIN users u ON u.id=s.created_by WHERE s.legal_entity_id=$1
-      ORDER BY s.checked_at DESC,s.created_at DESC,s.id DESC`, [entity.id]);
+    const history = await snapshotHistory(entity.id);
     const audit = await pool.query(`SELECT a.id,a.occurred_at AS "checkedAt",NULL AS "sourceUpdatedAt",
       u.full_name AS "createdByName",a.kind,a.details FROM healthcare_legal_entity_audit a
       LEFT JOIN users u ON u.id=a.actor_id WHERE a.legal_entity_id=$1 ORDER BY a.occurred_at DESC,a.id`, [entity.id]);
@@ -252,7 +286,8 @@ export function registerHealthcareLegalEntityRoutes(app: Express, requireAuth: a
       entity: legalEntitySummary(entity), facilities: actor.canReadFacilities ? await facilityLinks(entity.id) : [],
       people: actor.canReadFacilities && actor.canReadPersons ? await relatedLegalPeople(entity.id) : [],
       registryPeople: await latestRegistryPeople(entity.id), personLinks: actor.canReadPersons ? await directLegalPeople(entity.id) : [],
-      history: snapshots.rows, audit: audit.rows, canManage: actor.canEdit, canViewSensitive: actor.canViewSensitive,
+      history, comparison: history[0] ? await savedSnapshotComparison(entity.id, history[0].id) : null,
+      audit: audit.rows, canManage: actor.canEdit, canViewSensitive: actor.canViewSensitive,
       ...(latest?.rows[0] ? { rawData: latest.rows[0].raw_data } : {}),
     });
   }));

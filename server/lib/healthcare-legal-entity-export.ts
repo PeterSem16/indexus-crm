@@ -1,4 +1,5 @@
 import type { LegalEntityActor } from "./healthcare-legal-entity-access";
+import { assertLegalCountry } from "./healthcare-legal-entity-access";
 import { LegalEntityError } from "./orsr-client";
 import { inLegalTransaction, legalEntityRow, legalEntitySummary, facilityLinks, directLegalPeople, relatedLegalPeople } from "./healthcare-legal-entity-store";
 
@@ -10,6 +11,7 @@ export async function healthcareLegalEntityExport(entityId: string, snapshotId: 
   // different "latest" source snapshot in the same downloaded file.
   await client.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
   const row = await legalEntityRow(entityId, client);
+  assertLegalCountry(actor, row.country_code);
   const result = await client.query(`SELECT * FROM healthcare_legal_entity_snapshots
     WHERE legal_entity_id=$1 AND ($2::varchar IS NULL OR id=$2)
     ORDER BY checked_at DESC,created_at DESC,id DESC LIMIT 1`, [entityId, snapshotId || null]);
@@ -28,7 +30,9 @@ export async function healthcareLegalEntityExport(entityId: string, snapshotId: 
   const bundle = {
     format: "indexus.healthcare-legal-entity.v1",
     exportedAt: new Date().toISOString(),
-    source: { provider: "OR SR", url: "https://sluzby.orsr.sk", documentFilesIncluded: false },
+    source: { provider: row.country_code === "CZ" ? "ARES" : row.country_code === "RO" ? "ANAF" : "OR SR",
+      url: row.country_code === "CZ" ? "https://ares.gov.cz" : row.country_code === "RO" ? "https://www.anaf.ro" : "https://sluzby.orsr.sk",
+      documentFilesIncluded: false },
     entity: legalEntitySummary(row),
     snapshot: {
       id: snapshot.id, checkedAt, sourceUpdatedAt: snapshot.source_updated_at,
@@ -40,7 +44,7 @@ export async function healthcareLegalEntityExport(entityId: string, snapshotId: 
     history: history.rows, audit: audit.rows,
   };
   return {
-    filename: `healthcare-legal-entity-${row.ico}-orsr-${checkedAt.slice(0, 10)}.json`,
+    filename: `healthcare-legal-entity-${row.ico}-${row.country_code === "CZ" ? "ares" : row.country_code === "RO" ? "anaf" : "orsr"}-${checkedAt.slice(0, 10)}.json`,
     content: JSON.stringify(bundle, null, 2) + "\n",
   };
   });

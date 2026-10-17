@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
 import { formatLegalForm } from "@/lib/healthcare-legal-entity-format";
+import { registryIdLabel } from "@/lib/healthcare-legal-entity-registry-copy";
 
 type Entity = LegalEntitySummary & { legalForm?: string | null; registeredAddress?: string | null };
 type Props = {
@@ -19,10 +20,11 @@ type Props = {
   failed: boolean;
   onRetry: () => void;
   onOpen: (entity: Entity) => void;
+  onOpenPending: (entity: Entity) => void;
 };
 const when = (value?: string | null) => value ? new Date(value).getTime() : 0;
 
-export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, onOpen }: Props) {
+export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, onOpen, onOpenPending }: Props) {
   const [search, setSearch] = useState("");
   const [rules, setRules] = useState<FilterRule[]>([]);
   const [sort, setSort] = useState<SortConfig | null>({ key: "name", direction: "asc" });
@@ -30,23 +32,28 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
   const pageSize = 20;
   const fields: FilterField[] = useMemo(() => [
     { key: "name", label: c.companyName, type: "text" },
-    { key: "ico", label: c.ico, type: "text" },
+    { key: "ico", label: c.businessIdentifier, type: "text" },
     { key: "city", label: c.city, type: "text" },
     { key: "legalForm", label: c.legalForm, type: "text" },
-    { key: "status", label: c.status, type: "select", options: [{ value: "active", label: c.active }, { value: "terminated", label: c.terminated }] },
+    { key: "status", label: c.status, type: "select", options: [{ value: "active", label: c.active }, { value: "terminated", label: c.terminated }, { value: "unknown", label: c.unknownStatus }] },
     { key: "facilityCount", label: c.facilities, type: "select", options: [{ value: "linked", label: c.hasLinkedSites }, { value: "none", label: c.noLinkedSites }] },
     { key: "checkedRecently", label: c.checkedPastWeek, type: "select", options: [{ value: "past7days", label: c.checkedPastWeek }] },
+    { key: "changeStatus", label: c.latestReviewStatus, type: "select", options: [{ value: "pending", label: c.changesPending }, { value: "reviewed", label: c.changesReviewed }] },
+    { key: "pendingSnapshotCount", label: c.pendingSnapshots, type: "select", options: [{ value: "pending", label: c.hasPendingSnapshots }, { value: "none", label: c.noPendingSnapshots }] },
   ], [c]);
   const presets: FilterPreset[] = useMemo(() => [
     { id: "active", label: c.activeOnly, rules: [{ id: "preset-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
     { id: "terminated", label: c.terminatedOnly, rules: [{ id: "preset-ended", conjunction: "and", field: "status", op: "is", value: "terminated" }] },
     { id: "linked", label: c.withFacilities, rules: [{ id: "preset-linked", conjunction: "and", field: "facilityCount", op: "is", value: "linked" }] },
     { id: "checked-past-week", label: c.checkedPastWeek, rules: [{ id: "preset-checked-week", conjunction: "and", field: "checkedRecently", op: "is", value: "past7days" }] },
+    { id: "pending-changes", label: c.changesPending, rules: [{ id: "preset-pending-changes", conjunction: "and", field: "changeStatus", op: "is", value: "pending" }] },
+    { id: "pending-history", label: c.hasPendingSnapshots, rules: [{ id: "preset-pending-history", conjunction: "and", field: "pendingSnapshotCount", op: "is", value: "pending" }] },
   ], [c]);
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase();
     const ruleMatches = (entity: Entity, rule: FilterRule) => {
       const value = rule.field === "facilityCount" ? ((entity.facilityCount || 0) > 0 ? "linked" : "none")
+        : rule.field === "pendingSnapshotCount" ? ((entity.pendingSnapshotCount || 0) > 0 ? "pending" : "none")
         : rule.field === "checkedRecently" ? (entity.checkedAt && Date.now() - when(entity.checkedAt) <= 7 * 24 * 60 * 60 * 1000 ? "past7days" : "")
         : rule.field === "legalForm" ? formatLegalForm(entity.legalForm)
         : String((entity as any)[rule.field] ?? "");
@@ -71,10 +78,17 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
     });
   }, [items, search, rules]);
   const columns: Column<Entity>[] = [
-    { key: "name", header: c.companyName, sortable: true, sortValue: (e) => e.name, cell: (e) => <div className="flex min-w-48 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Building2 className="h-4 w-4" /></span><div className="min-w-0"><div className="truncate font-medium text-foreground">{e.name}</div><div className="font-mono text-xs text-muted-foreground">{e.ico}</div></div></div> },
+    { key: "name", header: c.companyName, sortable: true, sortValue: (e) => e.name, cell: (e) => <div className="flex min-w-48 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Building2 className="h-4 w-4" /></span><div className="min-w-0"><div className="truncate font-medium text-foreground">{e.name}</div><div className="font-mono text-xs text-muted-foreground">{registryIdLabel(e.countryCode, c)} · {e.ico}</div></div></div> },
     { key: "city", header: c.city, sortable: true, sortValue: (e) => e.city || "", cell: (e) => <span className="text-sm">{e.city || "—"}</span> },
     { key: "legalForm", header: c.legalForm, sortable: true, sortValue: (e) => formatLegalForm(e.legalForm), cell: (e) => <span className="text-sm text-muted-foreground">{formatLegalForm(e.legalForm) || "—"}</span> },
-    { key: "status", header: c.status, sortable: true, sortValue: (e) => e.status, cell: (e) => <Badge variant={e.status === "active" ? "secondary" : "outline"}>{e.status === "active" ? c.active : c.terminated}</Badge> },
+    { key: "status", header: c.status, sortable: true, sortValue: (e) => e.status, cell: (e) => <Badge variant={e.status === "active" ? "secondary" : "outline"}>{e.status === "active" ? c.active : String(e.status) === "terminated" ? c.terminated : c.unknownStatus}</Badge> },
+    { key: "changeStatus", header: c.latestReviewStatus, cell: (e) => e.changeStatus === "pending" || e.changeStatus === "reviewed"
+      ? <Badge variant={e.changeStatus === "reviewed" ? "secondary" : "outline"}>{e.changeStatus === "reviewed" ? c.changesReviewed : c.changesPending}</Badge>
+      : <span className="text-xs text-muted-foreground">{e.changeStatus === "unchanged" ? c.registryUnchanged : "—"}</span> },
+    { key: "pendingSnapshotCount", header: c.pendingSnapshots, sortable: true, sortValue: (e) => e.pendingSnapshotCount || 0,
+      cell: (e) => e.pendingSnapshotCount
+        ? <Button variant="outline" size="sm" className="tabular-nums" aria-label={`${c.pendingSnapshots}: ${e.pendingSnapshotCount}`} onClick={(event) => { event.stopPropagation(); onOpenPending(e); }}>{e.pendingSnapshotCount}</Button>
+        : <span className="tabular-nums text-sm text-muted-foreground">0</span> },
     { key: "facilities", header: c.facilities, sortable: true, sortValue: (e) => e.facilityCount || 0, cell: (e) => <span className="tabular-nums text-sm">{e.facilityCount || 0}</span> },
     { key: "checkedAt", header: c.checkedAt, sortable: true, sortValue: (e) => when(e.checkedAt), cell: (e) => <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock3 className="h-3.5 w-3.5" />{e.checkedAt ? new Date(e.checkedAt).toLocaleDateString(locale === "sk" ? "sk-SK" : locale) : "—"}</span> },
   ];
@@ -88,6 +102,7 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
         case "legalForm": return formatLegalForm(entity.legalForm);
         case "status": return entity.status;
         case "facilities": return entity.facilityCount || 0;
+        case "pendingSnapshotCount": return entity.pendingSnapshotCount || 0;
         case "checkedAt": return when(entity.checkedAt);
         default: return entity.name;
       }
@@ -103,14 +118,20 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
   return <Card className="overflow-hidden border-border/80 shadow-sm">
     <CardContent className="p-0">
       <div className="border-b bg-card px-4 py-4 sm:px-5">
-        <EntityFilter searchQuery={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} searchPlaceholder={c.search}
+        {!loading && !failed && <div className="mb-3 space-y-2">
+          <Button size="sm" variant="outline" data-testid="filter-pending-registry-snapshots" onClick={() => {
+            setSearch(""); setRules([{ id: "pending-history", conjunction: "and", field: "pendingSnapshotCount", op: "is", value: "pending" }]); setPage(1);
+          }}>{c.pendingSnapshots}: <span className="ml-2 tabular-nums">{items.reduce((sum, entity) => sum + (entity.pendingSnapshotCount || 0), 0)}</span></Button>
+          <p className="text-xs text-muted-foreground">{c.reviewScopeHint}</p>
+        </div>}
+        <EntityFilter searchQuery={search} onSearchChange={(value) => { setSearch(value); setPage(1); }} searchPlaceholder={c.searchEntities}
           rules={rules} onRulesChange={(value) => { setRules(value); setPage(1); }} fields={fields} presets={presets}
           totalCount={items.length} visibleCount={filtered.length} storageKey="entity-filter:healthcare-legal-entities"
           testId="filter-healthcare-legal-entities" locale={locale} showCountAlways />
       </div>
       {loading ? <div className="space-y-3 p-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
         : failed ? <div className="p-10 text-center"><p className="text-sm text-muted-foreground">{c.loadError}</p><Button className="mt-3" size="sm" variant="outline" onClick={onRetry}>{c.retry}</Button></div>
-        : filtered.length === 0 ? <div className="p-12 text-center"><span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Building2 className="h-5 w-5" /></span><h3 className="font-medium">{items.length ? c.noResults : c.empty}</h3><p className="mt-1 text-sm text-muted-foreground">{items.length ? "" : c.emptyHint}</p></div>
+        : filtered.length === 0 ? <div className="p-12 text-center"><span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Building2 className="h-5 w-5" /></span><h3 className="font-medium">{items.length ? c.noResults : c.empty}</h3><p className="mt-1 text-sm text-muted-foreground">{items.length ? "" : c.verifyIdentifierHint}</p></div>
         : <div className="p-3 sm:p-5"><DataTable columns={columns} data={visible} getRowKey={(e) => e.id} onRowClick={onOpen} sortConfig={sort} onSortChange={setSort} emptyMessage={c.noResults} tableClassName="overflow-x-auto" />
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 text-sm text-muted-foreground"><span>{c.showing} {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filtered.length)} {c.of} {filtered.length}</span>
             <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{c.previous}</Button><span className="px-2 py-1 tabular-nums">{page} / {pageCount}</span><Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(pageCount, p + 1))}>{c.next}</Button></div>

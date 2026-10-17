@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
 import { formatLegalForm } from "@/lib/healthcare-legal-entity-format";
+import { registryIdLabel } from "@/lib/healthcare-legal-entity-registry-copy";
 
 type Details = { name?: string | null; legalForm?: string | null; registeredAddress?: string | null; city?: string | null; postalCode?: string | null };
 type Entity = LegalEntitySummary & { details?: Details; registryCompany?: Partial<LegalEntitySummary> };
@@ -67,8 +68,8 @@ export function LegalEntityCompanyForm({ entity, c, canEdit, pending, saveVersio
     <section className="rounded-xl border bg-card p-4 sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold">{c.details}</h3><p className="mt-1 text-xs text-muted-foreground">{c.localFieldsNote}</p></div><span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">{c.localValues}</span></div>
       <div className="grid gap-x-5 gap-y-4 sm:grid-cols-2">
-        <div><Label>{c.ico}</Label><Input className="mt-1.5 bg-muted/50 font-mono" value={entity.ico} readOnly aria-readonly="true" /><p className="mt-1 text-[11px] text-muted-foreground">{c.registryReadOnly}</p></div>
-        <div><Label>{c.status}</Label><Input className="mt-1.5 bg-muted/50" value={entity.status === "active" ? c.active : c.terminated} readOnly aria-readonly="true" /></div>
+        <div><Label>{registryIdLabel(entity.countryCode, c)}</Label><Input className="mt-1.5 bg-muted/50 font-mono" value={entity.ico} readOnly aria-readonly="true" /><p className="mt-1 text-[11px] text-muted-foreground">{c.registryReadOnly}</p></div>
+        <div><Label>{c.status}</Label><Input className="mt-1.5 bg-muted/50" value={entity.status === "active" ? c.active : String(entity.status) === "terminated" ? c.terminated : c.unknownStatus} readOnly aria-readonly="true" /></div>
         {names.map(([key, label]) => {
           const differsFromRegistry = values[key] !== displayValue(key, registry[key]);
           return <div key={key} className={key === "registeredAddress" ? "sm:col-span-2" : ""}><div className="mb-1.5 flex items-center justify-between gap-2"><Label htmlFor={`entity-${key}`}>{label}</Label>

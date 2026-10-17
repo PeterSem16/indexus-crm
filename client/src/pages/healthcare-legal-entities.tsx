@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Redirect, useLocation, useSearch } from "wouter";
 import { healthcareLegalEntitiesUrl } from "@/lib/healthcare-legal-entity-navigation";
 import { Activity, Building2, Clock3, Download, ExternalLink, FileJson2, History, Plus, RefreshCw, ShieldCheck, Stethoscope, UserRound } from "lucide-react";
-import type { Facility, FacilityLink, FacilityType, LegalEntityDetail, LegalEntitySummary, RegistryPerson, SnapshotSummary, VerificationPreview } from "@shared/healthcare-legal-entity";
+import type { Facility, FacilityLink, FacilityType, LegalEntityDetail, LegalEntitySummary, RegistryPerson, LegalSnapshotDetail, RegistryComparison, SavedLegalVerification, VerificationPreview } from "@shared/healthcare-legal-entity";
+import { RegistryComparisonPanel, RegistryReviewDetails } from "@/components/healthcare-legal-entity-comparison";
 import type { HealthcareLegalEntityCopy } from "@/i18n/healthcare-legal-entity-translations";
+import { withRegistryCopy } from "@/i18n/healthcare-legal-entity-translations";
 import { useI18n } from "@/i18n";
 import { usePermissions } from "@/contexts/permissions-context";
 import { queryClient } from "@/lib/queryClient";
@@ -24,6 +26,7 @@ import { RegistryRolesTimeline } from "@/components/healthcare-legal-entities/Re
 import { RegistryCompanySiteComparison } from "@/components/healthcare-legal-entities/RegistryCompanySiteComparison";
 import { EntityDetailDrawer } from "@/components/entity-detail-drawer";
 import { cn } from "@/lib/utils";
+import { registryIdLabel, registryReferenceLabel, registrySourceLabel, supportedRegistryCountry } from "@/lib/healthcare-legal-entity-registry-copy";
 
 const base = "/api/healthcare-legal-entities";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -34,6 +37,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 function dateLabel(value?: string | null) { return value ? new Date(value).toLocaleString() : "—"; }
 function siteLabel(type: FacilityType, c: HealthcareLegalEntityCopy) { return type === "clinic" ? c.clinic : c.hospital; }
+function verificationErrorText(code: string, c: HealthcareLegalEntityCopy) {
+  if (code === "operator_conflict") return c.conflict;
+  if (code === "forbidden") return c.forbidden;
+  if (code === "country_mismatch") return c.errorCountryMismatch;
+  if (code === "country_unsupported") return c.errorCountryUnsupported;
+  if (code === "ico_invalid") return c.errorIcoInvalid;
+  if (code === "rate_limited") return c.errorRateLimited;
+  return c.errors;
+}
 
 export default function HealthcareLegalEntitiesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const search = useSearch();
@@ -49,14 +61,23 @@ function HealthcareLegalEntitiesContent() {
   const selectedId = new URLSearchParams(searchString).get("id");
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [ico, setIco] = useState("");
+  const [countryCode, setCountryCode] = useState<"SK" | "CZ" | "RO">("SK");
   const [preview, setPreview] = useState<VerificationPreview | null>(null);
   const [errorCode, setErrorCode] = useState("");
-  const list = useQuery<{ items: LegalEntitySummary[]; canManage: boolean }>({
+  const [savedComparison, setSavedComparison] = useState<SavedLegalVerification | null>(null);
+  const verificationGeneration = useRef(0);
+  const currentVerifyInput = useRef({ ico, countryCode });
+  currentVerifyInput.current = { ico, countryCode };
+  const list = useQuery<{ items: LegalEntitySummary[]; canManage: boolean; countries: string[] }>({
     queryKey: [base],
     queryFn: () => request("/"),
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const availableCountries = useMemo(() => (list.data?.countries || []).filter((code): code is "SK" | "CZ" | "RO" => code === "SK" || code === "CZ" || code === "RO"), [list.data?.countries]);
+  useEffect(() => {
+    if (availableCountries.length && !availableCountries.includes(countryCode)) setCountryCode(availableCountries[0]);
+  }, [availableCountries, countryCode]);
   const detail = useQuery<LegalEntityDetail>({
     queryKey: [base, selectedId],
     queryFn: () => request(`/${selectedId}`),
@@ -65,15 +86,26 @@ function HealthcareLegalEntitiesContent() {
     refetchOnMount: "always",
   });
   const createVerify = useMutation({
-    mutationFn: (value: string) => request<VerificationPreview>("/verify", { method: "POST", body: JSON.stringify({ ico: value }) }),
-    onSuccess: (data) => { setPreview(data); setErrorCode(""); },
-    onError: (error: any) => setErrorCode(error.code || "request_failed"),
+    mutationFn: ({ value, country, token }: { value: string; country: "SK" | "CZ" | "RO"; token: number }) => request<VerificationPreview>("/verify", { method: "POST", body: JSON.stringify({ ico: value, countryCode: country }) }),
+    onSuccess: (data, variables) => {
+      if (variables.token !== verificationGeneration.current || variables.value !== currentVerifyInput.current.ico || variables.country !== currentVerifyInput.current.countryCode) return;
+      setPreview(data); setErrorCode("");
+    },
+    onError: (error: any, variables) => {
+      if (variables.token === verificationGeneration.current && variables.value === currentVerifyInput.current.ico && variables.country === currentVerifyInput.current.countryCode) setErrorCode(error.code || "request_failed");
+    },
   });
+  const beginVerification = () => {
+    const token = ++verificationGeneration.current;
+    setPreview(null);
+    createVerify.mutate({ value: ico, country: countryCode, token });
+  };
   const savePreview = useMutation({
-    mutationFn: (data: any) => request<{ entityId: string; linkId: string }>("/save", { method: "POST", body: JSON.stringify(data) }),
+    mutationFn: (data: any) => request<SavedLegalVerification>("/save", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: async (result) => {
+      setSavedComparison(result);
       await queryClient.invalidateQueries({ queryKey: [base] });
-      setVerifyOpen(false); setPreview(null); setIco("");
+      setVerifyOpen(false); setPreview(null); setIco(""); setCountryCode(availableCountries[0] || "SK");
       setLocation(healthcareLegalEntitiesUrl(`id=${encodeURIComponent(result.entityId)}`));
     },
     onError: (error: any) => setErrorCode(error.code || "request_failed"),
@@ -81,7 +113,7 @@ function HealthcareLegalEntitiesContent() {
   const allowed = canAccessModule("healthcare_legal_entities");
   const canManage = canAdd("healthcare_legal_entities") || canEdit("healthcare_legal_entities");
   const canEditEntity = canEdit("healthcare_legal_entities");
-  const canCreate = !!list.data?.canManage && canAccessModule("healthcare_legal_entities") && canAdd("healthcare_legal_entities");
+  const canCreate = !!list.data?.canManage && availableCountries.length > 0 && canAccessModule("healthcare_legal_entities") && canAdd("healthcare_legal_entities");
   const openEntity = (id: string, pendingHistory = false) => setLocation(healthcareLegalEntitiesUrl(`id=${encodeURIComponent(id)}${pendingHistory ? "&history=pending" : ""}`));
   const closeEntity = () => setLocation(healthcareLegalEntitiesUrl());
 
@@ -96,26 +128,35 @@ function HealthcareLegalEntitiesContent() {
         </div>
         {canCreate && <Button onClick={() => { setVerifyOpen(true); setErrorCode(""); }} data-testid="button-new-legal-entity"><Plus className="mr-2 h-4 w-4" />{c.newEntity}</Button>}
       </div>
-      <LegalEntityTable items={list.data?.items || []} c={c} locale={locale} loading={list.isLoading} failed={list.isError} onRetry={() => list.refetch()} onOpen={(entity) => openEntity(entity.id)} />
+      <LegalEntityTable items={list.data?.items || []} c={c} locale={locale} loading={list.isLoading} failed={list.isError} onRetry={() => list.refetch()} onOpen={(entity) => openEntity(entity.id)} onOpenPending={(entity) => openEntity(entity.id, true)} />
       <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) closeEntity(); }}>
         <SheetContent side="right" drawerWidth="wide" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
           {selectedId && (detail.isLoading ? <div className="space-y-4 p-6"><Skeleton className="h-12" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
             : detail.isError || !detail.data ? <div className="p-8"><p>{c.loadError}</p><Button className="mt-3" variant="outline" onClick={() => detail.refetch()}>{c.retry}</Button></div>
-            : <EntityDetail key={selectedId} detail={detail.data} c={c} canManage={canManage} canEditEntity={canEditEntity} onClose={closeEntity} />)}
+            : <EntityDetail key={selectedId} detail={detail.data} c={c} canManage={canManage} canEditEntity={canEditEntity} onClose={closeEntity} pendingHistory={new URLSearchParams(searchString).get("history") === "pending"} initialComparison={savedComparison?.entityId === selectedId ? savedComparison.comparison : null} />)}
         </SheetContent>
       </Sheet>
-      <VerifyDialog open={verifyOpen} onOpenChange={setVerifyOpen} c={c} ico={ico} setIco={setIco} preview={preview} setPreview={setPreview} errorCode={errorCode} onVerify={() => createVerify.mutate(ico)} verifying={createVerify.isPending} saving={savePreview.isPending} onSave={(payload: unknown) => savePreview.mutate(payload)} />
+      <VerifyDialog open={verifyOpen} onOpenChange={(value: boolean) => { if (!value) verificationGeneration.current += 1; setVerifyOpen(value); }} c={withRegistryCopy(c, countryCode)} ico={ico} setIco={setIco} countryCode={countryCode} setCountryCode={setCountryCode} availableCountries={availableCountries} preview={preview} setPreview={setPreview} errorCode={errorCode} onVerify={beginVerification} verifying={createVerify.isPending} saving={savePreview.isPending} onSave={(payload: unknown) => savePreview.mutate(payload)} />
     </div>
   );
 }
 
-function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail: LegalEntityDetail; c: HealthcareLegalEntityCopy; canManage: boolean; canEditEntity: boolean; onClose: () => void }) {
+function EntityDetail({ detail, c: baseCopy, canManage, canEditEntity, onClose, initialComparison, pendingHistory }: { detail: LegalEntityDetail; c: HealthcareLegalEntityCopy; canManage: boolean; canEditEntity: boolean; onClose: () => void; initialComparison: RegistryComparison | null; pendingHistory: boolean }) {
   const entity = detail.entity;
+  const c = withRegistryCopy(baseCopy, entity.countryCode);
   const mayManage = canManage && detail.canManage;
   const mayEdit = canEditEntity && detail.canManage;
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(pendingHistory ? "history" : "overview");
+  const [onlyPending, setOnlyPending] = useState(pendingHistory);
+  const pendingSnapshots = detail.history.filter(item => item.changeStatus === "pending");
+  const visibleHistory = onlyPending ? pendingSnapshots : detail.history;
+  useEffect(() => {
+    if (pendingHistory) { setActiveTab("history"); setOnlyPending(true); }
+  }, [pendingHistory]);
   const [notes, setNotes] = useState(entity.notes || "");
-  const [snapshot, setSnapshot] = useState<{ snapshot: SnapshotSummary; rawData?: object; audit?: Array<Record<string, any>> } | null>(null);
+  const [snapshot, setSnapshot] = useState<(LegalSnapshotDetail & { audit?: Array<Record<string, any>> }) | null>(null);
+  const [comparison, setComparison] = useState<RegistryComparison | null>(initialComparison || detail.comparison || null);
+  useEffect(() => { if (initialComparison) setComparison(initialComparison); }, [initialComparison]);
   const [raw, setRaw] = useState<Record<string, unknown> | undefined>(detail.rawData);
   const [linkOpen, setLinkOpen] = useState(false);
   const [personOpen, setPersonOpen] = useState(false);
@@ -137,6 +178,19 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
   ]);
   const notesMutation = useMutation({ mutationFn: (payload: { details?: Record<string, string | null>; notes?: string }) => request(`/${entity.id}`, { method: "PATCH", body: JSON.stringify(payload) }), onSuccess: async () => { setCompanySaveVersion((v) => v + 1); await queryClient.invalidateQueries({ queryKey: [base, entity.id] }); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
   const verifyMutation = useMutation({ mutationFn: () => request<VerificationPreview>(`/${entity.id}/verify`, { method: "POST" }), onSuccess: setVerifyPreview, onError: (e: any) => setStatusError(e.code || "request_failed") });
+  const reviewMutation = useMutation({
+    mutationFn: ({ snapshotId, note }: { snapshotId: string; note: string }) => request<RegistryComparison>(`/${entity.id}/snapshots/${snapshotId}/review`,
+      { method: "POST", body: JSON.stringify({ confirm: true, note }) }),
+    onSuccess: async (reviewed) => {
+      setComparison(current => current?.current.id === reviewed.current.id ? reviewed : current);
+      setSnapshot(current => current?.snapshot.id === reviewed.current.id
+        ? { ...current, comparison: reviewed, snapshot: reviewed.current } : current);
+      await queryClient.invalidateQueries({ queryKey: [base] });
+    },
+  });
+  useEffect(() => {
+    if (detail.comparison) setComparison(detail.comparison);
+  }, [detail.comparison]);
   const endFacility = useMutation({ mutationFn: (linkId: string) => request(`/${entity.id}/facilities/${linkId}/end`, { method: "POST" }), onSuccess: async () => { setPendingEnd(null); setStatusError(""); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
   const endPerson = useMutation({ mutationFn: (linkId: string) => request(`/${entity.id}/person-links/${linkId}/end`, { method: "POST" }), onSuccess: async () => { setPendingEnd(null); setStatusError(""); await invalidateRelated(); }, onError: (e: any) => setStatusError(e.code || "request_failed") });
   useEffect(() => {
@@ -157,8 +211,10 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
     setVerifySavePending(true);
     setVerifySaveError("");
     try {
-      await request("/save", { method: "POST", body: JSON.stringify(payload) });
+      const result = await request<SavedLegalVerification>("/save", { method: "POST", body: JSON.stringify(payload) });
+      setComparison(result.comparison);
       setVerifyPreview(null);
+      setActiveTab("history");
       await reload();
       await invalidateRelated();
     } catch (error: any) {
@@ -169,11 +225,15 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
     }
   };
   const eligibleRegistryPeople = detail.registryPeople.filter((person) => (person as RegistryPerson & { isNaturalPerson?: boolean }).isNaturalPerson !== false);
-  const downloadExport = async () => {
-    if (!detail.canViewSensitive || downloadPending) return;
+  const { locale } = useI18n();
+  const downloadExport = async (snapshotId?: string) => {
+    if ((!snapshotId && !detail.canViewSensitive) || downloadPending) return;
     setDownloadPending(true); setStatusError("");
     try {
-      const response = await fetch(`${base}/${entity.id}/export`, { credentials: "include" });
+      const path = snapshotId
+        ? `/${encodeURIComponent(entity.id)}/snapshots/${encodeURIComponent(snapshotId)}/comparison-export?locale=${encodeURIComponent(locale)}`
+        : `/${encodeURIComponent(entity.id)}/export`;
+      const response = await fetch(`${base}${path}`, { credentials: "include" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw Object.assign(new Error(body?.error || "request_failed"), { code: body?.error || (response.status === 403 ? "forbidden" : "request_failed") });
@@ -183,11 +243,13 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
       const disposition = response.headers.get("Content-Disposition") || "";
       const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
       const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-      const filename = (encoded ? decodeURIComponent(encoded) : plain) || `legal-entity-${entity.ico}.json`;
+      const sourceName = registrySourceLabel(entity.countryCode).toLowerCase().replace(/\s+/g, "-");
+      const filename = (encoded ? decodeURIComponent(encoded) : plain) || (snapshotId ? `${sourceName}-comparison-${entity.ico}.html` : `legal-entity-${entity.ico}.json`);
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = objectUrl; anchor.download = filename; document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      URL.revokeObjectURL(objectUrl);
+      // Leave the blob alive until the browser has started the download.
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch (error: any) {
       setStatusError(error?.code || "request_failed");
     } finally { setDownloadPending(false); }
@@ -199,32 +261,37 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
   return <div className="flex min-h-0 flex-1 flex-col" data-testid="legal-entity-detail">
     <SheetHeader className="shrink-0 border-b px-5 py-4 pr-14 sm:px-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0"><div className="mb-1 flex items-center gap-2"><Badge variant="outline">{entity.countryCode}</Badge><Badge variant={entity.status === "active" ? "secondary" : "outline"}>{entity.status === "active" ? c.active : c.terminated}</Badge><span className="font-mono text-xs text-muted-foreground">{entity.ico}</span></div><SheetTitle className="truncate text-xl">{entity.name}</SheetTitle><SheetDescription>{[entity.registeredAddress, entity.city, entity.postalCode].filter(Boolean).join(", ") || c.recordSource}</SheetDescription></div>
+        <div className="min-w-0"><div className="mb-1 flex items-center gap-2"><Badge variant="outline">{entity.countryCode}</Badge><Badge variant={entity.status === "active" ? "secondary" : "outline"}>{entity.status === "active" ? c.active : entity.status === "terminated" ? c.terminated : c.unknownStatus}</Badge><span className="font-mono text-xs text-muted-foreground">{registryIdLabel(entity.countryCode, c)}</span><span className="font-mono text-xs text-muted-foreground">{entity.ico}</span></div><SheetTitle className="truncate text-xl">{entity.name}</SheetTitle><SheetDescription>{[entity.registeredAddress, entity.city, entity.postalCode].filter(Boolean).join(", ") || c.registrySourceDescription}</SheetDescription></div>
         <div className="flex flex-wrap gap-2">
-          {mayManage && <Button variant="outline" size="sm" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><RefreshCw className={cn("mr-2 h-4 w-4", verifyMutation.isPending && "animate-spin")} />{c.fetchCompleteData}</Button>}
-          {detail.canViewSensitive && <Button variant="outline" size="sm" onClick={downloadExport} disabled={downloadPending} data-testid="button-download-legal-entity"><Download className="mr-2 h-4 w-4" />{downloadPending ? c.downloading : c.downloadSourceData}</Button>}
+          {mayManage && <Button variant="outline" size="sm" onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending}><RefreshCw className={cn("mr-2 h-4 w-4", verifyMutation.isPending && "animate-spin")} />{c.fetchSourceData}</Button>}
+          {detail.canViewSensitive && <Button variant="outline" size="sm" onClick={() => void downloadExport()} disabled={downloadPending} data-testid="button-download-legal-entity"><Download className="mr-2 h-4 w-4" />{downloadPending ? c.downloading : c.downloadSourceData}</Button>}
           <Button variant="ghost" size="sm" onClick={onClose} data-testid="button-close-legal-entity">{c.close}</Button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 border-t pt-3 sm:grid-cols-5">
         <Metric icon={Building2} label={c.facilities} value={String(detail.facilities.length)} />
         <Metric icon={UserRound} label={c.people} value={String(detail.registryPeople.length)} />
         <Metric icon={Clock3} label={c.checkedAt} value={dateLabel(entity.checkedAt)} />
-        <Metric icon={Activity} label={c.sourceUpdatedAt} value={entity.sourceUpdatedAt ? dateLabel(entity.sourceUpdatedAt) : "—"} />
-        <Metric icon={ShieldCheck} label={c.providerSource} value={c.recordSource} />
+        <Metric icon={Activity} label={c.registrySourceTime} value={entity.sourceUpdatedAt ? dateLabel(entity.sourceUpdatedAt) : "—"} />
+        <Metric icon={ShieldCheck} label={c.providerSource} value={registrySourceLabel(entity.countryCode)} />
       </div>
     </SheetHeader>
     <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 sm:px-7">
     <div className="sticky top-0 z-10 -mx-4 flex gap-1 overflow-x-auto border-b bg-background/95 px-4 backdrop-blur sm:-mx-7 sm:px-7">
       {tabs.map(([id, label]) => <button type="button" key={id} data-testid={`legal-entity-tab-${id}`} aria-current={activeTab === id ? "page" : undefined} onClick={() => setActiveTab(id)} className={cn("whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors", activeTab === id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground")}>{label}</button>)}
     </div>
-    {statusError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{statusError === "operator_conflict" ? c.conflict : statusError === "forbidden" ? c.forbidden : c.errors}</p>}
+     {statusError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{verificationErrorText(statusError, c)}</p>}
+    {comparison && <div className="py-4"><RegistryComparisonPanel comparison={comparison} c={c}
+      onDownload={() => void downloadExport(comparison.current.id)} downloadPending={downloadPending}
+      onReview={mayEdit ? (snapshotId, note) => reviewMutation.mutate({ snapshotId, note }) : undefined}
+      reviewing={reviewMutation.isPending} reviewError={reviewMutation.isError && reviewMutation.variables?.snapshotId === comparison.current.id} /></div>}
     <div className={cn("mx-auto w-full max-w-3xl space-y-4 py-4", activeTab !== "overview" && "hidden")} aria-hidden={activeTab !== "overview"}>
       <LegalEntityCompanyForm entity={entity as any} c={c} canEdit={mayEdit} pending={notesMutation.isPending} saveVersion={companySaveVersion} notes={notes} setNotes={setNotes} onSave={(payload) => notesMutation.mutate(payload)} />
+      <LegalEntitySourceMetadata entity={entity} c={c} />
       <details className="group rounded-xl border bg-card">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4"><span className="flex items-center gap-2 font-medium"><FileJson2 className="h-4 w-4 text-primary" />{c.rawData}</span><span className="text-xs text-muted-foreground">{detail.canViewSensitive ? c.expandTechnicalData : c.sensitiveDenied}</span></summary>
         {detail.canViewSensitive && raw && <div className="space-y-4 border-t p-4">
-          <div className="rounded-lg bg-primary/[0.045] p-3"><p className="text-sm font-medium text-foreground">{c.completeDataSaved}</p><p className="mt-1 text-xs text-muted-foreground">{c.checkedAt}: {dateLabel(entity.checkedAt)}{entity.sourceUpdatedAt ? ` · ${c.sourceUpdatedAt}: ${dateLabel(entity.sourceUpdatedAt)}` : ""}</p></div>
+          <div className="rounded-lg bg-primary/[0.045] p-3"><p className="text-sm font-medium text-foreground">{c.sourceDataSaved} · {registrySourceLabel(entity.countryCode)}</p><p className="mt-1 text-xs text-muted-foreground">{c.checkedAt}: {dateLabel(entity.checkedAt)}{entity.sourceUpdatedAt ? ` · ${c.registrySourceTime}: ${dateLabel(entity.sourceUpdatedAt)}` : ""}</p></div>
           <section className="space-y-2"><h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{c.sourceDocuments}</h4>{sourceDocuments.length ? <div className="grid gap-2 sm:grid-cols-2">{sourceDocuments.map((document, index) => <div key={String(document.id || document.number || index)} className="rounded-lg border p-3"><p className="break-words text-sm font-medium">{String(document.title || document.name || document.documentType || c.sourceDocuments)}</p><p className="mt-1 break-words text-xs text-muted-foreground">{[document.number, document.type, document.date || document.createdAt, document.url || document.fileName].filter(Boolean).map(String).join(" · ") || c.documentMetadataUnavailable}</p></div>)}</div> : <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{c.documentMetadataUnavailable}</p>}</section>
           <pre className="max-h-80 overflow-auto rounded-lg bg-muted/70 p-3 text-xs leading-relaxed">{JSON.stringify(raw, null, 2)}</pre>
         </div>}
@@ -232,35 +299,83 @@ function EntityDetail({ detail, c, canManage, canEditEntity, onClose }: { detail
     </div>
     {activeTab === "facilities" && <Card><CardContent className="p-5"><div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">{c.facilities}</h3>{mayManage && <Button size="sm" onClick={() => setLinkOpen(true)}><Plus className="mr-2 h-4 w-4" />{c.addFacility}</Button>}</div>{detail.facilities.length ? <div className="divide-y">{detail.facilities.map((link) => <FacilityRow key={link.id} link={link} c={c} canManage={mayManage} onEnd={() => setPendingEnd({ type: "facility", id: link.id })} ending={endFacility.isPending} />)}</div> : <EmptyInline icon={Stethoscope} text={c.noFacilities} />}</CardContent></Card>}
     {activeTab === "people" && <div className="space-y-4">
-      <Card><CardContent className="p-5"><div className="mb-2 flex items-center justify-between gap-3"><h3 className="font-semibold">{c.people}</h3>{mayManage && <Button size="sm" variant="outline" onClick={() => setPersonOpen(true)}><Plus className="mr-2 h-4 w-4" />{c.addPerson}</Button>}</div><p className="mb-4 text-xs text-muted-foreground">{c.registryNote}</p>{detail.registryPeople.length ? <RegistryRolesTimeline people={detail.registryPeople} c={c} /> : <EmptyInline icon={UserRound} text={c.noRegistryPeople} />}</CardContent></Card>
+      <Card><CardContent className="p-5"><div className="mb-2 flex items-center justify-between gap-3"><h3 className="font-semibold">{c.people}</h3>{mayManage && entity.countryCode !== "RO" && entity.countryCode !== "CZ" && <Button size="sm" variant="outline" onClick={() => setPersonOpen(true)}><Plus className="mr-2 h-4 w-4" />{c.addPerson}</Button>}</div><p className="mb-4 text-xs text-muted-foreground">{entity.countryCode === "RO" ? c.anafLimitation : entity.countryCode === "CZ" ? c.aresLimitation : c.registryNote}</p>{detail.registryPeople.length ? <RegistryRolesTimeline people={detail.registryPeople} c={c} /> : entity.countryCode === "RO" ? <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">{c.anafLimitation}</p> : entity.countryCode === "CZ" ? <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">{c.aresLimitation}</p> : <EmptyInline icon={UserRound} text={c.noRegistryPeople} />}</CardContent></Card>
       <Card><CardContent className="p-5"><h3 className="mb-4 font-semibold">{c.addPerson}</h3>{detail.personLinks.length ? <div className="divide-y">{detail.personLinks.map((link) => <div key={link.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><div className="font-medium">{link.personName}</div><div className="text-sm text-muted-foreground">{link.role}</div></div><div className="flex items-center gap-2"><Badge variant={link.validTo ? "outline" : "secondary"}>{link.validTo ? c.ended : c.current}</Badge>{mayManage && !link.validTo && <Button variant="ghost" size="sm" onClick={() => setPendingEnd({ type: "person", id: link.id })}>{c.endPersonLink}</Button>}</div></div>)}</div> : <EmptyInline icon={UserRound} text={c.noPeople} />}</CardContent></Card>
       <Card><CardContent className="p-5"><h3 className="mb-1 font-semibold">{c.indirectPeople}</h3><p className="mb-3 text-xs text-muted-foreground">{c.registryNote}</p>{detail.people.length ? <div className="divide-y">{detail.people.map((person, i) => <div key={`${person.personId}-${person.facilityId}-${i}`} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><div className="font-medium">{person.personName}</div><div className="text-sm text-muted-foreground">{person.facilityName} · {siteLabel(person.facilityType, c)}</div></div><Badge variant="outline">{person.role || "—"}</Badge></div>)}</div> : <EmptyInline icon={UserRound} text={c.noIndirectPeople} />}</CardContent></Card>
     </div>}
-    {activeTab === "history" && <Card><CardContent className="p-5"><h3 className="mb-4 flex items-center gap-2 font-semibold"><History className="h-4 w-4 text-primary" />{c.history}</h3>{detail.history.length ? <div className="relative space-y-3 before:absolute before:bottom-3 before:left-[11px] before:top-3 before:w-px before:bg-border">{detail.history.map((item) => <div key={item.id} className="relative flex flex-wrap items-center justify-between gap-3 pl-8"><span className="absolute left-1.5 top-2 h-3 w-3 rounded-full border-2 border-primary bg-background" /><div><div className="font-medium">{dateLabel(item.checkedAt)}</div><div className="text-xs text-muted-foreground">{item.createdByName || c.recordSource}</div></div><Button size="sm" variant="outline" onClick={async () => { try { const res = await request<{ snapshot: SnapshotSummary; rawData?: object; audit?: Array<Record<string, any>> }>(`/${entity.id}/snapshots/${item.id}`); setSnapshot(res); setStatusError(""); } catch { setStatusError("request_failed"); } }}>{c.snapshot}</Button></div>)}</div> : <EmptyInline icon={History} text={c.empty} />}</CardContent></Card>}
-    {linkOpen && mayManage && <FacilityLinkDialog entityId={entity.id} c={c} onClose={() => setLinkOpen(false)} onSaved={reload} />}
-    {personOpen && mayManage && <PersonLinkDialog entityId={entity.id} registryPeople={eligibleRegistryPeople} c={c} onClose={() => setPersonOpen(false)} onSaved={reload} />}
-    <Dialog open={!!snapshot} onOpenChange={(open) => { if (!open) setSnapshot(null); }}><DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto"><DialogHeader><DialogTitle>{c.snapshot} · {dateLabel(snapshot?.snapshot.checkedAt)}</DialogTitle></DialogHeader><div className="space-y-4">{snapshot?.audit?.length ? <section className="space-y-2"><h3 className="text-sm font-semibold">{c.auditEvent}</h3>{snapshot.audit.map((event, index) => { const change = event.details ?? event.description ?? event.note ?? event.changes ?? event.metadata ?? event.beforeAfter ?? event.before ?? event.after; const kind = event.kind || event.action || event.type; const eventLabel = kind === "entity_details_updated" ? c.entityDetailsUpdated : event.summary || event.label || event.actionLabel || c.auditEvent; return <div key={`${event.id || event.createdAt || index}`} className="rounded-lg border p-3"><div className="flex flex-wrap justify-between gap-2 text-sm font-medium"><span>{eventLabel}</span><span className="text-xs text-muted-foreground">{dateLabel(event.createdAt || event.occurredAt || event.at)}</span></div>{change != null && <div className="mt-2"><div className="mb-1 text-xs font-semibold text-muted-foreground">{c.auditDetails}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{typeof change === "string" ? change : JSON.stringify(change, null, 2)}</pre></div>}</div>; })}</section> : null}{detail.canViewSensitive && snapshot?.rawData && <section><h3 className="mb-2 text-sm font-semibold">{c.rawData}</h3><pre className="max-h-[55dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot.rawData, null, 2)}</pre></section>}{!snapshot?.audit?.length && !(detail.canViewSensitive && snapshot?.rawData) && <pre className="max-h-[65dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot?.snapshot, null, 2)}</pre>}</div></DialogContent></Dialog>
+    {activeTab === "history" && <Card><CardContent className="p-5">
+      <h3 className="mb-4 flex items-center gap-2 font-semibold"><History className="h-4 w-4 text-primary" />{c.history}</h3>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button size="sm" variant={onlyPending ? "outline" : "secondary"} aria-pressed={!onlyPending} onClick={() => setOnlyPending(false)}>{c.allSnapshots} ({detail.history.length})</Button>
+        <Button size="sm" variant={onlyPending ? "secondary" : "outline"} aria-pressed={onlyPending} onClick={() => setOnlyPending(true)}>{c.pendingSnapshots} ({pendingSnapshots.length})</Button>
+      </div>
+      {visibleHistory.length ? <div className="relative space-y-3 before:absolute before:bottom-3 before:left-[11px] before:top-3 before:w-px before:bg-border">
+        {visibleHistory.map((item) => <div key={item.id} className="relative flex flex-wrap items-center justify-between gap-3 pl-8">
+          <span className="absolute left-1.5 top-2 h-3 w-3 rounded-full border-2 border-primary bg-background" />
+          <div><div className="font-medium">{c.checkedAt}: {dateLabel(item.checkedAt)}</div>
+            <div className="text-xs text-muted-foreground">{c.registrySourceTime}: {dateLabel(item.sourceUpdatedAt)}</div>
+            <div className="text-xs text-muted-foreground">{item.createdByName || c.registrySourceDescription}</div>
+            {(item.changeStatus === "pending" || item.changeStatus === "reviewed") && <Badge className="mt-1" variant={item.review ? "secondary" : "outline"}>{item.review ? c.changesReviewed : c.changesPending}</Badge>}
+            {item.review && <div className="mt-1 text-xs text-muted-foreground"><RegistryReviewDetails review={item.review} c={c} /></div>}
+          </div>
+          <Button size="sm" variant="outline" onClick={async () => {
+            try {
+              const res = await request<LegalSnapshotDetail>(`/${entity.id}/snapshots/${item.id}`);
+              setSnapshot(res); setStatusError(""); reviewMutation.reset();
+            } catch { setStatusError("request_failed"); }
+          }}>{c.snapshot}</Button>
+        </div>)}
+      </div> : <EmptyInline icon={History} text={onlyPending ? c.noPendingSnapshots : c.empty} />}
+    </CardContent></Card>}
+    {linkOpen && mayManage && <FacilityLinkDialog entityId={entity.id} countryCode={entity.countryCode} c={c} onClose={() => setLinkOpen(false)} onSaved={reload} />}
+    {personOpen && mayManage && entity.countryCode !== "RO" && entity.countryCode !== "CZ" && <PersonLinkDialog entityId={entity.id} countryCode={entity.countryCode} registryPeople={eligibleRegistryPeople} c={c} onClose={() => setPersonOpen(false)} onSaved={reload} />}
+    <Dialog open={!!snapshot} onOpenChange={(open) => { if (!open) setSnapshot(null); }}>
+      <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
+        <DialogHeader><DialogTitle>{c.snapshot} · {dateLabel(snapshot?.snapshot.checkedAt)}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          {statusError && <p role="alert" className="text-sm text-destructive">{statusError === "forbidden" ? c.forbidden : c.errors}</p>}
+          {snapshot && <RegistryComparisonPanel comparison={snapshot.comparison} c={c}
+            onDownload={() => void downloadExport(snapshot.comparison.current.id)} downloadPending={downloadPending}
+            onReview={mayEdit ? (snapshotId, note) => reviewMutation.mutate({ snapshotId, note }) : undefined}
+            reviewing={reviewMutation.isPending} reviewError={reviewMutation.isError && reviewMutation.variables?.snapshotId === snapshot.comparison.current.id} />}
+          {snapshot?.audit?.length ? <section className="space-y-2">
+            <h3 className="text-sm font-semibold">{c.auditEvent}</h3>
+            {snapshot.audit.map((event, index) => {
+              const change = event.details ?? event.description ?? event.note ?? event.changes ?? event.metadata ?? event.beforeAfter ?? event.before ?? event.after;
+              const kind = event.kind || event.action || event.type;
+              const eventLabel = kind === "entity_details_updated" ? c.entityDetailsUpdated : event.summary || event.label || event.actionLabel || c.auditEvent;
+              return <div key={`${event.id || event.createdAt || index}`} className="rounded-lg border p-3">
+                <div className="flex flex-wrap justify-between gap-2 text-sm font-medium"><span>{eventLabel}</span><span className="text-xs text-muted-foreground">{dateLabel(event.createdAt || event.occurredAt || event.at)}</span></div>
+                {change != null && <div className="mt-2"><div className="mb-1 text-xs font-semibold text-muted-foreground">{c.auditDetails}</div><pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{typeof change === "string" ? change : JSON.stringify(change, null, 2)}</pre></div>}
+              </div>;
+            })}
+          </section> : null}
+          {detail.canViewSensitive && snapshot?.rawData && <section><h3 className="mb-2 text-sm font-semibold">{c.rawData}</h3><pre className="max-h-[55dvh] overflow-auto rounded-lg bg-muted p-4 text-xs">{JSON.stringify(snapshot.rawData, null, 2)}</pre></section>}
+        </div>
+      </DialogContent>
+    </Dialog>
       <Dialog open={!!verifyPreview} onOpenChange={(open) => { if (!open) { setVerifyPreview(null); setVerifySaveError(""); } }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{c.verifyTitle}</DialogTitle></DialogHeader>{verifyPreview && <PreviewBody preview={verifyPreview} c={c} onSave={saveReverification} saving={verifySavePending} errorCode={verifySaveError} />}</DialogContent></Dialog>
     <AlertDialog open={!!pendingEnd} onOpenChange={(open) => { if (!open) setPendingEnd(null); }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{c.confirmEnd}</AlertDialogTitle><AlertDialogDescription>{c.confirmEndDescription}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{c.cancel}</AlertDialogCancel><AlertDialogAction disabled={endFacility.isPending || endPerson.isPending} onClick={(event) => { event.preventDefault(); if (!pendingEnd) return; if (pendingEnd.type === "facility") endFacility.mutate(pendingEnd.id); else endPerson.mutate(pendingEnd.id); }}>{c.confirm}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   </div>;
 }
 
-function VerifyDialog({ open, onOpenChange, c, ico, setIco, preview, setPreview, errorCode, onVerify, verifying, saving, onSave }: any) {
-  return <Dialog open={open} onOpenChange={(value) => { onOpenChange(value); if (!value) setPreview(null); }}><DialogContent className="w-[calc(100%-2rem)] max-h-[min(92dvh,850px)] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle className="text-2xl">{preview ? c.verifyTitle : c.newEntity}</DialogTitle></DialogHeader>{!preview ? <div className="space-y-4"><p className="text-sm text-muted-foreground">{c.recordSource}</p><div><LabelText label={c.ico} /><Input className="mt-2 font-mono" inputMode="numeric" autoFocus value={ico} onChange={(e) => setIco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") onVerify(); }} data-testid="input-verify-ico" /></div>{errorCode && <ErrorLine code={errorCode} c={c} />}<div className="flex justify-end"><Button onClick={onVerify} disabled={verifying || !ico.trim()} data-testid="button-verify-ico">{verifying ? c.loading : c.verify}</Button></div></div> : <PreviewBody preview={preview} c={c} onSave={onSave} saving={saving} errorCode={errorCode} onBack={() => setPreview(null)} />}</DialogContent></Dialog>;
+function VerifyDialog({ open, onOpenChange, c, ico, setIco, countryCode, setCountryCode, availableCountries, preview, setPreview, errorCode, onVerify, verifying, saving, onSave }: any) {
+  return <Dialog open={open} onOpenChange={(value) => { onOpenChange(value); if (!value) setPreview(null); }}><DialogContent className="w-[calc(100%-2rem)] max-h-[min(92dvh,850px)] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle className="text-2xl">{preview ? c.verifyTitle : c.newEntity}</DialogTitle></DialogHeader>{!preview ? <div className="space-y-4"><p className="text-sm text-muted-foreground">{c.registrySourceDescription} · {registrySourceLabel(countryCode)}</p><div><LabelText label={c.country} /><Select value={countryCode} disabled={verifying} onValueChange={(value) => setCountryCode(supportedRegistryCountry(value))}><SelectTrigger className="mt-2"><SelectValue /></SelectTrigger><SelectContent>{availableCountries.map((country: "SK" | "CZ" | "RO") => <SelectItem key={country} value={country}>{country === "SK" ? c.countrySK : country === "CZ" ? c.countryCZ : c.countryRO}</SelectItem>)}</SelectContent></Select></div><div><LabelText label={registryIdLabel(countryCode, c)} /><Input className="mt-2 font-mono" inputMode="numeric" autoFocus value={ico} disabled={verifying} onChange={(e) => setIco(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && availableCountries.includes(countryCode)) onVerify(); }} data-testid="input-verify-ico" /></div>{errorCode && <ErrorLine code={errorCode} c={c} />}<div className="flex justify-end"><Button onClick={onVerify} disabled={verifying || !ico.trim() || !availableCountries.includes(countryCode)} data-testid="button-verify-ico">{verifying ? c.loading : c.verify}</Button></div></div> : <PreviewBody preview={preview} c={c} onSave={onSave} saving={saving} errorCode={errorCode} onBack={() => setPreview(null)} />}</DialogContent></Dialog>;
 }
 function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
   const [confirmOperator, setConfirmOperator] = useState(false);
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [facilityType, setFacilityType] = useState<FacilityType>(preview.facility?.type || "clinic");
-  const initialFacilityIsSlovak = preview.facility?.countryCode === "SK";
-  const [facilityId, setFacilityId] = useState(initialFacilityIsSlovak ? preview.facility.id : "");
+  const entityCountry = supportedRegistryCountry((preview.company as any).countryCode);
+  const initialFacilityCountryMatches = supportedRegistryCountry(preview.facility?.countryCode) === entityCountry && !!preview.facility?.countryCode;
+  const [facilityId, setFacilityId] = useState(initialFacilityCountryMatches ? preview.facility.id : "");
   const [search, setSearch] = useState("");
-  const [option, setOption] = useState<Facility | null>(initialFacilityIsSlovak ? preview.facility : null);
+  const [option, setOption] = useState<Facility | null>(initialFacilityCountryMatches ? preview.facility : null);
   const options = useQuery<{ items: Array<{ id: string; type: FacilityType; name: string; ico: string | null; countryCode: string | null }> }>({
-    queryKey: [base, "facility-options", search],
-    queryFn: () => request(`/facility-options?search=${encodeURIComponent(search)}`),
-    enabled: !!search && !initialFacilityIsSlovak,
+    queryKey: [base, "facility-options", entityCountry, search],
+    queryFn: () => request(`/facility-options?search=${encodeURIComponent(search)}&countryCode=${encodeURIComponent(entityCountry)}`),
+    enabled: !!search && !initialFacilityCountryMatches,
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -272,7 +387,7 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
     refetchOnMount: "always",
   });
   useEffect(() => {
-    if (preview.facility?.countryCode === "SK") {
+    if (preview.facility?.countryCode && supportedRegistryCountry(preview.facility.countryCode) === entityCountry) {
       setOption(preview.facility);
       setFacilityId(preview.facility.id);
       setFacilityType(preview.facility.type);
@@ -280,22 +395,26 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
       setOption(null);
       setFacilityId("");
     }
-  }, [preview.verificationId, preview.facility]);
-  const boundFacility = preview.facility?.countryCode === "SK";
+  }, [preview.verificationId, preview.facility, entityCountry]);
+  const boundFacility = !!preview.facility?.countryCode && supportedRegistryCountry(preview.facility.countryCode) === entityCountry;
   const site = facilityQuery.data?.facility;
   const fields: Array<[string, string, string | null | undefined]> = [
     ["name", c.companyName, preview.company.name],
-    ["ico", c.ico, preview.company.ico],
+    ["ico", registryIdLabel(entityCountry, c), preview.company.ico],
     ["registeredAddress", c.address, preview.company.registeredAddress],
     ["city", c.city, preview.company.city],
     ["postalCode", c.postalCode, preview.company.postalCode],
   ];
   return <div className="space-y-4">
-    <div className="rounded-xl bg-primary/[0.045] p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-semibold">{preview.company.name}</h3><p className="mt-1 font-mono text-sm">{preview.company.ico}</p></div><Badge variant={preview.company.status === "active" ? "secondary" : "outline"}>{preview.company.status === "active" ? c.active : c.terminated}</Badge></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{fields.slice(1).map(([key, label, value]) => <div key={key}><span className="text-muted-foreground">{label}: </span>{value || "—"}</div>)}<div>{c.legalForm}: {preview.company.legalForm || "—"}</div></div><div className="mt-3 text-xs text-muted-foreground">{c.expires}: {dateLabel(preview.expiresAt)}</div></div>
+    <div className="grid gap-1 text-xs text-muted-foreground">
+      <div>{c.checkedAt}: {dateLabel(preview.checkedAt)}</div>
+      <div>{c.registrySourceTime}: {dateLabel(preview.sourceUpdatedAt)} · {registrySourceLabel(entityCountry)}</div>
+    </div>
+    <div className="rounded-xl bg-primary/[0.045] p-4"><div className="flex items-start justify-between gap-3"><div><div className="mb-1 text-xs text-muted-foreground">{entityCountry} · {registrySourceLabel(entityCountry)}</div><h3 className="font-semibold">{preview.company.name}</h3><p className="mt-1 font-mono text-sm">{registryIdLabel(entityCountry, c)} {preview.company.ico}</p></div><Badge variant={preview.company.status === "active" ? "secondary" : "outline"}>{preview.company.status === "active" ? c.active : preview.company.status === "terminated" ? c.terminated : c.unknownStatus}</Badge></div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{fields.slice(2).map(([key, label, value]) => <div key={key}><span className="text-muted-foreground">{label}: </span>{value || "—"}</div>)}<div>{c.legalForm}: {preview.company.legalForm || "—"}</div>{entityCountry === "SK" && (preview.company as any).registryReference && <div className="sm:col-span-2"><span className="text-muted-foreground">{c.registryReference}: </span>{[(preview.company as any).registryReference.section, (preview.company as any).registryReference.court, (preview.company as any).registryReference.insertNumber].filter(Boolean).join(" · ")}</div>}{(preview.company as any).taxStatus?.vatRegistered != null && <div>{c.taxRegistered}: {(preview.company as any).taxStatus.vatRegistered ? c.yes : c.no}</div>}{(preview.company as any).taxStatus?.inactive != null && <div>{c.taxInactive}: {(preview.company as any).taxStatus.inactive ? c.yes : c.no}</div>}</div>{(entityCountry === "RO" || entityCountry === "CZ") && <p className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs leading-relaxed text-muted-foreground">{entityCountry === "RO" ? c.anafLimitation : c.aresLimitation}</p>}<div className="mt-3 text-xs text-muted-foreground">{c.expires}: {dateLabel(preview.expiresAt)}</div></div>
     {errorCode && <ErrorLine code={errorCode} c={c} />}
-    <div className="space-y-2"><LabelText label={c.addFacility} /><div className="grid gap-2 sm:grid-cols-[150px_1fr]"><Select value={facilityType} disabled={boundFacility} onValueChange={(v) => { setFacilityType(v as FacilityType); setFacilityId(""); setOption(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><div className="relative"><Input placeholder={c.facilitySearch} value={option?.name || search} disabled={boundFacility} onChange={(e) => { setOption(null); setFacilityId(""); setSearch(e.target.value); }} />{options.data?.items?.length && !boundFacility ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">{options.data.items.filter((item) => item.type === facilityType && item.countryCode === "SK").map((item) => <button type="button" key={item.id} className="block w-full px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOption(item as Facility); setFacilityId(item.id); setSearch(""); }}>{item.name} <span className="text-xs text-muted-foreground">{item.ico || ""}</span></button>)}</div> : null}</div></div>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</div>
+    <div className="space-y-2"><LabelText label={c.addFacility} /><div className="grid gap-2 sm:grid-cols-[150px_1fr]"><Select value={facilityType} disabled={boundFacility} onValueChange={(v) => { setFacilityType(v as FacilityType); setFacilityId(""); setOption(null); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><div className="relative"><Input placeholder={c.facilitySearch} value={option?.name || search} disabled={boundFacility} onChange={(e) => { setOption(null); setFacilityId(""); setSearch(e.target.value); }} />{options.data?.items?.length && !boundFacility ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover shadow-lg">{options.data.items.filter((item) => item.type === facilityType && item.countryCode === entityCountry).map((item) => <button type="button" key={item.id} className="block w-full px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOption(item as Facility); setFacilityId(item.id); setSearch(""); }}>{item.name} <span className="text-xs text-muted-foreground">{item.ico || ""}</span></button>)}</div> : null}</div></div>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</div>
     {facilityId && <div className="space-y-3">
-      <RegistryCompanySiteComparison site={site} registryCompany={preview.company} c={c} loading={facilityQuery.isLoading} />
+      <RegistryCompanySiteComparison site={site} registryCompany={preview.company} countryCode={entityCountry} c={c} loading={facilityQuery.isLoading} />
       {facilityQuery.isError && <div className="flex items-center justify-between gap-2 text-sm text-destructive"><span>{c.siteLoadError}</span><Button type="button" size="sm" variant="outline" onClick={() => facilityQuery.refetch()}>{c.retry}</Button></div>}
       <div className="space-y-3 rounded-lg border p-3">
         <label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox checked={confirmOperator} onCheckedChange={(value) => setConfirmOperator(!!value)} /><span>{c.confirmOperator}</span></label>
@@ -305,15 +424,17 @@ function PreviewBody({ preview, c, onSave, saving, errorCode, onBack }: any) {
     <div className="flex flex-wrap justify-between gap-2 border-t pt-4">{onBack && <Button variant="outline" onClick={onBack}>{c.cancel}</Button>}<Button className="ml-auto" disabled={saving || (!!facilityId && !confirmOperator)} onClick={() => onSave({ verificationId: preview.verificationId, ...(facilityId ? { facilityType, facilityId, confirmOperator: true, ...(replaceExisting ? { replaceExisting: true } : {}) } : {}) })} data-testid="button-save-verified-entity">{saving ? c.loading : facilityId ? c.saveLink : c.saveToEntity}</Button></div>
   </div>;
 }
-function FacilityLinkDialog({ entityId, c, onClose, onSaved }: any) {
+function FacilityLinkDialog({ entityId, countryCode, c, onClose, onSaved }: any) {
   const [type, setType] = useState<FacilityType>("clinic"); const [search, setSearch] = useState(""); const [facilityId, setFacilityId] = useState(""); const [confirm, setConfirm] = useState(false); const [replace, setReplace] = useState(false); const [error, setError] = useState("");
-  const options = useQuery<{ items: Array<{ id: string; type: FacilityType; name: string; ico: string | null }> }>({ queryKey: [base, "facility-options", search], queryFn: () => request(`/facility-options?search=${encodeURIComponent(search)}`), enabled: !!search });
+  const country = supportedRegistryCountry(countryCode);
+  const options = useQuery<{ items: Array<{ id: string; type: FacilityType; name: string; ico: string | null; countryCode: string | null }> }>({ queryKey: [base, "facility-options", country, search], queryFn: () => request(`/facility-options?search=${encodeURIComponent(search)}&countryCode=${encodeURIComponent(country)}`), enabled: !!search });
   const mutation = useMutation({ mutationFn: () => request(`/${entityId}/facilities`, { method: "POST", body: JSON.stringify({ facilityType: type, facilityId, confirmOperator: true, ...(replace ? { replaceExisting: true } : {}) }) }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [base, entityId] }); await queryClient.invalidateQueries({ queryKey: [base] }); onSaved(); onClose(); }, onError: (e: any) => setError(e.code || "request_failed") });
-  return <Dialog open onOpenChange={(v) => !v && onClose()}><DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto"><DialogHeader><DialogTitle>{c.addFacility}</DialogTitle></DialogHeader><div className="space-y-4"><Select value={type} onValueChange={(v) => { setType(v as FacilityType); setFacilityId(""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={c.facilitySearch} /><div className="max-h-44 overflow-auto rounded-md border">{(options.data?.items || []).filter((o) => o.type === type).map((o) => <button type="button" key={o.id} onClick={() => setFacilityId(o.id)} className={cn("block w-full px-3 py-2 text-left text-sm hover:bg-accent", facilityId === o.id && "bg-primary/10")}>{o.name} · {o.ico || "—"}</button>)}</div><label className="flex items-start gap-2 text-sm"><Checkbox checked={confirm} onCheckedChange={(v) => setConfirm(!!v)} /><span>{c.confirmOperator}</span></label><label className="flex items-start gap-2 text-sm text-destructive"><Checkbox checked={replace} onCheckedChange={(v) => setReplace(!!v)} /><span>{c.replaceOperator}</span></label>{error && <ErrorLine code={error} c={c} />}<Button className="w-full" disabled={!facilityId || !confirm || mutation.isPending} onClick={() => mutation.mutate()}>{c.save}</Button></div></DialogContent></Dialog>;
+  return <Dialog open onOpenChange={(v) => !v && onClose()}><DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto"><DialogHeader><DialogTitle>{c.addFacility}</DialogTitle></DialogHeader><div className="space-y-4"><p className="text-xs text-muted-foreground">{country} · {registrySourceLabel(country)}</p><Select value={type} onValueChange={(v) => { setType(v as FacilityType); setFacilityId(""); }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="clinic">{c.clinic}</SelectItem><SelectItem value="hospital">{c.hospital}</SelectItem></SelectContent></Select><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={c.facilitySearch} /><div className="max-h-44 overflow-auto rounded-md border">{(options.data?.items || []).filter((o) => o.type === type && o.countryCode === country).map((o) => <button type="button" key={o.id} onClick={() => setFacilityId(o.id)} className={cn("block w-full px-3 py-2 text-left text-sm hover:bg-accent", facilityId === o.id && "bg-primary/10")}>{o.name} · {o.ico || "—"}</button>)}</div><label className="flex items-start gap-2 text-sm"><Checkbox checked={confirm} onCheckedChange={(v) => setConfirm(!!v)} /><span>{c.confirmOperator}</span></label><label className="flex items-start gap-2 text-sm text-destructive"><Checkbox checked={replace} onCheckedChange={(v) => setReplace(!!v)} /><span>{c.replaceOperator}</span></label>{error && <ErrorLine code={error} c={c} />}<Button className="w-full" disabled={!facilityId || !confirm || mutation.isPending} onClick={() => mutation.mutate()}>{c.save}</Button></div></DialogContent></Dialog>;
 }
-function PersonLinkDialog({ entityId, registryPeople, c, onClose, onSaved }: any) {
+function PersonLinkDialog({ entityId, countryCode, registryPeople, c, onClose, onSaved }: any) {
   const [key, setKey] = useState(""); const [personId, setPersonId] = useState(""); const [create, setCreate] = useState(false); const [confirm, setConfirm] = useState(false); const [search, setSearch] = useState(""); const [error, setError] = useState("");
-  const options = useQuery<{ items: Array<{ id: string; name: string }> }>({ queryKey: [base, "person-options", search], queryFn: () => request(`/person-options?search=${encodeURIComponent(search)}`), enabled: !create && !!search });
+  const country = supportedRegistryCountry(countryCode);
+  const options = useQuery<{ items: Array<{ id: string; name: string }> }>({ queryKey: [base, "person-options", country, search], queryFn: () => request(`/person-options?search=${encodeURIComponent(search)}&countryCode=${encodeURIComponent(country)}`), enabled: !create && !!search });
   const mutation = useMutation({ mutationFn: () => request(`/${entityId}/person-links`, { method: "POST", body: JSON.stringify({ registryPersonKey: key, ...(create ? { createPerson: true } : { personId }), confirm: true }) }), onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: [base, entityId] }); onSaved(); onClose(); }, onError: (e: any) => setError(e.code || "request_failed") });
   return <Dialog open onOpenChange={(v) => !v && onClose()}><DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto"><DialogHeader><DialogTitle>{c.addPerson}</DialogTitle></DialogHeader><div className="space-y-4">{registryPeople.length ? <Select value={key} onValueChange={setKey}><SelectTrigger><SelectValue placeholder={c.chooseRole} /></SelectTrigger><SelectContent>{registryPeople.map((p: RegistryPerson) => <SelectItem key={p.key} value={p.key}>{p.name} · {p.role}</SelectItem>)}</SelectContent></Select> : <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">{c.noPersonEligible}</p>}<div className="flex gap-2"><Button variant={!create ? "default" : "outline"} onClick={() => setCreate(false)}>{c.existingPerson}</Button><Button variant={create ? "default" : "outline"} onClick={() => setCreate(true)}>{c.createPerson}</Button></div>{!create && <><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={c.searchPerson} /><Select value={personId} onValueChange={setPersonId}><SelectTrigger><SelectValue placeholder={c.searchPerson} /></SelectTrigger><SelectContent>{(options.data?.items || []).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>{options.isError && <p role="alert" className="text-sm text-destructive">{c.loadError}</p>}</>}<label className="flex items-start gap-2 text-sm"><Checkbox checked={confirm} onCheckedChange={(v) => setConfirm(!!v)} /><span>{c.confirmRole}</span></label>{error && <ErrorLine code={error} c={c} />}<Button className="w-full" disabled={!key || !confirm || (!create && !personId) || mutation.isPending} onClick={() => mutation.mutate()}>{c.linkPerson}</Button></div></DialogContent></Dialog>;
 }
@@ -354,6 +475,23 @@ export function FacilityRow({ link, c, canManage, onEnd, ending }: { link: Facil
   </>;
 }
 function Metric({ icon: Icon, label, value }: any) { return <div className="min-w-0"><div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"><Icon className="h-3 w-3" />{label}</div><div className="mt-1 truncate text-sm font-medium">{value}</div></div>; }
+function LegalEntitySourceMetadata({ entity, c }: { entity: LegalEntitySummary; c: HealthcareLegalEntityCopy }) {
+  const record = entity as any;
+  const reference = String(entity.countryCode) === "SK" ? record.registryReference : null;
+  const tax = record.taxStatus;
+  const referenceText = reference ? [reference.section, reference.court, reference.insertNumber].filter(Boolean).join(" · ") : "";
+  const taxEntries = tax && String(entity.countryCode) === "RO"
+    ? [["vatRegistered", c.taxRegistered], ["inactive", c.taxInactive]].filter(([key]) => tax[key] != null)
+    : [];
+  if (!referenceText && !taxEntries.length) return null;
+  return <section className="rounded-xl border bg-card p-4 sm:p-5">
+    <h3 className="mb-3 font-semibold">{registrySourceLabel(entity.countryCode)}</h3>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {referenceText && <div><div className="text-xs font-medium text-muted-foreground">{registryReferenceLabel(entity.countryCode, c.registryReference)}</div><div className="mt-1 text-sm">{referenceText}</div></div>}
+      {taxEntries.map(([key, label]) => <div key={key}><div className="text-xs font-medium text-muted-foreground">{label}</div><div className="mt-1 text-sm">{tax[key] ? c.yes : c.no}</div></div>)}
+    </div>
+  </section>;
+}
 function LabelText({ label }: { label: string }) { return <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>; }
 function EmptyInline({ icon: Icon, text }: any) { return <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground"><Icon className="mx-auto mb-2 h-6 w-6 opacity-50" />{text}</div>; }
-function ErrorLine({ code, c }: { code: string; c: HealthcareLegalEntityCopy }) { return <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{code === "operator_conflict" ? c.conflict : code === "forbidden" ? c.forbidden : c.errors}</p>; }
+function ErrorLine({ code, c }: { code: string; c: HealthcareLegalEntityCopy }) { return <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{verificationErrorText(code, c)}</p>; }

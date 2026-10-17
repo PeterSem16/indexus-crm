@@ -2714,7 +2714,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                 </div>
                 <Input value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} placeholder={t.clinics.ico} className="h-9" data-testid="input-clinic-ico" />
               </div>
-              {initialData?.id && formData.countryCode === "SK" && <HealthcareLegalEntityPanel facilityType="clinic" facilityId={String(initialData.id)} ico={formData.ico} siteName={formData.name} address={formData.address} city={formData.city} postalCode={formData.postalCode} />}
+              {initialData?.id && ["SK", "CZ", "RO"].includes(formData.countryCode) && <HealthcareLegalEntityPanel facilityType="clinic" facilityId={String(initialData.id)} ico={formData.ico} countryCode={formData.countryCode} siteName={formData.name} address={formData.address} city={formData.city} postalCode={formData.postalCode} />}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-xs">{getGeoLabels(formData.countryCode).region}</Label>
