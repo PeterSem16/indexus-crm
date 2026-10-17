@@ -14,6 +14,7 @@ import { registryIdLabel } from "@/lib/healthcare-legal-entity-registry-copy";
 type Entity = LegalEntitySummary & { legalForm?: string | null; registeredAddress?: string | null };
 type Props = {
   items: Entity[];
+  availableCountries: Array<"SK" | "CZ" | "RO">;
   c: HealthcareLegalEntityCopy;
   locale: string;
   loading: boolean;
@@ -24,7 +25,7 @@ type Props = {
 };
 const when = (value?: string | null) => value ? new Date(value).getTime() : 0;
 
-export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, onOpen, onOpenPending }: Props) {
+export function LegalEntityTable({ items, availableCountries, c, locale, loading, failed, onRetry, onOpen, onOpenPending }: Props) {
   const [search, setSearch] = useState("");
   const [rules, setRules] = useState<FilterRule[]>([]);
   const [sort, setSort] = useState<SortConfig | null>({ key: "name", direction: "asc" });
@@ -34,13 +35,17 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
     { key: "name", label: c.companyName, type: "text" },
     { key: "ico", label: c.businessIdentifier, type: "text" },
     { key: "city", label: c.city, type: "text" },
+    { key: "countryCode", label: c.country, type: "select", options: availableCountries.map((code) => ({
+      value: code,
+      label: `${code === "SK" ? c.countrySK : code === "CZ" ? c.countryCZ : c.countryRO} (${code})`,
+    })) },
     { key: "legalForm", label: c.legalForm, type: "text" },
     { key: "status", label: c.status, type: "select", options: [{ value: "active", label: c.active }, { value: "terminated", label: c.terminated }, { value: "unknown", label: c.unknownStatus }] },
     { key: "facilityCount", label: c.facilities, type: "select", options: [{ value: "linked", label: c.hasLinkedSites }, { value: "none", label: c.noLinkedSites }] },
     { key: "checkedRecently", label: c.checkedPastWeek, type: "select", options: [{ value: "past7days", label: c.checkedPastWeek }] },
     { key: "changeStatus", label: c.latestReviewStatus, type: "select", options: [{ value: "pending", label: c.changesPending }, { value: "reviewed", label: c.changesReviewed }] },
     { key: "pendingSnapshotCount", label: c.pendingSnapshots, type: "select", options: [{ value: "pending", label: c.hasPendingSnapshots }, { value: "none", label: c.noPendingSnapshots }] },
-  ], [c]);
+  ], [c, availableCountries]);
   const presets: FilterPreset[] = useMemo(() => [
     { id: "active", label: c.activeOnly, rules: [{ id: "preset-active", conjunction: "and", field: "status", op: "is", value: "active" }] },
     { id: "terminated", label: c.terminatedOnly, rules: [{ id: "preset-ended", conjunction: "and", field: "status", op: "is", value: "terminated" }] },
@@ -70,15 +75,17 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
       }
     };
     return items.filter((entity) => {
-      if (q && !`${entity.name} ${entity.ico} ${entity.city || ""} ${entity.legalForm || ""}`.toLocaleLowerCase().includes(q)) return false;
+      const countryName = entity.countryCode === "SK" ? c.countrySK : entity.countryCode === "CZ" ? c.countryCZ : entity.countryCode === "RO" ? c.countryRO : "";
+      if (q && !`${entity.name} ${entity.ico} ${entity.city || ""} ${entity.legalForm || ""} ${entity.countryCode || ""} ${countryName}`.toLocaleLowerCase().includes(q)) return false;
       if (!rules.length) return true;
       return rules.slice(1).reduce((result, rule, index) => rule.conjunction === "or"
         ? result || ruleMatches(entity, rule)
         : result && ruleMatches(entity, rule), ruleMatches(entity, rules[0]));
     });
-  }, [items, search, rules]);
+  }, [items, search, rules, c]);
   const columns: Column<Entity>[] = [
     { key: "name", header: c.companyName, sortable: true, sortValue: (e) => e.name, cell: (e) => <div className="flex min-w-48 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Building2 className="h-4 w-4" /></span><div className="min-w-0"><div className="truncate font-medium text-foreground">{e.name}</div><div className="font-mono text-xs text-muted-foreground">{registryIdLabel(e.countryCode, c)} · {e.ico}</div></div></div> },
+    { key: "countryCode", header: c.country, sortable: true, sortValue: (e) => e.countryCode || "", cell: (e) => <Badge variant="outline" aria-label={`${c.country}: ${e.countryCode === "SK" ? c.countrySK : e.countryCode === "CZ" ? c.countryCZ : e.countryCode === "RO" ? c.countryRO : e.countryCode} (${e.countryCode})`}>{e.countryCode === "SK" ? c.countrySK : e.countryCode === "CZ" ? c.countryCZ : e.countryCode === "RO" ? c.countryRO : e.countryCode} <span className="ml-1 font-mono">{e.countryCode}</span></Badge> },
     { key: "city", header: c.city, sortable: true, sortValue: (e) => e.city || "", cell: (e) => <span className="text-sm">{e.city || "—"}</span> },
     { key: "legalForm", header: c.legalForm, sortable: true, sortValue: (e) => formatLegalForm(e.legalForm), cell: (e) => <span className="text-sm text-muted-foreground">{formatLegalForm(e.legalForm) || "—"}</span> },
     { key: "status", header: c.status, sortable: true, sortValue: (e) => e.status, cell: (e) => <Badge variant={e.status === "active" ? "secondary" : "outline"}>{e.status === "active" ? c.active : String(e.status) === "terminated" ? c.terminated : c.unknownStatus}</Badge> },
@@ -99,6 +106,7 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
     const valueFor = (entity: Entity) => {
       switch (sort.key) {
         case "city": return entity.city || "";
+        case "countryCode": return entity.countryCode || "";
         case "legalForm": return formatLegalForm(entity.legalForm);
         case "status": return entity.status;
         case "facilities": return entity.facilityCount || 0;
@@ -132,7 +140,27 @@ export function LegalEntityTable({ items, c, locale, loading, failed, onRetry, o
       {loading ? <div className="space-y-3 p-5">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
         : failed ? <div className="p-10 text-center"><p className="text-sm text-muted-foreground">{c.loadError}</p><Button className="mt-3" size="sm" variant="outline" onClick={onRetry}>{c.retry}</Button></div>
         : filtered.length === 0 ? <div className="p-12 text-center"><span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Building2 className="h-5 w-5" /></span><h3 className="font-medium">{items.length ? c.noResults : c.empty}</h3><p className="mt-1 text-sm text-muted-foreground">{items.length ? "" : c.verifyIdentifierHint}</p></div>
-        : <div className="p-3 sm:p-5"><DataTable columns={columns} data={visible} getRowKey={(e) => e.id} onRowClick={onOpen} sortConfig={sort} onSortChange={setSort} emptyMessage={c.noResults} tableClassName="overflow-x-auto" />
+         : <div className="p-3 sm:p-5">
+           <div className="space-y-2 sm:hidden" aria-label={c.companyName}>
+             {visible.map((entity) => {
+               const countryName = entity.countryCode === "SK" ? c.countrySK : entity.countryCode === "CZ" ? c.countryCZ : entity.countryCode === "RO" ? c.countryRO : entity.countryCode;
+               return <article key={entity.id} className="rounded-lg border bg-card p-3">
+                 <div className="flex items-start justify-between gap-3">
+                   <button type="button" onClick={() => onOpen(entity)} className="min-w-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                     <span className="block truncate font-medium">{entity.name}</span><span className="mt-1 block font-mono text-xs text-muted-foreground">{registryIdLabel(entity.countryCode, c)} · {entity.ico}</span>
+                   </button>
+                   <Badge variant="outline" aria-label={`${c.country}: ${countryName} (${entity.countryCode})`}>{countryName} <span className="ml-1 font-mono">{entity.countryCode}</span></Badge>
+                 </div>
+                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                   {entity.city && <span>{entity.city}</span>}
+                   <Badge variant={entity.status === "active" ? "secondary" : "outline"}>{entity.status === "active" ? c.active : String(entity.status) === "terminated" ? c.terminated : c.unknownStatus}</Badge>
+                   <span>{c.facilities}: {entity.facilityCount || 0}</span>
+                   {entity.pendingSnapshotCount ? <Button type="button" variant="outline" size="sm" className="h-7" aria-label={`${c.pendingSnapshots}: ${entity.pendingSnapshotCount}`} onClick={() => onOpenPending(entity)}>{c.pendingSnapshots}: {entity.pendingSnapshotCount}</Button> : null}
+                 </div>
+               </article>;
+             })}
+           </div>
+           <div className="hidden sm:block"><DataTable columns={columns} data={visible} getRowKey={(e) => e.id} onRowClick={onOpen} sortConfig={sort} onSortChange={setSort} emptyMessage={c.noResults} tableClassName="overflow-x-auto" /></div>
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 text-sm text-muted-foreground"><span>{c.showing} {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, filtered.length)} {c.of} {filtered.length}</span>
             <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{c.previous}</Button><span className="px-2 py-1 tabular-nums">{page} / {pageCount}</span><Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => setPage((p) => Math.min(pageCount, p + 1))}>{c.next}</Button></div>
           </div>

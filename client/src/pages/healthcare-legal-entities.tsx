@@ -128,7 +128,7 @@ function HealthcareLegalEntitiesContent() {
         </div>
         {canCreate && <Button onClick={() => { setVerifyOpen(true); setErrorCode(""); }} data-testid="button-new-legal-entity"><Plus className="mr-2 h-4 w-4" />{c.newEntity}</Button>}
       </div>
-      <LegalEntityTable items={list.data?.items || []} c={c} locale={locale} loading={list.isLoading} failed={list.isError} onRetry={() => list.refetch()} onOpen={(entity) => openEntity(entity.id)} onOpenPending={(entity) => openEntity(entity.id, true)} />
+      <LegalEntityTable items={list.data?.items || []} availableCountries={availableCountries} c={c} locale={locale} loading={list.isLoading} failed={list.isError} onRetry={() => list.refetch()} onOpen={(entity) => openEntity(entity.id)} onOpenPending={(entity) => openEntity(entity.id, true)} />
       <Sheet open={!!selectedId} onOpenChange={(open) => { if (!open) closeEntity(); }}>
         <SheetContent side="right" drawerWidth="wide" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
           {selectedId && (detail.isLoading ? <div className="space-y-4 p-6"><Skeleton className="h-12" /><Skeleton className="h-20" /><Skeleton className="h-48" /></div>
