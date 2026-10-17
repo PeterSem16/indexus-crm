@@ -1,5 +1,6 @@
 import { pool } from "../db";
-import { DEFAULT_FINDER_POLICY, finderPolicySchema, pointSchema, matchesFinderRequirements, type FinderContext, type FinderProvider, type FinderSelection } from "../../shared/provider-finder";
+import { DEFAULT_FINDER_POLICY, finderPolicySchema, pointSchema, matchesFinderRequirements, finderQualityCandidates, type FinderContext, type FinderProvider, type FinderSelection, type FinderEvidence } from "../../shared/provider-finder";
+import { personAgreementEvidence, type PersonAgreementEvidence } from "./provider-finder-evidence";
 
 import { FinderError } from "./provider-finder-error";
 import { finderMapsReadiness } from "./provider-finder-maps-config";
@@ -62,12 +63,25 @@ export async function finderProviders(company: string, country: string, readPeop
           AND a.storage_key<>'' AND (a.valid_from IS NULL OR a.valid_from<=CURRENT_DATE)
           AND (a.valid_to IS NULL OR a.valid_to>=CURRENT_DATE)) AS uploaded_contract,
         EXISTS(SELECT 1 FROM clinic_representative_assignments a JOIN users u ON u.id=a.user_id AND u.is_active=true
-          WHERE a.clinic_id=c.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now())) AS has_representative
+          WHERE a.clinic_id=c.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now())) AS has_representative,
+        EXISTS(SELECT 1 FROM clinic_agreements a WHERE a.clinic_id=c.id AND a.active=true AND a.ended_at IS NULL
+          AND (a.valid_from IS NULL OR a.valid_from<=CURRENT_DATE) AND (a.valid_to IS NULL OR a.valid_to>=CURRENT_DATE)) AS current_agreement,
+        EXISTS(SELECT 1 FROM clinic_agreements a WHERE a.clinic_id=c.id
+          AND (a.valid_from IS NULL OR a.valid_from<=CURRENT_DATE) AND a.storage_key<>''
+          AND ((a.valid_to IS NOT NULL AND a.valid_to<CURRENT_DATE) OR a.ended_at<=now())) AS previous_agreement,
+        (c.is_referred_by_doctor OR COALESCE(c.lead_source='doctor_referral',false) OR EXISTS(
+          SELECT 1 FROM clinic_referrals r JOIN clinics src ON src.id=r.referring_clinic_id
+          WHERE r.clinic_id=c.id AND src.country_code=$1 AND src.is_active=true
+            AND src.id<>c.id AND r.referral_type IN ('doctor_referral','doctor_suggests'))) AS referral_received,
+        EXISTS(SELECT 1 FROM clinic_referrals r JOIN clinics target ON target.id=r.clinic_id
+          WHERE r.referring_clinic_id=c.id AND target.country_code=$1 AND target.is_active=true
+            AND target.id<>c.id AND r.referral_type IN ('doctor_referral','doctor_suggests')) AS referral_given
       FROM clinics c WHERE c.country_code=$1
       UNION ALL
       SELECT h.id,'hospital',h.name,COALESCE(h.street_number,''),COALESCE(h.city,''),h.latitude,h.longitude,h.is_active,false,false,NULL::timestamp,
         false,false,EXISTS(SELECT 1 FROM hospital_representative_assignments a JOIN users u ON u.id=a.user_id AND u.is_active=true
-          WHERE a.hospital_id=h.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now()))
+          WHERE a.hospital_id=h.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now())),
+        NULL::boolean,NULL::boolean,NULL::boolean,NULL::boolean
       FROM hospitals h WHERE h.country_code=$1
     )
     SELECT s.*,CASE WHEN $2::boolean THEN COALESCE((
@@ -80,14 +94,59 @@ export async function finderProviders(company: string, country: string, readPeop
       ) q),'[]'::jsonb) ELSE '[]'::jsonb END AS people
     FROM sites s
     ORDER BY s.name,s.type,s.id`, [country, readPeople || publicView]);
+  const personIds = Array.from(new Set(rows.flatMap(r => (r.people || []).map((p: { id: string }) => p.id)))) as string[];
+  const personEvidence = new Map<string, FinderEvidence>();
+  if (personIds.length) {
+    const [{ rows: persons }, { rows: agreements }, { rows: dateRows }] = await Promise.all([
+      pool.query(`SELECT x.id,
+        (x.is_referred_by_doctor OR COALESCE(x.lead_source='doctor_referral',false) OR EXISTS(
+          SELECT 1 FROM collaborator_referrals r JOIN collaborators src ON src.id=r.referring_collaborator_id
+          WHERE r.collaborator_id=x.id AND src.is_active=true AND src.id<>x.id
+            AND (src.country_code=$2 OR $2=ANY(src.country_codes))
+            AND r.referral_type IN ('doctor_referral','doctor_suggests'))) AS referral_received,
+        EXISTS(SELECT 1 FROM collaborator_referrals r JOIN collaborators target ON target.id=r.collaborator_id
+          WHERE r.referring_collaborator_id=x.id AND target.is_active=true AND target.id<>x.id
+            AND (target.country_code=$2 OR $2=ANY(target.country_codes))
+            AND r.referral_type IN ('doctor_referral','doctor_suggests')) AS referral_given,
+        EXISTS(SELECT 1 FROM users u WHERE u.is_active=true AND
+          (u.id=x.representative_id OR u.id=ANY(x.representative_ids))
+          AND ($2=ANY(u.assigned_countries) OR u.role='admin')) AS has_representative
+        FROM collaborators x WHERE x.id=ANY($1::varchar[])`, [personIds, country]),
+      pool.query(`SELECT collaborator_id,is_valid,file_path,valid_from_day,valid_from_month,valid_from_year,
+        valid_to_day,valid_to_month,valid_to_year FROM collaborator_agreements
+        WHERE collaborator_id=ANY($1::varchar[])`, [personIds]),
+      pool.query(`SELECT (now() AT TIME ZONE 'Europe/Bratislava')::date::text AS today`),
+    ]);
+    const agreementsByPerson = new Map<string, PersonAgreementEvidence[]>();
+    for (const a of agreements) {
+      const list = agreementsByPerson.get(a.collaborator_id) || [];
+      list.push(a);
+      agreementsByPerson.set(a.collaborator_id, list);
+    }
+    for (const p of persons) personEvidence.set(p.id, {
+      ...personAgreementEvidence(agreementsByPerson.get(p.id) || [], dateRows[0].today),
+      referralReceived: p.referral_received === true, referralGiven: p.referral_given === true,
+      representative: p.has_representative === true,
+    });
+  }
   return rows.map(r => {
     return { id: r.id, type: r.type, name: r.name, address: r.address, city: r.city,
       lat: r.latitude == null ? null : Number(r.latitude), lng: r.longitude == null ? null : Number(r.longitude),
       active: r.is_active, contracted: r.contracted === true, paused: r.paused === true,
       cooperating: r.cooperating === true, uploadedContract: r.uploaded_contract === true, hasRepresentative: r.has_representative === true,
       lastContactAt: r.last_contact_at ? new Date(r.last_contact_at).toISOString() : null,
+      evidence: {
+        currentAgreement: r.current_agreement == null ? undefined : r.current_agreement === true,
+        previousAgreement: r.previous_agreement == null ? undefined : r.previous_agreement === true,
+        cooperation: r.type === "clinic" && r.cooperating != null ? r.cooperating === true : undefined,
+        uploadedContract: r.type === "clinic" ? r.uploaded_contract === true : undefined,
+        representative: r.has_representative === true,
+        referralReceived: r.referral_received == null ? undefined : r.referral_received === true,
+        referralGiven: r.referral_given == null ? undefined : r.referral_given === true,
+      },
       enabled: true, publicVisible: true, services: [],
-      publicPhone: "", publicEmail: "", people: r.people || [] };
+      publicPhone: "", publicEmail: "", people: (r.people || []).map((p: { id: string; name: string }) =>
+        ({ ...p, evidence: personEvidence.get(p.id) })) };
   });
 }
 export async function validateFinderSelection(selection: FinderSelection, publicView = false, readPeople = true) {
@@ -99,6 +158,14 @@ export async function validateFinderSelection(selection: FinderSelection, public
     !pointSchema.safeParse({ lat: p.lat, lng: p.lng }).success ||
     !matchesFinderRequirements(p, context.policy) || (selection.personId && !p.people.some(x => x.id === selection.personId)))
     throw new FinderError("selection_unavailable", 409);
+  if (context.policy.quality.enabled) {
+    const candidates = finderQualityCandidates(p, context.policy);
+    // Validate the selected evidence source, not some other person's agreement.
+    const eligible = candidates.some(c => selection.personId ? c.person?.id === selection.personId : !c.person);
+    if (!eligible) throw new FinderError("selection_unavailable", 409);
+    // Distance-dependent recommendation/fallback visibility is a search property.
+    // Selection revalidation enforces all hard rules without inventing a search origin.
+  }
   return { ...selection, billingCompanyId: "country", name: p.name, address: p.address, city: p.city,
     personName: selection.personId ? p.people.find(x => x.id === selection.personId)?.name : undefined };
 }

@@ -5,7 +5,7 @@ import express from "express";
 import { pool } from "../db";
 import { ensureProviderFinderSchema } from "./provider-finder-schema";
 import { registerProviderFinderRoutes, normalizePublicFinderSelection } from "./provider-finder-routes";
-import { DEFAULT_FINDER_POLICY } from "../../shared/provider-finder";
+import { DEFAULT_FINDER_POLICY, finderQualitySchema } from "../../shared/provider-finder";
 
 test("country-wide finder: scope, evidence, weights, optional public forms and persistence", async t => {
   await ensureProviderFinderSchema(pool);
@@ -166,6 +166,61 @@ test("country-wide finder: scope, evidence, weights, optional public forms and p
       await pool.query("UPDATE clinic_agreements SET active=true WHERE id=$1", [agreement]);
       await save({ priorityWeights: { distance: 100, cooperation: 0, uploadedContract: 0, representative: 0, recentContact: 0 } });
       assert.equal((await (await request(prefix + "/search", "POST", search)).json()).results[0].id, near);
+    });
+    await t.test("advanced rules preview unsaved policies; referrals, historical and person evidence remain authoritative", async () => {
+      const personAgreement = randomUUID(), clinicReferral = randomUUID();
+      const quality = finderQualitySchema.parse({ enabled: true, minimumScore: 20 });
+      try {
+        await pool.query(`INSERT INTO clinic_referrals(id,clinic_id,referring_clinic_id,referral_type)
+          VALUES($1,$2,$3,'doctor_referral')`, [clinicReferral, clinic, near]);
+        const previewResponse = await request(configPath + "/preview", "POST", { policy: { ...policy, quality } });
+        assert.equal(previewResponse.status, 200);
+        const preview = await previewResponse.json();
+        assert.equal(preview.distanceIncluded, false);
+        assert.equal(preview.total, 3);
+        assert.equal(preview.results[0].id, clinic);
+        assert.ok(preview.results[0].quality.matched.includes("referralReceived"));
+        assert.ok(preview.results.find((x: any) => x.id === near).quality.matched.includes("referralGiven"));
+        assert.equal((await (await request(configPath)).json()).policy.quality.enabled, false, "preview cannot save policy");
+        assert.equal((await request(configPath + "/preview", "POST", { policy: { ...policy, quality } }, viewer)).status, 403);
+        assert.equal((await request(configPath + "/preview", "POST", { policy: { ...policy, quality: { ...quality, minimumScore: 101 } } })).status, 400);
+        await save({ quality });
+        let results = (await (await request(prefix + "/search", "POST", search)).json()).results;
+        assert.equal(results[0].id, clinic);
+        assert.equal(results[0].quality.notNearest, true);
+        await pool.query(`UPDATE clinic_agreements SET valid_to=CURRENT_DATE-1 WHERE id=$1`, [agreement]);
+        results = (await (await request(prefix + "/search", "POST", search)).json()).results;
+        assert.equal(results.find((x: any) => x.id === clinic).quality.tier, "previous");
+        await pool.query("UPDATE clinic_agreements SET valid_to=NULL WHERE id=$1", [agreement]);
+        await pool.query(`INSERT INTO contact_assignments(person_id,entity_type,entity_id) VALUES($1,'hospital',$2)`, [person, hospital]);
+        await pool.query(`INSERT INTO collaborator_agreements(id,collaborator_id,is_valid,file_path,
+          valid_from_day,valid_from_month,valid_from_year) VALUES($1,$2,true,'synthetic.pdf',1,1,2025)`, [personAgreement, person]);
+        const mandatoryQuality = { ...quality, rules: { ...quality.rules, currentAgreement: { mode: "require", weight: 40 } } };
+        await save({ quality: mandatoryQuality });
+        results = (await (await request(prefix + "/search", "POST", search)).json()).results;
+        const h = results.find((x: any) => x.id === hospital);
+        assert.equal(h.quality.personId, person);
+        assert.equal(h.contracted, false);
+        assert.equal((await request(`/provider-finder/customers/${customer}`, "PUT", { ...selection, id: hospital, type: "hospital" })).status, 200);
+        const withoutPerson = { id: hospital, type: "hospital", country, billingCompanyId: "country" };
+        assert.equal((await request(`/provider-finder/customers/${customer}`, "PUT", withoutPerson)).status, 409);
+        const publicResults = (await (await request(publicPath + "/search", "POST", search)).json()).results;
+        const publicHospital = publicResults.find((x: any) => x.id === hospital);
+        assert.equal(publicHospital.suggestedPersonId, person);
+        assert.ok(!("quality" in publicHospital));
+        assert.ok(!("evidence" in publicHospital.people[0]));
+        assert.equal((await normalizePublicFinderSelection(slug, { ...withoutPerson, personId: person })).id, hospital);
+        await pool.query("UPDATE collaborator_agreements SET is_valid=false WHERE id=$1", [personAgreement]);
+        await assert.rejects(() => normalizePublicFinderSelection(slug, { ...withoutPerson, personId: person }));
+        const hiddenPeopleResults = (await (await request(prefix + "/search", "POST", search, viewer)).json()).results;
+        assert.ok(!hiddenPeopleResults.some((x: any) => x.id === hospital), "no hidden person evidence is disclosed");
+      } finally {
+        await pool.query("DELETE FROM collaborator_agreements WHERE id=$1", [personAgreement]);
+        await pool.query("DELETE FROM clinic_referrals WHERE id=$1", [clinicReferral]);
+        await pool.query("DELETE FROM contact_assignments WHERE person_id=$1 AND entity_type='hospital' AND entity_id=$2", [person, hospital]);
+        await pool.query("UPDATE clinic_agreements SET valid_to=NULL WHERE id=$1", [agreement]);
+        await save();
+      }
     });
     await t.test("selection persists without changing the address; foreign people/sites fail closed", async () => {
       assert.equal((await request(`/provider-finder/customers/${customer}`, "PUT", selection)).status, 200);

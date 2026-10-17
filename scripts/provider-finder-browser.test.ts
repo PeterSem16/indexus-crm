@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import bcrypt from "bcrypt";
 import { pool } from "../server/db";
 import { DEFAULT_FINDER_POLICY } from "../shared/provider-finder";
+import { providerFinderTranslations } from "../client/src/i18n/provider-finder-translations";
 import { ensureProviderFinderSchema } from "../server/lib/provider-finder-schema";
 
 const fixturePath = "generated-artifacts/provider-finder/browser-fixtures.json";
@@ -89,13 +90,57 @@ async function main() {
     await countryFinder.locator("button.primary").first().click();
     assert.equal((await policySaved).status(), 200);
     await page.screenshot({ path: "generated-artifacts/provider-finder/system-settings-desktop.png", fullPage: true });
+    const copy = providerFinderTranslations.en;
+    const sk = providerFinderTranslations.sk;
+    const advanced = countryFinder.getByRole("checkbox", { name: new RegExp(`${copy.qualityEnabled}|${sk.qualityEnabled}`) });
+    await advanced.check();
+    assert.equal(await countryFinder.locator("select[id^='pf-mode-']").count(), 8, "all criteria are configurable");
+    await countryFinder.locator("#pf-mode-currentAgreement").selectOption("require");
+    const previewResponse = page.waitForResponse(r => r.url().endsWith("/country-config/SK/preview") && r.request().method() === "POST");
+    await countryFinder.getByRole("button", { name: new RegExp(`${copy.previewButton}|${sk.previewButton}`) }).click();
+    assert.equal((await previewResponse).status(), 200);
+    await countryFinder.locator(".pf-preview").waitFor();
+    assert.ok(await countryFinder.locator(".pf-preview-counts").isVisible());
+    assert.equal((await context.request.get("/api/provider-finder/country-config/SK").then(r => r.json())).policy.quality.enabled, false,
+      "unsaved preview must not change policy");
+    await countryFinder.getByRole("spinbutton", { name: new RegExp(`${copy.qualityMinimum}|${sk.qualityMinimum}`) }).fill("101");
+    assert.equal(await countryFinder.locator(".pf-preview").count(), 0, "edited rules invalidate preview");
+    await countryFinder.getByRole("button", { name: /Uložiť|Save/, exact: true }).click();
+    await countryFinder.getByRole("alert").waitFor();
+    await countryFinder.getByRole("spinbutton", { name: new RegExp(`${copy.qualityMinimum}|${sk.qualityMinimum}`) }).fill("35");
+    await countryFinder.locator("#pf-quality-fallback").selectOption("when_empty");
+    const qualitySaved = page.waitForResponse(r => r.url().endsWith("/country-config/SK") && r.request().method() === "PUT");
+    await countryFinder.getByRole("button", { name: /Uložiť|Save/, exact: true }).click();
+    assert.equal((await qualitySaved).status(), 200);
+    await openCountrySettings("SK");
+    await countryFinder.locator("#pf-mode-currentAgreement").waitFor();
+    assert.equal(await countryFinder.locator("#pf-mode-currentAgreement").inputValue(), "require");
+    assert.equal(await countryFinder.locator("#pf-quality-fallback").inputValue(), "when_empty");
+    await countryFinder.locator("#pf-mode-currentAgreement").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "generated-artifacts/provider-finder/quality-settings-desktop.png" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflow = await countryFinder.evaluate(el => el.scrollWidth > el.clientWidth + 2);
+    assert.equal(overflow, false, "advanced settings fit phone width");
+    await countryFinder.locator("#pf-mode-currentAgreement").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "generated-artifacts/provider-finder/quality-settings-mobile.png" });
+    // Exercise actual quality result UI using one explicit synthetic referral.
+    await pool.query("UPDATE clinics SET is_referred_by_doctor=true WHERE id=$1", [ids.clinic]);
+    await countryFinder.locator("#pf-mode-currentAgreement").selectOption("prefer");
+    await countryFinder.getByRole("checkbox", { name: new RegExp(`${copy.agreementPriority}|${sk.agreementPriority}`) }).uncheck();
+    await countryFinder.getByRole("spinbutton", { name: new RegExp(`${copy.qualityMinimum}|${sk.qualityMinimum}`) }).fill("0");
+    await countryFinder.locator("#pf-quality-fallback").selectOption("append");
+    const restored = page.waitForResponse(r => r.url().endsWith("/country-config/SK") && r.request().method() === "PUT");
+    await countryFinder.getByRole("button", { name: /Uložiť|Save/, exact: true }).click();
+    assert.equal((await restored).status(), 200);
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await openCountrySettings("CZ");
     assert.equal(await countryFinder.getAttribute("data-country"), "CZ");
     assert.equal(await countryFinder.locator(`option[value="${ids.company}"]`).count(), 0, "SK company cannot leak into CZ settings");
     await openCountrySettings("SK");
     await countryFinder.locator("#pf-default-radius").waitFor();
     assert.equal(await countryFinder.locator("#pf-default-radius").inputValue(), "17", "country settings survive reload");
-    assert.equal(await countryFinder.locator("#pf-weight-representative").inputValue(), "42", "criterion weight survives reload");
+    assert.equal((await context.request.get("/api/provider-finder/country-config/SK").then(r => r.json())).policy.priorityWeights.representative,
+      42, "legacy weight survives even while advanced controls hide it");
     await page.setViewportSize({ width: 390, height: 844 });
     await countryFinder.scrollIntoViewIfNeeded();
     await page.screenshot({ path: "generated-artifacts/provider-finder/system-settings-mobile.png" });
@@ -138,7 +183,14 @@ async function main() {
     await page.locator("#pf-address").fill("ALTERNATE TEST ADDRESS");
     await page.locator(".pf-button").filter({ hasText: /Použiť polohu|Use device location/ }).first().click();
     const result = page.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" }).first();
-    await result.waitFor({ timeout: 20000 }); await result.click();
+    await result.waitFor();
+    const qualityResult = result;
+    await qualityResult.locator(".pf-quality-details").waitFor();
+    assert.ok(await qualityResult.locator(".pf-tier-recommended").isVisible(), "real internal search displays recommendation");
+    await qualityResult.locator(".pf-quality-details summary").click();
+    assert.ok((await qualityResult.locator(".pf-quality-details").innerText()).includes(copy.referralReceived) ||
+      (await qualityResult.locator(".pf-quality-details").innerText()).includes(sk.referralReceived));
+    await result.waitFor({ timeout: 20000 }); await result.locator(".pf-result-select").click();
     await modal.getByTestId("provider-results-map").getByRole("alert").waitFor();
     await page.screenshot({ path: "generated-artifacts/provider-finder/operator-desktop.png" });
     await page.locator(".pf-modal-foot .primary").click();
@@ -205,7 +257,8 @@ async function main() {
     console.log("PASS a late geocoding response cannot override edited address");
     await publicModal.locator(".pf-button").filter({ hasText: /Použiť polohu/ }).first().click();
     const publicResult = publicModal.locator(".pf-result").filter({ hasText: "Synthetic finder browser clinic" });
-    await publicResult.waitFor({ timeout: 20000 }); await publicResult.click();
+    assert.equal(await publicModal.locator(".pf-quality-details").count(), 0, "public UI hides internal evidence");
+    await publicResult.waitFor({ timeout: 20000 }); await publicResult.locator(".pf-result-select").click();
     for (const selector of [".pf-modal-head", ".pf-modal-foot"]) {
       const box = await publicModal.locator(selector).boundingBox();
       assert.ok(box && box.y >= 0 && box.y + box.height <= 845, `${selector} stays visible within the mobile viewport`);

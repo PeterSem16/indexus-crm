@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, MapPin, Search, X, Navigation, Building2, Stethoscope, Loader2 } from "lucide-react";
-import type { FinderContext, FinderPoint, FinderResult, FinderSelection } from "@shared/provider-finder";
+import { finderCriteria } from "@shared/provider-finder";
+import type { FinderContext, FinderCriterion, FinderPoint, FinderResult, FinderSelection } from "@shared/provider-finder";
 import type { Locale } from "@/i18n";
 import { providerFinderTranslations } from "@/i18n/provider-finder-translations";
 import { ProviderMap } from "./ProviderMap";
@@ -8,6 +9,7 @@ import { finderApi } from "./api";
 import "./provider-finder.css";
 
 type Candidate = { label: string; point: FinderPoint; approximate: boolean };
+const qualityCriterionLabel = (criterion: FinderCriterion) => criterion;
 type RankedFinderResult = FinderResult & {
   cooperating?: boolean;
   uploadedContract?: boolean;
@@ -115,9 +117,15 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
     setPoint(candidate.point);
   }
   const current = results.find(r => `${r.type}:${r.id}` === selected);
-  function pick(key: string) { setSelected(key); setSelectedPerson(""); setError(""); }
+  function pick(key: string, suggestedPersonId?: string) {
+    setSelected(key);
+    setSelectedPerson(suggestedPersonId || "");
+    setError("");
+  }
+  const suggestedPersonId = current?.suggestedPersonId || (!publicView ? current?.quality?.personId : undefined);
+  const missingRequiredPerson = !!suggestedPersonId && !selectedPerson;
   async function confirm() {
-    if (!current || busy || saving) return;
+    if (!current || busy || saving || missingRequiredPerson) return;
     setSaving(true); setError("");
     try {
       await onSelect({ id: current.id, type: current.type, billingCompanyId: context.billingCompanyId, country: context.country,
@@ -176,9 +184,10 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
         {busy && <p role="status">{geoBusy ? c.geocodeWaiting : c.loading}</p>}
         {searched && !busy && <><div className="pf-row pf-space"><strong>{c.results}: {results.length}</strong><span className="pf-note">{radius} km</span></div>
           {!publicView && missing > 0 && <p className="pf-note">{c.missingLocations}: {missing}</p>}
-          {results.length ? <div className="pf-result-list">{results.map((row, index) => <div key={`${row.type}:${row.id}`}>
-            <button type="button" className={`pf-result${selected === `${row.type}:${row.id}` ? " selected" : ""}`}
-              onClick={() => pick(`${row.type}:${row.id}`)} aria-pressed={selected === `${row.type}:${row.id}`}>
+          {results.length ? <div className="pf-result-list">{results.map((row, index) => <div key={`${row.type}:${row.id}`}
+            className={`pf-result${selected === `${row.type}:${row.id}` ? " selected" : ""}`}>
+            <button type="button" className="pf-result-select"
+              onClick={() => pick(`${row.type}:${row.id}`, row.suggestedPersonId || (!publicView ? row.quality?.personId : undefined))} aria-pressed={selected === `${row.type}:${row.id}`}>
               <div className="pf-result-top"><span className="pf-number">{index + 1}</span><div className="pf-result-copy">
                 <strong>{row.name}</strong><p className="pf-note">{c[row.type]} · {row.address}, {row.city}</p></div>
                 <span className="pf-result-distance">{row.distanceKm.toLocaleString(locale)} km</span></div>
@@ -186,10 +195,39 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
                 {!publicView && typeof row.cooperating === "boolean" && <span className="pf-tag">{c.cooperation}: {row.cooperating ? c.yes : c.no}</span>}
                 {!publicView && typeof row.uploadedContract === "boolean" && <span className="pf-tag">{c.uploadedContract}: {row.uploadedContract ? c.yes : c.no}</span>}
                 {!publicView && typeof row.hasRepresentative === "boolean" && <span className="pf-tag">{c.representative}: {row.hasRepresentative ? c.yes : c.no}</span>}
-                {!publicView && typeof row.priorityScore === "number" && <span className="pf-tag">{c.priorityScore}: {row.priorityScore}</span>}
+                {!publicView && !row.quality && typeof row.priorityScore === "number" && <span className="pf-tag">{c.priorityScore}: {row.priorityScore}</span>}
                 {!publicView && row.recentContact && <span className="pf-tag">{c.recent}</span>}</div>
               {row.people.length > 0 && <p className="pf-note" style={{ marginTop: 5 }}>{row.people.map(p => p.name).join(" · ")}</p>}
             </button>
+            {!publicView && row.quality && <div className="pf-quality-result">
+                <div className="pf-row pf-quality-result-head">
+                  <span className={`pf-tier pf-tier-${row.quality.tier}`}>{c[row.quality.tier]}</span>
+                  <span className="pf-quality-score">{row.quality.score}<small>/100</small> · {c.score}</span>
+                </div>
+                {row.quality.tier === "recommended" && row.quality.notNearest && <p className="pf-not-nearest">{c.notNearest}</p>}
+                <details className="pf-quality-details">
+                  <summary>{c.qualityDetails}</summary>
+                  <div className="pf-quality-source">{row.quality.personName
+                    ? <><strong>{c.evidenceForPerson}</strong> {row.quality.personName}</>
+                    : <strong>{c.evidenceAtFacility}</strong>}</div>
+                  <div className="pf-evidence-grid">
+                    {finderCriteria.filter(key => row.quality?.matched.includes(key)).length > 0 && <div>
+                      <strong>{c.matched}</strong><ul>{row.quality.matched.map(key => <li key={key}>{c[qualityCriterionLabel(key)]}</li>)}</ul>
+                    </div>}
+                    {finderCriteria.filter(key => row.quality?.missing.includes(key)).length > 0 && <div>
+                      <strong>{c.missing}</strong><ul>{row.quality.missing.map(key => <li key={key}>{c[qualityCriterionLabel(key)]}</li>)}</ul>
+                    </div>}
+                    {finderCriteria.filter(key => row.quality?.unknown.includes(key)).length > 0 && <div>
+                      <strong>{c.unknown}</strong><ul>{row.quality.unknown.map(key => <li key={key}>{c[qualityCriterionLabel(key)]}</li>)}</ul>
+                    </div>}
+                  </div>
+                  <div className="pf-breakdown"><strong>{c.score}</strong>
+                    {row.quality.breakdown.map((item, itemIndex) => <span key={`${item.criterion}-${itemIndex}`}>
+                      {item.criterion === "distance" ? c.distance : c[item.criterion]} · {item.points.toLocaleString(locale, { maximumFractionDigits: 1 })} {c.points}
+                    </span>)}
+                  </div>
+                </details>
+              </div>}
           </div>)}</div> : <div className="pf-empty"><MapPin size={24} /><strong>{c.empty}</strong>
             {radius < context.policy.maxRadiusKm && <button type="button" className="pf-button" onClick={() => {
               invalidate(); setRadius(Math.min(context.policy.maxRadiusKm, radius + 25));
@@ -205,12 +243,12 @@ export function ProviderFinder({ context, prefix, initialAddress = "", customerN
       </section>}
     </div>
     <footer className="pf-modal-foot"><div className="pf-stack" style={{ gap: 4 }}>
-      <strong>{current?.name || c.select}</strong><span className="pf-note">{c.publicHint}</span>
+       <strong>{current?.name || c.select}</strong><span className="pf-note">{missingRequiredPerson ? c.suggestedPersonRequired : c.publicHint}</span>
       {current && (current.publicPhone || current.publicEmail) && <p className="pf-note">{[current.publicPhone, current.publicEmail].filter(Boolean).join(" · ")}</p>}
       {current && current.people.length > 0 && <div className="pf-control"><label htmlFor="pf-selected-person">{c.people}</label>
         <select id="pf-selected-person" value={selectedPerson} disabled={saving} onChange={e => setSelectedPerson(e.target.value)}>
           <option value="">{c.all}</option>{current.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
-    </div><button type="button" className="pf-button primary" disabled={!current || busy || saving} onClick={() => void confirm()}>
+    </div><button type="button" className="pf-button primary" disabled={!current || busy || saving || missingRequiredPerson} onClick={() => void confirm()}>
       {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{c.select}</button></footer>
   </section>;
 }

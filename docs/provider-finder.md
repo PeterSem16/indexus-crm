@@ -26,6 +26,46 @@ Legacy company policy/profile tables are preserved but no longer control eligibi
 The customer selection is stored separately; an alternate search address does not update the customer.
 Public selections are revalidated on submission and stored with the order submission, not silently applied to an existing customer.
 
+### Advanced cooperation suitability
+Country settings now include an explicitly activated quality policy. Existing saved policies retain legacy behavior until it is enabled.
+This is an explanation of recorded cooperation suitability, **not medical quality, capacity or clinical outcomes**.
+Search remains exclusively over same-country INDEXUS clinics/hospitals and Persons at their current workplaces; Google does not supply candidates.
+
+- Eight criteria: current agreement, previous agreement, confirmed cooperation, current uploaded agreement,
+  current representative, referred by another partner, has referred another partner, and recent cooperation activity.
+- Each criterion can be ignored, preferred, or mandatory, with an independent 0–100 weight.
+  Unknown evidence never satisfies a mandatory condition. Neither fallback nor a high score relaxes a mandatory condition.
+- The normalized suitability score is `100 × earned points / total enabled weight`, including configurable distance weight.
+  Distance earns `distanceWeight × (1 − distance/radius)` points. Ignored criteria contribute neither points nor denominator.
+  Missing and unknown evidence earn no points; unknown is displayed separately.
+- Recommended results need the configured minimum score and at least one positive, weighted cooperation criterion
+  other than historical agreement. Optionally a current agreement is required for this tier.
+  After recommendations come previous-agreement candidates, then other eligible candidates; score, distance and stable identity break ties.
+- Fallback can append all other eligible results, show them only if no recommended result exists in the actual search,
+  or show recommendations only. It never expands the country/radius or includes paused/inactive facilities.
+- Internal result details show tier, score, matched/missing/unknown evidence, awarded points, and the evidence source.
+  A recommended result farther than the nearest eligible candidate explicitly explains that it is recommended despite not being nearest.
+  Public responses/UI omit scores, tiers, evidence and internal reasons, including evidence nested in Persons.
+
+Clinic current agreements use active, non-ended agreement records within validity dates; a signed-status label alone
+does not prove current validity in the advanced policy. Historical evidence requires an expired or ended agreement,
+not a future agreement. Hospital cooperation/agreement evidence is unknown rather than invented.
+Persons use their own collaborator agreements. A complete valid start date and either an open end or a complete valid end date are needed;
+partial/impossible dates remain unknown, future agreements do not count, and `is_valid=false` never proves current validity.
+Facility and Person criteria are evaluated independently, not combined across different people.
+When a Person supplies the recommendation, that Person is identified/preselected; their agreement never becomes a hospital agreement.
+Mandatory conditions are rechecked against the selected facility/Person when saving or submitting.
+
+Referral directions come from the actual clinic/collaborator referral relationships (same-country active partners),
+plus explicit received-doctor-referral metadata. They mean partner acquisition/referral, **not patient referral volumes**.
+Person representatives use current active assigned users; clinic/hospital representatives use current temporal assignments.
+Recent activity remains confirmed clinic cooperation events, not a generic call/email recency claim.
+
+**Try current rules** posts an unsaved policy to the configure-authorized country preview endpoint.
+It returns real-data counts, exclusions, missing-location counts and up to twelve sample candidates without saving.
+No Google keys or customer origin are required. Preview awards no distance points and applies no radius;
+actual nearby results may differ and exclude records without usable coordinates. Policy edits invalidate the preview.
+
 ## Google Maps and address lookup
 Google Maps JavaScript API renders the map with Advanced Markers and Google's attribution.
 Geocoding API converts an explicitly entered address to candidates on the server.
@@ -94,7 +134,7 @@ INDEXUS distance calculations and ranking do not call Routes API and add no Goog
 
 ## Verification
 ```
-npx tsx --test shared/provider-finder.test.ts server/lib/provider-finder-geocode.test.ts server/lib/provider-finder-routes.test.ts client/src/components/provider-finder/google-maps-loader.test.ts
+npx tsx --test shared/provider-finder.test.ts shared/provider-finder-quality.test.ts server/lib/provider-finder-evidence.test.ts server/lib/provider-finder-geocode.test.ts server/lib/provider-finder-routes.test.ts client/src/components/provider-finder/google-maps-loader.test.ts
 npx tsx scripts/provider-finder-browser.test.ts
 ```
 The database integration test creates only uniquely named synthetic fixtures and cleans them up.

@@ -1,7 +1,7 @@
 import type { Express, Request, Response, RequestHandler } from "express";
 import { z } from "zod";
 import { pool } from "../db";
-import { finderPolicySchema, rankProviders, searchSchema, selectionSchema, type FinderContext } from "../../shared/provider-finder";
+import { finderPolicySchema, rankProviders, searchSchema, selectionSchema, finderQualityCandidates, matchesFinderRequirements, type FinderContext } from "../../shared/provider-finder";
 import { FinderError, finderActor, finderContext, finderProviders, publicFinderContext, validateFinderSelection } from "./provider-finder-store";
 import { addressSchema, createFinderGeocoder } from "./provider-finder-geocode";
 import { finderMapsReadiness } from "./provider-finder-maps-config";
@@ -99,6 +99,36 @@ export function registerProviderFinderRoutes(app: Express, requireAuth: RequestH
   });
   app.get(`${root}/country-config/:country`, requireAuth, getCountryConfig);
   app.put(`${root}/country-config/:country`, requireAuth, putCountryConfig);
+  app.post(`${root}/country-config/:country/preview`, requireAuth, route(async (req, res) => {
+    const country = countrySchema.parse(req.params.country);
+    const actor = await finderActor(uid(req), country, true);
+    limited(`preview:${uid(req)}`, 20);
+    const { policy } = z.object({ policy: finderPolicySchema }).strict().parse(req.body);
+    const providers = await finderProviders("country", country, actor.canReadPeople);
+    const counts = { recommended: 0, previous: 0, other: 0, excluded: 0, missingLocations: 0 };
+    const rows = [];
+    for (const p of providers) {
+      if (!p.active || p.paused || !matchesFinderRequirements(p, policy)) { counts.excluded++; continue; }
+      // No invented customer origin: preview scores omit distance points and do not apply a radius.
+      const candidate = finderQualityCandidates(p, policy, policy.maxRadiusKm, policy.maxRadiusKm)[0];
+      if (policy.quality.enabled && !candidate) { counts.excluded++; continue; }
+      const tier = candidate?.tier || "other";
+      counts[tier]++;
+      const missingLocation = p.lat === null || p.lng === null;
+      if (missingLocation) counts.missingLocations++;
+      rows.push({ id: p.id, type: p.type, name: p.name, missingLocation,
+        quality: candidate ? { score: candidate.score, tier, matched: candidate.matched, missing: candidate.missing,
+          unknown: candidate.unknown, breakdown: candidate.breakdown, personId: candidate.person?.id,
+          personName: candidate.person?.name, notNearest: false } : undefined });
+    }
+    const tierOrder = { recommended: 0, previous: 1, other: 2 };
+    rows.sort((a, b) => tierOrder[a.quality?.tier || "other"] - tierOrder[b.quality?.tier || "other"] ||
+      (b.quality?.score || 0) - (a.quality?.score || 0) || a.type.localeCompare(b.type) || a.id.localeCompare(b.id));
+    const visible = policy.quality.enabled && (policy.quality.fallback === "never" ||
+      policy.quality.fallback === "when_empty" && counts.recommended > 0) ?
+      rows.filter(p => p.quality?.tier === "recommended") : rows;
+    res.json({ counts, total: providers.length, visible: visible.length, results: visible.slice(0, 12), distanceIncluded: false });
+  }));
   app.get(`${root}/config/:company/:country`, requireAuth, getCountryConfig);
   app.put(`${root}/config/:company/:country`, requireAuth, putCountryConfig);
   app.get(`${root}/directory/:company/:country`, requireAuth, route(async (req, res) => {
