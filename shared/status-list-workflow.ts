@@ -47,6 +47,7 @@ export type SavedStatusListWorkflow = StatusListWorkflow & { id: string; campaig
 export type WorkflowCatalogItem = {
   kind: "item" | "question"; id: string; label: string; fieldType: string;
   hidden: boolean; writable: boolean; parentLabel?: string;
+  parentId?: string; sortOrder?: number; itemType?: string;
 };
 export function answerIsEmpty(value: unknown) {
   return value === undefined || value === null || value === "";

@@ -13,16 +13,19 @@ type Queryable = Pick<PoolClient, "query">;
 export async function workflowCatalog(campaignId: string, client: Queryable = pool): Promise<WorkflowCatalogItem[]> {
   const { rows } = await client.query(`
     SELECT 'item' AS kind, i.id, i.label, 'checkbox' AS field_type, i.is_hidden AS hidden,
-      i.confirmation_type <> 'auto' AS writable, p.label AS parent_label
+      i.confirmation_type <> 'auto' AS writable, p.label AS parent_label,
+      i.parent_id, i.sort_order, i.item_type
     FROM campaign_status_list_items i LEFT JOIN campaign_status_list_items p ON p.id=i.parent_id
     WHERE i.campaign_id=$1
     UNION ALL
     SELECT 'question', q.id, q.question_text, COALESCE(q.field_type,'checkbox'), q.is_hidden,
-      i.confirmation_type <> 'auto', i.label
+      i.confirmation_type <> 'auto', i.label, q.item_id, q.sort_order, 'question'
     FROM campaign_status_list_questions q JOIN campaign_status_list_items i ON i.id=q.item_id
-    WHERE i.campaign_id=$1`, [campaignId]);
+    WHERE i.campaign_id=$1
+    ORDER BY sort_order, kind, id`, [campaignId]);
   return rows.map(row => ({ kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
-    hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label }));
+    hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
+    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type }));
 }
 export function validateWorkflowValue(item: WorkflowCatalogItem, value: unknown) {
   if (!item.writable) throw new StatusListWorkflowError("derived_answer");
