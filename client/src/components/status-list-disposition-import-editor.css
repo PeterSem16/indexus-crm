@@ -1,0 +1,23 @@
+/* Legacy dialog palettes can remain light while their descendants switch to
+   dark tokens. Keep this editor coherent without restyling other dialogs. */
+.dark [data-testid="status-list-disposition-import-dialog"] {
+  --background: 240 6% 10%;
+  --foreground: 240 5% 96%;
+  --card: 240 6% 10%;
+  --card-foreground: 240 5% 96%;
+  --muted: 240 4% 18%;
+  --muted-foreground: 240 5% 70%;
+  --border: 240 4% 25%;
+  --input: 240 4% 25%;
+  --accent: 240 4% 20%;
+  --accent-foreground: 240 5% 96%;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border));
+  color-scheme: dark;
+}
+.dark [data-testid="status-list-disposition-import-dialog"] button:not([data-testid="btn-confirm-import-dispositions"]):not([data-testid="disposition-import-next"]) {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border));
+}

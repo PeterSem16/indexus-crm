@@ -20,6 +20,8 @@ import { outlinePhase } from "@/lib/status-list-outline";
 import { StatusListQuestionStudio } from "@/components/status-list-question-studio";
 import { getStatusListQuestionStudioCopy } from "@/components/status-list-question-studio-copy";
 import { StatusListQuickOptionEditor, getQuickOptionCopy } from "@/components/status-list-quick-option-editor";
+import { StatusListQuickOptionIcon, StatusListQuickOptionIconPicker } from "@/components/status-list-quick-option-icons";
+import { StatusListDispositionImportEditor } from "@/components/status-list-disposition-import-editor";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
@@ -93,6 +95,7 @@ type StatusListItem = {
   isHidden?: boolean;
   itemType?: string;
   color?: string | null;
+  icon?: string | null;
   autoConfirmOnSubQuestion?: boolean;
   questionSelectionMode?: "multiple" | "single";
   tab?: string | null;
@@ -3604,7 +3607,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
   const { toast } = useToast();
   const { locale } = useI18n();
   const copy = getQuickOptionCopy(locale);
-  const [form, setForm] = useState({ label: "", color: "#3b82f6", description: "", canonicalClinicStatusKey: null as string | null });
+  const [form, setForm] = useState({ label: "", color: "#3b82f6", icon: null as string | null, description: "", canonicalClinicStatusKey: null as string | null });
 
   const addMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
@@ -3616,6 +3619,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
       sortOrder: 1000 + existingCount,
       itemType: "option",
       color: form.color,
+      icon: form.icon,
       canonicalClinicStatusKey: form.canonicalClinicStatusKey || null,
     }),
     onSuccess: async response => {
@@ -3686,10 +3690,12 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
           </Select>
         </div>
       </div>
+      <StatusListQuickOptionIconPicker value={form.icon} onChange={icon => setForm(current => ({ ...current, icon }))} locale={locale} disabled={addMutation.isPending}/>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span>{copy.preview}:</span>
-          <span className="px-2 py-0.5 rounded text-white text-[11px] font-semibold" style={{ backgroundColor: form.color }}>
+          <span data-testid="quick-option-create-preview" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-white text-[11px] font-semibold" style={{ backgroundColor: form.color }}>
+            <StatusListQuickOptionIcon name={form.icon} className="h-3.5 w-3.5 shrink-0"/>
             {form.label || copy.name}
           </span>
         </div>
@@ -3844,7 +3850,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(new Map());
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [templateProgress, setTemplateProgress] = useState<string | null>(null);
-  const [selectedDisps, setSelectedDisps] = useState<Set<string>>(new Set());
+  const [importDirty, setImportDirty] = useState(false);
+  const [importPending, setImportPending] = useState(false);
+  const closeImport = () => {
+    if (importPending || (importDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard))) return;
+    setImportOpen(false);
+  };
   const [previewMode, setPreviewMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
@@ -3949,14 +3960,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
   });
 
-  const { data: dispositions = [], isLoading: dispsLoading } = useQuery<any[]>({
+  const { data: dispositions = [], isLoading: dispsLoading, isError: dispsError, refetch: retryDispositions } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaignId, "dispositions"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/dispositions`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
     enabled: importOpen,
   });
 
-  const parentDisps = dispositions.filter((d: any) => !d.parentId);
-  const childDisps = (parentId: string) => dispositions.filter((d: any) => d.parentId === parentId);
 
   function toggleStep(stepId: string) {
     setSelectedSteps(prev => {
@@ -3985,13 +3994,6 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     });
   }
 
-  function toggleDisp(id: string) {
-    setSelectedDisps(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
-      return next;
-    });
-  }
 
   const activeTemplate = templateTab === "CLA" ? CLA_TEMPLATE : templateTab === "CLB" ? CLB_TEMPLATE : MPN_TEMPLATE;
 
@@ -4076,32 +4078,6 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
-  const importMutation = useMutation({
-    mutationFn: async () => {
-      const base = items.length;
-      let i = 0;
-      for (const dispId of Array.from(selectedDisps)) {
-        const disp = dispositions.find((d: any) => String(d.id) === String(dispId));
-        if (!disp) continue;
-        await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
-          stepId: disp.code || `DISP-${String(i + 1).padStart(2, "0")}`,
-          label: disp.name,
-          description: disp.description || null,
-          confirmationType: "radio",
-          required: false,
-          sortOrder: base + i,
-        });
-        i++;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      setImportOpen(false);
-      setSelectedDisps(new Set());
-      toast({ title: `✅ ${sl("importBtn", locale)}: ${selectedDisps.size} ${sl("selectedCount", locale)}` });
-    },
-    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
-  });
 
   if (isLoading) {
     return (
@@ -4423,76 +4399,17 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       </Dialog>
 
       {/* ── Import z Disposition Dialog ─────────────────────────────────── */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog open={importOpen} onOpenChange={open => { if (!open) closeImport(); }}>
+        <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto" data-testid="status-list-disposition-import-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-4 w-4 text-emerald-500" />
               {sl("importTitle", locale)}
             </DialogTitle>
           </DialogHeader>
-          <div className="py-2 space-y-1 max-h-80 overflow-y-auto">
-            {dispsLoading && (
-              <div className="flex items-center justify-center py-8 text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin mr-2" /> {sl("loadingMsg", locale)}
-              </div>
-            )}
-            {!dispsLoading && parentDisps.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                {sl("noDispsMsg", locale)}
-              </p>
-            )}
-            {parentDisps.map((d: any) => {
-              const children = childDisps(d.id);
-              return (
-                <div key={d.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggleDisp(d.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-left transition-colors text-sm ${selectedDisps.has(d.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
-                    data-testid={`import-disp-${d.id}`}
-                  >
-                    <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedDisps.has(d.id) ? "bg-primary border-primary" : "border-border"}`}>
-                      {selectedDisps.has(d.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                    </div>
-                    <span className="font-medium flex-1">{d.name}</span>
-                    {d.code && <span className="text-xs text-muted-foreground font-mono">{d.code}</span>}
-                  </button>
-                  {children.map((c: any) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleDisp(c.id)}
-                      className={`w-full flex items-center gap-2.5 pl-8 pr-3 py-1.5 rounded-md text-left transition-colors text-sm ${selectedDisps.has(c.id) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
-                      data-testid={`import-disp-${c.id}`}
-                    >
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${selectedDisps.has(c.id) ? "bg-primary border-primary" : "border-border"}`}>
-                        {selectedDisps.has(c.id) && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                      </div>
-                      <span className="flex-1">{c.name}</span>
-                      {c.code && <span className="text-xs text-muted-foreground font-mono">{c.code}</span>}
-                    </button>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-          <DialogFooter className="flex items-center justify-between gap-2">
-            <span className="text-xs text-muted-foreground">{selectedDisps.size} {sl("selectedCount", locale)}</span>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setImportOpen(false)}>{sl("cancelBtn", locale)}</Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={selectedDisps.size === 0 || importMutation.isPending}
-                onClick={() => importMutation.mutate()}
-                data-testid="btn-confirm-import-dispositions"
-              >
-                {importMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Download className="h-3.5 w-3.5 mr-1" />}
-                {sl("importBtn", locale)} ({selectedDisps.size})
-              </Button>
-            </div>
-          </DialogFooter>
+          {importOpen && <StatusListDispositionImportEditor campaignId={campaignId} locale={locale} dispositions={dispositions}
+            existingSteps={items} loading={dispsLoading} loadError={dispsError} onRetry={() => { void retryDispositions(); }}
+            onClose={closeImport} onDirtyChange={setImportDirty} onPendingChange={setImportPending}/>}
         </DialogContent>
       </Dialog>
 

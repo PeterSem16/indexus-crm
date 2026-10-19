@@ -186,9 +186,13 @@ try {
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: { ...reachability, hidden: true } }));
   check(await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]) === presentationRevision, "Visibility change does not rebaseline");
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: reachability }));
+  const iconCloneOption = await body(await api.post(`/api/campaigns/${mission}/status-list`, { data: {
+    stepId: "OPT-ICON-CLONE", label: "Synthetic clone icon", itemType: "option", color: "#3b82f6", icon: "HeartPulse",
+  } }));
   const clone = await cloneCampaignWithConfiguration(mission, user, "Synthetic source clone");
   assert.ok(clone, "The source Mission must produce a persisted clone");
   cloneId = clone.id;
+  check(await scalar("SELECT icon AS value FROM campaign_status_list_items WHERE campaign_id=$1 AND step_id='OPT-ICON-CLONE'", [cloneId]) === "HeartPulse", "Cloning preserves quick-option icons with fresh item identity");
   const clonedOrganization = await scalar("SELECT settings::jsonb->'statusListOrganizer' AS value FROM campaigns WHERE id=$1", [cloneId]);
   check(clonedOrganization.categories[0].name === "Synthetic category" && clonedOrganization.categories[0].id !== categoryId, "Cloned custom categories have fresh identities");
   check(Object.keys(clonedOrganization.assignments).length === 2 && !clonedOrganization.assignments[reachGroup] && !clonedOrganization.assignments[resultQuestion], "Clone remaps item and subquestion category assignments");
@@ -208,6 +212,8 @@ try {
   await body(await api.post(`/api/campaigns/${mission}/nexus-pulse/versions/${versionNumber}/restore`, { data: { confirm: true } }), 201);
   const restored = await body(await api.get(optionRoot));
   check(restored.sources.find((s: any) => s.groupId === reachGroup).policy.replyWaitHours === policy.replyWaitHours, "Version restore preserves configured policy");
+  check(await scalar("SELECT icon AS value FROM campaign_status_list_items WHERE id=$1", [iconCloneOption.id]) === "HeartPulse", "Module snapshots and restore preserve the selected quick-option icon");
+  await body(await api.delete(`/api/campaigns/${mission}/status-list/${iconCloneOption.id}`));
   await evaluateBackgroundContact(cc);
   check(await runCount() === 1, "Restore initializes without replay");
   // Re-enable establishes a fresh baseline, even when current value is successful.
@@ -343,9 +349,9 @@ try {
   check(await page.locator(".slqs-heading").evaluate(node => node.getBoundingClientRect().width > 180), "Embedded desktop heading never collapses into vertical letters");
   check(await page.locator(".slqs-stage-card").evaluate(node => node.getBoundingClientRect().width > 240), "Embedded editor uses the real panel width instead of forcing a desktop preview column");
   await page.screenshot({ path: "generated-artifacts/status-list-options/integrated-step.jpg" });
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.evaluate(() => { document.documentElement.classList.remove("light"); document.documentElement.classList.add("dark"); });
   await page.screenshot({ path: "generated-artifacts/status-list-options/integrated-step-dark.jpg" });
-  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.evaluate(() => { document.documentElement.classList.remove("dark"); document.documentElement.classList.add("light"); });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("status-list-question-studio").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "generated-artifacts/status-list-options/integrated-step-mobile.jpg" });
@@ -409,9 +415,10 @@ try {
   await page.getByTestId("status-list-visibility-hidden").click();
   check(await page.getByTestId(`status-list-question-row-${secondQuestion}`).isVisible(), "Hidden filter retains hidden subquestions");
   await page.screenshot({ path: "generated-artifacts/status-list-options/hidden-questions.jpg" });
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.evaluate(() => { document.documentElement.classList.remove("light"); document.documentElement.classList.add("dark"); });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   await page.screenshot({ path: "generated-artifacts/status-list-options/hidden-questions-dark.jpg" });
-  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.evaluate(() => { document.documentElement.classList.remove("dark"); document.documentElement.classList.add("light"); });
   await page.getByTestId("status-list-visibility-visible").click();
   check(await page.getByTestId(`status-list-question-row-${secondQuestion}`).count() === 0, "Visible filter excludes hidden subquestions");
   await page.getByTestId("status-list-visibility-all").click();
@@ -509,10 +516,13 @@ try {
   await quickCreate.getByTestId("input-option-description").fill("Synthetic outcome button");
   const chosenColor = await quickCreate.locator("button[aria-pressed]").nth(1).getAttribute("aria-label");
   await quickCreate.locator("button[aria-pressed]").nth(1).click();
+  await quickCreate.getByTestId("quick-option-icon-PhoneCall").click();
+  check(await quickCreate.getByTestId("quick-option-create-preview").locator("svg").count() === 1, "Creation previews the selected icon next to the button label");
   const quickCreatedResponse = page.waitForResponse(response => response.url().endsWith(`/campaigns/${mission}/status-list`) && response.request().method() === "POST");
   await quickCreate.getByTestId("btn-confirm-add-option").click();
   const quickCreated = await (await quickCreatedResponse).json();
   check(quickCreated.itemType === "option" && quickCreated.stepId.startsWith("OPT-") && quickCreated.sortOrder >= 1000 && quickCreated.color === chosenColor, "Quick creation retains option identity, ordering and button color");
+  check(quickCreated.icon === "PhoneCall", "The selected button icon persists through the real create API");
   const quickEditor = page.getByTestId("status-list-quick-option-editor");
   await quickEditor.waitFor();
   const quickStage = (name: string) => quickEditor.getByTestId(`service-action-stage-${name}`).click();
@@ -668,13 +678,31 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await inlineEditor.locator(".slsae-footer-left button").click();
   await quickEditor.getByTestId("quick-option-name").fill("Synthetic quick outcome edited");
+  await quickEditor.getByTestId("quick-option-icon-HeartPulse").click();
   const quickEdited = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "PUT");
   await quickEditor.getByTestId("quick-option-save").click();
-  check((await quickEdited).ok(), "Quick button appearance can be edited independently");
+  const quickAppearanceResponse = await quickEdited;
+  check(quickAppearanceResponse.ok() && (await quickAppearanceResponse.json()).icon === "HeartPulse", "Quick name and icon save independently of existing actions");
   await page.reload();
   await page.getByTestId("status-list-phase-quick").click();
   await page.getByTestId(`status-list-select-${quickCreated.id}`).click();
   check(await quickEditor.getByTestId("quick-option-name").inputValue() === "Synthetic quick outcome edited" && await quickEditor.locator("[data-testid^='studio-original-action-']").count() === 3, "Quick name and all actions survive a real reload");
+  check(await quickEditor.getByTestId("quick-option-icon-HeartPulse").getAttribute("aria-pressed") === "true" && await quickEditor.getByTestId("quick-option-preview").locator("svg").count() === 1, "Saved icon selection and actual button preview survive reload");
+  await quickEditor.getByTestId("quick-option-icon-picker").locator("button").first().click();
+  const noIconSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "PUT");
+  await quickEditor.getByTestId("quick-option-save").click();
+  check((await (await noIconSaved).json()).icon === null && await quickEditor.getByTestId("quick-option-preview").locator("svg").count() === 0, "Removing the icon restores the original text-only button");
+  await body(await api.put(`/api/campaigns/${mission}/status-list/${quickCreated.id}`, { data: { icon: "FutureIcon" } }));
+  await page.reload();
+  await page.getByTestId(`status-list-select-${quickCreated.id}`).click();
+  await quickEditor.getByTestId("quick-option-description").fill("Synthetic unrelated description edit");
+  const unknownIconSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "PUT");
+  await quickEditor.getByTestId("quick-option-save").click();
+  check((await (await unknownIconSaved).json()).icon === "FutureIcon", "Unrelated edits preserve an unrecognized stored icon instead of silently clearing it");
+  await quickEditor.getByTestId("quick-option-icon-HeartPulse").click();
+  const restoredIconSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "PUT");
+  await quickEditor.getByTestId("quick-option-save").click();
+  await restoredIconSaved;
   await quickEditor.scrollIntoViewIfNeeded();
   await page.screenshot({ path: "generated-artifacts/status-list-options/quick-option-desktop.jpg" });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -686,6 +714,71 @@ try {
   const quickDeleted = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "DELETE");
   await quickEditor.getByTestId("quick-option-delete").click();
   check((await quickDeleted).ok(), "Quick deletion stays separate from checklist questions");
+  // Import remains the original flat, additive copy operation, but now has
+  // a focused preview, explicit confirmation and honest partial results.
+  await body(await api.post(`/api/campaigns/${mission}/status-list`, { data: { stepId: "not_interested", label: "Synthetic existing import step" } }));
+  await pool.query("UPDATE campaign_dispositions SET parent_id=$1 WHERE id=$2", [quickFinalDisposition, quickCallbackDisposition]);
+  await page.reload();
+  await page.getByTestId("status-list-tab-tools").click();
+  await page.getByTestId("btn-open-import-dispositions").click();
+  const importEditor = page.getByTestId("status-list-disposition-import-editor");
+  await importEditor.getByTestId(`import-disp-${quickFinalDisposition}`).check();
+  check(!await importEditor.getByTestId(`import-disp-${quickCallbackDisposition}`).isChecked(), "Selecting a parent does not silently select child dispositions");
+  await importEditor.getByTestId(`import-disp-${quickCallbackDisposition}`).check();
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.keyboard.press("Escape");
+  check(await importEditor.isVisible() && await importEditor.getByTestId(`import-disp-${quickFinalDisposition}`).isChecked(), "Declining import cancellation preserves its selection");
+  const importBefore = (await pool.query("SELECT * FROM campaign_status_list_items WHERE campaign_id=$1 ORDER BY id", [mission])).rows;
+  const importActionsBefore = await scalar("SELECT count(*)::int AS value FROM campaign_status_list_automations WHERE status_list_item_id IN (SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]);
+  await importEditor.getByTestId("disposition-import-next").click();
+  await importEditor.getByTestId("disposition-import-review").waitFor();
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_items WHERE campaign_id=$1", [mission]) === importBefore.length, "Reviewing dispositions performs no import");
+  check((await importEditor.getByTestId("disposition-import-impact").innerText()).length > 150 && (await importEditor.getByTestId("disposition-import-review").innerText()).includes("not_interested"), "Review explains exact copy semantics and shows selected codes");
+  await mkdir("generated-artifacts/status-list-disposition-import", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/status-list-disposition-import/desktop.jpg" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await importEditor.getByTestId("btn-confirm-import-dispositions").scrollIntoViewIfNeeded();
+  check(await importEditor.getByTestId("btn-confirm-import-dispositions").evaluate(node => {
+    const rect = node.getBoundingClientRect();
+    return rect.left >= 0 && rect.right <= innerWidth && node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+  }), "Import confirmation remains reachable and unobstructed on mobile");
+  await page.screenshot({ path: "generated-artifacts/status-list-disposition-import/mobile.jpg" });
+  await page.evaluate(() => { document.documentElement.classList.remove("light"); document.documentElement.classList.add("dark"); });
+  // Radix's duration-200 can animate the surface after its CSS tokens change.
+  // Wait for the rendered surface, not merely the root class or two frames.
+  await page.waitForFunction(() => {
+    const node = document.querySelector('[data-testid="status-list-disposition-import-dialog"]');
+    const rgb = node && getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number);
+    return !!rgb && rgb.every(channel => channel < 65);
+  }, undefined, { timeout: 5000 });
+  check(await page.getByTestId("status-list-disposition-import-dialog").evaluate(node => {
+    const rgb = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number);
+    return !!rgb && rgb.every(channel => channel < 65);
+  }), "Dark import keeps the actual dialog surface dark instead of mixing light surfaces with dark text tokens");
+  await page.screenshot({ path: "generated-artifacts/status-list-disposition-import/dark.jpg" });
+  await page.evaluate(() => { document.documentElement.classList.remove("dark"); document.documentElement.classList.add("light"); });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const importPath = `/api/campaigns/${mission}/status-list`;
+  await page.route(`**${importPath}`, route => {
+    if (route.request().method() === "POST" && route.request().postDataJSON()?.stepId === "callback")
+      return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic partial import failure" }) });
+    return route.continue();
+  });
+  await importEditor.getByTestId("btn-confirm-import-dispositions").click();
+  await importEditor.locator("[role=alert]").waitFor();
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_items WHERE campaign_id=$1 AND label='Synthetic final status'", [mission]) === 1, "A partial failure reports and retains the first confirmed addition");
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_items WHERE campaign_id=$1 AND label='Synthetic callback status'", [mission]) === 0, "Failed rows are not falsely reported as imported");
+  await page.unroute(`**${importPath}`);
+  await importEditor.getByTestId("btn-confirm-import-dispositions").click();
+  await importEditor.getByTestId("disposition-import-result").waitFor();
+  const importedRows = (await pool.query("SELECT * FROM campaign_status_list_items WHERE campaign_id=$1 AND label IN ('Synthetic final status','Synthetic callback status') ORDER BY sort_order", [mission])).rows;
+  check(importedRows.length === 2 && importedRows.every(row => row.confirmation_type === "radio" && row.required === false && row.parent_id === null && row.tab === null && row.item_type === "step"), "Import preserves original optional, unassigned, flat radio-step semantics");
+  check(importedRows[0].sort_order === importBefore.length && importedRows[1].sort_order === importBefore.length + 1, "Partial retry preserves the original order and does not resend confirmed rows");
+  const oldRowsAfter = (await pool.query("SELECT * FROM campaign_status_list_items WHERE id=ANY($1::varchar[]) ORDER BY id", [importBefore.map(row => row.id)])).rows;
+  check(JSON.stringify(oldRowsAfter) === JSON.stringify(importBefore), "Import leaves every pre-existing step byte-for-byte unchanged, including duplicate codes");
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_automations WHERE status_list_item_id IN (SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]) === importActionsBefore && quickRuntimeRequests === 0, "Disposition import neither copies nor executes action services");
+  await importEditor.locator("footer button").first().click();
+  await importEditor.waitFor({ state: "hidden" });
   // Reload above intentionally resets fullscreen; restore the context used by
   // the nested-dialog keyboard regression checks below.
   if (await workspace.getAttribute("data-fullscreen") !== "true") await page.getByTestId("status-list-toggle-fullscreen").click();

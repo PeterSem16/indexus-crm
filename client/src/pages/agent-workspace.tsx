@@ -19,6 +19,7 @@ import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar
 import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { actionCopy } from "@/components/status-list-service-action-copy";
+import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { createAgentWorkspaceTask, type AgentWorkspaceTaskCreateInput } from "@/lib/agent-workspace-task-create";
@@ -6593,7 +6594,7 @@ export function CommunicationCanvas({
                           style={{ backgroundColor: opt.color || "#6b7280" }}
                           data-testid={`option-btn-${opt.id}`}
                         >
-                          {slRunningOption === opt.id && <Loader2 className="h-3 w-3 animate-spin" />}
+                          {slRunningOption === opt.id ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <StatusListQuickOptionIcon name={opt.icon} className="h-3.5 w-3.5 shrink-0" />}
                           {opt.label}
                         </button>
                       ))}

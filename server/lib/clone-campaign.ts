@@ -251,6 +251,7 @@ export async function cloneCampaignWithConfiguration(
         isHidden: row.isHidden,
         itemType: row.itemType,
         color: row.color,
+        icon: row.icon,
         autoConfirmOnSubQuestion: row.autoConfirmOnSubQuestion,
         questionSelectionMode: row.questionSelectionMode,
         tab: row.tab,

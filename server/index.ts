@@ -892,6 +892,13 @@ app.use((req, res, next) => {
   }
 
   try {
+    await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS icon TEXT;`);
+    console.log('[migration] campaign_status_list_items icon ensured');
+  } catch (e: any) {
+    console.error('[migration] campaign_status_list_items icon error:', e.message);
+  }
+
+  try {
     await pool.query(`
       ALTER TABLE campaign_status_list_items
         ADD COLUMN IF NOT EXISTS question_selection_mode TEXT NOT NULL DEFAULT 'multiple';
