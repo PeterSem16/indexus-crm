@@ -8,6 +8,7 @@ import {
   campaignStatusListAutomations,
   campaignStatusListItems,
   campaignStatusListQuestions,
+  missionStatusListRules,
   nexusPulseModuleRevisions,
 } from "@shared/schema";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
@@ -21,6 +22,7 @@ type Snapshot = {
   statusListItems: Array<Record<string, unknown>>;
   questions: Array<Record<string, unknown>>;
   automations: Array<Record<string, unknown>>;
+  workflowRules?: Array<Record<string, unknown>>;
 };
 
 type SnapshotChange = {
@@ -191,6 +193,9 @@ async function buildSnapshot(executor: any, campaignId: string): Promise<Snapsho
     automations: Array.from(automationsById.values()).sort(
       (left, right) => Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0) || String(left.id).localeCompare(String(right.id)),
     ),
+    workflowRules: (await executor.select().from(missionStatusListRules)
+      .where(eq(missionStatusListRules.campaignId, campaignId))
+      .orderBy(asc(missionStatusListRules.id))).map(stripTimestamps),
   };
 }
 
@@ -343,6 +348,16 @@ async function restoreSnapshot(executor: any, campaignId: string, snapshot: Snap
   for (const automation of snapshot.automations) {
     await executor.insert(campaignStatusListAutomations).values(automation)
       .onConflictDoUpdate({ target: campaignStatusListAutomations.id, set: { ...automation, updatedAt: new Date() } });
+  }
+  // Old snapshots predate workflow rules. Preserve those rules rather than
+  // silently deleting configuration the old snapshot never captured.
+  if (snapshot.workflowRules !== undefined) {
+    await executor.delete(missionStatusListRules).where(eq(missionStatusListRules.campaignId, campaignId));
+    for (const rule of snapshot.workflowRules) {
+      await executor.insert(missionStatusListRules).values({
+        ...rule, campaignId, updatedAt: new Date(),
+      });
+    }
   }
 }
 

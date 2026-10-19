@@ -6557,8 +6557,8 @@ export default function CampaignDetailPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-0" data-testid="tab-content-settings">
-          <div className="flex border rounded-lg overflow-hidden min-h-[500px]">
-              <div className="w-56 border-r bg-muted/20 py-3 px-3 flex flex-col gap-1 shrink-0">
+          <div className={`flex border rounded-lg overflow-hidden min-h-[500px] ${settingsSubTab === "status_list" ? "flex-col lg:flex-row" : ""}`}>
+              <div className={`bg-muted/20 py-3 px-3 flex gap-1 shrink-0 ${settingsSubTab === "status_list" ? "w-full lg:w-56 border-b lg:border-b-0 lg:border-r flex-row lg:flex-col overflow-x-auto" : "w-56 border-r flex-col"}`}>
                   {[
                     { value: "general", icon: Settings, label: t.campaigns.detail.general, desc: t.campaigns.detail.subGeneralDesc },
                     { value: "nexus_versions", icon: History, label: t.campaigns.detail.nexusVersioningTitle, desc: t.campaigns.detail.nexusVersioningSubtitle },
@@ -6576,7 +6576,7 @@ export default function CampaignDetailPage() {
                         key={tab.value}
                         type="button"
                         onClick={() => setSettingsSubTab(tab.value)}
-                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-left w-full transition-all ${
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all ${settingsSubTab === "status_list" ? "shrink-0 w-auto lg:w-full" : "w-full"} ${
                           isActive
                             ? "bg-background shadow-sm border border-border"
                             : "hover:bg-background/60"

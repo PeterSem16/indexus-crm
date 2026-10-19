@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
+import { StatusListWorkflowEditor } from "@/components/status-list-workflow-editor";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
@@ -3837,6 +3838,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
   return (
     <div className="space-y-3">
+      <StatusListWorkflowEditor campaignId={campaignId} locale={locale} />
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
           <LayoutTemplate className="h-3.5 w-3.5 text-primary" />

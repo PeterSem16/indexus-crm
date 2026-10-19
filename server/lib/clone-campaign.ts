@@ -13,6 +13,7 @@ import {
   campaignStatusListItems,
   campaignStatusListQuestions,
   campaignStatusListAutomations,
+  missionStatusListRules,
   sopCampaignArticles,
   operatorScriptSchema,
 } from "@shared/schema";
@@ -316,6 +317,16 @@ export async function cloneCampaignWithConfiguration(
         id: randomUUID(),
         articleId: row.articleId,
         campaignId: newCampaignId,
+      })));
+    }
+
+    const sourceWorkflows = await tx.select().from(missionStatusListRules)
+      .where(eq(missionStatusListRules.campaignId, sourceCampaignId));
+    if (sourceWorkflows.length) {
+      const workflowIdMap = new Map<string, string>(Array.from(itemIdMap.entries()).concat(Array.from(questionIdMap.entries())));
+      await tx.insert(missionStatusListRules).values(sourceWorkflows.map(rule => ({
+        id: randomUUID(), campaignId: newCampaignId, createdBy,
+        definition: remapIdsDeep(rule.definition, workflowIdMap) as typeof rule.definition,
       })));
     }
 

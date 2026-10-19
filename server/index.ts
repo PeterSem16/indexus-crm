@@ -198,6 +198,8 @@ app.use((req, res, next) => {
   await ensureHealthcareLegalEntitySchema(pool);
   const { ensureProviderFinderSchema } = await import("./lib/provider-finder-schema");
   await ensureProviderFinderSchema(pool);
+  const { ensureStatusListWorkflowSchema } = await import("./lib/status-list-workflow-schema");
+  await ensureStatusListWorkflowSchema(pool);
 
   // Standalone Automation tables and recurring-schedule claim metadata are
   // runtime requirements for production deploys that skip drizzle db:push.

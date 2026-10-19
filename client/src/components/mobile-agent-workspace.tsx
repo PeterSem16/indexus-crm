@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type CSSProperties, type RefObject } from "react";
+import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Slider } from "@/components/ui/slider";
@@ -1294,6 +1295,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             {dbStatusList.length > 0 && (
               <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
             )}
+            {isStatusListMode && campaign?.id && currentCampaignContactId && <StatusListWorkflowContact key={currentCampaignContactId} campaignId={campaign.id} campaignContactId={currentCampaignContactId} />}
           </div>
         </div>
       </div>
@@ -1333,6 +1335,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           )}
           {contactInfoSection}
           <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
+          {isStatusListMode && campaign?.id && currentCampaignContactId && <StatusListWorkflowContact key={currentCampaignContactId} campaignId={campaign.id} campaignContactId={currentCampaignContactId} />}
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
@@ -1437,6 +1440,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {dbStatusList.length > 0 && (
             <div className="-mx-4">
               <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
+              {isStatusListMode && campaign?.id && currentCampaignContactId && <StatusListWorkflowContact key={currentCampaignContactId} campaignId={campaign.id} campaignContactId={currentCampaignContactId} />}
             </div>
           )}
 

@@ -13,6 +13,9 @@ import { MissedCommunicationsUnified as MissedUnifiedDialog } from "@/components
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
+import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
+import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
+import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { createAgentWorkspaceTask, type AgentWorkspaceTaskCreateInput } from "@/lib/agent-workspace-task-create";
@@ -3568,6 +3571,15 @@ export function CommunicationCanvas({
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
   const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
+  const workflowContact = useStatusListWorkflowContact(campaign?.id, campaignContactId);
+  useEffect(() => {
+    setSlQuestionAnswers(workflowContact.data?.answers || {});
+  }, [campaignContactId, workflowContact.data?.answers]);
+  useEffect(() => {
+    if (campaign?.id && campaignContactId) {
+      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
+    }
+  }, [campaign?.id, campaignContactId, dbSlState]);
   const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
 
   const scrollToSlStep = useCallback((targetStepId: string) => {
@@ -3616,7 +3628,7 @@ export function CommunicationCanvas({
   // this prevents a radio-type question from leaving a non-radio sibling selected.
   const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[], groupMode?: string) => {
     const ft = q.fieldType || "checkbox";
-    setSlQuestionAnswers(prev => {
+    const prev = slQuestionAnswers;
       const next = { ...prev };
       if (ft === "radio") {
         allGroupQs.filter((gq: any) => (gq.fieldType || "checkbox") === "radio")
@@ -3626,16 +3638,19 @@ export function CommunicationCanvas({
         // Always run — even when ft === "radio" — so mixed-type groups clear properly
         allGroupQs.forEach((gq: any) => { delete next[gq.id]; });
       }
-      if ((ft === "checkbox" || ft === "radio") && next[q.id] === value) {
+      if ((ft === "checkbox" || ft === "radio") && prev[q.id] === value) {
         delete next[q.id];
       } else if (groupMode === "ONE" && prev[q.id] !== undefined) {
         // was answered → keep cleared (deselect completed above)
       } else {
         next[q.id] = value;
       }
-      return next;
+    setSlQuestionAnswers(next);
+    void workflowContact.save(q.id, next[q.id] ?? null).catch(() => {
+      toast({ title: getStatusListWorkflowCopy(locale).answerError, variant: "destructive" });
+      void workflowContact.refetch();
     });
-  }, []);
+  }, [slQuestionAnswers, workflowContact.save, workflowContact.refetch, toast, locale]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   const localPhoneOverride = phoneOverride ?? null;
@@ -6319,6 +6334,9 @@ export function CommunicationCanvas({
 
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
+              {campaign?.id && campaignContactId && <div className="max-h-72 shrink-0 overflow-y-auto p-2">
+                <StatusListWorkflowContact key={campaignContactId} campaignId={campaign.id} campaignContactId={campaignContactId} />
+              </div>}
               {/* ── Nexus Pulse Header + Phase Pipeline ─────────────── */}
               <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
                 {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
@@ -12450,6 +12468,7 @@ function AgentWorkspacePageContent() {
         confirm: newChecked,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
     } catch {
       setMobileDbSlChecked(prev => {
         const next = new Set(prev);
@@ -12470,6 +12489,7 @@ function AgentWorkspacePageContent() {
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
       if (mobileSlBatchAction === "reschedule") {
         await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
           ...buildScheduledCallbackPatch(

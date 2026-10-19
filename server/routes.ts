@@ -50,6 +50,8 @@ import { startOfDay, endOfDay, subDays } from "date-fns";
 import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count, sql, asc, exists, notExists } from "drizzle-orm";
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
+import { registerStatusListWorkflowRoutes } from "./lib/status-list-workflow-routes";
+import { processStatusListItemWorkflow } from "./lib/status-list-workflow";
 import { storage } from "./storage";
 import { executeStatusListTaskAction } from "./lib/status-list-task-action";
 import {
@@ -3007,6 +3009,7 @@ export async function registerRoutes(
   registerHealthcareLegalEntityRoutes(app, requireAuth);
   const { registerProviderFinderRoutes } = await import("./lib/provider-finder-routes");
   registerProviderFinderRoutes(app, requireAuth);
+  registerStatusListWorkflowRoutes(app, requireAuth);
 
   // Coarse operational telemetry only. The deliberately tiny allowlist makes
   // it impossible for callers to submit call content, addresses, SDP or SIP
@@ -35159,6 +35162,11 @@ Respond ONLY with valid JSON in this exact format:
           } else {
             stateRow = existing[0];
           }
+        }
+        if (!skipAutomations) {
+          await processStatusListItemWorkflow({
+            campaignId, campaignContactId, itemId, actorId: userId, stateId: stateRow.id,
+          });
         }
         return res.json({ ...stateRow, confirmed: true });
       } else {

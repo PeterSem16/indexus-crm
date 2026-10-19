@@ -4,6 +4,7 @@ import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, 
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { WallboardAlarmSettings } from "./wallboard-alarms";
+import type { StatusListWorkflow } from "./status-list-workflow";
 import { primaryKey } from "drizzle-orm/pg-core";
 import type { TaskAttachment } from "./task-attachments";
 
@@ -8405,6 +8406,35 @@ export const insertCampaignContactStatusListStateSchema = createInsertSchema(cam
 });
 export type CampaignContactStatusListState = typeof campaignContactStatusListState.$inferSelect;
 export type InsertCampaignContactStatusListState = z.infer<typeof insertCampaignContactStatusListStateSchema>;
+
+export const missionStatusListRules = pgTable("mission_status_list_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  definition: jsonb("definition").$type<StatusListWorkflow>().notNull(),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const missionStatusListAnswers = pgTable("mission_status_list_answers", {
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id").notNull().references(() => campaignStatusListQuestions.id, { onDelete: "cascade" }),
+  value: jsonb("value").notNull(),
+  revision: varchar("revision").notNull().default(sql`gen_random_uuid()::text`),
+  updatedBy: varchar("updated_by").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.campaignContactId, table.questionId] })]);
+export const missionStatusListRuleRuns = pgTable("mission_status_list_rule_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  ruleId: varchar("rule_id").notNull(),
+  ruleName: text("rule_name").notNull(),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  sourceEvent: varchar("source_event").notNull(),
+  actorId: varchar("actor_id").notNull(),
+  branch: varchar("branch").notNull(),
+  results: jsonb("results").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [unique().on(table.ruleId, table.campaignContactId, table.sourceEvent)]);
 
 export const taskBackOfficeConfirmations = pgTable("task_back_office_confirmations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
