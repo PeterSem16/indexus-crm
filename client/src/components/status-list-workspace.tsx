@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Eye, EyeOff, Layers3, Search, Settings2, ShieldCheck, UserRound, Workflow, Zap } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Eye, EyeOff, Layers3, Maximize2, Minimize2, Search, Settings2, ShieldCheck, UserRound, Workflow, Wrench, Zap } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { StatusListBackgroundSourcePanel } from "./status-list-background-source
 import { StatusListWorkflowEditor } from "./status-list-workflow-editor";
 import { StatusListWorkflowDiagnostics } from "@/components/status-list-workflow-diagnostics";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
+import { StatusListViewport } from "./status-list-viewport";
 import type { OptionSource } from "@shared/status-list-option-source";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import "./status-list-workspace.css";
@@ -27,7 +28,34 @@ type Props = {
 export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage }: Props) {
   const copy = getStatusListWorkspaceCopy(locale);
   const { toast } = useToast();
-  const [tab, setTab] = useState<"content" | "rules" | "tests">("content");
+  const [tab, setTab] = useState<"content" | "rules" | "tests" | "tools">("content");
+  const [expanded, setExpanded] = useState(false);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const expandButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    expandButtonRef.current?.focus({ preventScroll: true });
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || document.querySelector('[role="dialog"][data-state="open"], [role="menu"][data-state="open"], [role="listbox"][data-state="open"], [data-radix-popper-content-wrapper] [data-state="open"]')) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setExpanded(false);
+      } else if (event.key === "Tab") {
+        const nodes = Array.from(workspaceRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary, [tabindex="0"]') || [])
+          .filter(node => node.getClientRects().length > 0);
+        const next = event.shiftKey ? nodes[nodes.length - 1] : nodes[0];
+        const boundary = event.shiftKey ? nodes[0] : nodes[nodes.length - 1];
+        if (next && document.activeElement === boundary) { event.preventDefault(); next.focus(); }
+      }
+    };
+    // A closing Radix dialog can still stop bubbling Escape during its exit
+    // animation. Capture it here, but always let an open nested surface close first.
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      expandButtonRef.current?.focus({ preventScroll: true });
+    };
+  }, [expanded]);
   const [panel, setPanel] = useState<"owner" | "visibility" | "triggers">("owner");
   const [phase, setPhase] = useState("all");
   const [search, setSearch] = useState("");
@@ -118,14 +146,15 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     ...item.automations.map(action => ({ ...action, item })),
     ...item.questions.flatMap(question => question.automations.map(action => ({ ...action, item, question }))),
   ]);
-  return <section className="slw" data-testid="status-list-workspace">
-    <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><span><ShieldCheck size={14}/>{copy.chaining}</span></header>
+  return <StatusListViewport expanded={expanded}><section ref={workspaceRef} className={`slw${expanded ? " slw-fullscreen" : ""}`} data-testid="status-list-workspace" data-fullscreen={expanded} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? "Status List" : undefined}>
+    <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><div className="slw-heading-actions"><span className="slw-chain-notice"><ShieldCheck size={14}/>{copy.chaining}</span><Button ref={expandButtonRef} type="button" variant="outline" size="icon" data-testid="status-list-toggle-fullscreen" aria-label={expanded ? copy.restore : copy.maximize} title={expanded ? copy.restore : copy.maximize} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</Button></div></header>
     <nav className="slw-tabs" aria-label="Status List">
-      {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests]] as const).map(([value, Icon, label]) =>
+      {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests], ["tools", Wrench, copy.tools]] as const).map(([value, Icon, label]) =>
         <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => setTab(value)}><Icon size={15}/>{label}</button>)}
     </nav>
+    <div className="slw-body">
+    {tab === "tools" && <div className="slw-tools" data-testid="status-list-tools">{tools}</div>}
     {tab === "content" && <>
-      <div className="slw-tools">{tools}</div>
       <div className="slw-layout">
         <aside className="slw-outline">
           <h3>{copy.structure}</h3>
@@ -178,5 +207,6 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
       </section>
     </div>}
     {tab === "tests" && <div className="slw-page"><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
-  </section>;
+    </div>
+  </section></StatusListViewport>;
 }

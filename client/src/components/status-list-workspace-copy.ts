@@ -43,6 +43,9 @@ const rows = {
   up: ["Move up", "Posunúť vyššie", "Posunout výše", "Mozgatás fel", "Mută în sus", "Sposta su", "Nach oben"],
   down: ["Move down", "Posunúť nižšie", "Posunout níže", "Mozgatás le", "Mută în jos", "Sposta giù", "Nach unten"],
   parentHidden: ["The parent group is hidden. Show it first:", "Rodičovská skupina je skrytá. Najprv zobraz ju:", "Nadřazená skupina je skrytá. Nejprve zobrazte ji:", "A szülőcsoport rejtett. Előbb jelenítse meg:", "Grupul părinte este ascuns. Afișați-l mai întâi:", "Il gruppo padre è nascosto. Mostralo prima:", "Die übergeordnete Gruppe ist ausgeblendet. Blenden Sie sie zuerst ein:"],
+  tools: ["Tools", "Nástroje", "Nástroje", "Eszközök", "Instrumente", "Strumenti", "Werkzeuge"],
+  maximize: ["Maximize Status List", "Maximalizovať Status List", "Maximalizovat Status List", "Status List teljes képernyőre", "Maximizează Status List", "Massimizza Status List", "Status List maximieren"],
+  restore: ["Restore window size (Esc)", "Obnoviť veľkosť okna (Esc)", "Obnovit velikost okna (Esc)", "Eredeti ablakméret (Esc)", "Restabilește dimensiunea (Esc)", "Ripristina dimensioni (Esc)", "Fenstergröße wiederherstellen (Esc)"],
 } as const;
 const languages = ["en", "sk", "cs", "hu", "ro", "it", "de"];
 export function getStatusListWorkspaceCopy(locale: string) {
