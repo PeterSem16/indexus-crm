@@ -6,6 +6,7 @@ import { canAgentReadCampaignByWorkspaceCountry } from "./agent-workspace-countr
 import { workflowAnswerSchema } from "../../shared/status-list-workflow";
 import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
+import { configureBackgroundSource } from "./status-list-background";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -66,6 +67,23 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     res.json({ rules: rows.map(row => ({ ...row.definition, id: row.id, campaignId: row.campaign_id })),
       catalog: await workflowCatalog(req.params.campaignId) });
   }));
+  app.get(`${root}/sources`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { rows } = await pool.query(`SELECT s.question_id AS "questionId",s.source,q.is_hidden AS hidden
+      FROM mission_status_list_sources s JOIN campaign_status_list_questions q ON q.id=s.question_id
+      WHERE s.campaign_id=$1 ORDER BY s.question_id`, [req.params.campaignId]);
+    res.json({ sources: rows, catalog: await workflowCatalog(req.params.campaignId) });
+  }));
+  app.put(`${root}/sources/:questionId`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    await configureBackgroundSource(req.params.campaignId, req.params.questionId, req.body);
+    res.json({ ok: true });
+  }));
+  app.delete(`${root}/sources/:questionId`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    await configureBackgroundSource(req.params.campaignId, req.params.questionId, null);
+    res.json({ ok: true });
+  }));
   app.post(root, requireAuth, route(async (req, res) => {
     const user = await authorize(req, true);
     const rule = await validateWorkflow(req.params.campaignId, req.body);
@@ -90,11 +108,14 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   app.get(contactRoot, requireAuth, route(async (req, res) => {
     await authorize(req, false, req.params.campaignContactId);
     const answers = await pool.query("SELECT question_id,value FROM mission_status_list_answers WHERE campaign_contact_id=$1 AND value<>'null'::jsonb", [req.params.campaignContactId]);
-    const runs = await pool.query(`SELECT r.id,r.rule_name AS "ruleName",r.branch,r.results,r.created_at AS "createdAt",u.full_name AS "actorName"
+    const runs = await pool.query(`SELECT r.id,r.rule_name AS "ruleName",r.branch,r.results,r.created_at AS "createdAt",u.full_name AS "actorName",r.actor_kind AS "actorKind"
       FROM mission_status_list_rule_runs r LEFT JOIN users u ON u.id=r.actor_id
       WHERE r.campaign_contact_id=$1 AND r.campaign_id=$2 ORDER BY r.created_at DESC,r.id DESC LIMIT 50`,
     [req.params.campaignContactId, req.params.campaignId]);
-    res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])),
+    const transitions = await pool.query(`SELECT id,question_id AS "questionId",question_label AS "questionLabel",previous,value,baseline,created_at AS "createdAt"
+      FROM mission_status_list_transitions WHERE campaign_id=$1 AND campaign_contact_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50`,
+    [req.params.campaignId, req.params.campaignContactId]);
+    res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows,
       notes: await readWorkflowNotes(pool, req.params.campaignContactId),
       runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId) });
   }));

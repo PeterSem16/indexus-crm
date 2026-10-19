@@ -7,6 +7,8 @@ import { groupWorkflowCatalog, isWorkflowBoolean, isWorkflowSupported, isWorkflo
 import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
 import { getStatusWorkflowDesignCopy } from "./status-list-workflow-design-copy";
+import { getStatusListBackgroundCopy } from "./status-list-background-copy";
+import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
 import "./status-list-workflow-dialog.css";
 
 type Block = "overview" | "when" | "if" | "then" | "else";
@@ -40,7 +42,7 @@ function CatalogPicker({ picker, catalog, value, source, copy, design, onChoose,
   const canChoose = (item: WorkflowCatalogItem) => picker.purpose === "condition" ||
     (picker.purpose === "target" ? workflowActionSupportsTarget(picker.actionType || "set_answer", item) &&
       (isWorkflowNoteAction(picker.actionType || "set_answer") || workflowRefKey(item) !== workflowRefKey(source))
-      : item.writable && isWorkflowSupported(item));
+      : (item.writable && isWorkflowSupported(item)) || !!item.backgroundSource);
   const flags = (item: WorkflowCatalogItem) => <span className="target-flags">
     {item.hidden && <span><EyeOff size={12}/>{copy.hidden}</span>}
     {!item.writable && <span><LockKeyhole size={12}/>{copy.readOnly}</span>}
@@ -80,6 +82,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
 }) {
   const copy = getStatusListWorkflowCopy(locale);
   const design = getStatusWorkflowDesignCopy(locale);
+  const backgroundCopy = getStatusListBackgroundCopy(locale);
   const actionCopy = getStatusWorkflowActionCopy(locale);
   const [block, setBlock] = useState<Block>("overview");
   const [picker, setPicker] = useState<Picker | null>(null);
@@ -93,7 +96,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
   const closePicker = () => setPicker(null);
   const pick = (ref: WorkflowRef) => {
     if (!picker) return;
-    if (picker.purpose === "source") onUpdate({ source: ref, sourceValue: undefined });
+    if (picker.purpose === "source") onUpdate({ source: ref, sourceValue: undefined, trigger: workflowBackgroundTrigger(selected(ref)) });
     else if (picker.purpose === "condition") onUpdate({ conditions: draft.conditions.map((condition, i) => i === picker.index ? { ...condition, ref, value: ["empty", "not_empty"].includes(condition.op) ? undefined : workflowDefaultAnswer(selected(ref)) } : condition) });
     else {
       const targetBranch = picker.branch!;
@@ -112,18 +115,19 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
     <DialogContent hideCloseButton className="status-workflow-shell" overlayClassName="status-workflow-overlay">
       <div className="status-workflow-ui"><div className="editor-window">
         <header className="editor-topbar"><div className="brand-lockup"><span className="brand-mark"><Workflow size={20}/></span><span><strong>INDEXUS</strong><small>{design.brandSubtitle}</small></span></div><span className="draft-chip"><span/>{design.draft}</span><button type="button" className="icon-button top-close" disabled={pending} aria-label={copy.cancel} onClick={onClose}><X size={18}/></button></header>
-        <div className="editor-title-row"><div><p className="eyebrow">{design.breadcrumb}</p><DialogTitle asChild><h2>{block === "overview" ? editing ? copy.edit : copy.create : labels[block]}</h2></DialogTitle><DialogDescription className="editor-subtitle">{copy.subtitle}</DialogDescription></div></div>
+         <div className="editor-title-row"><div><p className="eyebrow">{design.breadcrumb}</p><DialogTitle asChild><h2>{block === "overview" ? editing ? copy.edit : copy.create : labels[block]}</h2></DialogTitle><DialogDescription className="editor-subtitle">{draft.trigger === "background_transition" ? backgroundCopy.workflowSubtitle : copy.subtitle}</DialogDescription></div></div>
         <nav className="block-nav" aria-label={design.parts}>{(["overview", "when", "if", "then", "else"] as Block[]).map((key, index) => <button key={key} type="button" className={`nav-step ${key === block ? "active" : ""}`} onClick={() => setBlock(key)} aria-current={key === block ? "step" : undefined} data-testid={`status-workflow-nav-${key}`}><span className="nav-index">{index === 0 ? <Settings2 size={14}/> : String(index).padStart(2, "0")}</span><span>{labels[key]}</span></button>)}</nav>
         <section className="editor-content">
           {block === "overview" && <div className="overview-content">
             <label className="wf-field name-field"><span>{copy.name}</span><input data-testid="status-workflow-name" value={draft.name} maxLength={180} disabled={pending} onChange={e => onUpdate({ name: e.target.value })}/></label>
             <label className="workflow-enabled"><Switch checked={draft.enabled} disabled={pending} onCheckedChange={enabled => onUpdate({ enabled })}/>{copy.enabled}</label>
             <div className="rule-flow">{(["when", "if", "then", "else"] as const).map((key, i) => <button type="button" key={key} className={`flow-block flow-${key}`} data-testid={`status-workflow-overview-${key}`} onClick={() => setBlock(key)}><span className="flow-icon">{i === 0 ? <Workflow size={17}/> : i === 1 ? <GitBranch size={17}/> : i === 2 ? <ArrowRight size={17}/> : <GitFork size={17}/>}</span><span><small>{labels[key]}</small><strong>{key === "when" ? selected(draft.source)?.label || copy.source : key === "if" ? draft.conditions.length ? copy.conditionCount.replace("{count}", String(draft.conditions.length)) : copy.noConditions : (key === "then" ? draft.thenActions : draft.elseActions).length ? copy.writeCount.replace("{count}", String((key === "then" ? draft.thenActions : draft.elseActions).length)) : copy.noWrites}</strong></span><ArrowRight size={15}/></button>)}</div>
-            <p className="subtle-note"><CircleHelp size={15}/>{copy.writeNotice}</p>
+             <p className="subtle-note"><CircleHelp size={15}/>{draft.trigger === "background_transition" ? backgroundCopy.backgroundNotice : copy.writeNotice}</p>
           </div>}
           {block === "when" && <div className="section-stack">
-            <div className="section-intro"><span className="section-icon"><Workflow size={19}/></span><div><h3>{copy.source}</h3><p>{design.pickerIntro}</p></div></div>
+             <div className="section-intro"><span className="section-icon"><Workflow size={19}/></span><div><h3>{draft.trigger === "background_transition" ? backgroundCopy.backgroundMode : copy.source}</h3><p>{design.pickerIntro}</p></div></div>
             {selection(draft.source, design.sourceLabel, element => openPicker({ purpose: "source" }, element), "status-workflow-source")}
+            <div className="subtle-note"><span>{selected(draft.source)?.backgroundSource ? backgroundCopy.backgroundMode : backgroundCopy.manualMode}</span><span> · {selected(draft.source)?.backgroundSource ? backgroundCopy.backgroundNotice : backgroundCopy.agentNotice}</span></div>
             {isWorkflowBoolean(selected(draft.source)) || isWorkflowYesNo(selected(draft.source)) ? <label className="wf-field"><span>{copy.sourceValue}</span><select data-testid="status-workflow-source-value" value={draft.sourceValue === undefined ? "any" : String(draft.sourceValue)} onChange={e => onUpdate({ sourceValue: e.target.value === "any" ? undefined : isWorkflowBoolean(selected(draft.source)) ? true : e.target.value })}><option value="any">{copy.optional}</option>{isWorkflowBoolean(selected(draft.source)) ? <option value="true">{selected(draft.source)?.itemType === "option" ? design.confirmedOption : design.confirmedStep}</option> : <><option value="yes">{copy.yes}</option><option value="no">{copy.no}</option></>}</select></label> : <label className="wf-field"><span>{copy.sourceValue}</span><input data-testid="status-workflow-source-value" type={selected(draft.source)?.fieldType === "number" ? "number" : selected(draft.source)?.fieldType === "date" ? "date" : "text"} placeholder={copy.optional} value={typeof draft.sourceValue === "string" ? draft.sourceValue : ""} onChange={e => onUpdate({ sourceValue: e.target.value || undefined })}/></label>}
           </div>}
           {block === "if" && <div className="section-stack">
@@ -166,7 +170,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
           </div>}
           {validation && <p role="alert" className="workflow-validation">{validationText}</p>}
         </section>
-        <footer className="editor-footer"><div className="save-status" role="status"><span className="status-dot"/>{pending ? copy.saving : copy.writeNotice}</div><div className="footer-actions"><button type="button" className="cancel-button" disabled={pending} onClick={onClose}>{copy.cancel}</button>{block !== "overview" && <button type="button" className="back-button" data-testid="status-workflow-overview-back" onClick={() => setBlock("overview")}><ArrowLeft size={15}/>{copy.backToOverview}</button>}<button type="button" className="save-button" data-testid="status-workflow-save" disabled={pending} onClick={onSave}><Check size={16}/>{pending ? copy.saving : copy.save}</button></div></footer>
+         <footer className="editor-footer"><div className="save-status" role="status"><span className="status-dot"/>{pending ? copy.saving : draft.trigger === "background_transition" ? backgroundCopy.backgroundNotice : copy.writeNotice}</div><div className="footer-actions"><button type="button" className="cancel-button" disabled={pending} onClick={onClose}>{copy.cancel}</button>{block !== "overview" && <button type="button" className="back-button" data-testid="status-workflow-overview-back" onClick={() => setBlock("overview")}><ArrowLeft size={15}/>{copy.backToOverview}</button>}<button type="button" className="save-button" data-testid="status-workflow-save" disabled={pending} onClick={onSave}><Check size={16}/>{pending ? copy.saving : copy.save}</button></div></footer>
         {picker && <CatalogPicker picker={picker} catalog={catalog} value={currentRef} source={draft.source} copy={copy} design={design} onChoose={pick} onClose={closePicker} restoreFocus={() => trigger.current?.focus()}/>}
       </div></div>
     </DialogContent>

@@ -35,11 +35,33 @@ scenarios, strict action/clone-reference tests, existing note tests, scoped type
 check and clone-campaign regressions also passed.
 
 ## 3. Hidden/system questions
-- [ ] Map source data to answers; begin with representative assignment.
-- [ ] Evaluate server-side without an open card or logged-in agent.
-- [ ] Event-driven changes, timed checks and bounded recovery scans.
-- [ ] Track answer transitions separately from side effects.
-- [ ] Initial baseline without replaying historical actions.
+- [x] Map source data to answers; begin with representative assignment.
+- [x] Evaluate server-side without an open card or logged-in agent.
+- [x] Event-driven changes, timed checks and bounded recovery scans.
+- [x] Track answer transitions separately from side effects.
+- [x] Initial baseline without replaying historical actions.
+
+Configure an existing yes/no question for representative presence or a text
+question for assignment type. Clinic/hospital temporal assignment history is the
+source of truth; unsupported/missing entities stay unknown, never false.
+Visibility remains independent from system ownership. Exclusive groups and
+incompatible question types are rejected, and agents/workflows cannot overwrite
+derived answers. Conditions use a coherent source snapshot; effects remain
+write-only, with an explicit non-human audit principal.
+
+Database change hints include assignments, enrollment and source configuration.
+A single-leader worker processes bounded pages every five seconds; rotating
+recovery pages (50 contacts per 30 seconds) cover downtime and time boundaries.
+Baseline creation and re-enabling never replay historical actions. Cloning and
+versions contain source configuration, not source generations or operational
+answers/transitions/runs.
+
+Verification: `npx tsx scripts/status-list-background.test.ts` passed 58 real
+PostgreSQL/API/authenticated-browser assertions, including missing-hint recovery,
+temporal activation, concurrency, ownership, country scope, clone and snapshot
+parity. Existing 167 workflow assertions, internal-action/note unit tests,
+clone-campaign regressions, five editor browser scenarios and scoped TypeScript
+verification passed. Native desktop/mobile screenshots were inspected.
 
 ## 4. Controlled chaining
 - [ ] Explicit opt-in to run target automations; default remains write-only.

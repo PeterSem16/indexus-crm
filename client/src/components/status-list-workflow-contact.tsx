@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
+import { getStatusListBackgroundCopy } from "@/components/status-list-background-copy";
 
 type WorkflowResult = {
   type?: WorkflowAction["type"];
@@ -32,14 +33,25 @@ type WorkflowRun = {
   results: WorkflowResult[] | WorkflowResult | null;
   createdAt: string;
   actorName: string | null;
+  actorKind?: "user" | "system";
   source?: { kind: "item" | "question"; id: string };
   sourceLabel?: string;
+};
+type BackgroundTransition = {
+  id: string;
+  questionId: string;
+  questionLabel: string;
+  previous: boolean | string | null;
+  value: boolean | string | null;
+  baseline: boolean;
+  createdAt: string;
 };
 type ContactWorkflowData = {
   answers: Record<string, boolean | string>;
   runs: WorkflowRun[];
   catalog: WorkflowCatalogItem[];
   notes?: Record<string, string | null>;
+  transitions?: BackgroundTransition[];
 };
 type Props = { campaignId: string; campaignContactId: string; showQuestions?: boolean };
 
@@ -83,6 +95,7 @@ function asResults(results: WorkflowRun["results"]): WorkflowResult[] {
 export function StatusListWorkflowContact({ campaignId, campaignContactId, showQuestions = true }: Props) {
   const { locale } = useI18n();
   const copy = getStatusListWorkflowCopy(locale);
+  const backgroundCopy = getStatusListBackgroundCopy(locale);
   const actionCopy = getStatusWorkflowActionCopy(locale);
   const { toast } = useToast();
   const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
@@ -92,6 +105,7 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
     queryKey,
     staleTime: 0,
     refetchOnMount: "always",
+    refetchInterval: 15_000,
     queryFn: async () => {
       const response = await fetch(endpoint, { credentials: "include" });
       if (!response.ok) throw new Error(String(response.status));
@@ -117,6 +131,9 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
   });
   const saveAnswer = (questionId: string, value: boolean | string | null) => answerMutation.mutate({ questionId, value });
   const catalog = query.data?.catalog || [];
+  const visibleTransitions = (query.data?.transitions || []).filter(transition =>
+    catalog.some(item => item.kind === "question" && item.id === transition.questionId && !item.hidden)
+  );
   const itemFor = (ref: WorkflowResult["target"] | WorkflowRun["source"]) =>
     catalog.find(item => item.kind === ref?.kind && item.id === ref?.id);
   const dateFormatLocale = localeTag[locale] || "en-GB";
@@ -135,11 +152,12 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
       {query.data && <div className="space-y-2">
         {catalog.filter(item => item.kind === "question" && !item.hidden).map(question => {
           const answer = query.data.answers?.[question.id];
-          const canEdit = question.writable && supportedQuestion(question);
+          const isDerived = !!question.backgroundSource;
+          const canEdit = question.writable && supportedQuestion(question) && !isDerived;
           return <div key={question.id} className="grid gap-2 rounded-lg border border-border/60 bg-background/60 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.8fr)] sm:items-center">
-            <div className="min-w-0"><Label className="text-sm">{question.label}</Label>{question.parentLabel && <p className="mt-0.5 text-xs text-muted-foreground">{question.parentLabel}</p>}</div>
+            <div className="min-w-0"><Label className="text-sm">{question.label}</Label>{question.parentLabel && <p className="mt-0.5 text-xs text-muted-foreground">{question.parentLabel}</p>}{isDerived && <p className="mt-0.5 text-xs text-primary">{backgroundCopy.readonly}</p>}</div>
             {!canEdit ? <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>{formatAnswer(answer, copy)}</span><Badge variant="outline">{question.writable ? copy.unsupportedType : copy.readOnlyAnswer}</Badge>
+              <span>{formatAnswer(answer, copy)}</span><Badge variant="outline">{isDerived ? backgroundCopy.readonly : question.writable ? copy.unsupportedType : copy.readOnlyAnswer}</Badge>
             </div> : booleanQuestion(question) ? <label className="flex min-h-9 items-center gap-2 text-sm">
               <input type="checkbox" className="h-4 w-4 accent-primary" checked={answer === true} disabled={answerMutation.isPending}
                 onChange={event => saveAnswer(question.id, event.target.checked ? true : null)}/>
@@ -167,6 +185,21 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
           <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">{copy.noQuestions}</p>}
       </div>}
     </div>}
+    {showQuestions && query.data?.transitions && <div className="space-y-2" data-testid="status-workflow-background-transitions">
+      <h3 className="text-sm font-semibold">{backgroundCopy.transitions}</h3>
+      {!visibleTransitions.length && <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">{backgroundCopy.noTransitions}</p>}
+      <div className="space-y-1.5">{visibleTransitions.map(transition => {
+        let created = transition.createdAt;
+        try { created = new Intl.DateTimeFormat(dateFormatLocale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(transition.createdAt)); } catch { /* retain server timestamp */ }
+        return <article key={transition.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
+          <strong className="min-w-32 text-foreground">{transition.questionLabel}</strong>
+          {transition.baseline && <Badge variant="outline">{backgroundCopy.baseline}</Badge>}
+          {!transition.baseline && <span className="text-muted-foreground">{backgroundCopy.from}: {formatAnswer(transition.previous, copy)}</span>}
+          <span className="text-muted-foreground">{backgroundCopy.to}: <strong className="font-medium text-foreground">{formatAnswer(transition.value, copy)}</strong></span>
+          <time className="ml-auto text-muted-foreground">{created}</time>
+        </article>;
+      })}</div>
+    </div>}
     {showQuestions && Object.entries(query.data?.notes || {}).some(([id, note]) => note && catalog.some(item => item.kind === "item" && item.id === id && !item.hidden)) && <div className="space-y-2" data-testid="status-workflow-contact-notes">
       <h3 className="text-sm font-semibold">{actionCopy.notes}</h3>
       {Object.entries(query.data?.notes || {}).map(([id, note]) => {
@@ -187,7 +220,7 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
         return <article key={run.id} className="overflow-hidden rounded-lg border border-border/70 bg-background/65">
           <div className="flex flex-wrap items-start justify-between gap-2 border-b border-border/60 px-3 py-2.5">
             <div className="min-w-0"><h3 className="text-sm font-semibold">{run.ruleName}</h3>
-              <p className="mt-0.5 text-xs text-muted-foreground">{run.actorName || "—"} · {created}{source ? ` · ${copy.sourceLabel}: ${source}` : ""}</p>
+               <p className="mt-0.5 text-xs text-muted-foreground">{run.actorKind === "system" ? <><Badge variant="secondary" className="mr-1.5">{backgroundCopy.systemActor}</Badge>{run.actorName || backgroundCopy.systemActor}</> : run.actorName || "—"} · {created}{source ? ` · ${copy.sourceLabel}: ${source}` : ""}</p>
             </div>
             <Badge variant="outline">{run.branch === "else" ? copy.elseBranch : copy.thenBranch}</Badge>
           </div>

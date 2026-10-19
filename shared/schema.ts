@@ -8407,6 +8407,34 @@ export const insertCampaignContactStatusListStateSchema = createInsertSchema(cam
 export type CampaignContactStatusListState = typeof campaignContactStatusListState.$inferSelect;
 export type InsertCampaignContactStatusListState = z.infer<typeof insertCampaignContactStatusListStateSchema>;
 
+export const missionStatusListSources = pgTable("mission_status_list_sources", {
+  questionId: varchar("question_id").primaryKey().references(() => campaignStatusListQuestions.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  source: text("source").notNull(),
+  revision: varchar("revision").notNull().default(sql`gen_random_uuid()::text`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const missionStatusListSourceState = pgTable("mission_status_list_source_state", {
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id").notNull().references(() => missionStatusListSources.questionId, { onDelete: "cascade" }),
+  configRevision: varchar("config_revision").notNull(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.campaignContactId, table.questionId] })]);
+export const missionStatusListTransitions = pgTable("mission_status_list_transitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id").notNull(), questionLabel: text("question_label").notNull(),
+  previous: jsonb("previous"), value: jsonb("value").notNull(), baseline: boolean("baseline").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const missionStatusListDirty = pgTable("mission_status_list_dirty", {
+  kind: text("kind").notNull(), entityId: varchar("entity_id").notNull(),
+  revision: varchar("revision").notNull().default(sql`gen_random_uuid()::text`),
+  cursor: varchar("cursor").notNull().default(""),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.kind, table.entityId] })]);
 export const missionStatusListRules = pgTable("mission_status_list_rules", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
@@ -8438,6 +8466,7 @@ export const missionStatusListRuleRuns = pgTable("mission_status_list_rule_runs"
   campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
   sourceEvent: varchar("source_event").notNull(),
   actorId: varchar("actor_id").notNull(),
+  actorKind: text("actor_kind").notNull().default("user"),
   branch: varchar("branch").notNull(),
   results: jsonb("results").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

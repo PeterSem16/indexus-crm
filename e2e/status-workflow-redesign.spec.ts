@@ -27,6 +27,7 @@ test("real editor groups answers, persists exact branches, reopens, toggles and 
   await page.route("**/api/**", async route => {
     const request = route.request();
     if (!request.url().includes("/status-list-workflows")) return route.fulfill({ json: [] });
+    if (request.url().includes("/status-list-workflows/sources")) return route.fulfill({ json: { sources: [], catalog } });
     if (request.method() === "GET") return route.fulfill({ json: { catalog, rules } });
     const data = request.method() === "DELETE" ? null : request.postDataJSON();
     writes.push({ method: request.method(), data });
@@ -84,7 +85,7 @@ test("real editor groups answers, persists exact branches, reopens, toggles and 
   await expect.poll(() => writes.length).toBe(2);
   expect(writes[1].data.enabled).toBe(false);
   page.on("dialog", dialog => dialog.accept());
-  await page.locator('[data-testid="status-list-workflows"] button').last().click();
+  await page.getByRole("button", { name: "Odstrániť", exact: true }).click();
   await expect.poll(() => writes.length).toBe(3);
   expect(writes[2].method).toBe("DELETE");
   expect(errors).toEqual([]);
@@ -94,6 +95,7 @@ test("each internal action has a typed editor and survives reopening", async ({ 
   let rules: any[] = [];
   await page.route("**/api/**", async route => {
     const request = route.request();
+    if (request.url().includes("/status-list-workflows/sources")) return route.fulfill({ json: { sources: [], catalog } });
     if (request.method() === "GET") return route.fulfill({ json: { rules, catalog } });
     const data = request.postDataJSON();
     rules = [{ ...data, id: "typed-rule", campaignId: "workflow-test" }];
@@ -125,9 +127,18 @@ test("each internal action has a typed editor and survives reopening", async ({ 
 });
 
 test("mobile, keyboard dismissal, empty search and all translations", async ({ page }) => {
-  await page.route("**/api/**", route => route.fulfill({ json: { rules: [], catalog } }));
-  for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"]) {
+  await page.route("**/api/**", route => route.fulfill({
+    json: route.request().url().includes("/status-list-workflows/sources")
+      ? { sources: [], catalog }
+      : { rules: [], catalog },
+  }));
+  const locales = ["en", "sk", "cs", "hu", "ro", "it", "de"];
+  const localizedSourceTitles = ["Background answers", "Odpovede na pozadí", "Odpovědi na pozadí", "Háttérválaszok", "Răspunsuri în fundal", "Risposte in background", "Hintergrundantworten"];
+  for (let index = 0; index < locales.length; index++) {
+    const locale = locales[index];
     await page.goto(`/test-fixtures/status-workflow-editor.html?locale=${locale}`);
+    await expect(page.getByTestId("status-list-background-sources")).toBeVisible();
+    await expect(page.getByTestId("status-list-background-sources").locator("h3")).toHaveText(localizedSourceTitles[index]);
     await page.getByTestId("status-workflow-create").click();
     await page.getByTestId("status-workflow-overview-when").click();
     await page.getByTestId("status-workflow-source").click();
@@ -139,10 +150,102 @@ test("mobile, keyboard dismissal, empty search and all translations", async ({ p
     await expect(page.locator(".status-workflow-shell")).not.toContainText(/\bTrue\b|\bFalse\b/);
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId("status-list-background-sources")).toBeVisible();
   await page.getByTestId("status-workflow-nav-then").click();
   await page.getByTestId("status-workflow-add-then-action").click();
   await expect(page.getByTestId("status-workflow-save")).toBeInViewport();
   await expect(page.locator(".editor-window")).toHaveCSS("background-color", "rgb(255, 253, 250)");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "generated-artifacts/status-workflow-redesign/integrated-mobile.jpg" });
+});
+
+test("background source panel creates, edits, hides and removes owned mappings", async ({ page }) => {
+  let sources: any[] = [];
+  const writes: Array<{ method: string; url: string; body?: any }> = [];
+  const sourceCatalog = [...catalog];
+  await page.route("**/api/**", async route => {
+    const request = route.request();
+    const url = request.url();
+    if (url.includes("/status-list-workflows/sources")) {
+      if (request.method() === "GET") return route.fulfill({ json: { sources, catalog: sourceCatalog } });
+      const questionId = decodeURIComponent(url.split("/").pop() || "");
+      if (request.method() === "PUT") {
+        const body = request.postDataJSON();
+        writes.push({ method: "PUT", url, body });
+        sources = [...sources.filter(source => source.questionId !== questionId), { questionId, ...body }];
+        return route.fulfill({ json: { success: true } });
+      }
+      writes.push({ method: "DELETE", url });
+      sources = sources.filter(source => source.questionId !== questionId);
+      return route.fulfill({ json: { success: true } });
+    }
+    if (url.includes("/status-list-workflows")) {
+      if (request.method() === "GET") return route.fulfill({ json: { catalog: sourceCatalog, rules: [] } });
+      return route.fulfill({ json: { success: true } });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/test-fixtures/status-workflow-editor.html?locale=en");
+  const panel = page.getByTestId("status-list-background-sources");
+  await panel.getByRole("button", { name: "Configure source" }).click();
+  await expect(panel.getByLabel("Question")).toHaveValue("yesno");
+  await panel.getByRole("switch").click();
+  await panel.getByRole("button", { name: "Save source" }).click();
+  await expect(panel).toContainText("Proceed?");
+  expect(writes[0]).toMatchObject({
+    method: "PUT", body: { source: "representative_assigned", hidden: true },
+  });
+  await panel.getByRole("button", { name: "Edit source" }).click();
+  await expect(panel.getByLabel("Question")).toHaveValue("yesno");
+  await panel.getByRole("switch").click();
+  await panel.getByRole("button", { name: "Save source" }).click();
+  expect(writes[1]).toMatchObject({
+    method: "PUT", body: { source: "representative_assigned", hidden: false },
+  });
+  page.on("dialog", dialog => dialog.accept());
+  await panel.getByRole("button", { name: "Remove source" }).click();
+  await expect.poll(() => writes.length).toBe(3);
+  expect(writes[2].method).toBe("DELETE");
+  await expect(panel).toContainText("No background sources configured.");
+});
+
+test("background source selects background trigger and remains unavailable as a target", async ({ page }) => {
+  const derivedQuestion = item("representative", "Assigned representative", {
+    kind: "question", fieldType: "yesno", writable: false, backgroundSource: "representative_assigned",
+  });
+  const derivedCatalog = [...catalog, derivedQuestion];
+  const saved: any[] = [];
+  await page.route("**/api/**", async route => {
+    const request = route.request();
+    const url = request.url();
+    if (url.includes("/status-list-workflows/sources")) return route.fulfill({ json: { sources: [{ questionId: "representative", source: "representative_assigned", hidden: false }], catalog: derivedCatalog } });
+    if (url.includes("/status-list-workflows")) {
+      if (request.method() === "GET") return route.fulfill({ json: { catalog: derivedCatalog, rules: [] } });
+      if (request.method() === "POST") {
+        saved.push(request.postDataJSON());
+        return route.fulfill({ json: { ...saved[0], id: "background-rule", campaignId: "workflow-test" } });
+      }
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.goto("/test-fixtures/status-workflow-editor.html?locale=en");
+  await page.getByTestId("status-workflow-create").click();
+  await page.getByTestId("status-workflow-name").fill("Representative change");
+  await page.getByTestId("status-workflow-overview-when").click();
+  await page.getByTestId("status-workflow-source").click();
+  const picker = page.locator(".status-workflow-picker-shell");
+  await picker.locator('[data-catalog-ref="question:representative"]').click();
+  await expect(page.locator(".editor-content")).toContainText("Background transition");
+  await expect(page.locator(".editor-content")).toContainText("Runs when the representative assignment changes.");
+  await expect(page.locator(".editor-content")).not.toContainText("agent confirms");
+  await expect(page.locator(".editor-content")).not.toContainText("This rule does not run in the background");
+  await page.getByTestId("status-workflow-nav-then").click();
+  await page.getByTestId("status-workflow-add-then-action").click();
+  await page.getByTestId("status-workflow-then-target-0").click();
+  await expect(page.locator(".status-workflow-picker-shell").locator('[data-catalog-ref="question:representative"]')).toBeDisabled();
+  await page.locator(".status-workflow-picker-shell").locator('[data-catalog-ref="item:destination"]').click();
+  await page.getByTestId("status-workflow-save").click();
+  await expect.poll(() => saved.length).toBe(1);
+  expect(saved[0].trigger).toBe("background_transition");
+  expect(saved[0].source).toEqual({ kind: "question", id: "representative" });
 });

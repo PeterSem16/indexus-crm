@@ -1639,6 +1639,9 @@ app.use((req, res, next) => {
       startSessionCleanup();
       startScheduledReportRunner();
       startKpiSnapshotCron();
+      import("./lib/status-list-background").then(({ startStatusListBackgroundWorker }) =>
+        startStatusListBackgroundWorker()).catch(() =>
+          console.error("[status-list-background] startup_failed"));
 
       const wallboardHistoryCleanupTimer = setInterval(() => {
         cleanupWallboardAlarmHistory().catch((error: unknown) =>

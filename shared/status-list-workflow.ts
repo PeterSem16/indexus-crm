@@ -39,8 +39,7 @@ export const statusListWorkflowSchema = z.object({
   enabled: z.boolean(),
   source: workflowRefSchema,
   sourceValue: workflowAnswerSchema.optional(),
-  // Reserved trigger vocabulary is intentionally not executable in step 1.
-  trigger: z.literal("agent_confirmation"),
+  trigger: z.enum(["agent_confirmation", "background_transition"]),
   logic: z.enum(["and", "or"]),
   conditions: z.array(workflowConditionSchema).max(20),
   thenActions: z.array(workflowActionSchema).min(1).max(10),
@@ -71,7 +70,12 @@ export type WorkflowCatalogItem = {
   hidden: boolean; writable: boolean; parentLabel?: string;
   parentId?: string; sortOrder?: number; itemType?: string;
   multiSelectable?: boolean;
+  backgroundSource?: "representative_assigned" | "representative_assignment_type";
 };
+export const workflowSourceConfigSchema = z.object({
+  source: z.enum(["representative_assigned", "representative_assignment_type"]),
+  hidden: z.boolean(),
+}).strict();
 export function answerIsEmpty(value: unknown) {
   return value === undefined || value === null || value === "";
 }

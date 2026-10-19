@@ -29,9 +29,12 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
     FROM campaign_status_list_questions q JOIN campaign_status_list_items i ON i.id=q.item_id
     WHERE i.campaign_id=$1
     ORDER BY sort_order, kind, id`, [campaignId]);
+  const sources = await client.query("SELECT question_id,source FROM mission_status_list_sources WHERE campaign_id=$1", [campaignId]);
   return rows.map(row => ({ kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
     hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
-    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, multiSelectable: row.multi_selectable }));
+    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, multiSelectable: row.multi_selectable,
+    ...(row.kind === "question" && sources.rows.some(s => s.question_id === row.id)
+      ? { writable: false, backgroundSource: sources.rows.find(s => s.question_id === row.id)!.source } : {}) }));
 }
 export function validateWorkflowValue(item: WorkflowCatalogItem, value: unknown) {
   if (!item.writable) throw new StatusListWorkflowError("derived_answer");
@@ -57,8 +60,9 @@ export async function validateWorkflow(campaignId: string, raw: unknown, client:
     return entry;
   };
   const source = find(rule.source);
-  if (!source.writable) throw new StatusListWorkflowError("derived_source_requires_background");
-  if (rule.sourceValue !== undefined) validateWorkflowValue(source, rule.sourceValue);
+  if (rule.trigger === "background_transition" ? !source.backgroundSource : !source.writable)
+    throw new StatusListWorkflowError("derived_source_requires_background");
+  if (rule.sourceValue !== undefined) validateWorkflowValue({ ...source, writable: true }, rule.sourceValue);
   for (const condition of rule.conditions) if (condition.ref) find(condition.ref);
   for (const branch of [rule.thenActions, rule.elseActions]) {
     const targets = new Set<string>();
@@ -79,7 +83,9 @@ export async function workflowTransaction<T>(campaignContactId: string, fn: (cli
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow:${campaignContactId}`]);
-    await client.query("SELECT id FROM campaign_contacts WHERE id=$1 FOR UPDATE", [campaignContactId]);
+    const contact = await client.query("SELECT id,campaign_id FROM campaign_contacts WHERE id=$1 FOR UPDATE", [campaignContactId]);
+    if (contact.rows[0]) await client.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",
+      [`mission-workflow-config:${contact.rows[0].campaign_id}`]);
     const result = await fn(client);
     await client.query("COMMIT");
     return result;
@@ -135,6 +141,8 @@ async function setAnswer(client: PoolClient, input: {
           WHERE other.item_id=q.item_id AND other.logic_operator<>'ONE'))
       )`, [target.id, cc, campaignId]);
     for (const sibling of siblings.rows) {
+      if ((await client.query("SELECT 1 FROM mission_status_list_sources WHERE question_id=$1", [sibling.id])).rowCount)
+        throw new StatusListWorkflowError("derived_answer");
       await client.query(`UPDATE mission_status_list_answers SET value='null'::jsonb,revision=$3,updated_by=$4,updated_at=now()
         WHERE campaign_contact_id=$1 AND question_id=$2`, [cc, sibling.id, randomUUID(), actorId]);
       cleared.push({ kind: "question", id: sibling.id, previous: sibling.value });
@@ -166,8 +174,8 @@ async function setAnswer(client: PoolClient, input: {
   return cleared;
 }
 type WorkflowEvent = { campaignId: string; campaignContactId: string; actorId: string; source: WorkflowRef;
-  value: WorkflowAnswer; eventId: string; occurredAt: Date };
-async function executeEvent(client: PoolClient, event: WorkflowEvent) {
+  value: WorkflowAnswer | null; eventId: string; occurredAt: Date; trigger?: "background_transition" };
+export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
   const { rows: contacts } = await client.query(`SELECT cc.*,
     CASE WHEN cc.contact_type='customer' THEN NULLIF(c.hospital_name,'') ELSE cc.hospital_id END AS condition_hospital_id,
     CASE WHEN cc.contact_type='customer' THEN c.clinic_id ELSE cc.clinic_id END AS condition_clinic_id
@@ -181,6 +189,7 @@ async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     WHERE campaign_id=$1 AND updated_at <= $2 ORDER BY created_at,id`, [event.campaignId, event.occurredAt]);
   for (const stored of rules) {
     const rule = statusListWorkflowSchema.parse(stored.definition);
+    if (rule.trigger !== (event.trigger || "agent_confirmation")) continue;
     if (!rule.enabled || rule.source.kind !== event.source.kind || rule.source.id !== event.source.id) continue;
     if (rule.sourceValue !== undefined && rule.sourceValue !== event.value) continue;
     if (event.source.kind === "item") {
@@ -193,9 +202,10 @@ async function executeEvent(client: PoolClient, event: WorkflowEvent) {
       if (duplicate.rowCount) continue;
     }
     const claimed = await client.query(`INSERT INTO mission_status_list_rule_runs
-      (rule_id,rule_name,campaign_id,campaign_contact_id,source_event,actor_id,branch,results)
-      VALUES($1,$2,$3,$4,$5,$6,'pending','[]') ON CONFLICT DO NOTHING RETURNING id`,
-    [stored.id, rule.name, event.campaignId, event.campaignContactId, event.eventId, event.actorId]);
+      (rule_id,rule_name,campaign_id,campaign_contact_id,source_event,actor_id,actor_kind,branch,results)
+      VALUES($1,$2,$3,$4,$5,$6,$7,'pending','[]') ON CONFLICT DO NOTHING RETURNING id`,
+    [stored.id, rule.name, event.campaignId, event.campaignContactId, event.eventId, event.actorId,
+      event.trigger === "background_transition" ? "system" : "user"]);
     if (!claimed.rowCount) continue;
     let branch: "then" | "else" | "invalid" = "then";
     const results: any[] = [];
@@ -264,7 +274,8 @@ async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
       VALUES($1,$2,'status_list_workflow',$3::jsonb)`, [event.campaignContactId, event.actorId,
       JSON.stringify({ campaignId: event.campaignId, ruleId: stored.id, ruleName: rule.name,
-        runId: claimed.rows[0].id, source: event.source, branch, results, chained: false })]);
+         runId: claimed.rows[0].id, source: event.source, branch, results, chained: false,
+         actorKind: event.trigger === "background_transition" ? "system" : "user" })]);
   }
 }
 export async function processStatusListItemWorkflow(input: {

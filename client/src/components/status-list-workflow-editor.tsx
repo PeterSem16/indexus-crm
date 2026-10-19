@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
+import { StatusListBackgroundSourcePanel } from "./status-list-background-source-panel";
 import { StatusListWorkflowDialog } from "./status-list-workflow-dialog";
+import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
 
 type CatalogResponse = { rules: SavedStatusListWorkflow[]; catalog: WorkflowCatalogItem[] };
 
@@ -32,7 +34,7 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
   const [validation, setValidation] = useState("");
   const rules = query.data?.rules || [];
   const catalog = query.data?.catalog || [];
-  const sourceItems = useMemo(() => catalog.filter(item => item.writable && isWorkflowSupported(item)), [catalog]);
+  const sourceItems = useMemo(() => catalog.filter(item => (item.writable && isWorkflowSupported(item)) || !!item.backgroundSource), [catalog]);
   const close = () => { setDraft(null); setEditing(null); setValidation(""); };
   const saveMutation = useMutation({
     mutationFn: async ({ id, data }: { id?: string; data: StatusListWorkflow }) =>
@@ -52,17 +54,17 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
   const startNew = async () => {
     const fresh = await query.refetch();
     if (fresh.isError) { toast({ title: copy.loadError, variant: "destructive" }); return; }
-    const source = fresh.data?.catalog.find(item => item.writable && isWorkflowSupported(item));
+    const source = fresh.data?.catalog.find(item => (item.writable && isWorkflowSupported(item)) || !!item.backgroundSource);
     if (!source) { toast({ title: copy.noSource, variant: "destructive" }); return; }
     setEditing(null);
-    setDraft({ name: "", enabled: true, source: { kind: source.kind, id: source.id }, trigger: "agent_confirmation", logic: "and", conditions: [], thenActions: [], elseActions: [] });
+    setDraft({ name: "", enabled: true, source: { kind: source.kind, id: source.id }, trigger: workflowBackgroundTrigger(source), logic: "and", conditions: [], thenActions: [], elseActions: [] });
     setValidation("");
   };
   const startEdit = async (rule: SavedStatusListWorkflow) => {
     const fresh = await query.refetch();
     if (fresh.isError) { toast({ title: copy.loadError, variant: "destructive" }); return; }
     setEditing(rule);
-    setDraft(structuredClone({ name: rule.name, enabled: rule.enabled, source: rule.source, sourceValue: rule.sourceValue, trigger: "agent_confirmation" as const, logic: rule.logic, conditions: rule.conditions, thenActions: rule.thenActions, elseActions: rule.elseActions }));
+    setDraft(structuredClone({ name: rule.name, enabled: rule.enabled, source: rule.source, sourceValue: rule.sourceValue, trigger: rule.trigger || "agent_confirmation", logic: rule.logic, conditions: rule.conditions, thenActions: rule.thenActions, elseActions: rule.elseActions }));
     setValidation("");
   };
   const update = (patch: Partial<StatusListWorkflow>) => {
@@ -78,7 +80,10 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
     const sourceValueOkay = result.data.sourceValue === undefined ||
       (isWorkflowBoolean(source) ? result.data.sourceValue === true :
         isWorkflowYesNo(source) ? result.data.sourceValue === "yes" || result.data.sourceValue === "no" : typeof result.data.sourceValue === "string");
-    const refsOkay = !!source?.writable && isWorkflowSupported(source) && sourceValueOkay &&
+    const sourceOkay = source?.backgroundSource
+      ? result.data.trigger === "background_transition"
+      : !!source?.writable && isWorkflowSupported(source) && result.data.trigger === "agent_confirmation";
+    const refsOkay = !!sourceOkay && sourceValueOkay &&
       [...result.data.thenActions, ...result.data.elseActions].every(action => {
         const target = itemFor(action.target);
         const valueOkay = action.type !== "set_answer" || (isWorkflowBoolean(target) ? action.value === true :
@@ -110,6 +115,7 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
         <Button type="button" variant="ghost" size="icon" aria-label={copy.delete} disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(copy.confirmDelete)) deleteMutation.mutate(rule.id); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
+    <StatusListBackgroundSourcePanel campaignId={campaignId} locale={locale}/>
     {draft && <StatusListWorkflowDialog open draft={draft} catalog={catalog} locale={locale} editing={!!editing} pending={saveMutation.isPending} validation={validation} onUpdate={update} onClose={close} onSave={apply}/>}
   </section>;
 }

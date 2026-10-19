@@ -5,6 +5,9 @@ export const isWorkflowBoolean = (item?: WorkflowCatalogItem) => item?.kind === 
 export const isWorkflowYesNo = (item?: WorkflowCatalogItem) => ["yesno", "yes_no"].includes(item?.fieldType.toLowerCase() || "");
 export const workflowDefaultAnswer = (item?: WorkflowCatalogItem) => isWorkflowBoolean(item) ? true : isWorkflowYesNo(item) ? "yes" : "";
 export const isWorkflowSupported = (item: WorkflowCatalogItem) => item.kind === "item" || isWorkflowBoolean(item) || isWorkflowYesNo(item) || ["text", "string", "number", "date"].includes(item.fieldType.toLowerCase());
+export const isBackgroundWorkflowSource = (item?: WorkflowCatalogItem) => !!item?.backgroundSource;
+export const workflowBackgroundTrigger = (item?: WorkflowCatalogItem) =>
+  item?.backgroundSource ? "background_transition" as const : "agent_confirmation" as const;
 export type WorkflowCatalogNode = { item: WorkflowCatalogItem; children: WorkflowCatalogNode[] };
 export function workflowNewAction(type: WorkflowAction["type"], item: WorkflowCatalogItem): WorkflowAction {
   const target: WorkflowRef = { kind: item.kind, id: item.id };

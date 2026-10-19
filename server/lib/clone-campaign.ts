@@ -15,6 +15,7 @@ import {
   campaignStatusListQuestions,
   campaignStatusListAutomations,
   missionStatusListRules,
+  missionStatusListSources,
   sopCampaignArticles,
   operatorScriptSchema,
 } from "@shared/schema";
@@ -321,6 +322,13 @@ export async function cloneCampaignWithConfiguration(
       })));
     }
 
+    const sourceBindings = await tx.select().from(missionStatusListSources)
+      .where(eq(missionStatusListSources.campaignId, sourceCampaignId));
+    for (const binding of sourceBindings) {
+      const questionId = questionIdMap.get(binding.questionId);
+      if (!questionId) throw new Error("Missing cloned background question");
+      await tx.insert(missionStatusListSources).values({ campaignId: newCampaignId, questionId, source: binding.source });
+    }
     const sourceWorkflows = await tx.select().from(missionStatusListRules)
       .where(eq(missionStatusListRules.campaignId, sourceCampaignId));
     if (sourceWorkflows.length) {

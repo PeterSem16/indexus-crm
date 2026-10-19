@@ -9,6 +9,7 @@ import {
   campaignStatusListItems,
   campaignStatusListQuestions,
   missionStatusListRules,
+  missionStatusListSources,
   nexusPulseModuleRevisions,
 } from "@shared/schema";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
@@ -23,6 +24,7 @@ type Snapshot = {
   questions: Array<Record<string, unknown>>;
   automations: Array<Record<string, unknown>>;
   workflowRules?: Array<Record<string, unknown>>;
+  workflowSources?: Array<Record<string, unknown>>;
 };
 
 type SnapshotChange = {
@@ -193,6 +195,9 @@ async function buildSnapshot(executor: any, campaignId: string): Promise<Snapsho
     automations: Array.from(automationsById.values()).sort(
       (left, right) => Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0) || String(left.id).localeCompare(String(right.id)),
     ),
+    workflowSources: (await executor.select().from(missionStatusListSources)
+      .where(eq(missionStatusListSources.campaignId, campaignId))
+      .orderBy(asc(missionStatusListSources.questionId))).map(({ questionId, source }: any) => ({ questionId, source })),
     workflowRules: (await executor.select().from(missionStatusListRules)
       .where(eq(missionStatusListRules.campaignId, campaignId))
       .orderBy(asc(missionStatusListRules.id))).map(stripTimestamps),
@@ -351,6 +356,12 @@ async function restoreSnapshot(executor: any, campaignId: string, snapshot: Snap
   }
   // Old snapshots predate workflow rules. Preserve those rules rather than
   // silently deleting configuration the old snapshot never captured.
+  if (snapshot.workflowSources !== undefined) {
+    await executor.delete(missionStatusListSources).where(eq(missionStatusListSources.campaignId, campaignId));
+    for (const source of snapshot.workflowSources) {
+      await executor.insert(missionStatusListSources).values({ questionId: source.questionId, source: source.source, campaignId });
+    }
+  }
   if (snapshot.workflowRules !== undefined) {
     await executor.delete(missionStatusListRules).where(eq(missionStatusListRules.campaignId, campaignId));
     for (const rule of snapshot.workflowRules) {
