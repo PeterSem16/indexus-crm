@@ -510,7 +510,8 @@ app.use((req, res, next) => {
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS callback_time text,
         ADD COLUMN IF NOT EXISTS notify_agent_pulse boolean NOT NULL DEFAULT false,
-        ADD COLUMN IF NOT EXISTS callback_business_days_only boolean NOT NULL DEFAULT true;
+        ADD COLUMN IF NOT EXISTS callback_business_days_only boolean NOT NULL DEFAULT true,
+        ADD COLUMN IF NOT EXISTS callback_existing_policy text NOT NULL DEFAULT 'replace';
     `);
     console.log('[migration] callback_time/notify_agent_pulse ensured on automations');
 

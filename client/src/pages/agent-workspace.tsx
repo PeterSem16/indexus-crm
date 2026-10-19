@@ -18,6 +18,7 @@ import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
 import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
+import { actionCopy } from "@/components/status-list-service-action-copy";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { createAgentWorkspaceTask, type AgentWorkspaceTaskCreateInput } from "@/lib/agent-workspace-task-create";
@@ -3052,6 +3053,7 @@ export function CommunicationCanvas({
 
     setSlRunningOption(option.id);
     let isDefinitive = false;
+    let keptExistingCallback = false;
     try {
       for (const automation of (option.automations || [])) {
         const autoId = String(automation.id);
@@ -3061,6 +3063,10 @@ export function CommunicationCanvas({
           { callbackDate: null, callbackNote: null, contactCountry: contact?.country ?? null },
         );
         const data = await res.json().catch(() => ({}));
+        if (automation.actionType === "set_callback" || automation.actionType === "set_contact_status") {
+          // A later callback/status action can replace the earlier outcome.
+          keptExistingCallback = data?.keptExisting === true;
+        }
         if (automation.actionType === "set_contact_status" && !data?.callbackDate) {
           isDefinitive = true;
         }
@@ -3068,7 +3074,7 @@ export function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-      toast({ title: option.label, description: "Možnosť vykonaná" });
+      toast({ title: option.label, description: keptExistingCallback ? actionCopy(locale, "callbackKeptNotice") : "Možnosť vykonaná" });
       if (isDefinitive) {
         onCloseCallAfterStatusList?.();
       }
@@ -3077,7 +3083,7 @@ export function CommunicationCanvas({
     } finally {
       setSlRunningOption(null);
     }
-  }, [campaign?.id, campaignContactId, contact?.country, onCloseCallAfterStatusList, statusListMode, toast]);
+  }, [campaign?.id, campaignContactId, contact?.country, locale, onCloseCallAfterStatusList, statusListMode, toast]);
 
   // Fast lookup: statusListItemId → full state row (for confirmedAt, itemNote, noteUpdatedAt)
   const slStateMap = useMemo(() => {
@@ -3598,7 +3604,11 @@ export function CommunicationCanvas({
       if (automation.actionType === "send_email_group") msg = okFlag ? slt("emailSent", locale) : slt("emailFailed", locale);
       else if (automation.actionType === "set_callback") msg = slt("callbackSet", locale);
       else if (automation.actionType === "set_contact_status" && data?.callbackDate) msg = slt("callbackSet", locale);
-      toast({ title: msg, variant: okFlag ? undefined : "destructive" });
+      if (data?.keptExisting === true) {
+        toast({ title: actionCopy(locale, "callbackPolicyKeep"), description: actionCopy(locale, "callbackKeptNotice"), variant: okFlag ? undefined : "destructive" });
+      } else {
+        toast({ title: msg, variant: okFlag ? undefined : "destructive" });
+      }
       // Refresh contact lists/queue so a scheduled callback re-appears and status changes show
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });

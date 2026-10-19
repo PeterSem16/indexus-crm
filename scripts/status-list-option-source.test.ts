@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { actionCopy } from "../client/src/components/status-list-service-action-copy";
 import { randomUUID, randomBytes } from "node:crypto";
 import bcrypt from "bcrypt";
 import { request, chromium } from "playwright";
@@ -506,6 +507,9 @@ try {
   await quickEditor.getByTestId("input-callback-time").fill("");
   check(await quickEditor.getByTestId("status-list-automation-save").isDisabled(), "Quick callbacks cannot silently replace an empty fixed time with 09:00");
   await quickEditor.getByTestId("input-callback-time").fill("11:45");
+  check((await quickEditor.getByTestId("input-callback-existing-policy").textContent())?.includes(actionCopy("sk", "callbackPolicyReplace")), "Quick callback retains the replacement default");
+  await quickEditor.getByTestId("input-callback-existing-policy").click();
+  await page.getByRole("option", { name: actionCopy("sk", "callbackPolicyKeep"), exact: true }).click();
   check(await quickEditor.getByTestId("input-callback-business-days-only").isChecked(), "Quick callback defaults to the existing weekday policy");
   await quickEditor.getByTestId("input-callback-business-days-only").uncheck();
   const callbackSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}/automations`) && response.request().method() === "POST");
@@ -513,6 +517,7 @@ try {
   check((await callbackSaved).ok(), "Quick callback saves through the existing action service");
   check(await scalar("SELECT callback_offset_days AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === 3, "Quick callback delay persists correctly");
   check(await scalar("SELECT callback_time AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === "11:45", "Quick callback persists a custom fixed time");
+  check(await scalar("SELECT callback_existing_policy AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === "keep_existing", "Quick callbacks persist the replacement policy");
   check(await scalar("SELECT callback_business_days_only AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === false, "Quick callback weekday policy can be disabled and persists");
   await quickEditor.getByTestId("quick-option-add-status").click();
   check(await quickEditor.getByTestId("status-list-automation-save").isDisabled(), "An incomplete status action cannot be saved");

@@ -16,6 +16,16 @@ const original: SavedStatusListAction = {
 let checks = 0;
 const check = (value: unknown, label: string) => { assert.ok(value, label); checks++; };
 const draft = statusListActionDraft(original);
+check(statusListActionDraft().callbackExistingPolicy === "replace", "Existing replacement behavior remains the default");
+for (const actionType of ["set_callback", "set_contact_status"]) {
+  const callbackDraft = statusListActionDraft(undefined, actionType);
+  check(statusListActionPayload({ ...callbackDraft, callbackExistingPolicy: "keep_existing" }, undefined, null, true).callbackExistingPolicy === "keep_existing", `${actionType}: keep-existing policy is serialized`);
+  const saved = { ...original, actionType, callbackExistingPolicy: "keep_existing" as const };
+  check(statusListActionDraft(saved).callbackExistingPolicy === "keep_existing", `${actionType}: reopening retains the saved policy`);
+  check(statusListActionPayload({ ...statusListActionDraft(saved), callbackExistingPolicy: "replace" }, saved, null, true).callbackExistingPolicy === "replace", `${actionType}: replacement can be enabled again`);
+  check(statusListActionError({ ...callbackDraft, dispositionId: "saved-status", callbackExistingPolicy: "unknown" }, true) === "callback", `${actionType}: unknown policies cannot silently overwrite callbacks`);
+}
+check(statusListActionPayload({ ...draft, taskDescription: "Reviewed" }, { ...original, callbackExistingPolicy: "keep_existing" }).callbackExistingPolicy === "keep_existing", "Unrelated edits preserve dormant replacement policy");
 for (const actionType of ["set_callback", "set_contact_status"]) {
   const freshCallback = statusListActionDraft(undefined, actionType);
   check(freshCallback.callbackTime === "09:00", `${actionType}: a new callback retains the 09:00 default`);

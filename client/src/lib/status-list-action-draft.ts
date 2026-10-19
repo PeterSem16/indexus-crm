@@ -8,7 +8,7 @@ export type StatusListActionDraft = {
   actionType: string; targetRole: string; taskGroupId: string; taskDescription: string;
   taskDeadlineOffset: string; taskPriority: string; assignNotify: boolean; assignNotifyChannels: string[];
   emailTemplateId: string; emailRecipients: string; smsTemplateId: string; smsProvider: string;
-  dispositionId: string; callbackOffsetDays: string; callbackTime: string; callbackBusinessDaysOnly: boolean; notifyAgentPulse: boolean; webhookTarget: string;
+  dispositionId: string; callbackOffsetDays: string; callbackTime: string; callbackBusinessDaysOnly: boolean; callbackExistingPolicy: string; notifyAgentPulse: boolean; webhookTarget: string;
   conditionMode: ActionConditionMode; conditionCountry: string; conditionAnswer: string;
   conditionLogic: string; conditionRules: ActionRule[]; fieldChangedKey: string; fieldChangedValue: string;
 };
@@ -36,6 +36,7 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
     smsTemplateId: action?.smsTemplateId || "", smsProvider: action?.smsProvider || "default",
     dispositionId: action?.dispositionId || "", callbackOffsetDays: String(action?.callbackOffsetDays ?? 1),
     callbackTime: action?.callbackTime || "09:00", callbackBusinessDaysOnly: action?.callbackBusinessDaysOnly ?? true, notifyAgentPulse: action?.notifyAgentPulse ?? false,
+    callbackExistingPolicy: action?.callbackExistingPolicy ?? "replace",
     webhookTarget: action?.webhookTarget || "", conditionMode: mode, conditionCountry: action?.conditionField === "country" ? action.conditionValue || "SK" : "SK",
     conditionAnswer: action?.conditionField === "answer" ? action.conditionValue || "" : "", conditionLogic: typeof parsed?.logic === "string" ? parsed.logic : "AND",
     conditionRules: mode === "compound" ? parsed.rules.map((rule: ActionRule) => ({ ...rule })) : [],
@@ -45,7 +46,7 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
 }
 
 const writable = ["sortOrder", "actionType", "targetRole", "emailTemplateId", "emailRecipients", "smsTemplateId", "smsProvider",
-  "callbackOffsetDays", "callbackTime", "callbackBusinessDaysOnly", "notifyAgentPulse", "taskDescription", "taskDeadlineOffset", "taskPriority",
+  "callbackOffsetDays", "callbackTime", "callbackBusinessDaysOnly", "callbackExistingPolicy", "notifyAgentPulse", "taskDescription", "taskDeadlineOffset", "taskPriority",
   "conditionField", "conditionOperator", "conditionValue", "conditionJson", "dispositionId", "webhookTarget", "taskGroupId",
   "assignNotify", "assignNotifyChannels"] as const;
 const conditionKeys = ["conditionMode", "conditionCountry", "conditionAnswer", "conditionLogic", "conditionRules", "fieldChangedKey", "fieldChangedValue"] as const;
@@ -87,6 +88,7 @@ export function statusListActionPayload(draft: StatusListActionDraft, original?:
   if (draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition)) {
     put("callbackOffsetDays", Number(draft.callbackOffsetDays));
     put("callbackBusinessDaysOnly");
+    put("callbackExistingPolicy");
     put("callbackTime");
     if (draft.actionType === "set_contact_status") put("notifyAgentPulse");
     if (draft.actionType === "set_contact_status" && original?.dispositionId !== draft.dispositionId) {
@@ -116,7 +118,8 @@ export function statusListActionError(draft: StatusListActionDraft, callbackDisp
   if (draft.actionType === "set_contact_status" && !draft.dispositionId) return "status";
   if ((draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition))
     && (!draft.callbackOffsetDays.trim() || !Number.isSafeInteger(Number(draft.callbackOffsetDays)) || Number(draft.callbackOffsetDays) < 0
-      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.callbackTime))) return "callback";
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.callbackTime)
+      || !["replace", "keep_existing"].includes(draft.callbackExistingPolicy))) return "callback";
   const recipients = draft.emailRecipients.split(/[\n,;]+/).map(value => value.trim()).filter(Boolean);
   if (["send_email_group", "notify_email"].includes(draft.actionType) && recipients.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) return "email";
   if (draft.actionType === "notify_email" && !recipients.length) return "email";

@@ -119,7 +119,10 @@ Incremental progress in the existing service-action mechanism:
 - [x] Configurable fixed time for standalone callbacks as well as callback
   dispositions, including quick options, validation, saved summaries and agent
   prefill. Existing saved times are retained; missing times use 09:00.
-- [ ] Explicit agent/Queue targeting and existing-callback replacement policy.
+- [x] Explicit policy to replace a pending callback or preserve its date/time,
+  agent, note and source, including overdue/legacy pending callbacks. Decisions
+  serialize with the write; preserving does not create a rescheduling event.
+- [ ] Explicit agent/Queue targeting.
 
 These editor increments do not migrate internal workflow rules to another
 execution mechanism or activate new background side effects.

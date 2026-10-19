@@ -12,7 +12,7 @@ import { statusListServiceActions } from "../client/src/lib/status-list-action-d
 // Native browser + real authenticated API + persisted DB. Configuration only:
 // The UI only edits configuration. A separate API-only section exercises callback
 // scheduling on a synthetic contact; no outgoing messages/webhooks are executed.
-const ids = Object.fromEntries(["user", "mission", "foreign", "step", "foreignStep", "question", "foreignQuestion", "action", "group", "email", "sms", "status", "callback", "contact"].map(key => [key, randomUUID()]));
+const ids = Object.fromEntries(["user", "owner", "mission", "foreign", "step", "foreignStep", "question", "foreignQuestion", "action", "group", "email", "sms", "status", "callback", "contact"].map(key => [key, randomUUID()]));
 const username = `service-actions-${ids.user}`, password = randomBytes(24).toString("hex");
 const baseURL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const api = await request.newContext({ baseURL });
@@ -25,6 +25,7 @@ const record = async (id: string) => (await pool.query("SELECT * FROM campaign_s
 try {
   await mkdir(pictures, { recursive: true });
   await pool.query("INSERT INTO users(id,username,email,full_name,password_hash,role,assigned_countries,is_active) VALUES($1,$2,$3,'Synthetic action admin',$4,'admin',ARRAY['SK'],true)", [ids.user, username, `${ids.user}@example.invalid`, await bcrypt.hash(password, 4)]);
+  await pool.query("INSERT INTO users(id,username,email,full_name,password_hash,role,assigned_countries,is_active) VALUES($1,$2,$3,'Synthetic callback owner',$4,'user',ARRAY['SK'],true)", [ids.owner, `callback-owner-${ids.owner}`, `${ids.owner}@example.invalid`, await bcrypt.hash(randomBytes(24).toString("hex"), 4)]);
   await pool.query("INSERT INTO campaigns(id,name,country_codes,settings) VALUES($1,'Synthetic service-action Mission',ARRAY['SK'],$3),($2,'Synthetic foreign Mission',ARRAY['SK'],'{}')", [ids.mission, ids.foreign, JSON.stringify({ smsProvider: "smstools" })]);
   await pool.query("INSERT INTO campaign_agents(campaign_id,user_id) VALUES($1,$2)", [ids.mission, ids.user]);
   await pool.query("INSERT INTO campaign_status_list_items(id,campaign_id,step_id,label,tab) VALUES($1,$2,'ACTION-01','Synthetic action source','retention'),($3,$4,'FOREIGN','Synthetic foreign source','retention')", [ids.step, ids.mission, ids.foreignStep, ids.foreign]);
@@ -33,7 +34,7 @@ try {
   await pool.query("INSERT INTO message_templates(id,name,type,content,subject) VALUES($1,'Synthetic service email','email','Synthetic email body','Synthetic subject'),($2,'Synthetic service SMS','sms','Synthetic SMS body',null)", [ids.email, ids.sms]);
   await pool.query("INSERT INTO campaign_dispositions(id,campaign_id,name,code,action_type) VALUES($1,$2,'Synthetic finished','SYN-DONE','none'),($3,$2,'Synthetic callback','SYN-CALL','callback')", [ids.status, ids.mission, ids.callback]);
   const opaque = '{"futurePredicate":{"keep":[1,2]},"version":5}';
-  await pool.query("INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type,target_role,task_description,condition_json,email_recipients,assign_notify,assign_notify_channels,notify_agent_pulse) VALUES($1,$2,'assign_task','role:back_office','Synthetic preserved action',$3,ARRAY['keep@example.invalid'],true,ARRAY['email','push'],true)", [ids.action, ids.step, opaque]);
+  await pool.query("INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type,target_role,task_description,condition_json,email_recipients,assign_notify,assign_notify_channels,notify_agent_pulse,callback_existing_policy) VALUES($1,$2,'assign_task','role:back_office','Synthetic preserved action',$3,ARRAY['keep@example.invalid'],true,ARRAY['email','push'],true,'keep_existing')", [ids.action, ids.step, opaque]);
   const login = await api.post("/api/auth/login", { data: { username, password } });
   check(login.ok(), "Synthetic manager authenticates through the real API");
   check((await api.post(`/api/campaigns/${ids.foreign}/status-list/${ids.step}/automations`, { data: { actionType: "assign_task" } })).status() === 404, "Root create rejects source from another Mission");
@@ -71,6 +72,7 @@ try {
   const edited = await record(ids.action);
   check(edited.condition_json === opaque, "Native editing preserves opaque condition bytes");
   check(edited.assign_notify && edited.notify_agent_pulse && edited.email_recipients[0] === "keep@example.invalid" && edited.assign_notify_channels.length === 2, "Native editing preserves dormant settings and notification channels");
+  check(edited.callback_existing_policy === "keep_existing", "Unrelated task editing preserves dormant callback policy");
   await page.getByTestId(`service-action-edit-${ids.action}`).click();
   await stage("details");
   await page.getByTestId("service-action-taskDescription").fill("Synthetic unsaved");
@@ -101,6 +103,8 @@ try {
     }
     if (type === "set_contact_status") {
       await page.getByTestId("service-action-dispositionId").selectOption(ids.callback);
+      check(await page.getByTestId("service-action-callbackExistingPolicy").inputValue() === "replace", "Callback status retains the legacy replacement default");
+      await page.getByTestId("service-action-callbackExistingPolicy").selectOption("keep_existing");
       check(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked(), "Existing callback behavior defaults to weekdays");
       await page.getByTestId("service-action-callbackBusinessDaysOnly").uncheck();
       await page.getByTestId("service-action-callbackOffsetDays").fill("2");
@@ -108,6 +112,8 @@ try {
       await page.getByTestId("service-action-notifyAgentPulse").check();
     }
     if (type === "set_callback") {
+      check(await page.getByTestId("service-action-callbackExistingPolicy").inputValue() === "replace", "Standalone callback retains the legacy replacement default");
+      await page.getByTestId("service-action-callbackExistingPolicy").selectOption("keep_existing");
       check(await page.getByTestId("service-action-callbackTime").inputValue() === "09:00", "Standalone callback exposes the existing 09:00 time default");
       await page.getByTestId("service-action-callbackTime").fill("");
       await stage("review");
@@ -136,19 +142,23 @@ try {
   check((await record(created.send_email_group.id)).email_recipients.length === 2, "Explicit multi-recipient emails persist as an array");
   const callback = await record(created.set_contact_status.id);
   check((await record(created.set_callback.id)).callback_time === "14:45", "Standalone callback persists its selected fixed time");
+  check((await record(created.set_callback.id)).callback_existing_policy === "keep_existing" && callback.callback_existing_policy === "keep_existing", "Both callback types persist the chosen replacement policy");
   check(callback.callback_offset_days === 2 && callback.callback_time === "10:30" && callback.notify_agent_pulse, "Callback disposition preserves delay, fixed time and Pulse notification");
   check(callback.callback_business_days_only === false && (await record(created.set_callback.id)).callback_business_days_only === false, "Both callback action types persist calendar-day mode");
   await page.getByTestId(`service-action-edit-${created.set_callback.id}`).click();
   await stage("details");
   check(await page.getByTestId("service-action-callbackTime").inputValue() === "14:45", "Reopening a standalone callback retains its saved time");
+  check(await page.getByTestId("service-action-callbackExistingPolicy").inputValue() === "keep_existing", "Reopening retains keep-existing mode");
   check(!(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked()), "Reopening a saved callback retains the disabled weekday policy");
   await page.screenshot({ path: `${pictures}/callback-days-desktop.jpg`, animations: "disabled" });
   await page.setViewportSize({ width: 402, height: 874 });
   await page.screenshot({ path: `${pictures}/callback-days-mobile.jpg`, animations: "disabled" });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByTestId("service-action-callbackBusinessDaysOnly").check();
+  await page.getByTestId("service-action-callbackExistingPolicy").selectOption("replace");
   await save("PUT");
   check((await record(created.set_callback.id)).callback_business_days_only === true, "Enabling weekdays again persists");
+  check((await record(created.set_callback.id)).callback_existing_policy === "replace", "Re-enabling replacement persists");
   check((await record(created.send_sms.id)).sms_provider === null, "Mission-derived gateway does not leak a conflicting action override");
 
   await page.getByTestId(`service-action-edit-${created.assign_task.id}`).click();
@@ -193,7 +203,7 @@ try {
   for (const type of ["set_callback", "set_contact_status"]) {
     const id = created[type].id;
     for (const weekdays of [false, true]) {
-      const update = await api.put(`${root}/automations/${id}`, { data: { callbackBusinessDaysOnly: weekdays, callbackOffsetDays: 5, notifyAgentPulse: false } });
+      const update = await api.put(`${root}/automations/${id}`, { data: { callbackBusinessDaysOnly: weekdays, callbackOffsetDays: 5, notifyAgentPulse: false, callbackExistingPolicy: "replace" } });
       check(update.ok(), `${type}: calendar policy update succeeds`);
       const before = new Date();
       const response = await api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: {} });
@@ -206,6 +216,51 @@ try {
     const [manual] = await db.select().from(campaignContacts).where(eq(campaignContacts.id, ids.contact));
     check(!!manual.callbackDate && localDate(manual.callbackDate) === override, `${type}: weekday calculation never rewrites a manually selected Saturday`);
   }
+  const contactState = async () => (await pool.query("SELECT status,callback_date,callback_note,assigned_to,callback_status_list_item_id,disposition_code,updated_at FROM campaign_contacts WHERE id=$1", [ids.contact])).rows[0];
+  const historyCount = async () => Number((await pool.query("SELECT count(*) AS count FROM campaign_contact_history WHERE campaign_contact_id=$1", [ids.contact])).rows[0].count);
+  const seed = async (status: string, date: string | null) => {
+    await db.update(campaignContacts).set({
+      status, callbackDate: date ? new Date(date) : null, callbackNote: "Previous callback note",
+      assignedTo: ids.owner, callbackStatusListItemId: ids.step, dispositionCode: "SYN-OLD",
+      updatedAt: new Date("2020-01-01T00:00:00Z"),
+    }).where(eq(campaignContacts.id, ids.contact));
+  };
+  const run = (id: string, callbackDate = "2030-06-10T12:00", callbackNote = "Replacement note") =>
+    api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: { callbackDate, callbackNote } });
+  for (const type of ["set_callback", "set_contact_status"]) {
+    const id = created[type].id;
+    check((await api.put(`${root}/automations/${id}`, { data: { callbackExistingPolicy: "unknown" } })).status() === 400, `${type}: API rejects unsupported policies`);
+    check((await api.put(`${root}/automations/${id}`, { data: { callbackExistingPolicy: "keep_existing" } })).ok(), `${type}: keep-existing policy can be configured`);
+    for (const status of ["callback_scheduled", "pending"]) {
+      for (const date of ["2020-06-08T08:30:00Z", "2030-06-08T08:30:00Z"]) {
+        await seed(status, date);
+        const before = await contactState(), count = await historyCount();
+        const response = await run(id), result = await response.json();
+        check(response.ok() && result.keptExisting === true && result.callbackDate === date.replace("Z", ".000Z"), `${type}: pending/overdue callback is explicitly reported as preserved`);
+        check(JSON.stringify(await contactState()) === JSON.stringify(before), `${type}: preservation changes neither time, owner, note, source, disposition nor update time`);
+        check(await historyCount() === count, `${type}: a preserved callback produces no false rescheduling history`);
+      }
+    }
+    for (const [status, date] of [["completed", "2030-06-08T08:30:00Z"], ["contacted", "2030-06-08T08:30:00Z"], ["pending", null]] as const) {
+      await seed(status, date);
+      const response = await run(id), result = await response.json(), row = await contactState();
+      check(response.ok() && result.keptExisting === false, `${type}: stale terminal dates and missing dates do not block a new callback`);
+      check(row.status === "callback_scheduled" && row.assigned_to === ids.user && row.callback_note === "Replacement note", `${type}: when no pending callback exists, normal scheduling still applies`);
+    }
+  }
+  await seed("pending", null);
+  const beforeRace = await historyCount();
+  const raced = await Promise.all([run(created.set_callback.id, "2030-06-10T12:00", "Race A"), run(created.set_contact_status.id, "2030-06-11T13:00", "Race B")]);
+  const raceResults = await Promise.all(raced.map(response => response.json()));
+  check(raced.every(response => response.ok()) && raceResults.filter(result => result.keptExisting).length === 1, "Concurrent keep-existing actions schedule once; the other preserves the winner");
+  const raceWinner = raceResults.find(result => !result.keptExisting);
+  check(raceResults.every(result => result.callbackDate === raceWinner.callbackDate), "Both concurrent results point to the same actual persisted callback");
+  check(await historyCount() === beforeRace + 1, "Concurrent keep-existing actions create only one rescheduling event");
+  const defaultResponse = await api.post(`${root}/automations`, { data: { actionType: "set_callback", callbackOffsetDays: 1 } });
+  const defaultAction = await defaultResponse.json();
+  check(defaultResponse.ok() && defaultAction.callbackExistingPolicy === "replace", "Omitted policy retains the legacy replacement default in the database");
+  const defaultRun = await run(defaultAction.id, "2030-06-12T14:00");
+  check(defaultRun.ok() && (await defaultRun.json()).keptExisting === false, "Legacy/default rules still replace a pending callback");
   check(errors.length === 0, `No browser runtime errors: ${errors.join("; ")}`);
   console.log(`Status List service actions: ${checks} authenticated browser/API assertions passed`);
 } catch (error) {
@@ -228,6 +283,7 @@ try {
   await pool.query("DELETE FROM message_templates WHERE id=ANY($1::varchar[])", [[ids.email, ids.sms]]);
   await pool.query("DELETE FROM user_sessions WHERE user_id=$1", [ids.user]);
   await pool.query("DELETE FROM users WHERE id=$1", [ids.user]);
+  await pool.query("DELETE FROM users WHERE id=$1", [ids.owner]);
   await pool.query("DELETE FROM mission_status_list_dirty WHERE entity_id=ANY($1::varchar[])", [Object.values(ids)]);
   await pool.end();
 }

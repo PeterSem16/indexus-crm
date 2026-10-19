@@ -58,6 +58,7 @@ type StatusListAutomation = {
   emailRecipients?: string[] | null;
   callbackOffsetDays?: number | null;
   callbackBusinessDaysOnly?: boolean;
+  callbackExistingPolicy?: "replace" | "keep_existing";
 };
 
 type StatusListQuestion = {
@@ -1417,6 +1418,7 @@ function AutomationForm({
     callbackOffsetDays: automation?.callbackOffsetDays != null ? String(automation.callbackOffsetDays) : "1",
     callbackTime: (automation as any)?.callbackTime || "09:00",
     callbackBusinessDaysOnly: automation?.callbackBusinessDaysOnly ?? true,
+    callbackExistingPolicy: automation?.callbackExistingPolicy || "replace",
     notifyAgentPulse: (automation as any)?.notifyAgentPulse ?? false,
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
@@ -1504,6 +1506,9 @@ function AutomationForm({
           : null,
         callbackTime: needsCallbackTime ? form.callbackTime : (automation as any)?.callbackTime ?? null,
         callbackBusinessDaysOnly: form.callbackBusinessDaysOnly,
+        callbackExistingPolicy: (form.actionType === "set_callback" || (form.actionType === "set_contact_status" && isCallbackDisp))
+          ? form.callbackExistingPolicy
+          : automation?.callbackExistingPolicy ?? "replace",
         notifyAgentPulse: form.actionType === "set_contact_status" && isCallbackDisp ? form.notifyAgentPulse : false,
         conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
         conditionOperator: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : "eq",
@@ -1993,6 +1998,17 @@ function AutomationForm({
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{actionCopy(locale, form.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff")}</p>
+            <div className="mt-3 max-w-sm space-y-1">
+              <Label className="text-xs">{actionCopy(locale, "callbackExistingPolicy")}</Label>
+              <Select value={form.callbackExistingPolicy} onValueChange={value => setForm(current => ({ ...current, callbackExistingPolicy: value as "replace" | "keep_existing" }))}>
+                <SelectTrigger className="h-8 text-xs" data-testid="input-callback-existing-policy"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="replace">{actionCopy(locale, "callbackPolicyReplace")}</SelectItem>
+                  <SelectItem value="keep_existing">{actionCopy(locale, "callbackPolicyKeep")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground leading-relaxed">{actionCopy(locale, "callbackPolicyHelp")}</p>
+            </div>
             {needsCallbackTime && !callbackTimeValid && <p className="text-[10px] text-destructive mt-1" role="alert">{actionCopy(locale, "errorCallback")}</p>}
           </div>
         )}
@@ -2085,6 +2101,17 @@ function AutomationForm({
                 </div>
                 {needsCallbackTime && !callbackTimeValid && <p className="text-[10px] text-destructive" role="alert">{actionCopy(locale, "errorCallback")}</p>}
                 <p className="text-[10px] text-muted-foreground leading-snug">{sl("statusCallbackHelp", locale)}</p>
+                <div className="space-y-1">
+                  <Label className="text-xs">{actionCopy(locale, "callbackExistingPolicy")}</Label>
+                  <Select value={form.callbackExistingPolicy} onValueChange={value => setForm(current => ({ ...current, callbackExistingPolicy: value as "replace" | "keep_existing" }))}>
+                    <SelectTrigger className="h-8 text-xs" data-testid="input-callback-existing-policy"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="replace">{actionCopy(locale, "callbackPolicyReplace")}</SelectItem>
+                      <SelectItem value="keep_existing">{actionCopy(locale, "callbackPolicyKeep")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">{actionCopy(locale, "callbackPolicyHelp")}</p>
+                </div>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"

@@ -132,6 +132,7 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
       add(copy("callbackDays"), draft.callbackOffsetDays);
       add(copy("callbackBusinessDaysOnly"), copy(draft.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff"));
       add(copy("callbackTime"), draft.callbackTime);
+      add(copy("callbackExistingPolicy"), copy(draft.callbackExistingPolicy === "keep_existing" ? "callbackPolicyKeep" : "callbackPolicyReplace"));
       add(copy("notifyPulse"), copy(draft.notifyAgentPulse ? "enabled" : "disabled"));
     }
   }
@@ -139,6 +140,7 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
     add(copy("callbackDays"), draft.callbackOffsetDays);
     add(copy("callbackBusinessDaysOnly"), copy(draft.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff"));
     add(copy("callbackTime"), draft.callbackTime);
+    add(copy("callbackExistingPolicy"), copy(draft.callbackExistingPolicy === "keep_existing" ? "callbackPolicyKeep" : "callbackPolicyReplace"));
   }
   if (draft.actionType === "sys_webhook") add(copy("webhook"), draft.webhookTarget);
   return rows;
@@ -294,6 +296,8 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
         smsProvider: campaignSmsProvider ? null : normalizedDraft.smsProvider,
         callbackOffsetDays: Number(normalizedDraft.callbackOffsetDays),
         callbackTime: normalizedDraft.callbackTime,
+        callbackExistingPolicy: normalizedDraft.callbackExistingPolicy || "replace",
+        callbackBusinessDaysOnly: normalizedDraft.callbackBusinessDaysOnly,
         notifyAgentPulse: normalizedDraft.notifyAgentPulse,
         taskDescription: normalizedDraft.taskDescription,
         taskDeadlineOffset: normalizedDraft.taskDeadlineOffset,

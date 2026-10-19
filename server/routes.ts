@@ -153,6 +153,7 @@ import {
 import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
 import Handlebars from "handlebars";
+import { writeStatusListCallback } from "./lib/status-list-callback-write";
 import { z } from "zod";
 import {
   inferOutboundCountryCode,
@@ -1628,7 +1629,7 @@ async function runStatusListContactSms(automation: any, ctx: StatusListActionCtx
 }
 
 // Apply the configured disposition to the contact (status + dispositionCode).
-async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate?: string }> {
+async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate?: string; keptExisting?: boolean }> {
   if (!automation.dispositionId) {
     console.warn("[status-list:set_status] no disposition configured");
     return { ok: false };
@@ -1673,7 +1674,16 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
     if (callbackNote?.trim()) update.callbackNote = callbackNote.trim();
   }
 
-  await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
+  if (scheduledCb) {
+    const result = await writeStatusListCallback({
+      campaignId: ctx.campaignId, campaignContactId: ctx.campaignContactId,
+      policy: automation.callbackExistingPolicy, fields: update,
+    });
+    // No mutation means no new callback transition/history entry.
+    if (result.keptExisting) return { ok: true, ...result };
+  } else {
+    await db.update(campaignContacts).set(update).where(eq(campaignContacts.id, ctx.campaignContactId));
+  }
   console.log(`[status-list:set_status] disposition=${disp.code} status=${update.status ?? "(unchanged)"} callbackDate=${scheduledCb ?? "(none)"} contact=${ctx.campaignContactId}`);
   try {
     await db.insert(campaignContactHistory).values({
@@ -1688,7 +1698,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
 
 // Schedule a callback so the contact re-appears in the agent queue on that date.
 // Uses an explicit override date when supplied (manual picker), else the configured offset.
-async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate: string }> {
+async function runStatusListSetCallback(automation: any, ctx: StatusListActionCtx, overrideCallbackDate?: string | null, callbackNote?: string | null): Promise<{ ok: boolean; callbackDate: string; keptExisting?: boolean }> {
   // Trust an explicit ISO instant from the client; interpret a naive wall-clock
   // string in the app timezone (never the UTC server clock).
   let cb: Date | null = overrideCallbackDate ? parseCallbackDateInput(overrideCallbackDate) : null;
@@ -1697,9 +1707,11 @@ async function runStatusListSetCallback(automation: any, ctx: StatusListActionCt
   }
   const setFields: Record<string, any> = { callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, assignedTo: ctx.userId, updatedAt: new Date() };
   if (callbackNote !== undefined && callbackNote !== null && callbackNote.trim() !== "") setFields.callbackNote = callbackNote.trim();
-  await db.update(campaignContacts)
-    .set(setFields)
-    .where(eq(campaignContacts.id, ctx.campaignContactId));
+  const result = await writeStatusListCallback({
+    campaignId: ctx.campaignId, campaignContactId: ctx.campaignContactId,
+    policy: automation.callbackExistingPolicy, fields: setFields,
+  });
+  if (result.keptExisting) return { ok: true, ...result };
   console.log(`[status-list:set_callback] callbackDate=${cb.toISOString()} contact=${ctx.campaignContactId}`);
   try {
     await db.insert(campaignContactHistory).values({
@@ -35286,12 +35298,12 @@ Respond ONLY with valid JSON in this exact format:
         const r = await runStatusListSetStatus(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         }, callbackDate ?? null, callbackNote ?? null);
-        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null });
+        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null, keptExisting: r.keptExisting ?? false });
       } else if (automation.actionType === "set_callback") {
         const r = await runStatusListSetCallback(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         }, callbackDate ?? null, callbackNote ?? null);
-        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate });
+        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate, keptExisting: r.keptExisting ?? false });
       } else if (automation.actionType === "send_contact_email") {
         const r = await runStatusListContactEmail(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,

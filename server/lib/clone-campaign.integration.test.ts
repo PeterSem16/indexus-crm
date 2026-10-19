@@ -441,6 +441,7 @@ async function seedFixture(database: IsolatedCloneDatabase["db"]) {
     callbackOffsetDays: 4,
     callbackTime: "10:30",
     callbackBusinessDaysOnly: false,
+    callbackExistingPolicy: "keep_existing",
     notifyAgentPulse: true,
     taskDescription: "Prepare an offer",
     taskDeadlineOffset: "2d",

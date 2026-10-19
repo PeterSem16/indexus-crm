@@ -302,6 +302,7 @@ export async function cloneCampaignWithConfiguration(
         callbackOffsetDays: row.callbackOffsetDays,
         callbackTime: row.callbackTime,
         callbackBusinessDaysOnly: row.callbackBusinessDaysOnly,
+        callbackExistingPolicy: row.callbackExistingPolicy,
         notifyAgentPulse: row.notifyAgentPulse,
         taskDescription: row.taskDescription,
         taskDeadlineOffset: row.taskDeadlineOffset,
