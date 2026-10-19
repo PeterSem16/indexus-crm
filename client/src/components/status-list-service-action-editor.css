@@ -44,4 +44,5 @@
 }
 .slsae-lock{border:0;margin:0;padding:0;min-width:0}
 .dark .slsae-inline .slsae-kicker,.dark .slsae-inline .slsae-source,.dark .slsae-inline .slsae-review-card h4{color:color-mix(in srgb,hsl(var(--primary)) 55%,white)}
+.dark .slsae-inline .slsae-button:not(.primary){background:var(--sl-card);color:var(--sl-ink);border-color:var(--sl-line)}
 @media(prefers-reduced-motion:reduce){.slsae-content{animation:none}.slsae *{scroll-behavior:auto!important;transition:none!important}.slsae-skeleton{animation:none}}
