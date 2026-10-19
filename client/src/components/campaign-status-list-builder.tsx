@@ -2400,14 +2400,21 @@ function AutomationForm({
 
 
 /** Existing action services, presented as a focused list/modal, never a whole legacy item. */
-function StatusListStudioActions({ item, campaignId, questionId, workflows, quickOption = false, onDirtyChange }: {
-  item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode; quickOption?: boolean; onDirtyChange?: (dirty: boolean) => void;
+function StatusListStudioActions({ item, campaignId, questionId, workflows, quickOption = false, onDirtyChange, onPendingChange }: {
+  item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode; quickOption?: boolean; onDirtyChange?: (dirty: boolean) => void; onPendingChange?: (pending: boolean) => void;
 }) {
   const { locale } = useI18n();
   const { toast } = useToast();
   const [editing, setEditing] = useState<StatusListAutomation | "new" | "status" | "callback" | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
+  const [editorPending, setEditorPending] = useState(false);
+  const openEditor = (next: NonNullable<typeof editing>) => {
+    if (editorPending || next === editing || (typeof next === "object" && editing && typeof editing === "object" && next.id === editing.id)) return;
+    if (editorDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
+    setEditorDirty(false); setEditing(next);
+  };
   const closeEditor = () => {
+    if (editorPending) return;
     if (editorDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
     setEditorDirty(false); setEditing(null);
   };
@@ -2415,18 +2422,18 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
   const actions = questionId ? item.questions.find(question => question.id === questionId)?.automations || [] : item.automations;
   const remove = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
+    onSuccess: (_result, id) => {
+      if (editing && typeof editing === "object" && editing.id === id) savedEditor();
+      return queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
+    },
     onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
-  const editor = editing && (quickOption ? <AutomationForm
-    key={typeof editing === "object" ? editing.id : editing}
-    automation={typeof editing === "object" ? editing : undefined}
-    initialActionType={editing === "callback" ? "set_callback" : editing === "status" || quickOption ? "set_contact_status" : undefined}
-    itemId={item.id} campaignId={campaignId} questionId={questionId || undefined}
-    onSaved={savedEditor} onCancel={closeEditor}/>
-    : <StatusListServiceActionEditor
+  const editor = editing && <StatusListServiceActionEditor
       key={typeof editing === "object" ? editing.id : editing}
       automation={typeof editing === "object" ? { ...editing, emailRecipients: editing.emailRecipients ?? [] } : undefined}
+      initialActionType={editing === "callback" ? "set_callback" : editing === "status" || quickOption ? "set_contact_status" : undefined}
+      initialStage={quickOption && editing !== "new" ? "details" : "type"}
+      presentation={quickOption ? "inline" : "dialog"}
       campaignId={campaignId} itemId={item.id} questionId={questionId || undefined}
       locale={locale} sourceLabel={questionId ? item.questions.find(question => question.id === questionId)?.questionText || questionId : item.label}
       translate={key => sl(key, locale)}
@@ -2443,25 +2450,26 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
       ].map(variable => ({ token: variable.token, label: TPL_FIELD_LABELS[variable.fk][tplLocale(locale)] }))}
       conditionFields={CONDITION_FIELDS}
       onDirtyChange={dirty => { setEditorDirty(dirty); onDirtyChange?.(dirty); }}
-      onSaved={savedEditor} onCancel={closeEditor}/>);
+      onPendingChange={pending => { setEditorPending(pending); onPendingChange?.(pending); }}
+      onSaved={savedEditor} onCancel={closeEditor}/>;
   return <div className="space-y-6" data-testid="status-list-studio-actions">
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h4 className="flex items-center gap-2 text-sm font-semibold"><Zap className="h-4 w-4 text-primary"/>{quickOption ? getQuickOptionCopy(locale).actions : actionCopy(locale, "title")}</h4>
-        <Button type="button" size="sm" variant="outline" onClick={() => setEditing("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
+        <Button type="button" size="sm" variant="outline" disabled={editorPending} data-testid="service-action-add" onClick={() => openEditor("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{quickOption ? sl("inspectorAutomationHelp", locale) : actionCopy(locale, "safety")}</p>
       {quickOption && <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" data-testid="quick-option-add-status" onClick={() => setEditing("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
-        <Button type="button" variant="outline" size="sm" data-testid="quick-option-add-callback" onClick={() => setEditing("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={editorPending} data-testid="quick-option-add-status" onClick={() => openEditor("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={editorPending} data-testid="quick-option-add-callback" onClick={() => openEditor("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
       </div>}
       {actions.map(action => <div key={action.id} className="flex items-center gap-3 rounded-xl border bg-card p-3" data-testid={`studio-original-action-${action.id}`}>
         <span className="rounded-lg bg-primary/5 p-2 text-primary">{getActionIcon(action.actionType)}</span>
         <div className="min-w-0 flex-1"><strong className="block text-sm">{getActionLabel(action.actionType, locale)}</strong>
           {(action.conditionJson || action.conditionField) && <p className="mt-1 text-xs text-muted-foreground">{getConditionSummary(action.conditionJson, action.conditionField, action.conditionValue, locale)}</p>}
         </div>
-        <Button type="button" size="icon" variant="ghost" title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => setEditing(action)}><PenLine className="h-4 w-4"/></Button>
-        <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending} onClick={() => {
+        <Button type="button" size="icon" variant="ghost" disabled={editorPending} title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => openEditor(action)}><PenLine className="h-4 w-4"/></Button>
+        <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending || editorPending} onClick={() => {
           if (window.confirm(`${getActionLabel(action.actionType, locale)} — ${getStatusListQuestionStudioCopy(locale).deleteConfirm}`)) remove.mutate(action.id);
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
       </div>)}
@@ -4177,7 +4185,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           key={`quick-option-${selectedItem.id}`} item={selectedItem} campaignId={campaignId} locale={locale}
           canonicalOptions={studioCanonicalOptions} onDirtyChange={controls.onDirtyChange}
           onDeleted={() => setWorkspaceSelection("")}
-          renderActions={() => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={null} workflows={controls.workflows} quickOption/>}
+          renderActions={(onDirtyChange, onPendingChange) => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={null} workflows={controls.workflows} quickOption onDirtyChange={onDirtyChange} onPendingChange={onPendingChange}/>}
         />;
         return <StatusListQuestionStudio
           key={`studio-${selectedItem.id}-${selectedQuestionId || "step"}`}

@@ -19,6 +19,8 @@ export type StatusListServiceActionEditorProps = {
   questionId?: string;
   automation?: SavedStatusListAction;
   initialActionType?: string;
+  initialStage?: "type" | "details";
+  presentation?: "dialog" | "inline";
   locale: string;
   sourceLabel: string;
   translate: StatusListServiceActionTranslate;
@@ -33,6 +35,7 @@ export type StatusListServiceActionEditorProps = {
   onSaved: () => void;
   onCancel: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
 };
 type Stage = "type" | "details" | "conditions" | "review";
 const STAGES: Stage[] = ["type", "details", "conditions", "review"];
@@ -149,22 +152,24 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
 export type { ConditionFieldMetadata };
 export function StatusListServiceActionEditor(props: StatusListServiceActionEditorProps) {
   const {
-    campaignId, itemId, questionId, automation, initialActionType, locale, sourceLabel, translate,
+    campaignId, itemId, questionId, automation, initialActionType, initialStage = "type", presentation = "dialog", locale, sourceLabel, translate,
     actions, roleFallbacks, countries, deadlines, priorities, taskTemplates, variables, conditionFields,
-    onSaved, onCancel, onDirtyChange,
+    onSaved, onCancel, onDirtyChange, onPendingChange,
   } = props;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const copy = (key: string) => actionCopy(locale, key);
   const initialType = initialActionType || "assign_task";
   const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType));
-  const [stage, setStage] = useState<Stage>("type");
+  const [stage, setStage] = useState<Stage>(initialStage);
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [originalConditionJson, setOriginalConditionJson] = useState<string | null>(automation?.conditionJson || null);
   const originalRef = useRef<SavedStatusListAction | undefined>(automation);
   const initializedRef = useRef<string | null>(null);
   const dirtyCallbackRef = useRef(onDirtyChange);
   dirtyCallbackRef.current = onDirtyChange;
+  const pendingCallbackRef = useRef(onPendingChange);
+  pendingCallbackRef.current = onPendingChange;
 
   useEffect(() => {
     const recordKey = automation?.id != null ? `saved:${automation.id}` : `new:${campaignId}:${itemId}:${questionId || ""}`;
@@ -172,9 +177,10 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     initializedRef.current = recordKey;
     originalRef.current = automation;
     setDraft(statusListActionDraft(automation, initialType));
+    setStage(initialStage);
     setOriginalConditionJson(automation?.conditionJson || null);
     setAttemptedSave(false);
-  }, [automation?.id, campaignId, itemId, questionId, initialType]);
+  }, [automation?.id, campaignId, itemId, questionId, initialType, initialStage]);
 
   const isEdit = automation?.id != null;
   const needsRole = ["assign_task", "send_email_group", "notify_role"].includes(draft.actionType);
@@ -321,6 +327,9 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     },
   });
 
+  useEffect(() => { pendingCallbackRef.current?.(saveMutation.isPending); }, [saveMutation.isPending]);
+  useEffect(() => () => { pendingCallbackRef.current?.(false); }, []);
+
   const selectStage = (next: Stage) => setStage(next);
   const go = (direction: number) => {
     const nextIndex = Math.max(0, Math.min(STAGES.length - 1, STAGES.indexOf(stage) + direction));
@@ -355,7 +364,8 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const retryLookups = () => { failedQueries.forEach(query => { void query.refetch(); }); };
   const saveBlocked = saveMutation.isPending || (needsSms && (campaignQuery.isLoading || campaignQuery.isError));
 
-  return <section className="slsae" data-testid="status-list-service-action-editor">
+  return <section className={`slsae${presentation === "inline" ? " slsae-inline" : ""}`} data-presentation={presentation} aria-busy={saveMutation.isPending} data-testid="status-list-service-action-editor">
+    <fieldset className="slsae-lock" disabled={saveMutation.isPending}>
     <header className="slsae-header">
       <div><span className="slsae-kicker">{copy("title")}</span><h2>{copy("title")}</h2><p>{copy("subtitle")}</p></div>
       <div className="slsae-source"><span className="slsae-kicker">{copy("scopeLabel")}</span>{copy("sourceLine")}<br />{sourceLabel}</div>
@@ -418,5 +428,6 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
           : <button type="button" className="slsae-button primary" data-testid="status-list-automation-save" disabled={saveBlocked} onClick={save}>{saveMutation.isPending ? copy("saving") : isEdit ? copy("save") : copy("create")}</button>}
       </div>
     </footer>
+    </fieldset>
   </section>;
 }

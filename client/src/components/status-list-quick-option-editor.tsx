@@ -26,7 +26,7 @@ export function getQuickOptionCopy(locale: string) {
 type Item = { id: string; label: string; description: string | null; color?: string | null; canonicalClinicStatusKey?: string | null };
 export function StatusListQuickOptionEditor({ item, campaignId, locale, canonicalOptions, renderActions, onDeleted, onDirtyChange }: {
   item: Item; campaignId: string; locale: string; canonicalOptions: { value: string; label: string }[];
-  renderActions: () => ReactNode; onDeleted: () => void; onDirtyChange: (dirty: boolean) => void;
+  renderActions: (onDirtyChange: (dirty: boolean) => void, onPendingChange: (pending: boolean) => void) => ReactNode; onDeleted: () => void; onDirtyChange: (dirty: boolean) => void;
 }) {
   const copy = getQuickOptionCopy(locale);
   const common = getStatusListQuestionStudioCopy(locale);
@@ -34,10 +34,18 @@ export function StatusListQuickOptionEditor({ item, campaignId, locale, canonica
   const initial = { label: item.label, description: item.description || "", color: item.color || "#3b82f6", canonicalClinicStatusKey: item.canonicalClinicStatusKey || "" };
   const [base, setBase] = useState(initial);
   const [draft, setDraft] = useState(initial);
+  const [actionDirty, setActionDirty] = useState(false);
+  const [actionPending, setActionPending] = useState(false);
   const dirty = JSON.stringify(base) !== JSON.stringify(draft);
   const dirtyCallback = useRef(onDirtyChange); dirtyCallback.current = onDirtyChange;
-  useEffect(() => { dirtyCallback.current(dirty); }, [dirty]);
+  useEffect(() => { dirtyCallback.current(dirty || actionDirty || actionPending); }, [dirty, actionDirty, actionPending]);
   useEffect(() => () => dirtyCallback.current(false), []);
+  useEffect(() => {
+    if (!dirty && !actionDirty && !actionPending) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty, actionDirty, actionPending]);
   const invalidate = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
     queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list-workflows"] }),
@@ -57,7 +65,7 @@ export function StatusListQuickOptionEditor({ item, campaignId, locale, canonica
   });
   return <section className="space-y-5 rounded-xl border bg-card p-4" data-testid="status-list-quick-option-editor">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{copy.title}</h3><p className="mt-2 max-w-prose text-xs leading-relaxed text-muted-foreground">{copy.help}</p></div>
-      <Button type="button" size="sm" variant="outline" disabled={remove.isPending} data-testid="quick-option-delete" onClick={() => { if (window.confirm(common.deleteConfirm)) remove.mutate(); }}>{common.delete}</Button>
+      <Button type="button" size="sm" variant="outline" disabled={remove.isPending || actionPending} data-testid="quick-option-delete" onClick={() => { if (window.confirm(common.deleteConfirm)) remove.mutate(); }}>{common.delete}</Button>
     </header>
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="grid gap-2 text-xs sm:col-span-2"><span>{copy.name}</span><Input data-testid="quick-option-name" value={draft.label} onChange={event => setDraft(current => ({ ...current, label: event.target.value }))}/></label>
@@ -72,8 +80,8 @@ export function StatusListQuickOptionEditor({ item, campaignId, locale, canonica
       </label>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"><span className="grid gap-2 text-xs text-muted-foreground">{copy.preview}<span className="rounded-md px-3 py-2 font-semibold text-white" style={{ backgroundColor: draft.color }}>{draft.label || copy.name}</span></span>
-      <Button type="button" data-testid="quick-option-save" disabled={!dirty || !draft.label.trim() || save.isPending} onClick={() => save.mutate()}>{common.save}</Button>
+      <Button type="button" data-testid="quick-option-save" disabled={!dirty || !draft.label.trim() || save.isPending || actionPending} onClick={() => save.mutate()}>{common.save}</Button>
     </div>
-    <section className="border-t pt-4" aria-label={copy.actions}>{renderActions()}</section>
+    <section className="border-t pt-4" aria-label={copy.actions}>{renderActions(setActionDirty, setActionPending)}</section>
   </section>;
 }

@@ -22,6 +22,7 @@ neurčuje automaticky poradie tejto prestavby.
 | Obsah otázky alebo podotázky | Spoločný otázkový editor vrátane vytvárania. |
 | Typ odpovede a väzby | Vlastné zamerané kroky spoločného editora. |
 | Servisné akcie otázok | Zoznam akcií a zameraný editor akcie. |
+| Servisné akcie rýchlych možností | Rovnaký editor akcií, vložený priamo do osobitného editora výsledkového tlačidla; skratky status/callback otvoria parametre. |
 | Interné pravidlá odpovedí | Existujúci editor WHEN / IF / THEN / ELSE; samostatný vykonávací mechanizmus zostáva zachovaný. |
 | Systémové zdroje otázok | Prenesené z vloženého formulára do postupu Zdroj → Odpoveď → Vyhodnocovanie → Kontrola. |
 | Systémové zdroje skupín možností | Rovnaký postup, vrátane mapovania výsledkov, osôb, kanálov a časových limitov. |
@@ -33,10 +34,6 @@ zdroja je chránený pri opustení kroku aj pracovného priestoru.
 
 ## Zostávajúce aktívne výnimky
 
-- Rýchle možnosti majú svoj osobitný inline editor; ich servisné akcie ešte
-  používajú `AutomationForm`, na rozdiel od akcií otázok. Ich zjednotenie má
-  zachovať zmysel výsledkových tlačidiel a existujúce správanie, nie pridávať
-  ďalšie callback funkcie.
 - Import dispozícií a aplikovanie CLA/CLB šablón sú osobitné nástroje s vlastnými
   dialógmi. Ich prípadná prestavba musí zachovať potvrdenie dopadu na existujúci
   Status List; nemá meniť alebo automaticky aplikovať obsah šablón.
