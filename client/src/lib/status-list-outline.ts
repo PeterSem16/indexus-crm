@@ -15,6 +15,8 @@ export function itemAncestry(item: OutlineItem, items: OutlineItem[]) {
   return chain;
 }
 export const outlineHidden = (item: OutlineItem, items: OutlineItem[]) => itemAncestry(item, items).some(row => row.isHidden);
+/** A clinic cooperation status is not an agent-tab assignment. Never infer one. */
+export const outlinePhase = (item: OutlineItem, items: OutlineItem[]) => itemAncestry(item, items).find(row => row.tab && row.tab !== "both")?.tab || null;
 export function outlineCategory(id: string, item: OutlineItem, items: OutlineItem[], organization: StatusListOrganization) {
   return organization.assignments[id] || itemAncestry(item, items).map(row => organization.assignments[row.id]).find(Boolean) || "";
 }
@@ -26,7 +28,7 @@ export function statusListOutline(items: OutlineItem[], phase: string, category:
     if (visiting.has(item.id)) return false;
     visiting.add(item.id);
     const chain = itemAncestry(item, items), quick = chain[chain.length - 1]?.itemType === "option";
-    const effectivePhase = chain.find(row => row.tab && row.tab !== "both")?.tab;
+    const effectivePhase = outlinePhase(item, items);
     const inPhase = phase === "all" || (phase === "quick" ? quick : !quick && (phase === "shared" ? !effectivePhase : effectivePhase === phase));
     const hidden = outlineHidden(item, items);
     const inVisibility = (isHidden: boolean) => visibility === "all" || (visibility === "hidden" ? isHidden : !isHidden);

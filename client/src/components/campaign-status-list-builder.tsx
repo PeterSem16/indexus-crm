@@ -16,6 +16,9 @@ import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel,
 import { useI18n } from "@/i18n";
 import { StatusListWorkspace } from "@/components/status-list-workspace";
 import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-copy";
+import { outlinePhase } from "@/lib/status-list-outline";
+import { StatusListQuestionStudio } from "@/components/status-list-question-studio";
+import { getStatusListQuestionStudioCopy } from "@/components/status-list-question-studio-copy";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
@@ -25,7 +28,7 @@ import {
   Star, Heart, Phone, Calendar, User, FileText, MessageCircle, MapPin,
   Clock, DollarSign, Shield, Activity, Home, Building2, Flag, Lightbulb,
   Lock, Award, CircleAlert, CircleCheck, Smile, Stethoscope, Baby, Dna, ClipboardCheck,
-  Settings, Hash, ToggleLeft, Type, Sparkles,
+  Settings, Hash, ToggleLeft, Type, Sparkles, Layers3,
   Workflow,
 } from "lucide-react";
 
@@ -2330,6 +2333,83 @@ function AutomationForm({
 }
 
 
+/** Existing action services, presented as a focused list/modal, never a whole legacy item. */
+function StatusListStudioActions({ item, campaignId, questionId, workflows }: {
+  item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode;
+}) {
+  const { locale } = useI18n();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<StatusListAutomation | "new" | null>(null);
+  const actions = questionId ? item.questions.find(question => question.id === questionId)?.automations || [] : item.automations;
+  const remove = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
+    onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
+  });
+  return <div className="space-y-6" data-testid="status-list-studio-actions">
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="flex items-center gap-2 text-sm font-semibold"><Zap className="h-4 w-4 text-primary"/>{getStatusListWorkspaceCopy(locale).original}</h4>
+        <Button type="button" size="sm" variant="outline" onClick={() => setEditing("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
+      </div>
+      <p className="text-xs leading-relaxed text-muted-foreground">{sl("inspectorAutomationHelp", locale)}</p>
+      {actions.map(action => <div key={action.id} className="flex items-center gap-3 rounded-xl border bg-card p-3" data-testid={`studio-original-action-${action.id}`}>
+        <span className="rounded-lg bg-primary/5 p-2 text-primary">{getActionIcon(action.actionType)}</span>
+        <div className="min-w-0 flex-1"><strong className="block text-sm">{getActionLabel(action.actionType, locale)}</strong>
+          {(action.conditionJson || action.conditionField) && <p className="mt-1 text-xs text-muted-foreground">{getConditionSummary(action.conditionJson, action.conditionField, action.conditionValue, locale)}</p>}
+        </div>
+        <Button type="button" size="icon" variant="ghost" title={sl("editAction", locale)} aria-label={sl("editAction", locale)} onClick={() => setEditing(action)}><PenLine className="h-4 w-4"/></Button>
+        <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending} onClick={() => {
+          if (window.confirm(`${getActionLabel(action.actionType, locale)} — ${getStatusListQuestionStudioCopy(locale).deleteConfirm}`)) remove.mutate(action.id);
+        }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+      </div>)}
+    </section>
+    <section className="border-t pt-5">{workflows}</section>
+    <Dialog open={editing !== null} onOpenChange={open => { if (!open) setEditing(null); }}>
+      <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto" data-testid="studio-original-action-dialog">
+        <DialogHeader><DialogTitle>{editing === "new" ? sl("addActionBtn", locale) : sl("editAction", locale)}</DialogTitle></DialogHeader>
+        {editing && <AutomationForm automation={editing === "new" ? undefined : editing} itemId={item.id} campaignId={campaignId} questionId={questionId || undefined} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)}/>}
+      </DialogContent>
+    </Dialog>
+  </div>;
+}
+
+function StatusListStudioChildren({ item, allItems, onSelectItem, onSelectQuestion, onCreate }: {
+  item: StatusListItem; allItems: StatusListItem[];
+  onSelectItem: (id: string) => void; onSelectQuestion: (itemId: string, questionId: string) => void;
+  onCreate: (kind: "step" | "question", parentId: string) => void;
+}) {
+  const { locale } = useI18n();
+  const { toast } = useToast();
+  const copy = getStatusListWorkspaceCopy(locale);
+  const duplicate = useMutation({
+    mutationFn: async (questionId: string) => (await apiRequest("POST", `/api/campaigns/${item.campaignId}/status-list/${item.id}/questions/${questionId}/copy`, {})).json(),
+    onSuccess: async question => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", item.campaignId, "status-list"] });
+      onSelectQuestion(item.id, question.id);
+    },
+    onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
+  });
+  const children = allItems.filter(child => child.parentId === item.id);
+  return <section className="space-y-3" data-testid="status-list-studio-children">
+    <header className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" size="sm" data-testid={`status-list-add-question-${item.id}`} onClick={() => onCreate("question", item.id)}><Plus className="mr-1 h-4 w-4"/>{sl("addQuestionBtn", locale)}</Button>
+      <Button type="button" variant="outline" size="sm" data-testid={`status-list-add-child-${item.id}`} onClick={() => onCreate("step", item.id)}><Layers3 className="mr-1 h-4 w-4"/>{sl("addNestedStep", locale)}</Button>
+    </header>
+    {children.map(child => <button key={child.id} type="button" className="flex w-full items-center gap-3 rounded-xl border bg-card p-3 text-left hover:border-primary/40" onClick={() => onSelectItem(child.id)}>
+      <Layers3 className="h-4 w-4 shrink-0 text-primary"/><span className="min-w-0 flex-1 text-sm font-medium">{child.label}</span><ChevronRight className="h-4 w-4"/>
+    </button>)}
+    {item.questions.map(question => <div key={question.id} className="flex items-center gap-2 rounded-xl border bg-card p-3 hover:border-primary/40">
+      <button type="button" className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => onSelectQuestion(item.id, question.id)}>
+      <CircleHelp className="h-4 w-4 shrink-0 text-primary"/><span className="min-w-0 flex-1 text-sm font-medium">{question.questionText}</span>
+      {question.isHidden && <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300"><EyeOff className="h-3 w-3"/>{copy.hidden}</span>}
+      <ChevronRight className="h-4 w-4"/>
+      </button>
+      <Button type="button" size="icon" variant="ghost" disabled={duplicate.isPending} aria-label={sl("copyQuestion", locale)} title={sl("copyQuestion", locale)} data-testid={`status-list-copy-question-${question.id}`} onClick={() => duplicate.mutate(question.id)}><Copy className="h-4 w-4"/></Button>
+    </div>)}
+  </section>;
+}
+
 function QuestionEditor({
   question, itemId, campaignId, existingQuestions, allItems, onSaved, onCancel,
 }: {
@@ -3633,10 +3713,12 @@ function CanonicalCoveragePanel({ items, locale }: { items: StatusListItem[]; lo
 
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const [workspaceSelection, setWorkspaceSelection] = useState("");
+  const [studioNavigation, setStudioNavigation] = useState<{ itemId: string; questionId?: string; nonce: number }>();
+  const [studioCreation, setStudioCreation] = useState<{ kind: "step" | "question" | "option"; parentId: string | null } | null>(null);
+  const [studioCreationDirty, setStudioCreationDirty] = useState(false);
+  const navigateStudio = (itemId: string, questionId?: string) => setStudioNavigation({ itemId, questionId, nonce: Date.now() });
   const { toast } = useToast();
   const { locale } = useI18n();
-  const [addingItem, setAddingItem] = useState(false);
-  const [addingOption, setAddingOption] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateTab, setTemplateTab] = useState<"CLA" | "CLB" | "MPN">("CLA");
   const [importOpen, setImportOpen] = useState(false);
@@ -3912,18 +3994,26 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     );
   }
 
+  const studioCanonicalOptions = CANONICAL_CLINIC_STATUS_GROUPS.flatMap(group => group.keys.map(key => ({ value: key.key, label: sl(key.labelKey, locale), phase: group.phase })));
+  const studioCreateItem = studioCreation?.kind === "question" ? items.find(item => item.id === studioCreation.parentId) : {
+    id: "", campaignId, stepId: `STEP-${String(items.length + 1).padStart(2, "0")}`, label: "", description: null, sortOrder: items.length,
+    required: false, parentId: studioCreation?.parentId || null, confirmationType: "checkbox", nextStepId: null, restrictions: null,
+    isHidden: false, itemType: studioCreation?.kind === "option" ? "option" : "step", autoConfirmOnSubQuestion: false,
+    questionSelectionMode: "multiple" as const, tab: null, canonicalClinicStatusKey: null, automations: [], questions: [],
+  };
   return (
     <div className="space-y-3">
       {itemsLoadError && <Button variant="outline" onClick={() => void retryItems()}>{getStatusListWorkspaceCopy(locale).error}</Button>}
       {!itemsLoadError && <>
       <StatusListWorkspace campaignId={campaignId} locale={locale} items={items}
         selectedId={workspaceSelection} onSelect={setWorkspaceSelection}
+        navigation={studioNavigation}
         coverage={<CanonicalCoveragePanel items={items} locale={locale}/>}
         tools={<>
       <div className="slw-tool-actions">
         <section className="slw-tool-create">
           <div><strong>{sl("createStepTitle", locale)}</strong><p>{sl("createStepHint", locale)}</p></div>
-          <Button type="button" size="sm" className="gap-1.5" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
+          <Button type="button" size="sm" className="gap-1.5" onClick={() => setStudioCreation({ kind: "step", parentId: null })} data-testid="btn-add-status-list-item">
             <Plus className="h-4 w-4" /> {sl("addStepBtn", locale)}
           </Button>
         </section>
@@ -3960,40 +4050,53 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       </div>
       <section className="slw-quick-options" data-testid="status-list-quick-options">
         <header><div><strong>{getStatusListWorkspaceCopy(locale).quickOptions}</strong><p>{getStatusListWorkspaceCopy(locale).quickOptionsHelp}</p></div>
-          <Button type="button" variant="outline" size="sm" onClick={() => setAddingOption(true)} disabled={addingOption} data-testid="btn-add-status-list-option">
+          <Button type="button" variant="outline" size="sm" onClick={() => setStudioCreation({ kind: "option", parentId: null })} data-testid="btn-add-status-list-option">
             <Plus className="h-3.5 w-3.5"/>{getStatusListWorkspaceCopy(locale).addQuickOption}
           </Button>
         </header>
-        {addingOption && <AddOptionForm campaignId={campaignId} existingCount={items.filter(i => i.itemType === "option").length} onSaved={() => setAddingOption(false)} onCancel={() => setAddingOption(false)}/>}
       </section>
 
-      {addingItem && (
-        <AddItemForm
-          campaignId={campaignId}
-          existingCount={items.length}
-          allItems={items}
-          onSaved={() => setAddingItem(false)}
-          onCancel={() => setAddingItem(false)}
-        />
-      )}
 
       {previewMode && <StatusListPreview items={items} locale={locale} />}
       </>}
-      definition={(selectedItemId, selectedQuestionId) => {
+      definition={(selectedItemId, selectedQuestionId, controls) => {
         const selectedItem = items.find(item => item.id === selectedItemId);
         if (!selectedItem) return null;
-        return <StatusListItemRow
-          key={`workspace-inspector-${selectedItem.id}-${selectedQuestionId || "step"}`}
-          item={selectedItem}
-          campaignId={campaignId}
-          allItems={items}
+        return <StatusListQuestionStudio
+          key={`studio-${selectedItem.id}-${selectedQuestionId || "step"}`}
+          item={selectedItem} campaignId={campaignId} locale={locale} allItems={items} questionId={selectedQuestionId}
+          resolvedPhase={outlinePhase(selectedItem, items)} canonicalOptions={studioCanonicalOptions}
+          onSelectItem={navigateStudio} onSelectQuestion={navigateStudio}
+          onDirtyChange={controls.onDirtyChange}
+          ancestorHidden={controls.ancestorHidden}
+          renderSource={() => controls.source}
+          renderActions={questionId => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={questionId} workflows={controls.workflows}/>}
+          renderChildren={() => selectedQuestionId ? null : <StatusListStudioChildren item={selectedItem} allItems={items} onSelectItem={navigateStudio} onSelectQuestion={navigateStudio} onCreate={(kind, parentId) => setStudioCreation({ kind, parentId })}/>}
           onDeleted={() => setWorkspaceSelection("")}
-          workspaceInspector
-          workspaceQuestionId={selectedQuestionId}
         />;
       }}/>
 
       </>}
+      <Dialog open={studioCreation !== null} onOpenChange={open => { if (!open && (!studioCreationDirty || window.confirm(getStatusListQuestionStudioCopy(locale).discard))) setStudioCreation(null); }}>
+        <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto" data-testid="status-list-studio-create">
+          <DialogHeader><DialogTitle>{studioCreation?.kind === "question" ? sl("addQuestionBtn", locale) : sl("addStepBtn", locale)}</DialogTitle></DialogHeader>
+          {studioCreation && studioCreateItem && <StatusListQuestionStudio
+            key={`${studioCreation.kind}:${studioCreation.parentId || "root"}`}
+            item={studioCreateItem} campaignId={campaignId} locale={locale} allItems={items}
+            questionId={studioCreation.kind === "question" ? "__new__" : null} isNew={studioCreation.kind !== "question"}
+            resolvedPhase={studioCreation.parentId ? outlinePhase(items.find(item => item.id === studioCreation.parentId)!, items) : null}
+            canonicalOptions={studioCanonicalOptions} onSelectItem={navigateStudio} onSelectQuestion={navigateStudio}
+            onDirtyChange={setStudioCreationDirty}
+            renderActions={() => null} renderSource={() => null} renderChildren={() => null}
+            onDeleted={() => setStudioCreation(null)}
+            onSaved={record => {
+              if (!record?.id) return;
+              navigateStudio(studioCreation.kind === "question" ? studioCreateItem.id : record.id, studioCreation.kind === "question" ? record.id : undefined);
+              setStudioCreation(null);
+            }}
+          />}
+        </DialogContent>
+      </Dialog>
       {/* ── Template Dialog ─────────────────────────────────── */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">

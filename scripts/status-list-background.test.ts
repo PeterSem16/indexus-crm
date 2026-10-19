@@ -128,7 +128,7 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(`/campaigns/${mission}?tab=settings&section=status_list`);
   await page.getByTestId(`status-list-select-${item}`).click();
-  await page.getByTestId("status-list-inspector-owner").click();
+  await page.getByTestId("studio-stage-answer").click();
   await page.getByTestId("status-list-background-sources").waitFor();
   await page.getByTestId("status-list-background-sources").scrollIntoViewIfNeeded();
   check(await page.getByTestId("status-list-background-sources").getByText("Synthetic representative assigned", { exact: true }).count() > 0, "Native UI shows configured source");

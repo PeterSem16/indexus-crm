@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { outlineHidden, outlineCategory, statusListOutline, type OutlineItem } from "./status-list-outline";
+import { outlineHidden, outlineCategory, outlinePhase, statusListOutline, type OutlineItem } from "./status-list-outline";
 import { emptyStatusListOrganization, remapStatusListOrganization } from "@shared/status-list-organization";
 const row = (id: string, parentId: string | null, tab?: string | null): OutlineItem => ({ id, parentId, tab, label: id, stepId: `CODE-${id}`, itemType: "step", questions: [] });
 const items = [row("a", null, "acquisition"), row("r", null, "retention"), row("c", null, "contract"), row("shared", null), row("child", "a"), row("override", "a", "retention"), { ...row("quick", null), itemType: "option" }];
@@ -40,4 +40,13 @@ const copy = remapStatusListOrganization(organization, new Map([["a", "new-a"]])
 assert.notEqual(copy.categories[0].id, categoryId);
 assert.equal(copy.assignments["new-a"], copy.categories[0].id);
 assert.equal(copy.assignments.a, undefined);
+const legacyMpn = ["acquisition_contacted", "contract_signed", "retention_active"].map((key, index) => ({
+  id: `legacy-${index}`, parentId: null, label: `MPN ${key}`, stepId: `MPN-${index}`, tab: null,
+  canonicalClinicStatusKey: key, questions: [],
+}));
+for (const phase of ["acquisition", "contract", "retention"]) assert.equal(statusListOutline(legacyMpn, phase, "", "", emptyStatusListOrganization).matchingItems.size, 0);
+assert.equal(statusListOutline(legacyMpn, "shared", "", "", emptyStatusListOrganization).matchingItems.size, 3);
+assert.equal(outlinePhase(legacyMpn[0], legacyMpn), null, "Canonical cooperation state cannot silently place imported MPN questions");
+assert.equal(outlinePhase(items.find(item => item.id === "child")!, items), "acquisition");
+assert.equal(outlinePhase(items.find(item => item.id === "override")!, items), "retention");
 console.log("Status List outline phase, context, visibility, search and legacy remapping checks passed");
