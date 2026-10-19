@@ -87,7 +87,8 @@ export function statusListActionPayload(draft: StatusListActionDraft, original?:
   if (draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition)) {
     put("callbackOffsetDays", Number(draft.callbackOffsetDays));
     put("callbackBusinessDaysOnly");
-    if (draft.actionType === "set_contact_status") { put("callbackTime"); put("notifyAgentPulse"); }
+    put("callbackTime");
+    if (draft.actionType === "set_contact_status") put("notifyAgentPulse");
     if (draft.actionType === "set_contact_status" && original?.dispositionId !== draft.dispositionId) {
       payload.callbackOffsetDays = Number(draft.callbackOffsetDays); payload.callbackTime = draft.callbackTime; payload.notifyAgentPulse = draft.notifyAgentPulse;
     }
@@ -115,7 +116,7 @@ export function statusListActionError(draft: StatusListActionDraft, callbackDisp
   if (draft.actionType === "set_contact_status" && !draft.dispositionId) return "status";
   if ((draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition))
     && (!draft.callbackOffsetDays.trim() || !Number.isSafeInteger(Number(draft.callbackOffsetDays)) || Number(draft.callbackOffsetDays) < 0
-      || (draft.actionType === "set_contact_status" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.callbackTime)))) return "callback";
+      || !/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.callbackTime))) return "callback";
   const recipients = draft.emailRecipients.split(/[\n,;]+/).map(value => value.trim()).filter(Boolean);
   if (["send_email_group", "notify_email"].includes(draft.actionType) && recipients.some(value => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) return "email";
   if (draft.actionType === "notify_email" && !recipients.length) return "email";

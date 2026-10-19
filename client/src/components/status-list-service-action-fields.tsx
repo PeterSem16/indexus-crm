@@ -158,7 +158,10 @@ export function StatusListServiceActionFields(props: ServiceActionFieldProps) {
         <label className="slsae-choice wide"><input type="checkbox" data-testid={idFor("notifyAgentPulse")} checked={draft.notifyAgentPulse} onChange={event => set("notifyAgentPulse", event.target.checked)} />{copy("notifyPulse")}</label>
       </>}
     </>}
-    {draft.actionType === "set_callback" && <Field label={copy("callbackDays")}><input data-testid={idFor("callbackOffsetDays")} type="number" min="0" step="1" value={draft.callbackOffsetDays} onChange={event => set("callbackOffsetDays", event.target.value)} /></Field>}
+    {draft.actionType === "set_callback" && <>
+      <Field label={copy("callbackDays")}><input data-testid={idFor("callbackOffsetDays")} type="number" min="0" step="1" value={draft.callbackOffsetDays} onChange={event => set("callbackOffsetDays", event.target.value)} /></Field>
+      <Field label={copy("callbackTime")}><input data-testid="service-action-callbackTime" type="time" value={draft.callbackTime} onChange={event => set("callbackTime", event.target.value)} /></Field>
+    </>}
     {showCallbackBusinessDays && <div className="slsae-field wide">
       <label className="slsae-choice"><input type="checkbox" data-testid="service-action-callbackBusinessDaysOnly" checked={draft.callbackBusinessDaysOnly} onChange={event => set("callbackBusinessDaysOnly", event.target.checked)} />{copy("callbackBusinessDaysOnly")}</label>
       <small>{copy("callbackBusinessDaysHelp")}</small>

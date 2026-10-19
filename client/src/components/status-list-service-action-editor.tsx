@@ -138,6 +138,7 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
   if (draft.actionType === "set_callback") {
     add(copy("callbackDays"), draft.callbackOffsetDays);
     add(copy("callbackBusinessDaysOnly"), copy(draft.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff"));
+    add(copy("callbackTime"), draft.callbackTime);
   }
   if (draft.actionType === "sys_webhook") add(copy("webhook"), draft.webhookTarget);
   return rows;

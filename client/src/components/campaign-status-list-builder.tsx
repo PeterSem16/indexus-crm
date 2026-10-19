@@ -1454,6 +1454,8 @@ function AutomationForm({
   // these mirror SL_DISP_STATUS_MAP server-side (callback/schedule_email/schedule_sms).
   const selectedSlDisp = (campaignDispositions as any[]).find((d: any) => String(d.id) === String(form.dispositionId));
   const isCallbackDisp = !!selectedSlDisp && ["callback", "schedule_email", "schedule_sms"].includes(selectedSlDisp.actionType);
+  const needsCallbackTime = form.actionType === "set_callback" || (form.actionType === "set_contact_status" && isCallbackDisp);
+  const callbackTimeValid = /^([01]\d|2[0-3]):[0-5]\d$/.test(form.callbackTime);
 
   const { data: rolesList = [] } = useQuery<any[]>({
     queryKey: ["/api/roles"],
@@ -1500,7 +1502,7 @@ function AutomationForm({
         callbackOffsetDays: (form.actionType === "set_callback" || (form.actionType === "set_contact_status" && isCallbackDisp))
           ? (Number.isFinite(parseInt(form.callbackOffsetDays, 10)) ? parseInt(form.callbackOffsetDays, 10) : 1)
           : null,
-        callbackTime: form.actionType === "set_contact_status" && isCallbackDisp ? (form.callbackTime || "09:00") : null,
+        callbackTime: needsCallbackTime ? form.callbackTime : (automation as any)?.callbackTime ?? null,
         callbackBusinessDaysOnly: form.callbackBusinessDaysOnly,
         notifyAgentPulse: form.actionType === "set_contact_status" && isCallbackDisp ? form.notifyAgentPulse : false,
         conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
@@ -1966,16 +1968,32 @@ function AutomationForm({
 
         {form.actionType === "set_callback" && (
           <div className="col-span-2">
-            <Label className="text-xs mb-1 block">{sl("callbackOffsetLbl", locale)}</Label>
-            <Input
-              type="number"
-              min={0}
-              value={form.callbackOffsetDays}
-              onChange={e => setForm(f => ({ ...f, callbackOffsetDays: e.target.value }))}
-              className="h-8 text-xs w-32"
-              data-testid="input-callback-offset"
-            />
+            <div className="flex flex-wrap gap-3">
+              <div>
+                <Label className="text-xs mb-1 block">{sl("callbackOffsetLbl", locale)}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.callbackOffsetDays}
+                  onChange={e => setForm(f => ({ ...f, callbackOffsetDays: e.target.value }))}
+                  className="h-8 text-xs w-32"
+                  data-testid="input-callback-offset"
+                />
+              </div>
+              <div>
+                <Label className="text-xs mb-1 block">{sl("callbackTimeLbl", locale)}</Label>
+                <Input
+                  type="time"
+                  value={form.callbackTime}
+                  onChange={e => setForm(f => ({ ...f, callbackTime: e.target.value }))}
+                  className="h-8 text-xs w-28"
+                  data-testid="input-callback-time"
+                  aria-invalid={needsCallbackTime && !callbackTimeValid}
+                />
+              </div>
+            </div>
             <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{actionCopy(locale, form.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff")}</p>
+            {needsCallbackTime && !callbackTimeValid && <p className="text-[10px] text-destructive mt-1" role="alert">{actionCopy(locale, "errorCallback")}</p>}
           </div>
         )}
 
@@ -2065,6 +2083,7 @@ function AutomationForm({
                     />
                   </div>
                 </div>
+                {needsCallbackTime && !callbackTimeValid && <p className="text-[10px] text-destructive" role="alert">{actionCopy(locale, "errorCallback")}</p>}
                 <p className="text-[10px] text-muted-foreground leading-snug">{sl("statusCallbackHelp", locale)}</p>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -2340,7 +2359,10 @@ function AutomationForm({
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 text-xs">
           <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
         </Button>
-        <Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || (form.actionType === "set_contact_status" && !form.dispositionId) || (["set_callback", "set_contact_status"].includes(form.actionType) && (form.actionType === "set_callback" || isCallbackDisp) && (!Number.isInteger(Number(form.callbackOffsetDays)) || Number(form.callbackOffsetDays) < 0 || form.callbackOffsetDays.trim() === ""))} className="h-7 text-xs" data-testid="status-list-automation-save">
+        <Button type="button" size="sm" onClick={() => {
+          if (needsCallbackTime && !callbackTimeValid) return;
+          saveMutation.mutate();
+        }} disabled={saveMutation.isPending || (form.actionType === "set_contact_status" && !form.dispositionId) || (["set_callback", "set_contact_status"].includes(form.actionType) && (form.actionType === "set_callback" || isCallbackDisp) && (!Number.isInteger(Number(form.callbackOffsetDays)) || Number(form.callbackOffsetDays) < 0 || form.callbackOffsetDays.trim() === "")) || (needsCallbackTime && !callbackTimeValid)} className="h-7 text-xs" data-testid="status-list-automation-save">
           {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
           {sl("saveActionBtn", locale)}
         </Button>

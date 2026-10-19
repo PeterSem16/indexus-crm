@@ -43,7 +43,7 @@ try {
   const errors: string[] = [];
   page = await context.newPage();
   page.on("pageerror", error => errors.push(error.message));
-  page.on("request", req => { if (req.method() === "POST" && /\/(execute|run-automation|send-sms|send-email|run-action)(\/|$)/.test(new URL(req.url()).pathname)) executionRequests++; });
+  page.on("request", req => { if (req.method() === "POST" && /\/(execute|run|run-automation|send-sms|send-email|run-action)(\/|$)/.test(new URL(req.url()).pathname)) executionRequests++; });
   await page.goto(`${baseURL}/campaigns/${ids.mission}?tab=settings&section=status_list`);
   await page.getByTestId("status-list-phase-retention").click();
   await page.getByTestId(`status-list-select-${ids.step}`).click();
@@ -108,6 +108,13 @@ try {
       await page.getByTestId("service-action-notifyAgentPulse").check();
     }
     if (type === "set_callback") {
+      check(await page.getByTestId("service-action-callbackTime").inputValue() === "09:00", "Standalone callback exposes the existing 09:00 time default");
+      await page.getByTestId("service-action-callbackTime").fill("");
+      await stage("review");
+      await page.getByTestId("status-list-automation-save").click();
+      check(await modal().isVisible(), "Standalone callback cannot save an empty fixed time");
+      await stage("details");
+      await page.getByTestId("service-action-callbackTime").fill("14:45");
       check(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked(), "Standalone callback exposes the calendar policy");
       await page.getByTestId("service-action-callbackBusinessDaysOnly").uncheck();
       await page.getByTestId("service-action-callbackOffsetDays").fill("-1");
@@ -116,6 +123,9 @@ try {
       check(await modal().isVisible(), "Invalid callback delay cannot close/save the editor");
       await stage("details");
       await page.getByTestId("service-action-callbackOffsetDays").fill("3");
+      await stage("review");
+      await modal().getByText(/14:45$/).last().waitFor({ state: "visible" });
+      check(await modal().getByText(/14:45$/).last().isVisible(), "Standalone callback review shows the selected fixed time");
     }
     if (type === "sys_webhook") await page.getByTestId("service-action-webhookTarget").fill("https://example.invalid/configuration-only");
     created[type] = await save("POST");
@@ -125,10 +135,12 @@ try {
   check((await record(created.assign_task.id)).task_group_id === ids.group, "Task group selection persists independently of a role");
   check((await record(created.send_email_group.id)).email_recipients.length === 2, "Explicit multi-recipient emails persist as an array");
   const callback = await record(created.set_contact_status.id);
+  check((await record(created.set_callback.id)).callback_time === "14:45", "Standalone callback persists its selected fixed time");
   check(callback.callback_offset_days === 2 && callback.callback_time === "10:30" && callback.notify_agent_pulse, "Callback disposition preserves delay, fixed time and Pulse notification");
   check(callback.callback_business_days_only === false && (await record(created.set_callback.id)).callback_business_days_only === false, "Both callback action types persist calendar-day mode");
   await page.getByTestId(`service-action-edit-${created.set_callback.id}`).click();
   await stage("details");
+  check(await page.getByTestId("service-action-callbackTime").inputValue() === "14:45", "Reopening a standalone callback retains its saved time");
   check(!(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked()), "Reopening a saved callback retains the disabled weekday policy");
   await page.screenshot({ path: `${pictures}/callback-days-desktop.jpg`, animations: "disabled" });
   await page.setViewportSize({ width: 402, height: 874 });
@@ -181,13 +193,13 @@ try {
   for (const type of ["set_callback", "set_contact_status"]) {
     const id = created[type].id;
     for (const weekdays of [false, true]) {
-      const update = await api.put(`${root}/automations/${id}`, { data: { callbackBusinessDaysOnly: weekdays, callbackOffsetDays: 5, callbackTime: "10:30", notifyAgentPulse: false } });
+      const update = await api.put(`${root}/automations/${id}`, { data: { callbackBusinessDaysOnly: weekdays, callbackOffsetDays: 5, notifyAgentPulse: false } });
       check(update.ok(), `${type}: calendar policy update succeeds`);
       const before = new Date();
       const response = await api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: {} });
       check(response.ok(), `${type}: real server callback scheduling succeeds`);
       const [contact] = await db.select().from(campaignContacts).where(eq(campaignContacts.id, ids.contact));
-      check(!!contact.callbackDate && localDate(contact.callbackDate) === statusListCallbackPrefill({ callbackOffsetDays: 5, callbackTime: "10:30", callbackBusinessDaysOnly: weekdays }, before), `${type}: actual persisted date follows the selected weekday/calendar mode`);
+      check(!!contact.callbackDate && localDate(contact.callbackDate) === statusListCallbackPrefill({ callbackOffsetDays: 5, callbackTime: created[type].callbackTime, callbackBusinessDaysOnly: weekdays }, before), `${type}: actual persisted date follows the selected calendar and the time saved through the UI`);
     }
     const override = "2030-06-08T10:30"; // Saturday: manual choice is not prohibited.
     check((await api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: { callbackDate: override } })).ok(), `${type}: manual date override remains supported`);

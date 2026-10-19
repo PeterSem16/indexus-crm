@@ -112,6 +112,18 @@ Existing rules remain write-only; no production activation or deployment.
 - [ ] Offset, calendar/business days, fixed time, agent/Queue and replacement policy.
 - [ ] Mission contact statuses and eligibility; no automatic voice dialing.
 
+Incremental progress in the existing service-action mechanism:
+- [x] Configurable working-day versus calendar-day offsets for standalone
+  callbacks, callback dispositions and quick options; retain the legacy weekday
+  default and explicit manual-date overrides.
+- [x] Configurable fixed time for standalone callbacks as well as callback
+  dispositions, including quick options, validation, saved summaries and agent
+  prefill. Existing saved times are retained; missing times use 09:00.
+- [ ] Explicit agent/Queue targeting and existing-callback replacement policy.
+
+These editor increments do not migrate internal workflow rules to another
+execution mechanism or activate new background side effects.
+
 ## 6. Shared action services
 - [ ] Task/Back Office, notification, email, SMS, then remaining suitable services.
 - [ ] Reuse editors, validation and services, with Mission-specific authorization.

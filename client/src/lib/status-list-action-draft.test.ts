@@ -16,6 +16,17 @@ const original: SavedStatusListAction = {
 let checks = 0;
 const check = (value: unknown, label: string) => { assert.ok(value, label); checks++; };
 const draft = statusListActionDraft(original);
+for (const actionType of ["set_callback", "set_contact_status"]) {
+  const freshCallback = statusListActionDraft(undefined, actionType);
+  check(freshCallback.callbackTime === "09:00", `${actionType}: a new callback retains the 09:00 default`);
+  check(statusListActionPayload({ ...freshCallback, callbackTime: "14:45" }, undefined, null, true).callbackTime === "14:45", `${actionType}: custom fixed time is serialized`);
+  const savedCallback = { ...original, actionType, callbackTime: "14:45" };
+  check(statusListActionDraft(savedCallback).callbackTime === "14:45", `${actionType}: reopening retains custom time`);
+  check(statusListActionPayload({ ...statusListActionDraft(savedCallback), callbackTime: "00:00" }, savedCallback, null, true).callbackTime === "00:00", `${actionType}: midnight is a valid editable time, not an empty default`);
+  for (const callbackTime of ["", "25:00", "12:60", "9:00", "noon"]) {
+    check(statusListActionError({ ...freshCallback, dispositionId: "saved-status", callbackTime }, true) === "callback", `${actionType}: invalid/empty fixed time cannot save`);
+  }
+}
 check(statusListActionDraft().callbackBusinessDaysOnly === true, "Legacy and new actions retain the existing business-day default");
 for (const actionType of ["set_callback", "set_contact_status"]) {
   const calendar = statusListActionDraft(undefined, actionType);
