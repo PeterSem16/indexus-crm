@@ -8,6 +8,7 @@ import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workfl
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
+import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -62,6 +63,7 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       res.status(500).json({ error: "workflow_failed" });
     }
   };
+  registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
   app.get(root, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const { rows } = await pool.query("SELECT id,campaign_id,definition FROM mission_status_list_rules WHERE campaign_id=$1 ORDER BY created_at,id", [req.params.campaignId]);
@@ -79,18 +81,18 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   }));
   app.patch(`${root}/items/:itemId/presentation`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
-    const body = z.object({ isHidden: z.boolean().optional(), required: z.boolean().optional() }).strict()
-      .refine(value => value.isHidden !== undefined || value.required !== undefined).parse(req.body);
+    const body = z.object({ isHidden: z.boolean().optional(), required: z.boolean().optional(), tab: z.enum(["acquisition", "contract", "retention"]).nullable().optional() }).strict()
+      .refine(value => value.isHidden !== undefined || value.required !== undefined || value.tab !== undefined).parse(req.body);
     const result = await pool.query(`UPDATE campaign_status_list_items SET
-      is_hidden=COALESCE($3,is_hidden),required=COALESCE($4,required),updated_at=now()
+      is_hidden=COALESCE($3,is_hidden),required=COALESCE($4,required),tab=CASE WHEN $5::boolean THEN $6::text ELSE tab END,updated_at=now()
       WHERE id=$1 AND campaign_id=$2 RETURNING id`,
-    [req.params.itemId, req.params.campaignId, body.isHidden, body.required]);
+    [req.params.itemId, req.params.campaignId, body.isHidden, body.required, body.tab !== undefined, body.tab ?? null]);
     if (!result.rowCount) throw new StatusListWorkflowError("item_not_found", 404);
     res.json({ ok: true });
   }));
   app.post(`${root}/items/:itemId/move`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
-    const { direction } = z.object({ direction: z.enum(["up", "down"]) }).strict().parse(req.body);
+    const { direction, neighborId } = z.object({ direction: z.enum(["up", "down"]), neighborId: z.string().uuid().optional() }).strict().parse(req.body);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -99,13 +101,39 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
         WHERE campaign_id=$1 ORDER BY sort_order,id FOR UPDATE`, [req.params.campaignId]);
       const selected = rows.find(row => row.id === req.params.itemId);
       if (!selected) throw new StatusListWorkflowError("item_not_found", 404);
-      const siblings = rows.filter(row => row.parent_id === selected.parent_id && row.item_type === selected.item_type && row.tab === selected.tab);
-      const index = siblings.findIndex(row => row.id === selected.id), target = index + (direction === "up" ? -1 : 1);
+      const siblings = rows.filter(row => row.parent_id === selected.parent_id && row.item_type === selected.item_type);
+      const index = siblings.findIndex(row => row.id === selected.id), target = neighborId ? siblings.findIndex(row => row.id === neighborId) : index + (direction === "up" ? -1 : 1);
+      if (neighborId && (target < 0 || (direction === "up" ? target >= index : target <= index))) throw new StatusListWorkflowError("invalid_neighbor", 400);
       if (target >= 0 && target < siblings.length) {
-        [siblings[index], siblings[target]] = [siblings[target], siblings[index]];
+        siblings.splice(index, 1);
+        siblings.splice(target, 0, selected);
         await client.query(`UPDATE campaign_status_list_items i SET sort_order=o.n::int,updated_at=now()
           FROM unnest($1::varchar[]) WITH ORDINALITY AS o(id,n) WHERE i.id=o.id AND i.campaign_id=$2`,
         [siblings.map(row => row.id), req.params.campaignId]);
+      }
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+    res.json({ ok: true });
+  }));
+  app.post(`${root}/items/:itemId/questions/:questionId/move`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { direction, neighborId } = z.object({ direction: z.enum(["up", "down"]), neighborId: z.string().uuid().optional() }).strict().parse(req.body);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${req.params.campaignId}`]);
+      const { rows } = await client.query(`SELECT q.id FROM campaign_status_list_questions q JOIN campaign_status_list_items i ON i.id=q.item_id
+        WHERE q.item_id=$1 AND i.campaign_id=$2 ORDER BY q.sort_order,q.id FOR UPDATE OF q`, [req.params.itemId, req.params.campaignId]);
+      const index = rows.findIndex(row => row.id === req.params.questionId);
+      if (index < 0) throw new StatusListWorkflowError("question_not_found", 404);
+      const target = neighborId ? rows.findIndex(row => row.id === neighborId) : index + (direction === "up" ? -1 : 1);
+      if (neighborId && (target < 0 || (direction === "up" ? target >= index : target <= index))) throw new StatusListWorkflowError("invalid_neighbor", 400);
+      if (target >= 0 && target < rows.length) {
+        const [selected] = rows.splice(index, 1);
+        rows.splice(target, 0, selected);
+        await client.query(`UPDATE campaign_status_list_questions q SET sort_order=o.n::int,updated_at=now()
+          FROM unnest($1::varchar[]) WITH ORDINALITY AS o(id,n) WHERE q.id=o.id AND q.item_id=$2`, [rows.map(row => row.id), req.params.itemId]);
       }
       await client.query("COMMIT");
     } catch (error) { await client.query("ROLLBACK"); throw error; }

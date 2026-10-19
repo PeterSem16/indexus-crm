@@ -44,6 +44,7 @@ const NEXUS_PULSE_SETTING_KEYS = [
   "queueDisplayMode",
   "faq",
   "faqCategoryOrder",
+  "statusListOrganizer",
 ] as const;
 
 const stripTimestamps = <T extends Record<string, unknown>>(row: T) => {

@@ -3,6 +3,7 @@ import { inArray, eq } from "drizzle-orm";
 import { db } from "../db";
 import { remapStatusListWorkflow } from "@shared/status-list-workflow";
 import { optionSourceConfigSchema, remapOptionSource } from "@shared/status-list-option-source";
+import { remapStatusListOrganization } from "@shared/status-list-organization";
 import {
   campaigns,
   campaignAgents,
@@ -341,6 +342,13 @@ export async function cloneCampaignWithConfiguration(
         campaignId: newCampaignId, groupId,
         config: remapOptionSource(optionSourceConfigSchema.parse(binding.config), itemIdMap),
       });
+    }
+    const sourceSettings = JSON.parse(sourceCampaign.settings || "{}") as Record<string, unknown>;
+    if (sourceSettings?.statusListOrganizer) {
+      const settings = { ...sourceSettings, statusListOrganizer: remapStatusListOrganization(sourceSettings.statusListOrganizer,
+        new Map([...Array.from(itemIdMap.entries()), ...Array.from(questionIdMap.entries())]), randomUUID) };
+      await tx.update(campaigns).set({ settings: JSON.stringify(settings) }).where(eq(campaigns.id, newCampaignId));
+      clonedCampaign.settings = JSON.stringify(settings);
     }
     if (sourceWorkflows.length) {
       const workflowIdMap = new Map<string, string>(Array.from(itemIdMap.entries()).concat(Array.from(questionIdMap.entries())));
