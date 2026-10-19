@@ -16,6 +16,16 @@ const original: SavedStatusListAction = {
 let checks = 0;
 const check = (value: unknown, label: string) => { assert.ok(value, label); checks++; };
 const draft = statusListActionDraft(original);
+check(statusListActionDraft().callbackBusinessDaysOnly === true, "Legacy and new actions retain the existing business-day default");
+for (const actionType of ["set_callback", "set_contact_status"]) {
+  const calendar = statusListActionDraft(undefined, actionType);
+  const disabled = statusListActionPayload({ ...calendar, callbackBusinessDaysOnly: false }, undefined, null, true);
+  check(disabled.callbackBusinessDaysOnly === false, `${actionType}: disabled policy persists, not dropped as a falsey value`);
+  const saved = { ...original, actionType, callbackBusinessDaysOnly: false };
+  check(statusListActionDraft(saved).callbackBusinessDaysOnly === false, "Reopening preserves calendar-day mode");
+  check(statusListActionPayload({ ...statusListActionDraft(saved), callbackBusinessDaysOnly: true }, saved, null, true).callbackBusinessDaysOnly === true, "Changing back to weekdays persists");
+}
+check(statusListActionPayload({ ...draft, taskDescription: "Reviewed" }, { ...original, callbackBusinessDaysOnly: false }).callbackBusinessDaysOnly === false, "Unrelated task edits preserve dormant calendar policy");
 check(!statusListActionDirty(draft, original), "Opening the editor is not an edit");
 check(draft.conditionMode === "compound", "Known condition rules are editable");
 const payload = statusListActionPayload({ ...draft, taskDescription: "Reviewed" }, original);
@@ -66,7 +76,7 @@ check(statusListActionError({ ...fresh, webhookTarget: "javascript:alert(1)" }) 
 check(statusListActionError({ ...fresh, webhookTarget: "https://example.invalid/hook" }) === null, "HTTPS webhooks remain supported");
 check(statusListActionError({ ...draft, conditionRules: [] }) === "condition", "Empty compound conditions require explicit always instead");
 for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"]) {
-  for (const key of ["title", "safety", "stored"]) check(actionCopy(locale, key) !== key, `${locale}: localized editor copy ${key}`);
+  for (const key of ["title", "safety", "stored", "callbackBusinessDaysOnly", "callbackBusinessDaysHelp", "callbackBusinessDaysOn", "callbackBusinessDaysOff"]) check(actionCopy(locale, key) !== key, `${locale}: localized editor copy ${key}`);
   for (const field of ["call_count", "days_in_status", "last_call_outcome", "country", "has_email", "has_phone", "is_pregnant", "due_date_weeks", "segment", "answer_is_yes", "answer_for_question", "hour_of_day", "day_of_week", "dispositions_count", "assigned_status_code", "contact.status_code", "contact.segment", "contact.contract_signed", "contact.hospital_id", "contact.clinic_id", "contact.days_since_last_change"])
     check(catalogFieldLabel(locale, field, "UNTRANSLATED") !== "UNTRANSLATED", `${locale}: localized condition field ${field}`);
   for (const op of ["eq", "neq", "contains", "gt", "lt", "gte", "lte"])

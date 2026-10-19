@@ -71,6 +71,7 @@ export function StatusListServiceActionFields(props: ServiceActionFieldProps) {
   const dispositionOptions = upsert(dispositions.filter(item => item?.id != null).map(item => ({
     value: String(item.id), label: item.name || item.label || String(item.id),
   })), draft.dispositionId);
+  const showCallbackBusinessDays = draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition);
   const templateSelect = <Field label={copy("template")} wide>
     <Select field="emailTemplateId" value={draft.emailTemplateId} onChange={value => set("emailTemplateId", value)} options={emailTemplateOptions} placeholder={copy("noTemplates")} />
   </Field>;
@@ -158,6 +159,10 @@ export function StatusListServiceActionFields(props: ServiceActionFieldProps) {
       </>}
     </>}
     {draft.actionType === "set_callback" && <Field label={copy("callbackDays")}><input data-testid={idFor("callbackOffsetDays")} type="number" min="0" step="1" value={draft.callbackOffsetDays} onChange={event => set("callbackOffsetDays", event.target.value)} /></Field>}
+    {showCallbackBusinessDays && <div className="slsae-field wide">
+      <label className="slsae-choice"><input type="checkbox" data-testid="service-action-callbackBusinessDaysOnly" checked={draft.callbackBusinessDaysOnly} onChange={event => set("callbackBusinessDaysOnly", event.target.checked)} />{copy("callbackBusinessDaysOnly")}</label>
+      <small>{copy("callbackBusinessDaysHelp")}</small>
+    </div>}
     {draft.actionType === "sys_webhook" && <Field label={copy("webhook")} wide><input data-testid={idFor("webhookTarget")} type="url" value={draft.webhookTarget} onChange={event => set("webhookTarget", event.target.value)} placeholder="https://example.com/hooks/..." /></Field>}
   </div>;
 }

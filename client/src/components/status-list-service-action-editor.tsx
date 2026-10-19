@@ -130,11 +130,15 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
       disposition => disposition.code ? `${disposition.code} — ${disposition.name || disposition.label || disposition.id}` : disposition.name || disposition.label || String(disposition.id));
     if (callbackDisposition) {
       add(copy("callbackDays"), draft.callbackOffsetDays);
+      add(copy("callbackBusinessDaysOnly"), copy(draft.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff"));
       add(copy("callbackTime"), draft.callbackTime);
       add(copy("notifyPulse"), copy(draft.notifyAgentPulse ? "enabled" : "disabled"));
     }
   }
-  if (draft.actionType === "set_callback") add(copy("callbackDays"), draft.callbackOffsetDays);
+  if (draft.actionType === "set_callback") {
+    add(copy("callbackDays"), draft.callbackOffsetDays);
+    add(copy("callbackBusinessDaysOnly"), copy(draft.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff"));
+  }
   if (draft.actionType === "sys_webhook") add(copy("webhook"), draft.webhookTarget);
   return rows;
 }

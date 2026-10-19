@@ -440,6 +440,7 @@ async function seedFixture(database: IsolatedCloneDatabase["db"]) {
     smsProvider: "bulkgate",
     callbackOffsetDays: 4,
     callbackTime: "10:30",
+    callbackBusinessDaysOnly: false,
     notifyAgentPulse: true,
     taskDescription: "Prepare an offer",
     taskDeadlineOffset: "2d",

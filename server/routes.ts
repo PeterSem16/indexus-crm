@@ -1228,7 +1228,7 @@ const SL_DISP_STATUS_MAP: Record<string, string> = {
 // Building a callback with the server's UTC clock (`setHours(9)` → 09:00Z) made a
 // "9:00" callback display as 11:00 in the browser. These helpers convert a local
 // wall-clock to the correct absolute UTC instant so it round-trips correctly.
-const APP_TIMEZONE = "Europe/Bratislava";
+import { STATUS_LIST_CALLBACK_TIMEZONE as APP_TIMEZONE, statusListCallbackParts } from "@shared/status-list-callback-calendar";
 
 // Offset (in minutes) of `tz` from UTC at the given instant; positive = ahead of UTC.
 function tzOffsetMinutes(instant: Date, tz: string): number {
@@ -1283,25 +1283,9 @@ function parseCallbackDateInput(input?: string | null): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function computeStatusListCallbackDate(offsetDays: number, timeStr?: string | null): Date {
-  let hh = 9, mm = 0;
-  if (typeof timeStr === "string" && /^\d{1,2}:\d{2}$/.test(timeStr)) {
-    const [h, m] = timeStr.split(":").map(Number);
-    if (h >= 0 && h < 24 && m >= 0 && m < 60) { hh = h; mm = m; }
-  }
-  // Walk the business-day calendar in the app timezone so the day boundary and the
-  // weekend skip match the agent's local date (not the UTC server date), then anchor
-  // the wall-clock time and convert to the correct absolute UTC instant.
-  const todayLocal = tzCalendarParts(new Date(), APP_TIMEZONE);
-  const cursor = new Date(Date.UTC(todayLocal.year, todayLocal.month0, todayLocal.day));
-  let added = 0;
-  const target = Math.max(1, offsetDays);
-  while (added < target) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-    const dow = cursor.getUTCDay();
-    if (dow !== 0 && dow !== 6) added++;
-  }
-  return zonedWallClockToUtc(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate(), hh, mm, APP_TIMEZONE);
+function computeStatusListCallbackDate(offsetDays: number, timeStr?: string | null, businessDaysOnly = true): Date {
+  const p = statusListCallbackParts(offsetDays, timeStr, businessDaysOnly, new Date(), APP_TIMEZONE);
+  return zonedWallClockToUtc(p.year, p.month0, p.day, p.hour, p.minute, APP_TIMEZONE);
 }
 
 // Derive a campaign-contact's country code server-side from its linked polymorphic
@@ -1676,7 +1660,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
     // fall back to the rule's configured term (default +1 day) so scheduled callbacks
     // reliably surface in the queue regardless of the notifyAgentPulse flag.
     if (!cb) {
-      cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
+      cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime, automation.callbackBusinessDaysOnly !== false);
     }
     update.callbackDate = cb;
     update.status = "callback_scheduled";
@@ -1709,7 +1693,7 @@ async function runStatusListSetCallback(automation: any, ctx: StatusListActionCt
   // string in the app timezone (never the UTC server clock).
   let cb: Date | null = overrideCallbackDate ? parseCallbackDateInput(overrideCallbackDate) : null;
   if (!cb) {
-    cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime);
+    cb = computeStatusListCallbackDate(automation.callbackOffsetDays ?? 1, automation.callbackTime, automation.callbackBusinessDaysOnly !== false);
   }
   const setFields: Record<string, any> = { callbackDate: cb, status: "callback_scheduled", callbackStatusListItemId: ctx.itemId ?? null, assignedTo: ctx.userId, updatedAt: new Date() };
   if (callbackNote !== undefined && callbackNote !== null && callbackNote.trim() !== "") setFields.callbackNote = callbackNote.trim();

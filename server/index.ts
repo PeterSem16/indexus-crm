@@ -509,7 +509,8 @@ app.use((req, res, next) => {
     await pool.query(`
       ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS callback_time text,
-        ADD COLUMN IF NOT EXISTS notify_agent_pulse boolean NOT NULL DEFAULT false;
+        ADD COLUMN IF NOT EXISTS notify_agent_pulse boolean NOT NULL DEFAULT false,
+        ADD COLUMN IF NOT EXISTS callback_business_days_only boolean NOT NULL DEFAULT true;
     `);
     console.log('[migration] callback_time/notify_agent_pulse ensured on automations');
 

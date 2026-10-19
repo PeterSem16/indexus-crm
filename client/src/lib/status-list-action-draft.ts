@@ -8,7 +8,7 @@ export type StatusListActionDraft = {
   actionType: string; targetRole: string; taskGroupId: string; taskDescription: string;
   taskDeadlineOffset: string; taskPriority: string; assignNotify: boolean; assignNotifyChannels: string[];
   emailTemplateId: string; emailRecipients: string; smsTemplateId: string; smsProvider: string;
-  dispositionId: string; callbackOffsetDays: string; callbackTime: string; notifyAgentPulse: boolean; webhookTarget: string;
+  dispositionId: string; callbackOffsetDays: string; callbackTime: string; callbackBusinessDaysOnly: boolean; notifyAgentPulse: boolean; webhookTarget: string;
   conditionMode: ActionConditionMode; conditionCountry: string; conditionAnswer: string;
   conditionLogic: string; conditionRules: ActionRule[]; fieldChangedKey: string; fieldChangedValue: string;
 };
@@ -35,7 +35,7 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
     emailTemplateId: action?.emailTemplateId || "", emailRecipients: (action?.emailRecipients || []).join("\n"),
     smsTemplateId: action?.smsTemplateId || "", smsProvider: action?.smsProvider || "default",
     dispositionId: action?.dispositionId || "", callbackOffsetDays: String(action?.callbackOffsetDays ?? 1),
-    callbackTime: action?.callbackTime || "09:00", notifyAgentPulse: action?.notifyAgentPulse ?? false,
+    callbackTime: action?.callbackTime || "09:00", callbackBusinessDaysOnly: action?.callbackBusinessDaysOnly ?? true, notifyAgentPulse: action?.notifyAgentPulse ?? false,
     webhookTarget: action?.webhookTarget || "", conditionMode: mode, conditionCountry: action?.conditionField === "country" ? action.conditionValue || "SK" : "SK",
     conditionAnswer: action?.conditionField === "answer" ? action.conditionValue || "" : "", conditionLogic: typeof parsed?.logic === "string" ? parsed.logic : "AND",
     conditionRules: mode === "compound" ? parsed.rules.map((rule: ActionRule) => ({ ...rule })) : [],
@@ -45,7 +45,7 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
 }
 
 const writable = ["sortOrder", "actionType", "targetRole", "emailTemplateId", "emailRecipients", "smsTemplateId", "smsProvider",
-  "callbackOffsetDays", "callbackTime", "notifyAgentPulse", "taskDescription", "taskDeadlineOffset", "taskPriority",
+  "callbackOffsetDays", "callbackTime", "callbackBusinessDaysOnly", "notifyAgentPulse", "taskDescription", "taskDeadlineOffset", "taskPriority",
   "conditionField", "conditionOperator", "conditionValue", "conditionJson", "dispositionId", "webhookTarget", "taskGroupId",
   "assignNotify", "assignNotifyChannels"] as const;
 const conditionKeys = ["conditionMode", "conditionCountry", "conditionAnswer", "conditionLogic", "conditionRules", "fieldChangedKey", "fieldChangedValue"] as const;
@@ -86,6 +86,7 @@ export function statusListActionPayload(draft: StatusListActionDraft, original?:
   if (draft.actionType === "set_contact_status") text("dispositionId");
   if (draft.actionType === "set_callback" || (draft.actionType === "set_contact_status" && callbackDisposition)) {
     put("callbackOffsetDays", Number(draft.callbackOffsetDays));
+    put("callbackBusinessDaysOnly");
     if (draft.actionType === "set_contact_status") { put("callbackTime"); put("notifyAgentPulse"); }
     if (draft.actionType === "set_contact_status" && original?.dispositionId !== draft.dispositionId) {
       payload.callbackOffsetDays = Number(draft.callbackOffsetDays); payload.callbackTime = draft.callbackTime; payload.notifyAgentPulse = draft.notifyAgentPulse;

@@ -301,6 +301,7 @@ export async function cloneCampaignWithConfiguration(
         smsProvider: row.smsProvider,
         callbackOffsetDays: row.callbackOffsetDays,
         callbackTime: row.callbackTime,
+        callbackBusinessDaysOnly: row.callbackBusinessDaysOnly,
         notifyAgentPulse: row.notifyAgentPulse,
         taskDescription: row.taskDescription,
         taskDeadlineOffset: row.taskDeadlineOffset,

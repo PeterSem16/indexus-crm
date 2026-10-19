@@ -501,10 +501,13 @@ try {
   await quickEditor.getByTestId("quick-option-add-callback").click();
   check(await quickEditor.getByTestId("quick-option-action-editor").isVisible() && await page.getByTestId("studio-original-action-dialog").count() === 0, "Callback settings open inline without a modal");
   await quickEditor.getByTestId("input-callback-offset").fill("3");
+  check(await quickEditor.getByTestId("input-callback-business-days-only").isChecked(), "Quick callback defaults to the existing weekday policy");
+  await quickEditor.getByTestId("input-callback-business-days-only").uncheck();
   const callbackSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}/automations`) && response.request().method() === "POST");
   await quickEditor.getByTestId("status-list-automation-save").click();
   check((await callbackSaved).ok(), "Quick callback saves through the existing action service");
   check(await scalar("SELECT callback_offset_days AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === 3, "Quick callback delay persists correctly");
+  check(await scalar("SELECT callback_business_days_only AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === false, "Quick callback weekday policy can be disabled and persists");
   await quickEditor.getByTestId("quick-option-add-status").click();
   check(await quickEditor.getByTestId("status-list-automation-save").isDisabled(), "An incomplete status action cannot be saved");
   await quickEditor.getByTestId("select-status-disposition").click();

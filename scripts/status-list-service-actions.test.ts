@@ -3,12 +3,16 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import bcrypt from "bcrypt";
 import { chromium, request, type Page } from "playwright";
-import { pool } from "../server/db";
+import { pool, db } from "../server/db";
+import { campaignContacts, campaignContactHistory } from "../shared/schema";
+import { eq } from "drizzle-orm";
+import { statusListCallbackPrefill, STATUS_LIST_CALLBACK_TIMEZONE } from "../shared/status-list-callback-calendar";
 import { statusListServiceActions } from "../client/src/lib/status-list-action-draft";
 
 // Native browser + real authenticated API + persisted DB. Configuration only:
-// no enrolled contacts, execution requests, outgoing messages or webhooks.
-const ids = Object.fromEntries(["user", "mission", "foreign", "step", "foreignStep", "question", "foreignQuestion", "action", "group", "email", "sms", "status", "callback"].map(key => [key, randomUUID()]));
+// The UI only edits configuration. A separate API-only section exercises callback
+// scheduling on a synthetic contact; no outgoing messages/webhooks are executed.
+const ids = Object.fromEntries(["user", "mission", "foreign", "step", "foreignStep", "question", "foreignQuestion", "action", "group", "email", "sms", "status", "callback", "contact"].map(key => [key, randomUUID()]));
 const username = `service-actions-${ids.user}`, password = randomBytes(24).toString("hex");
 const baseURL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
 const api = await request.newContext({ baseURL });
@@ -97,11 +101,15 @@ try {
     }
     if (type === "set_contact_status") {
       await page.getByTestId("service-action-dispositionId").selectOption(ids.callback);
+      check(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked(), "Existing callback behavior defaults to weekdays");
+      await page.getByTestId("service-action-callbackBusinessDaysOnly").uncheck();
       await page.getByTestId("service-action-callbackOffsetDays").fill("2");
       await page.getByTestId("service-action-callbackTime").fill("10:30");
       await page.getByTestId("service-action-notifyAgentPulse").check();
     }
     if (type === "set_callback") {
+      check(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked(), "Standalone callback exposes the calendar policy");
+      await page.getByTestId("service-action-callbackBusinessDaysOnly").uncheck();
       await page.getByTestId("service-action-callbackOffsetDays").fill("-1");
       await stage("review");
       await page.getByTestId("status-list-automation-save").click();
@@ -118,6 +126,17 @@ try {
   check((await record(created.send_email_group.id)).email_recipients.length === 2, "Explicit multi-recipient emails persist as an array");
   const callback = await record(created.set_contact_status.id);
   check(callback.callback_offset_days === 2 && callback.callback_time === "10:30" && callback.notify_agent_pulse, "Callback disposition preserves delay, fixed time and Pulse notification");
+  check(callback.callback_business_days_only === false && (await record(created.set_callback.id)).callback_business_days_only === false, "Both callback action types persist calendar-day mode");
+  await page.getByTestId(`service-action-edit-${created.set_callback.id}`).click();
+  await stage("details");
+  check(!(await page.getByTestId("service-action-callbackBusinessDaysOnly").isChecked()), "Reopening a saved callback retains the disabled weekday policy");
+  await page.screenshot({ path: `${pictures}/callback-days-desktop.jpg`, animations: "disabled" });
+  await page.setViewportSize({ width: 402, height: 874 });
+  await page.screenshot({ path: `${pictures}/callback-days-mobile.jpg`, animations: "disabled" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.getByTestId("service-action-callbackBusinessDaysOnly").check();
+  await save("PUT");
+  check((await record(created.set_callback.id)).callback_business_days_only === true, "Enabling weekdays again persists");
   check((await record(created.send_sms.id)).sms_provider === null, "Mission-derived gateway does not leak a conflicting action override");
 
   await page.getByTestId(`service-action-edit-${created.assign_task.id}`).click();
@@ -156,7 +175,25 @@ try {
   await stage("details");
   check(await page.getByTestId("service-action-taskDescription").inputValue() === "Synthetic retry draft", "Server failure keeps the editable draft rather than closing it");
   check((await record(questionAction.id)).task_description === "Synthetic question-specific action", "Failed save does not report a false persisted edit");
-  check(executionRequests === 0, "No action execution, communication or webhook request occurred");
+  check(executionRequests === 0, "The configuration UI never executes an action, communication or webhook");
+  await db.insert(campaignContacts).values({ id: ids.contact, campaignId: ids.mission, contactType: "customer" });
+  const localDate = (date: Date) => new Intl.DateTimeFormat("sv-SE", { timeZone: STATUS_LIST_CALLBACK_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }).format(date).replace(" ", "T");
+  for (const type of ["set_callback", "set_contact_status"]) {
+    const id = created[type].id;
+    for (const weekdays of [false, true]) {
+      const update = await api.put(`${root}/automations/${id}`, { data: { callbackBusinessDaysOnly: weekdays, callbackOffsetDays: 5, callbackTime: "10:30", notifyAgentPulse: false } });
+      check(update.ok(), `${type}: calendar policy update succeeds`);
+      const before = new Date();
+      const response = await api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: {} });
+      check(response.ok(), `${type}: real server callback scheduling succeeds`);
+      const [contact] = await db.select().from(campaignContacts).where(eq(campaignContacts.id, ids.contact));
+      check(!!contact.callbackDate && localDate(contact.callbackDate) === statusListCallbackPrefill({ callbackOffsetDays: 5, callbackTime: "10:30", callbackBusinessDaysOnly: weekdays }, before), `${type}: actual persisted date follows the selected weekday/calendar mode`);
+    }
+    const override = "2030-06-08T10:30"; // Saturday: manual choice is not prohibited.
+    check((await api.post(`/api/campaigns/${ids.mission}/contacts/${ids.contact}/status-list-actions/${id}/run`, { data: { callbackDate: override } })).ok(), `${type}: manual date override remains supported`);
+    const [manual] = await db.select().from(campaignContacts).where(eq(campaignContacts.id, ids.contact));
+    check(!!manual.callbackDate && localDate(manual.callbackDate) === override, `${type}: weekday calculation never rewrites a manually selected Saturday`);
+  }
   check(errors.length === 0, `No browser runtime errors: ${errors.join("; ")}`);
   console.log(`Status List service actions: ${checks} authenticated browser/API assertions passed`);
 } catch (error) {
@@ -165,6 +202,8 @@ try {
 } finally {
   await browser?.close();
   await api.post("/api/auth/logout"); await api.dispose();
+  await db.delete(campaignContactHistory).where(eq(campaignContactHistory.campaignContactId, ids.contact));
+  await db.delete(campaignContacts).where(eq(campaignContacts.id, ids.contact));
   for (const mission of [ids.mission, ids.foreign]) {
     await pool.query("DELETE FROM campaign_status_list_automations WHERE status_list_item_id IN(SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]);
     await pool.query("DELETE FROM campaign_status_list_questions WHERE item_id IN(SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]);

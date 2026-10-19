@@ -57,6 +57,7 @@ type StatusListAutomation = {
   taskGroupId: string | null;
   emailRecipients?: string[] | null;
   callbackOffsetDays?: number | null;
+  callbackBusinessDaysOnly?: boolean;
 };
 
 type StatusListQuestion = {
@@ -1415,6 +1416,7 @@ function AutomationForm({
     emailRecipients: (automation?.emailRecipients ?? []).join("\n"),
     callbackOffsetDays: automation?.callbackOffsetDays != null ? String(automation.callbackOffsetDays) : "1",
     callbackTime: (automation as any)?.callbackTime || "09:00",
+    callbackBusinessDaysOnly: automation?.callbackBusinessDaysOnly ?? true,
     notifyAgentPulse: (automation as any)?.notifyAgentPulse ?? false,
     webhookTarget: automation?.webhookTarget || "",
     taskGroupId: automation?.taskGroupId || "",
@@ -1499,6 +1501,7 @@ function AutomationForm({
           ? (Number.isFinite(parseInt(form.callbackOffsetDays, 10)) ? parseInt(form.callbackOffsetDays, 10) : 1)
           : null,
         callbackTime: form.actionType === "set_contact_status" && isCallbackDisp ? (form.callbackTime || "09:00") : null,
+        callbackBusinessDaysOnly: form.callbackBusinessDaysOnly,
         notifyAgentPulse: form.actionType === "set_contact_status" && isCallbackDisp ? form.notifyAgentPulse : false,
         conditionField: (form.conditionType === "compound" || form.conditionType === "always" || form.conditionType === "field_changed_to") ? null : form.conditionType,
         conditionOperator: (form.conditionType === "always" || form.conditionType === "compound" || form.conditionType === "field_changed_to") ? null : "eq",
@@ -1972,9 +1975,18 @@ function AutomationForm({
               className="h-8 text-xs w-32"
               data-testid="input-callback-offset"
             />
-            <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{sl("callbackOffsetHelp", locale)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1 leading-snug">{actionCopy(locale, form.callbackBusinessDaysOnly ? "callbackBusinessDaysOn" : "callbackBusinessDaysOff")}</p>
           </div>
         )}
+
+        {(form.actionType === "set_callback" || (form.actionType === "set_contact_status" && isCallbackDisp)) && <div className="space-y-1.5 rounded-lg border p-3">
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input type="checkbox" checked={form.callbackBusinessDaysOnly} data-testid="input-callback-business-days-only"
+              onChange={event => setForm(current => ({ ...current, callbackBusinessDaysOnly: event.target.checked }))}/>
+            {actionCopy(locale, "callbackBusinessDaysOnly")}
+          </label>
+          <p className="text-[10px] leading-relaxed text-muted-foreground">{actionCopy(locale, "callbackBusinessDaysHelp")}</p>
+        </div>}
 
         {/* Action help panel */}
         {showActionHelp && (() => {

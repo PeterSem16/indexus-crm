@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
+import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
 import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { useAuth } from "@/contexts/auth-context";
@@ -434,23 +435,11 @@ const SLU: Record<string, Record<string, string>> = {
 };
 const slu = (key: string, locale: string): string => SLU[key]?.[locale] ?? SLU[key]?.en ?? key;
 
-// Prefill value for the reschedule picker: N business days out at the rule's
+// Prefill value for the reschedule picker: N working/calendar days per the rule's
 // configured time-of-day (callbackTime "HH:MM", default 09:00). Format matches
 // DateTimePicker's "YYYY-MM-DDTHH:MM".
 function slPrefillDt(automation: any): string {
-  const offset = Math.max(1, automation?.callbackOffsetDays ?? 1);
-  const d = addBusinessDays(new Date(), offset);
-  let hh = 9, mm = 0;
-  const t = automation?.callbackTime;
-  if (typeof t === "string" && /^\d{1,2}:\d{2}$/.test(t)) {
-    const [h, m] = t.split(":").map(Number);
-    if (h >= 0 && h < 24 && m >= 0 && m < 60) { hh = h; mm = m; }
-  }
-  d.setHours(hh, mm, 0, 0);
-  const yyyy = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mo}-${dd}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  return statusListCallbackPrefill(automation);
 }
 
 // Per-item manual action buttons rendered on the agent's mission status list.
@@ -501,7 +490,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
   const [note, setNote] = useState("");
   useEffect(() => {
     if (open) { setDt(slPrefillDt(automation)); setNote(""); }
-  }, [open, automation.callbackOffsetDays, automation.callbackTime]);
+  }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
 
   if (!isCallback) {
     return (
@@ -559,7 +548,7 @@ function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
   const [note, setNote] = useState("");
   useEffect(() => {
     if (open) { setDt(slPrefillDt(automation)); setNote(""); }
-  }, [open, automation.callbackOffsetDays, automation.callbackTime]);
+  }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
