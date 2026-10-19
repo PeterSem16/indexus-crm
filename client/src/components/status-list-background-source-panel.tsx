@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { getStatusListBackgroundCopy } from "./status-list-background-copy";
+import { StatusListOptionSourcePanel } from "./status-list-option-source-panel";
 
 type Source = { questionId: string; source: "representative_assigned" | "representative_assignment_type"; hidden: boolean };
 type SourceResponse = { sources: Source[]; catalog: WorkflowCatalogItem[] };
@@ -102,7 +103,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
     setQuestionId(candidate?.id || "");
   };
   const labelFor = (entry: Source) => catalog.find(item => item.kind === "question" && item.id === entry.questionId)?.label || entry.questionId;
-  return <section className="mt-4 rounded-xl border border-border/70 bg-background/65 p-3" data-testid="status-list-background-sources">
+  return <><section className="mt-4 rounded-xl border border-border/70 bg-background/65 p-3" data-testid="status-list-background-sources">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-sm font-semibold">{copy.title}</h3><p className="mt-1 text-xs text-muted-foreground">{copy.subtitle}</p></div>
       {!editing && <Button type="button" size="sm" variant="outline" onClick={begin} disabled={query.isLoading || query.isFetching || query.isError || !hasAvailable}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.add}</Button>}
@@ -126,5 +127,5 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
       <p className="mt-3 border-l-2 border-primary/35 pl-2.5 text-xs leading-relaxed text-muted-foreground">{copy.notice}</p>
       <div className="mt-3 flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" onClick={reset} disabled={saveMutation.isPending}>{copy.cancel}</Button><Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={!questionId || saveMutation.isPending}>{saveMutation.isPending ? copy.saving : copy.save}<ArrowRight className="ml-1.5 h-3.5 w-3.5"/></Button></div>
     </div> : null}
-  </section>;
+  </section><StatusListOptionSourcePanel campaignId={campaignId} locale={locale}/></>;
 }

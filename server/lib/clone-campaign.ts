@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { inArray, eq } from "drizzle-orm";
 import { db } from "../db";
 import { remapStatusListWorkflow } from "@shared/status-list-workflow";
+import { optionSourceConfigSchema, remapOptionSource } from "@shared/status-list-option-source";
 import {
   campaigns,
   campaignAgents,
@@ -16,6 +17,7 @@ import {
   campaignStatusListAutomations,
   missionStatusListRules,
   missionStatusListSources,
+  missionStatusListOptionSources,
   sopCampaignArticles,
   operatorScriptSchema,
 } from "@shared/schema";
@@ -331,6 +333,15 @@ export async function cloneCampaignWithConfiguration(
     }
     const sourceWorkflows = await tx.select().from(missionStatusListRules)
       .where(eq(missionStatusListRules.campaignId, sourceCampaignId));
+    for (const binding of await tx.select().from(missionStatusListOptionSources)
+      .where(eq(missionStatusListOptionSources.campaignId, sourceCampaignId))) {
+      const groupId = itemIdMap.get(binding.groupId);
+      if (!groupId) throw new Error("Missing cloned background option group");
+      await tx.insert(missionStatusListOptionSources).values({
+        campaignId: newCampaignId, groupId,
+        config: remapOptionSource(optionSourceConfigSchema.parse(binding.config), itemIdMap),
+      });
+    }
     if (sourceWorkflows.length) {
       const workflowIdMap = new Map<string, string>(Array.from(itemIdMap.entries()).concat(Array.from(questionIdMap.entries())));
       await tx.insert(missionStatusListRules).values(sourceWorkflows.map(rule => ({

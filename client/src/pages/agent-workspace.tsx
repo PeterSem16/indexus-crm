@@ -3025,6 +3025,7 @@ export function CommunicationCanvas({
     // only an agent relog fixed it. "always" guarantees a fresh fetch on every open.
     staleTime: 0,
     refetchOnMount: "always",
+    refetchInterval: 15_000,
   });
   // Query keys are contact-scoped, but keep this defensive filter for cache
   // fixtures/legacy responses that may contain rows from another contact.
@@ -3175,7 +3176,7 @@ export function CommunicationCanvas({
 
       if (Array.isArray(dbStatusList) && dbStatusList.length && campaign?.id && campaignContactId) {
         const parents = (dbStatusList as any[]).filter(
-          (p: any) => p.questionSelectionMode === "single" && !p.parentId && !p.isHidden
+          (p: any) => p.questionSelectionMode === "single" && !p.parentId && !p.isHidden && !p.sourceManaged
         );
         for (const parent of parents) {
           const children = (dbStatusList as any[]).filter(
@@ -3264,6 +3265,7 @@ export function CommunicationCanvas({
   const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
 
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    if ((dbStatusList as any[]).some(item => String(item.id) === itemId && item.sourceManaged)) return;
     // In batch mode: just toggle visual state and stage in batchSlSelections (no API, no automations)
     if (statusListMode === "batch") {
       setDbSlChecked(prev => {
@@ -6918,7 +6920,8 @@ export function CommunicationCanvas({
                           <button
                             type="button"
                             onClick={() => handleSlToggle(String(item.id), !isChecked)}
-                            className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${
+                            disabled={!!item.sourceManaged}
+                            className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer disabled:cursor-default disabled:opacity-75 ${
                               isChecked
                                 ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200 dark:shadow-emerald-900/30"
                                 : "border-muted-foreground/30 bg-background hover:border-emerald-400 dark:hover:border-emerald-600"
@@ -7241,6 +7244,7 @@ export function CommunicationCanvas({
                           <button
                             type="button"
                             onClick={handleChildToggle}
+                            disabled={!!child.sourceManaged}
                             className={`mt-0.5 h-4 w-4 flex items-center justify-center transition-all shrink-0 ${
                               isSingleChild
                                 ? `rounded-full border-2 ${childChecked ? "bg-emerald-500 border-emerald-500" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`

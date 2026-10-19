@@ -48,6 +48,22 @@ CREATE TABLE IF NOT EXISTS mission_status_list_sources (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS mission_status_list_sources_campaign ON mission_status_list_sources(campaign_id);
+CREATE TABLE IF NOT EXISTS mission_status_list_option_sources (
+ group_id varchar PRIMARY KEY REFERENCES campaign_status_list_items(id) ON DELETE CASCADE,
+ campaign_id varchar NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+ config jsonb NOT NULL,
+ revision varchar NOT NULL DEFAULT gen_random_uuid()::text
+);
+CREATE INDEX IF NOT EXISTS mission_status_list_option_sources_campaign ON mission_status_list_option_sources(campaign_id);
+CREATE TABLE IF NOT EXISTS mission_status_list_option_source_state (
+ campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
+ group_id varchar NOT NULL REFERENCES mission_status_list_option_sources(group_id) ON DELETE CASCADE,
+ config_revision varchar NOT NULL,
+ value text NOT NULL,
+ option_id varchar NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(campaign_contact_id,group_id)
+);
 CREATE TABLE IF NOT EXISTS mission_status_list_source_state (
  campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
  question_id varchar NOT NULL REFERENCES mission_status_list_sources(question_id) ON DELETE CASCADE,
@@ -68,6 +84,9 @@ CREATE TABLE IF NOT EXISTS mission_status_list_transitions (
  created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS mission_status_list_transitions_contact ON mission_status_list_transitions(campaign_contact_id,created_at);
+ALTER TABLE mission_status_list_transitions ADD COLUMN IF NOT EXISTS target_kind text NOT NULL DEFAULT 'question';
+ALTER TABLE mission_status_list_transitions ADD COLUMN IF NOT EXISTS previous_label text;
+ALTER TABLE mission_status_list_transitions ADD COLUMN IF NOT EXISTS value_label text;
 CREATE TABLE IF NOT EXISTS mission_status_list_dirty (
  kind text NOT NULL,
  entity_id varchar NOT NULL,
@@ -99,6 +118,39 @@ BEGIN
     INSERT INTO mission_status_list_dirty(kind,entity_id) VALUES('hospital',OLD.hospital_id)
     ON CONFLICT(kind,entity_id) DO UPDATE SET revision=gen_random_uuid()::text,cursor='',due_at=now();
    END IF;
+  END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END $$;
+CREATE OR REPLACE FUNCTION mission_status_list_option_guard() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE target_id text;
+BEGIN
+ IF current_setting('indexus.status_list_source_writer',true)='on' OR pg_trigger_depth()>1 THEN
+  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+ END IF;
+ IF TG_OP='DELETE' THEN target_id:=OLD.status_list_item_id; ELSE target_id:=NEW.status_list_item_id; END IF;
+ IF EXISTS(SELECT 1 FROM mission_status_list_option_sources s
+  JOIN campaign_status_list_items i ON i.id=target_id
+  WHERE s.group_id=i.id OR s.group_id=i.parent_id) THEN
+  RAISE EXCEPTION 'derived_answer' USING ERRCODE='23514';
+ END IF;
+ IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END $$;
+CREATE OR REPLACE TRIGGER mission_status_list_option_guard
+ BEFORE INSERT OR UPDATE OF status_list_item_id OR DELETE ON campaign_contact_status_list_state
+ FOR EACH ROW EXECUTE FUNCTION mission_status_list_option_guard();
+CREATE OR REPLACE FUNCTION mission_status_list_communication_changed() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE r record; old_mission text;
+BEGIN
+ IF TG_OP='DELETE' THEN r:=OLD; ELSE r:=NEW; END IF;
+ IF r.campaign_id IS NOT NULL THEN
+  INSERT INTO mission_status_list_dirty(kind,entity_id) VALUES('mission',r.campaign_id)
+  ON CONFLICT(kind,entity_id) DO UPDATE SET revision=gen_random_uuid()::text,cursor='',due_at=now();
+ END IF;
+ IF TG_OP='UPDATE' THEN
+  IF OLD.campaign_id IS DISTINCT FROM NEW.campaign_id AND OLD.campaign_id IS NOT NULL THEN
+   INSERT INTO mission_status_list_dirty(kind,entity_id) VALUES('mission',OLD.campaign_id)
+   ON CONFLICT(kind,entity_id) DO UPDATE SET revision=gen_random_uuid()::text,cursor='',due_at=now();
   END IF;
  END IF;
  IF TG_OP='DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;

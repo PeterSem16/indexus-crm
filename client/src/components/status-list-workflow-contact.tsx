@@ -41,6 +41,9 @@ type BackgroundTransition = {
   id: string;
   questionId: string;
   questionLabel: string;
+  targetKind?: "item" | "question";
+  previousLabel?: string | null;
+  valueLabel?: string | null;
   previous: boolean | string | null;
   value: boolean | string | null;
   baseline: boolean;
@@ -132,7 +135,7 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
   const saveAnswer = (questionId: string, value: boolean | string | null) => answerMutation.mutate({ questionId, value });
   const catalog = query.data?.catalog || [];
   const visibleTransitions = (query.data?.transitions || []).filter(transition =>
-    catalog.some(item => item.kind === "question" && item.id === transition.questionId && !item.hidden)
+    catalog.some(item => item.kind === (transition.targetKind || "question") && item.id === transition.questionId && !item.hidden)
   );
   const itemFor = (ref: WorkflowResult["target"] | WorkflowRun["source"]) =>
     catalog.find(item => item.kind === ref?.kind && item.id === ref?.id);
@@ -194,8 +197,8 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
         return <article key={transition.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-xs">
           <strong className="min-w-32 text-foreground">{transition.questionLabel}</strong>
           {transition.baseline && <Badge variant="outline">{backgroundCopy.baseline}</Badge>}
-          {!transition.baseline && <span className="text-muted-foreground">{backgroundCopy.from}: {formatAnswer(transition.previous, copy)}</span>}
-          <span className="text-muted-foreground">{backgroundCopy.to}: <strong className="font-medium text-foreground">{formatAnswer(transition.value, copy)}</strong></span>
+          {!transition.baseline && <span className="text-muted-foreground">{backgroundCopy.from}: {transition.previousLabel ?? formatAnswer(transition.previous, copy)}</span>}
+          <span className="text-muted-foreground">{backgroundCopy.to}: <strong className="font-medium text-foreground">{transition.valueLabel ?? formatAnswer(transition.value, copy)}</strong></span>
           <time className="ml-auto text-muted-foreground">{created}</time>
         </article>;
       })}</div>

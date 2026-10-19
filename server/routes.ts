@@ -52,7 +52,7 @@ import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count,
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { registerStatusListWorkflowRoutes } from "./lib/status-list-workflow-routes";
-import { processStatusListItemWorkflow } from "./lib/status-list-workflow";
+import { processStatusListItemWorkflow, workflowCatalog } from "./lib/status-list-workflow";
 import { storage } from "./storage";
 import { executeStatusListTaskAction } from "./lib/status-list-task-action";
 import {
@@ -33147,7 +33147,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           questions: questionsWithAutos,
         };
       });
-      res.json(itemsWithData);
+      const ownership = await workflowCatalog(campaignId);
+      res.json(itemsWithData.map(item => {
+        const meta = ownership.find(row => row.kind === "item" && row.id === item.id);
+        return { ...item, backgroundSource: meta?.backgroundSource,
+          sourceManaged: meta?.writable === false && (meta.backgroundSource !== undefined ||
+            ownership.some(child => child.parentId === item.id && !!child.backgroundSource)),
+          isHidden: meta?.hidden ?? item.isHidden };
+      }));
     } catch (error) {
       console.error("Failed to fetch status list:", error);
       res.status(500).json({ error: "Failed to fetch status list" });
@@ -34960,6 +34967,10 @@ Respond ONLY with valid JSON in this exact format:
       if (!itemRouteItem || itemRouteItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Status-list item not found in campaign" });
       }
+      const sourceOwner = await pool.query(`SELECT 1 FROM mission_status_list_option_sources s
+        JOIN campaign_status_list_items i ON i.id=$2 WHERE s.campaign_id=$1
+        AND (s.group_id=i.id OR s.group_id=i.parent_id) LIMIT 1`, [campaignId, itemId]);
+      if (sourceOwner.rowCount) return res.status(400).json({ error: "derived_answer" });
 
       const [campaign] = await db.select({ countryCodes: campaigns.countryCodes })
         .from(campaigns).where(eq(campaigns.id, campaignId)).limit(1);

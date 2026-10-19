@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "./db";
 import {
   campaignContactStatusListState,
@@ -10,6 +10,7 @@ import {
   campaignStatusListQuestions,
   missionStatusListRules,
   missionStatusListSources,
+  missionStatusListOptionSources,
   nexusPulseModuleRevisions,
 } from "@shared/schema";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
@@ -25,6 +26,7 @@ type Snapshot = {
   automations: Array<Record<string, unknown>>;
   workflowRules?: Array<Record<string, unknown>>;
   workflowSources?: Array<Record<string, unknown>>;
+  workflowOptionSources?: Array<Record<string, unknown>>;
 };
 
 type SnapshotChange = {
@@ -198,6 +200,9 @@ async function buildSnapshot(executor: any, campaignId: string): Promise<Snapsho
     workflowSources: (await executor.select().from(missionStatusListSources)
       .where(eq(missionStatusListSources.campaignId, campaignId))
       .orderBy(asc(missionStatusListSources.questionId))).map(({ questionId, source }: any) => ({ questionId, source })),
+    workflowOptionSources: (await executor.select().from(missionStatusListOptionSources)
+      .where(eq(missionStatusListOptionSources.campaignId, campaignId))
+      .orderBy(asc(missionStatusListOptionSources.groupId))).map(({ groupId, config }: any) => ({ groupId, config })),
     workflowRules: (await executor.select().from(missionStatusListRules)
       .where(eq(missionStatusListRules.campaignId, campaignId))
       .orderBy(asc(missionStatusListRules.id))).map(stripTimestamps),
@@ -362,6 +367,14 @@ async function restoreSnapshot(executor: any, campaignId: string, snapshot: Snap
       await executor.insert(missionStatusListSources).values({ questionId: source.questionId, source: source.source, campaignId });
     }
   }
+  if (snapshot.workflowOptionSources !== undefined) {
+    await executor.delete(missionStatusListOptionSources).where(eq(missionStatusListOptionSources.campaignId, campaignId));
+    for (const source of snapshot.workflowOptionSources) {
+      await executor.insert(missionStatusListOptionSources).values({
+        groupId: source.groupId, config: source.config, campaignId,
+      });
+    }
+  }
   if (snapshot.workflowRules !== undefined) {
     await executor.delete(missionStatusListRules).where(eq(missionStatusListRules.campaignId, campaignId));
     for (const rule of snapshot.workflowRules) {
@@ -500,6 +513,7 @@ export function registerNexusPulseVersionRoutes(app: Express, requireAuth: Reque
             .limit(1);
           if (!campaign) return { kind: "missing" as const };
           if (campaign.status === "active") return { kind: "active" as const };
+          await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`mission-workflow-config:${req.params.campaignId}`},0))`);
 
           const [target] = await tx
             .select()

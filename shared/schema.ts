@@ -8414,6 +8414,19 @@ export const missionStatusListSources = pgTable("mission_status_list_sources", {
   revision: varchar("revision").notNull().default(sql`gen_random_uuid()::text`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+export const missionStatusListOptionSources = pgTable("mission_status_list_option_sources", {
+  groupId: varchar("group_id").primaryKey().references(() => campaignStatusListItems.id, { onDelete: "cascade" }),
+  campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
+  config: jsonb("config").notNull(),
+  revision: varchar("revision").notNull().default(sql`gen_random_uuid()::text`),
+});
+export const missionStatusListOptionSourceState = pgTable("mission_status_list_option_source_state", {
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  groupId: varchar("group_id").notNull().references(() => missionStatusListOptionSources.groupId, { onDelete: "cascade" }),
+  configRevision: varchar("config_revision").notNull(),
+  value: text("value").notNull(), optionId: varchar("option_id").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.campaignContactId, table.groupId] })]);
 export const missionStatusListSourceState = pgTable("mission_status_list_source_state", {
   campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
   questionId: varchar("question_id").notNull().references(() => missionStatusListSources.questionId, { onDelete: "cascade" }),
@@ -8426,6 +8439,8 @@ export const missionStatusListTransitions = pgTable("mission_status_list_transit
   campaignId: varchar("campaign_id").notNull().references(() => campaigns.id, { onDelete: "cascade" }),
   campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
   questionId: varchar("question_id").notNull(), questionLabel: text("question_label").notNull(),
+  targetKind: text("target_kind").notNull().default("question"),
+  previousLabel: text("previous_label"), valueLabel: text("value_label"),
   previous: jsonb("previous"), value: jsonb("value").notNull(), baseline: boolean("baseline").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

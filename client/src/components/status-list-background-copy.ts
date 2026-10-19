@@ -16,7 +16,7 @@ const copy = {
     readonly: "Managed automatically", systemActor: "System", baseline: "Baseline",
     transitions: "Background answer changes", noTransitions: "No background answer changes recorded.",
     from: "From", to: "To", manualMode: "Agent confirmation", backgroundMode: "Background transition",
-    backgroundNotice: "Runs when the representative assignment changes. Existing contacts are not replayed.",
+    backgroundNotice: "Runs when the configured source changes the answer. Existing contacts are not replayed.",
     agentNotice: "Runs when an agent confirms the selected answer.",
   },
   sk: {
@@ -34,7 +34,7 @@ const copy = {
     readonly: "Spravované automaticky", systemActor: "Systém", baseline: "Základný stav",
     transitions: "Zmeny odpovede na pozadí", noTransitions: "Nie sú zaznamenané žiadne zmeny na pozadí.",
     from: "Z", to: "Na", manualMode: "Potvrdenie agentom", backgroundMode: "Zmena na pozadí",
-    backgroundNotice: "Spustí sa pri zmene priradenia zástupcu. Existujúce kontakty sa spätne nespracujú.",
+    backgroundNotice: "Spustí sa, keď nastavený zdroj zmení odpoveď. Existujúce kontakty sa spätne nespracujú.",
     agentNotice: "Spustí sa, keď agent potvrdí vybranú odpoveď.",
   },
   cs: {
@@ -52,7 +52,7 @@ const copy = {
     readonly: "Spravováno automaticky", systemActor: "Systém", baseline: "Výchozí stav",
     transitions: "Změny odpovědi na pozadí", noTransitions: "Nejsou zaznamenány žádné změny na pozadí.",
     from: "Z", to: "Na", manualMode: "Potvrzení agentem", backgroundMode: "Změna na pozadí",
-    backgroundNotice: "Spustí se při změně přiřazení zástupce. Existující kontakty se zpětně nezpracují.",
+    backgroundNotice: "Spustí se, když nastavený zdroj změní odpověď. Existující kontakty se zpětně nezpracují.",
     agentNotice: "Spustí se, když agent potvrdí vybranou odpověď.",
   },
   hu: {
@@ -70,7 +70,7 @@ const copy = {
     readonly: "Automatikusan kezelt", systemActor: "Rendszer", baseline: "Alapállapot",
     transitions: "Háttérválasz-változások", noTransitions: "Nincs rögzített háttérváltozás.",
     from: "Erről", to: "Erre", manualMode: "Ügynöki megerősítés", backgroundMode: "Háttérváltozás",
-    backgroundNotice: "A képviselő hozzárendelésének változásakor fut. A meglévő kapcsolatokon nem fut visszamenőleg.",
+    backgroundNotice: "Akkor fut, amikor a beállított forrás módosítja a választ. A meglévő kapcsolatokon nem fut visszamenőleg.",
     agentNotice: "Akkor fut, amikor az ügynök megerősíti a kiválasztott választ.",
   },
   ro: {
@@ -88,7 +88,7 @@ const copy = {
     readonly: "Gestionat automat", systemActor: "Sistem", baseline: "Valoare de bază",
     transitions: "Modificări ale răspunsului în fundal", noTransitions: "Nu există modificări în fundal înregistrate.",
     from: "De la", to: "La", manualMode: "Confirmare agent", backgroundMode: "Tranziție în fundal",
-    backgroundNotice: "Rulează când se schimbă reprezentantul atribuit. Contactele existente nu sunt reaplicate.",
+    backgroundNotice: "Rulează când sursa configurată modifică răspunsul. Contactele existente nu sunt reaplicate.",
     agentNotice: "Rulează când agentul confirmă răspunsul selectat.",
   },
   it: {
@@ -106,7 +106,7 @@ const copy = {
     readonly: "Gestito automaticamente", systemActor: "Sistema", baseline: "Valore iniziale",
     transitions: "Modifiche alle risposte in background", noTransitions: "Nessuna modifica in background registrata.",
     from: "Da", to: "A", manualMode: "Conferma agente", backgroundMode: "Transizione in background",
-    backgroundNotice: "Si attiva quando cambia il rappresentante assegnato. I contatti esistenti non vengono rielaborati.",
+    backgroundNotice: "Si attiva quando la fonte configurata cambia la risposta. I contatti esistenti non vengono rielaborati.",
     agentNotice: "Si attiva quando un agente conferma la risposta selezionata.",
   },
   de: {
@@ -124,7 +124,7 @@ const copy = {
     readonly: "Automatisch verwaltet", systemActor: "System", baseline: "Ausgangswert",
     transitions: "Hintergrundänderungen der Antwort", noTransitions: "Keine Hintergrundänderungen aufgezeichnet.",
     from: "Von", to: "Zu", manualMode: "Bestätigung durch Agent", backgroundMode: "Hintergrundänderung",
-    backgroundNotice: "Wird bei einer Änderung der Repräsentantenzuweisung ausgeführt. Bestehende Kontakte werden nicht rückwirkend verarbeitet.",
+    backgroundNotice: "Wird ausgelöst, wenn die konfigurierte Quelle die Antwort ändert. Bestehende Kontakte werden nicht rückwirkend verarbeitet.",
     agentNotice: "Wird ausgeführt, wenn ein Agent die ausgewählte Antwort bestätigt.",
   },
 } as const;

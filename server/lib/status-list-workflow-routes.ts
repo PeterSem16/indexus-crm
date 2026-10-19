@@ -7,6 +7,7 @@ import { workflowAnswerSchema } from "../../shared/status-list-workflow";
 import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { configureBackgroundSource } from "./status-list-background";
+import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -74,6 +75,33 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       WHERE s.campaign_id=$1 ORDER BY s.question_id`, [req.params.campaignId]);
     res.json({ sources: rows, catalog: await workflowCatalog(req.params.campaignId) });
   }));
+  app.get(`${root}/option-sources`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const sources = (await pool.query(`SELECT s.group_id AS "groupId",s.config,i.is_hidden AS hidden
+      FROM mission_status_list_option_sources s JOIN campaign_status_list_items i ON i.id=s.group_id
+      WHERE s.campaign_id=$1 ORDER BY s.group_id`, [req.params.campaignId])).rows;
+    const coordinators = (await pool.query(`SELECT u.id,u.full_name AS name FROM users u WHERE u.id IN (
+      SELECT user_id FROM campaign_agents WHERE campaign_id=$1 UNION
+      SELECT assigned_to FROM campaign_contacts WHERE campaign_id=$1 AND assigned_to IS NOT NULL) ORDER BY u.full_name,u.id`,
+    [req.params.campaignId])).rows;
+    res.json({ sources: sources.map(row => ({ ...row.config, groupId: row.groupId, hidden: row.hidden })),
+      coordinators, catalog: await workflowCatalog(req.params.campaignId) });
+  }));
+  app.put(`${root}/option-sources/:groupId`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    await configureOptionSource(req.params.campaignId, req.params.groupId, req.body);
+    res.json({ ok: true });
+  }));
+  app.post(`${root}/option-sources/:groupId/waiting-option`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { label } = z.object({ label: z.string().trim().min(1).max(180) }).strict().parse(req.body);
+    res.status(201).json(await addWaitingOption(req.params.campaignId, req.params.groupId, label));
+  }));
+  app.delete(`${root}/option-sources/:groupId`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    await configureOptionSource(req.params.campaignId, req.params.groupId, null);
+    res.json({ ok: true });
+  }));
   app.put(`${root}/sources/:questionId`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     await configureBackgroundSource(req.params.campaignId, req.params.questionId, req.body);
@@ -112,7 +140,8 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       FROM mission_status_list_rule_runs r LEFT JOIN users u ON u.id=r.actor_id
       WHERE r.campaign_contact_id=$1 AND r.campaign_id=$2 ORDER BY r.created_at DESC,r.id DESC LIMIT 50`,
     [req.params.campaignContactId, req.params.campaignId]);
-    const transitions = await pool.query(`SELECT id,question_id AS "questionId",question_label AS "questionLabel",previous,value,baseline,created_at AS "createdAt"
+    const transitions = await pool.query(`SELECT id,question_id AS "questionId",question_label AS "questionLabel",target_kind AS "targetKind",
+      previous_label AS "previousLabel",value_label AS "valueLabel",previous,value,baseline,created_at AS "createdAt"
       FROM mission_status_list_transitions WHERE campaign_id=$1 AND campaign_contact_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50`,
     [req.params.campaignId, req.params.campaignContactId]);
     res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows,

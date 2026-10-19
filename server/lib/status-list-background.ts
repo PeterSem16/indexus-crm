@@ -3,6 +3,7 @@ import type { PoolClient } from "pg";
 import { pool } from "../db";
 import { workflowSourceConfigSchema, type WorkflowAnswer } from "../../shared/status-list-workflow";
 import { executeEvent, StatusListWorkflowError, workflowTransaction } from "./status-list-workflow";
+import { evaluateOptionSources } from "./status-list-option-source";
 
 // Explicit non-human principal; never borrow the configurator/representative's
 // user identity. Legacy history/confirmation columns require a non-null string.
@@ -39,12 +40,16 @@ export async function configureBackgroundSource(campaignId: string, questionId: 
 
 export async function evaluateBackgroundContact(contactId: string) {
   return workflowTransaction(contactId, async client => {
+    const events: Parameters<typeof executeEvent>[1][] = await evaluateOptionSources(client, contactId);
     const { rows: configs } = await client.query(`SELECT s.*,q.question_text,q.field_type,i.confirmation_type,i.question_selection_mode,
       EXISTS(SELECT 1 FROM campaign_status_list_questions x WHERE x.item_id=q.item_id AND x.logic_operator='ONE') AS exclusive
       FROM mission_status_list_sources s JOIN campaign_status_list_questions q ON q.id=s.question_id
       JOIN campaign_status_list_items i ON i.id=q.item_id AND i.campaign_id=s.campaign_id
       JOIN campaign_contacts cc ON cc.campaign_id=s.campaign_id WHERE cc.id=$1 ORDER BY s.question_id`, [contactId]);
-    if (!configs.length) return;
+    if (!configs.length) {
+      for (const event of events) await executeEvent(client, event);
+      return;
+    }
     const { rows: contacts } = await client.query(`SELECT cc.*,
       CASE cc.contact_type WHEN 'clinic' THEN EXISTS(SELECT 1 FROM clinics WHERE id=cc.clinic_id)
       WHEN 'hospital' THEN EXISTS(SELECT 1 FROM hospitals WHERE id=cc.hospital_id) ELSE false END AS known
@@ -55,7 +60,6 @@ export async function evaluateBackgroundContact(contactId: string) {
       : `SELECT user_id,assignment_type FROM hospital_representative_assignments WHERE hospital_id=$1 AND valid_to IS NULL AND valid_from<=now()`,
     [contact.contact_type === "clinic" ? contact.clinic_id : contact.hospital_id])).rows : [];
     if (assignments.length > 1) throw new StatusListWorkflowError("ambiguous_representative");
-    const events: Parameters<typeof executeEvent>[1][] = [];
     for (const config of configs) {
       // Later edits to the original question must not silently change its type
       // or introduce exclusive selections capable of overwriting source data.
@@ -97,12 +101,17 @@ export async function evaluateBackgroundContact(contactId: string) {
 }
 
 export async function installStatusListBackgroundTriggers() {
-  for (const table of ["clinic_representative_assignments", "hospital_representative_assignments", "campaign_contacts", "mission_status_list_sources"]) {
+  for (const table of ["clinic_representative_assignments", "hospital_representative_assignments", "campaign_contacts", "mission_status_list_sources", "mission_status_list_option_sources"]) {
     // Fixed server-owned identifiers, never user input. CREATE OR REPLACE avoids
     // a DROP window and makes restarts safe on production without db:push.
-    const events = table === "campaign_contacts" ? "INSERT OR DELETE OR UPDATE OF contact_type,clinic_id,hospital_id,campaign_id" : "INSERT OR UPDATE OR DELETE";
+    const events = table === "campaign_contacts" ? "INSERT OR DELETE OR UPDATE OF contact_type,clinic_id,hospital_id,campaign_id,assigned_to" : "INSERT OR UPDATE OR DELETE";
     await pool.query(`CREATE OR REPLACE TRIGGER mission_status_list_changed AFTER ${events} ON ${table}
       FOR EACH ROW EXECUTE FUNCTION mission_status_list_enqueue()`);
+  }
+  for (const table of ["call_logs", "communication_messages"]) {
+    await pool.query(`CREATE OR REPLACE TRIGGER mission_status_list_communication_changed
+      AFTER INSERT OR UPDATE OR DELETE ON ${table}
+      FOR EACH ROW EXECUTE FUNCTION mission_status_list_communication_changed()`);
   }
 }
 
@@ -110,7 +119,8 @@ let recoveryCursor = "";
 let nextRecoveryAt = 0;
 export async function recoverStatusListBackground(client: Pick<PoolClient, "query"> = pool) {
   const contacts = (await client.query(`SELECT cc.id FROM campaign_contacts cc
-    WHERE cc.id>$1 AND EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id)
+    WHERE cc.id>$1 AND (EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id)
+      OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id))
     ORDER BY cc.id LIMIT 50`, [recoveryCursor])).rows;
   for (const contact of contacts) {
     try { await evaluateBackgroundContact(contact.id); }
@@ -128,7 +138,8 @@ export async function runStatusListBackgroundBatch() {
     const pending = (await leader.query("SELECT * FROM mission_status_list_dirty WHERE due_at<=now() ORDER BY due_at,kind,entity_id LIMIT 5")).rows;
     for (const job of pending) {
       const contacts = (await leader.query(`SELECT cc.id FROM campaign_contacts cc WHERE cc.id>$3 AND
-        EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id) AND (
+        (EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id)
+          OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id)) AND (
           ($1='clinic' AND cc.contact_type='clinic' AND cc.clinic_id=$2) OR
           ($1='hospital' AND cc.contact_type='hospital' AND cc.hospital_id=$2) OR
           ($1='mission' AND cc.campaign_id=$2) OR ($1='contact' AND cc.id=$2))

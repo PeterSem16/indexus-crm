@@ -30,11 +30,17 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
     WHERE i.campaign_id=$1
     ORDER BY sort_order, kind, id`, [campaignId]);
   const sources = await client.query("SELECT question_id,source FROM mission_status_list_sources WHERE campaign_id=$1", [campaignId]);
-  return rows.map(row => ({ kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
+  const optionSources = (await client.query("SELECT group_id,config FROM mission_status_list_option_sources WHERE campaign_id=$1", [campaignId])).rows;
+  return rows.map(row => {
+    const owner = row.kind === "item" ? optionSources.find(s => s.group_id === row.id || s.group_id === row.parent_id) : undefined;
+    return { kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
     hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
     parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, multiSelectable: row.multi_selectable,
+    ...(owner ? { writable: false, hidden: row.hidden || owner.config.hidden,
+      ...(owner.group_id !== row.id ? { backgroundSource: owner.config.source } : {}) } : {}),
     ...(row.kind === "question" && sources.rows.some(s => s.question_id === row.id)
-      ? { writable: false, backgroundSource: sources.rows.find(s => s.question_id === row.id)!.source } : {}) }));
+      ? { writable: false, backgroundSource: sources.rows.find(s => s.question_id === row.id)!.source } : {}) };
+  });
 }
 export function validateWorkflowValue(item: WorkflowCatalogItem, value: unknown) {
   if (!item.writable) throw new StatusListWorkflowError("derived_answer");
@@ -173,7 +179,7 @@ async function setAnswer(client: PoolClient, input: {
   }
   return cleared;
 }
-type WorkflowEvent = { campaignId: string; campaignContactId: string; actorId: string; source: WorkflowRef;
+export type WorkflowEvent = { campaignId: string; campaignContactId: string; actorId: string; source: WorkflowRef;
   value: WorkflowAnswer | null; eventId: string; occurredAt: Date; trigger?: "background_transition" };
 export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
   const { rows: contacts } = await client.query(`SELECT cc.*,
@@ -192,7 +198,7 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     if (rule.trigger !== (event.trigger || "agent_confirmation")) continue;
     if (!rule.enabled || rule.source.kind !== event.source.kind || rule.source.id !== event.source.id) continue;
     if (rule.sourceValue !== undefined && rule.sourceValue !== event.value) continue;
-    if (event.source.kind === "item") {
+    if (event.source.kind === "item" && event.trigger !== "background_transition") {
       // Legacy confirmations lack a unique index. Concurrent requests can create
       // member-twin rows; they still represent one continuously confirmed state.
       const duplicate = await client.query(`SELECT r.id FROM mission_status_list_rule_runs r

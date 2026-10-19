@@ -185,6 +185,7 @@ const isolatedTables = [
   schema.campaignStatusListAutomations,
   schema.missionStatusListRules,
   schema.missionStatusListSources,
+  schema.missionStatusListOptionSources,
   schema.sopCampaignArticles,
   schema.campaignMailchimpSync,
   schema.campaignContacts,

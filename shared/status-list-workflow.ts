@@ -70,7 +70,7 @@ export type WorkflowCatalogItem = {
   hidden: boolean; writable: boolean; parentLabel?: string;
   parentId?: string; sortOrder?: number; itemType?: string;
   multiSelectable?: boolean;
-  backgroundSource?: "representative_assigned" | "representative_assignment_type";
+  backgroundSource?: "representative_assigned" | "representative_assignment_type" | "coordinator" | "reachability";
 };
 export const workflowSourceConfigSchema = z.object({
   source: z.enum(["representative_assigned", "representative_assignment_type"]),

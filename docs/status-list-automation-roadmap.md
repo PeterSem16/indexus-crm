@@ -63,6 +63,29 @@ parity. Existing 167 workflow assertions, internal-action/note unit tests,
 clone-campaign regressions, five editor browser scenarios and scoped TypeScript
 verification passed. Native desktop/mobile screenshots were inspected.
 
+### Extension of step 3: existing option groups
+- [x] Existing groups map their direct leaf options to server-derived outcomes.
+- [x] Coordinator means the user assigned to this Mission contact (`assigned_to`),
+  not the institution's representative or a collection coordinator. Support
+  assigned/unassigned fallback plus explicit coordinator-to-option overrides.
+- [x] Four reachability states: not defined, waiting for response, unreachable,
+  reachable. An existing three-option group can explicitly add its waiting option
+  in the source editor; no group or existing contact is converted automatically.
+- [x] Configurable call/email/SMS channels, failed-attempt threshold, reply deadline,
+  minimum connected talk time and successful-contact validity (zero = no expiry).
+- [x] Exact Mission/contact evidence only. Sent/delivered messages await a reply;
+  delivery/open receipts are never success. Bound incoming replies or sufficiently
+  long connected calls establish success; a later failure does not erase it.
+  Forwarded caller-channel answer alone is deliberately not accepted as proof.
+- [x] Durable communication/assignment hints and timed recovery; transactional
+  exclusive selection, database ownership guard, system audit and no-replay
+  baseline/reconfiguration. Old communications without reliable attribution
+  cannot be used as evidence.
+- [x] Source configuration participates in cloning and version restoration;
+  runtime state/transitions do not. All editor copy is localized in seven languages.
+
+This extension does not enable controlled chaining or deploy to production.
+
 ## 4. Controlled chaining
 - [ ] Explicit opt-in to run target automations; default remains write-only.
 - [ ] Detect loops/conflicts, preserve causation and execution order.
