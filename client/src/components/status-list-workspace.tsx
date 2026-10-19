@@ -4,7 +4,6 @@ import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Eye, EyeOff, L
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { StatusListOptionSourcePanel, isOptionGroup } from "./status-list-option-source-panel";
 import { StatusListBackgroundSourcePanel } from "./status-list-background-source-panel";
 import { StatusListWorkflowEditor } from "./status-list-workflow-editor";
@@ -21,11 +20,11 @@ export type WorkspaceItem = {
   id: string; label: string; stepId: string; parentId: string | null; sortOrder: number;
   itemType?: string; confirmationType: string; tab?: string | null; isHidden?: boolean; required: boolean;
   automations: { id: string; actionType: string }[];
-  questions: { id: string; questionText: string; sortOrder?: number; isHidden?: boolean; automations: { id: string; actionType: string }[] }[];
+  questions: { id: string; questionText: string; sortOrder?: number; isHidden?: boolean; required?: boolean; groupName?: string | null; logicOperator?: string; gotoQuestionId?: string | null; icon?: string | null; color?: string | null; description?: string | null; fieldType?: string | null; automations: { id: string; actionType: string }[] }[];
 };
 type Props = {
   campaignId: string; locale: string; items: WorkspaceItem[]; selectedId: string; onSelect: (id: string) => void;
-  tools: ReactNode; definition: ReactNode; coverage: ReactNode;
+  tools: ReactNode; definition: ReactNode | ((selectedItemId: string, selectedQuestionId: string | null) => ReactNode); coverage: ReactNode;
 };
 export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage }: Props) {
   const copy = getStatusListWorkspaceCopy(locale);
@@ -58,25 +57,35 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
       expandButtonRef.current?.focus({ preventScroll: true });
     };
   }, [expanded]);
-  const [panel, setPanel] = useState<"owner" | "visibility" | "triggers">("owner");
+  const [panel, setPanel] = useState<"definition" | "owner" | "triggers">("definition");
   const [phase, setPhase] = useState("all");
   const [visibility, setVisibility] = useState<"all" | "visible" | "hidden">("all");
   const [search, setSearch] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
-  const [definitionOpen, setDefinitionOpen] = useState(false);
+  const [selectionRevision, setSelectionRevision] = useState(0);
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/option-sources`;
   const sourceQuery = useQuery<{ sources: OptionSource[]; catalog: WorkflowCatalogItem[] }>({
     queryKey: [endpoint],
     queryFn: async () => { const response = await fetch(endpoint, { credentials: "include" }); if (!response.ok) throw Error(String(response.status)); return response.json(); },
   });
-  const selected = items.find(item => item.id === selectedId);
-  const selectedQuestion = selected?.questions.find(question => question.id === selectedQuestionId);
-  const parent = selected && items.find(item => item.id === selected.parentId);
+  const outline = useMemo(() => statusListOutline(items, phase, "", search, emptyStatusListOrganization, visibility), [items, phase, search, visibility]);
+  // Resolve the selection synchronously from the exact outline displayed at left.
+  const candidate = items.find(item => item.id === selectedId);
+  const selectedQuestionCandidate = candidate?.questions.find(question => question.id === selectedQuestionId && outline.visibleQuestions.has(question.id));
+  const selected = candidate && (outline.matchingItems.has(candidate.id) || !!selectedQuestionCandidate) ? candidate : undefined;
+  const selectedQuestion = selected?.questions.find(question => question.id === selectedQuestionId && outline.visibleQuestions.has(question.id));
+  const selectedForTree = selected?.id || "";
+  const parent = selectedId && items.find(item => item.id === selectedId)?.parentId
+    ? items.find(item => item.id === items.find(entry => entry.id === selectedId)?.parentId)
+    : undefined;
   const catalog = sourceQuery.data?.catalog || [];
-  const sourceGroup = parent && isOptionGroup(catalog.find(item => item.id === parent.id)!, catalog) ? parent : selected;
+  const parentCatalogItem = parent && catalog.find(item => item.id === parent.id);
+  const sourceGroup = parent && parentCatalogItem && isOptionGroup(parentCatalogItem, catalog) ? parent : selected;
   const source = sourceQuery.data?.sources.find(entry => entry.groupId === sourceGroup?.id);
-  const isDerived = !!source || catalog.some(item => item.id === selectedId && item.backgroundSource);
+  const isDerived = selectedQuestion
+    ? catalog.some(item => item.kind === "question" && item.id === selectedQuestion.id && !!item.backgroundSource)
+    : !!source || catalog.some(item => item.id === selectedId && item.backgroundSource);
   const hiddenAncestor = (() => {
     const seen = new Set<string>();
     let ancestor = parent;
@@ -90,7 +99,8 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   const eligibleGroup = !!sourceGroup && !!catalog.find(item => item.id === sourceGroup.id && isOptionGroup(item, catalog));
   const hasQuestions = !!selected?.questions.length;
   const contextIds = useMemo(() => {
-    const ids = new Set<string>(selectedId ? [selectedId] : []);
+    if (selectedQuestion) return [selectedQuestion.id];
+    const ids = new Set<string>(selectedForTree ? [selectedForTree] : []);
     let changed = true;
     while (changed) {
       changed = false;
@@ -98,33 +108,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     }
     for (const item of items) if (ids.has(item.id)) for (const question of item.questions) ids.add(question.id);
     return Array.from(ids);
-  }, [items, selectedId]);
-  const outline = useMemo(() => statusListOutline(items, phase, "", search, emptyStatusListOrganization, visibility), [items, phase, search, visibility]);
-  useEffect(() => {
-    if (!selected && !selectedId) {
-      const firstMatch = items.find(item => outline.matchingItems.has(item.id));
-      if (firstMatch) onSelect(firstMatch.id);
-      else {
-        const owner = items.find(item => item.questions.some(question => outline.visibleQuestions.has(question.id)));
-        if (owner) {
-          onSelect(owner.id);
-          setSelectedQuestionId(owner.questions.find(question => outline.visibleQuestions.has(question.id))?.id || null);
-        }
-      }
-    }
-  }, [items, selected, selectedId, outline.matchingItems, outline.visibleQuestions, onSelect]);
-  const update = useMutation({
-    mutationFn: (patch: { isHidden?: boolean; required?: boolean; tab?: string | null }) => apiRequest("PATCH", `/api/campaigns/${campaignId}/status-list-workflows/items/${selectedId}/presentation`, patch),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
-        queryClient.invalidateQueries({ queryKey: [endpoint] }),
-        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list-workflows"] }),
-      ]);
-      toast({ title: copy.saved });
-    },
-    onError: () => toast({ title: copy.error, variant: "destructive" }),
-  });
+  }, [items, selectedForTree, selectedQuestion?.id]);
   const move = useMutation({
     mutationFn: ({ itemId, questionId, direction, neighborId }: { itemId: string; questionId?: string; direction: "up" | "down"; neighborId: string }) =>
       apiRequest("POST", `/api/campaigns/${campaignId}/status-list-workflows/items/${itemId}${questionId ? `/questions/${questionId}` : ""}/move`, { direction, neighborId }),
@@ -133,22 +117,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   });
   const childrenOf = (id: string) => items.filter(item => item.parentId === id).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const roots = items.filter(item => (!item.parentId || !items.some(parent => parent.id === item.parentId)) && outline.visibleItems.has(item.id)).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
-  const choose = (id: string, edit = false) => { onSelect(id); setSelectedQuestionId(null); setTab("content"); setPanel("owner"); setDefinitionOpen(edit); };
-  useEffect(() => {
-    if (selectedQuestionId && !outline.visibleQuestions.has(selectedQuestionId)) setSelectedQuestionId(null);
-    const selectedQuestionStillMatches = !!selectedQuestionId && outline.visibleQuestions.has(selectedQuestionId);
-    if (selectedId && !outline.matchingItems.has(selectedId) && !selectedQuestionStillMatches) {
-      const nextItem = items.find(item => outline.matchingItems.has(item.id));
-      if (nextItem) onSelect(nextItem.id);
-      else {
-        const questionOwner = items.find(item => item.questions.some(question => outline.visibleQuestions.has(question.id)));
-        if (questionOwner) {
-          onSelect(questionOwner.id);
-          setSelectedQuestionId(questionOwner.questions.find(question => outline.visibleQuestions.has(question.id))?.id || null);
-        } else onSelect("");
-      }
-    }
-  }, [items, outline.matchingItems, outline.visibleQuestions, selectedId, selectedQuestionId, onSelect]);
+  const choose = (id: string, _edit = false) => { onSelect(id); setSelectedQuestionId(null); setSelectionRevision(value => value + 1); setTab("content"); setPanel("definition"); };
   const moveButtons = (item: WorkspaceItem, question?: WorkspaceItem["questions"][number]) => {
     const siblings = question
       ? item.questions.filter(entry => outline.visibleQuestions.has(entry.id)).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id.localeCompare(b.id))
@@ -179,7 +148,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
       </div>
       {open && children.map(child => renderTree(child, depth + 1, next))}
       {open && questions.map(question => <div key={question.id} data-testid={`status-list-question-row-${question.id}`} data-hidden={hidden || !!question.isHidden} className={`slw-tree-row slw-question-row ${hidden || question.isHidden ? "slw-hidden-row" : ""} ${selectedQuestionId === question.id ? "selected" : ""}`}>
-        <span className="slw-dot"/><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { onSelect(item.id); setSelectedQuestionId(question.id); setDefinitionOpen(true); }}>{question.questionText}</button>
+        <span className="slw-dot"/><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { onSelect(item.id); setSelectedQuestionId(question.id); setSelectionRevision(value => value + 1); setPanel("definition"); }}>{question.questionText}</button>
         {visibilityBadge(hidden || !!question.isHidden, hidden)}{moveButtons(item, question)}
       </div>)}
     </div>;
@@ -208,46 +177,42 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
              <button type="button" data-testid={`status-list-visibility-${value}`} aria-pressed={visibility === value} className={visibility === value ? "active" : ""} onClick={() => setVisibility(value)} key={value}>{copy[value]}</button>)}</div>
           <label className="slw-search"><Search size={14}/><input aria-label={copy.search} placeholder={copy.search} value={search} onChange={event => setSearch(event.target.value)}/></label>
           <div className="slw-tree">{roots.length ? roots.map(item => renderTree(item)) : <p className="slw-message">{copy.empty}</p>}</div>
-          <div className="slw-tree-actions"><Button variant="ghost" size="sm" disabled={!selected} onClick={() => setDefinitionOpen(true)}>{copy.edit}</Button></div>
+          <div className="slw-tree-actions"><Button variant="ghost" size="sm" disabled={!selected} onClick={() => setPanel("definition")}>{copy.edit}</Button></div>
         </aside>
         <article className="slw-detail">
           {selected ? <>
-            <header className="slw-detail-heading"><small>{selected.stepId}</small><h3>{selected.label}</h3></header>
+            <header className="slw-detail-heading"><small>{selectedQuestion ? `${selected.stepId} · ${selected.label}` : selected.stepId}</small><h3>{selectedQuestion?.questionText || selected.label}</h3></header>
             <section className="slw-organization">
               {selectedQuestion && <strong>{selectedQuestion.questionText}</strong>}
-              <label>{copy.agentPhase}{selectedQuestion ? <span>{copy.inheritPhase}</span> : <select data-testid="status-list-phase-assignment" value={selected.tab || "both"} disabled={update.isPending} onChange={event => update.mutate({ tab: event.target.value === "both" ? null : event.target.value })}>
-                <option value="both">{copy.sharedPhase}</option><option value="acquisition">{copy.acquisition}</option><option value="contract">{copy.contract}</option><option value="retention">{copy.retention}</option>
-              </select>}</label>
+              <label>{copy.agentPhase}<span>{selectedQuestion ? copy.inheritPhase : selected.tab === "acquisition" ? copy.acquisition : selected.tab === "contract" ? copy.contract : selected.tab === "retention" ? copy.retention : copy.sharedPhase}</span></label>
             </section>
             <div className="slw-source-summary"><span>{isDerived ? <Settings2 size={17}/> : <UserRound size={17}/>}</span><div><strong>{copy.owner}</strong><p>{isDerived ? copy.system : copy.agent}</p></div></div>
-            <nav className="slw-inspector-tabs">{(["owner", "visibility", "triggers"] as const).map(value => <button type="button" className={panel === value ? "active" : ""} onClick={() => setPanel(value)} key={value}>{copy[value]}</button>)}</nav>
+            <nav className="slw-inspector-tabs">{([["definition", Settings2], ["owner", UserRound], ["triggers", Zap]] as const).map(([value, Icon]) => <button type="button" data-testid={`status-list-inspector-${value}`} className={panel === value ? "active" : ""} onClick={() => setPanel(value)} key={value}><Icon size={13}/>{value === "definition" ? copy.settings : copy[value]}</button>)}</nav>
             <div className="slw-inspector">
               {panel === "owner" && <>
                 <p className="slw-message">{copy.sourceHint}</p>
                 {sourceGroup?.id !== selected.id && <p className="slw-notice">{copy.inherited} <strong>{sourceGroup?.label}</strong></p>}
                 {sourceQuery.isLoading ? <div className="h-20 animate-pulse rounded bg-muted"/> : sourceQuery.isError ? <Button variant="outline" onClick={() => void sourceQuery.refetch()}>{copy.error}</Button> :
-                  eligibleGroup ? <StatusListOptionSourcePanel key={sourceGroup!.id} campaignId={campaignId} locale={locale} targetGroupId={sourceGroup!.id}/> :
+                  eligibleGroup && !selectedQuestion ? <StatusListOptionSourcePanel key={sourceGroup!.id} campaignId={campaignId} locale={locale} targetGroupId={sourceGroup!.id}/> :
                   !hasQuestions && <p className="slw-notice">{copy.unsupported}</p>}
-                {hasQuestions && <StatusListBackgroundSourcePanel key={selected.id} campaignId={campaignId} locale={locale} targetItemId={selected.id} hideOptionSources/>}
+                {hasQuestions && <StatusListBackgroundSourcePanel key={`${selected.id}:${selectedQuestion?.id || ""}`} campaignId={campaignId} locale={locale} targetItemId={selected.id} targetQuestionId={selectedQuestion?.id} hideOptionSources/>}
               </>}
-              {panel === "visibility" && <>
-                <p className="slw-message">{copy.sourceHint}</p>
+              {panel === "definition" && <>
                 {hiddenAncestor && <p className="slw-notice">{copy.parentHidden} <button className="underline" onClick={() => onSelect(hiddenAncestor.id)}>{hiddenAncestor.label}</button></p>}
-                <label className="slw-setting"><span><Eye size={16}/>{copy.show}</span><Switch aria-label={copy.show} checked={!selected.isHidden && !hiddenAncestor} disabled={update.isPending || !!hiddenAncestor} onCheckedChange={visible => update.mutate({ isHidden: !visible })}/></label>
-                <label className="slw-setting"><span>{copy.required}</span><Switch aria-label={copy.required} checked={selected.required} disabled={update.isPending} onCheckedChange={required => update.mutate({ required })}/></label>
+                <section key={selectionRevision} className="slw-definition slw-integrated-editor" aria-label={copy.definition}>
+                  <header><Settings2 size={15}/><div><strong>{copy.definition}</strong><p>{selectedQuestion ? copy.questionVisibilityHint : copy.editorHint}</p></div></header>
+                  {typeof definition === "function" ? definition(selected.id, selectedQuestion?.id || null) : definition}
+                </section>
               </>}
               {panel === "triggers" && <>
                 <p className="slw-notice">{copy.chaining}</p>
                 <StatusListWorkflowEditor campaignId={campaignId} locale={locale} sourceIds={contextIds} showBackgroundSources={false}/>
                 <p className="slw-message">{copy.transition}</p>
-                <Button variant="outline" onClick={() => setDefinitionOpen(true)}>{copy.original}</Button>
+                <p className="slw-message">{copy.originalHint}</p>
               </>}
-              <details className="slw-definition" open={definitionOpen} onToggle={event => setDefinitionOpen(event.currentTarget.open)}>
-                <summary>{copy.definition}</summary>{definitionOpen && definition}
-              </details>
               <details className="slw-definition"><summary>{copy.advanced}</summary>{coverage}</details>
             </div>
-          </> : <div className="slw-message">{copy.select}{definition}</div>}
+          </> : <div className="slw-empty-detail"><Layers3 size={20}/><p>{copy.select}</p><small>{copy.emptyDetail}</small></div>}
         </article>
       </div>
     </>}

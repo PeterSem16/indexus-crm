@@ -19,7 +19,7 @@ const supports = (item: WorkflowCatalogItem, source: Source["source"], catalog: 
     : ["text", "string"].includes(item.fieldType.toLowerCase());
 };
 
-export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItemId, hideOptionSources = false }: { campaignId: string; locale: Locale | string; targetItemId?: string; hideOptionSources?: boolean }) {
+export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItemId, targetQuestionId, hideOptionSources = false }: { campaignId: string; locale: Locale | string; targetItemId?: string; targetQuestionId?: string; hideOptionSources?: boolean }) {
   const copy = getStatusListBackgroundCopy(locale);
   const { toast } = useToast();
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/sources`;
@@ -38,7 +38,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   const [hidden, setHidden] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const catalog = query.data?.catalog || [];
-  const relevant = (id: string) => !targetItemId || catalog.some(item => item.id === id && item.parentId === targetItemId);
+  const relevant = (id: string) => (!targetQuestionId || id === targetQuestionId) && (!targetItemId || catalog.some(item => item.id === id && item.parentId === targetItemId));
   const owned = (query.data?.sources || []).filter(entry => relevant(entry.questionId));
   const questions = useMemo(() => catalog.filter(item =>
     item.kind === "question" && relevant(item.id) && supports(item, source, catalog) &&

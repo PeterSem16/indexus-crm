@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import {
   Clock, DollarSign, Shield, Activity, Home, Building2, Flag, Lightbulb,
   Lock, Award, CircleAlert, CircleCheck, Smile, Stethoscope, Baby, Dna, ClipboardCheck,
   Settings, Hash, ToggleLeft, Type, Sparkles,
+  Workflow,
 } from "lucide-react";
 
 type StatusListAutomation = {
@@ -345,6 +346,24 @@ const SL: Record<string, Record<string, string>> = {
 
   requiredBadge:   { sk: "Povinný", en: "Required", cs: "Povinný", hu: "Kötelező", ro: "Obligatoriu", it: "Obbligatorio", de: "Pflicht" },
   stepIdLbl:       { sk: "Krok ID", en: "Step ID", cs: "Krok ID", hu: "Lépés ID", ro: "ID pas", it: "ID passo", de: "Schritt-ID" },
+  addNestedStep:   { sk: "Pridať vnorený krok", en: "Add nested step", cs: "Přidat vnořený krok", hu: "Beágyazott lépés hozzáadása", ro: "Adăugați un pas imbricat", it: "Aggiungi passaggio annidato", de: "Untergeordneten Schritt hinzufügen" },
+  addNestedStepHint: { sk: "Krok bude dediť kontext nadradenej položky.", en: "The new step will inherit this parent context.", cs: "Nový krok zdědí kontext nadřazené položky.", hu: "Az új lépés örökli a szülő kontextusát.", ro: "Noul pas va moșteni contextul părintelui.", it: "Il nuovo passaggio erediterà il contesto del genitore.", de: "Der neue Schritt übernimmt den Kontext des übergeordneten Elements." },
+  inspectorIdentity: { sk: "Identita a inštrukcie", en: "Identity and instructions", cs: "Identita a pokyny", hu: "Azonosító és útmutató", ro: "Identitate și instrucțiuni", it: "Identità e istruzioni", de: "Identität und Anweisungen" },
+  inspectorIdentityHelp: { sk: "ID a text, ktoré agent používa na rozpoznanie tohto kroku.", en: "The identifier and copy agents use to recognize this step.", cs: "ID a text, podle kterých agent pozná tento krok.", hu: "Az azonosító és szöveg, amely alapján az ügynök felismeri a lépést.", ro: "Identificatorul și textul prin care agentul recunoaște pasul.", it: "ID e testo con cui l'agente riconosce questo passaggio.", de: "Kennung und Text, anhand derer Agenten diesen Schritt erkennen." },
+  inspectorFlow: { sk: "Nadväznosť a obmedzenia", en: "Flow and restrictions", cs: "Návaznost a omezení", hu: "Folyamat és korlátozások", ro: "Flux și restricții", it: "Flusso e limitazioni", de: "Ablauf und Einschränkungen" },
+  inspectorFlowHelp: { sk: "Voliteľný ďalší krok a pravidlá, ktoré obmedzujú dostupnosť.", en: "Optional next step and rules that restrict availability.", cs: "Volitelný další krok a pravidla omezující dostupnost.", hu: "Opcionális következő lépés és a rendelkezésre állást korlátozó szabályok.", ro: "Pasul următor opțional și regulile care limitează disponibilitatea.", it: "Passaggio successivo facoltativo e regole che limitano la disponibilità.", de: "Optionaler nächster Schritt und Regeln zur Einschränkung der Verfügbarkeit." },
+  inspectorAnswer: { sk: "Odpoveď a potvrdenie", en: "Response and confirmation", cs: "Odpověď a potvrzení", hu: "Válasz és megerősítés", ro: "Răspuns și confirmare", it: "Risposta e conferma", de: "Antwort und Bestätigung" },
+  inspectorAnswerHelp: { sk: "Typ vstupu, povinnosť a správanie potvrdenia sú oddelené od viditeľnosti.", en: "Input type, required status and confirmation behavior are separate from visibility.", cs: "Typ vstupu, povinnost a potvrzování jsou oddělené od viditelnosti.", hu: "A mezőtípus, kötelezőség és megerősítés különáll a láthatóságtól.", ro: "Tipul de intrare, obligativitatea și confirmarea sunt separate de vizibilitate.", it: "Tipo di risposta, obbligatorietà e conferma sono distinti dalla visibilità.", de: "Eingabetyp, Pflichtstatus und Bestätigung sind unabhängig von der Sichtbarkeit." },
+  inspectorQuestion: { sk: "Otázka a logika", en: "Question and logic", cs: "Otázka a logika", hu: "Kérdés és logika", ro: "Întrebare și logică", it: "Domanda e logica", de: "Frage und Logik" },
+  inspectorQuestionHelp: { sk: "Text poľa, skupina, viditeľnosť a pravidlá presmerovania.", en: "Field text, group, visibility and jump logic.", cs: "Text pole, skupina, viditelnost a pravidla přechodu.", hu: "Mezőszöveg, csoport, láthatóság és továbblépési logika.", ro: "Textul câmpului, grupul, vizibilitatea și logica de salt.", it: "Testo del campo, gruppo, visibilità e logica di salto.", de: "Feldtext, Gruppe, Sichtbarkeit und Sprunglogik." },
+  inspectorAutomationHelp: { sk: "Pôvodné akcie sa spúšťajú pri potvrdení. Nové workflow sú samostatné a nič nenahrádzajú.", en: "Original actions run on confirmation. New workflows are separate and do not replace them.", cs: "Původní akce se spouštějí při potvrzení. Nové workflow jsou oddělené a nenahrazují je.", hu: "Az eredeti műveletek megerősítéskor futnak. Az új munkafolyamatok különállók, nem helyettesítik őket.", ro: "Acțiunile originale rulează la confirmare. Fluxurile noi sunt separate și nu le înlocuiesc.", it: "Le azioni originali vengono eseguite alla conferma. I nuovi flussi sono separati e non le sostituiscono.", de: "Ursprüngliche Aktionen werden bei Bestätigung ausgeführt. Neue Workflows sind getrennt und ersetzen sie nicht." },
+  inspectorVisibility: { sk: "Zobrazenie a fáza", en: "Visibility and phase", cs: "Zobrazení a fáze", hu: "Láthatóság és fázis", ro: "Vizibilitate și fază", it: "Visibilità e fase", de: "Sichtbarkeit und Phase" },
+  inspectorVisibilityHelp: { sk: "Skrytie a umiestnenie vo fáze sú oddelené od typu odpovede.", en: "Visibility and phase placement are separate from the response type.", cs: "Skrytí a umístění ve fázi jsou oddělené od typu odpovědi.", hu: "A láthatóság és fáziselhelyezés különáll a válasz típusától.", ro: "Vizibilitatea și faza sunt separate de tipul răspunsului.", it: "Visibilità e fase sono distinte dal tipo di risposta.", de: "Sichtbarkeit und Phasenzuordnung sind unabhängig vom Antworttyp." },
+  inspectorSelection: { sk: "Výber podotázok", en: "Sub-question selection", cs: "Výběr podotázek", hu: "Alkérdések kiválasztása", ro: "Selectarea subîntrebărilor", it: "Selezione delle sotto-domande", de: "Auswahl von Unterfragen" },
+  inspectorSelectionHelp: { sk: "Určuje, či agent môže zvoliť jednu alebo viac podotázok.", en: "Controls whether agents can choose one or multiple sub-questions.", cs: "Určuje, zda agent může zvolit jednu nebo více podotázek.", hu: "Meghatározza, hogy az ügynök egy vagy több alkérdést választhat.", ro: "Stabilește dacă agentul poate alege una sau mai multe subîntrebări.", it: "Determina se l'agente può selezionare una o più sotto-domande.", de: "Legt fest, ob Agenten eine oder mehrere Unterfragen auswählen können." },
+  inspectorCanonical: { sk: "Mapovanie klinického statusu", en: "Clinic status mapping", cs: "Mapování klinického statusu", hu: "Rendelői státusz-hozzárendelés", ro: "Maparea statusului clinicii", it: "Mappatura stato clinica", de: "Zuordnung des Klinikstatus" },
+  questionParentContext: { sk: "Upravujete otázku v tomto nadradenom kroku", en: "Editing a question on this parent step", cs: "Upravujete otázku v tomto nadřazeném kroku", hu: "A szülő lépés egyik kérdését szerkeszti", ro: "Editați o întrebare din acest pas părinte", it: "Stai modificando una domanda di questo passaggio principale", de: "Sie bearbeiten eine Frage in diesem übergeordneten Schritt" },
+  questionAutomationManage: { sk: "Pokračovať k akciám otázky", en: "Continue to question actions", cs: "Pokračovat k akcím otázky", hu: "Tovább a kérdés műveleteihez", ro: "Continuați la acțiunile întrebării", it: "Continua alle azioni della domanda", de: "Weiter zu den Fragenaktionen" },
   stepLabelLbl:    { sk: "Názov kroku", en: "Step name", cs: "Název kroku", hu: "Lépés neve", ro: "Nume pas", it: "Nome passo", de: "Schrittname" },
   stepLabelReq:    { sk: "Názov kroku *", en: "Step name *", cs: "Název kroku *", hu: "Lépés neve *", ro: "Nume pas *", it: "Nome passo *", de: "Schrittname *" },
   descLbl:         { sk: "Popis (voliteľný)", en: "Description (optional)", cs: "Popis (volitelný)", hu: "Leírás (opcionális)", ro: "Descriere (opțional)", it: "Descrizione (opzionale)", de: "Beschreibung (optional)" },
@@ -356,6 +375,8 @@ const SL: Record<string, Record<string, string>> = {
   saveBtn:         { sk: "Uložiť zmeny", en: "Save changes", cs: "Uložit změny", hu: "Változtatások mentése", ro: "Salvare modificări", it: "Salva modifiche", de: "Änderungen speichern" },
   stepSaved:       { sk: "Krok uložený", en: "Step saved", cs: "Krok uložen", hu: "Lépés mentve", ro: "Pas salvat", it: "Passo salvato", de: "Schritt gespeichert" },
   stepDeleted:     { sk: "Krok zmazaný", en: "Step deleted", cs: "Krok smazán", hu: "Lépés törölve", ro: "Pas șters", it: "Passo eliminato", de: "Schritt gelöscht" },
+  deleteStepBtn:   { sk: "Zmazať krok", en: "Delete step", cs: "Smazat krok", hu: "Lépés törlése", ro: "Ștergeți pasul", it: "Elimina passaggio", de: "Schritt löschen" },
+  deleteStepConfirm: { sk: "Naozaj chcete zmazať tento krok?", en: "Delete this step?", cs: "Opravdu chcete tento krok smazat?", hu: "Törli ezt a lépést?", ro: "Ștergeți acest pas?", it: "Eliminare questo passaggio?", de: "Diesen Schritt löschen?" },
   autoDeleted:     { sk: "Automatizácia zmazaná", en: "Automation deleted", cs: "Automatizace smazána", hu: "Automatizáció törölve", ro: "Automatizare ștearsă", it: "Automazione eliminata", de: "Automatisierung gelöscht" },
   automationsTitle:{ sk: "Automatizácie pri potvrdení", en: "Automations on confirmation", cs: "Automatizace při potvrzení", hu: "Automatizációk megerősítéskor", ro: "Automatizări la confirmare", it: "Automatizzazioni alla conferma", de: "Automatisierungen bei Bestätigung" },
   addActionBtn:    { sk: "Pridať akciu", en: "Add action", cs: "Přidat akci", hu: "Akció hozzáadása", ro: "Adăugare acțiune", it: "Aggiungi azione", de: "Aktion hinzufügen" },
@@ -416,6 +437,9 @@ const SL: Record<string, Record<string, string>> = {
   qAdded:          { sk: "Otázka pridaná", en: "Question added", cs: "Otázka přidána", hu: "Kérdés hozzáadva", ro: "Întrebare adăugată", it: "Domanda aggiunta", de: "Frage hinzugefügt" },
   qDeleted:        { sk: "Otázka zmazaná", en: "Question deleted", cs: "Otázka smazána", hu: "Kérdés törölve", ro: "Întrebare ștearsă", it: "Domanda eliminata", de: "Frage gelöscht" },
   qCopied:         { sk: "Otázka skopírovaná", en: "Question copied", cs: "Otázka zkopírována", hu: "Kérdés másolva", ro: "Întrebare copiată", it: "Domanda copiata", de: "Frage kopiert" },
+  editQuestion:    { sk: "Upraviť otázku", en: "Edit question", cs: "Upravit otázku", hu: "Kérdés szerkesztése", ro: "Editează întrebarea", it: "Modifica domanda", de: "Frage bearbeiten" },
+  copyQuestion:    { sk: "Duplikovať otázku", en: "Duplicate question", cs: "Duplikovat otázku", hu: "Kérdés másolása", ro: "Duplică întrebarea", it: "Duplica domanda", de: "Frage duplizieren" },
+  deleteQuestion:  { sk: "Zmazať otázku", en: "Delete question", cs: "Smazat otázku", hu: "Kérdés törlése", ro: "Șterge întrebarea", it: "Elimina domanda", de: "Frage löschen" },
   qActionsTitle:   { sk: "Akcie otázky", en: "Question actions", cs: "Akce otázky", hu: "Kérdés akciói", ro: "Acțiuni întrebare", it: "Azioni domanda", de: "Frageaktionen" },
   addQActionBtn:   { sk: "Pridať akciu", en: "Add action", cs: "Přidat akci", hu: "Akció hozzáadása", ro: "Adăugare acțiune", it: "Aggiungi azione", de: "Aktion hinzufügen" },
   qRequired:       { sk: "Povinná otázka", en: "Required question", cs: "Povinná otázka", hu: "Kötelező kérdés", ro: "Întrebare obligatorie", it: "Domanda obbligatoria", de: "Pflichtfrage" },
@@ -2357,6 +2381,9 @@ function QuestionEditor({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
       toast({ title: isEdit ? sl("qSaved", locale) : sl("qAdded", locale) });
+      queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}/status-list-workflows/sources`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}/status-list-workflows/option-sources`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list-workflows"] });
       onSaved();
     },
     onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
@@ -2370,11 +2397,13 @@ function QuestionEditor({
   const otherQuestions = allQuestions.filter(q => q.id !== question?.id);
 
   return (
-    <div className="border rounded-lg p-3 space-y-2.5 bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/30">
+    <div className="border rounded-lg p-3 space-y-2.5 bg-blue-50/30 dark:bg-blue-950/10 border-blue-200/50 dark:border-blue-800/30" data-question-id={question?.id || "new"}>
+      <div className="slw-editor-group-title"><CircleHelp size={14}/><div><strong>{sl("inspectorQuestion", locale)}</strong><small>{sl("inspectorQuestionHelp", locale)}</small></div></div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <Label className="text-xs mb-1 block">{sl("qGroupNameLbl", locale)}</Label>
           <Input
+            data-testid="status-list-question-group"
             className="h-8 text-xs"
             value={form.groupName}
             onChange={e => setForm(f => ({ ...f, groupName: e.target.value }))}
@@ -2418,6 +2447,7 @@ function QuestionEditor({
         <Label className="text-xs mb-1 block">{sl("questionTextLbl", locale)} *</Label>
         <Input
           className="h-8 text-xs"
+          data-testid="status-list-question-text"
           value={form.questionText}
           onChange={e => setForm(f => ({ ...f, questionText: e.target.value }))}
           placeholder={sl("questionTextPh", locale)}
@@ -2497,7 +2527,7 @@ function QuestionEditor({
         <div>
           <Label className="text-xs mb-1 block">{sl("qFieldTypeLbl", locale)}</Label>
           <Select value={form.fieldType || "checkbox"} onValueChange={v => setForm(f => ({ ...f, fieldType: v }))}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-8 text-xs" data-testid="status-list-question-field-type"><SelectValue /></SelectTrigger>
             <SelectContent>
               {FIELD_TYPES.map(ft => {
                 const FtIcon = ft.icon;
@@ -2514,7 +2544,7 @@ function QuestionEditor({
           </Select>
         </div>
         <div className="flex items-center gap-2 pt-4">
-          <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} />
+          <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} data-testid="status-list-question-hidden" />
           <Label className="text-xs text-muted-foreground">{sl("qHiddenLbl", locale)}</Label>
         </div>
       </div>
@@ -2583,7 +2613,7 @@ function QuestionEditor({
           </Select>
         </div>
         <div className="flex items-center gap-2 pb-0.5">
-          <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
+          <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} data-testid="status-list-question-required" />
           <Label className="text-xs">{sl("qRequired", locale)}</Label>
         </div>
       </div>
@@ -2596,6 +2626,7 @@ function QuestionEditor({
           type="button"
           size="sm"
           className="h-7 text-xs"
+          data-testid="status-list-question-save"
           onClick={() => saveMutation.mutate()}
           disabled={saveMutation.isPending || !form.questionText.trim()}
         >
@@ -2608,7 +2639,7 @@ function QuestionEditor({
 }
 
 function StatusListItemRow({
-  item, campaignId, allItems, onDeleted, isSelected, onToggleSelect, defaultExpanded = false,
+  item, campaignId, allItems, onDeleted, isSelected, onToggleSelect, defaultExpanded = false, workspaceInspector = false, workspaceQuestionId = null,
 }: {
   item: StatusListItem;
   campaignId: string;
@@ -2617,15 +2648,18 @@ function StatusListItemRow({
   isSelected?: boolean;
   onToggleSelect?: () => void;
   defaultExpanded?: boolean;
+  workspaceInspector?: boolean;
+  workspaceQuestionId?: string | null;
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const [editMode, setEditMode] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded || workspaceInspector);
+  const [editMode, setEditMode] = useState(workspaceInspector);
   const [addingAutomation, setAddingAutomation] = useState(false);
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
   const [addingQuestion, setAddingQuestion] = useState(false);
-  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  const [addingChildStep, setAddingChildStep] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(workspaceQuestionId);
   const [addingQActionFor, setAddingQActionFor] = useState<string | null>(null);
   const [editingQAutoId, setEditingQAutoId] = useState<string | null>(null);
 
@@ -2647,13 +2681,19 @@ function StatusListItemRow({
     tab: item.tab ?? null as string | null,
     canonicalClinicStatusKey: item.canonicalClinicStatusKey ?? null as string | null,
   });
+  useEffect(() => {
+    setForm(current => current.tab === (item.tab ?? null) ? current : { ...current, tab: item.tab ?? null });
+  }, [item.tab]);
 
   const updateMutation = useMutation({
     mutationFn: () => apiRequest("PUT", `/api/campaigns/${campaignId}/status-list/${item.id}`, form),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
       toast({ title: sl("stepSaved", locale) });
-      setEditMode(false);
+      queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}/status-list-workflows/sources`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/campaigns/${campaignId}/status-list-workflows/option-sources`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list-workflows"] });
+      if (!workspaceInspector) setEditMode(false);
     },
     onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
@@ -2711,10 +2751,22 @@ function StatusListItemRow({
   });
 
   const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || SquareCheck;
+  const inspectorQuestions = workspaceQuestionId
+    ? (item.questions ?? []).filter(question => question.id === workspaceQuestionId)
+    : item.questions ?? [];
 
   return (
     <div className="border rounded-lg bg-card overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-2.5 group">
+      {workspaceInspector ? (
+        <div className="slw-record-heading">
+          <div><span className="slw-record-code">{item.stepId}</span><strong>{item.label}</strong><small>{item.description || sl("stepBasics", locale)}</small></div>
+          {!workspaceQuestionId && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
+            if (window.confirm(sl("deleteStepConfirm", locale))) deleteMutation.mutate();
+          }} disabled={deleteMutation.isPending} data-testid={`status-list-delete-${item.id}`}>
+            <Trash2 className="h-4 w-4"/>{sl("deleteStepBtn", locale)}
+          </Button>}
+        </div>
+      ) : <div className="flex items-center gap-2 px-3 py-2.5 group">
         {onToggleSelect && (
           <button
             type="button"
@@ -2769,31 +2821,37 @@ function StatusListItemRow({
             {deleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
           </Button>
         </div>
-      </div>
+      </div>}
 
-      {expanded && (
+      {(expanded || workspaceInspector) && (
         <div className="border-t bg-muted/10 px-3 py-3 space-y-3">
-          {editMode ? (
+          {workspaceInspector && workspaceQuestionId ? (
+            <div className="slw-question-context" data-testid="status-list-question-context">
+              <CircleHelp size={15}/><span><strong>{sl("questionParentContext", locale)}</strong><small>{item.stepId} · {item.label}</small></span>
+            </div>
+          ) : editMode ? (
             <div className="space-y-2">
+              <div className="slw-editor-group-title"><Settings size={14}/><div><strong>{sl("inspectorIdentity", locale)}</strong><small>{sl("inspectorIdentityHelp", locale)}</small></div></div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs mb-1 block">{sl("stepIdLbl", locale)}</Label>
-                  <Input className="h-8 text-xs font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="CLA-01" />
+                  <Input className="h-8 text-xs font-mono" data-testid="status-list-step-id" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="CLA-01" />
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs mb-1 block">{sl("stepLabelLbl", locale)}</Label>
-                  <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} />
+                  <Input className="h-8 text-xs" data-testid="status-list-step-name" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} />
                 </div>
               </div>
               <div>
                 <Label className="text-xs mb-1 block">{sl("descLbl", locale)}</Label>
                 <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={sl("descPh", locale)} />
               </div>
+              <div className="slw-editor-group-title"><ArrowDownRight size={14}/><div><strong>{sl("inspectorFlow", locale)}</strong><small>{sl("inspectorFlowHelp", locale)}</small></div></div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
                   <Select value={form.nextStepId || "__none__"} onValueChange={v => setForm(f => ({ ...f, nextStepId: v === "__none__" ? "" : v }))}>
-                    <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs font-mono" data-testid="status-list-step-next-step"><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">—</SelectItem>
                       {allItems.filter(i => i.id !== item.id && i.itemType !== "option" && !i.isHidden).map(i => (
@@ -2807,65 +2865,44 @@ function StatusListItemRow({
                 </div>
                 <div className="col-span-2">
                   <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
-                  <Input className="h-8 text-xs" value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
+                  <Input className="h-8 text-xs" data-testid="status-list-step-restrictions" value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
+              <div className="slw-editor-group-title"><SquareCheck size={14}/><div><strong>{sl("inspectorAnswer", locale)}</strong><small>{sl("inspectorAnswerHelp", locale)}</small></div></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
                   <Label className="text-xs mb-1 block">{sl("confirmTypeLbl", locale)}</Label>
                   <Select value={form.confirmationType} onValueChange={v => setForm(f => ({ ...f, confirmationType: v }))}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CONFIRM_TYPE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          <span className="flex items-center gap-2">
-                            <opt.icon className="h-3.5 w-3.5" />
-                            {sl(opt.slKey, locale)}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger className="h-8 text-xs" data-testid="status-list-step-confirmation-type"><SelectValue /></SelectTrigger>
+                    <SelectContent>{CONFIRM_TYPE_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}><span className="flex items-center gap-2"><opt.icon className="h-3.5 w-3.5" />{sl(opt.slKey, locale)}</span></SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-center gap-2 pt-4">
-                  <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
-                  <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
-                </div>
-                <div className="flex items-center gap-2 pt-4">
-                  <Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} data-testid="switch-item-hidden" />
-                  <Label className="text-xs" title={sl("itemHiddenHint", locale)}>{sl("itemHiddenLbl", locale)}</Label>
-                </div>
-                <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
-                  <Switch checked={!!form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-auto-confirm-sub" />
-                  <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
-                </div>
-                <div>
-                  <Label className="text-xs mb-1 block">{sl("qSelModeLbl", locale)}</Label>
-                  <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
-                    <SelectTrigger className="h-8 text-xs" data-testid="select-question-selection-mode"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem>
-                      <SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <label className="flex items-center gap-2 pt-5 text-xs"><Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} data-testid="status-list-step-required" />{sl("requiredSwitch", locale)}</label>
+                <label className="col-span-2 flex items-start gap-2 text-xs" title={sl("autoConfirmSubHint", locale)}><Switch checked={!!form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="status-list-step-auto-confirm" /><span>{sl("autoConfirmSubLbl", locale)}<small className="block pt-1 text-muted-foreground">{sl("autoConfirmSubHint", locale)}</small></span></label>
+              </div>
+              <div className="slw-editor-group-title"><Eye size={14}/><div><strong>{sl("inspectorVisibility", locale)}</strong><small>{sl("inspectorVisibilityHelp", locale)}</small></div></div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>
-                  <Select value={form.tab ?? "__both__"} onValueChange={v => setForm(f => ({ ...f, tab: v === "__both__" ? null : v }))}>
-                    <SelectTrigger className="h-8 text-xs" data-testid="select-tab-assignment"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
-                      <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
-                      <SelectItem value="contract">{sl("tabContract", locale)}</SelectItem>
-                      <SelectItem value="retention">{sl("tabRet", locale)}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select className="slw-native-select" data-testid="status-list-phase-assignment" value={form.tab || "both"} onChange={event => setForm(f => ({ ...f, tab: event.target.value === "both" ? null : event.target.value }))}>
+                    <option value="both">{sl("tabBoth", locale)}</option><option value="acquisition">{sl("tabAcq", locale)}</option><option value="contract">{sl("tabContract", locale)}</option><option value="retention">{sl("tabRet", locale)}</option>
+                  </select>
                 </div>
+                <label className="flex items-center gap-2 pt-5 text-xs" title={sl("itemHiddenHint", locale)}><Switch checked={!!form.isHidden} onCheckedChange={v => setForm(f => ({ ...f, isHidden: v }))} data-testid="switch-item-hidden" />{sl("itemHiddenLbl", locale)}</label>
               </div>
+              <div className="slw-editor-group-title"><Workflow size={14}/><div><strong>{sl("inspectorSelection", locale)}</strong><small>{sl("inspectorSelectionHelp", locale)}</small></div></div>
               <div>
-                <Label className="text-xs mb-1 block" title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
+                <Label className="text-xs mb-1 block">{sl("qSelModeLbl", locale)}</Label>
+                <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
+                  <SelectTrigger className="h-8 text-xs" data-testid="status-list-step-selection-mode"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem><SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem></SelectContent>
+                </Select>
+              </div>
+              <div className="slw-editor-group-title"><Activity size={14}/><div><strong>{sl("inspectorCanonical", locale)}</strong><small>{sl("canonicalClinicHint", locale)}</small></div></div>
+              <div>
+                  <Label className="text-xs mb-1 block">{sl("canonicalClinicLbl", locale)}</Label>
                 <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
-                  <SelectTrigger className="h-8 text-xs" data-testid="select-canonical-clinic-status"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 text-xs" data-testid="status-list-step-canonical-status"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
                     {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
@@ -2880,10 +2917,20 @@ function StatusListItemRow({
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditMode(false)}>
+                <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                  if (workspaceInspector) setForm({
+                    stepId: item.stepId, label: item.label, description: item.description || "",
+                    confirmationType: item.confirmationType, required: item.required, nextStepId: item.nextStepId || "",
+                    restrictions: item.restrictions || "", isHidden: item.isHidden ?? false,
+                    autoConfirmOnSubQuestion: item.autoConfirmOnSubQuestion ?? false,
+                    questionSelectionMode: (item.questionSelectionMode ?? "multiple") as "multiple" | "single",
+                    tab: item.tab ?? null, canonicalClinicStatusKey: item.canonicalClinicStatusKey ?? null,
+                  });
+                  else setEditMode(false);
+                }}>
                   <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
                 </Button>
-                <Button type="button" size="sm" className="h-7 text-xs" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+                <Button type="button" size="sm" className="h-7 text-xs" onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending} data-testid="status-list-step-save">
                   {updateMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
                   {sl("saveBtn", locale)}
                 </Button>
@@ -2916,7 +2963,17 @@ function StatusListItemRow({
             </>
           )}
 
-          <div className="space-y-2">
+          {workspaceInspector && !workspaceQuestionId && (
+            <section className="slw-nested-step-control">
+              <div><strong>{sl("addNestedStep", locale)}</strong><small>{sl("addNestedStepHint", locale)}</small></div>
+              <Button type="button" variant="outline" size="sm" onClick={() => setAddingChildStep(true)} disabled={addingChildStep} data-testid={`status-list-add-child-${item.id}`}>
+                <Plus size={14}/>{sl("addNestedStep", locale)}
+              </Button>
+              {addingChildStep && <AddItemForm campaignId={campaignId} existingCount={allItems.length} allItems={allItems} parentId={item.id} onSaved={() => setAddingChildStep(false)} onCancel={() => setAddingChildStep(false)}/>}
+            </section>
+          )}
+
+          {(!workspaceInspector || !workspaceQuestionId) && <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 <Zap className="h-3 w-3 text-amber-500" />
@@ -2926,6 +2983,7 @@ function StatusListItemRow({
                 <Plus className="h-3 w-3" /> {sl("addActionBtn", locale)}
               </Button>
             </div>
+            <p className="slw-inline-help">{sl("inspectorAutomationHelp", locale)}</p>
 
             {item.automations.map(auto => (
               <div key={auto.id}>
@@ -2977,7 +3035,7 @@ function StatusListItemRow({
                 onCancel={() => setAddingAutomation(false)}
               />
             )}
-          </div>
+          </div>}
 
           {/* ── Questions section ────────────────────────── */}
           <div className="space-y-2 pt-1 border-t">
@@ -2985,24 +3043,25 @@ function StatusListItemRow({
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1">
                 <CircleHelp className="h-3 w-3 text-blue-500" />
                 {sl("questionsTitle", locale)}
-                {(item.questions?.length ?? 0) > 0 && (
+                {(inspectorQuestions.length ?? 0) > 0 && (
                   <span className="ml-1 text-[10px] font-normal normal-case text-blue-600 dark:text-blue-400">
-                    ({item.questions.length} {sl("qCountLabel", locale)})
+                    ({inspectorQuestions.length} {sl("qCountLabel", locale)})
                   </span>
                 )}
               </span>
-              <Button
+              {!workspaceQuestionId && <Button
                 type="button" variant="outline" size="sm"
+                data-testid={`status-list-add-question-${item.id}`}
                 className="h-6 text-xs gap-1 px-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30"
                 onClick={() => { setAddingQuestion(true); setEditingQuestionId(null); }}
               >
                 <Plus className="h-3 w-3" /> {sl("addQuestionBtn", locale)}
-              </Button>
+              </Button>}
             </div>
 
             {/* Grouped questions display */}
             {(() => {
-              const qs = item.questions ?? [];
+              const qs = inspectorQuestions;
               if (qs.length === 0 && !addingQuestion) return null;
               const grouped: Record<string, StatusListQuestion[]> = {};
               qs.forEach(q => {
@@ -3037,9 +3096,12 @@ function StatusListItemRow({
                                 campaignId={campaignId}
                                 existingQuestions={item.questions ?? []}
                                 allItems={allItems}
-                                onSaved={() => setEditingQuestionId(null)}
+                                onSaved={() => setEditingQuestionId(workspaceInspector && workspaceQuestionId ? q.id : null)}
                                 onCancel={() => setEditingQuestionId(null)}
                               />
+                              {workspaceInspector && <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setEditingQuestionId(null)} data-testid="status-list-question-actions">
+                                <Zap size={13}/>{sl("questionAutomationManage", locale)}
+                              </Button>}
                             </div>
                           ) : (
                             <>
@@ -3082,25 +3144,33 @@ function StatusListItemRow({
                                     type="button" variant="ghost" size="sm"
                                     className="h-5 w-5 p-0 text-amber-600 dark:text-amber-400"
                                     title={sl("addQActionBtn", locale)}
+                                    aria-label={sl("addQActionBtn", locale)}
                                     onClick={() => { setAddingQActionFor(q.id); setEditingQAutoId(null); setEditingQuestionId(null); }}
                                   >
                                     <Zap className="h-2.5 w-2.5" />
                                   </Button>
                                   <Button
                                     type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-blue-600 dark:text-blue-400"
-                                    title={sl("qCopied", locale)}
+                                    title={sl("copyQuestion", locale)}
+                                    aria-label={sl("copyQuestion", locale)}
                                     onClick={() => copyQuestionMutation.mutate(q.id)}
                                   >
                                     {copyQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Copy className="h-2.5 w-2.5" />}
                                   </Button>
                                   <Button
                                     type="button" variant="ghost" size="sm" className="h-5 w-5 p-0"
+                                    title={sl("editQuestion", locale)}
+                                    aria-label={sl("editQuestion", locale)}
+                                    data-testid={`status-list-edit-question-${q.id}`}
                                     onClick={() => { setEditingQuestionId(q.id); setAddingQuestion(false); setAddingQActionFor(null); }}
                                   >
                                     <PenLine className="h-2.5 w-2.5" />
                                   </Button>
                                   <Button
                                     type="button" variant="ghost" size="sm" className="h-5 w-5 p-0 text-destructive hover:text-destructive"
+                                    title={sl("deleteQuestion", locale)}
+                                    aria-label={sl("deleteQuestion", locale)}
+                                    data-testid={`status-list-delete-question-${q.id}`}
                                     onClick={() => deleteQuestionMutation.mutate(q.id)}
                                   >
                                     {deleteQuestionMutation.isPending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Trash2 className="h-2.5 w-2.5" />}
@@ -3188,13 +3258,14 @@ function StatusListItemRow({
 }
 
 function AddItemForm({
-  campaignId, existingCount, allItems, onSaved, onCancel,
+  campaignId, existingCount, allItems, onSaved, onCancel, parentId = null,
 }: {
   campaignId: string;
   existingCount: number;
   allItems: StatusListItem[];
   onSaved: () => void;
   onCancel: () => void;
+  parentId?: string | null;
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
@@ -3212,6 +3283,7 @@ function AddItemForm({
     tab: null as string | null,
     canonicalClinicStatusKey: null as string | null,
     isHidden: false,
+    parentId,
   });
 
   const addMutation = useMutation({
@@ -3886,6 +3958,14 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           </div>
         </section>
       </div>
+      <section className="slw-quick-options" data-testid="status-list-quick-options">
+        <header><div><strong>{getStatusListWorkspaceCopy(locale).quickOptions}</strong><p>{getStatusListWorkspaceCopy(locale).quickOptionsHelp}</p></div>
+          <Button type="button" variant="outline" size="sm" onClick={() => setAddingOption(true)} disabled={addingOption} data-testid="btn-add-status-list-option">
+            <Plus className="h-3.5 w-3.5"/>{getStatusListWorkspaceCopy(locale).addQuickOption}
+          </Button>
+        </header>
+        {addingOption && <AddOptionForm campaignId={campaignId} existingCount={items.filter(i => i.itemType === "option").length} onSaved={() => setAddingOption(false)} onCancel={() => setAddingOption(false)}/>}
+      </section>
 
       {addingItem && (
         <AddItemForm
@@ -3899,106 +3979,19 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
       {previewMode && <StatusListPreview items={items} locale={locale} />}
       </>}
-      definition={<>
-
-        <>
-          <div className="space-y-1.5">
-            {(() => {
-              const nonOptions = items.filter(i => i.itemType !== "option");
-              const roots = nonOptions.filter(i => workspaceSelection ? i.id === workspaceSelection : !i.parentId);
-              const childrenOf = (parentId: string) => nonOptions.filter(i => i.parentId === parentId);
-              return roots.map(item => (
-                <div key={item.id}>
-                  <StatusListItemRow
-                    key={item.id}
-                    defaultExpanded
-                    item={item}
-                    campaignId={campaignId}
-                    allItems={items}
-                    onDeleted={() => {}}
-                    isSelected={bulkSelectedIds.has(String(item.id))}
-                    onToggleSelect={() => setBulkSelectedIds(prev => {
-                      const next = new Set(prev);
-                      if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
-                      return next;
-                    })}
-                  />
-                  {childrenOf(item.id).length > 0 && (
-                    <div className="ml-6 mt-1 space-y-1 pl-3 border-l-2 border-dashed border-border">
-                      {childrenOf(item.id).map(child => (
-                        <StatusListItemRow
-                          key={child.id}
-                          item={child}
-                          campaignId={campaignId}
-                          allItems={items}
-                          onDeleted={() => {}}
-                          isSelected={bulkSelectedIds.has(String(child.id))}
-                          onToggleSelect={() => setBulkSelectedIds(prev => {
-                            const next = new Set(prev);
-                            if (next.has(String(child.id))) next.delete(String(child.id)); else next.add(String(child.id));
-                            return next;
-                          })}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ));
-            })()}
-          </div>
-
-          <div className="mt-5 pt-4 border-t border-dashed border-amber-300 dark:border-amber-700">
-            <div className="flex items-center justify-between mb-2.5">
-              <div className="flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-amber-500" />
-                <span className="text-xs font-semibold text-foreground">Quick Options</span>
-                <span className="text-[10px] text-muted-foreground ml-1">(náhrada dispozícií v Status List móde agenta)</span>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40"
-                onClick={() => setAddingOption(true)}
-                disabled={addingOption}
-                data-testid="btn-add-status-list-option"
-              >
-                <Plus className="h-3 w-3" /> Pridať možnosť
-              </Button>
-            </div>
-            {addingOption && (
-              <AddOptionForm
-                campaignId={campaignId}
-                existingCount={items.filter(i => i.itemType === "option").length}
-                onSaved={() => setAddingOption(false)}
-                onCancel={() => setAddingOption(false)}
-              />
-            )}
-            <div className="space-y-1.5">
-              {items.filter(i => i.itemType === "option" && (!workspaceSelection || i.id === workspaceSelection || i.parentId === workspaceSelection)).map(item => (
-                <StatusListItemRow
-                  key={item.id}
-                  item={item}
-                  campaignId={campaignId}
-                  allItems={items}
-                  onDeleted={() => {}}
-                  isSelected={bulkSelectedIds.has(String(item.id))}
-                  onToggleSelect={() => setBulkSelectedIds(prev => {
-                    const next = new Set(prev);
-                    if (next.has(String(item.id))) next.delete(String(item.id)); else next.add(String(item.id));
-                    return next;
-                  })}
-                />
-              ))}
-              {items.filter(i => i.itemType === "option").length === 0 && !addingOption && (
-                <p className="text-xs text-muted-foreground text-center py-4 border border-dashed rounded-lg border-amber-200 dark:border-amber-800">
-                  Žiadne možnosti. Pridajte aspoň jednu pre agentov v NexusPulse.
-                </p>
-              )}
-            </div>
-          </div>
-        </>
-      </>}/>
+      definition={(selectedItemId, selectedQuestionId) => {
+        const selectedItem = items.find(item => item.id === selectedItemId);
+        if (!selectedItem) return null;
+        return <StatusListItemRow
+          key={`workspace-inspector-${selectedItem.id}-${selectedQuestionId || "step"}`}
+          item={selectedItem}
+          campaignId={campaignId}
+          allItems={items}
+          onDeleted={() => setWorkspaceSelection("")}
+          workspaceInspector
+          workspaceQuestionId={selectedQuestionId}
+        />;
+      }}/>
 
       </>}
       {/* ── Template Dialog ─────────────────────────────────── */}
