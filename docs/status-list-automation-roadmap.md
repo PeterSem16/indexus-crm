@@ -86,6 +86,14 @@ verification passed. Native desktop/mobile screenshots were inspected.
 
 This extension does not enable controlled chaining or deploy to production.
 
+Verification: `npx tsx scripts/status-list-option-source.test.ts` passed 63
+assertions over real PostgreSQL, authorized HTTP handlers and native browser
+configuration. This includes three-to-four-option upgrade, coordinator identity,
+communication isolation, receipt/timeout semantics, concurrent transitions,
+ownership guards, fresh clone IDs and version restore without replay. The prior
+58 background and 167 workflow assertions, clone regressions and scoped
+TypeScript check also passed; authenticated desktop/mobile screenshots inspected.
+
 ## 4. Controlled chaining
 - [ ] Explicit opt-in to run target automations; default remains write-only.
 - [ ] Detect loops/conflicts, preserve causation and execution order.
