@@ -17,7 +17,7 @@ type Props = {
   campaignId: string; locale: string; item: any; questionId?: string | null; allItems: any[];
   canonicalOptions: CanonicalOption[]; resolvedPhase: string | null;
   onSelectItem: (id: string) => void; onSelectQuestion: (itemId: string, questionId: string) => void;
-  renderActions: (questionId: string | null) => ReactNode; renderSource: () => ReactNode;
+  renderActions: (questionId: string | null, onDirtyChange: (dirty: boolean) => void) => ReactNode; renderSource: () => ReactNode;
   renderChildren: () => ReactNode; onDeleted: () => void;
   isNew?: boolean; ancestorHidden?: boolean; onSaved?: (record: any) => void; onDirtyChange?: (dirty: boolean) => void;
 };
@@ -66,6 +66,7 @@ export function StatusListQuestionStudio({
   const [baseStep, setBaseStep] = useState<StepDraft>(() => stepDraftFrom(item));
   const [baseQuestion, setBaseQuestion] = useState<QuestionDraft>(() => questionDraftFrom(item?.questions?.find((q: any) => q.id === questionId)));
   const [error, setError] = useState("");
+  const [actionDirty, setActionDirty] = useState(false);
   const dirtyCallbackRef = useRef(onDirtyChange);
   dirtyCallbackRef.current = onDirtyChange;
   const recordKey = `${item?.id || ""}:${questionId || "step"}`;
@@ -78,9 +79,9 @@ export function StatusListQuestionStudio({
   const questionDirty = isQuestion && !same(questionDraft, baseQuestion, questionKeys as string[]);
   const dirty = isQuestion ? questionDirty : stepDirty;
   useEffect(() => {
-    dirtyCallbackRef.current?.(!!dirty);
+    dirtyCallbackRef.current?.(!!dirty || actionDirty);
     return () => dirtyCallbackRef.current?.(false);
-  }, [dirty]);
+  }, [dirty, actionDirty]);
   const activePhase = isQuestion ? (item?.tab || resolvedPhase || null) : (stepDraft.tab || resolvedPhase || null);
   const canonicalByPhase = useMemo(() => canonicalOptions.filter(option => !activePhase || option.phase === activePhase), [canonicalOptions, activePhase]);
   const phaseOptions = ["acquisition", "contract", "retention"];
@@ -312,7 +313,7 @@ export function StatusListQuestionStudio({
           {stage === "actions" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">05 / 05</span><h3>{copy.actionsTitle}</h3><p>{copy.actionsHelp}</p></div>
             <div className="slqs-action-retained"><span>✓</span><p>{copy.actionsHelp}</p></div>
-            <div className="slqs-actions-content">{renderActions(questionId || null)}</div>
+            <div className="slqs-actions-content">{renderActions(questionId || null, setActionDirty)}</div>
             {isQuestion && <div className="slqs-fields">
               <div className="slqs-advanced-grid slqs-wide">{renderText(copy.icon, questionDraft.icon, value => setQuestion("icon", value))}{renderText(copy.color, questionDraft.color, value => setQuestion("color", value))}</div>
             </div>}

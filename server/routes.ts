@@ -33206,6 +33206,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/campaigns/:campaignId/status-list/:itemId/automations", requireAuth, async (req, res) => {
     try {
       const { campaignId, itemId } = req.params;
+      const [source] = await db.select({ id: campaignStatusListItems.id }).from(campaignStatusListItems)
+        .where(and(eq(campaignStatusListItems.id, itemId), eq(campaignStatusListItems.campaignId, campaignId))).limit(1);
+      if (!source) return res.status(404).json({ error: "Status List item not found" });
       const parsed = insertCampaignStatusListAutomationSchema.safeParse({
         ...req.body,
         statusListItemId: itemId,
@@ -33681,6 +33684,13 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/automations", requireAuth, async (req, res) => {
     try {
       const { campaignId, itemId, questionId } = req.params;
+      const [source] = await db.select({ id: campaignStatusListQuestions.id }).from(campaignStatusListQuestions)
+        .innerJoin(campaignStatusListItems, eq(campaignStatusListQuestions.itemId, campaignStatusListItems.id))
+        .where(and(
+          eq(campaignStatusListQuestions.id, questionId), eq(campaignStatusListQuestions.itemId, itemId),
+          eq(campaignStatusListItems.campaignId, campaignId),
+        )).limit(1);
+      if (!source) return res.status(404).json({ error: "Status List question not found" });
       const parsed = insertCampaignStatusListAutomationSchema.safeParse({
         ...req.body,
         statusListItemId: itemId,
