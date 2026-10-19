@@ -2,14 +2,15 @@ import { useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleHelp, EyeOff, FileText, GitBranch, GitFork, ListFilter, LockKeyhole, Plus, Search, Settings2, Trash2, Workflow, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import type { StatusListWorkflow, WorkflowAnswer, WorkflowCatalogItem, WorkflowCondition, WorkflowRef } from "@shared/status-list-workflow";
-import { groupWorkflowCatalog, isWorkflowBoolean, isWorkflowSupported, isWorkflowYesNo, workflowCatalogPath, workflowDefaultAnswer, workflowRefKey, type WorkflowCatalogNode } from "@/lib/status-workflow-catalog";
+import { isWorkflowNoteAction, workflowActionSupportsTarget, type WorkflowAction, type StatusListWorkflow, type WorkflowAnswer, type WorkflowCatalogItem, type WorkflowCondition, type WorkflowRef } from "@shared/status-list-workflow";
+import { groupWorkflowCatalog, isWorkflowBoolean, isWorkflowSupported, isWorkflowYesNo, workflowCatalogPath, workflowDefaultAnswer, workflowNewAction, workflowRefKey, type WorkflowCatalogNode } from "@/lib/status-workflow-catalog";
+import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
 import { getStatusWorkflowDesignCopy } from "./status-list-workflow-design-copy";
 import "./status-list-workflow-dialog.css";
 
 type Block = "overview" | "when" | "if" | "then" | "else";
-type Picker = { purpose: "source" | "condition" | "target"; index?: number; branch?: "thenActions" | "elseActions" };
+type Picker = { purpose: "source" | "condition" | "target"; index?: number; branch?: "thenActions" | "elseActions"; actionType?: WorkflowAction["type"] };
 type Copy = ReturnType<typeof getStatusListWorkflowCopy>;
 type DesignCopy = ReturnType<typeof getStatusWorkflowDesignCopy>;
 
@@ -37,11 +38,13 @@ function CatalogPicker({ picker, catalog, value, source, copy, design, onChoose,
   const [search, setSearch] = useState("");
   const groups = useMemo(() => groupWorkflowCatalog(catalog, search), [catalog, search]);
   const canChoose = (item: WorkflowCatalogItem) => picker.purpose === "condition" ||
-    (item.writable && isWorkflowSupported(item) && (picker.purpose !== "target" || workflowRefKey(item) !== workflowRefKey(source)));
+    (picker.purpose === "target" ? workflowActionSupportsTarget(picker.actionType || "set_answer", item) &&
+      (isWorkflowNoteAction(picker.actionType || "set_answer") || workflowRefKey(item) !== workflowRefKey(source))
+      : item.writable && isWorkflowSupported(item));
   const flags = (item: WorkflowCatalogItem) => <span className="target-flags">
     {item.hidden && <span><EyeOff size={12}/>{copy.hidden}</span>}
     {!item.writable && <span><LockKeyhole size={12}/>{copy.readOnly}</span>}
-    {picker.purpose === "target" && workflowRefKey(item) === workflowRefKey(source) && <span><LockKeyhole size={12}/>{design.sourceFlag}</span>}
+    {picker.purpose === "target" && !isWorkflowNoteAction(picker.actionType || "set_answer") && workflowRefKey(item) === workflowRefKey(source) && <span><LockKeyhole size={12}/>{design.sourceFlag}</span>}
   </span>;
   const choose = (item: WorkflowCatalogItem) => { if (canChoose(item)) onChoose({ kind: item.kind, id: item.id }); };
   const renderChild = (node: WorkflowCatalogNode, depth = 0) => <div key={workflowRefKey(node.item)} className="catalog-child" style={{ paddingLeft: depth ? 14 : undefined }}>
@@ -77,6 +80,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
 }) {
   const copy = getStatusListWorkflowCopy(locale);
   const design = getStatusWorkflowDesignCopy(locale);
+  const actionCopy = getStatusWorkflowActionCopy(locale);
   const [block, setBlock] = useState<Block>("overview");
   const [picker, setPicker] = useState<Picker | null>(null);
   const trigger = useRef<HTMLElement | null>(null);
@@ -84,6 +88,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
   const labels: Record<Block, string> = { overview: copy.overview, when: copy.when, if: copy.if, then: copy.then, else: copy.else };
   const branch = block === "else" ? "elseActions" : "thenActions";
   const targets = catalog.filter(item => item.writable && isWorkflowSupported(item) && workflowRefKey(item) !== workflowRefKey(draft.source));
+  const allowedTargets = (type: WorkflowAction["type"]) => catalog.filter(item => workflowActionSupportsTarget(type, item) && (isWorkflowNoteAction(type) || workflowRefKey(item) !== workflowRefKey(draft.source)));
   const openPicker = (next: Picker, element: HTMLElement) => { trigger.current = element; setPicker(next); };
   const closePicker = () => setPicker(null);
   const pick = (ref: WorkflowRef) => {
@@ -92,7 +97,7 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
     else if (picker.purpose === "condition") onUpdate({ conditions: draft.conditions.map((condition, i) => i === picker.index ? { ...condition, ref, value: ["empty", "not_empty"].includes(condition.op) ? undefined : workflowDefaultAnswer(selected(ref)) } : condition) });
     else {
       const targetBranch = picker.branch!;
-      onUpdate({ [targetBranch]: draft[targetBranch].map((action, i) => i === picker.index ? { ...action, target: ref, value: workflowDefaultAnswer(selected(ref)) } : action) });
+      onUpdate({ [targetBranch]: draft[targetBranch].map((action, i) => i === picker.index ? action.type === "set_answer" ? { ...action, target: ref, value: workflowDefaultAnswer(selected(ref)) } : { ...action, target: ref } : action) });
     }
     closePicker();
   };
@@ -135,15 +140,28 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
           </div>}
           {(block === "then" || block === "else") && <div className="section-stack">
             <div className="section-intro"><span className={`section-icon ${block === "then" ? "green" : "amber"}`}>{block === "then" ? <ArrowRight size={19}/> : <GitFork size={19}/>}</span><div><h3>{block === "then" ? design.thenTitle : design.elseTitle}</h3><p>{block === "then" ? design.thenHint : design.elseHint}</p></div></div>
-            {draft[branch].map((action, index) => { const item = selected(action.target); return <article className="action-card" key={index}><div className="action-card-top"><span className="action-number">{design.actionNumber} {String(index + 1).padStart(2, "0")}</span><span className="action-status"><span/>{design.changed}</span><button type="button" className="icon-button danger-icon" aria-label={copy.remove} onClick={() => onUpdate({ [branch]: draft[branch].filter((_, i) => i !== index) })}><Trash2 size={16}/></button></div>
-              {selection(action.target, design.targetLabel, element => openPicker({ purpose: "target", index, branch }, element), `status-workflow-${block}-target-${index}`)}
+            {draft[branch].map((action, index) => { const item = selected(action.target); return <article className="action-card" key={index}><div className="action-card-top"><span className="action-number">{design.actionNumber} {String(index + 1).padStart(2, "0")}</span><span className="action-status"><span/>{actionCopy.labels[action.type]}</span><button type="button" className="icon-button danger-icon" aria-label={copy.remove} onClick={() => onUpdate({ [branch]: draft[branch].filter((_, i) => i !== index) })}><Trash2 size={16}/></button></div>
+              <label className="wf-field"><span>{actionCopy.type}</span><select data-testid={`status-workflow-${block}-type-${index}`} value={action.type} disabled={pending} onChange={e => {
+                const type = e.target.value as WorkflowAction["type"];
+                const candidates = allowedTargets(type);
+                const target = candidates.find(entry => workflowRefKey(entry) === workflowRefKey(action.target)) || candidates[0];
+                if (target) {
+                  const next = workflowNewAction(type, target);
+                  if ("text" in next && "text" in action) next.text = action.text;
+                  onUpdate({ [branch]: draft[branch].map((entry, i) => i === index ? next : entry) });
+                }
+              }}>{(Object.keys(actionCopy.labels) as WorkflowAction["type"][]).map(type => <option key={type} value={type} disabled={!allowedTargets(type).length}>{actionCopy.labels[type]}</option>)}</select></label>
+              {selection(action.target, design.targetLabel, element => openPicker({ purpose: "target", index, branch, actionType: action.type }, element), `status-workflow-${block}-target-${index}`)}
               {item?.hidden && <span className="meta-pill"><EyeOff size={13}/>{copy.hidden}</span>}{item && !item.writable && <span className="meta-pill"><LockKeyhole size={13}/>{copy.readOnly}</span>}
-              <div className="action-fields"><AnswerValue item={item} value={action.value} onChange={value => onUpdate({ [branch]: draft[branch].map((entry, i) => i === index ? { ...entry, value } : entry) })} copy={copy} design={design} testId={`status-workflow-${block}-answer-${index}`}/>
+              {action.type === "set_answer" ? <div className="action-fields"><AnswerValue item={item} value={action.value} onChange={value => onUpdate({ [branch]: draft[branch].map((entry, i) => i === index && entry.type === "set_answer" ? { ...entry, value } : entry) })} copy={copy} design={design} testId={`status-workflow-${block}-answer-${index}`}/>
                 <fieldset className="mode-field" data-testid={`status-workflow-${block}-mode-${index}`}><legend>{design.modeQuestion}</legend><div className="mode-options">{(["if_empty", "replace"] as const).map(mode => <label key={mode} className={action.mode === mode ? `mode-selected ${mode === "replace" ? "replace-selected" : ""}` : ""}><input type="radio" name={`workflow-${branch}-${index}`} checked={action.mode === mode} onChange={() => onUpdate({ [branch]: draft[branch].map((entry, i) => i === index ? { ...entry, mode } : entry) })}/><span className="mode-symbol">{mode === "if_empty" ? <LockKeyhole size={16}/> : <ArrowRight size={16}/>}</span><span><strong>{mode === "if_empty" ? copy.ifEmpty : copy.replace}</strong><small>{mode === "if_empty" ? design.ifEmptyHint : design.replaceHint}</small></span></label>)}</div></fieldset>
-              </div>
+              </div> : <>
+                {(action.type === "replace_note" || action.type === "append_note") && <label className="wf-field"><span>{actionCopy.text}</span><textarea data-testid={`status-workflow-${block}-text-${index}`} maxLength={4000} rows={4} value={action.text} disabled={pending} onChange={e => onUpdate({ [branch]: draft[branch].map((entry, i) => i === index && (entry.type === "replace_note" || entry.type === "append_note") ? { ...entry, text: e.target.value } : entry) })}/></label>}
+                <p className="subtle-note">{isWorkflowNoteAction(action.type) ? actionCopy.noteHint : action.type === "add_selection" || action.type === "remove_selection" ? actionCopy.selectionHint : action.type === "confirm_step" ? design.confirmHint : actionCopy.clearHint}</p>
+              </>}
             </article>; })}
             {!draft[branch].length && <div className="empty-condition"><GitFork size={21}/><strong>{design.actionsEmpty}</strong><span>{copy.noWrites}</span></div>}
-            <button type="button" className="add-secondary" data-testid={`status-workflow-add-${block}-action`} disabled={!targets.length || draft[branch].length >= 10} onClick={() => { const target = targets.find(item => !draft[branch].some(action => workflowRefKey(action.target) === workflowRefKey(item))) || targets[0]; onUpdate({ [branch]: [...draft[branch], { type: "set_answer", target: { kind: target.kind, id: target.id }, value: workflowDefaultAnswer(target), mode: "if_empty" }] }); }}><Plus size={16}/>{copy.addAction}</button>
+            <button type="button" className="add-secondary" data-testid={`status-workflow-add-${block}-action`} disabled={(!targets.length && !allowedTargets("replace_note").length) || draft[branch].length >= 10} onClick={() => { const target = targets.find(item => !draft[branch].some(action => workflowRefKey(action.target) === workflowRefKey(item))) || targets[0] || allowedTargets("replace_note")[0]; onUpdate({ [branch]: [...draft[branch], workflowNewAction(targets.length ? "set_answer" : "replace_note", target)] }); }}><Plus size={16}/>{copy.addAction}</button>
             <p className="subtle-note"><LockKeyhole size={15}/>{copy.sourceWarning} {design.groupOccupied}</p>
           </div>}
           {validation && <p role="alert" className="workflow-validation">{validationText}</p>}

@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import { request, chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { pool } from "../server/db";
-import { statusListWorkflowSchema, workflowConditionMatches, type StatusListWorkflow } from "../shared/status-list-workflow";
+import { statusListWorkflowSchema, workflowConditionMatches, type WorkflowAction, type StatusListWorkflow } from "../shared/status-list-workflow";
 import { getStatusListWorkflowCopy } from "../client/src/components/status-list-workflow-copy";
 import { processStatusListItemWorkflow } from "../server/lib/status-list-workflow";
 
@@ -13,6 +13,7 @@ if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT)
 const ids = Array.from({ length: 16 }, () => randomUUID());
 const [user, mission, otherMission, customer, cc, cc2, source, target, question, answer, exclusive, derived, foreign, otherQuestion, boolQuestion, historyItem] = ids;
 const username = `workflow-test-${user}`, password = randomBytes(24).toString("hex");
+const [multiOther, multiOption, multiSibling] = Array.from({ length: 3 }, () => randomUUID());
 const root = `/api/campaigns/${mission}/status-list-workflows`;
 const contactRoot = `/api/campaigns/${mission}/contacts/${cc}/status-list-workflows`;
 const api = await request.newContext({ baseURL: `https://${process.env.REPLIT_DEV_DOMAIN}` });
@@ -120,6 +121,75 @@ try {
   check(Object.keys((await body(await api.get(`/api/campaigns/${mission}/contacts/${cc2}/status-list-workflows`))).answers).length === 0, "Contact isolation");
   await body(await api.delete(`${root}/${itemSaved.id}`));
   check((await body(await api.get(contactRoot))).runs.some((run: any) => run.ruleName === itemRule.name), "Run history survives rule deletion");
+  // Step 2: real internal writes, independent notes and repeat-safe execution.
+  await pool.query(`INSERT INTO campaign_status_list_questions(id,item_id,question_text,field_type)
+    VALUES($1,$2,'Other multiple choice','checkbox')`, [multiOther, target]);
+  for (const id of [multiOption, multiSibling]) await pool.query(`INSERT INTO campaign_status_list_items(id,campaign_id,step_id,label,parent_id,item_type)
+    VALUES($1::varchar,$2,$1::text,'Multiple choice option',$3,'option')`, [id, mission, historyItem]);
+  const internalRule = { ...rule, name: "Internal actions", conditions: [], elseActions: [] };
+  const noteTarget = { kind: "item" as const, id: historyItem };
+  const internal = await body(await api.post(root, { data: { ...internalRule, thenActions: [{ type: "replace_note", target: noteTarget, text: "First" }] } }), 201);
+  const runInternal = async (actions: WorkflowAction[]) => {
+    await body(await api.put(`${root}/${internal.id}`, { data: { ...internalRule, thenActions: actions } }));
+    await body(await api.put(`${contactRoot}/answers/${question}`, { data: { value: null } }));
+    await body(await api.put(`${contactRoot}/answers/${question}`, { data: { value: "yes" } }));
+    return body(await api.get(contactRoot));
+  };
+  state = await runInternal([{ type: "replace_note", target: noteTarget, text: "First" }]);
+  check(state.notes[historyItem] === "First", "Note on unconfirmed step persists");
+  check(!(await pool.query("SELECT id FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, historyItem])).rowCount, "Note never confirms a step");
+  state = await runInternal([{ type: "append_note", target: noteTarget, text: "Second" }]);
+  check(state.notes[historyItem] === "First\nSecond", "Append preserves existing note");
+  const appendRuns = state.runs.length;
+  await Promise.all(Array.from({ length: 4 }, () => api.put(`${contactRoot}/answers/${question}`, { data: { value: "yes" } }).then(res => body(res))));
+  state = await body(await api.get(contactRoot));
+  check(state.notes[historyItem] === "First\nSecond" && state.runs.length === appendRuns, "Repeated requests never append twice");
+  state = await runInternal([{ type: "confirm_step", target: noteTarget }]);
+  const confirmedNote = await pool.query("SELECT item_note FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, historyItem]);
+  check(confirmedNote.rowCount === 1 && confirmedNote.rows[0].item_note === "First\nSecond", "Explicit confirmation restores note in native step state");
+  const historyConfirmation = `/api/campaigns/${mission}/contacts/${cc}/status-list-state/${historyItem}`;
+  await body(await api.patch(`${historyConfirmation}/note`, { data: { note: "Manual edit" } }));
+  check((await body(await api.get(contactRoot))).notes[historyItem] === "Manual edit", "Native note editor and workflow share the current note");
+  state = await runInternal([{ type: "unconfirm_step", target: noteTarget }]);
+  check(state.notes[historyItem] === "Manual edit", "Unconfirmation preserves note");
+  check(!(await pool.query("SELECT id FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, historyItem])).rowCount, "Explicit unconfirmation persisted");
+  await body(await api.post(historyConfirmation, { data: { confirm: true, skipAutomations: true, itemNote: null } }));
+  check((await pool.query("SELECT item_note FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, historyItem])).rows[0].item_note === "Manual edit", "Agent re-confirmation retains independent note");
+  await body(await api.post(historyConfirmation, { data: { confirm: false } }));
+  await body(await api.post(historyConfirmation, { data: { confirm: true, skipAutomations: true, itemNote: "New confirmation note" } }));
+  check((await body(await api.get(contactRoot))).notes[historyItem] === "New confirmation note", "Agent confirmation with new note updates canonical note");
+  state = await runInternal([{ type: "clear_note", target: noteTarget }]);
+  check(state.notes[historyItem] === null, "Explicit clear persists null without falling back to old note");
+  check((await pool.query("SELECT item_note FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, historyItem])).rows[0].item_note === null, "Clear mirrored to native editor");
+  await body(await api.put(`${contactRoot}/answers/${answer}`, { data: { value: "Keep until cleared" } }));
+  state = await runInternal([{ type: "clear_answer", target: { kind: "question", id: answer } }]);
+  check(!(answer in state.answers), "Clear answer removes persisted answer");
+  state = await runInternal([{ type: "add_selection", target: { kind: "question", id: boolQuestion } }, { type: "add_selection", target: { kind: "question", id: multiOther } }]);
+  check(state.answers[boolQuestion] === true && state.answers[multiOther] === true, "Multiple-choice adds preserve siblings");
+  state = await runInternal([{ type: "remove_selection", target: { kind: "question", id: boolQuestion } }]);
+  check(!(boolQuestion in state.answers) && state.answers[multiOther] === true, "Removing one question choice preserves the other");
+  await runInternal([{ type: "add_selection", target: { kind: "item", id: multiOption } }, { type: "add_selection", target: { kind: "item", id: multiSibling } }]);
+  await runInternal([{ type: "remove_selection", target: { kind: "item", id: multiOption } }]);
+  const remainingOptions = await pool.query("SELECT status_list_item_id FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=ANY($2::varchar[])", [cc, [multiOption, multiSibling]]);
+  check(remainingOptions.rowCount === 1 && remainingOptions.rows[0].status_list_item_id === multiSibling, "Item-option removal preserves selected siblings");
+  for (const action of [
+    { type: "replace_note", target: { kind: "item", id: foreign }, text: "Forbidden" },
+    { type: "clear_note", target: { kind: "item", id: derived } },
+    { type: "confirm_step", target: { kind: "question", id: boolQuestion } },
+    { type: "add_selection", target: { kind: "item", id: target } },
+  ]) await body(await api.post(root, { data: { ...internalRule, thenActions: [action] } }), 400);
+  await pool.query("UPDATE campaign_status_list_items SET question_selection_mode='single' WHERE id=$1", [target]);
+  await body(await api.post(root, { data: { ...internalRule, thenActions: [{ type: "add_selection", target: { kind: "question", id: boolQuestion } }] } }), 400);
+  await pool.query("UPDATE campaign_status_list_items SET question_selection_mode='multiple' WHERE id=$1", [target]);
+  await body(await api.post(root, { data: { ...internalRule, thenActions: [{ type: "replace_note", target: noteTarget, text: "A" }, { type: "append_note", target: noteTarget, text: "B" }] } }), 400);
+  state = await runInternal([{ type: "replace_note", target: noteTarget, text: "Separate facets" }, { type: "unconfirm_step", target: noteTarget }]);
+  check(state.notes[historyItem] === "Separate facets", "Note and confirmation can target the same step independently");
+  // A target's own rule remains idle (write-only, no chained automations).
+  const chained = await body(await api.post(root, { data: { ...internalRule, name: "Must not chain", source: noteTarget, sourceValue: true, thenActions: [{ type: "replace_note", target: { kind: "item", id: target }, text: "Must not run" }] } }), 201);
+  await runInternal([{ type: "confirm_step", target: noteTarget }]);
+  check(!(await pool.query("SELECT id FROM mission_status_list_rule_runs WHERE rule_id=$1", [chained.id])).rowCount, "Explicit confirmation does not chain");
+  await body(await api.delete(`${root}/${chained.id}`));
+  await body(await api.delete(`${root}/${internal.id}`));
   for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"]) {
     const copy = getStatusListWorkflowCopy(locale);
     check(Object.values(copy).every(value => typeof value === "string" && value.length > 0), `Complete ${locale} copy`);
@@ -144,12 +214,12 @@ try {
   await page.getByTestId("status-workflow-name").fill("Browser-created workflow");
   await page.getByTestId("status-workflow-overview-when").click();
   await page.getByTestId("status-workflow-source").click();
-  await page.getByRole("option", { name: "Interest", exact: true }).click();
+  await page.locator(`[data-catalog-ref="item:${source}"]`).click();
   await page.getByTestId("status-workflow-overview-back").click();
   await page.getByTestId("status-workflow-overview-then").click();
   await page.getByTestId("status-workflow-add-then-action").click();
   await page.getByTestId("status-workflow-then-target-0").click();
-  await page.getByRole("option", { name: "Boolean choice", exact: true }).click();
+  await page.locator(`[data-catalog-ref="question:${boolQuestion}"]`).click();
   await page.getByTestId("status-workflow-overview-back").click();
   await mkdir("generated-artifacts/status-list-workflow", { recursive: true });
   await page.screenshot({ path: "generated-artifacts/status-list-workflow/editor-desktop.jpg" });
@@ -158,6 +228,21 @@ try {
   check((await body(await api.get(root))).rules.some((entry: any) => entry.name === "Browser-created workflow"), "Real browser create/save persisted");
   await page.reload();
   await builder.getByText("Browser-created workflow", { exact: true }).waitFor();
+  await page.getByTestId("status-workflow-create").click();
+  await page.getByTestId("status-workflow-name").fill("Browser note workflow");
+  await page.getByTestId("status-workflow-overview-then").click();
+  await page.getByTestId("status-workflow-add-then-action").click();
+  await page.getByTestId("status-workflow-then-type-0").selectOption("append_note");
+  await page.getByTestId("status-workflow-then-target-0").click();
+  await page.locator(`[data-catalog-ref="item:${historyItem}"]`).click();
+  await page.getByTestId("status-workflow-then-text-0").fill("Native browser note");
+  await page.screenshot({ path: "generated-artifacts/status-list-workflow/internal-actions-desktop.jpg" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByTestId("status-workflow-save").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "generated-artifacts/status-list-workflow/internal-actions-mobile.jpg" });
+  await page.getByTestId("status-workflow-save").click();
+  await builder.getByText("Browser note workflow", { exact: true }).waitFor();
+  check((await body(await api.get(root))).rules.some((entry: any) => entry.name === "Browser note workflow" && entry.thenActions[0].text === "Native browser note"), "Real browser note action persisted");
   await builder.scrollIntoViewIfNeeded();
   await page.screenshot({ path: "generated-artifacts/status-list-workflow/desktop.jpg" });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -176,7 +261,7 @@ try {
   await pool.query("DELETE FROM mission_status_list_rule_runs WHERE campaign_id=ANY($1::varchar[])", [[mission, otherMission]]);
   await pool.query("DELETE FROM mission_status_list_answers WHERE campaign_contact_id=ANY($1::varchar[])", [[cc, cc2]]);
   await pool.query("DELETE FROM campaign_contacts WHERE id=ANY($1::varchar[])", [[cc, cc2]]);
-  await pool.query("DELETE FROM campaign_status_list_questions WHERE id=ANY($1::varchar[])", [[question, answer, otherQuestion, boolQuestion]]);
+  await pool.query("DELETE FROM campaign_status_list_questions WHERE id=ANY($1::varchar[])", [[question, answer, otherQuestion, boolQuestion, multiOther]]);
   await pool.query("DELETE FROM campaign_status_list_items WHERE campaign_id=ANY($1::varchar[])", [[mission, otherMission]]);
   await pool.query("DELETE FROM campaigns WHERE id=ANY($1::varchar[])", [[mission, otherMission]]);
   await pool.query("DELETE FROM customers WHERE id=$1", [customer]);

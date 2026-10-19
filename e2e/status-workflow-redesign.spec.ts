@@ -12,13 +12,13 @@ test.beforeEach(async ({ page }) => {
 
 const item = (id: string, label: string, extra = {}) => ({ kind: "item", id, label, fieldType: "checkbox", hidden: false, writable: true, sortOrder: 0, ...extra });
 const catalog = [
-  item("accepted", "Cooperation agreed", { parentId: "source", itemType: "option" }),
+  item("accepted", "Cooperation agreed", { parentId: "source", itemType: "option", multiSelectable: true }),
   item("destination", "Contract proposal", { sortOrder: 2 }),
   item("source", "Willingness to cooperate", { sortOrder: 1 }),
   item("yesno", "Proceed?", { kind: "question", fieldType: "yesno", parentId: "source" }),
   item("text", "Details", { kind: "question", fieldType: "text", parentId: "destination" }),
   item("system", "Automatic result", { writable: false, hidden: true, sortOrder: 3 }),
-  item("refused", "Cooperation refused", { parentId: "source", itemType: "option" }),
+  item("refused", "Cooperation refused", { parentId: "source", itemType: "option", multiSelectable: true }),
 ];
 
 test("real editor groups answers, persists exact branches, reopens, toggles and deletes", async ({ page }) => {
@@ -88,6 +88,40 @@ test("real editor groups answers, persists exact branches, reopens, toggles and 
   await expect.poll(() => writes.length).toBe(3);
   expect(writes[2].method).toBe("DELETE");
   expect(errors).toEqual([]);
+});
+
+test("each internal action has a typed editor and survives reopening", async ({ page }) => {
+  let rules: any[] = [];
+  await page.route("**/api/**", async route => {
+    const request = route.request();
+    if (request.method() === "GET") return route.fulfill({ json: { rules, catalog } });
+    const data = request.postDataJSON();
+    rules = [{ ...data, id: "typed-rule", campaignId: "workflow-test" }];
+    return route.fulfill({ json: rules[0] });
+  });
+  await page.goto("/test-fixtures/status-workflow-editor.html");
+  await page.getByTestId("status-workflow-create").click();
+  await page.getByTestId("status-workflow-name").fill("Internal actions");
+  await page.getByTestId("status-workflow-overview-then").click();
+  await page.getByTestId("status-workflow-add-then-action").click();
+  for (const type of ["set_answer", "clear_answer", "confirm_step", "unconfirm_step", "add_selection", "remove_selection", "replace_note", "append_note", "clear_note"]) {
+    await page.getByTestId("status-workflow-then-type-0").selectOption(type);
+    if (type === "replace_note" || type === "append_note") {
+      await page.getByTestId("status-workflow-then-target-0").click();
+      await expect(page.locator('[data-catalog-ref="item:accepted"]')).toBeEnabled();
+      await page.locator('[data-catalog-ref="item:accepted"]').click();
+      await page.getByTestId("status-workflow-then-text-0").fill("Independent note");
+    }
+    await page.getByTestId("status-workflow-save").click();
+    await expect(page.locator(".status-workflow-shell")).toHaveCount(0);
+    expect(rules[0].thenActions[0].type).toBe(type);
+    const keys = Object.keys(rules[0].thenActions[0]).sort();
+    expect(keys).toEqual((type === "set_answer" ? ["type", "target", "value", "mode"] : ["replace_note", "append_note"].includes(type) ? ["type", "target", "text"] : ["type", "target"]).sort());
+    await page.getByRole("button", { name: "Upraviť workflow", exact: true }).click();
+    await page.getByTestId("status-workflow-nav-then").click();
+    await expect(page.getByTestId("status-workflow-then-type-0")).toHaveValue(type);
+    if (type === "replace_note" || type === "append_note") await expect(page.getByTestId("status-workflow-then-text-0")).toHaveValue("Independent note");
+  }
 });
 
 test("mobile, keyboard dismissal, empty search and all translations", async ({ page }) => {

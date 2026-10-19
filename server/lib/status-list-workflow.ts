@@ -3,8 +3,10 @@ import type { PoolClient } from "pg";
 import { pool } from "../db";
 import {
   answerIsEmpty, statusListWorkflowSchema, workflowConditionMatches,
-  type StatusListWorkflow, type WorkflowRef, type WorkflowAnswer, type WorkflowCatalogItem,
+  isWorkflowNoteAction, workflowActionSupportsTarget,
+  type WorkflowRef, type WorkflowAnswer, type WorkflowCatalogItem,
 } from "../../shared/status-list-workflow";
+import { preserveWorkflowNote, readWorkflowNotes, writeWorkflowNote } from "./status-list-workflow-notes";
 
 export class StatusListWorkflowError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
@@ -14,26 +16,30 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
   const { rows } = await client.query(`
     SELECT 'item' AS kind, i.id, i.label, 'checkbox' AS field_type, i.is_hidden AS hidden,
       i.confirmation_type <> 'auto' AS writable, p.label AS parent_label,
-      i.parent_id, i.sort_order, i.item_type
+      i.parent_id, i.sort_order, i.item_type,
+      (i.item_type='option' AND p.id IS NOT NULL AND p.question_selection_mode IS DISTINCT FROM 'single') AS multi_selectable
     FROM campaign_status_list_items i LEFT JOIN campaign_status_list_items p ON p.id=i.parent_id
     WHERE i.campaign_id=$1
     UNION ALL
     SELECT 'question', q.id, q.question_text, COALESCE(q.field_type,'checkbox'), q.is_hidden,
-      i.confirmation_type <> 'auto', i.label, q.item_id, q.sort_order, 'question'
+      i.confirmation_type <> 'auto', i.label, q.item_id, q.sort_order, 'question',
+      (q.field_type='checkbox' AND i.question_selection_mode IS DISTINCT FROM 'single' AND q.logic_operator<>'ONE'
+        AND NOT EXISTS (SELECT 1 FROM campaign_status_list_questions sibling WHERE sibling.item_id=q.item_id
+          AND COALESCE(sibling.group_name,'')=COALESCE(q.group_name,'') AND sibling.logic_operator='ONE'))
     FROM campaign_status_list_questions q JOIN campaign_status_list_items i ON i.id=q.item_id
     WHERE i.campaign_id=$1
     ORDER BY sort_order, kind, id`, [campaignId]);
   return rows.map(row => ({ kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
     hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
-    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type }));
+    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, multiSelectable: row.multi_selectable }));
 }
 export function validateWorkflowValue(item: WorkflowCatalogItem, value: unknown) {
   if (!item.writable) throw new StatusListWorkflowError("derived_answer");
   if (item.kind === "item" || ["checkbox", "radio"].includes(item.fieldType)) {
     if (value !== true) throw new StatusListWorkflowError("invalid_answer");
-  } else if (item.fieldType === "yesno") {
+  } else if (["yesno", "yes_no"].includes(item.fieldType)) {
     if (value !== "yes" && value !== "no") throw new StatusListWorkflowError("invalid_answer");
-  } else if (["text", "textarea", "number", "date", "email", "phone"].includes(item.fieldType)) {
+  } else if (["text", "string", "textarea", "number", "date", "email", "phone"].includes(item.fieldType)) {
     if (typeof value !== "string" || !value.trim() || value.length > 4000)
       throw new StatusListWorkflowError("invalid_answer");
     if (item.fieldType === "number" && !Number.isFinite(Number(value)))
@@ -57,8 +63,11 @@ export async function validateWorkflow(campaignId: string, raw: unknown, client:
   for (const branch of [rule.thenActions, rule.elseActions]) {
     const targets = new Set<string>();
     for (const action of branch) {
-      validateWorkflowValue(find(action.target), action.value);
-      const key = `${action.target.kind}:${action.target.id}`;
+      const target = find(action.target);
+      if (!target.writable) throw new StatusListWorkflowError("derived_answer");
+      if (!workflowActionSupportsTarget(action.type, target)) throw new StatusListWorkflowError("invalid_action_target");
+      if (action.type === "set_answer") validateWorkflowValue(target, action.value);
+      const key = `${action.target.kind}:${action.target.id}:${isWorkflowNoteAction(action.type) ? "note" : "answer"}`;
       if (targets.has(key)) throw new StatusListWorkflowError("duplicate_target");
       targets.add(key);
     }
@@ -70,6 +79,7 @@ export async function workflowTransaction<T>(campaignContactId: string, fn: (cli
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow:${campaignContactId}`]);
+    await client.query("SELECT id FROM campaign_contacts WHERE id=$1 FOR UPDATE", [campaignContactId]);
     const result = await fn(client);
     await client.query("COMMIT");
     return result;
@@ -141,11 +151,15 @@ async function setAnswer(client: PoolClient, input: {
       JOIN campaign_contact_status_list_state s ON s.status_list_item_id=sibling.id AND s.campaign_contact_id=$2
       WHERE i.id=$1 AND i.campaign_id=$3`, [target.id, cc, campaignId]);
     for (const sibling of siblings.rows) {
+      await preserveWorkflowNote(client, cc, sibling.id);
       await client.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [cc, sibling.id]);
       cleared.push({ kind: "item", id: sibling.id, previous: true });
     }
-    await client.query(`INSERT INTO campaign_contact_status_list_state(campaign_contact_id,status_list_item_id,confirmed_by_user_id)
-      SELECT $1::text,$2::text,$3::text WHERE NOT EXISTS
+    await client.query(`INSERT INTO campaign_contact_status_list_state(campaign_contact_id,status_list_item_id,confirmed_by_user_id,item_note,note_updated_at)
+      SELECT $1::text,$2::text,$3::text,
+        (SELECT note FROM mission_status_list_notes WHERE campaign_contact_id=$1 AND status_list_item_id=$2),
+        (SELECT updated_at FROM mission_status_list_notes WHERE campaign_contact_id=$1 AND status_list_item_id=$2)
+      WHERE NOT EXISTS
       (SELECT 1 FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1::text AND status_list_item_id=$2::text)`,
     [cc, target.id, actorId]);
   }
@@ -202,15 +216,37 @@ async function executeEvent(client: PoolClient, event: WorkflowEvent) {
       const passed = !matches.length || (rule.logic === "and" ? matches.every(Boolean) : matches.some(Boolean));
       branch = passed ? "then" : "else";
       for (const action of passed ? rule.thenActions : rule.elseActions) {
-        const current = (await readAnswers(client, event.campaignContactId)).get(`${action.target.kind}:${action.target.id}`);
-        const occupied = action.mode === "if_empty" && (!answerIsEmpty(current) ||
-          await exclusiveAnswerExists(client, event.campaignId, event.campaignContactId, action.target));
-        if (occupied || current === action.value) {
-          results.push({ target: action.target, status: "skipped", reason: current === action.value ? "unchanged" : "not_empty", previous: current ?? null });
+        if (isWorkflowNoteAction(action.type)) {
+          const previous = (await readWorkflowNotes(client, event.campaignContactId))[action.target.id] ?? null;
+          const value = action.type === "clear_note" ? null : action.type === "append_note"
+            ? [previous, "text" in action ? action.text : ""].filter(Boolean).join("\n")
+            : "text" in action ? action.text : null;
+          if (value && value.length > 16000) throw new StatusListWorkflowError("note_too_long");
+          if (previous === value) results.push({ type: action.type, target: action.target, status: "skipped", reason: "unchanged", previous, value });
+          else {
+            await writeWorkflowNote(client, event.campaignContactId, action.target.id, event.actorId, value);
+            results.push({ type: action.type, target: action.target, status: "changed", previous, value });
+          }
           continue;
         }
-        const cleared = await setAnswer(client, { ...event, target: action.target, value: action.value });
-        results.push({ target: action.target, status: "changed", previous: current ?? null, value: action.value, cleared });
+        const current = (await readAnswers(client, event.campaignContactId)).get(`${action.target.kind}:${action.target.id}`);
+        const value = action.type === "set_answer" ? action.value
+          : ["confirm_step", "add_selection"].includes(action.type) ? true : null;
+        const occupied = (action.type === "confirm_step" || (action.type === "set_answer" && action.mode === "if_empty")) && (!answerIsEmpty(current) ||
+          await exclusiveAnswerExists(client, event.campaignId, event.campaignContactId, action.target));
+        if (occupied || (current ?? null) === value) {
+          results.push({ type: action.type, target: action.target, status: "skipped", reason: (current ?? null) === value ? "unchanged" : "not_empty", previous: current ?? null });
+          continue;
+        }
+        let cleared: unknown[] = [];
+        if (value === null) {
+          if (action.target.kind === "item") {
+            await preserveWorkflowNote(client, event.campaignContactId, action.target.id);
+            await client.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [event.campaignContactId, action.target.id]);
+          } else await client.query(`UPDATE mission_status_list_answers SET value='null'::jsonb,revision=$3,updated_by=$4,updated_at=now()
+            WHERE campaign_contact_id=$1 AND question_id=$2`, [event.campaignContactId, action.target.id, randomUUID(), event.actorId]);
+        } else cleared = await setAnswer(client, { ...event, target: action.target, value });
+        results.push({ type: action.type, target: action.target, status: "changed", previous: current ?? null, value, cleared });
       }
     }
     const catalog = await workflowCatalog(event.campaignId, client);

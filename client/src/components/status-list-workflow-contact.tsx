@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { AlertCircle, History, Loader2, RefreshCw, Workflow } from "lucide-react";
-import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
+import { isWorkflowNoteAction, type WorkflowAction, type WorkflowCatalogItem } from "@shared/status-list-workflow";
+import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 
 type WorkflowResult = {
+  type?: WorkflowAction["type"];
   status?: string;
   reason?: string | null;
   target?: { kind: "item" | "question"; id: string };
@@ -37,6 +39,7 @@ type ContactWorkflowData = {
   answers: Record<string, boolean | string>;
   runs: WorkflowRun[];
   catalog: WorkflowCatalogItem[];
+  notes?: Record<string, string | null>;
 };
 type Props = { campaignId: string; campaignContactId: string; showQuestions?: boolean };
 
@@ -54,6 +57,9 @@ function formatAnswer(value: unknown, copy: ReturnType<typeof getStatusListWorkf
   if (value === "yes") return copy.yes;
   if (value === "no") return copy.no;
   return String(value);
+}
+function formatResultValue(value: unknown, type: WorkflowResult["type"], copy: ReturnType<typeof getStatusListWorkflowCopy>) {
+  return type && isWorkflowNoteAction(type) ? value === null || value === undefined || value === "" ? copy.noAnswer : String(value) : formatAnswer(value, copy);
 }
 function localizedReason(reason: string | null | undefined, copy: ReturnType<typeof getStatusListWorkflowCopy>) {
   if (reason === "unchanged") return copy.unchangedReason;
@@ -77,6 +83,7 @@ function asResults(results: WorkflowRun["results"]): WorkflowResult[] {
 export function StatusListWorkflowContact({ campaignId, campaignContactId, showQuestions = true }: Props) {
   const { locale } = useI18n();
   const copy = getStatusListWorkflowCopy(locale);
+  const actionCopy = getStatusWorkflowActionCopy(locale);
   const { toast } = useToast();
   const [savingQuestion, setSavingQuestion] = useState<string | null>(null);
   const queryKey = ["/api/campaigns", campaignId, "contacts", campaignContactId, "status-list-workflows"];
@@ -160,6 +167,13 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
           <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">{copy.noQuestions}</p>}
       </div>}
     </div>}
+    {showQuestions && Object.entries(query.data?.notes || {}).some(([id, note]) => note && catalog.some(item => item.kind === "item" && item.id === id && !item.hidden)) && <div className="space-y-2" data-testid="status-workflow-contact-notes">
+      <h3 className="text-sm font-semibold">{actionCopy.notes}</h3>
+      {Object.entries(query.data?.notes || {}).map(([id, note]) => {
+        const item = catalog.find(entry => entry.kind === "item" && entry.id === id && !entry.hidden);
+        return item && note ? <div key={id} className="rounded-lg border border-border/60 bg-background/60 p-3"><strong className="text-sm">{item.label}</strong><p className="mt-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">{note}</p></div> : null;
+      })}
+    </div>}
     <div className="space-y-3">
       <div className="flex items-center gap-2"><History className="h-4 w-4 text-primary"/><h2 className="text-sm font-semibold">{copy.history}</h2></div>
       {query.isLoading && !showQuestions && <div className="h-14 animate-pulse rounded-lg bg-muted/70"/>}
@@ -184,9 +198,10 @@ export function StatusListWorkflowContact({ campaignId, campaignContactId, showQ
               const reason = localizedReason(result.reason, copy);
               return <div key={`${result.target?.kind || "result"}-${result.target?.id || index}-${index}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs">
                 <span className="min-w-28 font-medium text-foreground">{result.targetLabel || target?.label || copy.sourceLabel}</span>
+                {result.type && actionCopy.labels[result.type] && <span className="text-muted-foreground">{actionCopy.labels[result.type]}</span>}
                 <Badge variant={statusVariant(result.status)}>{localizedStatus(result.status, copy)}</Badge>
-                {result.previous !== undefined && <span className="text-muted-foreground">{copy.previous}: <strong className="font-medium text-foreground">{formatAnswer(result.previous, copy)}</strong></span>}
-                {result.value !== undefined && <span className="flex items-center gap-1 text-muted-foreground"><span aria-hidden="true">→</span>{copy.newValue}: <strong className="font-medium text-foreground">{formatAnswer(result.value, copy)}</strong></span>}
+                {result.previous !== undefined && <span className="min-w-0 whitespace-pre-wrap break-words text-muted-foreground [overflow-wrap:anywhere]">{copy.previous}: <strong className="font-medium text-foreground">{formatResultValue(result.previous, result.type, copy)}</strong></span>}
+                {result.value !== undefined && <span className="min-w-0 whitespace-pre-wrap break-words text-muted-foreground [overflow-wrap:anywhere]"><span aria-hidden="true">→ </span>{copy.newValue}: <strong className="font-medium text-foreground">{formatResultValue(result.value, result.type, copy)}</strong></span>}
                 {reason && <span className="text-muted-foreground">{reason}</span>}
                 {cleared.length > 0 && <span className="text-muted-foreground">{copy.cleared}: {cleared.join(", ")}</span>}
               </div>;

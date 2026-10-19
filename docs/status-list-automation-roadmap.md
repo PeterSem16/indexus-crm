@@ -20,8 +20,19 @@ New rule configuration participates in Mission cloning and version snapshots;
 answers and execution history are operational data and are not cloned.
 
 ## 2. Notes and further internal actions
-- [ ] Replace/append/clear notes, clear answers, multi-select add/remove.
-- [ ] Explicit step confirmation/unconfirmation, separate from note editing.
+- [x] Replace/append/clear notes, clear answers, multi-select add/remove.
+- [x] Explicit step confirmation/unconfirmation, separate from note editing.
+
+Notes also work before confirmation and survive its removal and re-confirmation.
+The existing note editor stays synchronized. Multiple-choice actions change one
+option only and reject exclusive groups. Note and answer actions may target the
+same step independently; competing writes to the same facet are rejected.
+All writes remain Mission/contact-scoped and write-only (no chaining).
+
+Verification: `npx tsx scripts/status-list-workflow.test.ts` passed 167 assertions
+over real PostgreSQL/API/authenticated browser flows. The three redesign browser
+scenarios, strict action/clone-reference tests, existing note tests, scoped type
+check and clone-campaign regressions also passed.
 
 ## 3. Hidden/system questions
 - [ ] Map source data to answers; begin with representative assignment.

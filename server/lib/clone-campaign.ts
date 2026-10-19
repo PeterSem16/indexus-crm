@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { inArray, eq } from "drizzle-orm";
 import { db } from "../db";
+import { remapStatusListWorkflow } from "@shared/status-list-workflow";
 import {
   campaigns,
   campaignAgents,
@@ -326,7 +327,7 @@ export async function cloneCampaignWithConfiguration(
       const workflowIdMap = new Map<string, string>(Array.from(itemIdMap.entries()).concat(Array.from(questionIdMap.entries())));
       await tx.insert(missionStatusListRules).values(sourceWorkflows.map(rule => ({
         id: randomUUID(), campaignId: newCampaignId, createdBy,
-        definition: remapIdsDeep(rule.definition, workflowIdMap) as typeof rule.definition,
+        definition: remapStatusListWorkflow(rule.definition, workflowIdMap),
       })));
     }
 

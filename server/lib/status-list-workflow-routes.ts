@@ -5,6 +5,7 @@ import { storage } from "../storage";
 import { canAgentReadCampaignByWorkspaceCountry } from "./agent-workspace-country-access";
 import { workflowAnswerSchema } from "../../shared/status-list-workflow";
 import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
+import { readWorkflowNotes } from "./status-list-workflow-notes";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -94,6 +95,7 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       WHERE r.campaign_contact_id=$1 AND r.campaign_id=$2 ORDER BY r.created_at DESC,r.id DESC LIMIT 50`,
     [req.params.campaignContactId, req.params.campaignId]);
     res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])),
+      notes: await readWorkflowNotes(pool, req.params.campaignContactId),
       runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId) });
   }));
   app.put(`${contactRoot}/answers/:questionId`, requireAuth, route(async (req, res) => {

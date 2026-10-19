@@ -1,4 +1,4 @@
-import type { WorkflowCatalogItem, WorkflowRef } from "@shared/status-list-workflow";
+import type { WorkflowAction, WorkflowCatalogItem, WorkflowRef } from "@shared/status-list-workflow";
 
 export const workflowRefKey = (ref?: WorkflowRef) => ref ? `${ref.kind}:${ref.id}` : "";
 export const isWorkflowBoolean = (item?: WorkflowCatalogItem) => item?.kind === "item" || ["checkbox", "radio"].includes(item?.fieldType.toLowerCase() || "");
@@ -6,6 +6,12 @@ export const isWorkflowYesNo = (item?: WorkflowCatalogItem) => ["yesno", "yes_no
 export const workflowDefaultAnswer = (item?: WorkflowCatalogItem) => isWorkflowBoolean(item) ? true : isWorkflowYesNo(item) ? "yes" : "";
 export const isWorkflowSupported = (item: WorkflowCatalogItem) => item.kind === "item" || isWorkflowBoolean(item) || isWorkflowYesNo(item) || ["text", "string", "number", "date"].includes(item.fieldType.toLowerCase());
 export type WorkflowCatalogNode = { item: WorkflowCatalogItem; children: WorkflowCatalogNode[] };
+export function workflowNewAction(type: WorkflowAction["type"], item: WorkflowCatalogItem): WorkflowAction {
+  const target: WorkflowRef = { kind: item.kind, id: item.id };
+  if (type === "set_answer") return { type, target, value: workflowDefaultAnswer(item), mode: "if_empty" };
+  if (type === "replace_note" || type === "append_note") return { type, target, text: "" };
+  return { type, target };
+}
 
 /** Group by exact item IDs, never by labels (which may legitimately repeat). */
 export function groupWorkflowCatalog(catalog: WorkflowCatalogItem[], search = "") {

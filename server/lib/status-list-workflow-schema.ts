@@ -31,6 +31,14 @@ CREATE TABLE IF NOT EXISTS mission_status_list_rule_runs (
  UNIQUE(rule_id, campaign_contact_id, source_event)
 );
 CREATE INDEX IF NOT EXISTS mission_status_list_runs_contact ON mission_status_list_rule_runs(campaign_contact_id, created_at);
+CREATE TABLE IF NOT EXISTS mission_status_list_notes (
+ campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
+ status_list_item_id varchar NOT NULL REFERENCES campaign_status_list_items(id) ON DELETE CASCADE,
+ note text,
+ updated_by varchar NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(campaign_contact_id, status_list_item_id)
+);
 `;
 export async function ensureStatusListWorkflowSchema(pool: { query(sql: string): Promise<unknown> }) {
   await pool.query(STATUS_LIST_WORKFLOW_SCHEMA);

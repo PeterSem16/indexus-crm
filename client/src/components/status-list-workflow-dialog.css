@@ -178,6 +178,7 @@
 .status-workflow-ui .target-flags { display:flex; }
 .status-workflow-ui .question-heading-copy .target-flags span { display:inline-flex; }
 .status-workflow-ui .catalog-child { min-width:0; }
+.status-workflow-ui .wf-field textarea { width:100%; resize:vertical; min-height:90px; border:1px solid #e5d9d3; border-radius:10px; padding:12px; background:#fff; color:#342c2b; font:inherit; font-size:12px; }
 .status-workflow-ui .question-heading-copy > small { display:block; font-size:10px; overflow-wrap:anywhere; color:#87736b; }
 .status-workflow-ui .boolean-condition { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .status-workflow-ui .boolean-condition button { display:flex; align-items:center; gap:7px; border:1px solid #e5d9d3; background:#fff; color:#655550; border-radius:9px; padding:10px; text-align:left; font-size:11px; }

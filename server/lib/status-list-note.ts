@@ -7,6 +7,7 @@ import {
   campaignContacts,
   campaignContactStatusListState,
   campaignStatusListItems,
+  missionStatusListNotes,
 } from "@shared/schema";
 
 export type StatusListNote = string | null;
@@ -161,6 +162,7 @@ export function createDrizzleStatusListNoteStore(database: any): StatusListNoteS
             .select({ campaignId: campaignContacts.campaignId })
             .from(campaignContacts)
             .where(eq(campaignContacts.id, campaignContactId))
+            .for("update")
             .limit(1);
           return row ?? null;
         },
@@ -201,6 +203,15 @@ export function createDrizzleStatusListNoteStore(database: any): StatusListNoteS
         },
         insertHistory: async (history) => {
           await transaction.insert(campaignContactHistory).values(history);
+          await transaction.insert(missionStatusListNotes).values({
+            campaignContactId: history.campaignContactId,
+            statusListItemId: String(history.metadata.statusListItemId),
+            note: history.metadata.itemNote as string | null,
+            updatedBy: history.userId,
+          }).onConflictDoUpdate({
+            target: [missionStatusListNotes.campaignContactId, missionStatusListNotes.statusListItemId],
+            set: { note: history.metadata.itemNote as string | null, updatedBy: history.userId, updatedAt: new Date() },
+          });
         },
       })),
   };

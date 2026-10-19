@@ -3,7 +3,7 @@ import { Plus, Pencil, Trash2, Workflow, AlertCircle } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Locale } from "@/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { statusListWorkflowSchema, type StatusListWorkflow, type WorkflowCatalogItem, type SavedStatusListWorkflow, type WorkflowRef } from "@shared/status-list-workflow";
+import { isWorkflowNoteAction, workflowActionSupportsTarget, statusListWorkflowSchema, type StatusListWorkflow, type WorkflowCatalogItem, type SavedStatusListWorkflow, type WorkflowRef } from "@shared/status-list-workflow";
 import { isWorkflowBoolean, isWorkflowSupported, isWorkflowYesNo, workflowRefKey } from "@/lib/status-workflow-catalog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -81,9 +81,10 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
     const refsOkay = !!source?.writable && isWorkflowSupported(source) && sourceValueOkay &&
       [...result.data.thenActions, ...result.data.elseActions].every(action => {
         const target = itemFor(action.target);
-        const valueOkay = isWorkflowBoolean(target) ? action.value === true :
-          isWorkflowYesNo(target) ? action.value === "yes" || action.value === "no" : typeof action.value === "string";
-        return !!target?.writable && isWorkflowSupported(target) && workflowRefKey(action.target) !== workflowRefKey(result.data.source) && valueOkay;
+        const valueOkay = action.type !== "set_answer" || (isWorkflowBoolean(target) ? action.value === true :
+          isWorkflowYesNo(target) ? action.value === "yes" || action.value === "no" : typeof action.value === "string");
+        return !!target && workflowActionSupportsTarget(action.type, target) &&
+          (isWorkflowNoteAction(action.type) || workflowRefKey(action.target) !== workflowRefKey(result.data.source)) && valueOkay;
       });
     if (!refsOkay) { setValidation(copy.invalid); return; }
     saveMutation.mutate({ id: editing?.id, data: result.data });

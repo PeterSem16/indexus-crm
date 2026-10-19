@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { enqueueChatAnalysis } from "./lib/chat-analysis-outbox";
 import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
 import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
@@ -205,6 +206,7 @@ function inboundHangupAttribution(
   return null;
 }
 import { cloneCampaignWithConfiguration } from "./lib/clone-campaign";
+import { preserveWorkflowNote, readWorkflowNotes, writeWorkflowNote } from "./lib/status-list-workflow-notes";
 import {
   createDrizzleStatusListNoteStore,
   parseStatusListNoteBody,
@@ -3003,8 +3005,9 @@ export async function registerRoutes(
   const { listOmniSms, findOmniSmsMessage, filterOmniSmsFromMixedHistory, OmniSmsError } = await import("./omni-sms-service");
   const { authoritativeOmniSmsReply } = await import("./lib/omni-sms-reply");
   registerOmniSmsRoutes(app, requireAuth);
-  const { registerClinicAgreementRoutes } = await import("./lib/clinic-agreement-routes");
+  const { registerClinicAgreementRoutes, registerHospitalAgreementRoutes } = await import("./lib/clinic-agreement-routes");
   registerClinicAgreementRoutes(app, requireAuth);
+  registerHospitalAgreementRoutes(app, requireAuth);
   const { registerHealthcareLegalEntityRoutes } = await import("./lib/healthcare-legal-entity-routes");
   registerHealthcareLegalEntityRoutes(app, requireAuth);
   const { registerProviderFinderRoutes } = await import("./lib/provider-finder-routes");
@@ -34992,10 +34995,12 @@ Respond ONLY with valid JSON in this exact format:
           ))
           .limit(1);
         if (existing.length === 0) {
+          const retainedNote = (await readWorkflowNotes(pool, campaignContactId))[itemId] ?? null;
           const [inserted] = await db.insert(campaignContactStatusListState)
-            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? null })
+            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? retainedNote })
             .returning();
           stateRow = inserted;
+          if (itemNote != null) await writeWorkflowNote(pool, campaignContactId, itemId, userId, itemNote);
 
           if (!skipAutomations) {
             const boNotifContext = await resolveStatusListTaskNotificationContext(ccRow, taskCustomerId);
@@ -35171,6 +35176,7 @@ Respond ONLY with valid JSON in this exact format:
         return res.json({ ...stateRow, confirmed: true });
       } else {
         // Remove confirmation row
+        await preserveWorkflowNote(pool, campaignContactId, itemId);
         await db.delete(campaignContactStatusListState)
           .where(and(
             eq(campaignContactStatusListState.campaignContactId, campaignContactId),
@@ -41089,6 +41095,7 @@ Rules:
               }).returning();
               if (chatAttachments.length) await tx.update(taskAttachmentUploads).set({ everAssociated: true })
                 .where(inArray(taskAttachmentUploads.id, chatAttachments.map(file => file.id!)));
+              await enqueueChatAnalysis(tx, chatMsg);
               return { chatMsg, chatNotification };
             });
             void notificationService.broadcastExistingNotification(chatNotification)
