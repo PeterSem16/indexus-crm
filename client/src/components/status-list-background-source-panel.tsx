@@ -13,22 +13,13 @@ import { StatusListOptionSourcePanel } from "./status-list-option-source-panel";
 type Source = { questionId: string; source: "representative_assigned" | "representative_assignment_type"; hidden: boolean };
 type SourceResponse = { sources: Source[]; catalog: WorkflowCatalogItem[] };
 const supports = (item: WorkflowCatalogItem, source: Source["source"], catalog: WorkflowCatalogItem[]) => {
-  if (item.kind !== "question" || item.multiSelectable === true) return false;
-  const seen = new Set<string>();
-  let parentId = item.parentId;
-  while (parentId && !seen.has(parentId)) {
-    seen.add(parentId);
-    const parent = catalog.find(entry => entry.kind === "item" && entry.id === parentId);
-    if (!parent) break;
-    if (parent.multiSelectable === false) return false;
-    parentId = parent.parentId;
-  }
+  if (item.kind !== "question" || !item.systemSourceEligible) return false;
   return source === "representative_assigned"
     ? ["yesno", "yes_no"].includes(item.fieldType.toLowerCase())
     : ["text", "string"].includes(item.fieldType.toLowerCase());
 };
 
-export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campaignId: string; locale: Locale | string }) {
+export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItemId, hideOptionSources = false }: { campaignId: string; locale: Locale | string; targetItemId?: string; hideOptionSources?: boolean }) {
   const copy = getStatusListBackgroundCopy(locale);
   const { toast } = useToast();
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/sources`;
@@ -46,13 +37,14 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
   const [source, setSource] = useState<Source["source"]>("representative_assigned");
   const [hidden, setHidden] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
-  const owned = query.data?.sources || [];
   const catalog = query.data?.catalog || [];
+  const relevant = (id: string) => !targetItemId || catalog.some(item => item.id === id && item.parentId === targetItemId);
+  const owned = (query.data?.sources || []).filter(entry => relevant(entry.questionId));
   const questions = useMemo(() => catalog.filter(item =>
-    item.kind === "question" && supports(item, source, catalog) &&
+    item.kind === "question" && relevant(item.id) && supports(item, source, catalog) &&
     (!owned.some(entry => entry.questionId === item.id) || item.id === editing)
   ), [catalog, source, owned, editing]);
-  const hasAvailable = catalog.some(item => item.kind === "question" &&
+  const hasAvailable = catalog.some(item => item.kind === "question" && relevant(item.id) &&
     (supports(item, "representative_assigned", catalog) || supports(item, "representative_assignment_type", catalog)) &&
     !owned.some(entry => entry.questionId === item.id));
   const editingQuestion = catalog.find(item => item.kind === "question" && item.id === editing);
@@ -96,9 +88,9 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
   };
   const begin = () => {
     reset();
-    const first = catalog.find(item => item.kind === "question" && supports(item, "representative_assigned", catalog) && !owned.some(entry => entry.questionId === item.id));
+    const first = catalog.find(item => item.kind === "question" && relevant(item.id) && supports(item, "representative_assigned", catalog) && !owned.some(entry => entry.questionId === item.id));
     const type = first ? "representative_assigned" : "representative_assignment_type";
-    const candidate = catalog.find(item => item.kind === "question" && supports(item, type, catalog) && !owned.some(entry => entry.questionId === item.id));
+    const candidate = catalog.find(item => item.kind === "question" && relevant(item.id) && supports(item, type, catalog) && !owned.some(entry => entry.questionId === item.id));
     setSource(type);
     setQuestionId(candidate?.id || "");
   };
@@ -119,7 +111,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
     </div>)}</div>}
     {editing !== null || (questionId && !owned.some(entry => entry.questionId === questionId)) ? <div className="mt-3 rounded-lg border border-primary/20 bg-primary/[0.035] p-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-xs font-medium text-muted-foreground"><span>{copy.source}</span><select className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground" value={source} disabled={saveMutation.isPending} onChange={event => { const next = event.target.value as Source["source"]; setSource(next); const first = catalog.find(item => item.kind === "question" && supports(item, next, catalog) && (!owned.some(entry => entry.questionId === item.id) || item.id === editing)); setQuestionId(first?.id || ""); }}><option value="representative_assigned" disabled={editing !== null && !supports(editingQuestion!, "representative_assigned", catalog)}>{copy.assigned}</option><option value="representative_assignment_type" disabled={editing !== null && !supports(editingQuestion!, "representative_assignment_type", catalog)}>{copy.assignmentType}</option></select></label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground"><span>{copy.source}</span><select className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground" value={source} disabled={saveMutation.isPending} onChange={event => { const next = event.target.value as Source["source"]; setSource(next); const first = catalog.find(item => item.kind === "question" && relevant(item.id) && supports(item, next, catalog) && (!owned.some(entry => entry.questionId === item.id) || item.id === editing)); setQuestionId(first?.id || ""); }}><option value="representative_assigned" disabled={editing !== null && !supports(editingQuestion!, "representative_assigned", catalog)}>{copy.assigned}</option><option value="representative_assignment_type" disabled={editing !== null && !supports(editingQuestion!, "representative_assignment_type", catalog)}>{copy.assignmentType}</option></select></label>
         <label className="grid gap-1 text-xs font-medium text-muted-foreground"><span>{copy.question}</span><select className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground" value={questionId} disabled={saveMutation.isPending || editing !== null || !questions.length} onChange={event => setQuestionId(event.target.value)}><option value="" disabled>{copy.compatibleEmpty}</option>{questions.map(item => <option value={item.id} key={item.id}>{item.label}</option>)}</select></label>
       </div>
       <p className="mt-2 text-xs text-muted-foreground">{copy.typeHint}</p>
@@ -127,5 +119,5 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale }: { campai
       <p className="mt-3 border-l-2 border-primary/35 pl-2.5 text-xs leading-relaxed text-muted-foreground">{copy.notice}</p>
       <div className="mt-3 flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" onClick={reset} disabled={saveMutation.isPending}>{copy.cancel}</Button><Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={!questionId || saveMutation.isPending}>{saveMutation.isPending ? copy.saving : copy.save}<ArrowRight className="ml-1.5 h-3.5 w-3.5"/></Button></div>
     </div> : null}
-  </section><StatusListOptionSourcePanel campaignId={campaignId} locale={locale}/></>;
+  </section>{!hideOptionSources && <StatusListOptionSourcePanel campaignId={campaignId} locale={locale}/>}</>;
 }

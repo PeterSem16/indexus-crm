@@ -29,7 +29,7 @@ let checks = 0, cloneId: string | undefined;
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 const check = (value: unknown, message: string) => { assert.ok(value, message); checks++; };
 const scalar = async (sql: string, args: unknown[] = []) => (await pool.query(sql, args)).rows[0]?.value;
-const body = async (response: Awaited<ReturnType<typeof api.get>>, status = 200) => {
+const body = async (response: Awaited<ReturnType<typeof api.get>>, status = 200): Promise<any> => {
   const json = await response.json();
   assert.equal(response.status(), status, JSON.stringify(json)); checks++; return json;
 };
@@ -76,20 +76,29 @@ try {
     [reachGroup, reachOptions, ["Not defined yet", "Waiting for response", "Unreachable", "Reachable"]],
   ] as const) for (let i = 0; i < options.length; i++) {
     if (parent === reachGroup && i === 1) continue;
-    await pool.query("INSERT INTO campaign_status_list_items(id,campaign_id,parent_id,step_id,label,item_type,sort_order) VALUES($1,$2,$3,'options',$4,'option',$5)", [options[i], mission, parent, labels[i], i]);
+    await pool.query(`INSERT INTO campaign_status_list_items(id,campaign_id,parent_id,step_id,label,item_type,sort_order,confirmation_type)
+      VALUES($1,$2,$3,'options',$4,$6,$5,$7)`, [options[i], mission, parent, labels[i], i, parent === reachGroup ? "step" : "option", parent === reachGroup ? "radio" : "checkbox"]);
   }
+  await pool.query("UPDATE campaign_status_list_items SET confirmation_type='info' WHERE id=$1", [reachGroup]);
   await pool.query("INSERT INTO campaign_status_list_items(id,campaign_id,step_id,label) VALUES($1,$2,'foreign','Foreign')", [foreignItem, foreign]);
   await pool.query("INSERT INTO campaign_status_list_questions(id,item_id,question_text,field_type) VALUES($1,$2,'Synthetic result','text')", [resultQuestion, resultItem]);
   await installStatusListBackgroundTriggers();
   await body(await api.get(optionRoot), 401);
+  await body(await api.get(`${root}/history`), 401);
   await body(await api.post("/api/auth/login", { data: { username, password } }));
   await body(await outsider.post("/api/auth/login", { data: { username: `options-${manager}`, password } }));
   await body(await outsider.get(optionRoot), 403);
   await body(await outsider.put(`${optionRoot}/${reachGroup}`, { data: reachability }), 403);
   await body(await outsider.post(`${optionRoot}/${reachGroup}/waiting-option`, { data: { label: "Waiting for response" } }), 403);
+  await body(await outsider.get(`${root}/history`), 403);
+  await body(await outsider.patch(`${root}/items/${reachGroup}/presentation`, { data: { isHidden: true } }), 403);
+  await body(await api.patch(`${root}/items/${foreignItem}/presentation`, { data: { isHidden: true } }), 404);
+  await body(await api.patch(`${root}/items/${reachGroup}/presentation`, { data: { confirmationType: "auto" } }), 400);
   const waitingOption = await body(await api.post(`${optionRoot}/${reachGroup}/waiting-option`, { data: { label: "Waiting for response" } }), 201);
   reachOptions[1] = waitingOption.id;
   reachability.mapping.waiting = waitingOption.id;
+  check(await scalar("SELECT item_type AS value FROM campaign_status_list_items WHERE id=$1", [waitingOption.id]) === "step", "Explicit waiting addition preserves real radio-step representation");
+  check(await scalar("SELECT confirmation_type AS value FROM campaign_status_list_items WHERE id=$1", [waitingOption.id]) === "radio", "Waiting step is a mutually exclusive radio choice");
   await body(await api.post(`${optionRoot}/${reachGroup}/waiting-option`, { data: { label: "Another waiting option" } }), 400);
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: { ...reachability, mapping: { ...reachability.mapping, reachable: foreignItem } } }), 400);
   await body(await api.put(`${optionRoot}/${coordinatorGroup}`, { data: coordinator }));
@@ -147,16 +156,16 @@ try {
   check(audit.transitions.some((t: any) => t.targetKind === "item" && !t.baseline), "Group transitions are visible in audit");
   check(audit.runs[0].actorKind === "system", "Non-human audit principal");
   check(audit.catalog.filter((x: any) => reachOptions.includes(x.id)).every((x: any) => !x.writable && x.backgroundSource === "reachability"), "All derived options readonly");
-  const revision = await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]);
+  const presentationRevision = await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]);
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: { ...reachability, hidden: true } }));
-  check(await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]) === revision, "Visibility change does not rebaseline");
+  check(await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]) === presentationRevision, "Visibility change does not rebaseline");
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: reachability }));
   const clone = await cloneCampaignWithConfiguration(mission, user, "Synthetic source clone");
   cloneId = clone.id;
   const clonedSources = (await pool.query("SELECT group_id,config FROM mission_status_list_option_sources WHERE campaign_id=$1", [cloneId])).rows;
   check(clonedSources.length === 2, "Clone includes both source configurations");
-  check(clonedSources.every(s => ![coordinatorGroup, reachGroup].includes(s.group_id) &&
-    Object.values(s.config.mapping).every(id => ![...coordinatorOptions, ...reachOptions].includes(String(id)))), "Clone remaps group and every mapped option");
+  check(clonedSources.every(s => ![coordinatorGroup, reachGroup].some(id => id === s.group_id) &&
+    Object.values(s.config.mapping).every(id => ![...coordinatorOptions, ...reachOptions].some(original => original === String(id)))), "Clone remaps group and every mapped option");
   check(await scalar("SELECT count(*)::int AS value FROM mission_status_list_option_source_state WHERE campaign_contact_id IN (SELECT id FROM campaign_contacts WHERE campaign_id=$1)", [cloneId]) === 0, "Clone has no operational source state");
   const savedVersion = await body(await api.post(`/api/campaigns/${mission}/nexus-pulse/versions`,
     { data: { changeNote: "Synthetic option source snapshot" } }), 201);
@@ -175,6 +184,22 @@ try {
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: reachability }));
   await evaluateBackgroundContact(cc);
   check(await runCount() === 1, "Re-enable never replays existing success");
+  const revision = await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]);
+  await body(await api.put(`${optionRoot}/${reachGroup}`, { data: { ...reachability, hidden: true } }));
+  await body(await api.patch(`${root}/items/${reachGroup}/presentation`, { data: { isHidden: false, required: true } }));
+  const shown = await body(await api.get(optionRoot));
+  check(shown.catalog.filter((item: any) => item.id === reachGroup || item.parentId === reachGroup).every((item: any) => !item.hidden), "Actual parent visibility wins over the old source-config hidden snapshot");
+  check(await scalar("SELECT required AS value FROM campaign_status_list_items WHERE id=$1", [reachGroup]), "Required answer persists independently");
+  check(await scalar("SELECT revision AS value FROM mission_status_list_option_sources WHERE group_id=$1", [reachGroup]) === revision, "Visibility and required changes never re-baseline the source");
+  await evaluateBackgroundContact(cc);
+  check(await runCount() === 1, "Presentation changes do not execute or replay actions");
+  await body(await api.post(`${root}/items/${reachOptions[1]}/move`, { data: { direction: "up" } }));
+  const moved = (await pool.query("SELECT id FROM campaign_status_list_items WHERE parent_id=$1 ORDER BY sort_order,id", [reachGroup])).rows.map(row => row.id);
+  check(moved.indexOf(reachOptions[1]) < moved.indexOf(reachOptions[3]), "Group choices reorder in persistent storage");
+  await body(await api.post(`${root}/items/${reachOptions[1]}/move`, { data: { direction: "down" } }));
+  await body(await api.post(`${root}/items/${foreignItem}/move`, { data: { direction: "up" } }), 404);
+  await body(await outsider.post(`${root}/items/${reachOptions[1]}/move`, { data: { direction: "up" } }), 403);
+  check((await body(await api.get(`${root}/history`))).runs.length === 1, "Manager history returns real, Mission-scoped executions");
   await body(await api.delete(`${optionRoot}/${reachGroup}`));
   // Native browser creates and edits the actual group mapping in the Mission editor.
   browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
@@ -183,6 +208,7 @@ try {
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(`${baseURL}/campaigns/${mission}?tab=settings&section=status_list`);
+  await page.getByTestId(`status-list-select-${reachGroup}`).click();
   const panel = page.getByTestId("status-list-option-source-panel");
   await panel.waitFor({ state: "visible", timeout: 30_000 });
   // The editor may default to Slovak independent of the browser locale.
@@ -196,11 +222,31 @@ try {
   check((await saved).ok(), "Native browser saves the real mapping");
   const persisted = await body(await api.get(optionRoot));
   check(persisted.sources.find((s: any) => s.groupId === reachGroup).policy.replyWaitHours === 24, "Native policy save persisted");
+  await page.reload();
+  await page.getByTestId(`status-list-select-${reachGroup}`).click();
+  await page.getByTestId("option-source-policy-replyWaitHours").waitFor({ state: "visible" });
+  check(await page.getByTestId("option-source-policy-replyWaitHours").inputValue() === "24", "Contextual source survives a real reload");
+  await page.getByTestId("status-list-tab-rules").click();
+  check(await page.getByTestId("status-list-workflows").isVisible(), "Rules are a separate functional tab");
+  await page.getByTestId("status-list-tab-tests").click();
+  await page.getByTestId("status-list-history").waitFor({ state: "visible" });
+  const runsBeforeDry = await runCount();
+  await page.getByTestId("status-list-dry-run").locator("select").first().selectOption({ label: "Synthetic reachable transition" });
+  await page.getByTestId("status-list-dry-run").locator("select").nth(1).selectOption("true");
+  await page.getByTestId("status-list-run-test").click();
+  check(await page.getByTestId("status-list-test-result").isVisible(), "Dry-run displays its real hypothetical result");
+  check(await runCount() === runsBeforeDry, "Browser dry-run creates no execution rows");
+  await page.getByTestId("status-list-tab-content").click();
+  await page.getByTestId(`status-list-select-${reachOptions[3]}`).click();
+  await page.getByTestId("status-list-option-source-panel").waitFor({ state: "visible" });
+  check(await page.getByTestId("option-source-group").inputValue() === reachGroup, "A child choice configures its parent source, not a competing source");
   await mkdir("generated-artifacts/status-list-options", { recursive: true });
   await page.screenshot({ path: "generated-artifacts/status-list-options/desktop.jpg", fullPage: false });
   await page.setViewportSize({ width: 390, height: 844 });
-  await panel.scrollIntoViewIfNeeded();
+  await page.getByTestId("status-list-option-source-panel").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "generated-artifacts/status-list-options/mobile.jpg" });
+  const mobilePanel = await page.getByTestId("status-list-option-source-panel").boundingBox();
+  check(!!mobilePanel && mobilePanel.width >= 220, "Mobile inspector retains a usable input width");
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Mobile page has no horizontal overflow");
   check(!errors.length, `Native browser runtime errors: ${errors.join("; ")}`);
   console.log(`Status List option sources: ${checks} assertions passed`);

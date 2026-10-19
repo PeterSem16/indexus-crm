@@ -6,6 +6,7 @@ import {
 } from "../../shared/status-list-option-source";
 import { StatusListWorkflowError, type WorkflowEvent } from "./status-list-workflow";
 import { preserveWorkflowNote } from "./status-list-workflow-notes";
+import { isStatusListSourceGroup } from "../../shared/status-list-source-group";
 
 const SYSTEM = "system:mission-status-list";
 type Queryable = Pick<PoolClient, "query">;
@@ -16,8 +17,8 @@ export async function validateOptionSource(client: Queryable, campaignId: string
     WHERE campaign_id=$1 AND (id=$2 OR parent_id=$2)`, [campaignId, groupId]);
   const parent = rows.find(row => row.id === groupId);
   const children = rows.filter(row => row.parent_id === groupId);
-  if (!parent || parent.confirmation_type === "auto" || !children.length ||
-    children.some(row => row.item_type !== "option" || row.confirmation_type === "auto"))
+  const node = (row: any) => ({ itemType: row.item_type, confirmationType: row.confirmation_type });
+  if (!isStatusListSourceGroup(parent && node(parent), children.map(node)))
     throw new StatusListWorkflowError("invalid_source_group");
   const ids = children.map(row => row.id);
   // A source owns the whole immediate option group. Nested questions/options
@@ -70,16 +71,22 @@ export async function addWaitingOption(campaignId: string, groupId: string, labe
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${campaignId}`]);
     const group = (await client.query(`SELECT * FROM campaign_status_list_items
       WHERE id=$1 AND campaign_id=$2 AND confirmation_type<>'auto'`, [groupId, campaignId])).rows[0];
-    const children = (await client.query(`SELECT id,item_type,sort_order FROM campaign_status_list_items
+    const children = (await client.query(`SELECT id,item_type,confirmation_type,sort_order FROM campaign_status_list_items
       WHERE parent_id=$1 AND campaign_id=$2`, [groupId, campaignId])).rows;
-    if (!group || children.length !== 3 || children.some(child => child.item_type !== "option"))
+    const node = (row: any) => ({ itemType: row.item_type, confirmationType: row.confirmation_type });
+    if (children.length !== 3 || !isStatusListSourceGroup(group && node(group), children.map(node)))
+      throw new StatusListWorkflowError("invalid_source_group");
+    if ((await client.query(`SELECT 1 FROM campaign_status_list_questions WHERE item_id=ANY($1::varchar[])
+      UNION ALL SELECT 1 FROM campaign_status_list_items WHERE parent_id=ANY($2::varchar[]) LIMIT 1`,
+    [[groupId, ...children.map(child => child.id)], children.map(child => child.id)])).rowCount)
       throw new StatusListWorkflowError("invalid_source_group");
     if ((await client.query("SELECT 1 FROM mission_status_list_option_sources WHERE group_id=$1", [groupId])).rowCount)
       throw new StatusListWorkflowError("source_already_configured", 409);
     const row = (await client.query(`INSERT INTO campaign_status_list_items
-      (campaign_id,parent_id,step_id,label,item_type,sort_order,tab)
-      VALUES($1,$2,$3,$4,'option',$5,$6) RETURNING id`,
-    [campaignId, groupId, group.step_id, label, Math.max(...children.map(child => child.sort_order)) + 1, group.tab])).rows[0];
+       (campaign_id,parent_id,step_id,label,item_type,sort_order,tab,confirmation_type)
+       VALUES($1,$2,$3,$4,$7,$5,$6,$8) RETURNING id`,
+     [campaignId, groupId, `${group.step_id}-WAIT`, label, Math.max(...children.map(child => child.sort_order)) + 1,
+       group.tab, children[0].item_type, children[0].item_type === "step" ? "radio" : "checkbox"])).rows[0];
     await client.query("COMMIT");
     return row;
   } catch (error) { await client.query("ROLLBACK"); throw error; }

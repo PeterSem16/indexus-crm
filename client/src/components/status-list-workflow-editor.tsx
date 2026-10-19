@@ -16,7 +16,7 @@ import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
 
 type CatalogResponse = { rules: SavedStatusListWorkflow[]; catalog: WorkflowCatalogItem[] };
 
-export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: string; locale: Locale | string }) {
+export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSources = true, sourceIds }: { campaignId: string; locale: Locale | string; showBackgroundSources?: boolean; sourceIds?: string[] }) {
   const copy = getStatusListWorkflowCopy(locale);
   const { toast } = useToast();
   const queryKey = ["/api/campaigns", campaignId, "status-list-workflows"];
@@ -32,7 +32,7 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
   const [editing, setEditing] = useState<SavedStatusListWorkflow | null>(null);
   const [draft, setDraft] = useState<StatusListWorkflow | null>(null);
   const [validation, setValidation] = useState("");
-  const rules = query.data?.rules || [];
+  const rules = (query.data?.rules || []).filter(rule => !sourceIds || sourceIds.includes(rule.source.id));
   const catalog = query.data?.catalog || [];
   const sourceItems = useMemo(() => catalog.filter(item => (item.writable && isWorkflowSupported(item)) || !!item.backgroundSource), [catalog]);
   const close = () => { setDraft(null); setEditing(null); setValidation(""); };
@@ -54,7 +54,7 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
   const startNew = async () => {
     const fresh = await query.refetch();
     if (fresh.isError) { toast({ title: copy.loadError, variant: "destructive" }); return; }
-    const source = fresh.data?.catalog.find(item => (item.writable && isWorkflowSupported(item)) || !!item.backgroundSource);
+    const source = fresh.data?.catalog.find(item => (!sourceIds || sourceIds.includes(item.id)) && ((item.writable && isWorkflowSupported(item)) || !!item.backgroundSource));
     if (!source) { toast({ title: copy.noSource, variant: "destructive" }); return; }
     setEditing(null);
     setDraft({ name: "", enabled: true, source: { kind: source.kind, id: source.id }, trigger: workflowBackgroundTrigger(source), logic: "and", conditions: [], thenActions: [], elseActions: [] });
@@ -115,7 +115,7 @@ export function StatusListWorkflowEditor({ campaignId, locale }: { campaignId: s
         <Button type="button" variant="ghost" size="icon" aria-label={copy.delete} disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(copy.confirmDelete)) deleteMutation.mutate(rule.id); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
-    <StatusListBackgroundSourcePanel campaignId={campaignId} locale={locale}/>
+    {showBackgroundSources && <StatusListBackgroundSourcePanel campaignId={campaignId} locale={locale}/>}
     {draft && <StatusListWorkflowDialog open draft={draft} catalog={catalog} locale={locale} editing={!!editing} pending={saveMutation.isPending} validation={validation} onUpdate={update} onClose={close} onSave={apply}/>}
   </section>;
 }

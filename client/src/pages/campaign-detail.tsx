@@ -6597,7 +6597,7 @@ export default function CampaignDetailPage() {
                   })}
                 </div>
 
-                <div className="min-w-0 flex-1 overflow-y-auto px-6 py-4">
+                <div className={`min-w-0 flex-1 overflow-y-auto ${settingsSubTab === "status_list" ? "px-2 py-3 sm:px-4 lg:px-5" : "px-6 py-4"}`}>
                   {settingsSubTab === "general" && (
                     <div className="space-y-8">
                       <section className="space-y-3">

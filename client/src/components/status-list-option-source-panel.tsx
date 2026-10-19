@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, ArrowRight, Plus, RefreshCw, Trash2, Pencil, Info } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Locale } from "@/i18n";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import type { OptionSource, OptionSourceConfig, ReachabilityPolicy } from "@shared/status-list-option-source";
 import { defaultReachabilityPolicy } from "@shared/status-list-option-source";
+import { isStatusListSourceGroup } from "@shared/status-list-source-group";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
@@ -22,10 +23,11 @@ const sourceKeys: Record<SourceKind, readonly string[]> = {
   reachability: reachabilityKeys,
   coordinator: coordinatorKeys,
 };
-const isOptionGroup = (item: WorkflowCatalogItem, catalog: WorkflowCatalogItem[]) => {
-  if (item.kind !== "item") return false;
+export const isOptionGroup = (item: WorkflowCatalogItem | undefined, catalog: WorkflowCatalogItem[]) => {
+  if (!item || item.kind !== "item") return false;
   const children = catalog.filter(child => child.parentId === item.id);
-  if (!children.length || children.some(child => child.kind !== "item" || child.itemType?.toLowerCase() !== "option")) return false;
+  if (!isStatusListSourceGroup(item, children)) return false;
+  if (catalog.some(child => children.some(parent => child.parentId === parent.id))) return false;
   return !catalog.some(candidate => candidate.kind === "question" && (() => {
     let parentId = candidate.parentId;
     const seen = new Set<string>();
@@ -38,7 +40,7 @@ const isOptionGroup = (item: WorkflowCatalogItem, catalog: WorkflowCatalogItem[]
   })());
 };
 
-export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId: string; locale: Locale | string }) {
+export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId }: { campaignId: string; locale: Locale | string; targetGroupId?: string }) {
   const copy = getStatusListOptionSourceCopy(locale);
   const { toast } = useToast();
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/option-sources`;
@@ -61,12 +63,12 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
   const [policy, setPolicy] = useState<ReachabilityPolicy>({ ...defaultReachabilityPolicy });
   const [users, setUsers] = useState<UserMapping[]>([]);
 
-  const sources = query.data?.sources || [];
+  const sources = (query.data?.sources || []).filter(entry => !targetGroupId || entry.groupId === targetGroupId);
   const catalog = query.data?.catalog || [];
   const coordinators = query.data?.coordinators || [];
-  const groups = useMemo(() => catalog.filter(item => isOptionGroup(item, catalog)), [catalog]);
+  const groups = useMemo(() => catalog.filter(item => (!targetGroupId || item.id === targetGroupId) && isOptionGroup(item, catalog)), [catalog, targetGroupId]);
   const childrenFor = (id: string) => catalog.filter(item =>
-    item.kind === "item" && item.parentId === id && item.itemType?.toLowerCase() === "option"
+    item.kind === "item" && item.parentId === id
   );
   const requiredCount = sourceKind === "reachability" ? 4 : 2;
   const eligibleGroups = groups.filter(group =>
@@ -96,6 +98,10 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
   function startCreate() {
     reset();
     setEditing(null);
+    if (targetGroupId) {
+      selectGroup(targetGroupId);
+      setHidden(!!catalog.find(item => item.id === targetGroupId)?.hidden);
+    }
     setFormOpen(true);
   }
 
@@ -127,6 +133,17 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
     setUsers([]);
   }
 
+  const loadedContext = useRef("");
+  useEffect(() => {
+    if (!targetGroupId || !query.data) return;
+    const entry = query.data.sources.find(source => source.groupId === targetGroupId);
+    const identity = `${targetGroupId}:${JSON.stringify(entry || null)}`;
+    if (loadedContext.current === identity) return;
+    loadedContext.current = identity;
+    if (entry) beginEdit(entry);
+    else reset();
+  }, [targetGroupId, query.data]);
+
   const saveMutation = useMutation({
     mutationFn: async ({ id, config }: { id: string; config: OptionSourceConfig }) => {
       const response = await fetch(`${endpoint}/${encodeURIComponent(id)}`, {
@@ -139,6 +156,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
       await Promise.all([
         queryClient.invalidateQueries({ queryKey }),
         queryClient.invalidateQueries({ queryKey: catalogQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
       ]);
       toast({ title: copy.saved });
       reset();
@@ -154,6 +172,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
       await Promise.all([
         queryClient.invalidateQueries({ queryKey }),
         queryClient.invalidateQueries({ queryKey: catalogQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
       ]);
       toast({ title: copy.deleted });
       reset();
@@ -260,7 +279,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale }: { campaignId
       {groupId && childrenFor(groupId).length < requiredCount && <p className="mt-2 text-xs text-destructive">{copy.wrongGroup.replace("{count}", String(requiredCount))}</p>}
       {sourceKind === "reachability" && groupId && childrenFor(groupId).length === 3 && editing === null &&
         <Button type="button" size="sm" variant="outline" className="mt-2" data-testid="option-source-add-waiting"
-          disabled={waitingMutation.isPending} onClick={() => waitingMutation.mutate()}>
+          disabled={waitingMutation.isPending} onClick={() => { if (window.confirm(copy.addWaiting)) waitingMutation.mutate(); }}>
           <Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.addWaiting}
         </Button>}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">

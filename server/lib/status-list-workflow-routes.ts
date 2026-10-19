@@ -68,6 +68,50 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     res.json({ rules: rows.map(row => ({ ...row.definition, id: row.id, campaignId: row.campaign_id })),
       catalog: await workflowCatalog(req.params.campaignId) });
   }));
+  app.get(`${root}/history`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { rows } = await pool.query(`SELECT r.id,r.rule_name AS "ruleName",r.branch,r.results,
+      r.created_at AS "createdAt",r.actor_kind AS "actorKind",u.full_name AS "actorName",
+      r.campaign_contact_id AS "campaignContactId"
+      FROM mission_status_list_rule_runs r LEFT JOIN users u ON u.id=r.actor_id
+      WHERE r.campaign_id=$1 ORDER BY r.created_at DESC,r.id DESC LIMIT 50`, [req.params.campaignId]);
+    res.json({ runs: rows });
+  }));
+  app.patch(`${root}/items/:itemId/presentation`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const body = z.object({ isHidden: z.boolean().optional(), required: z.boolean().optional() }).strict()
+      .refine(value => value.isHidden !== undefined || value.required !== undefined).parse(req.body);
+    const result = await pool.query(`UPDATE campaign_status_list_items SET
+      is_hidden=COALESCE($3,is_hidden),required=COALESCE($4,required),updated_at=now()
+      WHERE id=$1 AND campaign_id=$2 RETURNING id`,
+    [req.params.itemId, req.params.campaignId, body.isHidden, body.required]);
+    if (!result.rowCount) throw new StatusListWorkflowError("item_not_found", 404);
+    res.json({ ok: true });
+  }));
+  app.post(`${root}/items/:itemId/move`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { direction } = z.object({ direction: z.enum(["up", "down"]) }).strict().parse(req.body);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${req.params.campaignId}`]);
+      const { rows } = await client.query(`SELECT id,parent_id,item_type,tab FROM campaign_status_list_items
+        WHERE campaign_id=$1 ORDER BY sort_order,id FOR UPDATE`, [req.params.campaignId]);
+      const selected = rows.find(row => row.id === req.params.itemId);
+      if (!selected) throw new StatusListWorkflowError("item_not_found", 404);
+      const siblings = rows.filter(row => row.parent_id === selected.parent_id && row.item_type === selected.item_type && row.tab === selected.tab);
+      const index = siblings.findIndex(row => row.id === selected.id), target = index + (direction === "up" ? -1 : 1);
+      if (target >= 0 && target < siblings.length) {
+        [siblings[index], siblings[target]] = [siblings[target], siblings[index]];
+        await client.query(`UPDATE campaign_status_list_items i SET sort_order=o.n::int,updated_at=now()
+          FROM unnest($1::varchar[]) WITH ORDINALITY AS o(id,n) WHERE i.id=o.id AND i.campaign_id=$2`,
+        [siblings.map(row => row.id), req.params.campaignId]);
+      }
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+    res.json({ ok: true });
+  }));
   app.get(`${root}/sources`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const { rows } = await pool.query(`SELECT s.question_id AS "questionId",s.source,q.is_hidden AS hidden

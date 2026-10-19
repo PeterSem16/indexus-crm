@@ -14,7 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
-import { StatusListWorkflowEditor } from "@/components/status-list-workflow-editor";
+import { StatusListWorkspace } from "@/components/status-list-workspace";
+import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-copy";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
@@ -2595,7 +2596,7 @@ function QuestionEditor({
 }
 
 function StatusListItemRow({
-  item, campaignId, allItems, onDeleted, isSelected, onToggleSelect,
+  item, campaignId, allItems, onDeleted, isSelected, onToggleSelect, defaultExpanded = false,
 }: {
   item: StatusListItem;
   campaignId: string;
@@ -2603,10 +2604,11 @@ function StatusListItemRow({
   onDeleted: () => void;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  defaultExpanded?: boolean;
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const [editMode, setEditMode] = useState(false);
   const [addingAutomation, setAddingAutomation] = useState(false);
   const [editingAutoId, setEditingAutoId] = useState<string | null>(null);
@@ -3557,6 +3559,7 @@ function CanonicalCoveragePanel({ items, locale }: { items: StatusListItem[]; lo
 }
 
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
+  const [workspaceSelection, setWorkspaceSelection] = useState("");
   const { toast } = useToast();
   const { locale } = useI18n();
   const [addingItem, setAddingItem] = useState(false);
@@ -3668,7 +3671,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     }
   }
 
-  const { data: items = [], isLoading } = useQuery<StatusListItem[]>({
+  const { data: items = [], isLoading, isError: itemsLoadError, refetch: retryItems } = useQuery<StatusListItem[]>({
     queryKey: ["/api/campaigns", campaignId, "status-list"],
     queryFn: () => fetch(`/api/campaigns/${campaignId}/status-list`, { credentials: "include" }).then(r => { if (!r.ok) throw new Error(`Request failed: ${r.status}`); return r.json(); }),
   });
@@ -3838,7 +3841,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
 
   return (
     <div className="space-y-3">
-      <StatusListWorkflowEditor campaignId={campaignId} locale={locale} />
+      {itemsLoadError && <Button variant="outline" onClick={() => void retryItems()}>{getStatusListWorkspaceCopy(locale).error}</Button>}
+      {!itemsLoadError && <>
+      <StatusListWorkspace campaignId={campaignId} locale={locale} items={items}
+        selectedId={workspaceSelection} onSelect={setWorkspaceSelection}
+        coverage={<CanonicalCoveragePanel items={items} locale={locale}/>}
+        tools={<>
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
           <LayoutTemplate className="h-3.5 w-3.5 text-primary" />
@@ -3904,20 +3912,21 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         />
       )}
 
-      <CanonicalCoveragePanel items={items} locale={locale} />
+      {previewMode && <StatusListPreview items={items} locale={locale} />}
+      </>}
+      definition={<>
 
-      {previewMode ? (
-        <StatusListPreview items={items} locale={locale} />
-      ) : (
         <>
           <div className="space-y-1.5">
             {(() => {
               const nonOptions = items.filter(i => i.itemType !== "option");
-              const roots = nonOptions.filter(i => !i.parentId);
+              const roots = nonOptions.filter(i => workspaceSelection ? i.id === workspaceSelection : !i.parentId);
               const childrenOf = (parentId: string) => nonOptions.filter(i => i.parentId === parentId);
               return roots.map(item => (
                 <div key={item.id}>
                   <StatusListItemRow
+                    key={item.id}
+                    defaultExpanded
                     item={item}
                     campaignId={campaignId}
                     allItems={items}
@@ -3981,7 +3990,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               />
             )}
             <div className="space-y-1.5">
-              {items.filter(i => i.itemType === "option").map(item => (
+              {items.filter(i => i.itemType === "option" && (!workspaceSelection || i.id === workspaceSelection || i.parentId === workspaceSelection)).map(item => (
                 <StatusListItemRow
                   key={item.id}
                   item={item}
@@ -4004,8 +4013,9 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
             </div>
           </div>
         </>
-      )}
+      </>}/>
 
+      </>}
       {/* ── Template Dialog ─────────────────────────────────── */}
       <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">

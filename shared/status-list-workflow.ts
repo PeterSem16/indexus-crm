@@ -69,6 +69,8 @@ export type WorkflowCatalogItem = {
   kind: "item" | "question"; id: string; label: string; fieldType: string;
   hidden: boolean; writable: boolean; parentLabel?: string;
   parentId?: string; sortOrder?: number; itemType?: string;
+  confirmationType?: string;
+  systemSourceEligible?: boolean;
   multiSelectable?: boolean;
   backgroundSource?: "representative_assigned" | "representative_assignment_type" | "coordinator" | "reachability";
 };

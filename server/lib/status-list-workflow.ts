@@ -16,13 +16,15 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
   const { rows } = await client.query(`
     SELECT 'item' AS kind, i.id, i.label, 'checkbox' AS field_type, i.is_hidden AS hidden,
       i.confirmation_type <> 'auto' AS writable, p.label AS parent_label,
-      i.parent_id, i.sort_order, i.item_type,
+      i.parent_id, i.sort_order, i.item_type, i.confirmation_type, NULL::boolean AS system_source_eligible,
       (i.item_type='option' AND p.id IS NOT NULL AND p.question_selection_mode IS DISTINCT FROM 'single') AS multi_selectable
     FROM campaign_status_list_items i LEFT JOIN campaign_status_list_items p ON p.id=i.parent_id
     WHERE i.campaign_id=$1
     UNION ALL
     SELECT 'question', q.id, q.question_text, COALESCE(q.field_type,'checkbox'), q.is_hidden,
-      i.confirmation_type <> 'auto', i.label, q.item_id, q.sort_order, 'question',
+      i.confirmation_type <> 'auto', i.label, q.item_id, q.sort_order, 'question', NULL,
+      (i.confirmation_type<>'auto' AND i.question_selection_mode IS DISTINCT FROM 'single'
+        AND NOT EXISTS(SELECT 1 FROM campaign_status_list_questions sibling WHERE sibling.item_id=i.id AND sibling.logic_operator='ONE')),
       (q.field_type='checkbox' AND i.question_selection_mode IS DISTINCT FROM 'single' AND q.logic_operator<>'ONE'
         AND NOT EXISTS (SELECT 1 FROM campaign_status_list_questions sibling WHERE sibling.item_id=q.item_id
           AND COALESCE(sibling.group_name,'')=COALESCE(q.group_name,'') AND sibling.logic_operator='ONE'))
@@ -30,13 +32,14 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
     WHERE i.campaign_id=$1
     ORDER BY sort_order, kind, id`, [campaignId]);
   const sources = await client.query("SELECT question_id,source FROM mission_status_list_sources WHERE campaign_id=$1", [campaignId]);
-  const optionSources = (await client.query("SELECT group_id,config FROM mission_status_list_option_sources WHERE campaign_id=$1", [campaignId])).rows;
+  const optionSources = (await client.query(`SELECT s.group_id,s.config,i.is_hidden AS hidden
+    FROM mission_status_list_option_sources s JOIN campaign_status_list_items i ON i.id=s.group_id WHERE s.campaign_id=$1`, [campaignId])).rows;
   return rows.map(row => {
     const owner = row.kind === "item" ? optionSources.find(s => s.group_id === row.id || s.group_id === row.parent_id) : undefined;
     return { kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
     hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
-    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, multiSelectable: row.multi_selectable,
-    ...(owner ? { writable: false, hidden: row.hidden || owner.config.hidden,
+    parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, confirmationType: row.confirmation_type, systemSourceEligible: row.system_source_eligible, multiSelectable: row.multi_selectable,
+    ...(owner ? { writable: false, hidden: row.hidden || owner.hidden,
       ...(owner.group_id !== row.id ? { backgroundSource: owner.config.source } : {}) } : {}),
     ...(row.kind === "question" && sources.rows.some(s => s.question_id === row.id)
       ? { writable: false, backgroundSource: sources.rows.find(s => s.question_id === row.id)!.source } : {}) };
