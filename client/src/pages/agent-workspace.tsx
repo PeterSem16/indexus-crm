@@ -14,6 +14,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
+import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { useAuth } from "@/contexts/auth-context";
@@ -4966,6 +4967,7 @@ export function CommunicationCanvas({
                     mode="inline"
                     readOnly={cardsReadOnly}
                     readOnlyExceptions={cardsReadOnlyExceptions}
+                    campaignId={campaign?.id}
                     initialData={hospitalData}
                     headerBadge={visibleUnpaidRewardPersonCount > 0 ? (
                       <Badge className="border border-amber-200 bg-amber-50 text-[10px] font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-300" data-testid="badge-hospital-unpaid-reward">
@@ -7048,7 +7050,7 @@ export function CommunicationCanvas({
                                         for (const a of (item.automations || [])) handleSlRunAction(a);
                                       }
                                     };
-                                    if (ft === "yesno") {
+                                    if (isStatusListYesNo(ft)) {
                                       return (
                                         <div key={q.id} className="w-full" data-testid={`sl-question-${q.id}`}>
                                           {q.questionText && <p className="text-[10px] text-foreground/70 mb-1">{q.questionText}</p>}
@@ -16290,6 +16292,7 @@ function AgentWorkspacePageContent() {
                   <HospitalFormWizard
                     mode="inline"
                     prefillData={{ countryCode: parsedPhone.countryCode }}
+                    campaignId={selectedCampaign?.id}
                     onSuccess={() => {
                       setCreateFromCallType(null);
                       setPendingUnknownCaller(null);

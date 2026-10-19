@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { getStatusListQuestionStudioCopy } from "./status-list-question-studio-copy";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
+import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import "./status-list-question-studio.css";
 
 type CanonicalOption = { value: string; label: string; phase: string };
@@ -245,8 +246,8 @@ export function StatusListQuestionStudio({
           {stage === "answer" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">03 / 05</span><h3>{copy.answerTitle}</h3><p>{copy.answerHelp}</p></div>
             {isQuestion ? <div className="slqs-fields">
-              <label className="slqs-field"><span>{copy.fieldType}</span><select data-testid="status-list-question-field-type" value={questionDraft.fieldType} onChange={event => setQuestion("fieldType", event.target.value)}>
-                {!copy.fieldTypeOptions[questionDraft.fieldType] && <option value={questionDraft.fieldType}>{questionDraft.fieldType}</option>}
+              <label className="slqs-field"><span>{copy.fieldType}</span><select data-testid="status-list-question-field-type" value={isStatusListYesNo(questionDraft.fieldType) ? "yes_no" : questionDraft.fieldType} onChange={event => setQuestion("fieldType", event.target.value)}>
+                {!isStatusListYesNo(questionDraft.fieldType) && !copy.fieldTypeOptions[questionDraft.fieldType] && <option value={questionDraft.fieldType}>{questionDraft.fieldType}</option>}
                 {Object.entries(copy.fieldTypeOptions).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
               </select></label>
               <label className="slqs-field"><span>{copy.group}</span><input data-testid="status-list-question-group" value={questionDraft.groupName} onChange={event => setQuestion("groupName", event.target.value)} placeholder={copy.group} /><small>{copy.groupHelp}</small></label>
@@ -340,8 +341,8 @@ export function StatusListQuestionStudio({
               <strong>{previewText || copy.questionText}{questionDraft.required && <em>*</em>}</strong>
               {questionDraft.description && <p>{questionDraft.description}</p>}
               {questionDraft.fieldType === "checkbox" && <div className="slqs-preview-option"><i /></div>}
-              {questionDraft.fieldType === "yes_no" && <div className="slqs-preview-yesno"><span>{copy.yes}</span><span>{copy.no}</span></div>}
-              {!["checkbox", "yes_no"].includes(questionDraft.fieldType) && <p className="slqs-preview-unsupported">{copy.unsupportedPreview}</p>}
+              {isStatusListYesNo(questionDraft.fieldType) && <div className="slqs-preview-yesno"><span>{copy.yes}</span><span>{copy.no}</span></div>}
+              {questionDraft.fieldType !== "checkbox" && !isStatusListYesNo(questionDraft.fieldType) && <p className="slqs-preview-unsupported">{copy.unsupportedPreview}</p>}
             </div>}
             {!isQuestion && stepDraft.description && <p className="slqs-preview-description">{stepDraft.description}</p>}
             {!isQuestion && stepDraft.required && <span className="slqs-required-chip">{copy.requiredMark}</span>}
@@ -351,7 +352,7 @@ export function StatusListQuestionStudio({
         </div>
         <p className="slqs-preview-impact">{previewHidden ? copy.impactHidden : isQuestion ? (questionDraft.required ? copy.impactRequired : copy.impactGroup) : copy.impactVisible}</p>
         {isQuestion && <div className="slqs-preview-inherit"><span>↳</span>{copy.inherited}<button type="button" onClick={() => onSelectItem(item.id)}>{copy.goToParent}</button></div>}
-        <div className="slqs-preview-detail"><span>{copy.phase}</span><strong>{tabLabel(phase)}</strong><span>{isQuestion ? copy.fieldType : copy.selectionMode}</span><strong>{isQuestion ? copy.fieldTypeOptions[questionDraft.fieldType] || questionDraft.fieldType : stepDraft.questionSelectionMode === "single" ? copy.selectionSingle : copy.selectionMultiple}</strong></div>
+        <div className="slqs-preview-detail"><span>{copy.phase}</span><strong>{tabLabel(phase)}</strong><span>{isQuestion ? copy.fieldType : copy.selectionMode}</span><strong>{isQuestion ? copy.fieldTypeOptions[isStatusListYesNo(questionDraft.fieldType) ? "yes_no" : questionDraft.fieldType] || questionDraft.fieldType : stepDraft.questionSelectionMode === "single" ? copy.selectionSingle : copy.selectionMultiple}</strong></div>
       </aside>
     </div>
   </section>;

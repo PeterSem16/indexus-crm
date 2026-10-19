@@ -19,6 +19,8 @@ import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-c
 import { outlinePhase } from "@/lib/status-list-outline";
 import { StatusListQuestionStudio } from "@/components/status-list-question-studio";
 import { getStatusListQuestionStudioCopy } from "@/components/status-list-question-studio-copy";
+import { StatusListQuickOptionEditor, getQuickOptionCopy } from "@/components/status-list-quick-option-editor";
+import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
@@ -609,7 +611,7 @@ function PreviewQuestions({
         else { next[q.id] = true; triggerGoto(q); }
         return next;
       });
-    } else if (ft === "yesno") {
+    } else if (isStatusListYesNo(ft)) {
       setAnswers(prev => {
         const next = { ...prev };
         if (next[q.id] === value) { delete next[q.id]; }
@@ -777,7 +779,7 @@ function PreviewQuestions({
                     </div>
                   )}
                   {/* YESNO */}
-                  {ft === "yesno" && (
+                  {isStatusListYesNo(ft) && (
                     <div className="flex items-start gap-2.5 px-3 py-2">
                       <div className="mt-0.5 shrink-0"><QuestionIcon iconName={q.icon} color={q.color} className="h-3.5 w-3.5" /></div>
                       <div className="flex-1 min-w-0">
@@ -1365,12 +1367,13 @@ function AutomationBadge({ automation, groups }: { automation: StatusListAutomat
 }
 
 function AutomationForm({
-  automation, itemId, campaignId, questionId, onSaved, onCancel,
+  automation, itemId, campaignId, questionId, onSaved, onCancel, initialActionType,
 }: {
   automation?: StatusListAutomation;
   itemId: string;
   campaignId: string;
   questionId?: string;
+  initialActionType?: string;
   onSaved: () => void;
   onCancel: () => void;
 }) {
@@ -1388,7 +1391,7 @@ function AutomationForm({
     }
   })();
   const [form, setForm] = useState({
-    actionType: automation?.actionType || "assign_task",
+    actionType: automation?.actionType || initialActionType || "assign_task",
     targetRole: automation?.targetRole || "role:back_office",
     taskDescription: automation?.taskDescription || "",
     taskDeadlineOffset: automation?.taskDeadlineOffset || "+24h",
@@ -2005,7 +2008,7 @@ function AutomationForm({
           <div className="col-span-2">
             <Label className="text-xs mb-1 block">{sl("disposition", locale)}</Label>
             <Select value={form.dispositionId} onValueChange={v => setForm(f => ({ ...f, dispositionId: v }))}>
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger className="h-8 text-xs" data-testid="select-status-disposition">
                 <SelectValue placeholder={sl("selectDisp", locale)} />
               </SelectTrigger>
               <SelectContent>
@@ -2323,7 +2326,7 @@ function AutomationForm({
         <Button type="button" variant="ghost" size="sm" onClick={onCancel} className="h-7 text-xs">
           <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
         </Button>
-        <Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="h-7 text-xs">
+        <Button type="button" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || (form.actionType === "set_contact_status" && !form.dispositionId) || (["set_callback", "set_contact_status"].includes(form.actionType) && (form.actionType === "set_callback" || isCallbackDisp) && (!Number.isInteger(Number(form.callbackOffsetDays)) || Number(form.callbackOffsetDays) < 0 || form.callbackOffsetDays.trim() === ""))} className="h-7 text-xs" data-testid="status-list-automation-save">
           {saveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
           {sl("saveActionBtn", locale)}
         </Button>
@@ -2334,25 +2337,35 @@ function AutomationForm({
 
 
 /** Existing action services, presented as a focused list/modal, never a whole legacy item. */
-function StatusListStudioActions({ item, campaignId, questionId, workflows }: {
-  item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode;
+function StatusListStudioActions({ item, campaignId, questionId, workflows, quickOption = false }: {
+  item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode; quickOption?: boolean;
 }) {
   const { locale } = useI18n();
   const { toast } = useToast();
-  const [editing, setEditing] = useState<StatusListAutomation | "new" | null>(null);
+  const [editing, setEditing] = useState<StatusListAutomation | "new" | "status" | "callback" | null>(null);
   const actions = questionId ? item.questions.find(question => question.id === questionId)?.automations || [] : item.automations;
   const remove = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
     onError: () => toast({ title: sl("deleteErr", locale), variant: "destructive" }),
   });
+  const editor = editing && <AutomationForm
+    key={typeof editing === "object" ? editing.id : editing}
+    automation={typeof editing === "object" ? editing : undefined}
+    initialActionType={editing === "callback" ? "set_callback" : editing === "status" || quickOption ? "set_contact_status" : undefined}
+    itemId={item.id} campaignId={campaignId} questionId={questionId || undefined}
+    onSaved={() => setEditing(null)} onCancel={() => setEditing(null)}/>;
   return <div className="space-y-6" data-testid="status-list-studio-actions">
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="flex items-center gap-2 text-sm font-semibold"><Zap className="h-4 w-4 text-primary"/>{getStatusListWorkspaceCopy(locale).original}</h4>
+        <h4 className="flex items-center gap-2 text-sm font-semibold"><Zap className="h-4 w-4 text-primary"/>{quickOption ? getQuickOptionCopy(locale).actions : getStatusListWorkspaceCopy(locale).original}</h4>
         <Button type="button" size="sm" variant="outline" onClick={() => setEditing("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{sl("inspectorAutomationHelp", locale)}</p>
+      {quickOption && <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" data-testid="quick-option-add-status" onClick={() => setEditing("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
+        <Button type="button" variant="outline" size="sm" data-testid="quick-option-add-callback" onClick={() => setEditing("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
+      </div>}
       {actions.map(action => <div key={action.id} className="flex items-center gap-3 rounded-xl border bg-card p-3" data-testid={`studio-original-action-${action.id}`}>
         <span className="rounded-lg bg-primary/5 p-2 text-primary">{getActionIcon(action.actionType)}</span>
         <div className="min-w-0 flex-1"><strong className="block text-sm">{getActionLabel(action.actionType, locale)}</strong>
@@ -2364,13 +2377,14 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows }: {
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
       </div>)}
     </section>
-    <section className="border-t pt-5">{workflows}</section>
-    <Dialog open={editing !== null} onOpenChange={open => { if (!open) setEditing(null); }}>
+    {quickOption && editor && <section className="rounded-lg border p-3" data-testid="quick-option-action-editor">{editor}</section>}
+    <section className="border-t pt-5">{quickOption ? <details><summary className="cursor-pointer text-xs font-medium">{getStatusListWorkspaceCopy(locale).rules}</summary>{workflows}</details> : workflows}</section>
+    {!quickOption && <Dialog open={editing !== null} onOpenChange={open => { if (!open) setEditing(null); }}>
       <DialogContent className="max-w-3xl max-h-[85dvh] overflow-y-auto" data-testid="studio-original-action-dialog">
         <DialogHeader><DialogTitle>{editing === "new" ? sl("addActionBtn", locale) : sl("editAction", locale)}</DialogTitle></DialogHeader>
-        {editing && <AutomationForm automation={editing === "new" ? undefined : editing} itemId={item.id} campaignId={campaignId} questionId={questionId || undefined} onSaved={() => setEditing(null)} onCancel={() => setEditing(null)}/>}
+        {editor}
       </DialogContent>
-    </Dialog>
+    </Dialog>}
   </div>;
 }
 
@@ -3487,11 +3501,12 @@ const OPTION_COLORS = [
 function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
   campaignId: string;
   existingCount: number;
-  onSaved: () => void;
+  onSaved: (optionId: string) => void;
   onCancel: () => void;
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
+  const copy = getQuickOptionCopy(locale);
   const [form, setForm] = useState({ label: "", color: "#3b82f6", description: "", canonicalClinicStatusKey: null as string | null });
 
   const addMutation = useMutation({
@@ -3506,44 +3521,49 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
       color: form.color,
       canonicalClinicStatusKey: form.canonicalClinicStatusKey || null,
     }),
-    onSuccess: () => {
+    onSuccess: async response => {
+      const created = await response.json();
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      toast({ title: "Možnosť pridaná" });
-      onSaved();
+      toast({ title: getStatusListQuestionStudioCopy(locale).saved });
+      onSaved(created.id);
     },
     onError: () => toast({ title: sl("saveErr", locale), variant: "destructive" }),
   });
 
   return (
-    <div className="border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-3 space-y-2 bg-amber-50/50 dark:bg-amber-950/20 mb-2">
+    <div data-testid="status-list-quick-option-create" className="border-2 border-dashed border-amber-300 dark:border-amber-700 rounded-lg p-3 space-y-2 bg-amber-50/50 dark:bg-amber-950/20 mb-2">
+      <p className="text-xs leading-relaxed text-muted-foreground">{copy.createHelp}</p>
       <div className="grid grid-cols-2 gap-2">
         <div className="col-span-2">
-          <Label className="text-xs mb-1 block">Názov možnosti *</Label>
+          <Label className="text-xs mb-1 block">{copy.name} *</Label>
           <Input
             className="h-8 text-xs"
             value={form.label}
             onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
-            placeholder="napr. Nezáujem, Callback, Záujem..."
+            placeholder={copy.placeholder}
             autoFocus
             data-testid="input-option-label"
           />
         </div>
         <div>
-          <Label className="text-xs mb-1 block">Popis (voliteľné)</Label>
+          <Label className="text-xs mb-1 block">{copy.description}</Label>
           <Input
             className="h-8 text-xs"
             value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Krátky popis..."
+            placeholder={copy.description}
+            data-testid="input-option-description"
           />
         </div>
         <div>
-          <Label className="text-xs mb-1 block">Farba tlačidla</Label>
+          <Label className="text-xs mb-1 block">{copy.color}</Label>
           <div className="flex flex-wrap gap-1.5 mt-1">
             {OPTION_COLORS.map(c => (
               <button
                 key={c.value}
                 type="button"
+                aria-label={c.value}
+                aria-pressed={form.color === c.value}
                 onClick={() => setForm(f => ({ ...f, color: c.value }))}
                 className={`w-5 h-5 rounded-full border-2 transition-all ${form.color === c.value ? "border-foreground scale-110" : "border-transparent hover:border-muted-foreground/40"}`}
                 style={{ backgroundColor: c.value }}
@@ -3571,14 +3591,14 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
       </div>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span>Náhľad:</span>
+          <span>{copy.preview}:</span>
           <span className="px-2 py-0.5 rounded text-white text-[11px] font-semibold" style={{ backgroundColor: form.color }}>
-            {form.label || "Možnosť"}
+            {form.label || copy.name}
           </span>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
-            <X className="h-3 w-3 mr-1" /> Zrušiť
+            <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
           </Button>
           <Button
             type="button"
@@ -3590,7 +3610,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
             data-testid="btn-confirm-add-option"
           >
             {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-            Pridať možnosť
+            {copy.create}
           </Button>
         </div>
       </div>
@@ -3714,7 +3734,8 @@ function CanonicalCoveragePanel({ items, locale }: { items: StatusListItem[]; lo
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
   const [workspaceSelection, setWorkspaceSelection] = useState("");
   const [studioNavigation, setStudioNavigation] = useState<{ itemId: string; questionId?: string; nonce: number }>();
-  const [studioCreation, setStudioCreation] = useState<{ kind: "step" | "question" | "option"; parentId: string | null } | null>(null);
+  const [studioCreation, setStudioCreation] = useState<{ kind: "step" | "question"; parentId: string | null } | null>(null);
+  const [addingOption, setAddingOption] = useState(false);
   const [studioCreationDirty, setStudioCreationDirty] = useState(false);
   const navigateStudio = (itemId: string, questionId?: string) => setStudioNavigation({ itemId, questionId, nonce: Date.now() });
   const { toast } = useToast();
@@ -3998,7 +4019,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const studioCreateItem = studioCreation?.kind === "question" ? items.find(item => item.id === studioCreation.parentId) : {
     id: "", campaignId, stepId: `STEP-${String(items.length + 1).padStart(2, "0")}`, label: "", description: null, sortOrder: items.length,
     required: false, parentId: studioCreation?.parentId || null, confirmationType: "checkbox", nextStepId: null, restrictions: null,
-    isHidden: false, itemType: studioCreation?.kind === "option" ? "option" : "step", autoConfirmOnSubQuestion: false,
+    isHidden: false, itemType: "step", autoConfirmOnSubQuestion: false,
     questionSelectionMode: "multiple" as const, tab: null, canonicalClinicStatusKey: null, automations: [], questions: [],
   };
   return (
@@ -4050,10 +4071,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       </div>
       <section className="slw-quick-options" data-testid="status-list-quick-options">
         <header><div><strong>{getStatusListWorkspaceCopy(locale).quickOptions}</strong><p>{getStatusListWorkspaceCopy(locale).quickOptionsHelp}</p></div>
-          <Button type="button" variant="outline" size="sm" onClick={() => setStudioCreation({ kind: "option", parentId: null })} data-testid="btn-add-status-list-option">
+          <Button type="button" variant="outline" size="sm" onClick={() => setAddingOption(true)} disabled={addingOption} data-testid="btn-add-status-list-option">
             <Plus className="h-3.5 w-3.5"/>{getStatusListWorkspaceCopy(locale).addQuickOption}
           </Button>
         </header>
+        {addingOption && <AddOptionForm campaignId={campaignId} existingCount={items.filter(item => item.itemType === "option").length} onSaved={id => { setAddingOption(false); navigateStudio(id); }} onCancel={() => setAddingOption(false)}/>}
       </section>
 
 
@@ -4062,6 +4084,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       definition={(selectedItemId, selectedQuestionId, controls) => {
         const selectedItem = items.find(item => item.id === selectedItemId);
         if (!selectedItem) return null;
+        if (selectedItem.itemType === "option" && !selectedItem.parentId) return <StatusListQuickOptionEditor
+          key={`quick-option-${selectedItem.id}`} item={selectedItem} campaignId={campaignId} locale={locale}
+          canonicalOptions={studioCanonicalOptions} onDirtyChange={controls.onDirtyChange}
+          onDeleted={() => setWorkspaceSelection("")}
+          renderActions={() => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={null} workflows={controls.workflows} quickOption/>}
+        />;
         return <StatusListQuestionStudio
           key={`studio-${selectedItem.id}-${selectedQuestionId || "step"}`}
           item={selectedItem} campaignId={campaignId} locale={locale} allItems={items} questionId={selectedQuestionId}

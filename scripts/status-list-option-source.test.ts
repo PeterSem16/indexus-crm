@@ -13,6 +13,7 @@ const [user, manager, mission, foreign, clinic, cc, coordinatorGroup, reachGroup
   Array.from({ length: 11 }, () => randomUUID());
 const coordinatorOptions = Array.from({ length: 3 }, () => randomUUID());
 const secondQuestion = randomUUID();
+const quickFinalDisposition = randomUUID(), quickCallbackDisposition = randomUUID();
 const reachOptions = Array.from({ length: 4 }, () => randomUUID());
 const password = randomBytes(24).toString("hex"), username = `options-${user}`;
 const baseURL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
@@ -210,6 +211,10 @@ try {
   // Re-enable establishes a fresh baseline, even when current value is successful.
   await body(await api.delete(`${optionRoot}/${reachGroup}`));
   await body(await api.patch(`${root}/items/${reachOptions[3]}/presentation`, { data: { tab: "retention" } }));
+  await pool.query("UPDATE campaign_status_list_questions SET field_type='yesno' WHERE id=$1", [secondQuestion]);
+  await pool.query(`INSERT INTO campaign_dispositions(id,campaign_id,name,code,action_type) VALUES
+    ($1,$3,'Synthetic final status','not_interested','none'),($2,$3,'Synthetic callback status','callback','callback')`,
+    [quickFinalDisposition, quickCallbackDisposition, mission]);
   await body(await api.put(`${optionRoot}/${reachGroup}`, { data: reachability }));
   await evaluateBackgroundContact(cc);
   check(await runCount() === 1, "Re-enable never replays existing success");
@@ -315,12 +320,16 @@ try {
   check(await page.getByTestId("status-list-question-text").inputValue() === "Synthetic hidden subquestion", "Subquestion selection opens its own saved definition");
   await page.getByTestId("status-list-question-text").fill("Synthetic hidden subquestion reviewed");
   await page.getByTestId("studio-stage-answer").click();
+  check(await page.getByTestId("status-list-question-field-type").inputValue() === "yes_no", "The answer editor recognizes a saved legacy yesno field without losing its type");
+  check(await page.locator(".slqs-preview-yesno").isVisible(), "Legacy yesno preview agrees with the live answer-kind helper");
+  await page.getByTestId("status-list-question-field-type").selectOption("yes_no");
   await page.getByTestId("status-list-question-required").click();
   const questionSave = page.waitForResponse(response => response.url().endsWith(`/questions/${secondQuestion}`) && response.request().method() === "PUT");
   await page.getByTestId("status-list-question-save").click();
   check((await questionSave).ok(), "Integrated subquestion saves through its own endpoint");
   const storedQuestion = (await pool.query("SELECT question_text,required,is_hidden FROM campaign_status_list_questions WHERE id=$1", [secondQuestion])).rows[0];
   check(storedQuestion.question_text === "Synthetic hidden subquestion reviewed" && storedQuestion.required && storedQuestion.is_hidden, "Subquestion changes persist without altering visibility");
+  check(await scalar("SELECT field_type AS value FROM campaign_status_list_questions WHERE id=$1", [secondQuestion]) === "yes_no", "Explicit yes/no choice persists in a spelling recognized by Nexus Pulse");
   check(await scalar("SELECT required AS value FROM campaign_status_list_items WHERE id=$1", [resultItem]), "Subquestion edit does not overwrite parent configuration");
   await page.getByTestId(`status-list-select-question-${secondQuestion}`).click();
   await page.getByTestId("studio-stage-content").click();
@@ -475,6 +484,69 @@ try {
   for (const id of ["btn-open-cla-template", "btn-open-import-dispositions", "btn-ai-suggest-canonical", "btn-toggle-preview", "btn-add-status-list-item"]) {
     check(await page.getByTestId(id).isVisible(), `Tools tab exposes ${id}`);
   }
+  await page.getByTestId("btn-add-status-list-option").click();
+  const quickCreate = page.getByTestId("status-list-quick-option-create");
+  check(await quickCreate.isVisible() && await page.getByTestId("status-list-studio-create").count() === 0, "Quick creation is inline and never opens a question modal");
+  await quickCreate.getByTestId("input-option-label").fill("Synthetic quick outcome");
+  await quickCreate.getByTestId("input-option-description").fill("Synthetic outcome button");
+  const chosenColor = await quickCreate.locator("button[aria-pressed]").nth(1).getAttribute("aria-label");
+  await quickCreate.locator("button[aria-pressed]").nth(1).click();
+  const quickCreatedResponse = page.waitForResponse(response => response.url().endsWith(`/campaigns/${mission}/status-list`) && response.request().method() === "POST");
+  await quickCreate.getByTestId("btn-confirm-add-option").click();
+  const quickCreated = await (await quickCreatedResponse).json();
+  check(quickCreated.itemType === "option" && quickCreated.stepId.startsWith("OPT-") && quickCreated.sortOrder >= 1000 && quickCreated.color === chosenColor, "Quick creation retains option identity, ordering and button color");
+  const quickEditor = page.getByTestId("status-list-quick-option-editor");
+  await quickEditor.waitFor();
+  check(await page.getByTestId("status-list-question-studio").count() === 0, "A quick option opens its own outcome settings, not question stages");
+  await quickEditor.getByTestId("quick-option-add-callback").click();
+  check(await quickEditor.getByTestId("quick-option-action-editor").isVisible() && await page.getByTestId("studio-original-action-dialog").count() === 0, "Callback settings open inline without a modal");
+  await quickEditor.getByTestId("input-callback-offset").fill("3");
+  const callbackSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}/automations`) && response.request().method() === "POST");
+  await quickEditor.getByTestId("status-list-automation-save").click();
+  check((await callbackSaved).ok(), "Quick callback saves through the existing action service");
+  check(await scalar("SELECT callback_offset_days AS value FROM campaign_status_list_automations WHERE status_list_item_id=$1 AND action_type='set_callback'", [quickCreated.id]) === 3, "Quick callback delay persists correctly");
+  await quickEditor.getByTestId("quick-option-add-status").click();
+  check(await quickEditor.getByTestId("status-list-automation-save").isDisabled(), "An incomplete status action cannot be saved");
+  await quickEditor.getByTestId("select-status-disposition").click();
+  await page.getByRole("option", { name: /Synthetic final status/ }).click();
+  const finalStatusSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}/automations`) && response.request().method() === "POST");
+  await quickEditor.getByTestId("status-list-automation-save").click();
+  check((await finalStatusSaved).ok(), "Quick status change saves without being converted into a question");
+  await quickEditor.getByTestId("quick-option-add-status").click();
+  await quickEditor.getByTestId("select-status-disposition").click();
+  await page.getByRole("option", { name: /Synthetic callback status/ }).click();
+  await quickEditor.getByTestId("input-status-callback-offset").fill("5");
+  await quickEditor.getByTestId("input-status-callback-time").fill("10:30");
+  await quickEditor.getByTestId("checkbox-notify-pulse").check();
+  const statusCallbackSaved = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}/automations`) && response.request().method() === "POST");
+  await quickEditor.getByTestId("status-list-automation-save").click();
+  check((await statusCallbackSaved).ok(), "A callback disposition retains its dedicated scheduling settings");
+  const quickActions = (await pool.query("SELECT action_type,disposition_id,callback_offset_days,callback_time,notify_agent_pulse FROM campaign_status_list_automations WHERE status_list_item_id=$1", [quickCreated.id])).rows;
+  check(quickActions.length === 3 && quickActions.some(row => row.disposition_id === quickFinalDisposition), "Status and callback actions remain attached to the quick option");
+  check(quickActions.some(row => row.disposition_id === quickCallbackDisposition && row.callback_offset_days === 5 && row.callback_time === "10:30" && row.notify_agent_pulse), "Callback disposition preserves delay, time and agent notification");
+  await quickEditor.getByTestId("quick-option-name").fill("Synthetic quick outcome edited");
+  const quickEdited = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "PUT");
+  await quickEditor.getByTestId("quick-option-save").click();
+  check((await quickEdited).ok(), "Quick button appearance can be edited independently");
+  await page.reload();
+  await page.getByTestId("status-list-phase-quick").click();
+  await page.getByTestId(`status-list-select-${quickCreated.id}`).click();
+  check(await quickEditor.getByTestId("quick-option-name").inputValue() === "Synthetic quick outcome edited" && await quickEditor.locator("[data-testid^='studio-original-action-']").count() === 3, "Quick name and all actions survive a real reload");
+  await quickEditor.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "generated-artifacts/status-list-options/quick-option-desktop.jpg" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await quickEditor.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "generated-artifacts/status-list-options/quick-option-mobile.jpg" });
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Quick option settings fit mobile without a question modal");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  page.once("dialog", dialog => dialog.accept());
+  const quickDeleted = page.waitForResponse(response => response.url().endsWith(`/status-list/${quickCreated.id}`) && response.request().method() === "DELETE");
+  await quickEditor.getByTestId("quick-option-delete").click();
+  check((await quickDeleted).ok(), "Quick deletion stays separate from checklist questions");
+  // Reload above intentionally resets fullscreen; restore the context used by
+  // the nested-dialog keyboard regression checks below.
+  if (await workspace.getAttribute("data-fullscreen") !== "true") await page.getByTestId("status-list-toggle-fullscreen").click();
+  await page.getByTestId("status-list-tab-tools").click();
   await page.getByTestId("btn-add-status-list-item").click();
   check(await creation.isVisible(), "Tools opens the same studio used for editing");
   check(await creation.getByTestId("status-list-phase-assignment").isVisible(), "Phase assignment comes first during creation too");
@@ -551,6 +623,7 @@ try {
   await pool.query("DELETE FROM call_logs WHERE user_id=$1", [user]);
   await pool.query("DELETE FROM communication_messages WHERE entity_id=$1", [clinic]);
   for (const id of [cloneId, mission, foreign].filter(Boolean)) {
+    await pool.query("DELETE FROM campaign_dispositions WHERE campaign_id=$1", [id]);
     await pool.query("DELETE FROM mission_status_list_option_sources WHERE campaign_id=$1", [id]);
     await pool.query("DELETE FROM campaign_contact_history WHERE campaign_contact_id IN (SELECT id FROM campaign_contacts WHERE campaign_id=$1)", [id]);
     await pool.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id IN (SELECT id FROM campaign_contacts WHERE campaign_id=$1)", [id]);
