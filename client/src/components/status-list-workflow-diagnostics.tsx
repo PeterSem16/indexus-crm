@@ -7,8 +7,9 @@ import { dryRunStatusListRule } from "@/lib/status-list-dry-run";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
+import { getStatusListChainCopy } from "./status-list-chain-copy";
 
-type Run = { id: string; ruleName: string; branch: string; createdAt: string; actorKind: string; actorName: string | null; results: { sourceLabel?: string; targetLabel?: string; status: string; type?: WorkflowAction["type"]; previous?: WorkflowAnswer | null; value?: WorkflowAnswer | null; reason?: string }[] };
+type Run = { id: string; ruleName: string; branch: string; createdAt: string; actorKind: string; actorName: string | null; results: { sourceLabel?: string; targetLabel?: string; status: string; type?: WorkflowAction["type"]; previous?: WorkflowAnswer | null; value?: WorkflowAnswer | null; reason?: string; chainStatus?: string; causation?: { rootEventId: string; parentRunId: string; depth: number } }[] };
 const read = async (endpoint: string) => {
   const response = await fetch(endpoint, { credentials: "include" });
   if (!response.ok) throw Error(String(response.status));
@@ -16,6 +17,7 @@ const read = async (endpoint: string) => {
 };
 export function StatusListWorkflowDiagnostics({ campaignId, locale }: { campaignId: string; locale: string }) {
   const copy = getStatusListWorkspaceCopy(locale), workflowCopy = getStatusListWorkflowCopy(locale), actionCopy = getStatusWorkflowActionCopy(locale);
+  const chainCopy = getStatusListChainCopy(locale);
   const root = `/api/campaigns/${campaignId}/status-list-workflows`;
   const definitions = useQuery<{ rules: SavedStatusListWorkflow[]; catalog: WorkflowCatalogItem[] }>({ queryKey: ["/api/campaigns", campaignId, "status-list-workflows"], queryFn: () => read(root) });
   const history = useQuery<{ runs: Run[] }>({ queryKey: [root, "history"], queryFn: () => read(`${root}/history`), staleTime: 0, refetchOnMount: "always" });
@@ -53,7 +55,7 @@ export function StatusListWorkflowDiagnostics({ campaignId, locale }: { campaign
       {result && <div className="slw-run" data-testid="status-list-test-result">
         <strong>{result.branch === "none" ? copy.noTrigger : branchLabel(result.branch)}</strong>
         {result.actions.map((action, index) => <p key={index}>{actionCopy.labels[action.type]} → {catalog.find(item => item.kind === action.target.kind && item.id === action.target.id)?.label || action.target.id}</p>)}
-        <p>{copy.noEffects}</p><small>{copy.chaining}</small>
+        <p>{copy.noEffects}</p><small>{chainCopy.dryRun}</small>
       </div>}
     </section>
     <section data-testid="status-list-history"><div className="flex items-center justify-between gap-2"><h3>{copy.history}</h3><Button size="icon" variant="ghost" aria-label={workflowCopy.retry} onClick={() => void history.refetch()}><RefreshCw size={15}/></Button></div>
@@ -67,8 +69,10 @@ export function StatusListWorkflowDiagnostics({ campaignId, locale }: { campaign
         {run.results.map((item, index) => <div key={index}>
           <p>{item.sourceLabel} {item.targetLabel && <>→ {item.targetLabel}</>}</p>
           <p>{item.type && actionCopy.labels[item.type]} · {item.status === "changed" ? workflowCopy.changed : item.status === "skipped" ? workflowCopy.skipped : workflowCopy.invalidResult}</p>
+          {item.causation && <details><summary>{chainCopy.chained} · {item.causation.depth}</summary><small>{item.causation.rootEventId}<br/>{item.causation.parentRunId}</small></details>}
+          {item.chainStatus === "limit_reached" && <small>{chainCopy.limit}</small>}
           {"value" in item && <small>{formatValue(item.previous)} → {formatValue(item.value)}</small>}
-          {item.reason && <small>{item.reason === "unchanged" ? workflowCopy.unchangedReason : item.reason === "not_empty" ? workflowCopy.notEmptyReason : workflowCopy.otherReason}</small>}
+          {item.reason && <small>{item.reason === "chain_conflict" ? chainCopy.conflict : item.reason === "unchanged" ? workflowCopy.unchangedReason : item.reason === "not_empty" ? workflowCopy.notEmptyReason : workflowCopy.otherReason}</small>}
         </div>)}
       </article>)}
     </section>

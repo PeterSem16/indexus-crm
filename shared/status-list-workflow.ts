@@ -37,6 +37,7 @@ export function workflowActionSupportsTarget(type: WorkflowAction["type"], item:
 export const statusListWorkflowSchema = z.object({
   name: z.string().trim().min(1).max(180),
   enabled: z.boolean(),
+  runTargetAutomations: z.boolean().optional(),
   source: workflowRefSchema,
   sourceValue: workflowAnswerSchema.optional(),
   trigger: z.enum(["agent_confirmation", "background_transition"]),

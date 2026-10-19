@@ -361,6 +361,18 @@ const SL: Record<string, Record<string, string>> = {
   addActionBtn:    { sk: "Pridať akciu", en: "Add action", cs: "Přidat akci", hu: "Akció hozzáadása", ro: "Adăugare acțiune", it: "Aggiungi azione", de: "Aktion hinzufügen" },
   autoSectionTpl:  { sk: "Automatizácie tohto kroku (voliteľné)", en: "Automations for this step (optional)", cs: "Automatizace tohoto kroku (volitelné)", hu: "A lépés automatizációi (opcionális)", ro: "Automatizările acestui pas (opțional)", it: "Automatizzazioni per questo passo (opzionale)", de: "Automatisierungen dieses Schritts (optional)" },
   addStepBtn:      { sk: "Pridať krok", en: "Add step", cs: "Přidat krok", hu: "Lépés hozzáadása", ro: "Adăugare pas", it: "Aggiungi passo", de: "Schritt hinzufügen" },
+  addStepFlowTitle:{ sk: "Vytvoriť nový krok", en: "Create a new step", cs: "Vytvořit nový krok", hu: "Új lépés létrehozása", ro: "Creați un pas nou", it: "Crea un nuovo passaggio", de: "Neuen Schritt erstellen" },
+  addStepFlowHint: { sk: "Najprv zadajte názov a vyberte, kedy a komu sa krok zobrazí.", en: "Start with a name, then choose when and who should see this step.", cs: "Nejprve zadejte název a vyberte, kdy a komu se krok zobrazí.", hu: "Adjon meg egy nevet, majd válassza ki, mikor és kinek jelenjen meg.", ro: "Începeți cu un nume, apoi alegeți când și cui i se afișează.", it: "Inserisci un nome, poi scegli quando e a chi mostrare il passaggio.", de: "Geben Sie zuerst einen Namen ein und wählen Sie, wann und wem dieser Schritt angezeigt wird." },
+  createStepTitle:{ sk: "Pridať krok do Status Listu", en: "Add a step to the Status List", cs: "Přidat krok do Status Listu", hu: "Lépés hozzáadása a Status Listhez", ro: "Adăugați un pas în Status List", it: "Aggiungi un passaggio al Status List", de: "Schritt zur Statusliste hinzufügen" },
+  createStepHint: { sk: "Nový krok, ktorý sa zobrazí agentom podľa nastavenej fázy.", en: "A new agent-facing step, shown in the phase you choose.", cs: "Nový krok pro agenty, který se zobrazí ve zvolené fázi.", hu: "Új, ügynököknek szóló lépés a kiválasztott fázisban.", ro: "Un pas nou pentru agenți, afișat în faza aleasă.", it: "Un nuovo passaggio per gli agenti, mostrato nella fase scelta.", de: "Ein neuer Agentenschritt, der in der gewählten Phase erscheint." },
+  toolsStartFrom:  { sk: "Použiť existujúcu štruktúru", en: "Reuse an existing structure", cs: "Použít existující strukturu", hu: "Meglévő struktúra újrafelhasználása", ro: "Reutilizați o structură existentă", it: "Riutilizza una struttura esistente", de: "Bestehende Struktur übernehmen" },
+  toolsReview:     { sk: "Pomôcky a náhľad", en: "Review and assistance", cs: "Pomůcky a náhled", hu: "Ellenőrzés és segítség", ro: "Revizuire și asistență", it: "Revisione e assistenza", de: "Prüfung und Unterstützung" },
+  stepBasics:      { sk: "Základné údaje", en: "Step details", cs: "Základní údaje", hu: "Alapadatok", ro: "Detalii de bază", it: "Dettagli del passaggio", de: "Schrittdetails" },
+  stepAdvanced:    { sk: "Ďalšie nastavenia", en: "Additional settings", cs: "Další nastavení", hu: "További beállítások", ro: "Setări suplimentare", it: "Impostazioni aggiuntive", de: "Weitere Einstellungen" },
+  stepPhase:       { sk: "Fáza", en: "Agent phase", cs: "Fáze", hu: "Ügynöki fázis", ro: "Faza agentului", it: "Fase agente", de: "Agentenphase" },
+  stepVisibility:  { sk: "Viditeľnosť pre agenta", en: "Agent visibility", cs: "Viditelnost pro agenta", hu: "Láthatóság az ügynöknek", ro: "Vizibilitate pentru agent", it: "Visibilità agente", de: "Sichtbarkeit für Agenten" },
+  stepVisible:     { sk: "Zobraziť agentom", en: "Show to agents", cs: "Zobrazit agentům", hu: "Megjelenítés az ügynököknek", ro: "Afișați agenților", it: "Mostra agli agenti", de: "Agenten anzeigen" },
+  stepHidden:      { sk: "Skryť pred agentmi", en: "Keep hidden from agents", cs: "Skrýt před agenty", hu: "Elrejtés az ügynökök elől", ro: "Ascundeți de agenți", it: "Nascondi agli agenti", de: "Vor Agenten verbergen" },
   stepAdded:       { sk: "Krok pridaný", en: "Step added", cs: "Krok přidán", hu: "Lépés hozzáadva", ro: "Pas adăugat", it: "Passo aggiunto", de: "Schritt hinzugefügt" },
 
   tplSubtitle:     { sk: "Vyber kroky na vloženie do misie", en: "Select steps to add to the mission", cs: "Vyberte kroky pro vložení do mise", hu: "Válassza ki a lépéseket a misszióhoz", ro: "Selectați pașii pentru a adăuga la misiune", it: "Seleziona i passi da aggiungere alla missione", de: "Schritte auswählen, die zur Mission hinzugefügt werden sollen" },
@@ -3199,6 +3211,7 @@ function AddItemForm({
     questionSelectionMode: "multiple" as "multiple" | "single",
     tab: null as string | null,
     canonicalClinicStatusKey: null as string | null,
+    isHidden: false,
   });
 
   const addMutation = useMutation({
@@ -3212,81 +3225,19 @@ function AddItemForm({
   });
 
   return (
-    <div className="border-2 border-dashed border-primary/30 rounded-lg p-3 space-y-2 bg-primary/5">
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <Label className="text-xs mb-1 block">{sl("stepIdLbl", locale)}</Label>
-          <Input className="h-8 text-xs font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="STEP-01" />
-        </div>
-        <div className="col-span-2">
-          <Label className="text-xs mb-1 block">{sl("stepLabelReq", locale)}</Label>
-          <Input className="h-8 text-xs" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} autoFocus />
-        </div>
-      </div>
-      <div>
-        <Label className="text-xs mb-1 block">{sl("descLbl", locale)}</Label>
-        <Textarea className="text-xs min-h-[50px] resize-none" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={sl("descPh2", locale)} />
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <Label className="text-xs mb-1 block">{sl("nextStep", locale)}</Label>
-          <Select value={form.nextStepId || "__none__"} onValueChange={v => setForm(f => ({ ...f, nextStepId: v === "__none__" ? "" : v }))}>
-            <SelectTrigger className="h-8 text-xs font-mono"><SelectValue placeholder="—" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">—</SelectItem>
-              {allItems.filter(i => i.itemType !== "option" && !i.isHidden).map(i => (
-                <SelectItem key={i.id} value={i.stepId || i.id}>
-                  <span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span>
-                  <span className="truncate">{i.label}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="col-span-2">
-          <Label className="text-xs mb-1 block">{sl("restrictions", locale)}</Label>
-          <Input className="h-8 text-xs" value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
-        </div>
-      </div>
-      <div className="flex items-center gap-4">
-        <div className="flex-1">
-          <Label className="text-xs mb-1 block">{sl("confirmTypeLbl", locale)}</Label>
-          <Select value={form.confirmationType} onValueChange={v => setForm(f => ({ ...f, confirmationType: v }))}>
-            <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CONFIRM_TYPE_OPTIONS.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  <span className="flex items-center gap-2">
-                    <opt.icon className="h-3.5 w-3.5" />
-                    {sl(opt.slKey, locale)}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-2 pt-4">
-          <Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} />
-          <Label className="text-xs">{sl("requiredSwitch", locale)}</Label>
-        </div>
-        <div className="flex items-center gap-2 pt-4" title={sl("autoConfirmSubHint", locale)}>
-          <Switch checked={form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-add-auto-confirm-sub" />
-          <Label className="text-xs">{sl("autoConfirmSubLbl", locale)}</Label>
+    <div className="slw-add-step">
+      <header className="slw-add-step-heading">
+        <div><span>{sl("stepBasics", locale)}</span><h3>{sl("addStepFlowTitle", locale)}</h3><p>{sl("addStepFlowHint", locale)}</p></div>
+      </header>
+      <div className="slw-add-step-primary">
+        <div className="slw-add-step-name">
+          <Label htmlFor="slw-new-step-name">{sl("stepLabelReq", locale)}</Label>
+          <Input id="slw-new-step-name" value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))} placeholder={sl("stepLabelPh", locale)} autoFocus />
         </div>
         <div>
-          <Label className="text-xs mb-1 block">{sl("qSelModeLbl", locale)}</Label>
-          <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
-            <SelectTrigger className="h-8 text-xs" data-testid="select-add-question-selection-mode"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem>
-              <SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="col-span-1">
-          <Label className="text-xs mb-1 block">{sl("tabLbl", locale)}</Label>
+          <Label>{sl("stepPhase", locale)}</Label>
           <Select value={form.tab ?? "__both__"} onValueChange={v => setForm(f => ({ ...f, tab: v === "__both__" ? null : v }))}>
-            <SelectTrigger className="h-8 text-xs" data-testid="select-add-tab-assignment"><SelectValue /></SelectTrigger>
+            <SelectTrigger data-testid="select-add-tab-assignment"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__both__">{sl("tabBoth", locale)}</SelectItem>
               <SelectItem value="acquisition">{sl("tabAcq", locale)}</SelectItem>
@@ -3295,25 +3246,75 @@ function AddItemForm({
             </SelectContent>
           </Select>
         </div>
-        <div className="col-span-3">
-          <Label className="text-xs mb-1 block" title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
-          <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
-            <SelectTrigger className="h-8 text-xs" data-testid="select-add-canonical-clinic-status"><SelectValue /></SelectTrigger>
+        <div>
+          <Label>{sl("stepVisibility", locale)}</Label>
+          <Select value={form.isHidden ? "hidden" : "visible"} onValueChange={v => setForm(f => ({ ...f, isHidden: v === "hidden" }))}>
+            <SelectTrigger data-testid="select-add-step-visibility"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
-              {CANONICAL_CLINIC_STATUS_GROUPS.map(group => (
-                <React.Fragment key={group.phase}>
-                  <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{sl(group.phaseLabelKey, locale)}</div>
-                  {group.keys.map(k => (
-                    <SelectItem key={k.key} value={k.key} className="pl-4">{sl(k.labelKey, locale)}</SelectItem>
-                  ))}
-                </React.Fragment>
-              ))}
+              <SelectItem value="visible">{sl("stepVisible", locale)}</SelectItem>
+              <SelectItem value="hidden">{sl("stepHidden", locale)}</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
-      <div className="flex justify-end gap-2">
+      <details className="slw-add-step-advanced">
+        <summary>{sl("stepAdvanced", locale)}</summary>
+        <div className="slw-add-step-advanced-fields">
+          <div>
+            <Label>{sl("stepIdLbl", locale)}</Label>
+            <Input className="font-mono" value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value }))} placeholder="STEP-01" />
+          </div>
+          <div className="slw-add-step-description">
+            <Label>{sl("descLbl", locale)}</Label>
+            <Textarea className="min-h-[70px] resize-y" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder={sl("descPh2", locale)} />
+          </div>
+          <div>
+            <Label>{sl("confirmTypeLbl", locale)}</Label>
+            <Select value={form.confirmationType} onValueChange={v => setForm(f => ({ ...f, confirmationType: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {CONFIRM_TYPE_OPTIONS.map(opt => <SelectItem key={opt.value} value={opt.value}><span className="flex items-center gap-2"><opt.icon className="h-3.5 w-3.5" />{sl(opt.slKey, locale)}</span></SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>{sl("nextStep", locale)}</Label>
+            <Select value={form.nextStepId || "__none__"} onValueChange={v => setForm(f => ({ ...f, nextStepId: v === "__none__" ? "" : v }))}>
+              <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">—</SelectItem>
+                {allItems.filter(i => i.itemType !== "option" && !i.isHidden).map(i => <SelectItem key={i.id} value={i.stepId || i.id}><span className="font-mono text-muted-foreground mr-1.5">{i.stepId}</span><span className="truncate">{i.label}</span></SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="slw-add-step-description">
+            <Label>{sl("restrictions", locale)}</Label>
+            <Input value={form.restrictions} onChange={e => setForm(f => ({ ...f, restrictions: e.target.value }))} placeholder={sl("restrictionsPh", locale)} />
+          </div>
+          <div className="slw-add-step-advanced-inline">
+            <label><Switch checked={form.required} onCheckedChange={v => setForm(f => ({ ...f, required: v }))} /><span>{sl("requiredSwitch", locale)}</span></label>
+            <label title={sl("autoConfirmSubHint", locale)}><Switch checked={form.autoConfirmOnSubQuestion} onCheckedChange={v => setForm(f => ({ ...f, autoConfirmOnSubQuestion: v }))} data-testid="switch-add-auto-confirm-sub" /><span>{sl("autoConfirmSubLbl", locale)}</span></label>
+            <div>
+              <Label>{sl("qSelModeLbl", locale)}</Label>
+              <Select value={form.questionSelectionMode} onValueChange={v => setForm(f => ({ ...f, questionSelectionMode: v as "multiple" | "single" }))}>
+                <SelectTrigger data-testid="select-add-question-selection-mode"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="multiple">{sl("qSelMultiple", locale)}</SelectItem><SelectItem value="single">{sl("qSelSingle", locale)}</SelectItem></SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="slw-add-step-description">
+            <Label title={sl("canonicalClinicHint", locale)}>{sl("canonicalClinicLbl", locale)}</Label>
+            <Select value={form.canonicalClinicStatusKey ?? "__none__"} onValueChange={v => setForm(f => ({ ...f, canonicalClinicStatusKey: v === "__none__" ? null : v }))}>
+              <SelectTrigger data-testid="select-add-canonical-clinic-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{sl("canonicalClinicNone", locale)}</SelectItem>
+                {CANONICAL_CLINIC_STATUS_GROUPS.map(group => <React.Fragment key={group.phase}><div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1">{sl(group.phaseLabelKey, locale)}</div>{group.keys.map(k => <SelectItem key={k.key} value={k.key} className="pl-4">{sl(k.labelKey, locale)}</SelectItem>)}</React.Fragment>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </details>
+      <footer className="slw-add-step-footer">
         <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={onCancel}>
           <X className="h-3 w-3 mr-1" /> {sl("cancelBtn", locale)}
         </Button>
@@ -3321,7 +3322,7 @@ function AddItemForm({
           {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
           {sl("addStepBtn", locale)}
         </Button>
-      </div>
+      </footer>
     </div>
   );
 }
@@ -3847,59 +3848,43 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
         selectedId={workspaceSelection} onSelect={setWorkspaceSelection}
         coverage={<CanonicalCoveragePanel items={items} locale={locale}/>}
         tools={<>
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
-          <LayoutTemplate className="h-3.5 w-3.5 text-primary" />
-          CLA / CLB Template
-        </Button>
-        <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
-          <Download className="h-3.5 w-3.5 text-emerald-500" />
-          {sl("importTitle", locale)}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50 dark:border-violet-700 dark:text-violet-300 dark:hover:bg-violet-950"
-          onClick={runAiSuggest}
-          disabled={aiSuggestLoading || items.length === 0}
-          data-testid="btn-ai-suggest-canonical"
-        >
-          {aiSuggestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {sl("aiSuggestBtn", locale)}
-        </Button>
-        <Button
-          type="button"
-          variant={previewMode ? "default" : "outline"}
-          size="sm"
-          className="h-7 text-xs gap-1.5"
-          onClick={() => setPreviewMode(m => !m)}
-          data-testid="btn-toggle-preview"
-        >
-          {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
-        </Button>
-        <div className="ml-auto flex items-center gap-2">
-          {bulkSelectedIds.size > 0 && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              disabled={bulkDeleteMutation.isPending}
-              onClick={() => {
-                if (window.confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`)) bulkDeleteMutation.mutate();
-              }}
-              data-testid="btn-delete-selected-items"
-            >
+      <div className="slw-tool-actions">
+        <section className="slw-tool-create">
+          <div><strong>{sl("createStepTitle", locale)}</strong><p>{sl("createStepHint", locale)}</p></div>
+          <Button type="button" size="sm" className="gap-1.5" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
+            <Plus className="h-4 w-4" /> {sl("addStepBtn", locale)}
+          </Button>
+        </section>
+        <section className="slw-tool-group">
+          <h4>{sl("toolsStartFrom", locale)}</h4>
+          <div className="slw-tool-buttons">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
+              <LayoutTemplate className="h-3.5 w-3.5 text-primary" /> CLA / CLB Template
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
+              <Download className="h-3.5 w-3.5 text-emerald-700" /> {sl("importTitle", locale)}
+            </Button>
+          </div>
+        </section>
+        <section className="slw-tool-group">
+          <h4>{sl("toolsReview", locale)}</h4>
+          <div className="slw-tool-buttons">
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={runAiSuggest} disabled={aiSuggestLoading || items.length === 0} data-testid="btn-ai-suggest-canonical">
+              {aiSuggestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {sl("aiSuggestBtn", locale)}
+            </Button>
+            <Button type="button" variant={previewMode ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setPreviewMode(m => !m)} data-testid="btn-toggle-preview">
+              {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
+            </Button>
+            {bulkSelectedIds.size > 0 && <Button type="button" variant="destructive" size="sm" className="gap-1" disabled={bulkDeleteMutation.isPending} onClick={() => {
+              if (window.confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`)) bulkDeleteMutation.mutate();
+            }} data-testid="btn-delete-selected-items">
               {bulkDeleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
               {sl("deleteSelectedBtn", locale)} ({bulkSelectedIds.size})
-            </Button>
-          )}
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setAddingItem(true)} disabled={addingItem} data-testid="btn-add-status-list-item">
-            <Plus className="h-3 w-3" /> {sl("addStepBtn", locale)}
-          </Button>
-        </div>
+            </Button>}
+          </div>
+        </section>
       </div>
 
       {addingItem && (

@@ -183,8 +183,21 @@ async function setAnswer(client: PoolClient, input: {
   return cleared;
 }
 export type WorkflowEvent = { campaignId: string; campaignContactId: string; actorId: string; source: WorkflowRef;
-  value: WorkflowAnswer | null; eventId: string; occurredAt: Date; trigger?: "background_transition" };
+  value: WorkflowAnswer | null; eventId: string; occurredAt: Date; trigger?: "background_transition";
+  causation?: { rootEventId: string; parentRunId: string; depth: number; path: string[]; actorKind: "system" | "user" } };
+type ChainContext = { queue: WorkflowEvent[]; writes: Set<string>; runs: number; lastRunId?: string };
+const refKey = (ref: WorkflowRef) => `${ref.kind}:${ref.id}`;
+const actorKind = (event: WorkflowEvent) => event.causation?.actorKind || (event.trigger === "background_transition" ? "system" : "user");
 export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
+  const context: ChainContext = { queue: [event], writes: new Set([refKey(event.source)]), runs: 0 };
+  while (context.queue.length) {
+    const next = context.queue.shift()!;
+    // Later sibling rules can supersede a queued answer. Never run an obsolete transition.
+    if (next.causation && (await readAnswers(client, next.campaignContactId)).get(refKey(next.source)) !== next.value) continue;
+    await executeSingleEvent(client, next, context);
+  }
+}
+async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, context: ChainContext) {
   const { rows: contacts } = await client.query(`SELECT cc.*,
     CASE WHEN cc.contact_type='customer' THEN NULLIF(c.hospital_name,'') ELSE cc.hospital_id END AS condition_hospital_id,
     CASE WHEN cc.contact_type='customer' THEN c.clinic_id ELSE cc.clinic_id END AS condition_clinic_id
@@ -201,7 +214,7 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     if (rule.trigger !== (event.trigger || "agent_confirmation")) continue;
     if (!rule.enabled || rule.source.kind !== event.source.kind || rule.source.id !== event.source.id) continue;
     if (rule.sourceValue !== undefined && rule.sourceValue !== event.value) continue;
-    if (event.source.kind === "item" && event.trigger !== "background_transition") {
+    if (event.source.kind === "item" && event.trigger !== "background_transition" && !event.causation) {
       // Legacy confirmations lack a unique index. Concurrent requests can create
       // member-twin rows; they still represent one continuously confirmed state.
       const duplicate = await client.query(`SELECT r.id FROM mission_status_list_rule_runs r
@@ -210,12 +223,21 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
           AND s.status_list_item_id=$3 LIMIT 1`, [stored.id, event.campaignContactId, event.source.id]);
       if (duplicate.rowCount) continue;
     }
+    if (event.causation && context.runs >= 100) {
+      if (context.lastRunId) await client.query(`UPDATE mission_status_list_rule_runs
+        SET results=results || $2::jsonb WHERE id=$1`, [context.lastRunId,
+        JSON.stringify([{ status: "skipped", reason: "chain_limit", chainStatus: "limit_reached", causation: event.causation }])]);
+      context.queue.length = 0;
+      break;
+    }
     const claimed = await client.query(`INSERT INTO mission_status_list_rule_runs
       (rule_id,rule_name,campaign_id,campaign_contact_id,source_event,actor_id,actor_kind,branch,results)
       VALUES($1,$2,$3,$4,$5,$6,$7,'pending','[]') ON CONFLICT DO NOTHING RETURNING id`,
     [stored.id, rule.name, event.campaignId, event.campaignContactId, event.eventId, event.actorId,
-      event.trigger === "background_transition" ? "system" : "user"]);
+      actorKind(event)]);
     if (!claimed.rowCount) continue;
+    context.runs++;
+    context.lastRunId = claimed.rows[0].id;
     let branch: "then" | "else" | "invalid" = "then";
     const results: any[] = [];
     try { await validateWorkflow(event.campaignId, stored.definition, client); }
@@ -236,6 +258,11 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
       branch = passed ? "then" : "else";
       for (const action of passed ? rule.thenActions : rule.elseActions) {
         if (isWorkflowNoteAction(action.type)) {
+          const noteKey = `${refKey(action.target)}:note`;
+          if ((event.causation || rule.runTargetAutomations) && context.writes.has(noteKey)) {
+            results.push({ type: action.type, target: action.target, status: "skipped", reason: "chain_conflict" });
+            continue;
+          }
           const previous = (await readWorkflowNotes(client, event.campaignContactId))[action.target.id] ?? null;
           const value = action.type === "clear_note" ? null : action.type === "append_note"
             ? [previous, "text" in action ? action.text : ""].filter(Boolean).join("\n")
@@ -244,8 +271,15 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
           if (previous === value) results.push({ type: action.type, target: action.target, status: "skipped", reason: "unchanged", previous, value });
           else {
             await writeWorkflowNote(client, event.campaignContactId, action.target.id, event.actorId, value);
+            context.writes.add(noteKey);
             results.push({ type: action.type, target: action.target, status: "changed", previous, value });
           }
+          continue;
+        }
+        const key = refKey(action.target);
+        const guarded = !!event.causation || !!rule.runTargetAutomations;
+        if (guarded && context.writes.has(key)) {
+          results.push({ type: action.type, target: action.target, status: "skipped", reason: "chain_conflict" });
           continue;
         }
         const current = (await readAnswers(client, event.campaignContactId)).get(`${action.target.kind}:${action.target.id}`);
@@ -257,7 +291,8 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
           results.push({ type: action.type, target: action.target, status: "skipped", reason: (current ?? null) === value ? "unchanged" : "not_empty", previous: current ?? null });
           continue;
         }
-        let cleared: unknown[] = [];
+        let cleared: { kind: string; id: string; previous: unknown }[] = [];
+        if (guarded) await client.query("SAVEPOINT status_list_chain_write");
         if (value === null) {
           if (action.target.kind === "item") {
             await preserveWorkflowNote(client, event.campaignContactId, action.target.id);
@@ -265,7 +300,35 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
           } else await client.query(`UPDATE mission_status_list_answers SET value='null'::jsonb,revision=$3,updated_by=$4,updated_at=now()
             WHERE campaign_contact_id=$1 AND question_id=$2`, [event.campaignContactId, action.target.id, randomUUID(), event.actorId]);
         } else cleared = await setAnswer(client, { ...event, target: action.target, value });
-        results.push({ type: action.type, target: action.target, status: "changed", previous: current ?? null, value, cleared });
+        if (guarded && cleared.some(entry => context.writes.has(`${entry.kind}:${entry.id}`))) {
+          await client.query("ROLLBACK TO SAVEPOINT status_list_chain_write");
+          await client.query("RELEASE SAVEPOINT status_list_chain_write");
+          results.push({ type: action.type, target: action.target, status: "skipped", reason: "chain_conflict" });
+          continue;
+        }
+        if (guarded) await client.query("RELEASE SAVEPOINT status_list_chain_write");
+        context.writes.add(key);
+        cleared.forEach(entry => context.writes.add(`${entry.kind}:${entry.id}`));
+        const result: any = { type: action.type, target: action.target, status: "changed", previous: current ?? null, value, cleared };
+        if (rule.runTargetAutomations && value !== null) {
+          const depth = (event.causation?.depth || 0) + 1;
+          const path = event.causation?.path || [refKey(event.source)];
+          if (path.includes(key)) result.chainStatus = "cycle_blocked";
+          else if (depth > 10 || context.runs + context.queue.length >= 100) result.chainStatus = "limit_reached";
+          else {
+            result.chainStatus = "queued";
+            const identity = action.target.kind === "item"
+              ? (await client.query("SELECT id FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2 ORDER BY confirmed_at,id LIMIT 1", [event.campaignContactId, action.target.id])).rows[0]?.id
+              : (await client.query("SELECT revision FROM mission_status_list_answers WHERE campaign_contact_id=$1 AND question_id=$2", [event.campaignContactId, action.target.id])).rows[0]?.revision;
+            if (!identity) throw new StatusListWorkflowError("chain_identity_missing");
+            context.queue.push({ campaignId: event.campaignId, campaignContactId: event.campaignContactId,
+              actorId: event.actorId, source: action.target, value, occurredAt: event.occurredAt,
+              eventId: `${action.target.kind === "item" ? "confirmation" : "answer"}:${identity}`,
+              causation: { rootEventId: event.causation?.rootEventId || event.eventId,
+                parentRunId: claimed.rows[0].id, depth, path: [...path, key], actorKind: actorKind(event) } });
+          }
+        }
+        results.push(result);
       }
     }
     const catalog = await workflowCatalog(event.campaignId, client);
@@ -273,6 +336,7 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     if (!results.length) results.push({ status: "skipped", reason: "no_actions" });
     const auditResults = results.map(result => ({
       ...result, source: event.source, sourceLabel,
+      ...(event.causation ? { causation: event.causation } : {}),
       targetLabel: catalog.find(entry => entry.kind === result.target?.kind && entry.id === result.target?.id)?.label,
       ...(result.cleared ? { cleared: result.cleared.map((entry: WorkflowRef) => ({
         ...entry, label: catalog.find(item => item.kind === entry.kind && item.id === entry.id)?.label,
@@ -283,8 +347,8 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
     await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
       VALUES($1,$2,'status_list_workflow',$3::jsonb)`, [event.campaignContactId, event.actorId,
       JSON.stringify({ campaignId: event.campaignId, ruleId: stored.id, ruleName: rule.name,
-         runId: claimed.rows[0].id, source: event.source, branch, results, chained: false,
-         actorKind: event.trigger === "background_transition" ? "system" : "user" })]);
+         runId: claimed.rows[0].id, source: event.source, branch, results, chained: !!event.causation,
+         causation: event.causation, actorKind: actorKind(event) })]);
   }
 }
 export async function processStatusListItemWorkflow(input: {

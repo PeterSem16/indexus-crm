@@ -208,10 +208,14 @@ try {
     const controls = page.getByRole("button", { name: /status list|stavový zoznam|zoznam stavov/i });
     if (await controls.count()) await controls.first().click();
   }
+  await page.getByTestId("status-list-tab-rules").click();
   await builder.waitFor({ state: "visible", timeout: 30000 });
-  check((await builder.innerText()).includes(rule.name), "Real persisted rule visible in builder");
+  await builder.getByText(rule.name, { exact: true }).waitFor();
+  check(await builder.getByText(rule.name, { exact: true }).isVisible(), "Real persisted rule visible in builder");
   await page.getByTestId("status-workflow-create").click();
   await page.getByTestId("status-workflow-name").fill("Browser-created workflow");
+  check(await page.getByTestId("status-workflow-chain").getAttribute("data-state") === "unchecked", "New rules start with chaining disabled");
+  await page.getByTestId("status-workflow-chain").click();
   await page.getByTestId("status-workflow-overview-when").click();
   await page.getByTestId("status-workflow-source").click();
   await page.locator(`[data-catalog-ref="item:${source}"]`).click();
@@ -225,8 +229,9 @@ try {
   await page.screenshot({ path: "generated-artifacts/status-list-workflow/editor-desktop.jpg" });
   await page.getByTestId("status-workflow-save").click();
   await builder.getByText("Browser-created workflow", { exact: true }).waitFor();
-  check((await body(await api.get(root))).rules.some((entry: any) => entry.name === "Browser-created workflow"), "Real browser create/save persisted");
+  check((await body(await api.get(root))).rules.some((entry: any) => entry.name === "Browser-created workflow" && entry.runTargetAutomations === true), "Real browser create/save persisted with explicit chaining opt-in");
   await page.reload();
+  await page.getByTestId("status-list-tab-rules").click();
   await builder.getByText("Browser-created workflow", { exact: true }).waitFor();
   await page.getByTestId("status-workflow-create").click();
   await page.getByTestId("status-workflow-name").fill("Browser note workflow");

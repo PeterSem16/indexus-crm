@@ -95,8 +95,18 @@ ownership guards, fresh clone IDs and version restore without replay. The prior
 TypeScript check also passed; authenticated desktop/mobile screenshots inspected.
 
 ## 4. Controlled chaining
-- [ ] Explicit opt-in to run target automations; default remains write-only.
-- [ ] Detect loops/conflicts, preserve causation and execution order.
+- [x] Explicit opt-in to run target automations; default remains write-only.
+- [x] Detect loops/conflicts, preserve causation and execution order.
+
+Rule-level opt-in applies only to changed nonempty answers/new confirmations.
+Notes and removals never trigger downstream rules. Events run breadth-first in
+the same contact transaction, with a stable rule order, source/target write
+guards, exclusive-sibling rollback protection and bounded depth/executions.
+Canonical answer-revision/confirmation identities prevent duplicate delivery.
+Audit retains root event, parent run, depth and the original user/system actor.
+The editor exposes explicit opt-in; history shows chained runs and blocked
+conflicts. The dry-run explicitly previews one rule, not the downstream chain.
+Existing rules remain write-only; no production activation or deployment.
 
 ## 5. Mission callback and status actions
 - [ ] Offset, calendar/business days, fixed time, agent/Queue and replacement policy.

@@ -11,10 +11,8 @@ import { StatusListWorkflowEditor } from "./status-list-workflow-editor";
 import { StatusListWorkflowDiagnostics } from "@/components/status-list-workflow-diagnostics";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { StatusListViewport } from "./status-list-viewport";
-import { StatusListCategoryManager } from "./status-list-category-manager";
-import { outlineCategory, outlineHidden, statusListOutline } from "@/lib/status-list-outline";
-import { emptyStatusListOrganization, type StatusListOrganization } from "@shared/status-list-organization";
-import type { ComponentProps } from "react";
+import { outlineHidden, statusListOutline } from "@/lib/status-list-outline";
+import { emptyStatusListOrganization } from "@shared/status-list-organization";
 import type { OptionSource } from "@shared/status-list-option-source";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import "./status-list-workspace.css";
@@ -62,29 +60,12 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   }, [expanded]);
   const [panel, setPanel] = useState<"owner" | "visibility" | "triggers">("owner");
   const [phase, setPhase] = useState("all");
+  const [visibility, setVisibility] = useState<"all" | "visible" | "hidden">("all");
   const [search, setSearch] = useState("");
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [category, setCategory] = useState("");
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [definitionOpen, setDefinitionOpen] = useState(false);
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/option-sources`;
-  const organizationEndpoint = `/api/campaigns/${campaignId}/status-list-workflows/organization`;
-  const organizationQuery = useQuery<StatusListOrganization>({
-    queryKey: [organizationEndpoint],
-    queryFn: async () => { const response = await fetch(organizationEndpoint, { credentials: "include" }); if (!response.ok) throw Error(String(response.status)); return response.json(); },
-  });
-  const organization = organizationQuery.data || emptyStatusListOrganization;
-  const organize = useMutation({
-    mutationFn: (edit: Parameters<ComponentProps<typeof StatusListCategoryManager>["onEdit"]>[0]) => apiRequest("PATCH", organizationEndpoint, edit),
-    onSuccess: async response => {
-      const next = await response.json() as StatusListOrganization;
-      queryClient.setQueryData([organizationEndpoint], next);
-      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId], exact: true });
-      if (category && !next.categories.some(entry => entry.id === category)) setCategory("");
-      toast({ title: copy.saved });
-    },
-    onError: () => toast({ title: copy.error, variant: "destructive" }),
-  });
   const sourceQuery = useQuery<{ sources: OptionSource[]; catalog: WorkflowCatalogItem[] }>({
     queryKey: [endpoint],
     queryFn: async () => { const response = await fetch(endpoint, { credentials: "include" }); if (!response.ok) throw Error(String(response.status)); return response.json(); },
@@ -118,9 +99,20 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     for (const item of items) if (ids.has(item.id)) for (const question of item.questions) ids.add(question.id);
     return Array.from(ids);
   }, [items, selectedId]);
+  const outline = useMemo(() => statusListOutline(items, phase, "", search, emptyStatusListOrganization, visibility), [items, phase, search, visibility]);
   useEffect(() => {
-    if (!selected && items.length) onSelect(items.find(item => !item.parentId)?.id || items[0].id);
-  }, [items, selected, onSelect]);
+    if (!selected && !selectedId) {
+      const firstMatch = items.find(item => outline.matchingItems.has(item.id));
+      if (firstMatch) onSelect(firstMatch.id);
+      else {
+        const owner = items.find(item => item.questions.some(question => outline.visibleQuestions.has(question.id)));
+        if (owner) {
+          onSelect(owner.id);
+          setSelectedQuestionId(owner.questions.find(question => outline.visibleQuestions.has(question.id))?.id || null);
+        }
+      }
+    }
+  }, [items, selected, selectedId, outline.matchingItems, outline.visibleQuestions, onSelect]);
   const update = useMutation({
     mutationFn: (patch: { isHidden?: boolean; required?: boolean; tab?: string | null }) => apiRequest("PATCH", `/api/campaigns/${campaignId}/status-list-workflows/items/${selectedId}/presentation`, patch),
     onSuccess: async () => {
@@ -139,35 +131,51 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
     onError: () => toast({ title: copy.error, variant: "destructive" }),
   });
-  const outline = useMemo(() => statusListOutline(items, phase, category, search, organization), [items, phase, category, search, organization]);
   const childrenOf = (id: string) => items.filter(item => item.parentId === id).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const roots = items.filter(item => (!item.parentId || !items.some(parent => parent.id === item.parentId)) && outline.visibleItems.has(item.id)).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const choose = (id: string, edit = false) => { onSelect(id); setSelectedQuestionId(null); setTab("content"); setPanel("owner"); setDefinitionOpen(edit); };
+  useEffect(() => {
+    if (selectedQuestionId && !outline.visibleQuestions.has(selectedQuestionId)) setSelectedQuestionId(null);
+    const selectedQuestionStillMatches = !!selectedQuestionId && outline.visibleQuestions.has(selectedQuestionId);
+    if (selectedId && !outline.matchingItems.has(selectedId) && !selectedQuestionStillMatches) {
+      const nextItem = items.find(item => outline.matchingItems.has(item.id));
+      if (nextItem) onSelect(nextItem.id);
+      else {
+        const questionOwner = items.find(item => item.questions.some(question => outline.visibleQuestions.has(question.id)));
+        if (questionOwner) {
+          onSelect(questionOwner.id);
+          setSelectedQuestionId(questionOwner.questions.find(question => outline.visibleQuestions.has(question.id))?.id || null);
+        } else onSelect("");
+      }
+    }
+  }, [items, outline.matchingItems, outline.visibleQuestions, selectedId, selectedQuestionId, onSelect]);
   const moveButtons = (item: WorkspaceItem, question?: WorkspaceItem["questions"][number]) => {
     const siblings = question
       ? item.questions.filter(entry => outline.visibleQuestions.has(entry.id)).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id.localeCompare(b.id))
-      : items.filter(entry => entry.parentId === item.parentId && entry.itemType === item.itemType && outline.visibleItems.has(entry.id)).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+       : items.filter(entry => entry.parentId === item.parentId && entry.itemType === item.itemType && outline.matchingItems.has(entry.id)).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
     const id = question?.id || item.id, index = siblings.findIndex(entry => entry.id === id);
     return <span className="slw-row-move">{(["up", "down"] as const).map(direction => {
       const neighbor = siblings[index + (direction === "up" ? -1 : 1)];
       return <button key={direction} type="button" data-testid={`status-list-move-${id}-${direction}`} aria-label={`${copy[direction]}: ${question?.questionText || item.label}`} title={copy[direction]} disabled={move.isPending || !neighbor} onClick={() => neighbor && move.mutate({ itemId: item.id, questionId: question?.id, direction, neighborId: neighbor.id })}>{direction === "up" ? <ArrowUp size={12}/> : <ArrowDown size={12}/>}</button>;
     })}</span>;
   };
-  const visibilityBadge = (hidden: boolean, inherited = false) => <span className={`slw-visibility ${hidden ? "is-hidden" : "is-visible"}`} title={inherited ? copy.inheritedHidden : hidden ? copy.hidden : copy.visible} aria-label={inherited ? copy.inheritedHidden : hidden ? copy.hidden : copy.visible}>{hidden ? <EyeOff size={12}/> : <Eye size={12}/>}</span>;
+  const visibilityBadge = (hidden: boolean, inherited = false) => <span className={`slw-visibility ${hidden ? "is-hidden" : "is-visible"}`} title={inherited ? copy.inheritedHidden : hidden ? copy.hidden : copy.visible} aria-label={inherited ? copy.inheritedHidden : hidden ? copy.hidden : copy.visible}>{hidden ? <EyeOff size={12}/> : <Eye size={12}/>}<span>{inherited ? copy.inheritedHidden : hidden ? copy.hidden : copy.visible}</span></span>;
   const renderTree = (item: WorkspaceItem, depth = 0, seen = new Set<string>()): ReactNode => {
     if (seen.has(item.id) || !outline.visibleItems.has(item.id)) return null;
     const next = new Set(seen).add(item.id), children = childrenOf(item.id).filter(child => outline.visibleItems.has(child.id));
     const questions = item.questions.filter(question => outline.visibleQuestions.has(question.id)).slice().sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.id.localeCompare(b.id));
     const open = expandedItems.has(item.id) || !!search.trim();
     const hidden = outlineHidden(item, items);
+    const selectable = outline.matchingItems.has(item.id);
+    const contextOnly = !selectable;
     return <div key={item.id} className={depth ? "slw-tree-branch" : ""}>
-      <div className={`slw-tree-row ${selectedId === item.id && !selectedQuestion ? "selected" : ""} ${hidden ? "slw-hidden-row" : ""}`} data-hidden={hidden}>
+      <div className={`slw-tree-row ${selectedId === item.id && !selectedQuestion ? "selected" : ""} ${hidden ? "slw-hidden-row" : ""} ${contextOnly ? "slw-context-row" : ""}`} data-hidden={hidden} data-context-only={contextOnly}>
         {children.length || questions.length ? <button type="button" data-testid={`status-list-expand-${item.id}`} aria-label={`${open ? copy.collapse : copy.expand}: ${item.label}`} aria-expanded={open} onClick={() => setExpandedItems(previous => { const result = new Set(previous); result.has(item.id) ? result.delete(item.id) : result.add(item.id); return result; })}>{open ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button> : <span className="slw-dot"/>}
-        <button type="button" data-testid={`status-list-select-${item.id}`} className="slw-tree-label" onClick={() => choose(item.id)}><span>{item.label}</span></button>
+        {selectable ? <button type="button" data-testid={`status-list-select-${item.id}`} className="slw-tree-label" onClick={() => choose(item.id)}><span>{item.label}</span></button> : <span className="slw-tree-label slw-context-label"><span>{item.label}</span><small>{copy.contextOnly}</small></span>}
         {visibilityBadge(hidden, hidden && !item.isHidden)}
         {item.required && <span className="slw-required" title={copy.required}>*</span>}
         {item.automations.length > 0 && <span title={copy.original}><Zap size={12}/></span>}
-        {moveButtons(item)}
+        {selectable && moveButtons(item)}
       </div>
       {open && children.map(child => renderTree(child, depth + 1, next))}
       {open && questions.map(question => <div key={question.id} data-testid={`status-list-question-row-${question.id}`} data-hidden={hidden || !!question.isHidden} className={`slw-tree-row slw-question-row ${hidden || question.isHidden ? "slw-hidden-row" : ""} ${selectedQuestionId === question.id ? "selected" : ""}`}>
@@ -187,18 +195,17 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
         <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => setTab(value)}><Icon size={15}/>{label}</button>)}
     </nav>
     <div className="slw-body">
-    {tab === "tools" && <div className="slw-tools" data-testid="status-list-tools">{tools}</div>}
+     {tab === "tools" && <div className="slw-tools" data-testid="status-list-tools"><header><div><span>{copy.toolsEyebrow}</span><h3>{copy.toolsTitle}</h3><p>{copy.toolsDescription}</p></div></header>{tools}</div>}
     {tab === "content" && <>
       <div className="slw-layout">
         <aside className="slw-outline">
           <h3>{copy.structure}</h3>
-          <div className="slw-phases">{(["all", "acquisition", "contract", "retention", "quick"] as const).map(value =>
-            <button type="button" data-testid={`status-list-phase-${value}`} aria-pressed={phase === value && !category} className={phase === value && !category ? "active" : ""} onClick={() => { setPhase(value); setCategory(""); }} key={value}>{copy[value]}</button>)}</div>
-          {organizationQuery.isError ? <Button size="sm" variant="ghost" onClick={() => void organizationQuery.refetch()}>{copy.error}</Button> : <>
-            <div className="slw-phases slw-custom-categories">{organization.categories.map(entry => <button type="button" data-testid={`status-list-category-${entry.id}`} aria-pressed={category === entry.id} className={category === entry.id ? "active" : ""} onClick={() => { setCategory(entry.id); setPhase("all"); }} key={entry.id}>{entry.name}</button>)}</div>
-            <StatusListCategoryManager organization={organization} locale={locale} busy={organize.isPending || organizationQuery.isLoading} onEdit={edit => organize.mutate(edit)}/>
-          </>}
-          <div className="slw-legend"><span>{visibilityBadge(false)}{copy.visible}</span><span>{visibilityBadge(true)}{copy.hidden}</span></div>
+           <div className="slw-filter-label">{copy.agentPhase}</div>
+           <div className="slw-phases">{(["all", "acquisition", "contract", "retention", "shared", "quick"] as const).map(value =>
+             <button type="button" data-testid={`status-list-phase-${value}`} aria-pressed={phase === value} className={phase === value ? "active" : ""} onClick={() => setPhase(value)} key={value}>{copy[value]}</button>)}</div>
+           <div className="slw-filter-label">{copy.agentVisibility}</div>
+           <div className="slw-phases slw-visibility-filters">{(["all", "visible", "hidden"] as const).map(value =>
+             <button type="button" data-testid={`status-list-visibility-${value}`} aria-pressed={visibility === value} className={visibility === value ? "active" : ""} onClick={() => setVisibility(value)} key={value}>{copy[value]}</button>)}</div>
           <label className="slw-search"><Search size={14}/><input aria-label={copy.search} placeholder={copy.search} value={search} onChange={event => setSearch(event.target.value)}/></label>
           <div className="slw-tree">{roots.length ? roots.map(item => renderTree(item)) : <p className="slw-message">{copy.empty}</p>}</div>
           <div className="slw-tree-actions"><Button variant="ghost" size="sm" disabled={!selected} onClick={() => setDefinitionOpen(true)}>{copy.edit}</Button></div>
@@ -211,11 +218,6 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
               <label>{copy.agentPhase}{selectedQuestion ? <span>{copy.inheritPhase}</span> : <select data-testid="status-list-phase-assignment" value={selected.tab || "both"} disabled={update.isPending} onChange={event => update.mutate({ tab: event.target.value === "both" ? null : event.target.value })}>
                 <option value="both">{copy.sharedPhase}</option><option value="acquisition">{copy.acquisition}</option><option value="contract">{copy.contract}</option><option value="retention">{copy.retention}</option>
               </select>}</label>
-              <label>{copy.categoryAssignment}<select data-testid="status-list-category-assignment" disabled={organize.isPending || !organizationQuery.data} value={organization.assignments[selectedQuestion?.id || selected.id] || ""} onChange={event => organize.mutate({ operation: "assign", kind: selectedQuestion ? "question" : "item", id: selectedQuestion?.id || selected.id, categoryId: event.target.value || null })}>
-                <option value="">{copy.noCategory}</option>{organization.categories.map(entry => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-              </select></label>
-              {!organization.assignments[selectedQuestion?.id || selected.id] && outlineCategory(selectedQuestion?.id || selected.id, selected, items, organization) && <small>{copy.inheritedCategory}: {organization.categories.find(entry => entry.id === outlineCategory(selectedQuestion?.id || selected.id, selected, items, organization))?.name}</small>}
-              <p>{copy.categoryHint}</p>
             </section>
             <div className="slw-source-summary"><span>{isDerived ? <Settings2 size={17}/> : <UserRound size={17}/>}</span><div><strong>{copy.owner}</strong><p>{isDerived ? copy.system : copy.agent}</p></div></div>
             <nav className="slw-inspector-tabs">{(["owner", "visibility", "triggers"] as const).map(value => <button type="button" className={panel === value ? "active" : ""} onClick={() => setPanel(value)} key={value}>{copy[value]}</button>)}</nav>

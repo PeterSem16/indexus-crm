@@ -9,6 +9,7 @@ import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
 import { getStatusWorkflowDesignCopy } from "./status-list-workflow-design-copy";
 import { getStatusListBackgroundCopy } from "./status-list-background-copy";
 import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
+import { getStatusListChainCopy } from "./status-list-chain-copy";
 import "./status-list-workflow-dialog.css";
 
 type Block = "overview" | "when" | "if" | "then" | "else";
@@ -122,6 +123,10 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
             <label className="wf-field name-field"><span>{copy.name}</span><input data-testid="status-workflow-name" value={draft.name} maxLength={180} disabled={pending} onChange={e => onUpdate({ name: e.target.value })}/></label>
             <label className="workflow-enabled"><Switch checked={draft.enabled} disabled={pending} onCheckedChange={enabled => onUpdate({ enabled })}/>{copy.enabled}</label>
             <div className="rule-flow">{(["when", "if", "then", "else"] as const).map((key, i) => <button type="button" key={key} className={`flow-block flow-${key}`} data-testid={`status-workflow-overview-${key}`} onClick={() => setBlock(key)}><span className="flow-icon">{i === 0 ? <Workflow size={17}/> : i === 1 ? <GitBranch size={17}/> : i === 2 ? <ArrowRight size={17}/> : <GitFork size={17}/>}</span><span><small>{labels[key]}</small><strong>{key === "when" ? selected(draft.source)?.label || copy.source : key === "if" ? draft.conditions.length ? copy.conditionCount.replace("{count}", String(draft.conditions.length)) : copy.noConditions : (key === "then" ? draft.thenActions : draft.elseActions).length ? copy.writeCount.replace("{count}", String((key === "then" ? draft.thenActions : draft.elseActions).length)) : copy.noWrites}</strong></span><ArrowRight size={15}/></button>)}</div>
+             <label className="flex items-start justify-between gap-4 rounded-lg border p-3">
+               <span className="min-w-0"><strong className="text-sm">{getStatusListChainCopy(locale).enable}</strong><small className="mt-1 block text-xs leading-relaxed text-muted-foreground">{getStatusListChainCopy(locale).hint}</small></span>
+               <Switch data-testid="status-workflow-chain" aria-label={getStatusListChainCopy(locale).enable} checked={!!draft.runTargetAutomations} onCheckedChange={runTargetAutomations => onUpdate({ runTargetAutomations })}/>
+             </label>
              <p className="subtle-note"><CircleHelp size={15}/>{draft.trigger === "background_transition" ? backgroundCopy.backgroundNotice : copy.writeNotice}</p>
           </div>}
           {block === "when" && <div className="section-stack">

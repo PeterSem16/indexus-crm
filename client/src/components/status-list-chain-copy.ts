@@ -1,0 +1,18 @@
+const rows = {
+  enable: ["Run target automations", "Spustiť nadväzujúce automatizácie", "Spustit navazující automatizace", "Cél automatizmusainak futtatása", "Execută automatizările țintei", "Esegui le automazioni della destinazione", "Zielautomatisierungen ausführen"],
+  hint: ["Off by default. Changed answers and newly confirmed steps may start their own rules in this Mission. Notes and clearing do not trigger rules. Loops and conflicting writes are blocked; at most 10 levels and 100 executions per event.",
+    "Predvolene vypnuté. Zmenené odpovede a novo potvrdené kroky môžu spustiť svoje pravidlá v tejto Mission. Poznámky ani vymazanie pravidlá nespúšťajú. Slučky a konfliktné zápisy sú blokované; najviac 10 úrovní a 100 vykonaní na udalosť.",
+    "Ve výchozím stavu vypnuto. Změněné odpovědi a nově potvrzené kroky mohou spustit svá pravidla v této Mission. Poznámky ani vymazání pravidla nespouštějí. Smyčky a konfliktní zápisy jsou blokovány; nejvýše 10 úrovní a 100 provedení na událost.",
+    "Alapból kikapcsolva. A módosított válaszok és újonnan megerősített lépések elindíthatják saját szabályaikat ebben a Missionben. Jegyzet és törlés nem indít szabályt. A ciklusok és ütköző írások tiltva; legfeljebb 10 szint és 100 végrehajtás eseményenként.",
+    "Dezactivat implicit. Răspunsurile schimbate și pașii nou confirmați pot porni propriile reguli în această Mission. Notele și ștergerea nu declanșează reguli. Buclele și scrierile conflictuale sunt blocate; maximum 10 niveluri și 100 de execuții per eveniment.",
+    "Disattivato per impostazione predefinita. Risposte modificate e passaggi appena confermati possono avviare le proprie regole in questa Mission. Note e cancellazioni non attivano regole. Cicli e scritture in conflitto sono bloccati; massimo 10 livelli e 100 esecuzioni per evento.",
+    "Standardmäßig aus. Geänderte Antworten und neu bestätigte Schritte können eigene Regeln in dieser Mission starten. Notizen und Löschen lösen keine Regeln aus. Schleifen und widersprüchliche Schreibvorgänge werden blockiert; höchstens 10 Ebenen und 100 Ausführungen pro Ereignis."],
+  chained: ["Chained execution", "Nadväzujúce vykonanie", "Navazující provedení", "Láncolt végrehajtás", "Execuție în lanț", "Esecuzione concatenata", "Verkettete Ausführung"],
+  conflict: ["Blocked: loop or conflicting write", "Blokované: slučka alebo konfliktný zápis", "Blokováno: smyčka nebo konfliktní zápis", "Blokkolva: ciklus vagy ütköző írás", "Blocat: buclă sau scriere conflictuală", "Bloccato: ciclo o scrittura in conflitto", "Blockiert: Schleife oder Schreibkonflikt"],
+  limit: ["Chaining safety limit reached", "Dosiahnutý bezpečnostný limit reťazenia", "Dosažen bezpečnostní limit řetězení", "Láncolási biztonsági korlát elérve", "Limita de siguranță a lanțului a fost atinsă", "Limite di sicurezza della catena raggiunto", "Sicherheitsgrenze der Verkettung erreicht"],
+  dryRun: ["This test previews this rule only, not downstream rules.", "Tento test zobrazuje iba toto pravidlo, nie nadväzujúce pravidlá.", "Tento test zobrazuje pouze toto pravidlo, nikoli navazující pravidla.", "Ez a teszt csak ezt a szabályt mutatja, a további szabályokat nem.", "Acest test previzualizează doar această regulă, nu regulile ulterioare.", "Questo test mostra solo questa regola, non quelle successive.", "Dieser Test zeigt nur diese Regel, keine nachgelagerten Regeln."],
+} as const;
+export function getStatusListChainCopy(locale: string) {
+  const index = Math.max(0, ["en", "sk", "cs", "hu", "ro", "it", "de"].indexOf(locale));
+  return Object.fromEntries(Object.entries(rows).map(([key, values]) => [key, values[index]])) as Record<keyof typeof rows, string>;
+}

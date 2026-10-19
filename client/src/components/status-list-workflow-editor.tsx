@@ -64,7 +64,7 @@ export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSou
     const fresh = await query.refetch();
     if (fresh.isError) { toast({ title: copy.loadError, variant: "destructive" }); return; }
     setEditing(rule);
-    setDraft(structuredClone({ name: rule.name, enabled: rule.enabled, source: rule.source, sourceValue: rule.sourceValue, trigger: rule.trigger || "agent_confirmation", logic: rule.logic, conditions: rule.conditions, thenActions: rule.thenActions, elseActions: rule.elseActions }));
+    setDraft(structuredClone({ name: rule.name, enabled: rule.enabled, runTargetAutomations: !!rule.runTargetAutomations, source: rule.source, sourceValue: rule.sourceValue, trigger: rule.trigger || "agent_confirmation", logic: rule.logic, conditions: rule.conditions, thenActions: rule.thenActions, elseActions: rule.elseActions }));
     setValidation("");
   };
   const update = (patch: Partial<StatusListWorkflow>) => {
