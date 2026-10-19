@@ -4186,7 +4186,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           onSelectItem={navigateStudio} onSelectQuestion={navigateStudio}
           onDirtyChange={controls.onDirtyChange}
           ancestorHidden={controls.ancestorHidden}
-          renderSource={() => controls.source}
+          renderSource={onDirtyChange => controls.source(onDirtyChange)}
           renderActions={(questionId, onDirtyChange) => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={questionId} workflows={controls.workflows} onDirtyChange={onDirtyChange}/>}
           renderChildren={() => selectedQuestionId ? null : <StatusListStudioChildren item={selectedItem} allItems={items} onSelectItem={navigateStudio} onSelectQuestion={navigateStudio} onCreate={(kind, parentId) => setStudioCreation({ kind, parentId })}/>}
           onDeleted={() => setWorkspaceSelection("")}

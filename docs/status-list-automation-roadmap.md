@@ -1,5 +1,11 @@
 # Mission Status List automation — approved implementation sequence
 
+> Scope: this is the functional-capability roadmap, not the next-step list for
+> the current editor-unification work. Follow
+> [the existing-settings editor inventory](status-list-editor-unification.md)
+> for that work. A supplementary callback change does not make further callback
+> development the next agreed editor step.
+
 Keep the shared Automation WHEN / IF / THEN / ELSE editing direction, but execute
 inside the exact Mission and campaign-contact scope. Do not expose Mission-only
 actions in the standalone Automation engine.

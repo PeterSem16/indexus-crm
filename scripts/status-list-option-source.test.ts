@@ -455,17 +455,24 @@ try {
   // The editor may default to Slovak independent of the browser locale.
   await panel.locator("header button").click();
   await page.getByTestId("option-source-group").selectOption(reachGroup);
+  await panel.getByTestId("source-editor-stage-mapping").click();
   for (const [key, option] of Object.entries(reachability.mapping))
     await page.getByTestId(`option-source-map-${key}`).selectOption(option);
+  await panel.getByTestId("source-editor-stage-evaluation").click();
   await page.getByTestId("option-source-policy-replyWaitHours").fill("24");
+  await panel.getByTestId("source-editor-stage-review").click();
+  check(await panel.getByTestId("source-editor-save").isEnabled(), "Source review accepts a complete real mapping");
+  check(await panel.locator(".slse-policy-review").innerText().then(text => text.includes("24")), "Source review shows the configured response waiting time");
+  check(await panel.getByTestId("option-source-policy-replyWaitHours").count() === 0, "Review replaces the old full form rather than repeating it");
   const saved = page.waitForResponse(response => response.url().endsWith(`/option-sources/${reachGroup}`) && response.request().method() === "PUT");
-  await panel.locator("button").last().click();
+  await panel.getByTestId("source-editor-save").click();
   check((await saved).ok(), "Native browser saves the real mapping");
   const persisted = await body(await api.get(optionRoot));
   check(persisted.sources.find((s: any) => s.groupId === reachGroup).policy.replyWaitHours === 24, "Native policy save persisted");
   await page.reload();
   await page.getByTestId(`status-list-select-${reachGroup}`).click();
   await page.getByTestId("studio-stage-answer").click();
+  await page.getByTestId("source-editor-stage-evaluation").click();
   await page.getByTestId("option-source-policy-replyWaitHours").waitFor({ state: "visible" });
   check(await page.getByTestId("option-source-policy-replyWaitHours").inputValue() === "24", "Contextual source survives a real reload");
   check(await page.getByTestId("btn-open-cla-template").count() === 0, "Utility buttons are hidden from the content tab");
@@ -480,6 +487,15 @@ try {
   check(await draft.inputValue() === "25" && await draft.evaluate(node => node === (window as any).__statusListDraftNode), "Maximizing preserves the same editor and unsaved draft");
   await page.getByTestId("status-list-toggle-fullscreen").click();
   check(await workspace.getAttribute("data-fullscreen") === "false" && await draft.inputValue() === "25", "Restoring preserves the draft");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByTestId("studio-stage-content").click();
+  check(await draft.isVisible() && await draft.inputValue() === "25", "Declining the stage change preserves the source draft");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByTestId("status-list-tab-tools").click();
+  check(await draft.isVisible() && await draft.inputValue() === "25", "Declining workspace navigation preserves the source draft");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByTestId("source-editor-cancel").click();
+  check(await draft.inputValue() === "25", "Declining cancellation keeps the complete source draft");
   await draft.fill("24");
   await page.getByTestId("status-list-toggle-fullscreen").click();
   await page.getByTestId("status-list-tab-tools").click();

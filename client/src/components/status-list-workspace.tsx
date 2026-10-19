@@ -26,7 +26,7 @@ export type WorkspaceItem = {
 type Props = {
   campaignId: string; locale: string; items: WorkspaceItem[]; selectedId: string; onSelect: (id: string) => void;
   navigation?: { itemId: string; questionId?: string; nonce: number };
-  tools: ReactNode; definition: ReactNode | ((selectedItemId: string, selectedQuestionId: string | null, controls: { source: ReactNode; workflows: ReactNode; ancestorHidden: boolean; onDirtyChange: (dirty: boolean) => void }) => ReactNode); coverage: ReactNode;
+  tools: ReactNode; definition: ReactNode | ((selectedItemId: string, selectedQuestionId: string | null, controls: { source: (onDirtyChange: (dirty: boolean) => void) => ReactNode; workflows: ReactNode; ancestorHidden: boolean; onDirtyChange: (dirty: boolean) => void }) => ReactNode); coverage: ReactNode;
 };
 export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage, navigation }: Props) {
   const copy = getStatusListWorkspaceCopy(locale);
@@ -223,14 +223,14 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
               {typeof definition === "function" ? definition(selected.id, selectedQuestion?.id || null, {
                 onDirtyChange: setDirty,
                 ancestorHidden: !!hiddenAncestor,
-                source: <>
+                source: onDirtyChange => <>
                 <div className="slw-source-summary"><span>{isDerived ? <Settings2 size={17}/> : <UserRound size={17}/>}</span><div><strong>{copy.owner}</strong><p>{isDerived ? copy.system : copy.agent}</p></div></div>
                 <p className="slw-message">{copy.sourceHint}</p>
                 {sourceGroup?.id !== selected.id && <p className="slw-notice">{copy.inherited} <strong>{sourceGroup?.label}</strong></p>}
                 {sourceQuery.isLoading ? <div className="h-20 animate-pulse rounded bg-muted"/> : sourceQuery.isError ? <Button variant="outline" onClick={() => void sourceQuery.refetch()}>{copy.error}</Button> :
-                  eligibleGroup && !selectedQuestion ? <StatusListOptionSourcePanel key={sourceGroup!.id} campaignId={campaignId} locale={locale} targetGroupId={sourceGroup!.id}/> :
+                  eligibleGroup && !selectedQuestion ? <StatusListOptionSourcePanel key={sourceGroup!.id} campaignId={campaignId} locale={locale} targetGroupId={sourceGroup!.id} onDirtyChange={onDirtyChange}/> :
                   !hasQuestions && <p className="slw-notice">{copy.unsupported}</p>}
-                {hasQuestions && <StatusListBackgroundSourcePanel key={`${selected.id}:${selectedQuestion?.id || ""}`} campaignId={campaignId} locale={locale} targetItemId={selected.id} targetQuestionId={selectedQuestion?.id} hideOptionSources/>}
+                {hasQuestions && <StatusListBackgroundSourcePanel key={`${selected.id}:${selectedQuestion?.id || ""}`} campaignId={campaignId} locale={locale} targetItemId={selected.id} targetQuestionId={selectedQuestion?.id} hideOptionSources onDirtyChange={onDirtyChange}/>}
                 </>,
                 workflows: <>
                 <p className="slw-notice">{copy.chaining}</p>

@@ -86,7 +86,12 @@ try {
   check(audit.catalog.find((q: any) => q.id === question).hidden && !audit.catalog.find((q: any) => q.id === question).writable, "Hidden independent of system ownership");
   check(!audit.catalog.find((q: any) => q.id === typeQuestion).hidden && !audit.catalog.find((q: any) => q.id === typeQuestion).writable, "Visible derived answer also readonly");
   await pool.query(`INSERT INTO clinic_representative_assignments(clinic_id,user_id,assignment_type) VALUES($1,$2,'bulk_region')`, [clinic, user]);
-  for (let i = 0; i < 6 && await answer() !== "yes"; i++) await runStatusListBackgroundBatch();
+  // The app's worker can claim the same queue while this fixture runs. Its
+  // source write is visible before downstream workflow actions have settled.
+  for (let i = 0; i < 20 && (await answer() !== "yes" || await answer(target) !== "Assigned" || await runs() !== 2); i++) {
+    await runStatusListBackgroundBatch();
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
   check(await answer() === "yes" && await answer(target) === "Assigned", "Dirty worker evaluates without card or authenticated request");
   check(await answer(typeQuestion) === "bulk_region" && await runs() === 2, "Multiple sources share current snapshot");
   await pool.query(`INSERT INTO hospital_representative_assignments(hospital_id,user_id,assignment_type,valid_from) VALUES($1,$2,'import',now()+interval '1 day')`, [hospital, user]);
@@ -132,11 +137,69 @@ try {
   await page.getByTestId("status-list-background-sources").waitFor();
   await page.getByTestId("status-list-background-sources").scrollIntoViewIfNeeded();
   check(await page.getByTestId("status-list-background-sources").getByText("Synthetic representative assigned", { exact: true }).count() > 0, "Native UI shows configured source");
+  if (!await page.getByTestId(`status-list-select-question-${question}`).isVisible())
+    await page.getByTestId(`status-list-expand-${item}`).click();
+  await page.getByTestId(`status-list-select-question-${question}`).click();
+  await page.getByTestId("studio-stage-content").click();
+  await page.getByTestId("status-list-question-text").fill("Synthetic unsaved question");
+  await page.getByTestId("studio-stage-answer").click();
+  const panel = page.getByTestId("status-list-background-sources");
+  await panel.locator("button[aria-label]").first().click();
+  check(await page.getByTestId("background-source-question").inputValue() === question, "Question editor is scoped to the selected question");
+  check(await page.getByTestId("background-source-kind").inputValue() === "representative_assigned", "Existing question source is preserved on opening");
+  await page.getByTestId("source-editor-stage-mapping").click();
+  check(await page.getByTestId("background-source-kind").count() === 0, "Source mapping is a focused step, not a repeated legacy form");
+  await page.getByTestId("source-editor-stage-evaluation").click();
+  const hiddenToggle = page.getByTestId("background-source-hidden");
+  const previousHidden = await hiddenToggle.getAttribute("aria-checked") === "true";
+  await hiddenToggle.click();
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByTestId("studio-stage-content").click();
+  check(await hiddenToggle.isVisible(), "Question source draft blocks an unconfirmed stage change");
+  await page.getByTestId("source-editor-stage-review").click();
+  const beforeSave = await body(await api.get(`${root}/sources`));
+  check(beforeSave.sources.find((entry: any) => entry.questionId === question).hidden === previousHidden, "Review does not write source configuration");
+  const sourceUrl = `${root}/sources/${question}`;
+  await page.route(`**${sourceUrl}`, route => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic unavailable service" }) }));
+  const failed = page.waitForResponse(response => response.url().endsWith(sourceUrl) && response.status() === 503);
+  await page.getByTestId("source-editor-save").click();
+  await failed;
+  check(await page.getByTestId("status-list-source-editor").isVisible(), "Save error retains the question source draft");
+  await page.unroute(`**${sourceUrl}`);
+  const retried = page.waitForResponse(response => response.url().endsWith(sourceUrl) && response.request().method() === "PUT");
+  await page.getByTestId("source-editor-save").click();
+  check((await retried).ok(), "Retry saves through the original authenticated source API");
+  await page.getByTestId("status-list-source-editor").waitFor({ state: "hidden" });
+  check(await scalar("SELECT is_hidden AS value FROM campaign_status_list_questions WHERE id=$1", [question]) === !previousHidden, "Question source visibility persists independently");
+  await page.getByTestId("studio-stage-content").click();
+  check(await page.getByTestId("status-list-question-text").inputValue() === "Synthetic unsaved question", "Source save preserves the unsaved question definition");
+  await page.getByTestId("studio-stage-answer").click();
+  await panel.locator("button[aria-label]").first().click();
+  await page.getByTestId("source-editor-stage-review").click();
   await mkdir("generated-artifacts/status-list-workflow", { recursive: true });
+  const sourceEditor = page.getByTestId("status-list-source-editor");
+  await sourceEditor.screenshot({ path: "generated-artifacts/status-list-workflow/source-review-desktop.jpg" });
+  check(await sourceEditor.evaluate(node => {
+    const bounds = node.getBoundingClientRect();
+    return [...node.querySelectorAll("button")].filter(button => !button.closest("nav")).every(button => {
+      const rect = button.getBoundingClientRect();
+      return rect.left >= bounds.left && rect.right <= bounds.right + 1;
+    });
+  }), "Desktop source actions fit within the real nested editor");
   await page.screenshot({ path: "generated-artifacts/status-list-workflow/background-desktop.jpg" });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("status-list-background-sources").scrollIntoViewIfNeeded();
+  await sourceEditor.screenshot({ path: "generated-artifacts/status-list-workflow/source-review-mobile.jpg" });
+  check(await sourceEditor.evaluate(node => {
+    const bounds = node.getBoundingClientRect();
+    return [...node.querySelectorAll("button")].filter(button => !button.closest("nav")).every(button => {
+      const rect = button.getBoundingClientRect();
+      return rect.left >= bounds.left && rect.right <= bounds.right + 1;
+    });
+  }), "Mobile source actions remain fully accessible");
   await page.screenshot({ path: "generated-artifacts/status-list-workflow/background-mobile.jpg" });
+  await page.evaluate(() => { document.documentElement.classList.add("dark"); });
+  await sourceEditor.screenshot({ path: "generated-artifacts/status-list-workflow/source-review-dark.jpg" });
   check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "Background panel has no mobile document overflow");
   check(errors.length === 0, "No native browser runtime errors");
   console.log(`Status List background: ${checks} assertions passed`);

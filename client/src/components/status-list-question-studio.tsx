@@ -17,7 +17,7 @@ type Props = {
   campaignId: string; locale: string; item: any; questionId?: string | null; allItems: any[];
   canonicalOptions: CanonicalOption[]; resolvedPhase: string | null;
   onSelectItem: (id: string) => void; onSelectQuestion: (itemId: string, questionId: string) => void;
-  renderActions: (questionId: string | null, onDirtyChange: (dirty: boolean) => void) => ReactNode; renderSource: () => ReactNode;
+  renderActions: (questionId: string | null, onDirtyChange: (dirty: boolean) => void) => ReactNode; renderSource: (onDirtyChange: (dirty: boolean) => void) => ReactNode;
   renderChildren: () => ReactNode; onDeleted: () => void;
   isNew?: boolean; ancestorHidden?: boolean; onSaved?: (record: any) => void; onDirtyChange?: (dirty: boolean) => void;
 };
@@ -67,6 +67,7 @@ export function StatusListQuestionStudio({
   const [baseQuestion, setBaseQuestion] = useState<QuestionDraft>(() => questionDraftFrom(item?.questions?.find((q: any) => q.id === questionId)));
   const [error, setError] = useState("");
   const [actionDirty, setActionDirty] = useState(false);
+  const [sourceDirty, setSourceDirty] = useState(false);
   const dirtyCallbackRef = useRef(onDirtyChange);
   dirtyCallbackRef.current = onDirtyChange;
   const recordKey = `${item?.id || ""}:${questionId || "step"}`;
@@ -78,10 +79,26 @@ export function StatusListQuestionStudio({
   const stepDirty = !same(stepDraft, baseStep, stepKeys as string[]);
   const questionDirty = isQuestion && !same(questionDraft, baseQuestion, questionKeys as string[]);
   const dirty = isQuestion ? questionDirty : stepDirty;
+  // Source configuration saves visibility through its own endpoint. Refresh
+  // untouched visibility here without discarding other, unsaved definition fields.
+  const storedHidden = isQuestion ? !!question?.isHidden : !!item?.isHidden;
+  const previousVisibility = useRef({ recordKey, hidden: storedHidden });
   useEffect(() => {
-    dirtyCallbackRef.current?.(!!dirty || actionDirty);
+    const previous = previousVisibility.current;
+    previousVisibility.current = { recordKey, hidden: storedHidden };
+    if (previous.recordKey !== recordKey || previous.hidden === storedHidden) return;
+    if (isQuestion) {
+      setQuestionDraft(current => current.isHidden === baseQuestion.isHidden ? { ...current, isHidden: storedHidden } : current);
+      setBaseQuestion(current => ({ ...current, isHidden: storedHidden }));
+    } else {
+      setStepDraft(current => current.isHidden === baseStep.isHidden ? { ...current, isHidden: storedHidden } : current);
+      setBaseStep(current => ({ ...current, isHidden: storedHidden }));
+    }
+  }, [recordKey, storedHidden, isQuestion, baseQuestion.isHidden, baseStep.isHidden]);
+  useEffect(() => {
+    dirtyCallbackRef.current?.(!!dirty || actionDirty || sourceDirty);
     return () => dirtyCallbackRef.current?.(false);
-  }, [dirty, actionDirty]);
+  }, [dirty, actionDirty, sourceDirty]);
   const activePhase = isQuestion ? (item?.tab || resolvedPhase || null) : (stepDraft.tab || resolvedPhase || null);
   const canonicalByPhase = useMemo(() => canonicalOptions.filter(option => !activePhase || option.phase === activePhase), [canonicalOptions, activePhase]);
   const phaseOptions = ["acquisition", "contract", "retention"];
@@ -167,11 +184,11 @@ export function StatusListQuestionStudio({
   }, [recordKey, dirty, copy.selectItemWarning, item, questionId, onSelectItem, onSelectQuestion]);
 
   useEffect(() => {
-    if (!dirty) return;
+    if (!dirty && !actionDirty && !sourceDirty) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
+  }, [dirty, actionDirty, sourceDirty]);
 
   const setStep = <K extends keyof StepDraft>(key: K, value: StepDraft[K]) => setStepDraft(current => ({ ...current, [key]: value }));
   const setQuestion = <K extends keyof QuestionDraft>(key: K, value: QuestionDraft[K]) => setQuestionDraft(current => ({ ...current, [key]: value }));
@@ -180,6 +197,7 @@ export function StatusListQuestionStudio({
     setStepDraft({ ...baseStep }); setQuestionDraft({ ...baseQuestion }); setError("");
   };
   const save = () => {
+    if (sourceDirty) { setError(copy.unsaved); return; }
     if (isQuestion && !questionDraft.questionText.trim()) { setError(copy.questionText); return; }
     if (!isQuestion && (!stepDraft.label.trim() || !stepDraft.stepId.trim())) { setError(`${copy.stepName} · ${copy.stepId}`); return; }
     const reference = isQuestion ? questionDraft.gotoQuestionId : stepDraft.nextStepId;
@@ -201,9 +219,15 @@ export function StatusListQuestionStudio({
     deleteMutation.mutate();
   };
   const tabLabel = (value: string | null) => phaseName(value) || phaseName(resolvedPhase) || "—";
+  const selectStage = (next: Stage) => {
+    if (next === stage) return;
+    if (stage === "answer" && sourceDirty && !window.confirm(copy.discard)) return;
+    setSourceDirty(false);
+    setStage(next);
+  };
   const otherStage = (direction: -1 | 1) => {
     const index = stages.indexOf(stage);
-    setStage(stages[Math.min(stages.length - 1, Math.max(0, index + direction))]);
+    selectStage(stages[Math.min(stages.length - 1, Math.max(0, index + direction))]);
   };
   const renderToggle = (label: string, checked: boolean, onChange: (value: boolean) => void, testId?: string) =>
     <label className="slqs-toggle" data-testid={testId}><span><strong>{label}</strong></span><input type="checkbox" checked={checked} onChange={event => onChange(event.target.checked)} /><i aria-hidden="true" /></label>;
@@ -224,7 +248,7 @@ export function StatusListQuestionStudio({
     <div className="slqs-layout">
       <main className="slqs-editor">
         <nav className="slqs-stages" aria-label={copy.title}>
-          {stages.map((name, index) => <button key={name} type="button" className={stage === name ? "active" : ""} aria-current={stage === name ? "step" : undefined} data-testid={`studio-stage-${name}`} onClick={() => setStage(name)}>
+          {stages.map((name, index) => <button key={name} type="button" className={stage === name ? "active" : ""} aria-current={stage === name ? "step" : undefined} data-testid={`studio-stage-${name}`} onClick={() => selectStage(name)}>
             <span className="slqs-stage-number">{String(index + 1).padStart(2, "0")}</span><span>{copy[name]}</span>{stage === name && <ChevronDown size={14} />}
           </button>)}
         </nav>
@@ -271,7 +295,7 @@ export function StatusListQuestionStudio({
                 {renderToggle(copy.visible, !questionDraft.isHidden, value => setQuestion("isHidden", !value), "status-list-question-hidden")}
               </div>
               {questionDraft.groupName && <div className="slqs-impact slqs-wide">{copy.impactGroup} {questionDraft.required ? copy.impactRequired : ""}</div>}
-              <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource()}</div>
+              <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource(setSourceDirty)}</div>
             </div> : <div className="slqs-fields">
               <label className="slqs-field"><span>{copy.confirmation}</span><select data-testid="status-list-confirmation-type" value={stepDraft.confirmationType} onChange={event => setStep("confirmationType", event.target.value)}>
                 {!copy.confirmationOptions[stepDraft.confirmationType] && <option value={stepDraft.confirmationType}>{stepDraft.confirmationType}</option>}
@@ -289,7 +313,7 @@ export function StatusListQuestionStudio({
                 <option value="">{copy.noCanonical}</option>{canonicalByPhase.map(option => <option value={option.value} key={`${option.phase}:${option.value}`}>{option.label}</option>)}
                 {stepDraft.canonicalClinicStatusKey && !canonicalByPhase.some(option => option.value === stepDraft.canonicalClinicStatusKey) && <option value={stepDraft.canonicalClinicStatusKey}>{canonicalOptions.find(option => option.value === stepDraft.canonicalClinicStatusKey)?.label || stepDraft.canonicalClinicStatusKey}</option>}
               </select><small>{copy.canonicalHelp}</small></label>
-              <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource()}</div>
+              <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource(setSourceDirty)}</div>
             </div>}
           </div>}
           {stage === "relationships" && <div className="slqs-stage-content">
