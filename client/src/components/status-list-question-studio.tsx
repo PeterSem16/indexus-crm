@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { getStatusListQuestionStudioCopy } from "./status-list-question-studio-copy";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
+import { StatusListRelationshipsEditor } from "./status-list-relationships-editor";
+import { getStatusListRelationshipsCopy } from "./status-list-relationships-copy";
+import { relationshipSelection, relationshipTargets } from "@/lib/status-list-relationships";
 import "./status-list-question-studio.css";
 
 type CanonicalOption = { value: string; label: string; phase: string };
@@ -81,7 +84,6 @@ export function StatusListQuestionStudio({
   const activePhase = isQuestion ? (item?.tab || resolvedPhase || null) : (stepDraft.tab || resolvedPhase || null);
   const canonicalByPhase = useMemo(() => canonicalOptions.filter(option => !activePhase || option.phase === activePhase), [canonicalOptions, activePhase]);
   const phaseOptions = ["acquisition", "contract", "retention"];
-  const questionOptions = useMemo(() => allItems.flatMap(entry => (entry.questions || []).map((q: any) => ({ id: q.id, text: q.questionText, step: entry.label, itemId: entry.id }))), [allItems]);
   const mutation = useMutation({
     mutationFn: async () => {
       if (isQuestion) {
@@ -179,6 +181,18 @@ export function StatusListQuestionStudio({
   const save = () => {
     if (isQuestion && !questionDraft.questionText.trim()) { setError(copy.questionText); return; }
     if (!isQuestion && (!stepDraft.label.trim() || !stepDraft.stepId.trim())) { setError(`${copy.stepName} · ${copy.stepId}`); return; }
+    const reference = isQuestion ? questionDraft.gotoQuestionId : stepDraft.nextStepId;
+    const previous = isQuestion ? baseQuestion.gotoQuestionId : baseStep.nextStepId;
+    // Preserve existing legacy links on unrelated edits, but do not create new
+    // ambiguous/self/quick-option links or save a target deleted while editing.
+    if (reference !== previous) {
+      const selected = relationshipSelection(relationshipTargets(allItems, item.id, isQuestion ? questionId : null), reference);
+      if (!selected.empty && (!selected.target?.selectable || selected.ambiguous)) {
+        const links = getStatusListRelationshipsCopy(locale);
+        setError(selected.missing ? links.missing : selected.ambiguous ? links.ambiguous : selected.target?.self ? links.self : links.quick);
+        return;
+      }
+    }
     mutation.mutate();
   };
   const deleteRecord = () => {
@@ -279,31 +293,19 @@ export function StatusListQuestionStudio({
           </div>}
           {stage === "relationships" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">04 / 05</span><h3>{copy.relationshipsTitle}</h3><p>{copy.relationshipsHelp}</p></div>
-            {isQuestion ? <div className="slqs-fields">
-              <label className="slqs-field"><span>{copy.group}</span><input data-testid="status-list-question-group" value={questionDraft.groupName} onChange={event => setQuestion("groupName", event.target.value)} /></label>
-              <label className="slqs-field"><span>{copy.logic}</span><select value={questionDraft.logicOperator} onChange={event => setQuestion("logicOperator", event.target.value)}>
-                {questionDraft.logicOperator && !["OR", "AND", "ONE"].includes(questionDraft.logicOperator) && <option value={questionDraft.logicOperator}>{questionDraft.logicOperator}</option>}
-                <option value="OR">{copy.logicOr}</option><option value="AND">{copy.logicAnd}</option><option value="ONE">{copy.logicOne}</option>
-              </select></label>
-              <label className="slqs-field slqs-wide"><span>{copy.goto}</span><select data-testid="status-list-question-goto" value={questionDraft.gotoQuestionId} onChange={event => setQuestion("gotoQuestionId", event.target.value)}>
-                <option value="">—</option>
-                {questionDraft.gotoQuestionId && !questionOptions.some(option => option.id === questionDraft.gotoQuestionId) && !allItems.some(entry => `step:${entry.stepId}` === questionDraft.gotoQuestionId) && <option value={questionDraft.gotoQuestionId}>{questionDraft.gotoQuestionId}</option>}
-                {allItems.map(entry => <option value={`step:${entry.stepId}`} key={`step:${entry.id}`}>{entry.stepId} · {entry.label}</option>)}
-                {questionOptions.filter(option => option.id !== questionId).map(option => <option value={option.id} key={option.id}>{option.step} · {option.text}</option>)}
-              </select></label>
+            <StatusListRelationshipsEditor
+              locale={locale} item={item} items={allItems} questionId={isQuestion ? questionId : null}
+              questionText={questionDraft.questionText} questionHidden={questionDraft.isHidden} groupName={questionDraft.groupName} logicOperator={questionDraft.logicOperator}
+              referenceValue={isQuestion ? questionDraft.gotoQuestionId : stepDraft.nextStepId} guidance={stepDraft.restrictions}
+              onReferenceChange={value => isQuestion ? setQuestion("gotoQuestionId", value) : setStep("nextStepId", value)}
+              onGroupChange={value => setQuestion("groupName", value)} onLogicChange={value => setQuestion("logicOperator", value)}
+              onGuidanceChange={value => setStep("restrictions", value)}
+            />
+            {isQuestion && <div className="slqs-fields">
               <div className="slqs-advanced-grid slqs-wide">
                 {renderText(copy.icon, questionDraft.icon, value => setQuestion("icon", value))}
                 {renderText(copy.color, questionDraft.color, value => setQuestion("color", value))}
               </div>
-              <div className="slqs-impact slqs-wide">{copy.impactGroup}</div>
-            </div> : <div className="slqs-fields">
-              <label className="slqs-field slqs-wide"><span>{copy.nextStep}</span><select data-testid="status-list-step-next-step" value={stepDraft.nextStepId} onChange={event => setStep("nextStepId", event.target.value)}>
-                <option value="">—</option>
-                {stepDraft.nextStepId && !allItems.some(entry => entry.stepId === stepDraft.nextStepId) && <option value={stepDraft.nextStepId}>{stepDraft.nextStepId}</option>}
-                {allItems.filter(entry => entry.id !== item.id && !!entry.stepId).map(entry => <option value={entry.stepId} key={entry.id}>{entry.stepId} · {entry.label}</option>)}
-              </select><small>{copy.nextStepHelp}</small></label>
-              <label className="slqs-field slqs-wide"><span>{copy.restrictions}</span><textarea data-testid="status-list-step-restrictions" rows={4} value={stepDraft.restrictions} onChange={event => setStep("restrictions", event.target.value)} placeholder={copy.restrictionsHelp} /></label>
-              <p className="slqs-impact slqs-wide">{copy.restrictionsHelp}</p>
             </div>}
             <div className="slqs-children">{renderChildren()}</div>
           </div>}
