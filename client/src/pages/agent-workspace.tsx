@@ -16,7 +16,6 @@ import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
-import { StatusListWorkflowContact } from "@/components/status-list-workflow-contact";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { actionCopy } from "@/components/status-list-service-action-copy";
 import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
@@ -6338,9 +6337,6 @@ export function CommunicationCanvas({
 
           return (
             <div className="flex flex-col flex-1 overflow-hidden">
-              {campaign?.id && campaignContactId && <div className="max-h-72 shrink-0 overflow-y-auto p-2">
-                <StatusListWorkflowContact key={campaignContactId} campaignId={campaign.id} campaignContactId={campaignContactId} />
-              </div>}
               {/* ── Nexus Pulse Header + Phase Pipeline ─────────────── */}
               <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
                 {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
