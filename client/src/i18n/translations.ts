@@ -1,7 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
 import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
-import { automationEligibilityTranslations, type AutomationEligibilityCopy } from "./automation-eligibility-translations";
-import { automationRetryTranslations, type AutomationRetryCopy } from "./automation-retry-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 import { getStatusListWorkflowCopy } from "../components/status-list-workflow-copy";
@@ -14,8 +12,6 @@ import systemMailboxCheckTranslations from "./system-mailbox-check-translations"
 import omniSmsTranslations from "./omni-sms-translations";
 import { healthcareLegalEntityTranslations, type HealthcareLegalEntityCopy } from "./healthcare-legal-entity-translations";
 import { providerFinderTranslations, type ProviderFinderCopy } from "./provider-finder-translations";
-import { hospitalAgreementTranslations, type HospitalAgreementCopy } from "@/components/hospital-agreement-copy";
-import { automationAttachmentTranslations, type AutomationAttachmentCopy } from "./automation-attachment-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -102,9 +98,6 @@ export interface Translations {
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationOverview: AutomationOverviewCopy;
-  automationAttachments: AutomationAttachmentCopy;
-  automationEligibility: AutomationEligibilityCopy;
-  automationRetry: AutomationRetryCopy;
   healthcareLegalEntity: HealthcareLegalEntityCopy;
   providerFinder: ProviderFinderCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
@@ -2091,7 +2084,6 @@ export interface Translations {
     addHospitalDesc: string;
     editHospitalDesc: string;
     deleteConfirm: string;
-    agreements: HospitalAgreementCopy;
     searchPlaceholder: string;
     noHospitals: string;
     legacyId: string;
@@ -9261,9 +9253,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.en,
     systemMailboxCheck: systemMailboxCheckTranslations.en,
     automationOverview: automationOverviewTranslations.en,
-    automationAttachments: automationAttachmentTranslations.en,
-    automationEligibility: automationEligibilityTranslations.en,
-    automationRetry: automationRetryTranslations.en,
     omniSms: omniSmsTranslations.en,
     taskCommunication: taskCommunicationTranslations.en,
     datePicker: { selectDate: 'Select date', now: 'Now', noTimeLimit: 'The agreement has no time limit' },
@@ -11293,7 +11282,6 @@ export const translations = {
       seedCreated: 'Created',
       seedSkipped: 'Skipped',
       seedTotal: 'total',
-      agreements: hospitalAgreementTranslations.en,
       tabs: {
         hospital: 'Hospitals',
         clinics: 'Clinics',
@@ -17133,9 +17121,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.sk,
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
-    automationAttachments: automationAttachmentTranslations.sk,
-    automationEligibility: automationEligibilityTranslations.sk,
-    automationRetry: automationRetryTranslations.sk,
     omniSms: omniSmsTranslations.sk,
     taskCommunication: taskCommunicationTranslations.sk,
     datePicker: { selectDate: 'Vyberte dátum', now: 'Teraz', noTimeLimit: 'Zmluva nemá časové obmedzenie platnosti' },
@@ -19141,7 +19126,6 @@ export const translations = {
       seedCreated: 'Vytvorené',
       seedSkipped: 'Preskočené',
       seedTotal: 'celkom',
-      agreements: hospitalAgreementTranslations.sk,
       tabs: {
         hospital: 'Nemocnica',
         clinics: 'Ambulancie',
@@ -25001,9 +24985,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.cs,
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
-    automationAttachments: automationAttachmentTranslations.cs,
-    automationEligibility: automationEligibilityTranslations.cs,
-    automationRetry: automationRetryTranslations.cs,
     omniSms: omniSmsTranslations.cs,
     taskCommunication: taskCommunicationTranslations.cs,
     datePicker: { selectDate: 'Vyberte datum', now: 'Nyní', noTimeLimit: 'Smlouva nemá časové omezení platnosti' },
@@ -27235,7 +27216,6 @@ export const translations = {
       seedCreated: 'Vytvořeno',
       seedSkipped: 'Přeskočeno',
       seedTotal: 'celkem',
-      agreements: hospitalAgreementTranslations.cs,
       tabs: {
         hospital: 'Nemocnice',
         clinics: 'Ambulance',
@@ -32828,9 +32808,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.hu,
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
-    automationAttachments: automationAttachmentTranslations.hu,
-    automationEligibility: automationEligibilityTranslations.hu,
-    automationRetry: automationRetryTranslations.hu,
     omniSms: omniSmsTranslations.hu,
     taskCommunication: taskCommunicationTranslations.hu,
     datePicker: { selectDate: 'Válasszon dátumot', now: 'Most', noTimeLimit: 'A szerződés határozatlan ideig érvényes' },
@@ -35062,7 +35039,6 @@ export const translations = {
       seedCreated: 'Létrehozva',
       seedSkipped: 'Kihagyva',
       seedTotal: 'összesen',
-      agreements: hospitalAgreementTranslations.hu,
       tabs: {
         hospital: 'Kórház',
         clinics: 'Rendelok',
@@ -40653,9 +40629,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.ro,
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
-    automationAttachments: automationAttachmentTranslations.ro,
-    automationEligibility: automationEligibilityTranslations.ro,
-    automationRetry: automationRetryTranslations.ro,
     omniSms: omniSmsTranslations.ro,
     taskCommunication: taskCommunicationTranslations.ro,
     datePicker: { selectDate: 'Selectați data', now: 'Acum', noTimeLimit: 'Contractul nu are termen de expirare' },
@@ -42887,7 +42860,6 @@ export const translations = {
       seedCreated: 'Create',
       seedSkipped: 'Sărite',
       seedTotal: 'total',
-      agreements: hospitalAgreementTranslations.ro,
       tabs: {
         hospital: 'Spital',
         clinics: 'Clinici',
@@ -48486,9 +48458,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.it,
     systemMailboxCheck: systemMailboxCheckTranslations.it,
     automationOverview: automationOverviewTranslations.it,
-    automationAttachments: automationAttachmentTranslations.it,
-    automationEligibility: automationEligibilityTranslations.it,
-    automationRetry: automationRetryTranslations.it,
     omniSms: omniSmsTranslations.it,
     taskCommunication: taskCommunicationTranslations.it,
     datePicker: { selectDate: 'Seleziona data', now: 'Adesso', noTimeLimit: 'Il contratto non ha limiti temporali di validità' },
@@ -50720,7 +50689,6 @@ export const translations = {
       seedCreated: 'Creati',
       seedSkipped: 'Saltati',
       seedTotal: 'totale',
-      agreements: hospitalAgreementTranslations.it,
       tabs: {
         hospital: 'Ospedale',
         clinics: 'Cliniche',
@@ -56310,9 +56278,6 @@ export const translations = {
     providerFinder: providerFinderTranslations.de,
     systemMailboxCheck: systemMailboxCheckTranslations.de,
     automationOverview: automationOverviewTranslations.de,
-    automationAttachments: automationAttachmentTranslations.de,
-    automationEligibility: automationEligibilityTranslations.de,
-    automationRetry: automationRetryTranslations.de,
     omniSms: omniSmsTranslations.de,
     taskCommunication: taskCommunicationTranslations.de,
     datePicker: { selectDate: 'Datum auswählen', now: 'Jetzt', noTimeLimit: 'Der Vertrag ist unbefristet gültig' },
@@ -58544,7 +58509,6 @@ export const translations = {
       seedCreated: 'Erstellt',
       seedSkipped: 'Übersprungen',
       seedTotal: 'gesamt',
-      agreements: hospitalAgreementTranslations.de,
       tabs: {
         hospital: 'Krankenhaus',
         clinics: 'Praxen',

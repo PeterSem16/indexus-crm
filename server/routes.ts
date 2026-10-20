@@ -1,5 +1,4 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import { enqueueChatAnalysis } from "./lib/chat-analysis-outbox";
 import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
 import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
@@ -41147,7 +41146,6 @@ Rules:
               }).returning();
               if (chatAttachments.length) await tx.update(taskAttachmentUploads).set({ everAssociated: true })
                 .where(inArray(taskAttachmentUploads.id, chatAttachments.map(file => file.id!)));
-              await enqueueChatAnalysis(tx, chatMsg);
               return { chatMsg, chatNotification };
             });
             void notificationService.broadcastExistingNotification(chatNotification)
