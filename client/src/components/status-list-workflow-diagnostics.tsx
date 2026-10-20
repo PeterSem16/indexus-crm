@@ -8,6 +8,7 @@ import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
 import { getStatusListChainCopy } from "./status-list-chain-copy";
+import { StatusListTransitionDiagnostics } from "./status-list-transition-diagnostics";
 
 type Run = { id: string; ruleName: string; branch: string; createdAt: string; actorKind: string; actorName: string | null; results: { sourceLabel?: string; targetLabel?: string; status: string; type?: WorkflowAction["type"]; previous?: WorkflowAnswer | null; value?: WorkflowAnswer | null; reason?: string; chainStatus?: string; causation?: { rootEventId: string; parentRunId: string; depth: number } }[] };
 const read = async (endpoint: string) => {
@@ -76,5 +77,6 @@ export function StatusListWorkflowDiagnostics({ campaignId, locale }: { campaign
         </div>)}
       </article>)}
     </section>
+    <StatusListTransitionDiagnostics campaignId={campaignId} locale={locale}/>
   </div>;
 }

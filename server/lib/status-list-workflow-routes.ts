@@ -9,6 +9,8 @@ import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
+import { readTransitionInventory } from "./status-list-transition-inventory";
+import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -64,6 +66,14 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/transition-inventory`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const client = await pool.connect();
+    try {
+      res.json({ current: await readTransitionInventory(client, req.params.campaignId),
+        audited: medicalPartnerAudit(req.params.campaignId) });
+    } finally { client.release(); }
+  }));
   app.get(root, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const { rows } = await pool.query("SELECT id,campaign_id,definition FROM mission_status_list_rules WHERE campaign_id=$1 ORDER BY created_at,id", [req.params.campaignId]);

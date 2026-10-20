@@ -1,6 +1,11 @@
 # Status List — návrh bezpečného prechodu existujúcej Mission
 
-**Stav: návrh na odsúhlasenie. Nejde o implementovaný migračný mechanizmus.**
+**Stav: postup inventúry a kontroly pripravenosti schválený. Aktivácia
+produkčného prechodu nie je schválená ani implementovaná.**
+
+Vývojová kontrola a hranice simulácie sú opísané v
+`status-list-transition-readiness.md`. Historická inventúra nie je živé
+overenie produkčnej konfigurácie.
 
 ## Cieľ a poradie
 
@@ -26,7 +31,8 @@ nasadením podpornej funkcionality alebo importom šablóny.
 - Existujúce Testovanie simuluje jedno interné pravidlo; nejde o simuláciu
   celej kampane, pôvodného mechanizmu ani celej nadväzujúcej reťaze.
 - Lokálny kód nie je dôkazom aktuálnej konfigurácie produkčnej Mission.
-  Konkrétne pravidlá CORPCRM01 neboli v tomto návrhu inventarizované.
+  Pre Medical Partner Cooperation sú k dispozícii operátorské výpisy iba na
+  čítanie z 20. októbra 2026; nejde o priebežné overenie CORPCRM01.
 
 Pred migráciou sa preto musí doplniť a overiť spoločná vykonávacia vrstva
 alebo výslovná kompatibilitná cesta pre každú podporovanú rodinu akcií.
