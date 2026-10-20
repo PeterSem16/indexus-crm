@@ -56,8 +56,9 @@ export function normalizeTransitionAction(campaignId: string, row: TransitionInv
 /** One consistent read-only configuration snapshot. No workflow/dispatch imports.
  * Contact tables, answers, messages and execution histories are deliberately not read.
  */
-export async function readTransitionInventory(client: Pick<PoolClient, "query">, campaignId: string): Promise<TransitionInventory> {
-  await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+export async function readTransitionInventory(client: Pick<PoolClient, "query">, campaignId: string,
+  options: { withinTransaction?: boolean } = {}): Promise<TransitionInventory> {
+  if (!options.withinTransaction) await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
   try {
     await client.query("SET LOCAL statement_timeout = '10s'");
     await client.query("SET LOCAL lock_timeout = '2s'");
@@ -101,6 +102,6 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
       activationAllowed: false,
     };
   } finally {
-    await client.query("ROLLBACK");
+    if (!options.withinTransaction) await client.query("ROLLBACK");
   }
 }

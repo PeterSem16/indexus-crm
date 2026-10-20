@@ -3061,7 +3061,7 @@ export function CommunicationCanvas({
         const res = await apiRequest(
           "POST",
           `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-          { callbackDate: null, callbackNote: null, contactCountry: contact?.country ?? null },
+          { callbackDate: null, callbackNote: null, contactCountry: contact?.country ?? null, requestId: crypto.randomUUID() },
         );
         const data = await res.json().catch(() => ({}));
         if (automation.actionType === "set_callback" || automation.actionType === "set_contact_status") {
@@ -3597,7 +3597,7 @@ export function CommunicationCanvas({
       const res = await apiRequest(
         "POST",
         `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-        { callbackDate: opts?.callbackDate ?? null, callbackNote: opts?.callbackNote ?? null, contactCountry: contactCountry ?? null },
+        { callbackDate: opts?.callbackDate ?? null, callbackNote: opts?.callbackNote ?? null, contactCountry: contactCountry ?? null, requestId: crypto.randomUUID() },
       );
       const data = await res.json().catch(() => ({}));
       const okFlag = data?.ok !== false;

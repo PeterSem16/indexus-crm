@@ -11,6 +11,7 @@ import { addWaitingOption, configureOptionSource } from "./status-list-option-so
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
 import { readTransitionInventory } from "./status-list-transition-inventory";
 import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
+import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner } from "./status-list-callback-transition";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -61,11 +62,25 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     try { await fn(req, res); } catch (error) {
       if (error instanceof z.ZodError) { res.status(400).json({ error: "invalid_rule" }); return; }
       if (error instanceof StatusListWorkflowError) { res.status(error.status).json({ error: error.code }); return; }
+      if (error instanceof CallbackTransitionError) { res.status(error.status).json({ error: error.code }); return; }
       console.error("[status-list-workflow] request failed", error instanceof Error ? error.name : "unknown");
       res.status(500).json({ error: "workflow_failed" });
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/transition-readiness`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    res.json(await readCallbackReadiness(req.params.campaignId));
+  }));
+  app.post(`${root}/transition-switch`, requireAuth, route(async (req, res) => {
+    const user = await authorize(req, true);
+    const body = z.object({
+      fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+      expectedOwner: z.enum(["legacy", "compatible"]), targetOwner: z.enum(["legacy", "compatible"]),
+      backupConfirmed: z.literal(true), missionNameConfirmation: z.string().min(1).max(500),
+    }).strict().parse(req.body);
+    res.json(await switchCallbackOwner(req.params.campaignId, user.id, body));
+  }));
   app.get(`${root}/transition-inventory`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const client = await pool.connect();

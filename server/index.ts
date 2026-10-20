@@ -200,6 +200,8 @@ app.use((req, res, next) => {
   await ensureProviderFinderSchema(pool);
   const { ensureStatusListWorkflowSchema } = await import("./lib/status-list-workflow-schema");
   await ensureStatusListWorkflowSchema(pool);
+  const { ensureCallbackTransitionSchema } = await import("./lib/status-list-callback-transition-schema");
+  await ensureCallbackTransitionSchema(pool);
 
   // Standalone Automation tables and recurring-schedule claim metadata are
   // runtime requirements for production deploys that skip drizzle db:push.

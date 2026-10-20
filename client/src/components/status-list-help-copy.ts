@@ -1,3 +1,5 @@
+import { getStatusListCallbackTransitionCopy } from "./status-list-callback-transition-copy";
+
 export const statusListHelpSectionIds = ["start", "glossary", "structure", "templates", "edit", "automation", "verify", "example"] as const;
 export type HelpSectionId = typeof statusListHelpSectionIds[number];
 type Section = { title: string; paragraphs: string[] };
@@ -187,5 +189,8 @@ const de: StatusListHelpCopy = {
 
 export const statusListHelpCopies: Record<string, StatusListHelpCopy> = { sk, en, cs, hu, ro, it, de };
 export function getStatusListHelpCopy(locale: string): StatusListHelpCopy {
-  return statusListHelpCopies[locale] ?? en;
+  const copy = statusListHelpCopies[locale] ?? en;
+  const transition = getStatusListCallbackTransitionCopy(locale);
+  return { ...copy, sections: { ...copy.sections, verify: { ...copy.sections.verify,
+    paragraphs: [...copy.sections.verify.paragraphs, transition.intro, transition.help] } } };
 }

@@ -154,6 +154,9 @@ import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
 import Handlebars from "handlebars";
 import { writeStatusListCallback } from "./lib/status-list-callback-write";
+import { MEDICAL_PARTNER_AUDIT_CAMPAIGN } from "../shared/status-list-transition-audit";
+import { CallbackTransitionError, drainCallbackEvents, persistCallbackConfirmation,
+  recordedCallbackActions, runDurableManualCallback, startCallbackRecovery } from "./lib/status-list-callback-transition";
 import { z } from "zod";
 import {
   inferOutboundCountryCode,
@@ -1137,10 +1140,14 @@ async function executeStatusListItemAutomations(
     callbackDate?: string | null;
     callbackNote?: string | null;
     boNotifContext: string;
+    confirmationId?: string;
   },
 ): Promise<void> {
   const automations = await db.select().from(campaignStatusListAutomations)
     .where(eq(campaignStatusListAutomations.statusListItemId, context.itemId));
+  const durableCallbacks = context.confirmationId && context.campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN
+    ? await recordedCallbackActions(context.confirmationId) : new Set<string>();
+  if (durableCallbacks.size) await drainCallbackEvents(context.campaignContactId);
 
   const trackedFieldChanges = new Set<string>();
   for (const automation of automations) {
@@ -1155,6 +1162,10 @@ async function executeStatusListItemAutomations(
 
   for (const automation of automations) {
     const actionType = automation.actionType;
+    // These callbacks were captured atomically with this confirmation. Never
+    // run them through the old fire-and-forget branch as well, even when the
+    // event has already been completed by another worker.
+    if (durableCallbacks.has(automation.id)) continue;
     const conditionMet = await evaluateAutomationCondition(automation, {
       contactId: context.contactId,
       campaignId: context.campaignId,
@@ -2651,6 +2662,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  startCallbackRecovery();
   const { registerUdidRoutes } = await import("./lib/udid-routes");
   registerUdidRoutes(app);
 
@@ -35013,9 +35025,15 @@ Respond ONLY with valid JSON in this exact format:
           .limit(1);
         if (existing.length === 0) {
           const retainedNote = (await readWorkflowNotes(pool, campaignContactId))[itemId] ?? null;
-          const [inserted] = await db.insert(campaignContactStatusListState)
-            .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? retainedNote })
-            .returning();
+          const inserted = campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN
+            ? await persistCallbackConfirmation({
+              campaignId, campaignContactId, itemId, actorId: userId, itemNote: itemNote ?? retainedNote,
+              manualDate: overrideCallbackDate ? (parseCallbackDateInput(overrideCallbackDate)?.toISOString() ?? null) : null,
+              note: overrideCallbackNote ?? null, skipAutomations: !!skipAutomations,
+            })
+            : (await db.insert(campaignContactStatusListState)
+              .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? retainedNote })
+              .returning())[0];
           stateRow = inserted;
           if (itemNote != null) await writeWorkflowNote(pool, campaignContactId, itemId, userId, itemNote);
 
@@ -35033,6 +35051,7 @@ Respond ONLY with valid JSON in this exact format:
               callbackDate: overrideCallbackDate ?? null,
               callbackNote: overrideCallbackNote ?? null,
               boNotifContext,
+              confirmationId: inserted.id,
             });
           }
 
@@ -35211,6 +35230,7 @@ Respond ONLY with valid JSON in this exact format:
         return res.json({ confirmed: false });
       }
     } catch (error) {
+      if (error instanceof CallbackTransitionError) return res.status(error.status).json({ error: error.code });
       console.error("Failed to update status list state:", error);
       res.status(500).json({ error: "Failed to update status list state" });
     }
@@ -35289,6 +35309,20 @@ Respond ONLY with valid JSON in this exact format:
       if (!isAdmin && country && !userCountries.includes(country)) {
         return res.status(403).json({ error: "Forbidden: contact is outside your assigned countries" });
       }
+      if (campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN &&
+        ["set_callback", "set_contact_status"].includes(automation.actionType)) {
+        const requestId = req.body.requestId ?? crypto.randomUUID();
+        if (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId)) {
+          return res.status(400).json({ error: "invalid_request_id" });
+        }
+        const durable = await runDurableManualCallback({
+          campaignId, campaignContactId, itemId: automation.statusListItemId, actorId: userId,
+          automationId, requestId,
+          manualDate: callbackDate ? (parseCallbackDateInput(callbackDate)?.toISOString() ?? null) : null,
+          note: callbackNote ?? null,
+        });
+        if (durable) return res.json({ ...durable, actionType: automation.actionType });
+      }
       if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
         const r = await runStatusListEmailGroup(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
@@ -35317,6 +35351,7 @@ Respond ONLY with valid JSON in this exact format:
       }
       return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });
     } catch (error) {
+      if (error instanceof CallbackTransitionError) return res.status(error.status).json({ error: error.code });
       console.error("Failed to run status-list action:", error);
       res.status(500).json({ error: "Failed to run status-list action" });
     }

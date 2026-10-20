@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { transformSync } from "esbuild";
+import { z } from "zod";
 
 // Exercise the real registration/authorization functions without starting the
 // monolithic app or contacting integrations. No alternate auth path is shipped.
@@ -13,6 +14,7 @@ class WorkflowError extends Error {
 const registered = new Map<string, Function[]>();
 const reads: string[] = [];
 let connections = 0, releases = 0, inventories = 0;
+let liveReads = 0, switches = 0;
 const pool = {
   async query(sql: string) {
     reads.push(sql);
@@ -30,27 +32,29 @@ const requireAuth = () => {};
 const construct = new Function(
   "module", "pool", "storage", "canAgentReadCampaignByWorkspaceCountry", "StatusListWorkflowError",
   "registerStatusListOrganizationRoutes", "readTransitionInventory", "medicalPartnerAudit", "z",
+  "CallbackTransitionError", "readCallbackReadiness", "switchCallbackOwner",
   `${compiled}; return module.exports.registerStatusListWorkflowRoutes;`,
 );
 const register = construct({ exports: {} }, pool, {}, () => false, WorkflowError, () => {},
   async () => { inventories++; return { activationAllowed: false }; },
-  () => null, { ZodError: class extends Error {} });
+  () => null, z, WorkflowError, async () => { liveReads++; return { owner: "legacy" }; },
+  async () => { switches++; return { ok: true, owner: "compatible" }; });
 register(app, requireAuth);
 const root = "/api/campaigns/:campaignId/status-list-workflows/transition-inventory";
 const handlers = registered.get(`get ${root}`)!;
 assert.equal(handlers[0], requireAuth);
 for (const method of ["post", "put", "patch", "delete"]) assert.ok(!registered.has(`${method} ${root}`));
 
-async function request(user?: Record<string, unknown>) {
+async function request(user?: Record<string, unknown>, endpoint = `get ${root}`, input?: unknown) {
   let status = 200, body: any;
   const headers = new Map();
-  const req = { params: { campaignId: "mission" }, session: user ? { user } : undefined };
+  const req = { params: { campaignId: "mission" }, session: user ? { user } : undefined, body: input };
   const res = {
     setHeader(key: string, value: string) { headers.set(key, value); },
     status(code: number) { status = code; return res; },
     json(value: unknown) { body = value; },
   };
-  await handlers[1](req, res);
+  await registered.get(endpoint)![1](req, res);
   assert.equal(headers.get("Cache-Control"), "no-store");
   return { status, body };
 }
@@ -68,4 +72,23 @@ assert.equal(inventories, 2);
 assert.equal(connections, 2);
 assert.equal(releases, 2);
 assert.ok(reads.every(sql => /^\s*SELECT\b/i.test(sql)));
-console.log("Transition route checks passed: real handler, auth/country boundaries, no-store, GET-only and release.");
+const live = `get ${root.replace("transition-inventory", "transition-readiness")}`;
+const change = `post ${root.replace("transition-inventory", "transition-switch")}`;
+const manager = { id: "manager", role: "manager", assignedCountries: ["SK", "CZ"] };
+const payload = { fingerprint: "a".repeat(64), expectedOwner: "legacy", targetOwner: "compatible",
+  backupConfirmed: true, missionNameConfirmation: "Mission" };
+assert.equal((await request(undefined, live)).status, 401);
+assert.equal((await request({ role: "user", assignedCountries: ["SK", "CZ"] }, live)).status, 403);
+assert.equal(liveReads, 0);
+assert.equal((await request(manager, live)).status, 200);
+assert.equal(liveReads, 1);
+assert.equal(switches, 0, "GET/readiness must never call a switch");
+assert.equal((await request(undefined, change, payload)).status, 401);
+assert.equal((await request({ ...manager, assignedCountries: ["SK"] }, change, payload)).status, 403);
+assert.equal((await request(manager, change, { ...payload, backupConfirmed: false })).status, 400);
+assert.equal((await request(manager, change, { ...payload, audited: {}, productionLiveVerified: true })).status, 400);
+assert.equal((await request(manager, change, { ...payload, fingerprint: "historical-sample" })).status, 400);
+assert.equal(switches, 0);
+assert.equal((await request(manager, change, payload)).status, 200);
+assert.equal(switches, 1);
+console.log("Transition route checks passed: actual inventory/readiness/switch handlers, auth/country boundaries, strict review-only payload, no-store, no GET activation and release.");

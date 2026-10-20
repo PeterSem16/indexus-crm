@@ -13,6 +13,7 @@ import {
   type TransitionScenario,
 } from "@shared/status-list-transition";
 import { getStatusListTransitionCopy } from "./status-list-transition-copy";
+import { StatusListCallbackTransitionControl } from "./status-list-callback-transition-control";
 import "./status-list-transition-diagnostics.css";
 
 type Preset = "weekday" | "friday" | "weekend" | "springDst" | "manual" | "existing";
@@ -158,6 +159,7 @@ export function StatusListTransitionDiagnostics({ campaignId, locale }: { campai
   return <section className="slt" data-testid="status-list-transition-diagnostics">
     <header className="slt-head"><div><span className="slt-kicker">{copy.eyebrow}</span><h3>{copy.title}</h3><p>{copy.intro}</p></div></header>
     <div className="slt-body">
+      <StatusListCallbackTransitionControl campaignId={campaignId} locale={locale}/>
       {query.isFetching && !query.isError && <div className="slt-skeleton" role="status" aria-label={copy.loading} data-testid="transition-inventory-loading"/>}
       {query.isError && <div className="slt-warning" role="alert"><AlertTriangle size={15}/><span>{copy.error}</span><Button variant="outline" size="sm" data-testid="transition-inventory-retry" onClick={() => void query.refetch()}><RefreshCw size={13} className="mr-1"/>{copy.retry}</Button></div>}
       {!query.isFetching && !query.isError && inventories && <><div className="slt-warning" data-testid="transition-not-live-warning"><AlertTriangle size={15}/><span>{source === "audited_production" ? interpolate(copy.auditedWarning, { date: snapshotDate }) : copy.currentWarning}</span></div>{selectedInventory && !selectedInventory.evidence.schemaAvailable && <div className="slt-warning"><AlertTriangle size={15}/><span>{copy.schemaWarning}</span></div>}</>}

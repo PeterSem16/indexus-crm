@@ -1,7 +1,9 @@
 # Status List — návrh bezpečného prechodu existujúcej Mission
 
-**Stav: postup inventúry a kontroly pripravenosti schválený. Aktivácia
-produkčného prechodu nie je schválená ani implementovaná.**
+**Stav: implementovaná diagnostika a riadený prechod ôsmich callbackov Medical
+Partner Cooperation cez kompatibilnú vrstvu. Produkčné prepnutie nebolo vykonané
+ani schválené samotným nasadením. Ostatné rodiny akcií a žlté poznámky nie sú
+súčasťou tohto prechodu.**
 
 Vývojová kontrola a hranice simulácie sú opísané v
 `status-list-transition-readiness.md`. Historická inventúra nie je živé
@@ -25,7 +27,9 @@ nasadením podpornej funkcionality alebo importom šablóny.
 
 - Nové interné workflow pravidlá podporujú odpovede, potvrdenia, výbery
   a poznámky vrátane riadeného reťazenia.
-- Pôvodné servisné akcie zostávajú v samostatnom vykonávacom mechanizme.
+- Pôvodné servisné akcie zostávajú zachované. Pre osem callbackov prvej Mission
+  je zavedená spoločná transakčná vrstva a výslovne schválené kandidátske definície.
+  Ostatné rodiny servisných akcií zostávajú v pôvodnom vykonávacom mechanizme.
   Nový interný formát nie je univerzálnou náhradou emailov, SMS, úloh,
   callbackov a ostatných servisných akcií.
 - Existujúce Testovanie simuluje jedno interné pravidlo; nejde o simuláciu
