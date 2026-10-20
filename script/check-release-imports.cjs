@@ -36,7 +36,7 @@ function unresolvedImports(files, sources) {
   return [...missing].sort();
 }
 
-function checkGitTree(ref, cwd = process.cwd()) {
+function loadGitTree(ref, cwd = process.cwd()) {
   const git = (args, options = {}) => execFileSync("git", args, {
     cwd, maxBuffer: 128 * 1024 * 1024, ...options,
   });
@@ -58,7 +58,12 @@ function checkGitTree(ref, cwd = process.cwd()) {
     offset = end + size + 2;
     return { file: entry.file, content };
   });
-  return { sourceCount: sources.length, missing: unresolvedImports(new Set(entries.map(entry => entry.file)), sources) };
+  return { files: new Set(entries.map(entry => entry.file)), sources };
+}
+
+function checkGitTree(ref, cwd = process.cwd()) {
+  const { files, sources } = loadGitTree(ref, cwd);
+  return { sourceCount: sources.length, missing: unresolvedImports(files, sources) };
 }
 
 if (require.main === module) {
@@ -75,4 +80,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { unresolvedImports, checkGitTree };
+module.exports = { unresolvedImports, checkGitTree, loadGitTree };
