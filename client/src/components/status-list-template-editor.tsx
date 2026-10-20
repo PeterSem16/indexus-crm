@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAutoLabel, getAutoTaskDescription, getStepDescription, getStepLabel, ROLE_BADGE_MAP, type TemplateStep } from "@/data/cla-template";
+import { StatusListHelp } from "./status-list-help";
 import "./status-list-template-editor.css";
 
 type TemplateId = "CLA" | "CLB" | "MPN";
@@ -50,6 +51,7 @@ const copy = {
   restrictions: ["Restrictions", "Obmedzenia", "Omezení", "Korlátozások", "Restricții", "Restrizioni", "Einschränkungen"],
   included: ["included with this step", "zahrnuté v tomto kroku", "zahrnuté v tomto kroku", "ebben a lépésben", "incluse în acest pas", "incluse in questo passaggio", "in diesem Schritt enthalten"],
   timingReference: ["Timing reference", "Informačný termín", "Informativní termín", "Tájékoztató időpont", "Termen informativ", "Termine indicativo", "Zeitangabe"],
+  descriptionLabel: ["Step description", "Popis kroku", "Popis kroku", "Lépés leírása", "Descrierea pasului", "Descrizione del passaggio", "Schrittbeschreibung"],
 } as const;
 
 export function StatusListTemplateEditor({ open, campaignId, locale, existingSteps, templates, onClose, onDirtyChange, onPendingChange }: Props) {
@@ -214,9 +216,9 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
   };
   const allSelected = active.length > 0 && active.every(step => selected.has(step.stepId));
   return <Dialog open={open} onOpenChange={next => { if (!next) requestClose(); }}>
-    <DialogContent data-testid="status-list-template-dialog" className="status-template-dialog flex max-h-[90dvh] w-[min(920px,calc(100vw-24px))] flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl" onEscapeKeyDown={event => { if (run.isPending) event.preventDefault(); else if (isDirty) { event.preventDefault(); requestClose(); } }}>
+    <DialogContent data-testid="status-list-template-dialog" className="status-template-dialog flex max-h-[90dvh] w-[min(1120px,calc(100vw-24px))] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-2xl" onEscapeKeyDown={event => { if (run.isPending) event.preventDefault(); else if (isDirty) { event.preventDefault(); requestClose(); } }}>
       <DialogHeader className="status-template-head shrink-0 px-5 pb-4 pt-5 sm:px-7 sm:pt-6">
-        <div className="flex items-start gap-3"><span className="status-template-mark"><ClipboardList className="h-5 w-5"/></span><div className="min-w-0"><p className="status-template-kicker">INDEXUS / STATUS LIST</p><DialogTitle>{t("title")}</DialogTitle><p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p></div></div>
+        <div className="status-template-head-main"><div className="flex min-w-0 items-start gap-3"><span className="status-template-mark"><ClipboardList className="h-5 w-5"/></span><div className="min-w-0"><p className="status-template-kicker">INDEXUS / STATUS LIST</p><DialogTitle>{t("title")}</DialogTitle><p className="mt-1 text-sm text-muted-foreground">{t("intro")}</p></div></div><StatusListHelp locale={locale}/></div>
       </DialogHeader>
       <div className="status-template-progress flex shrink-0 items-center px-5 sm:px-7" aria-label={t(stage)}>
         {(["selection", "review", "result"] as const).map((step, i) => <div key={step} className={`status-template-stage ${stage === step ? "is-current" : ""} ${(["selection", "review", "result"].indexOf(stage) > i ? "is-done" : "")}`}><span>{stage === "result" && i < 2 ? <Check className="h-3.5 w-3.5"/> : i + 1}</span>{t(step)}</div>)}
@@ -235,12 +237,15 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
               const autos = selectedAutos.get(step.stepId) ?? new Set<string>();
               const badge = ROLE_BADGE_MAP[step.role] ?? { label: step.role, color: "bg-muted text-muted-foreground" };
               const callbackTiming = (step as StepWithTiming).callbackTimingL10n?.[locale] ?? (step as StepWithTiming).callbackTimingL10n?.sk ?? step.callbackTiming;
+              const stepDescription = getStepDescription(step, locale);
               return <article key={step.stepId} className={`status-template-row ${isSelected ? "selected" : ""} ${child ? "child" : ""}`} style={{ "--depth": Math.min(6, (() => { let n = 0, p = step.parentStepId; while (p && n < 6) { n++; p = active.find(x => x.stepId === p)?.parentStepId; } return n; })()) } as CSSProperties}>
                 <div className="status-template-row-main">
                   <Checkbox id={`template-step-${step.stepId}`} data-testid={`template-step-${step.stepId}`} checked={isSelected} disabled={blocked || stage !== "selection"} onCheckedChange={() => toggleStep(step)} aria-label={getStepLabel(step, locale)}/>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2"><span className="status-template-code">{step.stepId}</span><span className={`status-template-role ${badge.color}`}>{badge.label}</span>{step.isHidden && <span className="status-template-tag">{t("hidden")}</span>}<strong>{getStepLabel(step, locale)}</strong></div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{getStepDescription(step, locale)}</p>
+                    {stepDescription && (stepDescription.length > 140
+                      ? <details className="status-template-description"><summary>{t("descriptionLabel")}</summary><p>{stepDescription}</p></details>
+                      : <p className="status-template-description-brief">{stepDescription}</p>)}
                     {existingCodes.has(step.stepId) && <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300"><AlertTriangle className="mr-1 inline h-3.5 w-3.5"/>{t("duplicate")}</p>}
                     {blocked && <p className="mt-1 text-xs text-muted-foreground">{t("descendant")}</p>}
                     {child && <p className="mt-1 text-[11px] text-primary">{t("parent")}: {step.parentStepId}</p>}
@@ -261,7 +266,10 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
           <div className="status-template-impact"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0"/><p>{t("impact")}</p></div>
           <div className="flex items-center justify-between gap-3"><div><p className="status-template-kicker">{tab} / {t("reviewTitle")}</p><h3 className="text-lg font-semibold">{planRef.current.length} {t("step")}</h3></div><span className="text-right text-xs text-muted-foreground">{planRef.current.reduce((n, row) => n + row.automations.length, 0)} {t("action")} · {planRef.current.reduce((n, row) => n + row.questions.length, 0)} {t("questions")}</span></div>
           <p className="text-xs text-muted-foreground">{t("duplicate")}</p>
-          <div className="space-y-2">{planRef.current.map((row, position) => <article key={row.step.stepId} className="status-template-review-row"><span className="status-template-order">{String(position + 1).padStart(2, "0")}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{getStepLabel(row.step, locale)}</strong><code>{row.step.stepId}</code>{existingCodes.has(row.step.stepId) && <span className="status-template-duplicate">{t("duplicate")}</span>}</div><p>{getStepDescription(row.step, locale)}</p>{row.parentStepId && <small>{t("parentLabel")}: {row.parentStepId}</small>}<div className="mt-2 flex flex-wrap gap-1.5">{row.automations.map(auto => <span className="status-template-summary-tag" key={auto.triggerId}><Zap className="h-3 w-3"/>{getAutoLabel(auto, locale)}</span>)}{row.questions.map(q => <span className="status-template-summary-tag question" key={q.id}><ClipboardList className="h-3 w-3"/>{q.questionTextL10n?.[locale] ?? q.questionTextL10n?.sk ?? q.questionText}</span>)}</div></div></article>)}</div>
+           <div className="space-y-2">{planRef.current.map((row, position) => {
+             const description = getStepDescription(row.step, locale);
+             return <article key={row.step.stepId} className="status-template-review-row"><span className="status-template-order">{String(position + 1).padStart(2, "0")}</span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong>{getStepLabel(row.step, locale)}</strong><code>{row.step.stepId}</code>{existingCodes.has(row.step.stepId) && <span className="status-template-duplicate">{t("duplicate")}</span>}</div>{description && (description.length > 140 ? <details className="status-template-description"><summary>{t("descriptionLabel")}</summary><p>{description}</p></details> : <p className="status-template-description-brief">{description}</p>)}{row.parentStepId && <small>{t("parentLabel")}: {row.parentStepId}</small>}<div className="mt-2 flex flex-wrap gap-1.5">{row.automations.map(auto => <span className="status-template-summary-tag" key={auto.triggerId}><Zap className="h-3 w-3"/>{getAutoLabel(auto, locale)}</span>)}{row.questions.map(q => <span className="status-template-summary-tag question" key={q.id}><ClipboardList className="h-3 w-3"/>{q.questionTextL10n?.[locale] ?? q.questionTextL10n?.sk ?? q.questionText}</span>)}</div></div></article>;
+           })}</div>
           <label className="status-template-ack"><Checkbox data-testid="template-acknowledge" checked={acknowledged} onCheckedChange={value => setAcknowledged(value === true)}/><span>{t("acknowledge")}</span></label>
         </section>}
         {stage === "result" && <section data-testid="template-result" role="status" className="space-y-4">

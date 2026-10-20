@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, Eye, EyeOff, Layers3, Maximize2, Minimize2, Search, Settings2, ShieldCheck, UserRound, Workflow, Wrench, Zap } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Eye, EyeOff, Layers3, ListChecks, Maximize2, Minimize2, Search, Settings2, ShieldCheck, UserRound, Workflow, Wrench, Zap } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { StatusListWorkflowDiagnostics } from "@/components/status-list-workflow
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { StatusListViewport } from "./status-list-viewport";
 import { StatusListPhaseOrganizer, getPhaseOrganizerCopy } from "./status-list-phase-organizer";
+import { StatusListHelp } from "./status-list-help";
 import { outlineHidden, statusListOutline } from "@/lib/status-list-outline";
 import { emptyStatusListOrganization } from "@shared/status-list-organization";
 import type { OptionSource } from "@shared/status-list-option-source";
@@ -155,7 +156,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   const renderQuestionRow = (item: WorkspaceItem, question: WorkspaceItem["questions"][number]) => {
     const hidden = outlineHidden(item, items);
     return <div key={question.id} data-testid={`status-list-question-row-${question.id}`} data-hidden={hidden || !!question.isHidden} className={`slw-tree-row slw-question-row ${hidden || question.isHidden ? "slw-hidden-row" : ""} ${selectedQuestionId === question.id ? "selected" : ""}`}>
-      <span className="slw-dot"/><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { if (!allowNavigation()) return; onSelect(item.id); setSelectedQuestionId(question.id); setSelectionRevision(value => value + 1); }}>{question.questionText}</button>
+      <CircleHelp className="slw-row-type-icon slw-question-icon" size={14} aria-hidden="true"/><span className="slw-type-badge is-question">{copy.questionType}</span><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { if (!allowNavigation()) return; onSelect(item.id); setSelectedQuestionId(question.id); setSelectionRevision(value => value + 1); }}>{question.questionText}</button>
       {visibilityBadge(hidden || !!question.isHidden, hidden)}{moveButtons(item, question)}
     </div>;
   };
@@ -174,8 +175,10 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     </div>;
     const contextOnly = !selectable;
     return <div key={item.id} className={depth ? "slw-tree-branch" : ""}>
-      <div className={`slw-tree-row ${selectedId === item.id && !selectedQuestion ? "selected" : ""} ${hidden ? "slw-hidden-row" : ""} ${contextOnly ? "slw-context-row" : ""}`} data-hidden={hidden} data-context-only={contextOnly}>
+      <div className={`slw-tree-row ${selectedId === item.id && !selectedQuestion ? "selected" : ""} ${hidden ? "slw-hidden-row" : ""} ${contextOnly ? "slw-context-row" : ""} ${item.itemType === "option" ? "slw-quick-row" : "slw-step-row"}`} data-hidden={hidden} data-context-only={contextOnly}>
         {children.length || questions.length ? <button type="button" data-testid={`status-list-expand-${item.id}`} aria-label={`${open ? copy.collapse : copy.expand}: ${item.label}`} aria-expanded={open} onClick={() => setExpandedItems(previous => { const result = new Set(previous); result.has(item.id) ? result.delete(item.id) : result.add(item.id); return result; })}>{open ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button> : <span className="slw-dot"/>}
+        {item.itemType === "option" ? <Zap className="slw-row-type-icon slw-quick-icon" size={14} aria-hidden="true"/> : <ListChecks className="slw-row-type-icon slw-step-icon" size={14} aria-hidden="true"/>}
+        <span className={`slw-type-badge ${item.itemType === "option" ? "is-quick" : "is-step"}`}>{item.itemType === "option" ? copy.quickType : copy.stepType}</span>
         {selectable ? <button type="button" data-testid={`status-list-select-${item.id}`} className="slw-tree-label" onClick={() => choose(item.id)}><span>{item.label}</span></button> : <span className="slw-tree-label slw-context-label"><span>{item.label}</span><small>{copy.contextOnly}</small></span>}
         {visibilityBadge(hidden, hidden && !item.isHidden)}
         {item.required && <span className="slw-required" title={copy.required}>*</span>}
@@ -191,7 +194,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     ...item.questions.flatMap(question => question.automations.map(action => ({ ...action, item, question }))),
   ]);
   return <StatusListViewport expanded={expanded}><section ref={workspaceRef} className={`slw${expanded ? " slw-fullscreen" : ""}`} data-testid="status-list-workspace" data-fullscreen={expanded} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? "Status List" : undefined}>
-    <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><div className="slw-heading-actions"><span className="slw-chain-notice"><ShieldCheck size={14}/>{copy.chaining}</span><Button ref={expandButtonRef} type="button" variant="outline" size="icon" data-testid="status-list-toggle-fullscreen" aria-label={expanded ? copy.restore : copy.maximize} title={expanded ? copy.restore : copy.maximize} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</Button></div></header>
+     <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><div className="slw-heading-actions"><span className="slw-chain-notice"><ShieldCheck size={14}/>{copy.chaining}</span><StatusListHelp locale={locale}/><Button ref={expandButtonRef} type="button" variant="outline" size="icon" data-testid="status-list-toggle-fullscreen" aria-label={expanded ? copy.restore : copy.maximize} title={expanded ? copy.restore : copy.maximize} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</Button></div></header>
     <nav className="slw-tabs" aria-label="Status List">
       {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests], ["tools", Wrench, copy.tools]] as const).map(([value, Icon, label]) =>
         <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => { if (tab === value || allowNavigation()) setTab(value); }}><Icon size={15}/>{label}</button>)}

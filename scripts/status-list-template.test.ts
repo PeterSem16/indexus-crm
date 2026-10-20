@@ -5,6 +5,7 @@ import bcrypt from "bcrypt";
 import { chromium, request } from "playwright";
 import { pool } from "../server/db";
 import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE } from "../client/src/data/cla-template";
+import { getStatusListHelpCopy, statusListHelpCopies, statusListHelpSectionIds } from "../client/src/components/status-list-help-copy";
 
 if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT) throw Error("Development fixtures only");
 const [user, mission, clinic, originalId] = Array.from({ length: 4 }, () => randomUUID());
@@ -16,6 +17,12 @@ let checks = 0;
 const check = (value: unknown, message: string) => { assert.ok(value, message); checks++; };
 const scalar = async (sql: string, params: unknown[] = []) => (await pool.query(sql, params)).rows[0]?.value;
 try {
+  check(Object.keys(statusListHelpCopies).length === 7, "Manual is available in all seven languages");
+  for (const [locale, copy] of Object.entries(statusListHelpCopies)) {
+    check(statusListHelpSectionIds.every(key => copy.sections[key].title.length > 0 && copy.sections[key].paragraphs.length >= 2 && copy.sections[key].paragraphs.every(text => !!text.trim())), `${locale} has all eight complete manual chapters`);
+    check(copy.sections.glossary.paragraphs.join(" ").includes("CLM") && copy.sections.glossary.paragraphs.join(" ").includes("Medical Partner Network"), `${locale} explains actual template names and CLM boundary`);
+  }
+  check(getStatusListHelpCopy("unknown") === statusListHelpCopies.en, "Unsupported help language uses explicit English copy");
   await pool.query(`INSERT INTO users(id,username,email,full_name,password_hash,role,assigned_countries,is_active)
     VALUES($1,$2,$3,'Synthetic template administrator',$4,'admin',ARRAY['SK'],true)`,
   [user, username, `${user}@example.invalid`, await bcrypt.hash(password, 10)]);
@@ -33,11 +40,40 @@ try {
   const browserErrors: string[] = [];
   page.on("pageerror", error => browserErrors.push(error.message));
   await page.goto(`${baseURL}/campaigns/${mission}?tab=settings&section=status_list`);
+  const help = page.getByTestId("status-list-help-dialog");
+  await page.getByTestId("status-list-help-open").click();
+  await page.getByTestId("status-list-help-chapter-glossary").click();
+  check((await page.getByTestId("status-list-help-article").innerText()).includes("Medical Partner Network"), "Workspace help explains the template banks");
+  await page.getByTestId("status-list-help-search").fill("MPN-03e");
+  check(await page.getByTestId("status-list-help-chapter-example").isVisible(), "Search finds a concrete example by code");
+  await page.getByTestId("status-list-help-search").fill("nonexistent-chapter-82739");
+  check(await help.getByRole("status").isVisible(), "Help search has an explicit empty state");
+  await page.getByTestId("status-list-help-search").fill("");
+  await page.getByTestId("status-list-help-chapter-glossary").click();
+  await mkdir("generated-artifacts/status-list-template", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/status-list-template/manual-desktop.jpg", animations: "disabled" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => {
+    const r = document.querySelector('[data-testid="status-list-help-dialog"]')?.getBoundingClientRect();
+    return !!r && r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight;
+  });
+  check(await help.evaluate(node => { const r = node.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight; }), "Help dialog fits mobile viewport");
+  await page.screenshot({ path: "generated-artifacts/status-list-template/manual-mobile.jpg", animations: "disabled" });
+  await page.getByTestId("status-list-help-close").click();
+  await help.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByTestId("status-list-tab-tools").click();
   await page.getByTestId("btn-open-cla-template").click();
   const dialog = page.getByTestId("status-list-template-dialog");
   await dialog.waitFor();
+  check(await dialog.evaluate(node => node.getBoundingClientRect().width > 1000), "Template dialog is truly wider than the old max-width clamp");
   await page.getByTestId("template-step-CLA-01").check();
+  await dialog.getByTestId("status-list-help-open").click();
+  await page.getByTestId("status-list-help-chapter-templates").click();
+  check(await help.isVisible(), "Manual opens above the template editor");
+  await page.keyboard.press("Escape");
+  await help.waitFor({ state: "hidden" });
+  check(await dialog.isVisible() && await page.getByTestId("template-step-CLA-01").isChecked(), "Closing help preserves the open template draft");
   await page.getByTestId("template-tab-CLB").click();
   await page.getByTestId("template-step-CLB-01").check();
   await page.getByTestId("template-tab-CLA").click();
@@ -129,6 +165,26 @@ try {
   const copiedActions = (await pool.query("SELECT * FROM campaign_status_list_automations WHERE status_list_item_id=$1", [copiedFirst[0].id])).rows;
   check(copiedActions.length === 1 && copiedActions[0].action_type === first.automations[0].actionType && copiedActions[0].target_role === first.automations[0].targetRole, "Only the selected action is copied through the original API");
   check(copiedActions[0].task_deadline_offset === first.automations[0].taskDeadlineOffset && copiedActions[0].task_priority === first.automations[0].taskPriority, "Action timing and priority are preserved");
+  await page.getByTestId("template-close").click();
+  await dialog.waitFor({ state: "hidden" });
+  const quickId = randomUUID();
+  await pool.query(`INSERT INTO campaign_status_list_items(id,campaign_id,step_id,label,confirmation_type,required,sort_order,item_type)
+    VALUES($1,$2,'TEST-QUICK','Synthetic quick button','radio',false,999,'option')`, [quickId, mission]);
+  await page.reload();
+  await page.getByTestId("status-list-phase-quick").click();
+  const quickRow = page.getByTestId(`status-list-select-${quickId}`).locator("..");
+  check(await quickRow.evaluate(node => node.classList.contains("slw-quick-row")), "Quick option row has distinct visual styling");
+  check(await quickRow.locator(".slw-type-badge").isVisible(), "Quick option has a readable type badge, not only color");
+  await page.screenshot({ path: "generated-artifacts/status-list-template/quick-outline.jpg", animations: "disabled" });
+  await page.getByTestId("status-list-phase-all").click();
+  await page.getByTestId("status-list-toggle-fullscreen").click();
+  await page.getByTestId("status-list-help-open").click();
+  await page.getByTestId("status-list-help-chapter-automation").click();
+  check(await help.isVisible(), "Help also opens inside the real fullscreen Status List");
+  await page.evaluate(() => { document.documentElement.classList.remove("light"); document.documentElement.classList.add("dark"); });
+  await page.screenshot({ path: "generated-artifacts/status-list-template/manual-dark-fullscreen.jpg", animations: "disabled" });
+  await page.getByTestId("status-list-help-close").click();
+  await help.waitFor({ state: "hidden" });
   check(browserErrors.length === 0, `Native UI has no uncaught errors: ${browserErrors.join("; ")}`);
   check(CLB_TEMPLATE.length > 0 && MPN_TEMPLATE.some(row => row.stepId === "MPN-03e"), "All three template families remain available");
   console.log(`Native Status List template editor: ${checks} assertions passed`);
