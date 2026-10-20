@@ -1,0 +1,150 @@
+import assert from "node:assert/strict";
+import { randomBytes, randomUUID } from "node:crypto";
+import { mkdir } from "node:fs/promises";
+import bcrypt from "bcrypt";
+import { chromium, request } from "playwright";
+import { pool } from "../server/db";
+import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE } from "../client/src/data/cla-template";
+
+if (process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT) throw Error("Development fixtures only");
+const [user, mission, clinic, originalId] = Array.from({ length: 4 }, () => randomUUID());
+const username = `template-${user}`, password = randomBytes(24).toString("hex");
+const baseURL = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+const api = await request.newContext({ baseURL });
+let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let checks = 0;
+const check = (value: unknown, message: string) => { assert.ok(value, message); checks++; };
+const scalar = async (sql: string, params: unknown[] = []) => (await pool.query(sql, params)).rows[0]?.value;
+try {
+  await pool.query(`INSERT INTO users(id,username,email,full_name,password_hash,role,assigned_countries,is_active)
+    VALUES($1,$2,$3,'Synthetic template administrator',$4,'admin',ARRAY['SK'],true)`,
+  [user, username, `${user}@example.invalid`, await bcrypt.hash(password, 10)]);
+  await pool.query("INSERT INTO campaigns(id,name,country_codes) VALUES($1,'Synthetic template verification',ARRAY['SK'])", [mission]);
+  await pool.query("INSERT INTO campaign_agents(campaign_id,user_id) VALUES($1,$2)", [mission, user]);
+  await pool.query("INSERT INTO clinics(id,name,country_code) VALUES($1,'Synthetic unchanged clinic','SK')", [clinic]);
+  await pool.query(`INSERT INTO campaign_status_list_items(id,campaign_id,step_id,label,description,confirmation_type,required,sort_order,tab,is_hidden)
+    VALUES($1,$2,'MPN-03','Protected existing question','Do not replace','checkbox',true,0,'retention',true)`, [originalId, mission]);
+  const original = (await pool.query("SELECT * FROM campaign_status_list_items WHERE id=$1", [originalId])).rows[0];
+  const originalClinic = (await pool.query("SELECT * FROM clinics WHERE id=$1", [clinic])).rows[0];
+  check((await api.post("/api/auth/login", { data: { username, password } })).ok(), "Fixture login succeeds");
+  browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
+  const context = await browser.newContext({ storageState: await api.storageState(), viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const browserErrors: string[] = [];
+  page.on("pageerror", error => browserErrors.push(error.message));
+  await page.goto(`${baseURL}/campaigns/${mission}?tab=settings&section=status_list`);
+  await page.getByTestId("status-list-tab-tools").click();
+  await page.getByTestId("btn-open-cla-template").click();
+  const dialog = page.getByTestId("status-list-template-dialog");
+  await dialog.waitFor();
+  await page.getByTestId("template-step-CLA-01").check();
+  await page.getByTestId("template-tab-CLB").click();
+  await page.getByTestId("template-step-CLB-01").check();
+  await page.getByTestId("template-tab-CLA").click();
+  check(await page.getByTestId("template-step-CLA-01").isChecked(), "Tab switching preserves independent draft selections");
+  await page.getByTestId("template-step-CLA-01").uncheck();
+  await page.getByTestId("template-tab-CLB").click();
+  await page.getByTestId("template-step-CLB-01").uncheck();
+  await page.getByTestId("template-tab-MPN").click();
+  for (const id of ["MPN-03d", "MPN-03e", "MPN-03f", "MPN-05b1", "MPN-05b2"]) await page.getByTestId(`template-step-${id}`).check();
+  for (const id of ["MPN-03", "MPN-05", "MPN-05b"]) check(await page.getByTestId(`template-step-${id}`).isChecked(), `${id} ancestor is included`);
+  check(await page.getByTestId("template-step-MPN-05b").isDisabled(), "A selected ancestor cannot detach selected descendants");
+  page.once("dialog", prompt => prompt.dismiss());
+  await page.keyboard.press("Escape");
+  check(await dialog.isVisible() && await page.getByTestId("template-step-MPN-03e").isChecked(), "Declining cancellation retains the chosen additions");
+  await page.getByTestId("template-review").click();
+  await page.getByTestId("template-review-plan").waitFor();
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_items WHERE campaign_id=$1", [mission]) === 1, "Review does not write configuration");
+  check((await page.getByTestId("template-review-plan").innerText()).includes("MPN-03") && await dialog.locator(".status-template-duplicate").count() === 1, "Review explicitly marks duplicate existing code");
+  check(await page.getByTestId("btn-apply-cla-template").isDisabled(), "Review requires explicit acknowledgement");
+  await page.getByTestId("template-acknowledge").check();
+  await mkdir("generated-artifacts/status-list-template", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/status-list-template/desktop.jpg", animations: "disabled" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => { const d = document.querySelector('[data-testid="status-list-template-dialog"]')?.getBoundingClientRect(); return !!d && d.left >= 0 && d.right <= innerWidth; });
+  check(await page.getByTestId("btn-apply-cla-template").evaluate(node => {
+    const r = node.getBoundingClientRect();
+    return r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight && node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+  }), "Confirmation remains reachable and unobstructed on mobile");
+  await page.screenshot({ path: "generated-artifacts/status-list-template/mobile.jpg", animations: "disabled" });
+  await page.evaluate(() => { document.documentElement.classList.remove("light"); document.documentElement.classList.add("dark"); });
+  await page.screenshot({ path: "generated-artifacts/status-list-template/dark.jpg", animations: "disabled" });
+  check(await dialog.evaluate(node => {
+    const c = getComputedStyle(node).backgroundColor.match(/\d+/g)?.slice(0, 3).map(Number);
+    return !!c && c.every(n => n < 80);
+  }), "Actual dark dialog surface is dark");
+  await page.evaluate(() => { document.documentElement.classList.remove("dark"); document.documentElement.classList.add("light"); });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  // Fail the nested question after its parent step is acknowledged.
+  const questionRoute = `**/api/campaigns/${mission}/status-list/*/questions`;
+  await page.route(questionRoute, route => route.request().method() === "POST"
+    ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic question failure" }) }) : route.continue());
+  await page.getByTestId("btn-apply-cla-template").click();
+  await page.getByTestId("template-result").waitFor();
+  check(await page.getByTestId("template-result-MPN-03e").getAttribute("data-complete") === "false", "A failed question is not shown as a fully imported step");
+  const partialCount = await scalar("SELECT count(*)::int AS value FROM campaign_status_list_items WHERE campaign_id=$1 AND step_id='MPN-03e'", [mission]);
+  check(partialCount === 1, "Failed child creation retains the acknowledged step exactly once");
+  page.once("dialog", prompt => prompt.dismiss());
+  await page.keyboard.press("Escape");
+  check(await dialog.isVisible(), "Partial failure still protects cancellation");
+  await page.unroute(questionRoute);
+  await page.getByTestId("template-retry").click();
+  await page.getByTestId("template-result-MPN-03e").waitFor({ state: "visible" });
+  await page.waitForFunction(() => document.querySelector('[data-testid="template-result-MPN-05b2"]')?.getAttribute("data-complete") === "true");
+  const created = (await pool.query("SELECT * FROM campaign_status_list_items WHERE campaign_id=$1 AND id<>$2 ORDER BY sort_order", [mission, originalId])).rows;
+  check(created.length === 8 && new Set(created.map(row => row.step_id)).size === 8, "Retry creates exactly eight planned steps including ancestors, without duplicates");
+  const byCode = new Map(created.map(row => [row.step_id, row]));
+  check(byCode.get("MPN-03e")!.parent_id === byCode.get("MPN-03")!.id, "Child links use the newly copied parent, not the old duplicate code");
+  check(byCode.get("MPN-05b1")!.parent_id === byCode.get("MPN-05b")!.id && byCode.get("MPN-05b")!.parent_id === byCode.get("MPN-05")!.id, "Three-level ancestry survives import");
+  for (const row of created) {
+    check(row.required === false && row.tab === null && row.item_type === "step", "Original optional/unassigned step payload semantics are preserved");
+    if (row.parent_id) check(created.findIndex(parent => parent.id === row.parent_id) < created.indexOf(row), "Parents are created before all descendants");
+  }
+  const questions = (await pool.query("SELECT * FROM campaign_status_list_questions WHERE item_id=$1", [byCode.get("MPN-03e")!.id])).rows;
+  check(questions.length === 1 && questions[0].field_type === "text" && !questions[0].required, "New contact is a real optional text question and copied exactly once");
+  check(await scalar("SELECT count(*)::int AS value FROM campaign_status_list_automations WHERE status_list_item_id=ANY($1::varchar[])", [created.map(row => row.id)]) === 0, "Unselected action templates are not silently included");
+  check(JSON.stringify((await pool.query("SELECT * FROM campaign_status_list_items WHERE id=$1", [originalId])).rows[0]) === JSON.stringify(original), "Existing duplicate and all its fields remain unchanged");
+  check(JSON.stringify((await pool.query("SELECT * FROM clinics WHERE id=$1", [clinic])).rows[0]) === JSON.stringify(originalClinic), "Import never edits the clinic card");
+  check(await scalar("SELECT count(*)::int AS value FROM communication_messages WHERE campaign_id=$1", [mission]) === 0, "Configuration import sends no communications");
+  await page.getByTestId("template-close").click();
+  await dialog.waitFor({ state: "hidden" });
+  await page.getByTestId("btn-open-cla-template").click();
+  await page.getByTestId("template-step-CLA-01").check();
+  const first = CLA_TEMPLATE.find(row => row.stepId === "CLA-01")!;
+  await dialog.locator("article").filter({ has: page.getByTestId("template-step-CLA-01") }).getByRole("button").click();
+  await page.getByTestId(`template-auto-CLA-01-${first.automations[0].triggerId}`).check();
+  await page.getByTestId("template-review").click();
+  await page.getByTestId("template-acknowledge").check();
+  const autoRoute = `**/api/campaigns/${mission}/status-list/*/automations`;
+  await page.route(autoRoute, route => route.request().method() === "POST"
+    ? route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic action failure" }) }) : route.continue());
+  await page.getByTestId("btn-apply-cla-template").click();
+  await page.getByTestId("template-retry").waitFor();
+  check(await page.getByTestId("template-result-CLA-01").getAttribute("data-complete") === "false", "A failed action is not reported as complete");
+  await page.unroute(autoRoute);
+  await page.getByTestId("template-retry").click();
+  await page.waitForFunction(() => document.querySelector('[data-testid="template-result-CLA-01"]')?.getAttribute("data-complete") === "true");
+  const copiedFirst = (await pool.query("SELECT * FROM campaign_status_list_items WHERE campaign_id=$1 AND step_id='CLA-01'", [mission])).rows;
+  check(copiedFirst.length === 1, "Retrying an action does not recreate its step");
+  const copiedActions = (await pool.query("SELECT * FROM campaign_status_list_automations WHERE status_list_item_id=$1", [copiedFirst[0].id])).rows;
+  check(copiedActions.length === 1 && copiedActions[0].action_type === first.automations[0].actionType && copiedActions[0].target_role === first.automations[0].targetRole, "Only the selected action is copied through the original API");
+  check(copiedActions[0].task_deadline_offset === first.automations[0].taskDeadlineOffset && copiedActions[0].task_priority === first.automations[0].taskPriority, "Action timing and priority are preserved");
+  check(browserErrors.length === 0, `Native UI has no uncaught errors: ${browserErrors.join("; ")}`);
+  check(CLB_TEMPLATE.length > 0 && MPN_TEMPLATE.some(row => row.stepId === "MPN-03e"), "All three template families remain available");
+  console.log(`Native Status List template editor: ${checks} assertions passed`);
+} catch (error) {
+  console.error("Native template verification failed:", error);
+  throw error;
+} finally {
+  await browser?.close();
+  await api.dispose();
+  await pool.query("DELETE FROM campaign_status_list_automations WHERE status_list_item_id IN (SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]);
+  await pool.query("DELETE FROM campaign_status_list_questions WHERE item_id IN (SELECT id FROM campaign_status_list_items WHERE campaign_id=$1)", [mission]);
+  await pool.query("DELETE FROM campaign_status_list_items WHERE campaign_id=$1", [mission]);
+  await pool.query("DELETE FROM campaign_agents WHERE campaign_id=$1", [mission]);
+  await pool.query("DELETE FROM campaigns WHERE id=$1", [mission]);
+  await pool.query("DELETE FROM clinics WHERE id=$1", [clinic]);
+  await pool.query("DELETE FROM user_sessions WHERE user_id=$1", [user]);
+  await pool.query("DELETE FROM users WHERE id=$1", [user]);
+  await pool.end();
+}

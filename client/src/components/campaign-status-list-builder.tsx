@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE, ROLE_BADGE_MAP, getStepLabel, getAutoLabel, getStepDescription, getAutoTaskDescription } from "@/data/cla-template";
+import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
 import { StatusListWorkspace } from "@/components/status-list-workspace";
 import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-copy";
@@ -22,6 +22,7 @@ import { getStatusListQuestionStudioCopy } from "@/components/status-list-questi
 import { StatusListQuickOptionEditor, getQuickOptionCopy } from "@/components/status-list-quick-option-editor";
 import { StatusListQuickOptionIcon, StatusListQuickOptionIconPicker } from "@/components/status-list-quick-option-icons";
 import { StatusListDispositionImportEditor } from "@/components/status-list-disposition-import-editor";
+import { StatusListTemplateEditor } from "@/components/status-list-template-editor";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
@@ -3844,12 +3845,14 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const { toast } = useToast();
   const { locale } = useI18n();
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateTab, setTemplateTab] = useState<"CLA" | "CLB" | "MPN">("CLA");
+  const templateDirtyRef = useRef(false);
+  const templatePendingRef = useRef(false);
+  const closeTemplate = () => {
+    if (templatePendingRef.current) return;
+    if (templateDirtyRef.current && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
+    setTemplateOpen(false);
+  };
   const [importOpen, setImportOpen] = useState(false);
-  const [selectedSteps, setSelectedSteps] = useState<Set<string>>(new Set());
-  const [selectedAutos, setSelectedAutos] = useState<Map<string, Set<string>>>(new Map());
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
-  const [templateProgress, setTemplateProgress] = useState<string | null>(null);
   const [importDirty, setImportDirty] = useState(false);
   const [importPending, setImportPending] = useState(false);
   const closeImport = () => {
@@ -3966,101 +3969,6 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
     enabled: importOpen,
   });
 
-
-  function toggleStep(stepId: string) {
-    setSelectedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(stepId)) { next.delete(stepId); }
-      else { next.add(stepId); }
-      return next;
-    });
-  }
-
-  function toggleAuto(stepId: string, autoId: string) {
-    setSelectedAutos(prev => {
-      const next = new Map(prev);
-      const set = new Set(next.get(stepId) ?? []);
-      if (set.has(autoId)) { set.delete(autoId); } else { set.add(autoId); }
-      next.set(stepId, set);
-      return next;
-    });
-  }
-
-  function toggleExpand(stepId: string) {
-    setExpandedSteps(prev => {
-      const next = new Set(prev);
-      if (next.has(stepId)) { next.delete(stepId); } else { next.add(stepId); }
-      return next;
-    });
-  }
-
-
-  const activeTemplate = templateTab === "CLA" ? CLA_TEMPLATE : templateTab === "CLB" ? CLB_TEMPLATE : MPN_TEMPLATE;
-
-  const selectedStepCount = selectedSteps.size;
-  const selectedAutoCount = Array.from(selectedAutos.entries())
-    .filter(([sid]) => selectedSteps.has(sid))
-    .reduce((sum, [, aset]) => sum + aset.size, 0);
-
-  const templateMutation = useMutation({
-    mutationFn: async () => {
-      const stepsToCreate = activeTemplate.filter(s => selectedSteps.has(s.stepId));
-      // Sort: parents before children so parentId lookup works
-      const sorted = [...stepsToCreate].sort((a, b) => {
-        if (!a.parentStepId && b.parentStepId) return -1;
-        if (a.parentStepId && !b.parentStepId) return 1;
-        return 0;
-      });
-      const base = items.length;
-      const createdIdMap = new Map<string, string>(); // stepId → DB id
-      setTemplateProgress(null);
-      for (let i = 0; i < sorted.length; i++) {
-        const step = sorted[i];
-        setTemplateProgress(`${sl("applyTplBtn", locale)} ${i + 1}/${sorted.length}: ${step.stepId}…`);
-        const stepDesc = getStepDescription(step, locale);
-        const condPart = step.conditionIf && step.conditionIf !== "—" ? `IF: ${step.conditionIf}` : "";
-        const thenPart = step.actionThen && step.actionThen !== "—" ? `THEN: ${step.actionThen}` : "";
-        const timePart = step.callbackTiming && step.callbackTiming !== "—" ? `⏱ ${step.callbackTiming}` : "";
-        const parentId = step.parentStepId ? (createdIdMap.get(step.parentStepId) ?? null) : null;
-        const res = await apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
-          stepId: step.stepId,
-          label: getStepLabel(step, locale),
-          description: [stepDesc, condPart, thenPart, timePart].filter(Boolean).join("\n"),
-          confirmationType: step.confirmationType,
-          required: false,
-          sortOrder: base + i,
-          nextStepId: step.nextStepId && step.nextStepId !== "—" ? step.nextStepId : null,
-          restrictions: step.restrictions || null,
-          isHidden: step.isHidden ?? false,
-          parentId: parentId || null,
-        });
-        const created = await res.json();
-        const itemId = created.id;
-        if (!itemId) continue;
-        createdIdMap.set(step.stepId, String(itemId));
-
-        const autoSet = selectedAutos.get(step.stepId) ?? new Set();
-        const autosToCreate = step.automations.filter(a => autoSet.has(a.triggerId));
-        for (const auto of autosToCreate) {
-          await apiRequest("POST", `/api/campaigns/${campaignId}/status-list/${itemId}/automations`, {
-            actionType: auto.actionType,
-            targetRole: auto.targetRole,
-            taskDescription: getAutoTaskDescription(auto, locale),
-            taskDeadlineOffset: auto.taskDeadlineOffset,
-            taskPriority: auto.taskPriority,
-            sortOrder: 0,
-          });
-        }
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] });
-      setTemplateProgress(null);
-      setTemplateOpen(false);
-      toast({ title: `✅ ${sl("applyTplBtn", locale)}: ${selectedStepCount} ${sl("tplSteps", locale)}, ${selectedAutoCount} ${sl("tplAutomations", locale)}` });
-    },
-    onError: () => { setTemplateProgress(null); toast({ title: sl("saveErr", locale), variant: "destructive" }); },
-  });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async () => {
@@ -4198,205 +4106,11 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           />}
         </DialogContent>
       </Dialog>
-      {/* ── Template Dialog ─────────────────────────────────── */}
-      <Dialog open={templateOpen} onOpenChange={setTemplateOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-2">
-              <LayoutTemplate className="h-4 w-4 text-primary" />
-              Medical Partner Network — Template
-            </DialogTitle>
-            <p className="text-xs text-muted-foreground">{sl("tplSubtitle", locale)}</p>
-          </DialogHeader>
-
-          {/* Tab switcher */}
-          <div className="flex gap-1 shrink-0 border-b pb-2">
-            <button
-              type="button"
-              onClick={() => { setTemplateTab("CLA"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
-              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "CLA" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {sl("tplTabCLA", locale)}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setTemplateTab("CLB"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
-              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "CLB" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {sl("tplTabCLB", locale)}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setTemplateTab("MPN"); setSelectedSteps(new Set()); setSelectedAutos(new Map()); }}
-              className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${templateTab === "MPN" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              {sl("tplTabMPN", locale)}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const allIds = activeTemplate.map(s => s.stepId);
-                const allSelected = allIds.every(id => selectedSteps.has(id));
-                if (allSelected) {
-                  setSelectedSteps(new Set());
-                  setSelectedAutos(new Map());
-                } else {
-                  setSelectedSteps(new Set(allIds));
-                }
-              }}
-              className="ml-auto text-xs px-2.5 py-1.5 rounded-md font-medium text-primary hover:bg-primary/10 transition-colors"
-              data-testid="btn-tpl-select-all"
-            >
-              {activeTemplate.every(s => selectedSteps.has(s.stepId)) ? sl("tplDeselectAll", locale) : sl("tplSelectAll", locale)}
-            </button>
-          </div>
-
-          {/* Step list */}
-          <div className="flex-1 overflow-y-auto space-y-1 py-1 min-h-0">
-            {activeTemplate.map((step) => {
-              const isSelected = selectedSteps.has(step.stepId);
-              const isExpanded = expandedSteps.has(step.stepId);
-              const autoSet = selectedAutos.get(step.stepId) ?? new Set();
-              const roleBadge = ROLE_BADGE_MAP[step.role] ?? { label: step.role, color: "bg-muted text-muted-foreground" };
-              const isSys = step.confirmationType === "info";
-              const isChild = !!step.parentStepId;
-              const isRadio = step.confirmationType === "radio";
-
-              return (
-                <div key={step.stepId} className={`rounded-lg border transition-colors ${isChild ? "ml-6 border-dashed" : ""} ${isSelected ? "border-primary/30 bg-primary/5" : "border-border bg-background"}`}>
-                  <div className="flex items-start gap-2 px-3 py-2.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleStep(step.stepId)}
-                      className={`mt-0.5 w-4 h-4 rounded${isRadio ? "-full" : ""} border flex items-center justify-center shrink-0 transition-colors ${isSelected ? "bg-primary border-primary" : "border-border"}`}
-                      data-testid={`tpl-step-${step.stepId}`}
-                    >
-                      {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono font-bold text-muted-foreground">{step.stepId}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${roleBadge.color}`}>{roleBadge.label}</span>
-                        {isSys && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-medium">AUTO</span>}
-                        {step.isHidden && <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 font-medium flex items-center gap-0.5"><EyeOff className="h-2.5 w-2.5" />HIDDEN</span>}
-                        {isRadio && <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 font-medium">option</span>}
-                        <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-muted-foreground"}`}>{getStepLabel(step, locale)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">{localizeText(getStepDescription(step, locale), locale)}</p>
-                      {step.conditionIf && step.conditionIf !== "—" && (
-                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">
-                          <span className="font-semibold">IF:</span> {localizeText(step.conditionIf, locale)}
-                        </p>
-                      )}
-                      {step.nextStepId && (
-                        <p className="text-[10px] text-muted-foreground/70">
-                          <span className="font-semibold">→</span> {step.nextStepId}
-                          {step.callbackTiming && step.callbackTiming !== "—" && ` · ${step.callbackTiming}`}
-                        </p>
-                      )}
-                      {step.restrictions && (
-                        <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 flex items-start gap-1">
-                          <span className="font-semibold shrink-0">FC:</span>
-                          <span className="line-clamp-2">{localizeText(step.restrictions, locale)}</span>
-                        </p>
-                      )}
-                    </div>
-                    {step.automations.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(step.stepId)}
-                        className="shrink-0 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1.5 py-1 rounded hover:bg-muted"
-                        data-testid={`tpl-expand-${step.stepId}`}
-                      >
-                        <Zap className="h-3 w-3 text-amber-500" />
-                        <span>{autoSet.size}/{step.automations.length} {sl("tplActionsCount", locale)}</span>
-                        {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                      </button>
-                    )}
-                  </div>
-
-                  {isExpanded && step.automations.length > 0 && (
-                    <div className="border-t border-border/50 px-3 py-2 space-y-1.5 bg-muted/30">
-                      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1 mb-1">
-                        <Zap className="h-3 w-3 text-amber-500" />
-                        {sl("autoSectionTpl", locale)}
-                      </div>
-                      {step.automations.map((auto) => {
-                        const autoSelected = autoSet.has(auto.triggerId);
-                        return (
-                          <div
-                            key={auto.triggerId}
-                            className={`flex items-start gap-2 p-2 rounded-md border transition-colors ${autoSelected ? "border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20" : "border-border/50 bg-background"}`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => { if (isSelected) toggleAuto(step.stepId, auto.triggerId); }}
-                              disabled={!isSelected}
-                              className={`mt-0.5 w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${autoSelected && isSelected ? "bg-amber-500 border-amber-500" : "border-border"} ${!isSelected ? "opacity-30 cursor-not-allowed" : ""}`}
-                              data-testid={`tpl-auto-${step.stepId}-${auto.triggerId}`}
-                            >
-                              {autoSelected && isSelected && <Check className="h-2 w-2 text-white" />}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-mono text-muted-foreground">{auto.triggerId}</span>
-                                <span className="text-xs font-medium">{getAutoLabel(auto, locale)}</span>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{localizeText(getAutoTaskDescription(auto, locale) || auto.description, locale)}</p>
-                              {(auto.taskDescription || auto.taskDescriptionL10n) && (
-                                <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">
-                                  📋 {localizeText(getAutoTaskDescription(auto, locale), locale)}
-                                </p>
-                              )}
-                              {auto.taskDeadlineOffset && (
-                                <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground mt-0.5">
-                                  ⏱ {auto.taskDeadlineOffset}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {templateProgress && (
-            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2 border-t shrink-0">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-              {templateProgress}
-            </div>
-          )}
-
-          <DialogFooter className="flex items-center justify-between gap-2 border-t pt-3 shrink-0">
-            <span className="text-xs text-muted-foreground">
-              {selectedStepCount} {sl("tplSteps", locale)} · {selectedAutoCount} {sl("tplAutomations", locale)}
-            </span>
-            <div className="flex gap-2">
-              <Button type="button" variant="ghost" size="sm" onClick={() => setTemplateOpen(false)} disabled={templateMutation.isPending}>
-                {sl("cancelBtn", locale)}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="gap-1.5"
-                disabled={selectedStepCount === 0 || templateMutation.isPending}
-                onClick={() => templateMutation.mutate()}
-                data-testid="btn-apply-cla-template"
-              >
-                {templateMutation.isPending
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <LayoutTemplate className="h-3.5 w-3.5" />
-                }
-                {sl("applyTplBtn", locale)} ({selectedStepCount} {sl("tplSteps", locale)})
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StatusListTemplateEditor open={templateOpen} campaignId={campaignId} locale={locale} existingSteps={items}
+        templates={{ CLA: CLA_TEMPLATE, CLB: CLB_TEMPLATE, MPN: MPN_TEMPLATE }}
+        onClose={closeTemplate}
+        onDirtyChange={dirty => { templateDirtyRef.current = dirty; }}
+        onPendingChange={pending => { templatePendingRef.current = pending; }}/>
 
       {/* ── Import z Disposition Dialog ─────────────────────────────────── */}
       <Dialog open={importOpen} onOpenChange={open => { if (!open) closeImport(); }}>

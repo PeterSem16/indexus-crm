@@ -1,3 +1,5 @@
+import { applyOutpatientV04 } from "./mpn-outpatient-v04";
+
 export type TemplateAutomation = {
   triggerId: string;
   label: string;
@@ -24,8 +26,18 @@ export type TemplateStep = {
   actionThen: string;
   nextStepId: string;
   callbackTiming: string;
+  callbackTimingL10n?: Record<string, string>;
   restrictions?: string;
   isHidden?: boolean;
+  questions?: {
+    id: string;
+    questionText: string;
+    questionTextL10n?: Record<string, string>;
+    description?: string;
+    descriptionL10n?: Record<string, string>;
+    fieldType: "text";
+    required?: boolean;
+  }[];
   automations: TemplateAutomation[];
 };
 
@@ -1682,7 +1694,7 @@ export const CLB_TEMPLATE: TemplateStep[] = [
   },
 ];
 
-export const MPN_TEMPLATE: TemplateStep[] = [
+export const MPN_TEMPLATE: TemplateStep[] = applyOutpatientV04([
 
   // ── SECTION 1: Assigned Healthcare Provider (HIDDEN — DB Admin only) ──
   {
@@ -1774,11 +1786,11 @@ export const MPN_TEMPLATE: TemplateStep[] = [
   {
     stepId: "MPN-03",
     label: "Healthcare Provider Reachability Status",
-    description: "Database management only — tracks whether the HP is reachable. After 10 consecutive unsuccessful contact attempts within 1 year, a task is created for the HP Database Administrator to verify, cancel, or find an alternative contact.",
+    description: "Track contact reachability. The documented policy is five consecutive unsuccessful attempts separated by six working days; escalate to the HP Database Administrator if unreachable or if a number does not work and no alternative is available.",
     confirmationType: "checkbox",
     role: "DB Admin",
     conditionIf: "HP contact attempted",
-    actionThen: "Update reachability status; escalate after 10 failed attempts",
+    actionThen: "Update reachability status; escalate after 5 failed attempts",
     nextStepId: "—",
     callbackTiming: "—",
     isHidden: true,
@@ -1786,10 +1798,10 @@ export const MPN_TEMPLATE: TemplateStep[] = [
       {
         triggerId: "MPN-03-AT1",
         label: "Escalation task for HP DB Administrator",
-        description: "Creates a task for the HP Database Administrator after 10 consecutive unreachable contact attempts within 1 year — verify HP, find alternative contact, or mark as inactive.",
+        description: "HP Database Administrator escalation: after 5 consecutive unsuccessful attempts separated by 6 working days, verify HP, find an alternative contact, or consider deactivation. Configure the execution condition separately.",
         actionType: "create_bo_task",
         targetRole: "role:db_admin",
-        taskDescription: "HP unreachable — 10+ consecutive failed contact attempts. Please verify HP contact details, find alternative contact, or mark HP as inactive.",
+        taskDescription: "HP unreachable — 5 consecutive failed contact attempts. Please verify HP contact details, find an alternative contact, or review deactivation.",
         taskDeadlineOffset: "+72h",
         taskPriority: "high",
       },
@@ -2631,4 +2643,4 @@ export const MPN_TEMPLATE: TemplateStep[] = [
     callbackTiming: "—",
     automations: [],
   },
-];
+]);
