@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db";
 import { ensureCallbackTransitionSchema } from "./status-list-callback-transition-schema";
-import { callbackReadiness, persistCallbackConfirmation, drainCallbackEvents, switchCallbackOwner, runDurableManualCallback } from "./status-list-callback-transition";
+import { callbackReadiness, persistCallbackConfirmation, drainCallbackEvents, switchCallbackOwner, runDurableManualCallback, withCallbackRuleChange } from "./status-list-callback-transition";
 import { medicalPartnerAudit, MEDICAL_PARTNER_AUDIT_CAMPAIGN as mission } from "../../shared/status-list-transition-audit";
 
 // All writes live in an isolated temporary schema. No production connection,
@@ -22,7 +22,7 @@ try {
   await root.query(`
     CREATE TABLE campaigns(id varchar PRIMARY KEY,name text,country_codes text[] DEFAULT ARRAY['SK']);
     CREATE TABLE users(id varchar PRIMARY KEY,full_name text);
-    CREATE TABLE campaign_status_list_items(id varchar PRIMARY KEY,campaign_id varchar,sort_order int,step_id text);
+    CREATE TABLE campaign_status_list_items(id varchar PRIMARY KEY,campaign_id varchar,sort_order int,step_id text,parent_id varchar);
     CREATE TABLE campaign_status_list_questions(id varchar PRIMARY KEY,item_id varchar);
     CREATE TABLE campaign_dispositions(id varchar PRIMARY KEY,campaign_id varchar,code text,action_type text);
     CREATE TABLE campaign_status_list_automations(id varchar PRIMARY KEY,status_list_item_id varchar,sort_order int DEFAULT 0,
@@ -47,7 +47,7 @@ try {
   await root.query("INSERT INTO users VALUES('agent','Agent')");
   const audit = medicalPartnerAudit(mission)!;
   for (const [index, a] of audit.actions.entries()) {
-    await root.query(`INSERT INTO campaign_status_list_items VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+    await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
       [a.itemId, mission, index, a.stepCode]);
     if (a.dispositionId) await root.query("INSERT INTO campaign_dispositions VALUES($1,$2,$3,'callback') ON CONFLICT DO NOTHING",
       [a.dispositionId, mission, `CB${index}`]);
@@ -106,6 +106,57 @@ try {
   assert.equal(readiness.owner, "compatible");
   assert.equal(readiness.audit.length, 1);
   assert.equal(Number((await root.query("SELECT count(*) FROM campaign_contact_history")).rows[0].count), 1, "switch must not replay");
+  const pinnedOwnership = (await root.query("SELECT * FROM mission_callback_ownership")).rows;
+  const pinnedCandidates = (await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows;
+  // Creating a new item, question and disabled draft no longer changes approval.
+  await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id)
+    VALUES('independent',$1,90,'NEW'),('other',$1,91,'OTHER')`, [mission]);
+  await root.query("INSERT INTO campaign_status_list_questions VALUES('independent-question','independent')");
+  const independentRule = { name: "Independent note", enabled: false, source: { kind: "item", id: action.itemId },
+    trigger: "agent_confirmation", logic: "and", conditions: [],
+    thenActions: [{ type: "append_note", target: { kind: "item", id: action.itemId }, text: "Independent note" }],
+    elseActions: [] };
+  await withCallbackRuleChange(mission, client => client.query(
+    "INSERT INTO mission_status_list_rules VALUES('new-rule',$1,$2::jsonb)", [mission, JSON.stringify(independentRule)]), connections);
+  assert.equal((await callbackReadiness(root, mission)).ready, true, "disabled draft must not invalidate reviewed callbacks");
+  independentRule.enabled = true;
+  await withCallbackRuleChange(mission, client => client.query(
+    "UPDATE mission_status_list_rules SET definition=$1::jsonb WHERE id='new-rule'", [JSON.stringify(independentRule)]), connections);
+  assert.equal((await callbackReadiness(root, mission)).ready, true, "independent active note action is allowed, including on a reviewed item");
+  const unsafeRule = { ...independentRule, elseActions: [{ type: "unconfirm_step", target: { kind: "item", id: audit.actions[3].itemId } }] };
+  await assert.rejects(withCallbackRuleChange(mission, client => client.query(
+    "INSERT INTO mission_status_list_rules VALUES('unsafe',$1,$2::jsonb)", [mission, JSON.stringify(unsafeRule)]), connections), /legacy_config_changed/);
+  assert.equal((await root.query("SELECT * FROM mission_status_list_rules WHERE id='unsafe'")).rowCount, 0, "unsafe create rolls back");
+  await assert.rejects(withCallbackRuleChange(mission, client => client.query(
+    "UPDATE mission_status_list_rules SET definition=$1::jsonb WHERE id='new-rule'", [JSON.stringify(unsafeRule)]), connections), /legacy_config_changed/);
+  assert.deepEqual((await root.query("SELECT definition FROM mission_status_list_rules WHERE id='new-rule'")).rows[0].definition, independentRule,
+    "unsafe update retains last valid definition");
+  await root.query("INSERT INTO mission_status_list_sources VALUES('independent-question',$1)", [mission]);
+  assert.equal((await callbackReadiness(root, mission)).ready, true, "unrelated background sources do not invalidate approval");
+  // Full callback-row mutations, not just term changes, must still fail closed.
+  await root.query("UPDATE campaign_status_list_automations SET sort_order=sort_order+100 WHERE id=$1", [action.id]);
+  await assert.rejects(runDurableManualCallback({ campaignId: mission, campaignContactId: "contact", itemId: action.itemId,
+    actorId: "agent", automationId: action.id, requestId: randomUUID(), manualDate: null, note: null }, connections), /legacy_config_changed/);
+  await root.query("UPDATE campaign_status_list_automations SET sort_order=sort_order-100 WHERE id=$1", [action.id]);
+  for (const [column, replacement] of [
+    ["callback_offset_days", 100], ["callback_time", "12:45"], ["callback_business_days_only", false],
+    ["callback_existing_policy", "keep_existing"], ["condition_json", '{"logic":"AND","rules":[]}'],
+    ["disposition_id", "missing-disposition"],
+  ] as const) {
+    const original = (await root.query(`SELECT ${column} AS value FROM campaign_status_list_automations WHERE id=$1`, [action.id])).rows[0].value;
+    await root.query(`UPDATE campaign_status_list_automations SET ${column}=$2 WHERE id=$1`, [action.id, replacement]);
+    await assert.rejects(runDurableManualCallback({ campaignId: mission, campaignContactId: "contact", itemId: action.itemId,
+      actorId: "agent", automationId: action.id, requestId: randomUUID(), manualDate: null, note: null }, connections), /legacy_config_changed/,
+    `changing reviewed ${column} must remain blocked`);
+    await root.query(`UPDATE campaign_status_list_automations SET ${column}=$2 WHERE id=$1`, [action.id, original]);
+  }
+  await root.query(`INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type)
+    VALUES('new-email','other','send_email_group')`);
+  assert.equal((await callbackReadiness(root, mission)).ready, true, "independent non-callback service actions are allowed");
+  await root.query("DELETE FROM campaign_status_list_automations WHERE id='new-email'");
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates,
+    "new configuration never reapproves or rewrites the eight snapshots");
   // A live dependency edit invalidates approval even if legacy action IDs match.
   await root.query("INSERT INTO mission_status_list_sources VALUES('question',$1)", [mission]);
   assert.ok((await callbackReadiness(root, mission)).blockers.includes("background_dependency"));
@@ -133,6 +184,12 @@ try {
   assert.equal(Number((await root.query("SELECT count(*) FROM campaign_contact_history")).rows[0].count), 4,
     "automatic gt1 with zero calls is false although explicit run-now bypasses it");
   assert.equal(Number((await root.query("SELECT count(*) FROM mission_callback_candidates")).rows[0].count), 8);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
+  // Return the fixture to its strict initial-activation configuration.
+  await root.query("DELETE FROM mission_status_list_rules");
+  await root.query("DELETE FROM mission_status_list_sources");
+  readiness = await callbackReadiness(root, mission);
   await switchCallbackOwner(mission, "agent", { ...input, fingerprint: readiness.fingerprint,
     expectedOwner: "compatible", targetOwner: "legacy" }, connections);
   assert.equal((await callbackReadiness(root, mission)).owner, "legacy");

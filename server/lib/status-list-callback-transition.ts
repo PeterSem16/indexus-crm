@@ -5,6 +5,7 @@ import { medicalPartnerAudit, MEDICAL_PARTNER_AUDIT_CAMPAIGN, EXCLUDED_MEDICAL_P
 import type { CallbackOwner, CallbackTransitionReadiness } from "../../shared/status-list-callback-transition";
 import { readTransitionInventory } from "./status-list-transition-inventory";
 import { callbackDecision, type CallbackEnvelope } from "./status-list-callback-compatible";
+import { callbackDependencyBlockers } from "./status-list-callback-boundary";
 
 type Client = Pick<PoolClient, "query">;
 type Connections = Pick<typeof pool, "connect">;
@@ -33,9 +34,13 @@ export async function callbackReadiness(client: Client, campaignId: string): Pro
   const expected = medicalPartnerAudit(campaignId)!.actions;
   const expectedCallbacks = expected.filter(a => a.callback);
   const callbacks = rows.filter(a => a.callback);
+  const ownership = (await client.query("SELECT owner,fingerprint FROM mission_callback_ownership WHERE campaign_id=$1", [campaignId])).rows[0];
+  const compatible = ownership?.owner === "compatible";
+  const reviewedItems = new Set(expectedCallbacks.map(action => action.itemId));
   const blockers = new Set<string>();
   if (!callbacks.length) blockers.add("no_callbacks");
-  if (rows.length !== expected.length || rows.some(a => !expected.some(e => e.id === a.id)))
+  if ((!compatible && rows.length !== expected.length) || rows.some(a => !expected.some(e => e.id === a.id) &&
+    (!compatible || !!a.callback || reviewedItems.has(a.itemId))))
     blockers.add("untracked_actions");
   for (const e of expected) {
     const a = rows.find(a => a.id === e.id);
@@ -75,14 +80,35 @@ export async function callbackReadiness(client: Client, campaignId: string): Pro
       WHERE s.campaign_id=$1) AS option_sources,
     current_database() AS database_identity,current_schema() AS schema_identity,
     inet_server_addr()::text AS server_identity`, [campaignId])).rows[0];
-  if (dependencies.rules.some((r: any) => r.definition?.enabled !== false)) blockers.add("internal_workflow_dependency");
-  if (dependencies.sources.length || dependencies.option_sources.length) blockers.add("background_dependency");
+  if (compatible) {
+    const items = (await client.query("SELECT id,parent_id FROM campaign_status_list_items WHERE campaign_id=$1", [campaignId])).rows;
+    const questions = (await client.query(`SELECT q.id,q.item_id FROM campaign_status_list_questions q
+      JOIN campaign_status_list_items i ON i.id=q.item_id WHERE i.campaign_id=$1`, [campaignId])).rows;
+    for (const blocker of callbackDependencyBlockers([...reviewedItems], items, questions, dependencies))
+      blockers.add(blocker);
+    // Keep the original approval identity. No rebaseline, candidate update or
+    // ownership migration is needed for already-running production instances.
+    const candidates = (await client.query(`SELECT automation_id,definition,source_fingerprint
+      FROM mission_callback_candidates WHERE campaign_id=$1`, [campaignId])).rows;
+    if (candidates.length !== expectedCallbacks.length) blockers.add("legacy_config_changed");
+    for (const expected of expectedCallbacks) {
+      const action = rows.find(row => row.id === expected.id);
+      const ref = references.find(row => row.id === expected.id);
+      const candidate = candidates.find(row => row.automation_id === expected.id);
+      const definition = { action, dispositionCode: action?.type === "set_contact_status" ? ref?.code || null : null };
+      if (!candidate || candidate.source_fingerprint !== ownership.fingerprint ||
+        hash(candidate.definition) !== hash(definition)) blockers.add("legacy_config_changed");
+    }
+  } else {
+    // Initial activation remains the strict, complete live-inventory review.
+    if (dependencies.rules.some((r: any) => r.definition?.enabled !== false)) blockers.add("internal_workflow_dependency");
+    if (dependencies.sources.length || dependencies.option_sources.length) blockers.add("background_dependency");
+  }
   const counts = (await client.query(`SELECT
     count(*) FILTER(WHERE status='pending')::int AS pending,
     count(*) FILTER(WHERE status='failed')::int AS failed FROM mission_callback_events WHERE campaign_id=$1`, [campaignId])).rows[0];
   if (counts.pending) blockers.add("pending_events");
   if (counts.failed) blockers.add("failed_events");
-  const ownership = (await client.query("SELECT owner FROM mission_callback_ownership WHERE campaign_id=$1", [campaignId])).rows[0];
   const audit = (await client.query(`SELECT s.created_at AS at,s.from_owner AS "from",s.to_owner AS "to",
       u.full_name AS "actorName" FROM mission_callback_switches s LEFT JOIN users u ON u.id=s.actor_id
       WHERE s.campaign_id=$1 ORDER BY s.id DESC LIMIT 20`, [campaignId])).rows;
@@ -91,6 +117,34 @@ export async function callbackReadiness(client: Client, campaignId: string): Pro
     callbackCount: callbacks.length, pendingCount: counts.pending, failedCount: counts.failed,
     legacyOnlyCount: rows.length - callbacks.length,
     audit: audit.map(row => ({ ...row, at: new Date(row.at).toISOString() })) };
+}
+
+/** Rule writes use the same Mission lock as callback capture. Reject unsafe
+ * writes before COMMIT instead of leaving agents with a broken configuration. */
+export async function withCallbackRuleChange<T>(
+  campaignId: string, write: (client: Client) => Promise<T>, connections: Connections = pool,
+): Promise<T> {
+  const client = await connections.connect();
+  try {
+    await client.query("BEGIN");
+    if (campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN) await lockCallbackTransition(client, campaignId, true);
+    const result = await write(client);
+    await assertCallbackConfigurationIndependent(client, campaignId);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+}
+
+export async function assertCallbackConfigurationIndependent(client: Client, campaignId: string) {
+  if (campaignId !== MEDICAL_PARTNER_AUDIT_CAMPAIGN) return;
+  const ownership = (await client.query("SELECT owner FROM mission_callback_ownership WHERE campaign_id=$1", [campaignId])).rows[0];
+  if (ownership?.owner !== "compatible") return;
+  const readiness = await callbackReadiness(client, campaignId);
+  if (readiness.blockers.some(blocker => !["pending_events", "failed_events"].includes(blocker)))
+    throw new CallbackTransitionError("legacy_config_changed");
 }
 
 export async function readCallbackReadiness(campaignId: string) {
@@ -167,7 +221,7 @@ export async function enqueueCallbackConfirmation(client: Client, input: {
   // A changed source must not silently execute as an approved compatible rule.
   if (ownership?.owner === "compatible") {
     const current = await callbackReadiness(client, input.campaignId);
-    if (current.fingerprint !== ownership.fingerprint || current.blockers.some(b => b !== "pending_events"))
+    if (current.blockers.some(b => b !== "pending_events"))
       throw new CallbackTransitionError("legacy_config_changed");
   }
   const supported = inventory.actions.filter(a => a.itemId === input.itemId && a.callback && !a.issues.length && !a.excluded &&

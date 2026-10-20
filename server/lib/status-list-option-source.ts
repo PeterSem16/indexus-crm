@@ -7,6 +7,7 @@ import {
 import { StatusListWorkflowError, type WorkflowEvent } from "./status-list-workflow";
 import { preserveWorkflowNote } from "./status-list-workflow-notes";
 import { isStatusListSourceGroup } from "../../shared/status-list-source-group";
+import { lockCallbackTransition, assertCallbackConfigurationIndependent } from "./status-list-callback-transition";
 
 const SYSTEM = "system:mission-status-list";
 type Queryable = Pick<PoolClient, "query">;
@@ -44,6 +45,7 @@ export async function configureOptionSource(campaignId: string, groupId: string,
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await lockCallbackTransition(client, campaignId, true);
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${campaignId}`]);
     if (raw === null) {
       await client.query("DELETE FROM mission_status_list_option_sources WHERE campaign_id=$1 AND group_id=$2", [campaignId, groupId]);
@@ -58,6 +60,7 @@ export async function configureOptionSource(campaignId: string, groupId: string,
       [campaignId, groupId, JSON.stringify({ ...definition, hidden })]);
       await client.query("UPDATE campaign_status_list_items SET is_hidden=$2,updated_at=now() WHERE id=$1", [groupId, hidden]);
     }
+    await assertCallbackConfigurationIndependent(client, campaignId);
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }

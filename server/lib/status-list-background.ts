@@ -4,6 +4,7 @@ import { pool } from "../db";
 import { workflowSourceConfigSchema, type WorkflowAnswer } from "../../shared/status-list-workflow";
 import { executeEvent, StatusListWorkflowError, workflowTransaction } from "./status-list-workflow";
 import { evaluateOptionSources } from "./status-list-option-source";
+import { lockCallbackTransition, assertCallbackConfigurationIndependent } from "./status-list-callback-transition";
 
 // Explicit non-human principal; never borrow the configurator/representative's
 // user identity. Legacy history/confirmation columns require a non-null string.
@@ -14,6 +15,7 @@ export async function configureBackgroundSource(campaignId: string, questionId: 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    await lockCallbackTransition(client, campaignId, true);
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${campaignId}`]);
     const { rows } = await client.query(`SELECT q.*,i.confirmation_type,i.question_selection_mode
       FROM campaign_status_list_questions q JOIN campaign_status_list_items i ON i.id=q.item_id
@@ -33,6 +35,7 @@ export async function configureBackgroundSource(campaignId: string, questionId: 
     } else {
       await client.query("DELETE FROM mission_status_list_sources WHERE campaign_id=$1 AND question_id=$2", [campaignId, questionId]);
     }
+    await assertCallbackConfigurationIndependent(client, campaignId);
     await client.query("COMMIT");
   } catch (error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }

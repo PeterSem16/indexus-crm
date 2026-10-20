@@ -11,7 +11,7 @@ import { addWaitingOption, configureOptionSource } from "./status-list-option-so
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
 import { readTransitionInventory } from "./status-list-transition-inventory";
 import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
-import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner } from "./status-list-callback-transition";
+import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner, withCallbackRuleChange } from "./status-list-callback-transition";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -212,15 +212,17 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   app.post(root, requireAuth, route(async (req, res) => {
     const user = await authorize(req, true);
     const rule = await validateWorkflow(req.params.campaignId, req.body);
-    const { rows } = await pool.query(`INSERT INTO mission_status_list_rules(campaign_id,definition,created_by)
-      VALUES($1,$2::jsonb,$3) RETURNING id`, [req.params.campaignId, JSON.stringify(rule), user.id]);
+    const { rows } = await withCallbackRuleChange(req.params.campaignId, client =>
+      client.query(`INSERT INTO mission_status_list_rules(campaign_id,definition,created_by)
+      VALUES($1,$2::jsonb,$3) RETURNING id`, [req.params.campaignId, JSON.stringify(rule), user.id]));
     res.status(201).json({ ...rule, id: rows[0].id, campaignId: req.params.campaignId });
   }));
   app.put(`${root}/:id`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const rule = await validateWorkflow(req.params.campaignId, req.body);
-    const result = await pool.query(`UPDATE mission_status_list_rules SET definition=$3::jsonb,updated_at=clock_timestamp()
-      WHERE id=$1 AND campaign_id=$2 RETURNING id`, [req.params.id, req.params.campaignId, JSON.stringify(rule)]);
+    const result = await withCallbackRuleChange(req.params.campaignId, client =>
+      client.query(`UPDATE mission_status_list_rules SET definition=$3::jsonb,updated_at=clock_timestamp()
+      WHERE id=$1 AND campaign_id=$2 RETURNING id`, [req.params.id, req.params.campaignId, JSON.stringify(rule)]));
     if (!result.rowCount) throw new StatusListWorkflowError("rule_not_found", 404);
     res.json({ ...rule, id: req.params.id, campaignId: req.params.campaignId });
   }));
