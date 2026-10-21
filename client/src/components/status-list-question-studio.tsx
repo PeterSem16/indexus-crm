@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useStatusListConfirm } from "./status-list-confirm";
+import { getStatusListGuidanceCopy } from "./status-list-guidance-copy";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, ChevronDown, Save, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -59,6 +61,8 @@ export function StatusListQuestionStudio({
   onSelectItem, onSelectQuestion, renderActions, renderSource, renderChildren, onDeleted, isNew = false, ancestorHidden = false, onSaved, onDirtyChange,
 }: Props) {
   const copy = getStatusListQuestionStudioCopy(locale);
+  const confirm = useStatusListConfirm(locale);
+  const guidance = getStatusListGuidanceCopy(locale);
   const { toast } = useToast();
   const [stage, setStage] = useState<Stage>("placement");
   const [stepDraft, setStepDraft] = useState<StepDraft>(() => stepDraftFrom(item));
@@ -167,7 +171,11 @@ export function StatusListQuestionStudio({
 
   useEffect(() => {
     if (initializedKey.current === recordKey) return;
-    if (dirty && !window.confirm(copy.selectItemWarning)) {
+    let cancelled = false;
+    const initialize = async () => {
+    const accepted = !dirty || await confirm(copy.selectItemWarning);
+    if (cancelled) return;
+    if (!accepted) {
       if (previousSelection.current.questionId) {
         onSelectQuestion(previousSelection.current.itemId, previousSelection.current.questionId);
       } else onSelectItem(previousSelection.current.itemId);
@@ -181,7 +189,10 @@ export function StatusListQuestionStudio({
     setQuestionDraft(nextQuestion); setBaseQuestion(nextQuestion);
     setError("");
     setStage("placement");
-  }, [recordKey, dirty, copy.selectItemWarning, item, questionId, onSelectItem, onSelectQuestion]);
+    };
+    void initialize();
+    return () => { cancelled = true; };
+  }, [recordKey, dirty, copy.selectItemWarning, item, questionId, onSelectItem, onSelectQuestion, confirm]);
 
   useEffect(() => {
     if (!dirty && !actionDirty && !sourceDirty) return;
@@ -192,8 +203,8 @@ export function StatusListQuestionStudio({
 
   const setStep = <K extends keyof StepDraft>(key: K, value: StepDraft[K]) => setStepDraft(current => ({ ...current, [key]: value }));
   const setQuestion = <K extends keyof QuestionDraft>(key: K, value: QuestionDraft[K]) => setQuestionDraft(current => ({ ...current, [key]: value }));
-  const cancelDraft = () => {
-    if (!window.confirm(copy.discard)) return;
+  const cancelDraft = async () => {
+    if (!await confirm(copy.discard)) return;
     setStepDraft({ ...baseStep }); setQuestionDraft({ ...baseQuestion }); setError("");
   };
   const save = () => {
@@ -214,14 +225,14 @@ export function StatusListQuestionStudio({
     }
     mutation.mutate();
   };
-  const deleteRecord = () => {
-    if (isNew || isCreatingQuestion || !window.confirm(copy.deleteConfirm)) return;
+  const deleteRecord = async () => {
+    if (isNew || isCreatingQuestion || !await confirm(copy.deleteConfirm, { destructive: true })) return;
     deleteMutation.mutate();
   };
   const tabLabel = (value: string | null) => phaseName(value) || phaseName(resolvedPhase) || "—";
-  const selectStage = (next: Stage) => {
+  const selectStage = async (next: Stage) => {
     if (next === stage) return;
-    if (stage === "answer" && sourceDirty && !window.confirm(copy.discard)) return;
+    if (stage === "answer" && sourceDirty && !await confirm(copy.discard)) return;
     setSourceDirty(false);
     setStage(next);
   };
@@ -284,6 +295,24 @@ export function StatusListQuestionStudio({
           </div>}
           {stage === "answer" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">03 / 05</span><h3>{copy.answerTitle}</h3><p>{copy.answerHelp}</p></div>
+            {!isQuestion && !isNew && <section className="mb-5 space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4" data-testid="status-list-answer-branches">
+              <h4 className="text-sm font-semibold">{guidance.title}</h4>
+              <p className="text-xs leading-relaxed text-muted-foreground">{guidance.help}</p>
+              <label className="slqs-field"><span>{guidance.choose}</span>
+                <select value="" data-testid="status-list-branch-select" onChange={event => {
+                  const [kind, id] = event.target.value.split(":");
+                  if (!id) return;
+                  if (kind === "question") onSelectQuestion(item.id, id);
+                  else onSelectItem(id);
+                }}>
+                  <option value="">{guidance.choose}</option>
+                  {(item.questions || []).map((question: any) => <option key={question.id} value={`question:${question.id}`}>{question.questionText}</option>)}
+                  {allItems.filter((child: any) => child.parentId === item.id).map((child: any) => <option key={child.id} value={`item:${child.id}`}>{child.label}</option>)}
+                </select>
+              </label>
+              <p className="text-xs leading-relaxed">{guidance.example}</p>
+              <button type="button" className="text-xs font-semibold text-primary underline underline-offset-4" onClick={() => void selectStage("relationships")}>{guidance.manage}</button>
+            </section>}
             {isQuestion ? <div className="slqs-fields">
               <label className="slqs-field"><span>{copy.fieldType}</span><select data-testid="status-list-question-field-type" value={isStatusListYesNo(questionDraft.fieldType) ? "yes_no" : questionDraft.fieldType} onChange={event => setQuestion("fieldType", event.target.value)}>
                 {!isStatusListYesNo(questionDraft.fieldType) && !copy.fieldTypeOptions[questionDraft.fieldType] && <option value={questionDraft.fieldType}>{questionDraft.fieldType}</option>}
@@ -309,10 +338,10 @@ export function StatusListQuestionStudio({
                 {renderToggle(copy.autoConfirm, stepDraft.autoConfirmOnSubQuestion, value => setStep("autoConfirmOnSubQuestion", value), "status-list-auto-confirm")}
               </div>
               <small className="slqs-wide text-muted-foreground">{copy.impactRequired}</small>
-              <label className="slqs-field slqs-wide"><span>{copy.canonical}</span><select data-testid="status-list-canonical-status" value={stepDraft.canonicalClinicStatusKey || ""} onChange={event => setStep("canonicalClinicStatusKey", event.target.value || null)}>
-                <option value="">{copy.noCanonical}</option>{canonicalByPhase.map(option => <option value={option.value} key={`${option.phase}:${option.value}`}>{option.label}</option>)}
+              <label className="slqs-field slqs-wide"><span>{guidance.reporting}</span><select data-testid="status-list-canonical-status" value={stepDraft.canonicalClinicStatusKey || ""} onChange={event => setStep("canonicalClinicStatusKey", event.target.value || null)}>
+                <option value="">{guidance.none}</option>{canonicalByPhase.map(option => <option value={option.value} key={`${option.phase}:${option.value}`}>{option.label}</option>)}
                 {stepDraft.canonicalClinicStatusKey && !canonicalByPhase.some(option => option.value === stepDraft.canonicalClinicStatusKey) && <option value={stepDraft.canonicalClinicStatusKey}>{canonicalOptions.find(option => option.value === stepDraft.canonicalClinicStatusKey)?.label || stepDraft.canonicalClinicStatusKey}</option>}
-              </select><small>{copy.canonicalHelp}</small></label>
+              </select><small>{copy.canonicalHelp}</small><small>{guidance.reportingExample}</small></label>
               <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource(setSourceDirty)}</div>
             </div>}
           </div>}

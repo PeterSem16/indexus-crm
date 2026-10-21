@@ -13,11 +13,13 @@ import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
 import { StatusListBackgroundSourcePanel } from "./status-list-background-source-panel";
 import { StatusListWorkflowDialog } from "./status-list-workflow-dialog";
 import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
+import { useStatusListConfirm } from "./status-list-confirm";
 
 type CatalogResponse = { rules: SavedStatusListWorkflow[]; catalog: WorkflowCatalogItem[] };
 
 export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSources = true, sourceIds }: { campaignId: string; locale: Locale | string; showBackgroundSources?: boolean; sourceIds?: string[] }) {
   const copy = getStatusListWorkflowCopy(locale);
+  const confirm = useStatusListConfirm(locale);
   const { toast } = useToast();
   const queryKey = ["/api/campaigns", campaignId, "status-list-workflows"];
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows`;
@@ -112,7 +114,7 @@ export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSou
           saveMutation.mutate({ id, data: { ...payload, enabled } });
         }}/>
         <Button type="button" variant="ghost" size="icon" aria-label={copy.edit} onClick={() => startEdit(rule)}><Pencil className="h-4 w-4"/></Button>
-        <Button type="button" variant="ghost" size="icon" aria-label={copy.delete} disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(copy.confirmDelete)) deleteMutation.mutate(rule.id); }}><Trash2 className="h-4 w-4"/></Button>
+        <Button type="button" variant="ghost" size="icon" aria-label={copy.delete} disabled={deleteMutation.isPending} onClick={async () => { if (await confirm(copy.confirmDelete, { destructive: true })) deleteMutation.mutate(rule.id); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
     {showBackgroundSources && <StatusListBackgroundSourcePanel campaignId={campaignId} locale={locale}/>}

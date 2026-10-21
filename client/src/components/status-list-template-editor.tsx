@@ -30,6 +30,9 @@ const copy = {
   title: ["Status List templates", "Šablóny Status Listu", "Šablony Status Listu", "Status List sablonok", "Șabloane Status List", "Modelli Status List", "Status-List-Vorlagen"],
   intro: ["Choose a template and shape the additions before anything is written.", "Vyberte šablónu a upravte prírastky pred ich uložením.", "Vyberte šablonu a upravte přírůstky před uložením.", "Válasszon sablont, és alakítsa a hozzáadásokat mentés előtt.", "Alegeți un șablon și configurați adăugările înainte de salvare.", "Scegli un modello e definisci le aggiunte prima del salvataggio.", "Vorlage wählen und Ergänzungen vor dem Speichern festlegen."],
   selection: ["Selection", "Výber", "Výběr", "Kiválasztás", "Selectare", "Selezione", "Auswahl"], review: ["Review", "Kontrola", "Kontrola", "Ellenőrzés", "Verificare", "Verifica", "Prüfen"], result: ["Result", "Výsledok", "Výsledek", "Eredmény", "Rezultat", "Risultato", "Ergebnis"],
+  acquisition: ["Acquisition", "Akvizícia", "Akvizice", "Ügyfélszerzés", "Achiziție", "Acquisizione", "Akquisition"],
+  retention: ["Retention", "Udržanie", "Udržení", "Megtartás", "Retenție", "Fidelizzazione", "Kundenbindung"],
+  partners: ["Partner network", "Sieť partnerov", "Síť partnerů", "Partnerhálózat", "Rețea de parteneri", "Rete partner", "Partnernetzwerk"],
   step: ["steps", "kroky", "kroky", "lépés", "pași", "passaggi", "Schritte"], action: ["actions", "akcie", "akce", "művelet", "acțiuni", "azioni", "Aktionen"], questions: ["questions", "otázky", "otázky", "kérdés", "întrebări", "domande", "Fragen"],
   all: ["Select all", "Vybrať všetko", "Vybrat vše", "Összes kijelölése", "Selectează tot", "Seleziona tutto", "Alle auswählen"], none: ["Clear all", "Zrušiť výber", "Zrušit výběr", "Kijelölés törlése", "Deselectează tot", "Deseleziona tutto", "Auswahl aufheben"],
   next: ["Review plan", "Skontrolovať plán", "Zkontrolovat plán", "Terv ellenőrzése", "Verifică planul", "Verifica piano", "Plan prüfen"], back: ["Back to selection", "Späť na výber", "Zpět k výběru", "Vissza a kijelöléshez", "Înapoi la selecție", "Torna alla selezione", "Zurück zur Auswahl"],
@@ -58,6 +61,7 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
   const lang = languages.includes(locale as typeof languages[number]) ? locale : "en";
   const index = languages.indexOf(lang as typeof languages[number]);
   const t = (key: keyof typeof copy) => copy[key][index];
+  const templateName = (id: TemplateId) => t(id === "CLA" ? "acquisition" : id === "CLB" ? "retention" : "partners");
   const [tab, setTab] = useState<TemplateId>("CLA");
   const [stage, setStage] = useState<"selection" | "review" | "result">("selection");
   const [selectedByTab, setSelectedByTab] = useState<Record<TemplateId, Set<string>>>({ CLA: new Set(), CLB: new Set(), MPN: new Set() });
@@ -226,7 +230,7 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
       <div className="status-template-body min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-7">
         {stage === "selection" && <>
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <div className="status-template-tabs" role="tablist" aria-label={t("title")}>{(["CLA", "CLB", "MPN"] as const).map(id => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} data-testid={`template-tab-${id}`} onClick={() => switchTab(id)}>{id}</button>)}</div>
+            <div className="status-template-tabs" role="tablist" aria-label={t("title")}>{(["CLA", "CLB", "MPN"] as const).map(id => <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "active" : ""} data-testid={`template-tab-${id}`} onClick={() => switchTab(id)}>{templateName(id)}</button>)}</div>
             <Button variant="ghost" size="sm" className="ml-auto text-xs" onClick={toggleAll} data-testid="btn-tpl-select-all">{allSelected ? t("none") : t("all")}</Button>
           </div>
           <p className="mb-3 text-xs text-muted-foreground">{selectedStepsCount} {t("step")} · {actionCount} {t("action")} · {questionsCount} {t("questions")}</p>
@@ -264,7 +268,7 @@ export function StatusListTemplateEditor({ open, campaignId, locale, existingSte
         </>}
         {stage === "review" && <section data-testid="template-review-plan" className="space-y-4">
           <div className="status-template-impact"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0"/><p>{t("impact")}</p></div>
-          <div className="flex items-center justify-between gap-3"><div><p className="status-template-kicker">{tab} / {t("reviewTitle")}</p><h3 className="text-lg font-semibold">{planRef.current.length} {t("step")}</h3></div><span className="text-right text-xs text-muted-foreground">{planRef.current.reduce((n, row) => n + row.automations.length, 0)} {t("action")} · {planRef.current.reduce((n, row) => n + row.questions.length, 0)} {t("questions")}</span></div>
+          <div className="flex items-center justify-between gap-3"><div><p className="status-template-kicker">{templateName(tab)} / {t("reviewTitle")}</p><h3 className="text-lg font-semibold">{planRef.current.length} {t("step")}</h3></div><span className="text-right text-xs text-muted-foreground">{planRef.current.reduce((n, row) => n + row.automations.length, 0)} {t("action")} · {planRef.current.reduce((n, row) => n + row.questions.length, 0)} {t("questions")}</span></div>
           <p className="text-xs text-muted-foreground">{t("duplicate")}</p>
            <div className="space-y-2">{planRef.current.map((row, position) => {
              const description = getStepDescription(row.step, locale);

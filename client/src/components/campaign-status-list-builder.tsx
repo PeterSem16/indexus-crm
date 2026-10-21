@@ -23,6 +23,8 @@ import { StatusListQuickOptionEditor, getQuickOptionCopy } from "@/components/st
 import { StatusListQuickOptionIcon, StatusListQuickOptionIconPicker } from "@/components/status-list-quick-option-icons";
 import { StatusListDispositionImportEditor } from "@/components/status-list-disposition-import-editor";
 import { StatusListTemplateEditor } from "@/components/status-list-template-editor";
+import { StatusListConfirmProvider, useStatusListConfirm } from "./status-list-confirm";
+import { StatusListAdminPreview } from "./status-list-admin-preview";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
@@ -228,13 +230,13 @@ const SL: Record<string, Record<string, string>> = {
   qSelMultiple:   { sk: "Viacnásobný (zaškrtať viacero)", en: "Multiple (checkboxes)", cs: "Více (zaškrtáváčky)", hu: "Többszörös (jelölőnégyzetek)", ro: "Multiple (bifări)", it: "Multiplo (caselle)", de: "Mehrfach (Kontrollkästchen)" },
   qSelSingle:     { sk: "Jednoduchý (iba jedna možnosť)", en: "Single (radio — only one)", cs: "Jednoduchý (jen jedna možnost)", hu: "Egyszerű (csak egy)", ro: "Simplu (doar una)", it: "Singolo (solo uno)", de: "Einfach (nur eines)" },
 
-  canonicalClinicLbl:  { sk: "Kanonický stav ambulancie", en: "Canonical clinic status", cs: "Kanonický stav ambulance", hu: "Kanonikus rendelői státusz", ro: "Status canonic clinică", it: "Stato canonico clinica", de: "Kanonischer Klinikstatus" },
-  canonicalClinicHint: { sk: "Pri potvrdení tejto možnosti systém automaticky zapíše zvolený stav do histórie spolupráce ambulancie (KPI 3.4–3.7). Funguje len pre kontakty typu Ambulancia.", en: "When this option is confirmed, the system automatically records the chosen cooperation state into the clinic's history (KPI 3.4–3.7). Works only for Clinic contact type.", cs: "Při potvrzení této možnosti systém automaticky zapíše zvolený stav do historie spolupráce ambulance. Funguje pouze pro kontakty typu Ambulance.", hu: "Ezen lehetőség megerősítésekor a rendszer automatikusan rögzíti a kiválasztott állapotot a rendelő együttműködési előzményeibe.", ro: "Când această opțiune este confirmată, sistemul înregistrează automat starea aleasă în istoricul cooperării clinicii.", it: "Quando questa opzione viene confermata, il sistema registra automaticamente lo stato scelto nella cronologia di cooperazione della clinica.", de: "Bei Bestätigung dieser Option schreibt das System automatisch den gewählten Status in die Kooperationshistorie der Klinik." },
+  canonicalClinicLbl:  { sk: "Stav spolupráce ambulancie", en: "Clinic cooperation status", cs: "Stav spolupráce ordinace", hu: "Rendelői együttműködési állapot", ro: "Stare de colaborare a clinicii", it: "Stato di collaborazione della clinica", de: "Kooperationsstatus der Klinik" },
+  canonicalClinicHint: { sk: "Táto položka sa prepojí so stavom spolupráce ambulancie. Mapovanie môžu využívať existujúce reporty, ktoré tieto hodnoty čítajú. Platí iba pre kontakty typu ambulancia.", en: "This item is linked to a clinic cooperation status. Existing reports that read these values may use the mapping. Clinic contacts only.", cs: "Tato položka se propojí se stavem spolupráce ordinace. Mapování mohou využívat existující přehledy, které tyto hodnoty čtou. Platí pouze pro kontakty typu ordinace.", hu: "Ez az elem egy rendelői együttműködési állapothoz kapcsolódik. A leképezést felhasználhatják az ezt az értéket olvasó meglévő jelentések. Csak rendelői kapcsolatokra érvényes.", ro: "Acest element este asociat unei stări de colaborare a clinicii. Maparea poate fi folosită de rapoartele existente care citesc aceste valori. Doar pentru contactele de tip clinică.", it: "Questa voce è collegata a uno stato di collaborazione della clinica. La mappatura può essere usata dai report esistenti che leggono questi valori. Solo per contatti di tipo clinica.", de: "Dieser Eintrag wird einem Kooperationsstatus der Klinik zugeordnet. Bestehende Berichte, die diese Werte auslesen, können die Zuordnung verwenden. Nur für Klinik-Kontakte." },
   canonicalClinicNone: { sk: "(žiadny — bežná položka)", en: "(none — plain item)", cs: "(žádný — běžná položka)", hu: "(nincs — normál elem)", ro: "(niciunul — element simplu)", it: "(nessuno — elemento normale)", de: "(keiner — normaler Eintrag)" },
   // AI canonical suggestion dialog
-  aiSuggestBtn:        { sk: "AI kanonické statusy", en: "AI canonical statuses", cs: "AI kanonické statusy", hu: "AI kanonikus állapotok", ro: "AI statusuri canonice", it: "AI stati canonici", de: "KI Kanonikstatus" },
-  aiSuggestTitle:      { sk: "AI návrh kanonických statusov", en: "AI canonical status suggestions", cs: "AI návrh kanonických statusů", hu: "AI kanonikus állapotjavaslatok", ro: "Sugestii AI statusuri canonice", it: "Suggerimenti AI stati canonici", de: "KI Kanonikstatus-Vorschläge" },
-  aiSuggestDesc:       { sk: "AI analyzovala status list a navrhla kanonické statusy pre každú položku. Skontrolujte návrhy a aplikujte vybrané.", en: "AI analyzed the status list and suggested canonical statuses for each item. Review the suggestions and apply selected ones.", cs: "AI analyzovala status list a navrhla kanonické statusy pro každou položku. Zkontrolujte návrhy a aplikujte vybrané.", hu: "Az AI elemezte az állapotlistát és kanonikus állapotokat javasolt minden elemhez. Tekintse át a javaslatokat és alkalmazza a kiválasztottakat.", ro: "AI a analizat lista de status și a sugerat statusuri canonice pentru fiecare element. Examinați sugestiile și aplicați-le pe cele selectate.", it: "L'AI ha analizzato la lista di stato e ha suggerito stati canonici per ogni elemento. Esamina i suggerimenti e applica quelli selezionati.", de: "KI hat die Statusliste analysiert und kanonische Status für jedes Element vorgeschlagen. Überprüfen Sie die Vorschläge und wenden Sie ausgewählte an." },
+  aiSuggestBtn:        { sk: "Navrhnúť stav spolupráce", en: "Suggest cooperation status links", cs: "Navrhnout propojení stavů spolupráce", hu: "Együttműködési állapotok javaslata", ro: "Sugerează asocieri de colaborare", it: "Suggerisci collegamenti agli stati di collaborazione", de: "Kooperationsstatus-Zuordnungen vorschlagen" },
+  aiSuggestTitle:      { sk: "Návrhy stavov spolupráce", en: "Suggested cooperation statuses", cs: "Návrhy stavů spolupráce", hu: "Javasolt együttműködési állapotok", ro: "Stări de colaborare sugerate", it: "Stati di collaborazione suggeriti", de: "Vorgeschlagene Kooperationsstatus" },
+  aiSuggestDesc:       { sk: "Skontrolujte navrhnuté prepojenia. Zmenia sa iba položky, ktoré vyberiete a použijete.", en: "Review the suggested links. Only items you select and apply will be changed.", cs: "Zkontrolujte navržená propojení. Změní se pouze položky, které vyberete a použijete.", hu: "Ellenőrizze a javasolt kapcsolatokat. Csak a kiválasztott és alkalmazott elemek módosulnak.", ro: "Verificați asocierile sugerate. Se vor modifica doar elementele selectate și aplicate.", it: "Verifica i collegamenti suggeriti. Verranno modificate solo le voci selezionate e applicate.", de: "Prüfen Sie die vorgeschlagenen Zuordnungen. Geändert werden nur ausgewählte und angewendete Einträge." },
   aiSuggestAnalyzing:  { sk: "AI analyzuje status list…", en: "AI is analyzing the status list…", cs: "AI analyzuje status list…", hu: "AI elemzi az állapotlistát…", ro: "AI analizează lista de status…", it: "AI sta analizzando la lista di stato…", de: "KI analysiert die Statusliste…" },
   aiSuggestApply:      { sk: "Aplikovať vybrané", en: "Apply selected", cs: "Použít vybrané", hu: "Kiválasztottak alkalmazása", ro: "Aplică selectate", it: "Applica selezionati", de: "Ausgewählte anwenden" },
   aiSuggestApplying:   { sk: "Ukladanie…", en: "Saving…", cs: "Ukládání…", hu: "Mentés…", ro: "Se salvează…", it: "Salvataggio…", de: "Speichern…" },
@@ -251,11 +253,11 @@ const SL: Record<string, Record<string, string>> = {
   aiSuggestProposed:   { sk: "Navrhnutý", en: "Proposed", cs: "Navrhovaný", hu: "Javasolt", ro: "Propus", it: "Proposto", de: "Vorgeschlagen" },
   aiSuggestUnchanged:  { sk: "(bez zmeny)", en: "(unchanged)", cs: "(beze změny)", hu: "(változatlan)", ro: "(neschimbat)", it: "(invariato)", de: "(unverändert)" },
   // Canonical coverage panel
-  coverageTitle:   { sk: "Pokrytie kanonických kľúčov (KPI 3.4–3.7)", en: "Canonical key coverage (KPI 3.4–3.7)", cs: "Pokrytí kanonických klíčů (KPI 3.4–3.7)", hu: "Kanonikus kulcslefedettség (KPI 3.4–3.7)", ro: "Acoperire chei canonice (KPI 3.4–3.7)", it: "Copertura chiavi canoniche (KPI 3.4–3.7)", de: "Kanonikschlüssel-Abdeckung (KPI 3.4–3.7)" },
-  coverageAll:     { sk: "Všetky kľúče pokryté", en: "All keys covered", cs: "Všechny klíče pokryty", hu: "Minden kulcs lefedett", ro: "Toate cheile acoperite", it: "Tutte le chiavi coperte", de: "Alle Schlüssel abgedeckt" },
-  coveragePartial: { sk: "Čiastočné pokrytie", en: "Partial coverage", cs: "Částečné pokrytí", hu: "Részleges lefedettség", ro: "Acoperire parțială", it: "Copertura parziale", de: "Teilweise abgedeckt" },
-  coverageNone:    { sk: "Žiadne kanonické kľúče", en: "No canonical keys assigned", cs: "Žádné kanonické klíče", hu: "Nincsenek kanonikus kulcsok", ro: "Fără chei canonice", it: "Nessuna chiave canonica", de: "Keine kanonischen Schlüssel" },
-  coverageMissing: { sk: "Chýbajúce kľúče — KPI pre túto fázu budú nulové kým nie sú pokryté", en: "Missing keys — KPI for this phase will be zero until covered", cs: "Chybějící klíče — KPI pro tuto fázi bude nulové, dokud nejsou pokryty", hu: "Hiányzó kulcsok — a fázis KPI-ja nulla lesz, amíg nincs lefedve", ro: "Chei lipsă — KPI pentru această fază va fi zero până la acoperire", it: "Chiavi mancanti — i KPI per questa fase saranno zero finché non coperti", de: "Fehlende Schlüssel — KPI für diese Phase ist null bis zur Abdeckung" },
+  coverageTitle:   { sk: "Stavy spolupráce ambulancie", en: "Clinic cooperation statuses", cs: "Stavy spolupráce ordinace", hu: "Rendelői együttműködési állapotok", ro: "Stări de colaborare ale clinicii", it: "Stati di collaborazione della clinica", de: "Kooperationsstatus der Klinik" },
+  coverageAll:     { sk: "Všetky uvedené stavy sú prepojené", en: "All listed statuses are linked", cs: "Všechny uvedené stavy jsou propojené", hu: "Minden felsorolt állapot össze van kapcsolva", ro: "Toate stările listate sunt asociate", it: "Tutti gli stati elencati sono collegati", de: "Alle aufgeführten Status sind verknüpft" },
+  coveragePartial: { sk: "Niektoré stavy nie sú prepojené", en: "Some statuses are not linked", cs: "Některé stavy nejsou propojené", hu: "Néhány állapot nincs összekapcsolva", ro: "Unele stări nu sunt asociate", it: "Alcuni stati non sono collegati", de: "Einige Status sind nicht verknüpft" },
+  coverageNone:    { sk: "Zatiaľ nie je prepojený žiadny stav", en: "No statuses are linked yet", cs: "Zatím není propojen žádný stav", hu: "Még nincs összekapcsolt állapot", ro: "Nicio stare nu este asociată încă", it: "Nessuno stato è ancora collegato", de: "Noch keine Status verknüpft" },
+  coverageMissing: { sk: "Tieto stavy spolupráce zatiaľ nemajú zodpovedajúcu položku v zozname. Môže to ovplyvniť reporty, ktoré tieto stavy používajú.", en: "These cooperation statuses do not yet have a matching Status List item. This may affect reports that use these statuses.", cs: "Tyto stavy spolupráce zatím nemají odpovídající položku v seznamu. Může to ovlivnit přehledy, které tyto stavy používají.", hu: "Ezekhez az együttműködési állapotokhoz még nincs megfelelő listaelem. Ez érintheti az ezeket az állapotokat használó jelentéseket.", ro: "Aceste stări de colaborare nu au încă un element corespunzător în listă. Acest lucru poate afecta rapoartele care folosesc aceste stări.", it: "Questi stati di collaborazione non hanno ancora una voce corrispondente nell’elenco. Ciò può influire sui report che li utilizzano.", de: "Diesen Kooperationsstatus ist noch kein passender Listeneintrag zugeordnet. Das kann Berichte betreffen, die diese Status verwenden." },
   coverageOf:      { sk: "z", en: "of", cs: "z", hu: "/", ro: "din", it: "di", de: "von" },
   coverageHide:    { sk: "Skryť", en: "Hide", cs: "Skrýt", hu: "Elrejtés", ro: "Ascunde", it: "Nascondi", de: "Ausblenden" },
   coverageShow:    { sk: "Zobraziť detaily", en: "Show details", cs: "Zobrazit podrobnosti", hu: "Részletek mutatása", ro: "Afișare detalii", it: "Mostra dettagli", de: "Details anzeigen" },
@@ -424,8 +426,8 @@ const SL: Record<string, Record<string, string>> = {
   selectedCount:   { sk: "vybraných", en: "selected", cs: "vybraných", hu: "kiválasztva", ro: "selectate", it: "selezionati", de: "ausgewählt" },
   importBtn:       { sk: "Importovať", en: "Import", cs: "Importovat", hu: "Importálás", ro: "Importare", it: "Importa", de: "Importieren" },
 
-  tplTabCLA:       { sk: "CL A — Akvizícia", en: "CL A — Acquisition", cs: "CL A — Akvizice", hu: "CL A — Akkvizíció", ro: "CL A — Achiziție", it: "CL A — Acquisizione", de: "CL A — Akquisition" },
-  tplTabCLB:       { sk: "CL B — Retencia", en: "CL B — Retention", cs: "CL B — Retence", hu: "CL B — Megtartás", ro: "CL B — Retenție", it: "CL B — Fidelizzazione", de: "CL B — Kundenbindung" },
+  tplTabCLA:       { sk: "Akvizícia", en: "Acquisition", cs: "Akvizice", hu: "Ügyfélszerzés", ro: "Achiziție", it: "Acquisizione", de: "Akquisition" },
+  tplTabCLB:       { sk: "Udržanie", en: "Retention", cs: "Udržení", hu: "Megtartás", ro: "Retenție", it: "Fidelizzazione", de: "Kundenbindung" },
 
   previewBtn:      { sk: "Náhľad agenta", en: "Agent preview", cs: "Náhled agenta", hu: "Ügynök előnézet", ro: "Previzualizare agent", it: "Anteprima agente", de: "Agenten-Vorschau" },
   previewClose:    { sk: "Zatvoriť náhľad", en: "Close preview", cs: "Zavřít náhled", hu: "Előnézet bezárása", ro: "Închide previzualizarea", it: "Chiudi anteprima", de: "Vorschau schließen" },
@@ -470,7 +472,8 @@ const SL: Record<string, Record<string, string>> = {
   itemHiddenBadge: { sk: "Skryté", en: "Hidden" },
   tplLabel:        { sk: "Šablóny", en: "Templates" },
   tplHint:         { sk: "Kliknutím vložíte šablónu — text môžete ďalej upraviť.", en: "Click to apply a template — you can still edit the text." },
-  tplTabMPN:       { sk: "MPN — Sieť partnerov", en: "MPN — Partner Network", cs: "MPN — Síť partnerů", hu: "MPN — Partnerhálózat", ro: "MPN — Rețea Parteneri", it: "MPN — Rete Partner", de: "MPN — Partnernetzwerk" },
+  tplTabMPN:       { sk: "Sieť partnerov", en: "Partner network", cs: "Síť partnerů", hu: "Partnerhálózat", ro: "Rețea de parteneri", it: "Rete partner", de: "Partnernetzwerk" },
+  templateStartLabel: { sk: "Šablóny akvizície a udržania", en: "Acquisition and retention templates", cs: "Šablony akvizice a udržení", hu: "Ügyfélszerzési és -megtartási sablonok", ro: "Șabloane de achiziție și retenție", it: "Modelli di acquisizione e fidelizzazione", de: "Vorlagen für Akquisition und Kundenbindung" },
   boTag:           { sk: "Back Office", en: "Back Office", cs: "Back Office", hu: "Back Office", ro: "Back Office", it: "Back Office", de: "Back Office" },
   boRouteHint:     { sk: "Táto úloha sa zobrazí v agende Back Office.", en: "This task will appear in the Back Office agenda.", cs: "Tento úkol se zobrazí v agendě Back Office.", hu: "Ez a feladat megjelenik a Back Office listában.", ro: "Această sarcină va apărea în agenda Back Office.", it: "Questo compito apparirà nell'agenda Back Office.", de: "Diese Aufgabe erscheint in der Back-Office-Agenda." },
   prDescLbl:       { sk: "Popis priority", en: "Priority description" },
@@ -833,6 +836,7 @@ function PreviewQuestions({
 
 function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale: string }) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  return <StatusListAdminPreview items={items} locale={locale}/>;
 
   if (items.length === 0) {
     return (
@@ -2408,18 +2412,19 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
   item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode; quickOption?: boolean; onDirtyChange?: (dirty: boolean) => void; onPendingChange?: (pending: boolean) => void;
 }) {
   const { locale } = useI18n();
+  const confirm = useStatusListConfirm(locale);
   const { toast } = useToast();
   const [editing, setEditing] = useState<StatusListAutomation | "new" | "status" | "callback" | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorPending, setEditorPending] = useState(false);
-  const openEditor = (next: NonNullable<typeof editing>) => {
+  const openEditor = async (next: NonNullable<typeof editing>) => {
     if (editorPending || next === editing || (typeof next === "object" && editing && typeof editing === "object" && next.id === editing.id)) return;
-    if (editorDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
+    if (editorDirty && !await confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
     setEditorDirty(false); setEditing(next);
   };
-  const closeEditor = () => {
+  const closeEditor = async () => {
     if (editorPending) return;
-    if (editorDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
+    if (editorDirty && !await confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
     setEditorDirty(false); setEditing(null);
   };
   const savedEditor = () => { setEditorDirty(false); setEditing(null); };
@@ -2473,8 +2478,8 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
           {(action.conditionJson || action.conditionField) && <p className="mt-1 text-xs text-muted-foreground">{getConditionSummary(action.conditionJson, action.conditionField, action.conditionValue, locale)}</p>}
         </div>
         <Button type="button" size="icon" variant="ghost" disabled={editorPending} title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => openEditor(action)}><PenLine className="h-4 w-4"/></Button>
-        <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending || editorPending} onClick={() => {
-          if (window.confirm(`${getActionLabel(action.actionType, locale)} — ${getStatusListQuestionStudioCopy(locale).deleteConfirm}`)) remove.mutate(action.id);
+        <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending || editorPending} onClick={async () => {
+          if (await confirm(`${getActionLabel(action.actionType, locale)} — ${getStatusListQuestionStudioCopy(locale).deleteConfirm}`, { destructive: true })) remove.mutate(action.id);
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
       </div>)}
     </section>
@@ -2848,6 +2853,7 @@ function StatusListItemRow({
 }) {
   const { toast } = useToast();
   const { locale } = useI18n();
+  const confirm = useStatusListConfirm(locale);
   const [expanded, setExpanded] = useState(defaultExpanded || workspaceInspector);
   const [editMode, setEditMode] = useState(workspaceInspector);
   const [addingAutomation, setAddingAutomation] = useState(false);
@@ -2955,8 +2961,8 @@ function StatusListItemRow({
       {workspaceInspector ? (
         <div className="slw-record-heading">
           <div><span className="slw-record-code">{item.stepId}</span><strong>{item.label}</strong><small>{item.description || sl("stepBasics", locale)}</small></div>
-          {!workspaceQuestionId && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => {
-            if (window.confirm(sl("deleteStepConfirm", locale))) deleteMutation.mutate();
+          {!workspaceQuestionId && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={async () => {
+            if (await confirm(sl("deleteStepConfirm", locale), { destructive: true })) deleteMutation.mutate();
           }} disabled={deleteMutation.isPending} data-testid={`status-list-delete-${item.id}`}>
             <Trash2 className="h-4 w-4"/>{sl("deleteStepBtn", locale)}
           </Button>}
@@ -3836,6 +3842,10 @@ function CanonicalCoveragePanel({ items, locale }: { items: StatusListItem[]; lo
 }
 
 export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }) {
+  return <StatusListConfirmProvider><CampaignStatusListBuilderContent campaignId={campaignId}/></StatusListConfirmProvider>;
+}
+
+function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }) {
   const [workspaceSelection, setWorkspaceSelection] = useState("");
   const [studioNavigation, setStudioNavigation] = useState<{ itemId: string; questionId?: string; nonce: number }>();
   const [studioCreation, setStudioCreation] = useState<{ kind: "step" | "question"; parentId: string | null } | null>(null);
@@ -3844,19 +3854,20 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
   const navigateStudio = (itemId: string, questionId?: string) => setStudioNavigation({ itemId, questionId, nonce: Date.now() });
   const { toast } = useToast();
   const { locale } = useI18n();
+  const confirm = useStatusListConfirm(locale);
   const [templateOpen, setTemplateOpen] = useState(false);
   const templateDirtyRef = useRef(false);
   const templatePendingRef = useRef(false);
-  const closeTemplate = () => {
+  const closeTemplate = async () => {
     if (templatePendingRef.current) return;
-    if (templateDirtyRef.current && !window.confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
+    if (templateDirtyRef.current && !await confirm(getStatusListQuestionStudioCopy(locale).discard)) return;
     setTemplateOpen(false);
   };
   const [importOpen, setImportOpen] = useState(false);
   const [importDirty, setImportDirty] = useState(false);
   const [importPending, setImportPending] = useState(false);
-  const closeImport = () => {
-    if (importPending || (importDirty && !window.confirm(getStatusListQuestionStudioCopy(locale).discard))) return;
+  const closeImport = async () => {
+    if (importPending || (importDirty && !await confirm(getStatusListQuestionStudioCopy(locale).discard))) return;
     setImportOpen(false);
   };
   const [previewMode, setPreviewMode] = useState(false);
@@ -4023,7 +4034,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           <h4>{sl("toolsStartFrom", locale)}</h4>
           <div className="slw-tool-buttons">
             <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setTemplateOpen(true)} data-testid="btn-open-cla-template">
-              <LayoutTemplate className="h-3.5 w-3.5 text-primary" /> CLA / CLB Template
+              <LayoutTemplate className="h-3.5 w-3.5 text-primary" /> {sl("templateStartLabel", locale)}
             </Button>
             <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setImportOpen(true)} data-testid="btn-open-import-dispositions">
               <Download className="h-3.5 w-3.5 text-emerald-700" /> {sl("importTitle", locale)}
@@ -4041,8 +4052,8 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
               {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
             </Button>
-            {bulkSelectedIds.size > 0 && <Button type="button" variant="destructive" size="sm" className="gap-1" disabled={bulkDeleteMutation.isPending} onClick={() => {
-              if (window.confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`)) bulkDeleteMutation.mutate();
+            {bulkSelectedIds.size > 0 && <Button type="button" variant="destructive" size="sm" className="gap-1" disabled={bulkDeleteMutation.isPending} onClick={async () => {
+              if (await confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`, { destructive: true })) bulkDeleteMutation.mutate();
             }} data-testid="btn-delete-selected-items">
               {bulkDeleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
               {sl("deleteSelectedBtn", locale)} ({bulkSelectedIds.size})
@@ -4086,7 +4097,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       }}/>
 
       </>}
-      <Dialog open={studioCreation !== null} onOpenChange={open => { if (!open && (!studioCreationDirty || window.confirm(getStatusListQuestionStudioCopy(locale).discard))) setStudioCreation(null); }}>
+      <Dialog open={studioCreation !== null} onOpenChange={open => { if (!open) void (async () => { if (!studioCreationDirty || await confirm(getStatusListQuestionStudioCopy(locale).discard)) setStudioCreation(null); })(); }}>
         <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto" data-testid="status-list-studio-create">
           <DialogHeader><DialogTitle>{studioCreation?.kind === "question" ? sl("addQuestionBtn", locale) : sl("addStepBtn", locale)}</DialogTitle></DialogHeader>
           {studioCreation && studioCreateItem && <StatusListQuestionStudio
@@ -4108,12 +4119,12 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
       </Dialog>
       <StatusListTemplateEditor open={templateOpen} campaignId={campaignId} locale={locale} existingSteps={items}
         templates={{ CLA: CLA_TEMPLATE, CLB: CLB_TEMPLATE, MPN: MPN_TEMPLATE }}
-        onClose={closeTemplate}
+        onClose={() => { void closeTemplate(); }}
         onDirtyChange={dirty => { templateDirtyRef.current = dirty; }}
         onPendingChange={pending => { templatePendingRef.current = pending; }}/>
 
       {/* ── Import z Disposition Dialog ─────────────────────────────────── */}
-      <Dialog open={importOpen} onOpenChange={open => { if (!open) closeImport(); }}>
+      <Dialog open={importOpen} onOpenChange={open => { if (!open) void closeImport(); }}>
         <DialogContent className="max-w-3xl max-h-[90dvh] overflow-y-auto" data-testid="status-list-disposition-import-dialog">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -4123,7 +4134,7 @@ export function CampaignStatusListBuilder({ campaignId }: { campaignId: string }
           </DialogHeader>
           {importOpen && <StatusListDispositionImportEditor campaignId={campaignId} locale={locale} dispositions={dispositions}
             existingSteps={items} loading={dispsLoading} loadError={dispsError} onRetry={() => { void retryDispositions(); }}
-            onClose={closeImport} onDirtyChange={setImportDirty} onPendingChange={setImportPending}/>}
+            onClose={() => { void closeImport(); }} onDirtyChange={setImportDirty} onPendingChange={setImportPending}/>}
         </DialogContent>
       </Dialog>
 

@@ -13,6 +13,7 @@ import { queryClient } from "@/lib/queryClient";
 import { getStatusListOptionSourceCopy } from "./status-list-option-source-copy";
 import { getSourceEditorCopy } from "./status-list-source-editor-copy";
 import { StatusListSourceEditor, type SourceEditorStage } from "./status-list-source-editor";
+import { useStatusListConfirm } from "./status-list-confirm";
 
 type Coordinator = { id: string; name: string };
 type SourceResponse = { sources: OptionSource[]; catalog: WorkflowCatalogItem[]; coordinators: Coordinator[] };
@@ -44,6 +45,7 @@ export const isOptionGroup = (item: WorkflowCatalogItem | undefined, catalog: Wo
 
 export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId, onDirtyChange }: { campaignId: string; locale: Locale | string; targetGroupId?: string; onDirtyChange?: (dirty: boolean) => void }) {
   const copy = getStatusListOptionSourceCopy(locale);
+  const confirm = useStatusListConfirm(locale);
   const editorCopy = getSourceEditorCopy(locale);
   const { toast } = useToast();
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/option-sources`;
@@ -93,8 +95,8 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
-  function reset(force = false) {
-    if (!force && dirty && !window.confirm(editorCopy.changed)) return;
+  async function reset(force = false) {
+    if (!force && dirty && !await confirm(editorCopy.changed)) return;
     setFormOpen(false);
     setEditing(null);
     setGroupId("");
@@ -123,8 +125,8 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
     setFormOpen(true);
   }
 
-  function beginEdit(entry: OptionSource) {
-    if (dirty && !window.confirm(editorCopy.changed)) return;
+  async function beginEdit(entry: OptionSource) {
+    if (dirty && !await confirm(editorCopy.changed)) return;
     setFormOpen(true);
     setEditing(entry.groupId);
     setGroupId(entry.groupId);
@@ -278,7 +280,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
         <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">{copy.readonly}</span>
         <Button type="button" size="icon" variant="ghost" aria-label={copy.edit} onClick={() => beginEdit(entry)} disabled={isBusy}><Pencil className="h-4 w-4"/></Button>
         <Button type="button" size="icon" variant="ghost" aria-label={copy.remove} disabled={isBusy}
-          onClick={() => { if (window.confirm(copy.confirmRemove)) deleteMutation.mutate(entry.groupId); }}><Trash2 className="h-4 w-4"/></Button>
+          onClick={async () => { if (await confirm(copy.confirmRemove, { destructive: true })) deleteMutation.mutate(entry.groupId); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
 
@@ -304,7 +306,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
           {groupId && childrenFor(groupId).length < requiredCount && <p className="sm:col-span-2 text-xs text-destructive">{copy.wrongGroup.replace("{count}", String(requiredCount))}</p>}
         </div>}
         {stage === "mapping" && <div className="grid gap-3">
-          {sourceKind === "reachability" && groupId && childrenFor(groupId).length === 3 && editing === null && <Button type="button" size="sm" variant="outline" className="w-fit" data-testid="option-source-add-waiting" disabled={waitingMutation.isPending} onClick={() => { if (window.confirm(copy.addWaiting)) waitingMutation.mutate(); }}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.addWaiting}</Button>}
+          {sourceKind === "reachability" && groupId && childrenFor(groupId).length === 3 && editing === null && <Button type="button" size="sm" variant="outline" className="w-fit" data-testid="option-source-add-waiting" disabled={waitingMutation.isPending} onClick={async () => { if (await confirm(copy.addWaiting)) waitingMutation.mutate(); }}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.addWaiting}</Button>}
           <div className="grid gap-3 sm:grid-cols-2">{sourceKeys[sourceKind].map(key => optionSelect(key, copy[key as keyof typeof copy]))}</div>
           {!hasDistinctCompleteMapping && groupId && <p className="text-xs text-destructive">{copy.mappingRequired}</p>}
           {sourceKind === "coordinator" && <div className="space-y-3 border-t border-border/60 pt-3">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Activity, ArrowDown, ArrowUp, ChevronDown, ChevronRight, CircleHelp, Eye, EyeOff, Layers3, ListChecks, Maximize2, Minimize2, Search, Settings2, ShieldCheck, UserRound, Workflow, Wrench, Zap } from "lucide-react";
+import { Activity, ArrowDown, ArrowUp, Bell, ChevronDown, ChevronRight, CircleHelp, Eye, EyeOff, Layers3, ListChecks, Mail, Maximize2, MessageSquare, Minimize2, Phone, Search, Send, Settings2, ShieldCheck, Tag, UserRound, Webhook, Workflow, Wrench, Zap } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { StatusListViewport } from "./status-list-viewport";
 import { StatusListPhaseOrganizer, getPhaseOrganizerCopy } from "./status-list-phase-organizer";
 import { StatusListHelp } from "./status-list-help";
+import { useStatusListConfirm } from "./status-list-confirm";
+import { StatusListServiceHistory } from "./status-list-service-history";
+import { statusListActionLabel } from "./status-list-action-labels";
 import { outlineHidden, statusListOutline } from "@/lib/status-list-outline";
 import { emptyStatusListOrganization } from "@shared/status-list-organization";
 import type { OptionSource } from "@shared/status-list-option-source";
@@ -31,6 +34,7 @@ type Props = {
 };
 export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage, navigation }: Props) {
   const copy = getStatusListWorkspaceCopy(locale);
+  const confirm = useStatusListConfirm(locale);
   const phaseCopy = getPhaseOrganizerCopy(locale);
   const { toast } = useToast();
   const [tab, setTab] = useState<"content" | "rules" | "tests" | "tools">("content");
@@ -68,12 +72,13 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [dirty, setDirty] = useState(false);
-  const allowNavigation = () => {
+  const allowNavigation = async () => {
     if (!dirty) return true;
-    if (!window.confirm(copy.discardChanges)) return false;
+    if (!await confirm(copy.discardChanges)) return false;
     setDirty(false); onSelect(""); setSelectedQuestionId(null); setSelectionRevision(value => value + 1);
     return true;
   };
+  const navigationRequest = useRef(0);
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/option-sources`;
   const sourceQuery = useQuery<{ sources: OptionSource[]; catalog: WorkflowCatalogItem[] }>({
     queryKey: [endpoint],
@@ -132,13 +137,20 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   });
   const childrenOf = (id: string) => items.filter(item => item.parentId === id).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
   const roots = items.filter(item => (!item.parentId || !items.some(parent => parent.id === item.parentId)) && outline.visibleItems.has(item.id)).sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
-  const choose = (id: string, _edit = false) => { if (!allowNavigation()) return; onSelect(id); setSelectedQuestionId(null); setSelectionRevision(value => value + 1); setTab("content"); };
+  const choose = async (id: string, _edit = false) => {
+    if (!await allowNavigation()) return;
+    onSelect(id); setSelectedQuestionId(null); setSelectionRevision(value => value + 1); setTab("content");
+  };
   useEffect(() => {
-    if (!navigation || !allowNavigation()) return;
-    setPhase("all"); setVisibility("all"); setSearch(""); setTab("content");
-    onSelect(navigation.itemId); setSelectedQuestionId(navigation.questionId || null);
-    setSelectionRevision(value => value + 1);
-    if (navigation.questionId) setExpandedItems(previous => new Set(previous).add(navigation.itemId));
+    if (!navigation) return;
+    const request = ++navigationRequest.current;
+    void (async () => {
+      if (!await allowNavigation() || request !== navigationRequest.current) return;
+      setPhase("all"); setVisibility("all"); setSearch(""); setTab("content");
+      onSelect(navigation.itemId); setSelectedQuestionId(navigation.questionId || null);
+      setSelectionRevision(value => value + 1);
+      if (navigation.questionId) setExpandedItems(previous => new Set(previous).add(navigation.itemId));
+    })();
     // Explicit navigation requests only; this must not reconcile/filter selections.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
@@ -156,7 +168,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
   const renderQuestionRow = (item: WorkspaceItem, question: WorkspaceItem["questions"][number]) => {
     const hidden = outlineHidden(item, items);
     return <div key={question.id} data-testid={`status-list-question-row-${question.id}`} data-hidden={hidden || !!question.isHidden} className={`slw-tree-row slw-question-row ${hidden || question.isHidden ? "slw-hidden-row" : ""} ${selectedQuestionId === question.id ? "selected" : ""}`}>
-      <CircleHelp className="slw-row-type-icon slw-question-icon" size={14} aria-hidden="true"/><span className="slw-type-badge is-question">{copy.questionType}</span><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { if (!allowNavigation()) return; onSelect(item.id); setSelectedQuestionId(question.id); setSelectionRevision(value => value + 1); }}>{question.questionText}</button>
+      <CircleHelp className="slw-row-type-icon slw-question-icon" size={14} aria-hidden="true"/><span className="slw-type-badge is-question">{copy.questionType}</span><button type="button" className="slw-tree-label" data-testid={`status-list-select-question-${question.id}`} onClick={() => { void (async () => { if (!await allowNavigation()) return; onSelect(item.id); setSelectedQuestionId(question.id); setSelectionRevision(value => value + 1); })(); }}>{question.questionText}</button>
       {visibilityBadge(hidden || !!question.isHidden, hidden)}{moveButtons(item, question)}
     </div>;
   };
@@ -189,7 +201,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
       {open && questions.map(question => renderQuestionRow(item, question))}
     </div>;
   };
-  const originalActions = items.flatMap(item => [
+  const originalActions: Array<{ id: string; actionType: string; item: WorkspaceItem; question?: WorkspaceItem["questions"][number] }> = items.flatMap(item => [
     ...item.automations.map(action => ({ ...action, item })),
     ...item.questions.flatMap(question => question.automations.map(action => ({ ...action, item, question }))),
   ]);
@@ -197,7 +209,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
      <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><div className="slw-heading-actions"><span className="slw-chain-notice"><ShieldCheck size={14}/>{copy.chaining}</span><StatusListHelp locale={locale}/><Button ref={expandButtonRef} type="button" variant="outline" size="icon" data-testid="status-list-toggle-fullscreen" aria-label={expanded ? copy.restore : copy.maximize} title={expanded ? copy.restore : copy.maximize} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</Button></div></header>
     <nav className="slw-tabs" aria-label="Status List">
       {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests], ["tools", Wrench, copy.tools]] as const).map(([value, Icon, label]) =>
-        <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => { if (tab === value || allowNavigation()) setTab(value); }}><Icon size={15}/>{label}</button>)}
+        <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => { if (tab !== value) void (async () => { if (await allowNavigation()) setTab(value); })(); }}><Icon size={15}/>{label}</button>)}
     </nav>
     <div className="slw-body">
      {tab === "tools" && <div className="slw-tools" data-testid="status-list-tools"><header><div><span>{copy.toolsEyebrow}</span><h3>{copy.toolsTitle}</h3><p>{copy.toolsDescription}</p></div></header>{tools}{coverage}</div>}
@@ -207,11 +219,11 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
           <h3>{copy.structure}</h3>
            <div className="slw-filter-label">{copy.agentPhase}</div>
            <div className="slw-phases">{(["all", "acquisition", "contract", "retention", "shared", "quick"] as const).map(value =>
-             <button type="button" data-testid={`status-list-phase-${value}`} aria-pressed={phase === value} className={phase === value ? "active" : ""} onClick={() => { if (phase === value || allowNavigation()) setPhase(value); }} key={value}>{copy[value]} <span data-testid={`status-list-phase-count-${value}`} className="slw-phase-count">{phaseCounts[value]}</span></button>)}</div>
+              <button type="button" data-testid={`status-list-phase-${value}`} aria-pressed={phase === value} className={phase === value ? "active" : ""} onClick={() => { if (phase !== value) void (async () => { if (await allowNavigation()) setPhase(value); })(); }} key={value}>{copy[value]} <span data-testid={`status-list-phase-count-${value}`} className="slw-phase-count">{phaseCounts[value]}</span></button>)}</div>
            <div className="slw-filter-label">{copy.agentVisibility}</div>
            <div className="slw-phases slw-visibility-filters">{(["all", "visible", "hidden"] as const).map(value =>
-             <button type="button" data-testid={`status-list-visibility-${value}`} aria-pressed={visibility === value} className={visibility === value ? "active" : ""} onClick={() => { if (visibility === value || allowNavigation()) setVisibility(value); }} key={value}>{copy[value]}</button>)}</div>
-          <label className="slw-search"><Search size={14}/><input aria-label={copy.search} placeholder={copy.search} value={search} onChange={event => { if (allowNavigation()) setSearch(event.target.value); }}/></label>
+              <button type="button" data-testid={`status-list-visibility-${value}`} aria-pressed={visibility === value} className={visibility === value ? "active" : ""} onClick={() => { if (visibility !== value) void (async () => { if (await allowNavigation()) setVisibility(value); })(); }} key={value}>{copy[value]}</button>)}</div>
+          <label className="slw-search"><Search size={14}/><input aria-label={copy.search} placeholder={copy.search} value={search} onChange={event => { const value = event.target.value; void (async () => { if (await allowNavigation()) setSearch(value); })(); }}/></label>
           <div className="slw-tree">{roots.length ? roots.map(item => renderTree(item)) : <div className="slw-filter-empty">
             <p>{phaseCounts[phase] === 0 && ["acquisition", "contract", "retention"].includes(phase) ? phaseCopy.emptyPhase : copy.empty}</p>
             {phaseCounts[phase] === 0 && phaseCounts.shared > 0 && <small>{phaseCopy.legacy}</small>}
@@ -252,10 +264,19 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
       <p className="slw-notice">{copy.transition}</p>
       <StatusListWorkflowEditor campaignId={campaignId} locale={locale} showBackgroundSources={false}/>
       <section className="slw-original"><h3>{copy.original} · {originalActions.length}</h3>
-        {originalActions.map(action => <div key={action.id}><div><strong>{action.item.label}</strong><small>{action.actionType}</small></div><Button size="sm" variant="outline" onClick={() => choose(action.item.id, true)}>{copy.edit}</Button></div>)}
+        {originalActions.map(action => {
+          const label = statusListActionLabel(action.actionType, locale);
+          const Icon = action.actionType.includes("email") ? Mail : action.actionType.includes("task") ? ListChecks : action.actionType.includes("sms") ? MessageSquare : action.actionType.includes("callback") ? Phone : action.actionType.includes("status") ? Tag : action.actionType.includes("role") ? Bell : action.actionType.includes("webhook") ? Webhook : action.actionType.includes("send") ? Send : Zap;
+          return <div className="slw-original-action" key={action.id}>
+            <span className="slw-original-action-icon"><Icon size={15}/></span>
+            <div><strong>{action.item.label}{action.question ? ` · ${action.question.questionText}` : ""}</strong><small>{label}</small></div>
+            <Button size="sm" variant="outline" onClick={() => void choose(action.item.id, true)}>{copy.edit}</Button>
+          </div>;
+        })}
+        <StatusListServiceHistory campaignId={campaignId} locale={locale}/>
       </section>
     </div>}
-    {tab === "tests" && <div className="slw-page"><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
+    {tab === "tests" && <div className="slw-page"><p className="slw-history-scope">{copy.historyScope}</p><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
     </div>
   </section></StatusListViewport>;
 }

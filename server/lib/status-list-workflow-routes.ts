@@ -12,6 +12,7 @@ import { registerStatusListOrganizationRoutes } from "./status-list-organization
 import { readTransitionInventory } from "./status-list-transition-inventory";
 import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
 import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner, withCallbackRuleChange } from "./status-list-callback-transition";
+import { readStatusListServiceHistory } from "./status-list-service-history";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -103,6 +104,11 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       FROM mission_status_list_rule_runs r LEFT JOIN users u ON u.id=r.actor_id
       WHERE r.campaign_id=$1 ORDER BY r.created_at DESC,r.id DESC LIMIT 50`, [req.params.campaignId]);
     res.json({ runs: rows });
+  }));
+  app.get(`${root}/service-history`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const { automationId } = z.object({ automationId: z.string().uuid().optional() }).parse(req.query);
+    res.json(await readStatusListServiceHistory(pool, req.params.campaignId, automationId));
   }));
   app.patch(`${root}/items/:itemId/presentation`, requireAuth, route(async (req, res) => {
     await authorize(req, true);

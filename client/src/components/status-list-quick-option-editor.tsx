@@ -6,6 +6,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { getStatusListQuestionStudioCopy } from "./status-list-question-studio-copy";
 import { StatusListQuickOptionIcon, StatusListQuickOptionIconPicker } from "./status-list-quick-option-icons";
+import { useStatusListConfirm } from "./status-list-confirm";
+import { getStatusListGuidanceCopy } from "./status-list-guidance-copy";
 
 const messages = {
   title: ["Quick option settings", "Nastavenia rýchlej možnosti", "Nastavení rychlé možnosti", "Gyorslehetőség beállításai", "Setări opțiune rapidă", "Impostazioni opzione rapida", "Schnelloption einstellen"],
@@ -31,6 +33,8 @@ export function StatusListQuickOptionEditor({ item, campaignId, locale, canonica
   renderActions: (onDirtyChange: (dirty: boolean) => void, onPendingChange: (pending: boolean) => void) => ReactNode; onDeleted: () => void; onDirtyChange: (dirty: boolean) => void;
 }) {
   const copy = getQuickOptionCopy(locale);
+  const confirm = useStatusListConfirm(locale);
+  const guidance = getStatusListGuidanceCopy(locale);
   const common = getStatusListQuestionStudioCopy(locale);
   const { toast } = useToast();
   const initial = { label: item.label, description: item.description || "", color: item.color || "#3b82f6", icon: item.icon ?? null, canonicalClinicStatusKey: item.canonicalClinicStatusKey || "" };
@@ -67,19 +71,19 @@ export function StatusListQuickOptionEditor({ item, campaignId, locale, canonica
   });
   return <section className="space-y-5 rounded-xl border bg-card p-4" data-testid="status-list-quick-option-editor">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{copy.title}</h3><p className="mt-2 max-w-prose text-xs leading-relaxed text-muted-foreground">{copy.help}</p></div>
-      <Button type="button" size="sm" variant="outline" disabled={remove.isPending || actionPending} data-testid="quick-option-delete" onClick={() => { if (window.confirm(common.deleteConfirm)) remove.mutate(); }}>{common.delete}</Button>
+      <Button type="button" size="sm" variant="outline" disabled={remove.isPending || actionPending} data-testid="quick-option-delete" onClick={async () => { if (await confirm(common.deleteConfirm, { destructive: true })) remove.mutate(); }}>{common.delete}</Button>
     </header>
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="grid gap-2 text-xs sm:col-span-2"><span>{copy.name}</span><Input data-testid="quick-option-name" value={draft.label} onChange={event => setDraft(current => ({ ...current, label: event.target.value }))}/></label>
       <label className="grid gap-2 text-xs"><span>{copy.description}</span><Input data-testid="quick-option-description" value={draft.description} onChange={event => setDraft(current => ({ ...current, description: event.target.value }))}/></label>
       <label className="grid gap-2 text-xs"><span>{copy.color}</span><input type="color" data-testid="quick-option-color" className="h-9 w-full rounded border bg-background p-1" value={draft.color} onChange={event => setDraft(current => ({ ...current, color: event.target.value }))}/></label>
       <div className="grid gap-2 text-xs sm:col-span-2"><StatusListQuickOptionIconPicker value={draft.icon} onChange={icon => setDraft(current => ({ ...current, icon }))} locale={locale} disabled={save.isPending || actionPending}/></div>
-      <label className="grid gap-2 text-xs sm:col-span-2"><span>{common.canonical}</span>
+      <label className="grid gap-2 text-xs sm:col-span-2"><span>{guidance.reporting}</span>
         <select className="slw-native-select" data-testid="quick-option-canonical-status" value={draft.canonicalClinicStatusKey} onChange={event => setDraft(current => ({ ...current, canonicalClinicStatusKey: event.target.value }))}>
-          <option value="">{common.noCanonical}</option>
+          <option value="">{guidance.none}</option>
           {draft.canonicalClinicStatusKey && !canonicalOptions.some(option => option.value === draft.canonicalClinicStatusKey) && <option value={draft.canonicalClinicStatusKey}>{draft.canonicalClinicStatusKey}</option>}
           {canonicalOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select><small className="leading-relaxed text-muted-foreground">{common.canonicalHelp}</small>
+        </select><small className="leading-relaxed text-muted-foreground">{common.canonicalHelp}</small><small className="leading-relaxed text-muted-foreground">{guidance.reportingExample}</small>
       </label>
     </div>
     <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"><span className="grid gap-2 text-xs text-muted-foreground">{copy.preview}<span data-testid="quick-option-preview" className="inline-flex items-center gap-2 rounded-md px-3 py-2 font-semibold text-white" style={{ backgroundColor: draft.color }}>{draft.icon && <StatusListQuickOptionIcon name={draft.icon} className="h-4 w-4 shrink-0" />}{draft.label || copy.name}</span></span>

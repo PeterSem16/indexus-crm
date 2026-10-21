@@ -11,6 +11,7 @@ import { getStatusListBackgroundCopy } from "./status-list-background-copy";
 import { StatusListOptionSourcePanel } from "./status-list-option-source-panel";
 import { getSourceEditorCopy } from "./status-list-source-editor-copy";
 import { StatusListSourceEditor, type SourceEditorStage } from "./status-list-source-editor";
+import { useStatusListConfirm } from "./status-list-confirm";
 
 type Source = { questionId: string; source: "representative_assigned" | "representative_assignment_type"; hidden: boolean };
 type SourceResponse = { sources: Source[]; catalog: WorkflowCatalogItem[] };
@@ -23,6 +24,7 @@ const supports = (item: WorkflowCatalogItem, source: Source["source"], catalog: 
 
 export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItemId, targetQuestionId, hideOptionSources = false, onDirtyChange }: { campaignId: string; locale: Locale | string; targetItemId?: string; targetQuestionId?: string; hideOptionSources?: boolean; onDirtyChange?: (dirty: boolean) => void }) {
   const copy = getStatusListBackgroundCopy(locale);
+  const confirm = useStatusListConfirm(locale);
   const editorCopy = getSourceEditorCopy(locale);
   const { toast } = useToast();
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/sources`;
@@ -63,8 +65,8 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   const dirty = !!baseline && draft !== baseline;
   useEffect(() => { ownDirtyRef.current = dirty; onDirtyChange?.(dirty || optionDirtyRef.current); }, [dirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
-  const close = (force = false) => {
-    if (!force && dirty && !window.confirm(editorCopy.changed)) return;
+  const close = async (force = false) => {
+    if (!force && dirty && !await confirm(editorCopy.changed)) return;
     setEditing(null); setQuestionId(""); setSource("representative_assigned"); setHidden(false);
     setStage("source"); setBaseline("");
     onDirtyChange?.(false);
@@ -101,8 +103,8 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
     },
     onError: () => toast({ title: copy.deleteError, variant: "destructive" }),
   });
-  const editSource = (entry: Source) => {
-    if (dirty && !window.confirm(editorCopy.changed)) return;
+  const editSource = async (entry: Source) => {
+    if (dirty && !await confirm(editorCopy.changed)) return;
     setEditing(entry.questionId);
     setQuestionId(entry.questionId);
     setSource(entry.source);
@@ -140,7 +142,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
       <div className="min-w-0 w-full sm:w-auto sm:flex-1"><strong className="block break-words text-sm">{labelFor(entry)}</strong><span className="text-xs text-muted-foreground">{entry.source === "representative_assigned" ? copy.assigned : copy.assignmentType}{entry.hidden ? ` · ${copy.hidden}` : ""}</span></div>
       <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">{copy.readonly}</span>
       <Button type="button" size="icon" variant="ghost" aria-label={copy.edit} onClick={() => editSource(entry)}><Pencil className="h-4 w-4"/></Button>
-      <Button type="button" size="icon" variant="ghost" aria-label={copy.remove} disabled={deleteMutation.isPending} onClick={() => { if (window.confirm(copy.clearConfirm)) deleteMutation.mutate(entry.questionId); }}><Trash2 className="h-4 w-4"/></Button>
+      <Button type="button" size="icon" variant="ghost" aria-label={copy.remove} disabled={deleteMutation.isPending} onClick={async () => { if (await confirm(copy.clearConfirm, { destructive: true })) deleteMutation.mutate(entry.questionId); }}><Trash2 className="h-4 w-4"/></Button>
     </div>)}</div>}
     {open ? <div className="mt-3">
       <StatusListSourceEditor copy={editorCopy} context={`${copy.source}: ${sourceName} · ${copy.question}: ${valueName}`} editing={editing !== null} stage={stage}

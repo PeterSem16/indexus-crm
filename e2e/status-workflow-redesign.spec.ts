@@ -84,8 +84,8 @@ test("real editor groups answers, persists exact branches, reopens, toggles and 
   await page.getByRole("switch").click();
   await expect.poll(() => writes.length).toBe(2);
   expect(writes[1].data.enabled).toBe(false);
-  page.on("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Odstrániť", exact: true }).click();
+  await page.getByTestId("status-list-confirm-accept").click();
   await expect.poll(() => writes.length).toBe(3);
   expect(writes[2].method).toBe("DELETE");
   expect(errors).toEqual([]);
@@ -162,7 +162,7 @@ test("mobile, keyboard dismissal, empty search and all translations", async ({ p
 test("background source panel creates, edits, hides and removes owned mappings", async ({ page }) => {
   let sources: any[] = [];
   const writes: Array<{ method: string; url: string; body?: any }> = [];
-  const sourceCatalog = [...catalog];
+  const sourceCatalog = catalog.map(item => ({ ...item, systemSourceEligible: item.id === "yesno" }));
   await page.route("**/api/**", async route => {
     const request = route.request();
     const url = request.url();
@@ -188,22 +188,26 @@ test("background source panel creates, edits, hides and removes owned mappings",
   await page.goto("/test-fixtures/status-workflow-editor.html?locale=en");
   const panel = page.getByTestId("status-list-background-sources");
   await panel.getByRole("button", { name: "Configure source" }).click();
-  await expect(panel.getByLabel("Question")).toHaveValue("yesno");
-  await panel.getByRole("switch").click();
-  await panel.getByRole("button", { name: "Save source" }).click();
+  await expect(panel.getByTestId("background-source-question")).toHaveValue("yesno");
+  await panel.getByTestId("source-editor-stage-evaluation").click();
+  await panel.getByTestId("background-source-hidden").click();
+  await panel.getByTestId("source-editor-stage-review").click();
+  await panel.getByTestId("source-editor-save").click();
   await expect(panel).toContainText("Proceed?");
   expect(writes[0]).toMatchObject({
     method: "PUT", body: { source: "representative_assigned", hidden: true },
   });
   await panel.getByRole("button", { name: "Edit source" }).click();
-  await expect(panel.getByLabel("Question")).toHaveValue("yesno");
-  await panel.getByRole("switch").click();
-  await panel.getByRole("button", { name: "Save source" }).click();
+  await expect(panel.getByTestId("background-source-question")).toHaveValue("yesno");
+  await panel.getByTestId("source-editor-stage-evaluation").click();
+  await panel.getByTestId("background-source-hidden").click();
+  await panel.getByTestId("source-editor-stage-review").click();
+  await panel.getByTestId("source-editor-save").click();
   expect(writes[1]).toMatchObject({
     method: "PUT", body: { source: "representative_assigned", hidden: false },
   });
-  page.on("dialog", dialog => dialog.accept());
   await panel.getByRole("button", { name: "Remove source" }).click();
+  await page.getByTestId("status-list-confirm-accept").click();
   await expect.poll(() => writes.length).toBe(3);
   expect(writes[2].method).toBe("DELETE");
   await expect(panel).toContainText("No background sources configured.");
@@ -236,7 +240,7 @@ test("background source selects background trigger and remains unavailable as a 
   const picker = page.locator(".status-workflow-picker-shell");
   await picker.locator('[data-catalog-ref="question:representative"]').click();
   await expect(page.locator(".editor-content")).toContainText("Background transition");
-  await expect(page.locator(".editor-content")).toContainText("Runs when the representative assignment changes.");
+  await expect(page.locator(".editor-content")).toContainText("Runs when the configured source changes the answer.");
   await expect(page.locator(".editor-content")).not.toContainText("agent confirms");
   await expect(page.locator(".editor-content")).not.toContainText("This rule does not run in the background");
   await page.getByTestId("status-workflow-nav-then").click();

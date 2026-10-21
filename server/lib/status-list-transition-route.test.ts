@@ -15,6 +15,7 @@ const registered = new Map<string, Function[]>();
 const reads: string[] = [];
 let connections = 0, releases = 0, inventories = 0;
 let liveReads = 0, switches = 0;
+let serviceReads = 0;
 const pool = {
   async query(sql: string) {
     reads.push(sql);
@@ -33,12 +34,14 @@ const construct = new Function(
   "module", "pool", "storage", "canAgentReadCampaignByWorkspaceCountry", "StatusListWorkflowError",
   "registerStatusListOrganizationRoutes", "readTransitionInventory", "medicalPartnerAudit", "z",
   "CallbackTransitionError", "readCallbackReadiness", "switchCallbackOwner",
+  "readStatusListServiceHistory",
   `${compiled}; return module.exports.registerStatusListWorkflowRoutes;`,
 );
 const register = construct({ exports: {} }, pool, {}, () => false, WorkflowError, () => {},
   async () => { inventories++; return { activationAllowed: false }; },
   () => null, z, WorkflowError, async () => { liveReads++; return { owner: "legacy" }; },
-  async () => { switches++; return { ok: true, owner: "compatible" }; });
+  async () => { switches++; return { ok: true, owner: "compatible" }; },
+  async () => { serviceReads++; return { events: [] }; });
 register(app, requireAuth);
 const root = "/api/campaigns/:campaignId/status-list-workflows/transition-inventory";
 const handlers = registered.get(`get ${root}`)!;
@@ -48,7 +51,7 @@ for (const method of ["post", "put", "patch", "delete"]) assert.ok(!registered.h
 async function request(user?: Record<string, unknown>, endpoint = `get ${root}`, input?: unknown) {
   let status = 200, body: any;
   const headers = new Map();
-  const req = { params: { campaignId: "mission" }, session: user ? { user } : undefined, body: input };
+  const req = { params: { campaignId: "mission" }, session: user ? { user } : undefined, body: input, query: {} };
   const res = {
     setHeader(key: string, value: string) { headers.set(key, value); },
     status(code: number) { status = code; return res; },
@@ -75,6 +78,13 @@ assert.ok(reads.every(sql => /^\s*SELECT\b/i.test(sql)));
 const live = `get ${root.replace("transition-inventory", "transition-readiness")}`;
 const change = `post ${root.replace("transition-inventory", "transition-switch")}`;
 const manager = { id: "manager", role: "manager", assignedCountries: ["SK", "CZ"] };
+const serviceHistory = "get /api/campaigns/:campaignId/status-list-workflows/service-history";
+assert.equal((await request(undefined, serviceHistory)).status, 401);
+assert.equal((await request({ role: "user" }, serviceHistory)).status, 403);
+assert.equal((await request({ ...manager, assignedCountries: ["SK"] }, serviceHistory)).status, 403);
+assert.equal(serviceReads, 0, "unauthorized requests must not read service history");
+assert.equal((await request(manager, serviceHistory)).status, 200);
+assert.equal(serviceReads, 1);
 const payload = { fingerprint: "a".repeat(64), expectedOwner: "legacy", targetOwner: "compatible",
   backupConfirmed: true, missionNameConfirmation: "Mission" };
 assert.equal((await request(undefined, live)).status, 401);
