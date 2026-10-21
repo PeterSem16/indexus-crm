@@ -21,6 +21,8 @@ type Props = {
   index: number;
   onDraftValidityChange?: (invalid: boolean) => void;
   scheduleMode?: "once" | "per_record";
+  allowedEntityTypes?: string[];
+  allowedTargetModes?: Array<"event" | "related" | "selected">;
 };
 const LEGACY_KEYS = ["entityId", "EntityId", "entityID", "entity_id", "entityType", "recordId", "rawEntityId", "rawJson", "json", "updates", "values", "fields", "entity"];
 const tokenPattern = /^{{\s*([A-Za-z][A-Za-z0-9.]*)\s*}}$/;
@@ -86,7 +88,7 @@ function ReferenceRecordPicker({
 }
 
 export function AutomationUpdateRecordAction({
-  config, onChange, sourceModule, availableVariables, countryCodes, index, onDraftValidityChange, scheduleMode,
+  config, onChange, sourceModule, availableVariables, countryCodes, index, onDraftValidityChange, scheduleMode, allowedEntityTypes, allowedTargetModes,
 }: Props) {
   const { locale } = useI18n();
   const copy = getUpdateRecordCopy(locale);
@@ -122,15 +124,17 @@ export function AutomationUpdateRecordAction({
   const callbackRef = useRef(onDraftValidityChange);
   callbackRef.current = onDraftValidityChange;
   const entityFields = UPDATE_RECORD_ENTITIES[target.entityType] || [];
+  const allowedEntityOptions = Object.keys(UPDATE_RECORD_ENTITIES).filter(entity => !allowedEntityTypes || allowedEntityTypes.includes(entity));
   const catalogEntity = catalogQuery.data?.entities?.find(item => item.value === target.entityType);
   const allowedKeys = catalogEntity ? new Set(catalogEntity.fields.map(field => typeof field === "string" ? field : field.key)) : null;
   const supportedFields = entityFields.filter(field => !allowedKeys || allowedKeys.has(field.key));
   const fieldMap = new Map(entityFields.map(field => [field.key, field]));
   const targetRelations = UPDATE_RECORD_RELATIONS[sourceModule] || [];
-  const allowedModes = scheduleMode === "once" ? ["selected"] : scheduleMode === "per_record" ? ["event", "related"] : ["event", "related", "selected"];
+  const allowedModes = (scheduleMode === "once" ? ["selected"] : scheduleMode === "per_record" ? ["event", "related"] : ["event", "related", "selected"])
+    .filter(mode => !allowedTargetModes || allowedTargetModes.includes(mode as "event" | "related" | "selected"));
   const scopeFor = (entityType: string) => `${entityType}|${countries}|${sourceModule}`;
   const relatedEntity = targetRelations.find(relation => relation.key === target.relation);
-  const targetTypeValid = Object.hasOwn(UPDATE_RECORD_ENTITIES, target.entityType);
+  const targetTypeValid = Object.hasOwn(UPDATE_RECORD_ENTITIES, target.entityType) && (!allowedEntityTypes || allowedEntityTypes.includes(target.entityType));
   const currentTargetValid = target.mode === "event" ? target.entityType === sourceModule
     : target.mode === "related" ? Boolean(relatedEntity && (relatedEntity.entityType === target.entityType || relatedEntity.entityType === "dynamic"))
        : target.mode === "selected" ? Boolean(target.recordId && selectedRecord?.id === target.recordId && selectedVerifiedScope === scopeFor(target.entityType)) : false;
@@ -190,6 +194,11 @@ export function AutomationUpdateRecordAction({
     setOptionData({}); setOptionLoading({}); setOptionErrors({});
     save({ target: nextTarget, fields: {} });
   };
+  useEffect(() => {
+    if (isV2 && target.mode === "event" && !target.entityType && (sourceModule === "clinic" || sourceModule === "hospital")) {
+      save({ target: { ...target, entityType: sourceModule } }, false);
+    }
+  }, [isV2, target.mode, target.entityType, sourceModule]);
   const fieldLabel = (key: string) => (copy.field as Record<string, string>)[key] || key;
   const entityLabel = (key: string) => (copy.entity as Record<string, string>)[key] || entityNames[key] || key;
   const relationLabel = (key: string) => (copy.relationLabel as Record<string, string>)[key] || key;
@@ -428,7 +437,7 @@ export function AutomationUpdateRecordAction({
       {target.mode !== "event" && <div className="space-y-1.5"><Label htmlFor={`${root}-type`}>{copy.type}</Label>
         <Select value={target.entityType || "__none"} onValueChange={entityType => setTarget({ ...target, entityType, relation: target.mode === "related" ? undefined : target.relation, recordId: undefined })}>
           <SelectTrigger id={`${root}-type`} data-testid={`${root}-type`}><SelectValue placeholder={copy.type} /></SelectTrigger>
-          <SelectContent>{Object.keys(UPDATE_RECORD_ENTITIES).map(entity => <SelectItem key={entity} value={entity}>{entityLabel(entity)}</SelectItem>)}</SelectContent>
+          <SelectContent>{allowedEntityOptions.map(entity => <SelectItem key={entity} value={entity}>{entityLabel(entity)}</SelectItem>)}</SelectContent>
         </Select>
       </div>}
     </div>

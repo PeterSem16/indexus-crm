@@ -1,5 +1,29 @@
 export type AutomationEmailTarget = { kind: "user" | "group" | "role"; id: string };
 export const EMAIL_RECIPIENT_LIMIT = 100;
+export const EMAIL_ATTACHMENT_MAX_FILES = 5;
+export const EMAIL_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const EMAIL_ATTACHMENT_TOTAL_BYTES = 25 * 1024 * 1024;
+
+/** Snapshots contain bytes, never URLs or caller-selected server paths. */
+export function emailAttachmentIssues(value: unknown): string[] {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > EMAIL_ATTACHMENT_MAX_FILES) return ["Email accepts at most five attachments"];
+  let total = 0;
+  for (const item of value) {
+    if (!item || typeof item.name !== "string" || !item.name.trim() || item.name.length > 200 ||
+        /[\r\n\0]/.test(item.name) || typeof item.contentType !== "string" ||
+        !/^[\w.+-]+\/[\w.+-]+$/.test(item.contentType) ||
+        typeof item.contentBase64 !== "string" || !item.contentBase64 ||
+        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(item.contentBase64) ||
+        item.url || item.filePath)
+      return ["Email attachments must contain copied file content"];
+    const size = item.contentBase64.length * 3 / 4 - (item.contentBase64.endsWith("==") ? 2 : item.contentBase64.endsWith("=") ? 1 : 0);
+    total += size;
+    if (size > EMAIL_ATTACHMENT_MAX_BYTES || total > EMAIL_ATTACHMENT_TOTAL_BYTES)
+      return ["Email attachments exceed the permitted size"];
+  }
+  return [];
+}
 
 export function validEmailTargets(value: unknown): value is AutomationEmailTarget[] {
   return Array.isArray(value) && value.length <= EMAIL_RECIPIENT_LIMIT &&
@@ -21,6 +45,7 @@ export function emailAddressList(value: unknown): string[] {
 export function emailActionIssues(config: any): string[] {
   if (config?.emailActionVersion !== 2) return [];
   const issues: string[] = [];
+  issues.push(...emailAttachmentIssues(config.attachments));
   for (const key of ["toTargets", "ccTargets", "bccTargets"])
     if (config[key] !== undefined && !validEmailTargets(config[key])) issues.push(`Invalid ${key}`);
   if (!["personal", "system"].includes(config.senderMode || "system")) issues.push("Unknown email sender mode");

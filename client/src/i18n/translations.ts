@@ -46,6 +46,16 @@ const sendEmailActionTranslations = {
   },
 } as const;
 
+export const statusListEmailActionCopy = {
+  en: { missionDefault: "Mission default", missionCategory: "Mission category", attachments: "Attachments", attaching: "Loading template attachments…", attachmentError: "Attachments could not be loaded or exceed the allowed limits. The previous email setup was kept.", removeAttachment: "Remove attachment" },
+  sk: { missionDefault: "Predvolené pre Mission", missionCategory: "Kategória Mission", attachments: "Prílohy", attaching: "Načítavajú sa prílohy šablóny…", attachmentError: "Prílohy sa nepodarilo načítať alebo prekračujú povolené limity. Predchádzajúce nastavenie e-mailu zostalo zachované.", removeAttachment: "Odstrániť prílohu" },
+  cs: { missionDefault: "Výchozí pro Mission", missionCategory: "Kategorie Mission", attachments: "Přílohy", attaching: "Načítání příloh šablony…", attachmentError: "Přílohy se nepodařilo načíst nebo překračují povolené limity. Předchozí nastavení e-mailu zůstalo zachováno.", removeAttachment: "Odebrat přílohu" },
+  hu: { missionDefault: "Mission alapértelmezés", missionCategory: "Mission-kategória", attachments: "Mellékletek", attaching: "Sablonmellékletek betöltése…", attachmentError: "A mellékletek nem tölthetők be vagy túllépik a megengedett korlátokat. Az előző e-mail-beállítás megmaradt.", removeAttachment: "Melléklet eltávolítása" },
+  ro: { missionDefault: "Implicit Mission", missionCategory: "Categoria Mission", attachments: "Atașamente", attaching: "Se încarcă atașamentele șablonului…", attachmentError: "Atașamentele nu au putut fi încărcate sau depășesc limitele permise. Configurația anterioară a e-mailului a fost păstrată.", removeAttachment: "Elimină atașamentul" },
+  it: { missionDefault: "Predefinito Mission", missionCategory: "Categoria Mission", attachments: "Allegati", attaching: "Caricamento allegati del modello…", attachmentError: "Impossibile caricare gli allegati o i limiti consentiti sono superati. La configurazione e-mail precedente è stata mantenuta.", removeAttachment: "Rimuovi allegato" },
+  de: { missionDefault: "Mission-Standard", missionCategory: "Mission-Kategorie", attachments: "Anhänge", attaching: "Vorlagenanhänge werden geladen…", attachmentError: "Anhänge konnten nicht geladen werden oder überschreiten die zulässigen Grenzen. Die vorherige E-Mail-Konfiguration blieb erhalten.", removeAttachment: "Anhang entfernen" },
+} as const;
+
 export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
   US: 'en',
   SK: 'sk',

@@ -12,6 +12,112 @@ const nativeTemplate = (type: string) => nativeTemplates.find(template => templa
   templateEligibility(template, STATUS_LIST_ACTIVITY_FIELDS, "status_list").usable)!;
 const templateCatalog = (url: string) => nativeTemplates.filter(template => template.type === new URL(url).searchParams.get("type"))
   .map(template => ({ ...template, isActive: true, countryCodes: [] }));
+
+const missionTemplate = { id: "mission-default-email", type: "email", name: "Mission welcome with PDF", language: "en",
+  isActive: true, countryCodes: ["SK"], categoryId: "mission-mail",
+  subject: "{{clinic.doctorTitle}} {{clinic.doctorLastName}}",
+  contentHtml: "<p>{{clinic.doctorSalutationDoc}} {{clinic.doctorLastName}}</p><p>{{user.fullName}}</p>",
+  attachments: [{ fileName: "mission.pdf", mimeType: "application/pdf", size: 3 }] };
+async function parityApi(page: import("@playwright/test").Page, options: { brokenAttachment?: boolean; hospital?: boolean } = {}) {
+  savedWrites.length = 0;
+  await page.route("**/api/**", async route => {
+    const request = route.request(), path = new URL(request.url()).pathname;
+    if (request.method() === "PUT" && path.includes("/status-list/12/automations/")) {
+      const body = request.postDataJSON();
+      savedWrites.push(body);
+      return route.fulfill({ json: { id: "saved", ...body } });
+    }
+    if (request.method() !== "GET") return route.fulfill({ status: 405, json: {} });
+    const body = path === "/api/campaigns/42"
+      ? { id: "42", countryCodes: ["SK"], settings: { defaultEmailTemplateId: missionTemplate.id, defaultEmailCategoryId: "mission-mail" } }
+      : path.endsWith("/status-list-workflows/contact-types") ? { contactTypes: [options.hospital ? "hospital" : "clinic"] }
+      : path.endsWith("/automation-attachments") ? (options.brokenAttachment
+        ? [{ fileName: "mission.pdf", error: "File missing" }]
+        : [{ fileName: "mission.pdf", mimeType: "application/pdf", size: 3, contentBase64: "cGRm" }])
+      : path === "/api/message-templates" ? [...templateCatalog(request.url()), missionTemplate]
+      : path === "/api/template-categories" ? [{ id: "mission-mail", name: "Mission mail" }]
+      : path === "/api/automation/email-mailboxes" ? { personal: { connected: true, email: "manager@example.invalid" }, system: [] }
+      : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "manager@example.invalid" }]
+      : path === "/api/automation/update-record/catalog" ? {
+        entities: [{ value: "clinic", fields: ["notes", "isActive", "nextContactDate"] },
+          { value: "hospital", fields: ["isActive", "autoRecruiting", "responsiblePersonId"] }], relations: {},
+      }
+      : [];
+    return route.fulfill({ json: body });
+  });
+}
+
+test("one email action offers the actual Mission template, copies its exact content and PDF bytes, and persists a snapshot", async ({ page }) => {
+  await parityApi(page);
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/test-fixtures/status-list-native-action.html?action=send_email", { waitUntil: "networkidle" });
+  await page.getByTestId("service-action-stage-type").click();
+  const type = page.getByTestId("service-action-type");
+  await expect(type.locator("option[value=send_email]")).toHaveCount(1);
+  await expect(type.locator("option[value=send_email_group],option[value=notify_email],option[value=send_contact_email]")).toHaveCount(0);
+  await page.getByTestId("service-action-stage-details").click();
+  await page.getByTestId("status-list-email-action-open-editor").click();
+  const editor = page.getByTestId("status-list-email-action-content-editor");
+  await editor.getByTestId("status-list-email-action-editor-template").click();
+  const choice = page.getByTestId(`status-list-email-action-editor-template-template-${missionTemplate.id}`);
+  await expect(choice).toBeEnabled();
+  await choice.click();
+  await expect(editor.getByTestId("status-list-email-action-editor-subject")).toHaveValue(missionTemplate.subject);
+  await expect(editor.getByTestId("status-list-email-action-editor-body")).toHaveValue(missionTemplate.contentHtml);
+  await editor.getByTestId("status-list-email-action-editor-close").click();
+  await expect(page.getByTestId("status-list-email-action")).toContainText("mission.pdf");
+  await page.screenshot({ path: "/tmp/status-list-mission-attachments.jpg" });
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("service-action-review")).toContainText("mission.pdf");
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0]).toMatchObject({ actionType: "send_email", serviceActionConfig: {
+    to: "{{contact.email}}", templateId: missionTemplate.id, templateSnapshot: true,
+    subject: missionTemplate.subject, body: missionTemplate.contentHtml,
+    attachments: [{ name: "mission.pdf", contentType: "application/pdf", contentBase64: "cGRm" }],
+  } });
+  expect(errors).toEqual([]);
+});
+
+test("an unreadable template attachment blocks saving and preserves the previous email snapshot", async ({ page }) => {
+  await parityApi(page, { brokenAttachment: true });
+  await page.goto("/test-fixtures/status-list-native-action.html?action=send_email", { waitUntil: "networkidle" });
+  await page.getByTestId("status-list-email-action-open-editor").click();
+  const editor = page.getByTestId("status-list-email-action-content-editor");
+  await editor.getByTestId("status-list-email-action-editor-template").click();
+  await page.getByTestId(`status-list-email-action-editor-template-template-${missionTemplate.id}`).click();
+  await expect(editor.getByRole("alert")).toBeVisible();
+  await expect(editor.getByTestId("status-list-email-action-editor-subject")).toHaveValue("Original subject");
+  await expect(editor.getByTestId("status-list-email-action-editor-body")).toHaveValue("<p>Original body</p>");
+  await editor.getByTestId("status-list-email-action-editor-close").click();
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("status-list-automation-save")).toBeDisabled();
+  expect(savedWrites).toHaveLength(0);
+});
+
+for (const hospital of [false, true]) test(`Update record uses the shared ${hospital ? "hospital" : "clinic"} editor, requires confirmation and saves typed changes`, async ({ page }) => {
+  await parityApi(page, { hospital });
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(`/test-fixtures/status-list-native-action.html?action=${hospital ? "update_record_hospital" : "update_record"}`, { waitUntil: "networkidle" });
+  await expect(page.getByTestId("update-record-0")).toBeVisible();
+  await expect(page.getByTestId("update-record-0-ack")).not.toBeChecked();
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("status-list-automation-save")).toBeDisabled();
+  await page.getByTestId("service-action-stage-details").click();
+  await page.getByTestId("update-record-0-ack").check();
+  await page.screenshot({ path: `/tmp/status-list-update-${hospital ? "hospital" : "clinic"}.jpg` });
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("service-action-review")).toContainText(hospital ? "autoRecruiting" : "Clinic reviewed");
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0]).toMatchObject({ actionType: "update_record", serviceActionConfig: {
+    updateRecordVersion: 2, target: { mode: "event", entityType: hospital ? "hospital" : "clinic" },
+    fields: hospital ? { autoRecruiting: true } : { notes: "Clinic reviewed" }, acknowledged: true,
+  } });
+  expect(errors).toEqual([]);
+});
 test("legacy status-list notification keeps null config until explicit conversion; cancelled message edits are discarded and applied payload persists", async ({ page }) => {
   savedWrites.length = 0;
   const errors: string[] = [];

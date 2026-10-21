@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/components/automation-email-content-editor";
 import { AutomationTemplatePicker } from "./automation-template-picker";
 import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
+import { statusListEmailActionCopy } from "@/i18n/translations";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -27,6 +28,7 @@ type EmailTemplate = {
   contentHtml?: string;
   countryCodes?: string[];
   categoryId?: string | null;
+  attachments?: unknown[];
 };
 type TemplateCategory = { id: string; name: string };
 type Mailbox = { connected: boolean; email?: string; displayName?: string; hasSignature?: boolean };
@@ -40,7 +42,7 @@ const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").tri
 const emailPattern = /^[^@\s<>,;{}]+@[^@\s<>,;{}]+\.[^@\s<>,;{}]+$/;
 
 export function AutomationSendEmailAction({
-  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange, sourceModule,
+  config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange, sourceModule, missionContext, defaultRecipientTemplate,
 }: {
   config: any;
   onChange: (config: any) => void;
@@ -54,6 +56,8 @@ export function AutomationSendEmailAction({
   testId: string;
   onDraftValidityChange?: (invalid: boolean) => void;
   sourceModule?: string;
+  missionContext?: { defaultEmailTemplateId?: string; defaultEmailCategoryId?: string };
+  defaultRecipientTemplate?: string;
 }) {
   const { t, locale } = useI18n();
   const copy = t.sendEmailAction;
@@ -63,7 +67,16 @@ export function AutomationSendEmailAction({
   const [activeField, setActiveField] = useState<"subject" | "body">("body");
   const [editorOpen, setEditorOpen] = useState(false);
   const [templateLanguage, setTemplateLanguage] = useState<string>(locale);
+  const [attachmentLoading, setAttachmentLoading] = useState(false);
+  const [attachmentFailed, setAttachmentFailed] = useState(false);
+  const attachmentRequest = useRef(0);
+  const mounted = useRef(true);
+  const statusCopy = statusListEmailActionCopy[(locale.split("-")[0] as keyof typeof statusListEmailActionCopy)] || statusListEmailActionCopy.en;
   useEffect(() => setTemplateLanguage(locale), [locale]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; attachmentRequest.current += 1; };
+  }, []);
   const selectionsRef = useRef<EmailEditorSelections>({
     subject: { start: String(config.subject ?? "").length, end: String(config.subject ?? "").length },
     body: { start: String(config.body ?? "").length, end: String(config.body ?? "").length },
@@ -75,6 +88,12 @@ export function AutomationSendEmailAction({
       setActiveRecipient("to");
     }
   }, [config]);
+  useEffect(() => {
+    if (!defaultRecipientTemplate || config.to || config.toTargets?.length || config.emailActionVersion !== 2) return;
+    update({ to: `{{${cleanVariable(defaultRecipientTemplate)}}}` });
+  // Apply the status-list contact default once when the empty action is first opened.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const mailboxQuery = useQuery<{ personal: Mailbox; system: Array<Mailbox & { countryCode: string }> }>({
     queryKey: ["/api/automation/email-mailboxes", ruleId],
@@ -158,11 +177,14 @@ export function AutomationSendEmailAction({
       return !countries.length || !countryCodes.length || countries.some((code) => countryCodes.includes(code));
     });
     return available.sort((a, b) => {
+      const aMission = a.id === missionContext?.defaultEmailTemplateId ? 0 : a.categoryId === missionContext?.defaultEmailCategoryId ? 1 : 2;
+      const bMission = b.id === missionContext?.defaultEmailTemplateId ? 0 : b.categoryId === missionContext?.defaultEmailCategoryId ? 1 : 2;
+      if (aMission !== bMission) return aMission - bMission;
       const aAutomation = automationCategoryIds.has(a.categoryId || "") ? 0 : 1;
       const bAutomation = automationCategoryIds.has(b.categoryId || "") ? 0 : 1;
       return aAutomation - bAutomation;
     });
-  }, [templatesQuery.data, countryCodes, automationCategoryIds]);
+  }, [templatesQuery.data, countryCodes, automationCategoryIds, missionContext?.defaultEmailTemplateId, missionContext?.defaultEmailCategoryId]);
   const languageCode = (value?: string) => {
     const normalized = String(value || "").trim().toLowerCase();
     const aliases: Record<string, string> = { english: "en", slovak: "sk", slovenčina: "sk", czech: "cs", čeština: "cs", hungarian: "hu", magyar: "hu", romanian: "ro", română: "ro", italian: "it", italiano: "it", german: "de", deutsch: "de" };
@@ -175,6 +197,11 @@ export function AutomationSendEmailAction({
     sourceModule,
     availableVariables,
   );
+  const pickerTemplates = useMemo(() => filteredTemplates.map(template => {
+    const marker = template.id === missionContext?.defaultEmailTemplateId ? statusCopy.missionDefault
+      : template.categoryId === missionContext?.defaultEmailCategoryId ? statusCopy.missionCategory : "";
+    return marker ? { ...template, name: `${marker} · ${template.name}` } : template;
+  }), [filteredTemplates, missionContext?.defaultEmailTemplateId, missionContext?.defaultEmailCategoryId, statusCopy]);
   const selectedTemplate = templates.find(template => template.id === config.templateId);
   const showSavedSnapshotOption = Boolean(config.templateId && (!filteredTemplates.some(template => template.id === config.templateId)));
   const languageLabel = (code: string) => ({ en: "English", sk: "Slovenčina", cs: "Čeština", hu: "Magyar", ro: "Română", it: "Italiano", de: "Deutsch" }[languageCode(code)] || code);
@@ -216,7 +243,7 @@ export function AutomationSendEmailAction({
       return [{ value, label: labels.get(value) || label }];
     });
   }, [availableVariables, recipientTemplates, copy]);
-  const hasInvalidDraft = Object.values(addressDraft).some(draft =>
+  const hasInvalidDraft = attachmentLoading || attachmentFailed || Object.values(addressDraft).some(draft =>
     draft.split(/[;,\s]+/).filter(Boolean).some(part =>
       !emailPattern.test(part) && !recipientChoices.some(item => part === `{{${item.value}}}`)));
   useEffect(() => {
@@ -355,17 +382,48 @@ export function AutomationSendEmailAction({
         {templateLanguages.map(language => <SelectItem key={language} value={language}>{languageLabel(language)}</SelectItem>)}
       </SelectContent>
     </Select>
-    <AutomationTemplatePicker locale={locale} templates={filteredTemplates} value={config.templateId || "__custom"}
+     <AutomationTemplatePicker locale={locale} templates={pickerTemplates} value={config.templateId || "__custom"}
       availableVariables={availableVariables} sourceModule={sourceModule} customLabel={copy.customText}
       onRefresh={() => templatesQuery.refetch()} testId={`${testId}-editor-template`}
       snapshot={config.templateId ? { id: config.templateId, name: config.templateName || selectedTemplate?.name || copy.savedSnapshot } : undefined}
-      onSelect={(value) => {
+       onSelect={async (value) => {
+       const requestId = ++attachmentRequest.current;
+       setAttachmentFailed(false);
       if (value === "__custom") {
-        update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined });
+         setAttachmentLoading(false);
+         update({ templateId: undefined, templateSnapshot: undefined, templateName: undefined, templateLanguage: undefined, attachments: [] });
         return;
       }
       const template = templates.find((item) => item.id === value);
       if (!template) return;
+       let attachments: Array<{ name: string; contentType: string; contentBase64: string }> = [];
+       const hasAttachmentMetadata = Array.isArray(template.attachments) ? template.attachments.length > 0 : Boolean(template.attachments);
+       if (hasAttachmentMetadata) {
+         setAttachmentLoading(true);
+         try {
+           const response = await fetch(`/api/message-templates/${encodeURIComponent(template.id)}/automation-attachments`, { credentials: "include" });
+           if (!response.ok) throw new Error("attachments");
+           const payload = await response.json();
+           if (!Array.isArray(payload) || payload.length > 5) throw new Error("attachments");
+           attachments = payload.map((file: any) => {
+             if (file?.error || typeof file?.contentBase64 !== "string" || !file.contentBase64 || typeof file?.fileName !== "string" || !file.fileName.trim()) throw new Error("attachment");
+             const contentBase64 = file.contentBase64.replace(/\s/g, "");
+             if (contentBase64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(contentBase64)) throw new Error("attachment");
+             const size = Math.floor(contentBase64.length * 3 / 4) - (contentBase64.endsWith("==") ? 2 : contentBase64.endsWith("=") ? 1 : 0);
+             if (size > 10 * 1024 * 1024) throw new Error("attachment");
+             return { name: file.fileName, contentType: String(file.mimeType || "application/octet-stream"), contentBase64, size };
+           });
+           if (attachments.reduce((total, file: any) => total + file.size, 0) > 25 * 1024 * 1024) throw new Error("attachment");
+           attachments = attachments.map(({ name, contentType, contentBase64 }) => ({ name, contentType, contentBase64 }));
+         } catch {
+           if (mounted.current && requestId === attachmentRequest.current) {
+             setAttachmentFailed(true);
+             setAttachmentLoading(false);
+           }
+           return;
+         }
+       }
+       if (!mounted.current || requestId !== attachmentRequest.current) return;
       const nextSubject = template.subject ?? "";
       const nextBody = template.contentHtml ?? template.content ?? "";
       selectionsRef.current = {
@@ -374,10 +432,18 @@ export function AutomationSendEmailAction({
       };
       update({
         templateId: template.id, templateSnapshot: true, templateName: template.name, templateLanguage: template.language,
-        subject: nextSubject, body: nextBody,
+         subject: nextSubject, body: nextBody, attachments,
       });
+       setAttachmentLoading(false);
     }} />
+     {(missionContext?.defaultEmailTemplateId || missionContext?.defaultEmailCategoryId) && <p className="text-xs text-muted-foreground">
+       {missionContext.defaultEmailTemplateId && <span>{statusCopy.missionDefault}</span>}
+       {missionContext.defaultEmailTemplateId && missionContext.defaultEmailCategoryId ? " · " : ""}
+       {missionContext.defaultEmailCategoryId && <span>{statusCopy.missionCategory}</span>}
+     </p>}
     {templatesQuery.isError && <button type="button" className="text-xs text-destructive" onClick={() => templatesQuery.refetch()}>{copy.templatesError}</button>}
+     {attachmentLoading && <p role="status" className="text-xs text-muted-foreground">{statusCopy.attaching}</p>}
+     {attachmentFailed && <p role="alert" className="text-xs text-destructive">{statusCopy.attachmentError}</p>}
   </div>;
   return <section className="space-y-4" data-testid={testId}>
     <div className="flex items-start gap-3 rounded-lg border bg-muted/20 p-3">
@@ -441,6 +507,13 @@ export function AutomationSendEmailAction({
       </div>
     </div>
     <div className="space-y-3">
+      {Array.isArray(config.attachments) && config.attachments.length > 0 && <section className="space-y-2 rounded-lg border bg-muted/20 p-3" aria-label={statusCopy.attachments}>
+        <h3 className="text-sm font-medium">{statusCopy.attachments} <span className="text-xs text-muted-foreground">({config.attachments.length})</span></h3>
+        <ul className="space-y-1">{config.attachments.map((attachment: any, index: number) => <li key={`${attachment.name}-${index}`} className="flex items-center justify-between gap-2 text-xs">
+          <span className="min-w-0 truncate">{attachment.name}</span>
+          <Button type="button" variant="ghost" size="sm" aria-label={`${statusCopy.removeAttachment}: ${attachment.name}`} onClick={() => update({ attachments: config.attachments.filter((_: any, itemIndex: number) => itemIndex !== index) })}><X className="mr-1 h-3.5 w-3.5" />{statusCopy.removeAttachment}</Button>
+        </li>)}</ul>
+      </section>}
       {!subject.trim() && <p className="text-xs text-destructive">{copy.subjectRequired}</p>}
       {!String(config.body ?? "").trim() && <p className="text-xs text-destructive">{copy.bodyRequired}</p>}
       {unsupported.length > 0 && <p className="text-xs text-destructive">{copy.unsupportedVariables}: {unsupported.map((item) => `{{${item}}}`).join(", ")}</p>}

@@ -295,6 +295,7 @@ import { sendAmiActionViaSshTunnel, sendAmiListActionViaSshTunnel, downloadFileV
 import * as XLSX from "xlsx";
 import { STORAGE_PATHS, ensureAllDirectoriesExist, getPublicUrl, getRelativePath, getAbsolutePath, DATA_ROOT } from "./config/storage-paths";
 import { normalizeAttachmentName, type TaskAttachment } from "@shared/task-attachments";
+import { templateAttachmentSnapshot } from "./lib/template-attachment-snapshot";
 import {
   TASK_ATTACHMENT_MAX_BYTES,
   TASK_ATTACHMENT_MAX_FILES,
@@ -55272,6 +55273,19 @@ Return ONLY the JSON object.`
     }
   });
 
+
+  app.get("/api/message-templates/:id/automation-attachments", requireAuth,
+    (req, res, next) => ["superadmin", "owner"].includes(req.session?.user?.role || "")
+      ? next() : requireAdminOrManager(req, res, next), async (req, res) => {
+    try {
+      const template = await storage.getMessageTemplate(req.params.id);
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      const result = await templateAttachmentSnapshot(template, req.session.user);
+      res.json(result);
+    } catch {
+      res.status(400).json({ error: "Template attachments could not be loaded completely" });
+    }
+  });
 
   app.get("/api/message-templates/:id/attachments", requireAuth, async (req, res) => {
     try {

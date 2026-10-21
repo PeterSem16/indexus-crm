@@ -69,6 +69,13 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/contact-types`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const rows = (await pool.query(`SELECT DISTINCT coalesce(contact_type,'customer') AS type
+      FROM campaign_contacts WHERE campaign_id=$1 ORDER BY type`, [req.params.campaignId])).rows;
+    res.json({ contactTypes: rows.map(row => row.type).filter(type =>
+      ["clinic", "hospital", "customer", "collaborator"].includes(type)) });
+  }));
   app.get(`${root}/transition-readiness`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     res.json(await readCallbackReadiness(req.params.campaignId));

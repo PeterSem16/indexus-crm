@@ -8,6 +8,11 @@ const source = { campaign_name: "Mission", mission_countries: ["SK"], mission_se
   contact_type: "clinic", entity_id: "clinic", country: "SK", name: "Test clinic",
   email: "contact@example.test", phone: "+421900000000" };
 const configs = {
+  send_email: { emailActionVersion: 2, senderMode: "personal", subject: "Unified", body: "<p>{{clinic.name}}</p>",
+    to: "{{contact.email}}", toTargets: [{ kind: "group", id: "team" }],
+    attachments: [{ name: "mission.pdf", contentType: "application/pdf", contentBase64: "cGRm" }] },
+  update_record: { updateRecordVersion: 2, target: { mode: "event", entityType: "clinic" },
+    fields: { notes: "Reviewed" }, acknowledged: true },
   assign_task: { title: "Task {{contact.name}}", taskText: "Details", recipients: [{ kind: "user", id: "participant" }], priority: "high", dueInHours: 24 },
   notify_role: { notificationActionVersion: 2, title: "Title", message: "{{contact.name}}", taskGroupId: "group" },
   send_email_group: { emailActionVersion: 2, senderMode: "personal", subject: "Subject", body: "<p>{{contact.name}}</p>",
@@ -57,6 +62,26 @@ for (const [actionType, config] of Object.entries(configs)) {
   assert.ok(!JSON.stringify(result).includes("private@example.test"));
 }
 const sms = { id: "automation", actionType: "send_sms", serviceActionConfig: configs.send_sms, serviceActionOwnerId: "manager" };
+{
+  assert.deepEqual(statusListNativeActionIssues("send_email", configs.send_email), []);
+  assert.equal(statusListNativeActionType("update_record"), "update_entity");
+  assert.ok(statusListNativeActionIssues("update_record", { ...configs.update_record, target: { mode: "event", entityType: "customer" } }).length);
+  assert.ok(statusListNativeActionIssues("update_record", { ...configs.update_record, acknowledged: false }).length);
+  assert.ok(statusListNativeActionIssues("update_record", { ...configs.update_record, fields: { id: "forged" } }).length);
+  assert.ok(statusListNativeActionIssues("update_record", null).length);
+  assert.ok(statusListNativeActionIssues("send_email", null).length);
+  const h = harness({ source: { ...source, contact_type: "hospital" } });
+  const result = await executeStatusListNativeService({ ...sms, actionType: "update_record", serviceActionConfig: configs.update_record }, input, h.deps);
+  assert.equal(result.error, "service_record_target_mismatch");
+  assert.equal(h.calls.length, 0, "never update a guessed entity type");
+  const hospital = harness({ source: { ...source, contact_type: "hospital" } });
+  const resultHospital = await executeStatusListNativeService({ ...sms, actionType: "update_record", serviceActionConfig: {
+    ...configs.update_record, target: { mode: "event", entityType: "hospital" }, fields: { autoRecruiting: true },
+  } }, input, hospital.deps);
+  assert.equal(resultHospital.ok, true);
+  assert.equal(hospital.calls[0][0], "update_entity");
+  assert.equal(hospital.calls[0][2].event.module, "hospital");
+}
 for (const duplicate of ["pending", "succeeded", "failed"]) {
   const h = harness({ duplicate });
   const result = await executeStatusListNativeService(sms, input, h.deps);

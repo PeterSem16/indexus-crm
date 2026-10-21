@@ -1087,7 +1087,7 @@ const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, 
 /** Used by Status List only after server-side Mission, owner and config checks.
  * This deliberately dispatches to the very same executors as general rules. */
 export async function executeSharedServiceAction(
-  type: "create_task" | "notify_user" | "send_email" | "send_sms",
+  type: "create_task" | "notify_user" | "send_email" | "send_sms" | "update_entity",
   config: Record<string, unknown>, context: any, runId: string,
 ): Promise<ActionResult> {
   return ACTION_HANDLERS[type](config, context, runId);

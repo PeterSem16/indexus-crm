@@ -68,6 +68,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
   const styles = await postcss([tailwindcss({ ...loadConfig(`${process.cwd()}/tailwind.config.ts`), content: [
     "client/src/components/automation-email-content-editor.tsx", "client/src/components/automation-send-email-action.tsx",
      "client/src/components/automation-rule-execution-settings.tsx",
+     "client/src/components/automation-template-picker.tsx",
     "client/src/components/ui/{dialog,input,textarea,button,tabs,badge,select,label,popover,switch}.tsx",
   ] })]).process(await readFile("client/src/index.css", "utf8"), { from: `${process.cwd()}/client/src/index.css` });
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
@@ -177,7 +178,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     assert.ok(sourceBounds && previewSectionBounds && previewSectionBounds.y >= sourceBounds.y + sourceBounds.height);
     assert.equal(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true);
     await page.getByTestId("mail-editor-template").click();
-    await page.getByRole("option", { name: /Editor template/ }).click();
+    await page.getByTestId("mail-editor-template-template-editor-template").click();
     await expect(subject).toHaveValue("Template subject");
     await expect(body).toHaveValue('<p id="template-body">Template body</p>');
     await expect(frame.locator("#template-body")).toHaveText("Template body");

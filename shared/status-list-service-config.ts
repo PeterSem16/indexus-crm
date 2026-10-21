@@ -1,9 +1,12 @@
 import { emailActionIssues } from "./automation-email-action";
 import { smsRecipientList } from "./automation-sms-policy";
 import { taskActionDeadline, validTaskActionRecipients } from "./automation-task-action";
+import { updateRecordIssues } from "./automation-update-record";
 
 export const statusListNativeActionTypes = {
   assign_task: "create_task",
+  send_email: "send_email",
+  update_record: "update_entity",
   notify_role: "notify_user",
   send_email_group: "send_email",
   notify_email: "send_email",
@@ -18,12 +21,18 @@ export function statusListNativeActionType(actionType: string): StatusListNative
 
 /** Same native payload as general Automations; no client-owned execution context. */
 export function statusListNativeActionIssues(actionType: string, config: unknown): string[] {
-  if (config == null) return [];
+  if (config == null) return ["send_email", "update_record"].includes(actionType) ? ["Action configuration is required"] : [];
   const type = statusListNativeActionType(actionType);
   if (!type) return ["This action does not support a shared service configuration"];
   if (typeof config !== "object" || Array.isArray(config)) return ["Action configuration must be an object"];
   const c = config as Record<string, any>;
-  if (JSON.stringify(c).length > 1_000_000) return ["Action configuration is too large"];
+  // Email snapshots include copied attachments (up to 25 MB, base64 encoded).
+  if (JSON.stringify(c).length > (type === "send_email" ? 36_000_000 : 1_000_000)) return ["Action configuration is too large"];
+  if (type === "update_entity") {
+    if (!["clinic", "hospital"].includes(c.target?.entityType)) return ["Choose a clinic or hospital"];
+    if (!["event", "selected"].includes(c.target?.mode)) return ["Unsupported record target"];
+    return updateRecordIssues(c, c.target.entityType);
+  }
   for (const field of ["taskGroupId", "targetRole", "assignedUserId", "assignedDepartmentId", "userId"])
     if (c[field] != null && (typeof c[field] !== "string" || !c[field].trim() || c[field].length > 200))
       return ["Invalid action recipient"];

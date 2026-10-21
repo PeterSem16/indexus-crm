@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { statusListNativeActionIssues, statusListNativeActionType } from "../../shared/status-list-service-config";
+import { STATUS_LIST_RECORD_DB_KEYS, statusListRecordValues } from "../../shared/status-list-template-context";
 
 type Query = (sql: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
 type Input = {
@@ -27,6 +28,7 @@ export const canManageNativeMission = (user: any, countries: unknown) =>
 /** Runs only on service-action definition writes; agent confirmation is untouched. */
 export function createStatusListServiceWriteGuard(deps: {
   query: Query; gateway: (campaignId: string) => Promise<string | null>;
+  validateUpdate?: (config: any, sourceType: string, owner: any, countries: string[]) => Promise<void>;
 }) {
   return async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -52,6 +54,15 @@ export function createStatusListServiceWriteGuard(deps: {
     const type = body.actionType ?? existing?.action_type;
     const issues = statusListNativeActionIssues(type, config);
     if (issues.length) return res.status(400).json({ error: "Invalid service action", issues });
+    if (type === "update_record") {
+      try {
+        // Mission memberships may contain different entity types. The actual
+        // event target is checked again against the persisted membership at run time.
+        await deps.validateUpdate?.(config, config.target.entityType, user, source.country_codes);
+      } catch {
+        return res.status(400).json({ error: "Invalid or unauthorized record update" });
+      }
+    }
     // The client cannot select another user's personal mailbox by forging an ID.
     body.serviceActionOwnerId = config == null ? null :
       !existing || existing.action_type !== type || JSON.stringify(config) !== JSON.stringify(existing.service_action_config)
@@ -70,6 +81,7 @@ export function createStatusListServiceWriteGuard(deps: {
 export const authorizeStatusListServiceWrite = createStatusListServiceWriteGuard({
   query: defaults.query,
   gateway: async id => (await import("./sms-provider")).getCampaignSmsProvider(id),
+  validateUpdate: async (...args) => (await import("./automation-update-record")).validateSavedUpdateRecord(...args),
 });
 
 /** Readiness uses the saved sender identity, with the same Mission write scope. */
@@ -92,6 +104,10 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   const [source] = (await deps.query(`
     SELECT c.name AS campaign_name,c.country_codes AS mission_countries,c.settings AS mission_settings,
       cc.contact_type,a.question_id,qa.value AS question_value,qa.revision AS answer_revision,
+      (SELECT jsonb_object_agg(f.key,f.value) FROM jsonb_each(
+        CASE coalesce(cc.contact_type,'customer') WHEN 'clinic' THEN to_jsonb(cl) WHEN 'hospital' THEN to_jsonb(h)
+          WHEN 'customer' THEN to_jsonb(cu) ELSE '{}'::jsonb END) f
+        WHERE f.key=ANY($5::text[])) AS template_fields,
       cc.status AS source_status,cc.assigned_to AS source_assigned_to,
       cc.created_at AS source_created_at,cc.updated_at AS source_updated_at,
       cc.callback_date AS source_due_date,
@@ -117,11 +133,17 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     LEFT JOIN collaborators co ON co.id=cc.collaborator_id AND cc.contact_type='collaborator'
     LEFT JOIN customers cu ON cu.id=cc.customer_id AND (cc.contact_type='customer' OR cc.contact_type IS NULL)
     WHERE cc.id=$1 AND c.id=$2`,
-  [input.campaignContactId, input.campaignId, input.itemId, automation.id])).rows;
+   [input.campaignContactId, input.campaignId, input.itemId, automation.id, STATUS_LIST_RECORD_DB_KEYS])).rows;
   if (!source?.entity_id) return { ok: false, error: "service_source_not_found" };
+  if (type === "update_entity" && automation.serviceActionConfig.target.mode === "event" &&
+      automation.serviceActionConfig.target.entityType !== (source.contact_type || "customer"))
+    return { ok: false, error: "service_record_target_mismatch" };
   const [owner] = (await deps.query(
-    `SELECT id,role,assigned_countries AS "assignedCountries",is_active AS "isActive"
-     FROM users WHERE id=$1`, [automation.serviceActionOwnerId])).rows;
+     `SELECT id,role,assigned_countries AS "assignedCountries",is_active AS "isActive",
+        to_jsonb(u)->>'full_name' AS "fullName",to_jsonb(u)->>'email' AS email,
+        concat_ws('',to_jsonb(u)->>'phone_prefix',to_jsonb(u)->>'phone') AS phone,
+        to_jsonb(u)->>'position' AS position
+      FROM users u WHERE id=$1`, [automation.serviceActionOwnerId])).rows;
   if (!owner || !canManageNativeMission(owner, source.mission_countries))
     return { ok: false, error: "service_owner_not_authorized" };
   const country = source.country?.toUpperCase() || (codes(source.mission_countries).length === 1 ? codes(source.mission_countries)[0] : null);
@@ -154,7 +176,8 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     firstName: source.first_name || "", lastName: source.last_name || "",
     email: source.email || "", phone: source.phone || "", country, countryCode: country,
   };
-  const values = { ...contact, campaignId: input.campaignId, campaignContactId: input.campaignContactId,
+  const record = statusListRecordValues(contact.type, source.template_fields || {});
+  const values = { ...record, ...contact, campaignId: input.campaignId, campaignContactId: input.campaignContactId,
     title: contact.name, status: source.source_status || "",
     assignedUserId: source.source_assigned_to || "",
     createdAt: source.source_created_at || "", updatedAt: source.source_updated_at || "",
@@ -170,9 +193,11 @@ export async function executeStatusListNativeService(automation: any, input: Inp
       source: "status_list", eventType: "status_list.service_action", entityType: contact.type, entityId: contact.id, countryCode: country,
       actorUserId: input.userId, newValues: values, oldValues: {}, createdAt: new Date() },
     newValues: values, oldValues: {}, contact,
-    ...(contact.type === "customer" ? { customer: contact } : {}),
+     ...(["clinic", "hospital", "customer"].includes(contact.type)
+       ? { [contact.type]: { ...record, id: contact.id } } : {}),
     campaign: { id: input.campaignId, name: source.campaign_name },
-    user: { id: input.userId }, actorUserId: input.userId, countryCode: country, entityId: contact.id,
+     user: { id: owner.id, fullName: owner.fullName || "", email: owner.email || "", phone: owner.phone || "", position: owner.position || "" },
+     actorUserId: input.userId, countryCode: country, entityId: contact.id,
   };
   const triggerKey = input.confirmationId ? `confirmation:${input.confirmationId}` :
     input.requestId ? `manual:${input.requestId}` : `invocation:${randomUUID()}`;

@@ -24,29 +24,42 @@ const migrationCopy: Record<string, Record<string, string>> = {
   de: { legacyNativeNotice: "Diese gespeicherte Aktion verwendet noch das ursprüngliche Verhalten. Sie ändert sich erst nach einer ausdrücklichen Umwandlung.", convertNative: "In den modernen Editor umwandeln", invalidDraft: "Vervollständigen oder korrigieren Sie den Empfänger vor dem Speichern." },
 };
 const reviewFieldCopy: Record<string, Record<string, string>> = {
-  en: { title: "Title", message: "Message", recipient: "Recipients", sender: "Sender", priority: "Priority", deadline: "Deadline", description: "Description", text: "SMS text", gateway: "Gateway", template: "Template", personal: "Manager’s personal account", system: "System account", inherited: "Campaign gateway" },
-  sk: { title: "Názov", message: "Správa", recipient: "Príjemcovia", sender: "Odosielateľ", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablóna", personal: "Osobný účet manažéra", system: "Systémový účet", inherited: "Brána kampane" },
-  cs: { title: "Název", message: "Zpráva", recipient: "Příjemci", sender: "Odesílatel", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablona", personal: "Osobní účet manažera", system: "Systémový účet", inherited: "Brána kampaně" },
-  hu: { title: "Cím", message: "Üzenet", recipient: "Címzettek", sender: "Feladó", priority: "Prioritás", deadline: "Határidő", description: "Leírás", text: "SMS-szöveg", gateway: "Átjáró", template: "Sablon", personal: "Vezető személyes fiókja", system: "Rendszerfiók", inherited: "Kampány átjárója" },
-  ro: { title: "Titlu", message: "Mesaj", recipient: "Destinatari", sender: "Expeditor", priority: "Prioritate", deadline: "Termen", description: "Descriere", text: "Text SMS", gateway: "Gateway", template: "Șablon", personal: "Contul personal al managerului", system: "Cont de sistem", inherited: "Gateway-ul campaniei" },
-  it: { title: "Titolo", message: "Messaggio", recipient: "Destinatari", sender: "Mittente", priority: "Priorità", deadline: "Scadenza", description: "Descrizione", text: "Testo SMS", gateway: "Gateway", template: "Modello", personal: "Account personale del responsabile", system: "Account di sistema", inherited: "Gateway della campagna" },
-  de: { title: "Titel", message: "Nachricht", recipient: "Empfänger", sender: "Absender", priority: "Priorität", deadline: "Frist", description: "Beschreibung", text: "SMS-Text", gateway: "Gateway", template: "Vorlage", personal: "Persönliches Konto der Leitung", system: "Systemkonto", inherited: "Kampagnen-Gateway" },
+  en: { title: "Title", message: "Message", recipient: "Recipients", sender: "Sender", priority: "Priority", deadline: "Deadline", description: "Description", text: "SMS text", gateway: "Gateway", template: "Template", personal: "Manager’s personal account", system: "System account", inherited: "Campaign gateway", target: "Target", mode: "Mode", changedFields: "Changed fields", attachment: "Attachment", clearValue: "Clear value", cc: "CC", bcc: "BCC" },
+  sk: { title: "Názov", message: "Správa", recipient: "Príjemcovia", sender: "Odosielateľ", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablóna", personal: "Osobný účet manažéra", system: "Systémový účet", inherited: "Brána kampane", target: "Cieľ", mode: "Režim", changedFields: "Zmenené polia", attachment: "Príloha", clearValue: "Vymazať hodnotu", cc: "Kópia", bcc: "Skrytá kópia" },
+  cs: { title: "Název", message: "Zpráva", recipient: "Příjemci", sender: "Odesílatel", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablona", personal: "Osobní účet manažera", system: "Systémový účet", inherited: "Brána kampaně", target: "Cíl", mode: "Režim", changedFields: "Změněná pole", attachment: "Příloha", clearValue: "Vymazat hodnotu", cc: "Kopie", bcc: "Skrytá kopie" },
+  hu: { title: "Cím", message: "Üzenet", recipient: "Címzettek", sender: "Feladó", priority: "Prioritás", deadline: "Határidő", description: "Leírás", text: "SMS-szöveg", gateway: "Átjáró", template: "Sablon", personal: "Vezető személyes fiókja", system: "Rendszerfiók", inherited: "Kampány átjárója", target: "Cél", mode: "Mód", changedFields: "Módosított mezők", attachment: "Melléklet", clearValue: "Érték törlése", cc: "Másolat", bcc: "Titkos másolat" },
+  ro: { title: "Titlu", message: "Mesaj", recipient: "Destinatari", sender: "Expeditor", priority: "Prioritate", deadline: "Termen", description: "Descriere", text: "Text SMS", gateway: "Gateway", template: "Șablon", personal: "Contul personal al managerului", system: "Cont de sistem", inherited: "Gateway-ul campaniei", target: "Țintă", mode: "Mod", changedFields: "Câmpuri modificate", attachment: "Atașament", clearValue: "Șterge valoarea", cc: "Copie", bcc: "Copie ascunsă" },
+  it: { title: "Titolo", message: "Messaggio", recipient: "Destinatari", sender: "Mittente", priority: "Priorità", deadline: "Scadenza", description: "Descrizione", text: "Testo SMS", gateway: "Gateway", template: "Modello", personal: "Account personale del responsabile", system: "Account di sistema", inherited: "Gateway della campagna", target: "Destinazione", mode: "Modalità", changedFields: "Campi modificati", attachment: "Allegato", clearValue: "Cancella valore", cc: "Copia", bcc: "Copia nascosta" },
+  de: { title: "Titel", message: "Nachricht", recipient: "Empfänger", sender: "Absender", priority: "Priorität", deadline: "Frist", description: "Beschreibung", text: "SMS-Text", gateway: "Gateway", template: "Vorlage", personal: "Persönliches Konto der Leitung", system: "Systemkonto", inherited: "Kampagnen-Gateway", target: "Ziel", mode: "Modus", changedFields: "Geänderte Felder", attachment: "Anhang", clearValue: "Wert löschen", cc: "Kopie", bcc: "Blindkopie" },
 };
 function nativeReviewRows(actionType: string, config: Record<string, any>, locale: string, missionGateway: string | null) {
   const labels = reviewFieldCopy[locale.split("-")[0]] || reviewFieldCopy.en;
   const targets = Array.isArray(config.recipients) ? config.recipients : [];
   const notifyTargets = config.taskGroupId ? [config.taskGroupId] : config.targetRole ? [config.targetRole] : config.userIds || (config.userId ? [config.userId] : []);
   const emailTargets = [...(Array.isArray(config.toTargets) ? config.toTargets.map((item: any) => `${item.kind}:${item.id}`) : []), String(config.to || "")].filter(Boolean);
-  const text = actionType === "send_sms" ? config.text : actionType === "send_email_group" || actionType === "notify_email" || actionType === "send_contact_email" ? config.body : config.taskText || config.description;
+  const text = actionType === "send_sms" ? config.text : ["send_email", "send_email_group", "notify_email", "send_contact_email"].includes(actionType) ? config.body : config.taskText || config.description;
   const rows: string[] = [];
   const add = (label: string, value: unknown) => { if (value != null && String(value).trim()) rows.push(`${label}: ${String(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}`); };
   if (actionType === "notify_role") {
     add(labels.title, config.title); add(labels.message, config.message);
     add(labels.recipient, notifyTargets.join(", ")); add(labels.priority, config.priority);
-  } else if (["send_email_group", "notify_email", "send_contact_email"].includes(actionType)) {
-    add(labels.recipient, emailTargets.join(", ")); add(labels.sender, config.senderMode === "personal" ? labels.personal : labels.system);
+  } else if (["send_email", "send_email_group", "notify_email", "send_contact_email"].includes(actionType)) {
+    const recipientLines = [
+      ...emailTargets,
+      ...(Array.isArray(config.ccTargets) ? config.ccTargets.map((item: any) => `${labels.cc}: ${item.kind}:${item.id}`) : []),
+      ...(config.cc ? [`${labels.cc}: ${config.cc}`] : []),
+      ...(Array.isArray(config.bccTargets) ? config.bccTargets.map((item: any) => `${labels.bcc}: ${item.kind}:${item.id}`) : []),
+      ...(config.bcc ? [`${labels.bcc}: ${config.bcc}`] : []),
+    ];
+    add(labels.recipient, recipientLines.join(", "));
+    add(labels.sender, config.senderMode === "personal" ? labels.personal : labels.system);
     add(labels.title, config.subject); add(labels.message, text);
     if (config.templateId) add(labels.template, config.templateName || config.templateId);
+    (Array.isArray(config.attachments) ? config.attachments : []).forEach((attachment: any) => add(labels.attachment, attachment?.name));
+  } else if (actionType === "update_record") {
+    add(labels.target, `${labels.mode}: ${config.target?.mode || "—"} · ${config.target?.entityType || "—"}${config.target?.recordId ? ` · ${config.target.recordId}` : ""}`);
+    const fields = Object.entries(config.fields || {});
+    if (fields.length) add(labels.changedFields, fields.map(([key, value]) => `${key} = ${value == null ? labels.clearValue : String(value)}`).join(" · "));
   } else if (actionType === "send_sms") {
     add(labels.recipient, Array.isArray(config.to) ? config.to.join(", ") : config.to);
     const gateway = config.provider && config.provider !== "default" ? config.provider
@@ -112,6 +125,12 @@ function missionProvider(settings: unknown): string | null {
     const value = (parsed as any)?.smsProvider;
     return value === "bulkgate" || value === "smstools" ? value : null;
   } catch { return null; }
+}
+function missionSettings(settings: unknown): Record<string, any> {
+  try {
+    const parsed = typeof settings === "string" ? JSON.parse(settings) : settings;
+    return parsed && typeof parsed === "object" ? parsed as Record<string, any> : {};
+  } catch { return {}; }
 }
 function conditionSummary(draft: StatusListActionDraft, fields: ConditionFieldMetadata[], locale: string, copy: (key: string) => string) {
   if (draft.conditionMode === "always") return copy("always");
@@ -211,7 +230,6 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const { toast } = useToast();
   const copy = (key: string) => actionCopy(locale, key);
   const migration = migrationCopy[locale.split("-")[0]] || migrationCopy.en;
-  const supportedVariables = filterStatusListActionVariables(variables, locale);
   const initialType = initialActionType || "assign_task";
   const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType));
   const [stage, setStage] = useState<Stage>(initialStage);
@@ -239,7 +257,7 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
 
   const needsRole = ["assign_task", "send_email_group", "notify_role"].includes(draft.actionType);
   const needsTaskGroups = draft.actionType === "assign_task";
-  const needsEmail = ["send_email_group", "notify_email", "send_contact_email"].includes(draft.actionType);
+  const needsEmail = ["send_email", "send_email_group", "notify_email", "send_contact_email"].includes(draft.actionType);
   const needsSms = draft.actionType === "send_sms";
   const needsDisposition = draft.actionType === "set_contact_status";
   const needsHospitals = draft.conditionMode === "field_changed_to" && draft.fieldChangedKey === "contact.hospital_id";
@@ -253,6 +271,11 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     queryKey: ["/api/campaigns", campaignId],
     queryFn: () => getJson(`/api/campaigns/${campaignId}`),
     enabled: !!campaignId,
+  });
+  const contactTypesQuery = useQuery<{ contactTypes?: string[] }>({
+    queryKey: ["/api/campaigns", campaignId, "status-list-workflows", "contact-types"],
+    queryFn: () => getJson(`/api/campaigns/${campaignId}/status-list-workflows/contact-types`),
+    enabled: !!campaignId && ["send_email", "send_email_group", "notify_email", "send_contact_email", "update_record"].includes(draft.actionType),
   });
   const rolesQuery = useQuery<any[]>({
     queryKey: ["/api/roles"],
@@ -295,6 +318,34 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     enabled: needsClinics,
   });
   const campaignSmsProvider = useMemo(() => missionProvider(campaignQuery.data?.settings), [campaignQuery.data?.settings]);
+  const campaignSettings = useMemo(() => missionSettings(campaignQuery.data?.settings), [campaignQuery.data?.settings]);
+  const normalizeContactType = (value: unknown): string => {
+    const type = String(value || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+    if (["clinics", "clinic_contact", "clinic_contacts"].includes(type)) return "clinic";
+    if (["hospitals", "hospital_contact", "hospital_contacts"].includes(type)) return "hospital";
+    if (["customers", "customer_contact", "customer_contacts"].includes(type)) return "customer";
+    if (["collaborators", "collaborator_contact", "collaborator_contacts"].includes(type)) return "collaborator";
+    return type;
+  };
+  const campaignContactTypes = Array.from(new Set([
+    ...(Array.isArray(contactTypesQuery.data?.contactTypes) ? contactTypesQuery.data.contactTypes : []),
+    ...(Array.isArray(campaignSettings.contactTypes) ? campaignSettings.contactTypes : []),
+    campaignSettings.contactType,
+  ].map(normalizeContactType).filter(Boolean)));
+  const uniqueRawSourceType = campaignContactTypes.length === 1 ? campaignContactTypes[0] : undefined;
+  const variableSourceType = uniqueRawSourceType && ["clinic", "hospital", "customer", "collaborator"].includes(uniqueRawSourceType)
+    ? uniqueRawSourceType : undefined;
+  const sourceModule = uniqueRawSourceType === "clinic" || uniqueRawSourceType === "hospital" ? uniqueRawSourceType : undefined;
+  const configuredUpdateType = ["clinic", "hospital"].includes(String(draft.serviceActionConfig?.target?.entityType))
+    ? draft.serviceActionConfig?.target?.entityType as "clinic" | "hospital" : undefined;
+  const resolvedUpdateSource = sourceModule || configuredUpdateType;
+  const updateSourceTypeKnown = !!resolvedUpdateSource;
+  const sourceTypeOptions: Array<"clinic" | "hospital"> = sourceModule ? [sourceModule] : ["clinic", "hospital"];
+  const supportedVariables = filterStatusListActionVariables(variables, locale, variableSourceType || configuredUpdateType);
+  const missionContext = {
+    defaultEmailTemplateId: String(campaignQuery.data?.defaultEmailTemplateId || campaignSettings.defaultEmailTemplateId || campaignSettings.emailTemplateId || "") || undefined,
+    defaultEmailCategoryId: String(campaignQuery.data?.defaultEmailCategoryId || campaignSettings.defaultEmailCategoryId || campaignSettings.emailCategoryId || "") || undefined,
+  };
   const dispositions = dispositionsQuery.data || [];
   const selectedDisposition = dispositions.find(item => String(item.id) === String(draft.dispositionId));
   const callbackDisposition = !!selectedDisposition && ["callback", "schedule_email", "schedule_sms"].includes(selectedDisposition.actionType);
@@ -439,6 +490,7 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   };
   const retryLookups = () => { failedQueries.forEach(query => { void query.refetch(); }); };
   const saveBlocked = saveMutation.isPending || (needsSms && (campaignQuery.isLoading || campaignQuery.isError)) ||
+    (nativeActionActive && draft.actionType === "update_record" && (!updateSourceTypeKnown || (contactTypesQuery.isLoading && !configuredUpdateType))) ||
     (nativeActionActive && nativeDraftInvalid) ||
     (nativeActionActive && draft.actionType === "send_sms" && !!campaignSmsProvider && !!draft.serviceActionConfig?.provider
       && draft.serviceActionConfig.provider !== "default" && draft.serviceActionConfig.provider !== campaignSmsProvider);
@@ -475,8 +527,15 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
         {selectedAction?.help && <p className="slsae-callout wide">{selectedAction.help}</p>}
         <p className="slsae-callout wide">{copy("safety")}</p>
       </div>}
-      {stage === "details" && nativeActionActive && <StatusListNativeActionEditor draft={draft} setDraft={setDraft} locale={locale}
+      {stage === "details" && nativeActionActive && draft.actionType === "update_record" && !sourceModule && contactTypesQuery.isLoading && !configuredUpdateType
+        ? <div className="slsae-loading wide" role="status"><div className="slsae-skeleton" /><div className="slsae-skeleton" /></div>
+        : null}
+      {stage === "details" && nativeActionActive && draft.actionType === "update_record" && contactTypesQuery.isError && !sourceModule
+        ? <div className="slsae-error wide" role="alert">{copy("lookupError")} <button className="slsae-button" type="button" onClick={() => void contactTypesQuery.refetch()}>{copy("retry")}</button></div>
+        : null}
+      {stage === "details" && nativeActionActive && (draft.actionType !== "update_record" || sourceModule || !contactTypesQuery.isLoading || configuredUpdateType) && <StatusListNativeActionEditor draft={draft} setDraft={setDraft} locale={locale}
         countryCodes={Array.isArray(campaignQuery.data?.countryCodes) ? campaignQuery.data.countryCodes : []}
+        sourceModule={sourceModule} variableSourceType={variableSourceType} sourceTypeOptions={sourceTypeOptions} missionContext={missionContext}
         missionGateway={campaignSmsProvider} sourceLabel={sourceLabel} variables={supportedVariables} actionId={automation?.id == null ? undefined : String(automation.id)}
         onDraftValidityChange={setNativeDraftInvalid}
         legacyTemplateId={automation && automation.serviceActionConfig == null && draft.serviceActionExplicit && draft.actionType === automation.actionType

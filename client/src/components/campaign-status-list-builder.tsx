@@ -30,7 +30,7 @@ import { StatusListServiceActionEditor } from "@/components/status-list-service-
 import { actionCopy } from "@/components/status-list-service-action-copy";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
-  ClipboardList, Mail, MailPlus, MessageSquare, Tag, Webhook, Bell, Send,
+  ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
   SquareCheck, CircleDot, Info, Loader2, PenLine, X, Check, Download,
   LayoutTemplate, ChevronUp, Eye, EyeOff, ListChecks,
   CircleHelp, ArrowDownRight, Copy,
@@ -169,6 +169,8 @@ const SL: Record<string, Record<string, string>> = {
   smsGatewayMission: { sk: "Provider je vynútený nastavením Mission.", en: "The provider is enforced by the Mission settings.", cs: "Provider je vynucen nastavením Mission.", hu: "A szolgáltatót a Mission beállítása írja elő.", ro: "Providerul este impus de setările Mission.", it: "Il provider è imposto dalle impostazioni Mission.", de: "Der Anbieter wird durch die Mission-Einstellungen erzwungen." },
 
   at_assign_task:        { sk: "Priradiť úlohu", en: "Assign task", cs: "Přiřadit úkol", hu: "Feladat hozzárendelése", ro: "Atribuire sarcină", it: "Assegna compito", de: "Aufgabe zuweisen" },
+  at_send_email:         { sk: "Odoslať e-mail", en: "Send email", cs: "Odeslat e-mail", hu: "E-mail küldése", ro: "Trimite e-mail", it: "Invia e-mail", de: "E-Mail senden" },
+  at_update_record:      { sk: "Aktualizovať záznam", en: "Update record", cs: "Aktualizovat záznam", hu: "Rekord frissítése", ro: "Actualizează înregistrarea", it: "Aggiorna record", de: "Datensatz aktualisieren" },
   at_send_email_group:   { sk: "Skupinový email (rola)", en: "Group email (role)", cs: "Skupinový e-mail (role)", hu: "Csoportos e-mail (szerepkör)", ro: "Email de grup (rol)", it: "Email di gruppo (ruolo)", de: "Gruppen-E-Mail (Rolle)" },
   at_notify_email:       { sk: "Email – externá notifikácia", en: "Email – external notification", cs: "E-mail – externí notifikace", hu: "E-mail – külső értesítés", ro: "Email – notificare externă", it: "Email – notifica esterna", de: "E-Mail – externe Benachrichtigung" },
   at_send_sms:           { sk: "SMS zákazníkovi", en: "SMS to contact", cs: "SMS zákazníkovi", hu: "SMS ügyfélnek", ro: "SMS clientului", it: "SMS al contatto", de: "SMS an Kontakt" },
@@ -179,6 +181,8 @@ const SL: Record<string, Record<string, string>> = {
   at_sys_webhook:        { sk: "Systémový webhook", en: "System webhook", cs: "Systémový webhook", hu: "Rendszer webhook", ro: "Webhook sistem", it: "Webhook di sistema", de: "System-Webhook" },
 
   atHelp_assign_task:        { sk: "Systém vytvorí úlohu v module Tasks a pridelí ju zvolenej role (napr. Back Office). Úloha bude viditeľná v zozname úloh a agent dostane notifikáciu. Nastavte popis, prioritu a termín.", en: "System creates a task in the Tasks module and assigns it to the chosen role (e.g. Back Office). The task appears in the task list and the agent gets a notification. Set description, priority and deadline.", cs: "Systém vytvoří úkol v modulu Úkoly a přidělí ho zvolené roli. Agent dostane notifikaci.", hu: "A rendszer feladatot hoz létre a Feladatok modulban a kiválasztott szerepkör számára.", ro: "Sistemul creează o sarcină în modulul Sarcini și o atribuie rolului ales.", it: "Il sistema crea un compito nel modulo Attività e lo assegna al ruolo scelto.", de: "Das System erstellt eine Aufgabe im Aufgaben-Modul und weist sie der gewählten Rolle zu." },
+  atHelp_send_email:         { sk: "Vyberte šablónu Mission alebo ľubovoľnú aktívnu šablónu povolenú pre krajinu. Nastavte To, CC, BCC, používateľov, skupiny, roly a prílohy.", en: "Choose a Mission template or any active template authorized for the country. Configure To, CC, BCC, users, groups, roles, and attachments.", cs: "Vyberte šablonu Mission nebo libovolnou aktivní šablonu povolenou pro zemi. Nastavte To, CC, BCC, uživatele, skupiny, role a přílohy.", hu: "Válasszon Mission-sablont vagy bármely, az országban engedélyezett aktív sablont. Állítsa be a To, CC, BCC címzetteket, felhasználókat, csoportokat, szerepköröket és mellékleteket.", ro: "Alegeți un șablon Mission sau orice șablon activ autorizat pentru țară. Configurați To, CC, BCC, utilizatori, grupuri, roluri și atașamente.", it: "Scegli un modello Mission o qualsiasi modello attivo autorizzato per il paese. Configura To, CC, BCC, utenti, gruppi, ruoli e allegati.", de: "Wählen Sie eine Mission-Vorlage oder eine beliebige aktive, für das Land freigegebene Vorlage. Konfigurieren Sie To, CC, BCC, Benutzer, Gruppen, Rollen und Anhänge." },
+  atHelp_update_record:      { sk: "Aktualizuje vybrané polia kliniky alebo nemocnice podľa udalosti alebo súvisiaceho záznamu.", en: "Update selected clinic or hospital fields from the event or a related record.", cs: "Aktualizuje vybraná pole kliniky nebo nemocnice podle události či souvisejícího záznamu.", hu: "A klinika vagy kórház kiválasztott mezőit frissíti az esemény vagy kapcsolódó rekord alapján.", ro: "Actualizează câmpurile selectate ale clinicii sau spitalului pe baza evenimentului ori a unei înregistrări asociate.", it: "Aggiorna i campi selezionati della clinica o dell’ospedale dall’evento o da un record correlato.", de: "Aktualisiert ausgewählte Klinik- oder Krankenhausfelder anhand des Ereignisses oder eines verknüpften Datensatzes." },
   atHelp_send_email_group:   { sk: "Odošle e-mail všetkým používateľom zvolenej roly + voliteľným pevným adresám. Šablóna môže obsahovať premenné kontaktu. Vhodné pre uvítacie, follow-up alebo interné notifikačné e-maily.", en: "Sends an email to all users of the selected role + optional fixed addresses. Template can contain contact variables. Good for welcome, follow-up or internal notification emails.", cs: "Odešle e-mail všem uživatelům zvolené role + volitelným pevným adresám.", hu: "E-mailt küld a kiválasztott szerepkör összes felhasználójának + opcionális fix címekre.", ro: "Trimite un email tuturor utilizatorilor rolului ales + adreselor fixe opționale.", it: "Invia un'email a tutti gli utenti del ruolo selezionato + indirizzi fissi opzionali.", de: "Sendet eine E-Mail an alle Benutzer der gewählten Rolle + optionalen festen Adressen." },
   atHelp_notify_email:       { sk: "Odošle e-mail na zadané externé e-mailové adresy. Adresy nemusia byť registrované v INDEXUS. Vhodné pre notifikácie partnerov, externých pracovníkov alebo iných príjemcov. Šablóna môže obsahovať premenné kontaktu.", en: "Sends an email to the specified external email addresses. Addresses do not need to be registered in INDEXUS. Good for notifying partners, external staff or other recipients. Template can contain contact variables.", cs: "Odešle e-mail na zadané externí e-mailové adresy. Adresy nemusí být registrovány v INDEXUS.", hu: "E-mailt küld a megadott külső e-mail címekre. A címeknek nem kell INDEXUS-ban regisztráltnak lenniük.", ro: "Trimite un email la adresele de email externe specificate. Adresele nu trebuie să fie înregistrate în INDEXUS.", it: "Invia un'email agli indirizzi e-mail esterni specificati. Gli indirizzi non devono essere registrati in INDEXUS.", de: "Sendet eine E-Mail an die angegebenen externen E-Mail-Adressen. Adressen müssen nicht in INDEXUS registriert sein." },
   atHelp_send_sms:           { sk: "Odošle SMS správu priamo zákazníkovi. Vyžaduje platné telefónne číslo kontaktu. Správa je odoslaná cez SMS gateway a zalogovaná v komunikačnej histórii.", en: "Sends an SMS message directly to the contact. Requires a valid phone number on the contact. Message is sent via SMS gateway and logged in communication history.", cs: "Odešle SMS zprávu zákazníkovi. Vyžaduje platné telefonní číslo.", hu: "SMS üzenetet küld közvetlenül az ügyfélnek. Érvényes telefonszám szükséges.", ro: "Trimite un SMS direct clientului. Necesită număr de telefon valid.", it: "Invia un SMS direttamente al contatto. Richiede un numero di telefono valido.", de: "Sendet eine SMS-Nachricht direkt an den Kontakt. Erfordert eine gültige Telefonnummer." },
@@ -938,10 +942,9 @@ function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale:
 
 const ACTION_TYPE_OPTIONS = [
   { value: "assign_task",        slKey: "at_assign_task",        icon: ClipboardList, color: "text-blue-500" },
-  { value: "send_email_group",   slKey: "at_send_email_group",   icon: Mail,          color: "text-green-500" },
-  { value: "notify_email",       slKey: "at_notify_email",       icon: MailPlus,      color: "text-violet-500" },
+  { value: "send_email",         slKey: "at_send_email",         icon: Mail,          color: "text-green-500" },
+  { value: "update_record",      slKey: "at_update_record",      icon: FileText,      color: "text-amber-700" },
   { value: "send_sms",           slKey: "at_send_sms",           icon: MessageSquare, color: "text-yellow-500" },
-  { value: "send_contact_email", slKey: "at_send_contact_email", icon: Send,          color: "text-emerald-500" },
   { value: "set_contact_status", slKey: "at_set_contact_status", icon: Tag,           color: "text-purple-500" },
   { value: "set_callback",       slKey: "at_set_callback",       icon: Phone,         color: "text-cyan-500" },
   { value: "notify_role",        slKey: "at_notify_role",        icon: Bell,          color: "text-orange-500" },
@@ -1326,14 +1329,16 @@ function getConditionSummary(
 }
 
 function getActionIcon(actionType: string) {
-  const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
+  const value = ["send_email_group", "notify_email", "send_contact_email"].includes(actionType) ? "send_email" : actionType;
+  const opt = ACTION_TYPE_OPTIONS.find(o => o.value === value);
   if (!opt) return <Zap className="h-3 w-3" />;
   const Icon = opt.icon;
   return <Icon className={`h-3 w-3 ${opt.color}`} />;
 }
 
 function getActionLabel(actionType: string, locale: string): string {
-  const opt = ACTION_TYPE_OPTIONS.find(o => o.value === actionType);
+  const value = ["send_email_group", "notify_email", "send_contact_email"].includes(actionType) ? "send_email" : actionType;
+  const opt = ACTION_TYPE_OPTIONS.find(o => o.value === value);
   return opt ? sl(opt.slKey, locale) : actionType;
 }
 

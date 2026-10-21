@@ -19,7 +19,8 @@ try {
     CREATE TABLE campaign_status_list_items(id varchar,campaign_id varchar);
     CREATE TABLE campaign_status_list_automations(id varchar,status_list_item_id varchar,question_id varchar);
     CREATE TABLE mission_status_list_answers(campaign_contact_id varchar,question_id varchar,value jsonb,revision varchar);
-    CREATE TABLE clinics(id varchar,name text,email text,phone text,country_code text);
+    CREATE TABLE clinics(id varchar,name text,email text,phone text,country_code text,
+      doctor_title text,doctor_first_name text,doctor_last_name text,private_value text);
     CREATE TABLE hospitals(LIKE clinics);
     CREATE TABLE collaborators(id varchar,first_name text,last_name text,email text,mobile text,country_code text);
     CREATE TABLE customers(id varchar,first_name text,last_name text,email text,phone text,country text);
@@ -29,7 +30,8 @@ try {
       'callback_scheduled','agent','2026-10-20T07:00:00Z','2026-10-21T07:00:00Z','2026-10-22T07:00:00Z');
     INSERT INTO campaign_status_list_items VALUES('item','mission');
     INSERT INTO campaign_status_list_automations VALUES('action','item',null);
-    INSERT INTO clinics VALUES('clinic','Clinic','contact@example.test','+421900000000','SK');
+    INSERT INTO clinics VALUES('clinic','Clinic','contact@example.test','+421900000000','SK',
+      'MUDr.','Anna','Nováková','not-for-template');
     INSERT INTO users VALUES('manager','manager',ARRAY['SK'],true);
   `);
   const startup = readFileSync("server/index.ts", "utf8");
@@ -63,6 +65,10 @@ try {
       assert.equal(rendered.activity.updatedAt, "2026-10-21T07:00:00.000Z");
       assert.equal(rendered.activity.dueDate, "2026-10-22T07:00:00.000Z");
       assert.equal(rendered.activity.eventType, "status_list.service_action");
+      assert.equal(rendered.clinic.doctorTitle, "MUDr.");
+      assert.equal(rendered.clinic.doctorLastName, "Nováková");
+      assert.equal(rendered.clinic.doctorSalutationDoc, "Vážená pani doktorka");
+      assert.equal(JSON.stringify(context).includes("not-for-template"), false);
       return { ok: true, output: { sentCount: 1 } };
     } };
   assert.equal((await executeStatusListNativeService(action, input, deps)).ok, true);

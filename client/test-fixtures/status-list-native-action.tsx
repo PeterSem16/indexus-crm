@@ -13,6 +13,24 @@ import "@/components/automation-block-editor.css";
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const actionType = new URLSearchParams(location.search).get("action") || "notify_role";
 const savedActions: Record<string, SavedStatusListAction> = {
+  send_email: {
+    id: "unified-email", actionType: "send_email", serviceActionConfig: {
+      emailActionVersion: 2, senderMode: "personal", to: "{{contact.email}}", subject: "Original subject",
+      body: "<p>Original body</p>",
+    }, sortOrder: 0,
+  },
+  update_record: {
+    id: "update-clinic", actionType: "update_record", serviceActionConfig: {
+      updateRecordVersion: 2, target: { mode: "event", entityType: "clinic" },
+      fields: { notes: "Clinic reviewed" }, acknowledged: false,
+    }, sortOrder: 0,
+  },
+  update_record_hospital: {
+    id: "update-hospital", actionType: "update_record", serviceActionConfig: {
+      updateRecordVersion: 2, target: { mode: "event", entityType: "hospital" },
+      fields: { autoRecruiting: true }, acknowledged: false,
+    }, sortOrder: 0,
+  },
   notify_role: {
     id: "legacy-notify", actionType: "notify_role", serviceActionConfig: null, sortOrder: 0,
     emailRecipients: [], targetRole: "role:supervisor", taskDescription: "Manager notice", conditionField: null, conditionOperator: null, conditionValue: null, conditionJson: null,
@@ -49,9 +67,8 @@ function Fixture() {
           actions={[
             { value: "assign_task", label: "Create task", help: "" },
             { value: "notify_role", label: "Notify user", help: "" },
-            { value: "send_email_group", label: "Email a group", help: "" },
-            { value: "notify_email", label: "Send email", help: "" },
-            { value: "send_contact_email", label: "Email contact", help: "" },
+            { value: "send_email", label: "Email", help: "" },
+            { value: "update_record", label: "Update record", help: "" },
             { value: "send_sms", label: "Send SMS", help: "" },
             { value: "set_callback", label: "Set callback", help: "" },
           ]}

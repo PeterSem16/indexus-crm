@@ -7,7 +7,7 @@ export type SavedStatusListAction = Partial<CampaignStatusListAutomation> & {
 };
 export type ActionConditionMode = "always" | "country" | "answer" | "compound" | "field_changed_to" | "stored";
 export type ActionRule = { field: string; op: string; value: string };
-export const statusListServiceActions = ["assign_task", "send_email_group", "notify_email", "send_sms", "send_contact_email", "set_contact_status", "set_callback", "notify_role", "sys_webhook"] as const;
+export const statusListServiceActions = ["assign_task", "send_email", "update_record", "send_sms", "set_contact_status", "set_callback", "notify_role", "sys_webhook"] as const;
 export type StatusListActionDraft = {
   actionType: string; targetRole: string; taskGroupId: string; taskDescription: string;
   taskDeadlineOffset: string; taskPriority: string; assignNotify: boolean; assignNotifyChannels: string[];
@@ -17,7 +17,11 @@ export type StatusListActionDraft = {
   conditionLogic: string; conditionRules: ActionRule[]; fieldChangedKey: string; fieldChangedValue: string;
   serviceActionConfig: Record<string, any> | null; serviceActionExplicit: boolean;
 };
-export const nativeServiceActionTypes: Record<string, string> = statusListNativeActionTypes;
+export const nativeServiceActionTypes: Record<string, string> = {
+  ...statusListNativeActionTypes,
+  send_email: "send_email",
+  update_record: "update_record",
+};
 const isNativeType = (type: string) => type in nativeServiceActionTypes;
 export const nativeConfigFromLegacy = (action?: SavedStatusListAction) => {
   if (!action) return {};
@@ -52,6 +56,7 @@ export const emptyNativeActionConfig = (actionType: string): Record<string, any>
   if (action === "notify_user") return { notificationActionVersion: 2, title: "", message: "", priority: "normal" };
   if (action === "send_email") return { emailActionVersion: 2, senderMode: "personal" };
   if (action === "send_sms") return {};
+  if (action === "update_record") return { updateRecordVersion: 2, target: { mode: "event", entityType: "" }, fields: {} };
   return {};
 };
 
