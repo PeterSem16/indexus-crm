@@ -44,7 +44,7 @@ test("Update record editor: seven-language help, event default, scoped search an
             </div>
             <div className="task-modern-modal-footer"><button type="button" data-testid="parent-save" disabled={invalid}>Save rule</button></div>
           </DialogContent></Dialog>
-          <pre data-testid="config">{JSON.stringify(config)}</pre>
+          <pre data-testid="config" hidden>{JSON.stringify(config)}</pre>
         </QueryClientProvider>;
       }
       createRoot(document.getElementById("root")).render(<Fixture/>);
@@ -113,6 +113,33 @@ test("Update record editor: seven-language help, event default, scoped search an
     await page.getByTestId("update-record-0-value-notes").fill("Changed again");
     await expect(page.getByTestId("update-record-0-ack")).not.toBeChecked();
     await expect(page.getByTestId("parent-save")).toBeDisabled();
+    const clinicCopy = getUpdateRecordCopy("sk");
+    for (const key of ["leadSource", "flyersSentDate"] as const) {
+      await page.getByTestId("update-record-0-add-field").click();
+      await page.getByRole("option", { name: clinicCopy.field[key], exact: true }).click();
+    }
+    await page.getByTestId("update-record-0-value-leadSource").click();
+    await page.getByRole("option", { name: clinicCopy.option.new_contact, exact: true }).click();
+    await page.getByTestId("update-record-0-enable-initialStatus").check();
+    await page.getByTestId("update-record-0-value-initialStatus").click();
+    await page.getByRole("option", { name: clinicCopy.option.active_contract, exact: true }).click();
+    await page.getByTestId("update-record-0-date-mode-flyersSentDate").click();
+    await page.getByRole("option", { name: clinicCopy.relativeDate, exact: true }).click();
+    await page.getByTestId("update-record-0-date-offset-flyersSentDate").fill("5");
+    await page.getByTestId("update-record-0-date-unit-flyersSentDate").click();
+    await page.getByRole("option", { name: clinicCopy.businessDays, exact: true }).click();
+    assert.deepEqual((await state()).fields, {
+      notes: "Changed again", leadSource: "new_contact", initialStatus: "active_contract",
+      flyersSentDate: { kind: "relative_date", offsetDays: 5, dayType: "business" },
+    });
+    await expect(page.getByTestId("update-record-0-summary")).toContainText("+5");
+    await page.getByTestId("update-record-0-ack").check();
+    await expect(page.getByTestId("parent-save")).toBeEnabled();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByTestId("update-record-0-date-offset-flyersSentDate").scrollIntoViewIfNeeded();
+    await page.screenshot({ path: "/tmp/update-record-relative-mobile.png" });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await page.setViewportSize({ width: 1280, height: 800 });
     await page.getByTestId("update-record-0-mode").click();
     await page.getByRole("option", { name: getUpdateRecordCopy("sk").selected, exact: true }).click();
     await page.getByTestId("update-record-0-type").click();

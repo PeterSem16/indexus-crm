@@ -1,3 +1,6 @@
+import { isUpdateRecordRelativeDate } from "@shared/automation-update-record";
+import { updateRecordDateCopy } from "./automation-update-record-date-copy";
+
 const clinicFields = {
   en: {
     field: { leadSource: "Contact type", leadSourceDate: "Contact date", leadSourceNotes: "Source notes", contractSentDate: "Contract sent date", contractReturnedDate: "Contract returned date", hasFlyers: "Placement of flyers / posters" },
@@ -217,5 +220,14 @@ export function getUpdateRecordCopy(locale: string) {
   const language = locale.toLowerCase().split(/[-_]/)[0] as keyof typeof copy;
   const base = copy[language] || copy.en;
   const clinic = clinicFields[language] || clinicFields.en;
-  return { ...base, field: { ...base.field, ...clinic.field }, option: { ...base.option, ...clinic.option } };
+  const dates = updateRecordDateCopy[language] || updateRecordDateCopy.en;
+  return { ...base, ...dates, field: { ...base.field, ...clinic.field, ...dates.field }, option: { ...base.option, ...clinic.option, ...dates.option } };
+}
+
+export function getUpdateRecordDateSummary(value: unknown, locale: string): string | null {
+  if (!isUpdateRecordRelativeDate(value)) return null;
+  const copy = getUpdateRecordCopy(locale);
+  if (value.offsetDays === 0) return copy.today;
+  if (value.offsetDays === 1 && value.dayType === "calendar") return copy.tomorrow;
+  return `${copy.relativeDate}: ${value.offsetDays > 0 ? "+" : ""}${value.offsetDays} ${value.dayType === "business" ? copy.businessDays : copy.calendarDays}`;
 }

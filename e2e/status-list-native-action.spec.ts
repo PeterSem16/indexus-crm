@@ -188,6 +188,65 @@ test("Update record offers all six pictured clinic fields, preserves typed value
   });
 });
 
+test("Update record saves contact subquestions and execution-relative contract and flyer dates", async ({ page }) => {
+  await parityApi(page);
+  await page.goto("/test-fixtures/status-list-native-action.html?action=update_record", { waitUntil: "networkidle" });
+  await page.getByTestId("service-action-stage-details").click();
+  const copy = getUpdateRecordCopy("en");
+  for (const key of ["leadSource", "contractSentDate", "contractReturnedDate", "hasFlyers"] as const) {
+    await page.getByTestId("update-record-0-add-field").click();
+    await page.getByRole("option", { name: copy.field[key], exact: true }).click();
+  }
+  await page.getByTestId("update-record-0-value-leadSource").click();
+  await page.getByRole("option", { name: copy.option.new_contact, exact: true }).click();
+  const subquestions = { initialStatus: "former", interestCooperation: "interested", interestContract: "not_interested", contractStatus: "active" };
+  for (const [key, value] of Object.entries(subquestions)) {
+    await page.getByTestId(`update-record-0-enable-${key}`).check();
+    await page.getByTestId(`update-record-0-value-${key}`).click();
+    await page.getByRole("option", { name: copy.option[value as keyof typeof copy.option], exact: true }).click();
+  }
+  await page.getByTestId("update-record-0-contact-subquestions").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "/tmp/update-record-contact-subquestions.jpg" });
+  await page.getByTestId("update-record-0-enable-initialStatus").uncheck();
+  await expect(page.getByTestId("update-record-0-value-initialStatus")).toHaveCount(0);
+  await page.getByTestId("update-record-0-value-hasFlyers").click();
+  await page.getByRole("option", { name: copy.true, exact: true }).click();
+  await page.getByTestId("update-record-0-enable-flyersSentDate").check();
+  for (const [key, offsetDays] of [["contractSentDate", 0], ["contractReturnedDate", 5], ["flyersSentDate", 7]] as const) {
+    await page.getByTestId(`update-record-0-date-mode-${key}`).click();
+    await page.getByRole("option", { name: copy.relativeDate, exact: true }).click();
+    await page.getByTestId(`update-record-0-date-offset-${key}`).fill(String(offsetDays));
+    if (offsetDays > 0) {
+      await page.getByTestId(`update-record-0-date-unit-${key}`).click();
+      await page.getByRole("option", { name: copy.businessDays, exact: true }).click();
+    }
+  }
+  await page.getByTestId("update-record-0-date-tomorrow-contractSentDate").click();
+  await expect(page.getByTestId("update-record-0-summary")).toContainText(copy.tomorrow);
+  await page.getByTestId("update-record-0-date-today-contractSentDate").click();
+  await page.getByTestId("update-record-0-ack").check();
+  await page.getByTestId("update-record-0-date-offset-flyersSentDate").fill("6");
+  await expect(page.getByTestId("update-record-0-ack")).not.toBeChecked();
+  await page.getByTestId("update-record-0-date-offset-flyersSentDate").fill("7");
+  await page.getByTestId("update-record-0-date-offset-flyersSentDate").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "/tmp/update-record-relative-dates.jpg" });
+  await page.getByTestId("update-record-0-ack").check();
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("service-action-review")).toContainText(copy.today);
+  await expect(page.getByTestId("service-action-review")).toContainText("+5 Working days");
+  await expect(page.getByTestId("service-action-review")).toContainText("+7 Working days");
+  await expect(page.getByTestId("service-action-review")).not.toContainText("[object Object]");
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0].serviceActionConfig.fields).toMatchObject({
+    interestCooperation: "interested", interestContract: "not_interested", contractStatus: "active", hasFlyers: true,
+    contractSentDate: { kind: "relative_date", offsetDays: 0, dayType: "calendar" },
+    contractReturnedDate: { kind: "relative_date", offsetDays: 5, dayType: "business" },
+    flyersSentDate: { kind: "relative_date", offsetDays: 7, dayType: "business" },
+  });
+  expect(savedWrites[0].serviceActionConfig.fields).not.toHaveProperty("initialStatus");
+});
+
 for (const hospital of [false, true]) test(`Update record uses the shared ${hospital ? "hospital" : "clinic"} editor, requires confirmation and saves typed changes`, async ({ page }) => {
   await parityApi(page, { hospital });
   const errors: string[] = [];

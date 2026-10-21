@@ -74,6 +74,29 @@ test("Update record: real database scope, persisted relationships, typed atomic 
     await assert.rejects(executeUpdateRecord(config(clearedFields), ctx), /clearAcknowledge/);
     const cleared = await executeUpdateRecord(config(clearedFields, { clearAcknowledged: true }), ctx);
     for (const key of Object.keys(clearedFields)) assert.equal(cleared.after[key], null);
+    const runtimeChanges = {
+      initialStatus: "former", interestCooperation: "interested", interestContract: "not_interested", contractStatus: "active",
+      leadSourceDate: { kind: "relative_date", offsetDays: 1, dayType: "calendar" },
+      contractSentDate: { kind: "relative_date", offsetDays: 0, dayType: "calendar" },
+      contractReturnedDate: { kind: "relative_date", offsetDays: 5, dayType: "business" },
+      flyersSentDate: { kind: "relative_date", offsetDays: 7, dayType: "business" },
+    };
+    const runtime = await executeUpdateRecord(config(runtimeChanges), ctx, new Date("2026-10-23T12:00:00Z"));
+    for (const [key, date] of Object.entries({
+      leadSourceDate: "2026-10-24", contractSentDate: "2026-10-23",
+      contractReturnedDate: "2026-10-30", flyersSentDate: "2026-11-03",
+    })) assert.equal(runtime.after[key].toISOString(), `${date}T00:00:00.000Z`);
+    assert.equal(runtime.after.initialStatus, "former");
+    assert.equal(runtime.after.interestCooperation, "interested");
+    assert.equal(runtime.after.interestContract, "not_interested");
+    assert.equal(runtime.after.contractStatus, "active");
+    assert.equal(runtime.after.hasFlyers, false);
+    assert.equal(runtime.after.flyersLocation, "Reception");
+    assert.equal(runtime.after.notes, "Changed");
+    const later = await executeUpdateRecord(config({ contractSentDate: runtimeChanges.contractSentDate }), ctx, new Date("2026-10-24T12:00:00Z"));
+    assert.equal(later.after.contractSentDate.toISOString(), "2026-10-24T00:00:00.000Z");
+    await assert.rejects(executeUpdateRecord(config({ flyersSentDate: runtimeChanges.flyersSentDate },
+      { target: { mode: "selected", entityType: "clinic", recordId: foreignId } }), ctx), /country|unavailable/i);
     // The browser/event snapshot lies about the relationship: only persisted clinicId is authoritative.
     const related = config({ notes: "{{newValues.note}}" }, { target: { mode: "related", entityType: "clinic", relation: "clinicId" } });
     const linked = await executeUpdateRecord(related, ctx);

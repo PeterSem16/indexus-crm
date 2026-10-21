@@ -6,7 +6,7 @@ import {
   contractInstances, campaigns, products, users, departments, collectionStatuses,
 } from "@shared/schema";
 import {
-  UPDATE_RECORD_ENTITIES, UPDATE_RECORD_RELATIONS, updateRecordIssues,
+  UPDATE_RECORD_ENTITIES, UPDATE_RECORD_RELATIONS, updateRecordIssues, isUpdateRecordRelativeDate, resolveUpdateRecordDate,
   type UpdateRecordConfig,
 } from "../../shared/automation-update-record";
 import { userMayAccessTaskCountry } from "./task-contract";
@@ -190,7 +190,7 @@ export async function resolveUpdateRecord(config: Pick<UpdateRecordConfig, "targ
   return { row, countries, targetCountry };
 }
 
-export async function executeUpdateRecord(config: UpdateRecordConfig, ctx: any) {
+export async function executeUpdateRecord(config: UpdateRecordConfig, ctx: any, now = new Date()) {
   const ownerId = ctx.rule?.createdByUserId;
   if (!ownerId) throw new Error("Rule owner is required");
   const owner = await updateRecordOwner(ownerId);
@@ -204,6 +204,8 @@ export async function executeUpdateRecord(config: UpdateRecordConfig, ctx: any) 
       if (!match || !Object.hasOwn(ctx[match[1]] || {}, match[2])) throw new Error(`Unresolved value: ${key}`);
       value = ctx[match[1]][match[2]];
     }
+    if (UPDATE_RECORD_ENTITIES[config.target.entityType].find(field => field.key === key)?.kind === "date" &&
+        isUpdateRecordRelativeDate(input)) value = resolveUpdateRecordDate(input, now);
     fields[key] = value;
   }
   const resolved = { ...config, fields };

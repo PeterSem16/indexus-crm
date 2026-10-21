@@ -13,7 +13,7 @@ import { filterStatusListActionVariables, StatusListNativeActionEditor } from ".
 import { emptyNativeActionConfig, nativeConfigFromLegacy, nativeServiceActionTypes } from "@/lib/status-list-action-draft";
 import { statusListNativeActionIssues } from "@shared/status-list-service-config";
 import { getAutomationEmailCardRecipientCopy } from "@/i18n/automation-email-card-recipient-translations";
-import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
+import { getUpdateRecordCopy, getUpdateRecordDateSummary } from "@/i18n/automation-update-record-copy";
 import { UPDATE_RECORD_ENTITIES } from "@shared/automation-update-record";
 import "./status-list-service-action-editor.css";
 
@@ -95,6 +95,7 @@ function nativeReviewRows(actionType: string, config: Record<string, any>, local
       const field = UPDATE_RECORD_ENTITIES[config.target?.entityType]?.find(field => field.key === key);
       const name = (updateCopy.field as Record<string, string>)[key] || key;
       const display = value == null ? labels.clearValue
+        : field?.kind === "date" && typeof value === "object" ? getUpdateRecordDateSummary(value, locale) || updateCopy.invalidValue
         : field?.kind === "boolean" && typeof value === "boolean" ? (value ? updateCopy.true : updateCopy.false)
         : field?.kind === "enum" ? (updateCopy.option as Record<string, string>)[String(value)] || String(value)
         : String(value);

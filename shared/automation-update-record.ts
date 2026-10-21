@@ -11,6 +11,35 @@ export type UpdateField = {
 const text = (key: string): UpdateField => ({ key, kind: "text", nullable: true });
 const date = (key: string): UpdateField => ({ key, kind: "date", nullable: true });
 const reference = (key: string, reference: string): UpdateField => ({ key, kind: "reference", reference, nullable: true });
+export const CLINIC_CONTACT_SUBFIELDS = ["initialStatus", "interestCooperation", "interestContract", "contractStatus"] as const;
+export type UpdateRecordRelativeDate = {
+  kind: "relative_date";
+  offsetDays: number;
+  dayType: "calendar" | "business";
+};
+export function isUpdateRecordRelativeDate(value: unknown): value is UpdateRecordRelativeDate {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const date = value as UpdateRecordRelativeDate;
+  return Object.keys(date).sort().join(",") === "dayType,kind,offsetDays" &&
+    date.kind === "relative_date" && Number.isInteger(date.offsetDays) &&
+    Math.abs(date.offsetDays) <= 3650 && ["calendar", "business"].includes(date.dayType);
+}
+/** Calendar date at execution time in the app timezone; business days exclude Sat/Sun, not holidays. */
+export function resolveUpdateRecordDate(value: UpdateRecordRelativeDate, now = new Date()): string {
+  if (!isUpdateRecordRelativeDate(value) || Number.isNaN(now.getTime())) throw new Error("Invalid relative date");
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now);
+  const part = (key: string) => Number(parts.find(item => item.type === key)!.value);
+  const date = new Date(Date.UTC(part("year"), part("month") - 1, part("day")));
+  const direction = Math.sign(value.offsetDays);
+  let remaining = Math.abs(value.offsetDays);
+  while (remaining > 0) {
+    date.setUTCDate(date.getUTCDate() + direction);
+    if (value.dayType === "calendar" || ![0, 6].includes(date.getUTCDay())) remaining--;
+  }
+  return date.toISOString().slice(0, 10);
+}
 export const UPDATE_RECORD_ENTITIES: Record<string, UpdateField[]> = {
   task: [
     { key: "title", kind: "text" }, text("description"),
@@ -23,8 +52,12 @@ export const UPDATE_RECORD_ENTITIES: Record<string, UpdateField[]> = {
   clinic: [
     text("notes"), { key: "isActive", kind: "boolean" }, date("nextContactDate"),
     { key: "leadSource", kind: "enum", nullable: true, options: ["new_contact", "former_collaborator", "current_collaborator"] },
+    { key: "initialStatus", kind: "enum", nullable: true, options: ["not_contacted", "former", "active_contract"] },
+    { key: "interestCooperation", kind: "enum", nullable: true, options: ["unknown", "interested", "not_interested"] },
+    { key: "interestContract", kind: "enum", nullable: true, options: ["unknown", "interested", "not_interested"] },
+    { key: "contractStatus", kind: "enum", nullable: true, options: ["none", "active"] },
     date("leadSourceDate"), text("leadSourceNotes"), date("contractSentDate"), date("contractReturnedDate"),
-    { key: "hasFlyers", kind: "boolean" },
+    { key: "hasFlyers", kind: "boolean" }, date("flyersSentDate"),
   ],
   invoice: [text("note"), date("dueDate")],
   collection: [text("note"), text("doctorNote"), date("collectionDate"), { key: "status", kind: "reference", reference: "collection_status", nullable: true }],
@@ -81,6 +114,7 @@ export function updateRecordIssues(config: any, sourceModule: string, allowTempl
   for (const [key, value] of Object.entries(config.fields)) {
     const field = UPDATE_RECORD_ENTITIES[target.entityType].find(item => item.key === key);
     if (!field) { issues.push(`field:${key}`); continue; }
+    if (allowTemplates && field.kind === "date" && isUpdateRecordRelativeDate(value)) continue;
     if (allowTemplates && typeof value === "string" && /{{/.test(value)) {
       if (!/^{{\s*(?:newValues|oldValues)\.[A-Za-z][A-Za-z0-9]*\s*}}$/.test(value)) issues.push(`value:${key}`);
       continue;

@@ -5,7 +5,7 @@ import {
   tasks, customers, hospitals, clinics, invoices, collections, collaborators,
   contractInstances, campaigns, products,
 } from "./schema";
-import { UPDATE_RECORD_ENTITIES, updateRecordIssues } from "./automation-update-record";
+import { UPDATE_RECORD_ENTITIES, updateRecordIssues, resolveUpdateRecordDate, isUpdateRecordRelativeDate } from "./automation-update-record";
 const config = (fields: Record<string, unknown> = { notes: "Reviewed" }, overrides: any = {}) => ({
   updateRecordVersion: 2, target: { mode: "event", entityType: "clinic" },
   acknowledged: true, fields, ...overrides,
@@ -68,4 +68,56 @@ test("Explicit clearing and safe dates/variables, never implicit conversions", (
   assert.deepEqual(updateRecordIssues(config({ isActive: "{{newValues.isActive}}" }), "clinic"), []);
   assert.ok(updateRecordIssues(config({ isActive: "{{newValues.isActive}}" }), "clinic", false).length);
   assert.ok(updateRecordIssues(config({ notes: "before {{newValues.notes}}" }), "clinic").length);
+});
+
+test("Clinic subquestions match the card's persisted choices and flyer dates remain optional", () => {
+  const options = {
+    initialStatus: ["not_contacted", "former", "active_contract"],
+    interestCooperation: ["unknown", "interested", "not_interested"],
+    interestContract: ["unknown", "interested", "not_interested"],
+    contractStatus: ["none", "active"],
+  };
+  for (const [key, values] of Object.entries(options)) {
+    assert.deepEqual(UPDATE_RECORD_ENTITIES.clinic.find(field => field.key === key)?.options, values);
+    for (const value of values) assert.deepEqual(updateRecordIssues(config({ [key]: value }), "clinic"), []);
+    assert.ok(updateRecordIssues(config({ [key]: "wrong" }), "clinic").length);
+    assert.deepEqual(updateRecordIssues(config({ [key]: null }, { clearAcknowledged: true }), "clinic"), []);
+  }
+  assert.deepEqual(updateRecordIssues(config({ flyersSentDate: "2026-10-21" }), "clinic"), []);
+  assert.deepEqual(updateRecordIssues(config({ flyersSentDate: null }, { clearAcknowledged: true }), "clinic"), []);
+});
+
+test("Relative dates are date-only configuration, strictly validated and resolved at runtime", () => {
+  const relative = { kind: "relative_date", offsetDays: 5, dayType: "business" };
+  assert.deepEqual(updateRecordIssues(config({ contractSentDate: relative, flyersSentDate: relative }), "clinic"), []);
+  assert.ok(updateRecordIssues(config({ contractSentDate: relative }), "clinic", false).length);
+  assert.ok(updateRecordIssues(config({ notes: relative }), "clinic").length);
+  for (const invalid of [{ ...relative, offsetDays: "5" }, { ...relative, offsetDays: null },
+    { ...relative, offsetDays: 0.5 }, { ...relative, offsetDays: 3651 }, { ...relative, offsetDays: -3651 },
+    { ...relative, offsetDays: NaN }, { ...relative, dayType: "holidays" },
+    { ...relative, timeZone: "UTC" }, { kind: "relative_date" }, {}, []]) {
+    assert.equal(isUpdateRecordRelativeDate(invalid), false);
+    assert.ok(updateRecordIssues(config({ contractReturnedDate: invalid }), "clinic").length);
+  }
+});
+
+test("Runtime dates use Bratislava calendar days across weekends, DST, leap days and year boundaries", () => {
+  const resolve = (now: string, offsetDays: number, dayType: "calendar" | "business" = "calendar") =>
+    resolveUpdateRecordDate({ kind: "relative_date", offsetDays, dayType }, new Date(now));
+  const friday = "2026-10-23T12:00:00Z";
+  assert.equal(resolve(friday, 0), "2026-10-23");
+  assert.equal(resolve(friday, 1), "2026-10-24");
+  assert.equal(resolve(friday, 1, "business"), "2026-10-26");
+  assert.equal(resolve(friday, 5, "business"), "2026-10-30");
+  assert.equal(resolve(friday, 7, "business"), "2026-11-03");
+  assert.equal(resolve("2026-10-26T12:00:00Z", -1, "business"), "2026-10-23");
+  assert.equal(resolve("2026-10-24T12:00:00Z", 0, "business"), "2026-10-24");
+  assert.equal(resolve("2026-10-24T22:30:00Z", 0), "2026-10-25");
+  assert.equal(resolve("2026-10-24T22:30:00Z", 1), "2026-10-26");
+  assert.equal(resolve("2026-03-28T23:30:00Z", 1), "2026-03-30");
+  assert.equal(resolve("2026-03-29T22:30:00Z", 0), "2026-03-30");
+  assert.equal(resolve("2026-12-31T23:30:00Z", 0), "2027-01-01");
+  assert.equal(resolve("2028-02-28T12:00:00Z", 1), "2028-02-29");
+  assert.equal(resolve("2028-02-28T12:00:00Z", 2), "2028-03-01");
+  assert.throws(() => resolveUpdateRecordDate({ kind: "relative_date", offsetDays: 1.5, dayType: "calendar" }));
 });

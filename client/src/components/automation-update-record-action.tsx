@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Check, Plus, Search, ShieldCheck, Trash2 } from "lucide-react";
-import { UPDATE_RECORD_ENTITIES, UPDATE_RECORD_RELATIONS, updateRecordIssues, type UpdateField } from "@shared/automation-update-record";
+import { UPDATE_RECORD_ENTITIES, UPDATE_RECORD_RELATIONS, CLINIC_CONTACT_SUBFIELDS, updateRecordIssues, type UpdateField, type UpdateRecordRelativeDate } from "@shared/automation-update-record";
 import { useI18n } from "@/i18n";
-import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
+import { getUpdateRecordCopy, getUpdateRecordDateSummary } from "@/i18n/automation-update-record-copy";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -301,6 +301,7 @@ export function AutomationUpdateRecordAction({
   const valueSummary = (field: UpdateField, value: unknown) => {
     if (value === null) return copy.clear;
     if (typeof value === "boolean") return value ? copy.true : copy.false;
+    if (field.kind === "date" && typeof value === "object") return getUpdateRecordDateSummary(value, locale) || copy.invalidValue;
     if (typeof value === "string" && value.match(tokenPattern)) {
       const variable = supportedVariables.find(item => item.value === value.match(tokenPattern)?.[1]);
       return variable ? `${copy.variable}: ${variable.label}` : value;
@@ -311,8 +312,9 @@ export function AutomationUpdateRecordAction({
   };
   const clearCount = Object.values(fields).filter(value => value === null).length;
   const usedKeys = new Set(Object.keys(fields));
-  const optionsField = (key: string, field: UpdateField) => {
+  const optionsField = (key: string, field: UpdateField): React.ReactNode => {
     const value = fields[key];
+    const relative = value && typeof value === "object" && (value as any).kind === "relative_date" ? value as UpdateRecordRelativeDate : null;
     const variable = typeof value === "string" ? value.match(tokenPattern)?.[1] : undefined;
     const selectedOption = optionData[key]?.find(item => String(item.value) === String(value));
     return <div className="space-y-2">
@@ -331,9 +333,69 @@ export function AutomationUpdateRecordAction({
         <SelectTrigger data-testid={`${root}-value-${key}`}><SelectValue placeholder={copy.selectValue} /></SelectTrigger>
         <SelectContent>{(field.options || []).map(option => <SelectItem key={option} value={option}>{(copy.option as Record<string, string>)[option] || option}</SelectItem>)}</SelectContent>
       </Select>}
+      {key === "leadSource" && target.entityType === "clinic" && <fieldset className="space-y-3 rounded-lg border bg-muted/20 p-3" data-testid={`${root}-contact-subquestions`}>
+        <legend className="px-1 text-sm font-medium">{copy.contactQuestions}</legend>
+        <p className="text-xs text-muted-foreground">{copy.contactQuestionsHelp}</p>
+        {CLINIC_CONTACT_SUBFIELDS.filter(child => supportedFields.some(spec => spec.key === child)).map(child => {
+          const enabled = Object.hasOwn(fields, child);
+          return <div key={child} className="space-y-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" className="accent-primary" checked={enabled} data-testid={`${root}-enable-${child}`} onChange={event => {
+                const next = { ...fields };
+                if (event.target.checked) next[child] = ""; else delete next[child];
+                saveFields(next);
+              }} /><span>{fieldLabel(child)}</span>
+            </label>
+            {enabled && <div className="space-y-2 border-l pl-3">
+              {optionsField(child, fieldMap.get(child)!)}
+              {validation.includes(`value:${child}`) && <p role="alert" className="text-xs text-destructive">{copy.invalidValue}</p>}
+            </div>}
+          </div>;
+        })}
+      </fieldset>}
+      {key === "hasFlyers" && target.entityType === "clinic" && supportedFields.some(spec => spec.key === "flyersSentDate") && <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" className="accent-primary" checked={Object.hasOwn(fields, "flyersSentDate")} data-testid={`${root}-enable-flyersSentDate`} onChange={event => {
+            const next = { ...fields };
+            if (event.target.checked) next.flyersSentDate = ""; else delete next.flyersSentDate;
+            saveFields(next);
+          }} /><span>{fieldLabel("flyersSentDate")}</span>
+        </label>
+        {Object.hasOwn(fields, "flyersSentDate") && <div className="space-y-2 border-l pl-3">
+          {optionsField("flyersSentDate", fieldMap.get("flyersSentDate")!)}
+          {validation.includes("value:flyersSentDate") && <p role="alert" className="text-xs text-destructive">{copy.invalidValue}</p>}
+        </div>}
+      </div>}
       {field.kind === "date" && <div data-testid={`${root}-value-${key}`}>
-        <TaskCreateDatePicker value={typeof value === "string" && !variable ? value.slice(0, 10) : ""} onChange={next => saveFields({ ...fields, [key]: next })}
-          locale={locale} label={fieldLabel(key)} clearLabel={copy.clear} />
+        <div className="space-y-2">
+          <Label htmlFor={`${root}-date-mode-${key}`} className="text-xs">{copy.dateMode}</Label>
+          <Select value={relative ? "relative" : "fixed"} onValueChange={mode => saveFields({ ...fields, [key]: mode === "relative" ? { kind: "relative_date", offsetDays: 0, dayType: "calendar" } : "" })}>
+            <SelectTrigger id={`${root}-date-mode-${key}`} data-testid={`${root}-date-mode-${key}`}><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="fixed">{copy.fixedDate}</SelectItem><SelectItem value="relative">{copy.relativeDate}</SelectItem></SelectContent>
+          </Select>
+          {relative ? <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
+            <div className="flex flex-wrap gap-2">
+              {[{ label: copy.today, days: 0 }, { label: copy.tomorrow, days: 1 }].map(preset => <Button key={preset.days} type="button" variant="outline" size="sm"
+                data-testid={`${root}-date-${preset.days === 0 ? "today" : "tomorrow"}-${key}`}
+                onClick={() => saveFields({ ...fields, [key]: { kind: "relative_date", offsetDays: preset.days, dayType: "calendar" } })}>{preset.label}</Button>)}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1"><Label htmlFor={`${root}-date-offset-${key}`}>{copy.offsetDays}</Label>
+                <Input id={`${root}-date-offset-${key}`} type="number" min={-3650} max={3650} step={1} data-testid={`${root}-date-offset-${key}`}
+                  value={Number.isFinite(relative.offsetDays) ? relative.offsetDays : ""}
+                  onChange={event => saveFields({ ...fields, [key]: { ...relative, offsetDays: event.target.value.trim() === "" ? null : Number(event.target.value) } })} />
+              </div>
+              <div className="space-y-1"><Label htmlFor={`${root}-date-unit-${key}`}>{copy.dayType}</Label>
+                <Select value={relative.dayType} onValueChange={dayType => saveFields({ ...fields, [key]: { ...relative, dayType } })}>
+                  <SelectTrigger id={`${root}-date-unit-${key}`} data-testid={`${root}-date-unit-${key}`}><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="calendar">{copy.calendarDays}</SelectItem><SelectItem value="business">{copy.businessDays}</SelectItem></SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{copy.dateRuntimeHelp}</p>
+          </div> : <TaskCreateDatePicker value={typeof value === "string" && !variable ? value.slice(0, 10) : ""} onChange={next => saveFields({ ...fields, [key]: next })}
+            locale={locale} label={fieldLabel(key)} clearLabel={copy.clear} />}
+        </div>
       </div>}
       {field.kind === "reference" && field.reference === "collection_status" && <div className="space-y-2">
         <div className="flex gap-2"><Input value={referenceSearch[key] || ""} placeholder={copy.searchHint} onChange={event => {
@@ -493,7 +555,11 @@ export function AutomationUpdateRecordAction({
         </Select>
       </div>
       {!Object.keys(fields).length && <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-5 text-center text-xs text-muted-foreground">{copy.empty}</div>}
-      {Object.entries(fields).map(([key, value]) => {
+      {Object.entries(fields).filter(([key]) => {
+        if (target.entityType !== "clinic") return true;
+        const parent = key === "flyersSentDate" ? "hasFlyers" : CLINIC_CONTACT_SUBFIELDS.some(child => child === key) ? "leadSource" : null;
+        return !parent || !Object.hasOwn(fields, parent) || !supportedFields.some(field => field.key === key);
+      }).map(([key, value]) => {
         const field = fieldMap.get(key);
         return <article key={key} className="space-y-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/35" data-testid={`${root}-field-row-${key}`}>
           <div className="flex items-center gap-2">
