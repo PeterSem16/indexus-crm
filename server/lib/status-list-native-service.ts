@@ -69,7 +69,7 @@ export function createStatusListServiceWriteGuard(deps: {
         ? user.id : existing.service_action_owner_id;
     if (type === "send_sms" && config) {
       const gateway = await deps.gateway(req.params.campaignId);
-      if (gateway && config.provider && config.provider !== "default" && config.provider !== gateway)
+      if (gateway && config.provider && !["default", "mission", gateway].includes(config.provider))
         return res.status(400).json({ error: "SMS gateway conflicts with Mission settings" });
     }
     next();
@@ -169,7 +169,7 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   let settings = source.mission_settings;
   if (typeof settings === "string") { try { settings = JSON.parse(settings); } catch { settings = null; } }
   if (type === "send_sms" && settings?.smsProvider && automation.serviceActionConfig.provider &&
-      !["default", settings.smsProvider].includes(automation.serviceActionConfig.provider))
+      !["default", "mission", settings.smsProvider].includes(automation.serviceActionConfig.provider))
     return { ok: false, error: "service_gateway_conflict" };
   const contact = {
     id: source.entity_id, type: source.contact_type || "customer", name: source.name || "",

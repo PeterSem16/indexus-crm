@@ -19,6 +19,7 @@ import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { actionCopy } from "@/components/status-list-service-action-copy";
 import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
+import { StatusListAgentActionRow, StatusListAgentItemFrame, StatusListAgentItemHeading, StatusListAgentQuestionChoices, StatusListBatchBanner, StatusListBatchSaveButton, StatusListPhasePipeline, StatusListQuickOptionsPanel } from "@/components/status-list-agent-preview";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
 import { createAgentWorkspaceTask, type AgentWorkspaceTaskCreateInput } from "@/lib/agent-workspace-task-create";
@@ -456,13 +457,11 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
     a.actionType === "send_email_group" || a.actionType === "set_contact_status" || a.actionType === "set_callback"
   );
   if (actionable.length === 0) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-2">
-      {actionable.map((a: any) => {
+  return <StatusListAgentActionRow actions={actionable} renderAction={(a: any) => {
         const isRunning = running.has(String(a.id));
         if (a.actionType === "send_email_group") {
           return (
-            <Button key={a.id} type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+            <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
               disabled={isRunning} onClick={() => onRun(a)} data-testid={`btn-sl-email-${a.id}`}>
               {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mail className="h-3 w-3 text-green-600" />}
               {slt("runEmail", locale)}
@@ -472,12 +471,10 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
         if (a.actionType === "set_contact_status") {
           const disp = (dispositions || []).find((d: any) => String(d.id) === String(a.dispositionId));
           const isCallback = !!disp && ["callback", "schedule_email", "schedule_sms"].includes(disp.actionType);
-          return <SlStatusButton key={a.id} automation={a} isRunning={isRunning} onRun={onRun} locale={locale} isCallback={isCallback} />;
+          return <SlStatusButton automation={a} isRunning={isRunning} onRun={onRun} locale={locale} isCallback={isCallback} />;
         }
-        return <SlCallbackButton key={a.id} automation={a} isRunning={isRunning} onRun={onRun} locale={locale} />;
-      })}
-    </div>
-  );
+        return <SlCallbackButton automation={a} isRunning={isRunning} onRun={onRun} locale={locale} />;
+      }} />;
 }
 
 // "Set status" button. For a plain disposition it just runs the action; for a
@@ -6341,87 +6338,10 @@ export function CommunicationCanvas({
               <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
                 {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
                 {hasSlTabAssignment ? (
-                  <div className="flex items-stretch gap-1">
-                    {phaseStats.flatMap((ph, idx) => {
-                      const isActive = slActiveTab === ph.key;
-                      const isComplete = ph.total > 0 && ph.confirmed === ph.total;
-                      const isStarted = ph.confirmed > 0;
-                      const nodes: JSX.Element[] = [];
-                      if (idx > 0) {
-                        nodes.push(
-                          <div key={`sep-${ph.key}`} className="flex items-center shrink-0 self-center px-0.5">
-                            <ChevronRight className="h-3 w-3 text-muted-foreground/30" />
-                          </div>
-                        );
-                      }
-                      nodes.push(
-                        <button
-                          key={ph.key}
-                          type="button"
-                          onClick={() => {
-                            setSlActiveTab(ph.key);
-                            if (campaign?.id && campaignContactId) {
-                              localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, ph.key);
-                            }
-                          }}
-                          className={`flex-1 rounded-xl border p-2.5 transition-all duration-200 text-left relative overflow-hidden ${
-                            isActive ? ph.cardActive : 'bg-muted/20 dark:bg-muted/10 border-border/40 hover:bg-muted/50 hover:border-border/70'
-                          }`}
-                          data-testid={`sl-phase-${ph.key}`}
-                        >
-                          {/* Completion tick */}
-                          {isComplete && (
-                            <div className="absolute top-1.5 right-1.5">
-                              <CheckCircle className={`h-3 w-3 ${ph.dotColor}`} />
-                            </div>
-                          )}
-                          {/* Phase label row */}
-                          <div className="flex items-center gap-1.5 mb-2 pr-4">
-                            <div className={`h-1.5 w-1.5 rounded-full shrink-0 transition-colors ${
-                              isComplete ? 'bg-emerald-500' : isStarted ? ph.dotColor : 'bg-muted-foreground/20'
-                            }`} />
-                            <span className={`text-[9px] font-extrabold uppercase tracking-widest leading-none transition-colors ${
-                              isActive ? ph.labelColor : 'text-muted-foreground/50'
-                            }`}>
-                              {ph.label}
-                            </span>
-                          </div>
-                          {/* Mini progress bar */}
-                          <div className="h-1.5 bg-black/5 dark:bg-white/8 rounded-full overflow-hidden mb-1.5">
-                            <div
-                              className="h-full rounded-full transition-all duration-700"
-                              style={{
-                                width: ph.total > 0 ? `${ph.pct}%` : '0%',
-                                background: isComplete
-                                  ? '#10b981'
-                                  : ph.pct > 0
-                                  ? ph.barGradient
-                                  : 'transparent',
-                              }}
-                            />
-                          </div>
-                          {/* Count + pct */}
-                          {ph.total > 0 ? (
-                            <div className="flex items-center justify-between gap-1">
-                              <span className={`text-[9px] tabular-nums font-semibold leading-none transition-colors ${
-                                isActive ? ph.labelColor : 'text-muted-foreground/40'
-                              }`}>
-                                {ph.confirmed}/{ph.total}
-                              </span>
-                              <span className={`text-[9px] font-bold tabular-nums leading-none transition-colors ${
-                                isComplete ? 'text-emerald-500' : isActive ? ph.pctColor : 'text-muted-foreground/30'
-                              }`}>
-                                {ph.pct}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[9px] text-muted-foreground/25 italic leading-none">—</span>
-                          )}
-                        </button>
-                      );
-                      return nodes;
-                    })}
-                  </div>
+                  <StatusListPhasePipeline phases={phaseStats} active={slActiveTab} onSelect={phase => {
+                    setSlActiveTab(phase);
+                    if (campaign?.id && campaignContactId) localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, phase);
+                  }} />
                 ) : (
                   /* Fallback overall bar when no tab assignment */
                   <div className="flex items-center gap-2">
@@ -6547,57 +6467,22 @@ export function CommunicationCanvas({
 
               {/* ── Batch mode active banner ────────────────────────── */}
               {statusListMode === "batch" && !slBatchBannerDismissed && (
-                <div className="mx-3 mt-2 rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/30 flex items-center gap-2.5 px-3 py-2 shrink-0" data-testid="sl-batch-mode-banner">
-                  <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-blue-800 dark:text-blue-300">{slu("batchBannerTitle", locale)}</span>
-                    <span className="text-xs text-blue-700 dark:text-blue-400"> – {slu("batchBannerMsg", locale)}</span>
-                  </div>
-                  <button
-                    type="button"
-                    aria-label="Dismiss"
-                    onClick={() => {
-                      if (campaignContactId) localStorage.setItem(`sl-batch-banner-${campaignContactId}`, "1");
-                      setSlBatchBannerDismissed(true);
-                    }}
-                    className="shrink-0 rounded-md p-0.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <StatusListBatchBanner title={slu("batchBannerTitle", locale)} message={slu("batchBannerMsg", locale)} onDismiss={() => {
+                  if (campaignContactId) localStorage.setItem(`sl-batch-banner-${campaignContactId}`, "1");
+                  setSlBatchBannerDismissed(true);
+                }} />
               )}
 
               {/* ── Options panel ──────────────────────────────────── */}
-              {(() => {
-                const dbOptions = (dbStatusList as any[]).filter((i: any) => i.itemType === "option" && !i.isHidden);
-                if (dbOptions.length === 0) return null;
-                return (
-                  <div className="mx-3 mt-2 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-gradient-to-br from-amber-50 to-amber-50/30 dark:from-amber-950/30 dark:to-transparent shrink-0 overflow-hidden" data-testid="status-list-options-panel">
-                    <div className="flex items-center gap-2 px-3 pt-2.5 pb-1">
-                      <div className="h-5 w-5 rounded-md bg-amber-500/15 flex items-center justify-center shrink-0">
-                        <Zap className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">{slu("options", locale)}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 px-3 pb-3">
-                      {dbOptions.map((opt: any) => (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => handleSlOptionSelect(opt)}
-                          disabled={slRunningOption === opt.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-md shadow-black/10 transition-all hover:scale-105 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100"
-                          style={{ backgroundColor: opt.color || "#6b7280" }}
-                          data-testid={`option-btn-${opt.id}`}
-                        >
-                          {slRunningOption === opt.id ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <StatusListQuickOptionIcon name={opt.icon} className="h-3.5 w-3.5 shrink-0" />}
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+              <StatusListQuickOptionsPanel
+                options={(dbStatusList as any[]).filter((item: any) => item.itemType === "option" && !item.isHidden)}
+                label={slu("options", locale)}
+                runningId={slRunningOption}
+                onSelect={optionId => {
+                  const option = (dbStatusList as any[]).find((item: any) => String(item.id) === optionId);
+                  if (option) handleSlOptionSelect(option);
+                }}
+              />
 
 
               {/* ── Callback scheduling dialog ─────────────────────── */}
@@ -6882,31 +6767,7 @@ export function CommunicationCanvas({
                   const isChecked = dbSlChecked.has(String(item.id));
                   const isInfo = item.confirmationType === "info";
                   return (
-                  <div
-                    id={`sl-step-${item.stepId}`}
-                    key={item.id}
-                    className={`relative rounded-xl border transition-all duration-200 overflow-hidden ${
-                      isChecked
-                        ? "bg-emerald-50/80 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-700/60 shadow-sm"
-                        : slHighlightedStep === item.stepId
-                        ? "bg-primary/5 border-primary/60 shadow-md ring-2 ring-primary/30"
-                        : item.tab === 'acquisition'
-                        ? "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/40 hover:border-blue-300/60 dark:hover:border-blue-700/50 hover:shadow-sm"
-                        : item.tab === 'contract'
-                        ? "bg-violet-50/50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/40 hover:border-violet-300/60 dark:hover:border-violet-700/50 hover:shadow-sm"
-                        : item.tab === 'retention'
-                        ? "bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-300/60 dark:hover:border-emerald-700/50 hover:shadow-sm"
-                        : "bg-card border-border hover:border-primary/25 dark:hover:border-primary/35 hover:shadow-sm"
-                    }`}
-                  >
-                    {/* Left accent bar */}
-                    <div className={`absolute inset-y-0 left-0 w-[3px] rounded-l-xl transition-all duration-300 ${
-                      isChecked ? "bg-emerald-500"
-                      : item.tab === 'acquisition' ? "bg-blue-400/70"
-                      : item.tab === 'contract' ? "bg-violet-400/70"
-                      : item.tab === 'retention' ? "bg-emerald-400/70"
-                      : isInfo ? "bg-blue-400" : "bg-muted-foreground/15"
-                    }`} />
+                  <StatusListAgentItemFrame key={String(item.id)} itemId={String(item.id)} stepId={item.stepId} tab={item.tab} selected={isChecked} info={isInfo} highlighted={slHighlightedStep === item.stepId}>
                     <div className="flex items-start gap-3 pl-4 pr-3 py-3">
                       {/* Checkbox / Info icon */}
                       <div className="shrink-0 mt-0.5">
@@ -6931,10 +6792,7 @@ export function CommunicationCanvas({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-sm leading-snug ${isChecked ? "font-bold text-emerald-700 dark:text-emerald-300" : "font-semibold"}`}>
-                          {item.label}
-                          {item.required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}
-                        </div>
+                        <StatusListAgentItemHeading label={item.label} selected={isChecked} required={item.required} />
                         {item.canonicalClinicStatusKey && (() => {
                           const ck = item.canonicalClinicStatusKey as string;
                           const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
@@ -6993,144 +6851,48 @@ export function CommunicationCanvas({
                             </div>
                           );
                         })()}
-                      {(() => {
-                        const visibleQs = (item.questions || []).filter((q: any) => !q.isHidden);
-                        if (visibleQs.length === 0) return null;
-                        // Group by groupName so radio/checkbox sets stay together
-                        const groups: Record<string, any[]> = {};
-                        visibleQs.forEach((q: any) => {
-                          const k = q.groupName || "__ungrouped__";
-                          if (!groups[k]) groups[k] = [];
-                          groups[k].push(q);
-                        });
-                        // Step-level exclusivity: when step has "single" selection mode OR
-                        // every group uses "ONE" logic, selecting one option clears all others.
-                        const stepSingleSelect = item.questionSelectionMode === "single";
-                        const allGroupsAreOne = stepSingleSelect || Object.values(groups).every(
-                          (gList: any[]) => gList[0]?.logicOperator === "ONE"
-                        );
-                        return (
-                          <div className="mt-2 pt-1.5 border-t border-dashed space-y-2" data-testid={`sl-questions-${item.id}`}>
-                            {stepSingleSelect && (
-                              <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1">
-                                <span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">1×</span>
-                              </p>
-                            )}
-                            {Object.entries(groups).map(([gk, gqs]) => (
-                              <div key={gk}>
-                                {gk !== "__ungrouped__" && (
-                                  <div className="flex items-center gap-1.5 mb-1.5">
-                                    <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider">{gk}</p>
-                                    {!stepSingleSelect && (gqs as any[])[0]?.logicOperator === "ONE" && (
-                                      <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300">1×</span>
-                                    )}
-                                  </div>
-                                )}
-                                <div className="flex flex-wrap gap-1">
-                                  {(gqs as any[]).map((q: any) => {
-                                    const ft = q.fieldType || "checkbox";
-                                    const answered = slQuestionAnswers[q.id] !== undefined;
-                                    // single-select at step level forces ONE mode across all questions
-                                    const groupMode = (stepSingleSelect || (gqs as any[])[0]?.logicOperator === "ONE") ? "ONE" : undefined;
-                                    // When all groups are 1× mode, pass ALL step questions so that
-                                    // selecting one option clears every other option in the step.
-                                    const exclusiveQs = (groupMode === "ONE" && allGroupsAreOne)
-                                      ? visibleQs
-                                      : gqs as any[];
-                                    const hasActionable = (q.automations || []).some((a: any) =>
-                                      a.actionType === "set_contact_status" || a.actionType === "set_callback" || a.actionType === "send_email_group"
-                                    );
-                                    const doAutoConfirmParent = () => {
-                                      if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
-                                        handleSlToggle(String(item.id), true);
-                                        for (const a of (item.automations || [])) handleSlRunAction(a);
-                                      }
-                                    };
-                                    if (isStatusListYesNo(ft)) {
-                                      return (
-                                        <div key={q.id} className="w-full" data-testid={`sl-question-${q.id}`}>
-                                          {q.questionText && <p className="text-[10px] text-foreground/70 mb-1">{q.questionText}</p>}
-                                          <div className="flex gap-1">
-                                            <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "yes", exclusiveQs, groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
-                                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`}
-                                              data-testid={`btn-sl-q-yes-${q.id}`}>Áno</button>
-                                            <button type="button"
-                                              onClick={() => { handleSlQuestionAnswer(q, "no", exclusiveQs, groupMode); if (hasActionable) for (const a of (q.automations || [])) handleSlRunAction(a); doAutoConfirmParent(); }}
-                                              className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${slQuestionAnswers[q.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`}
-                                              data-testid={`btn-sl-q-no-${q.id}`}>Nie</button>
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-                                    // checkbox / radio — render as styled choice pill
-                                    const cbAuto = (q.automations || []).find((a: any) => a.actionType === "set_callback");
-                                    const stAuto = (q.automations || []).find((a: any) => a.actionType === "set_contact_status");
-                                    if (cbAuto) {
-                                      return (
-                                        <div key={q.id} data-testid={`sl-question-${q.id}`}>
-                                          <SlCallbackButton
-                                            automation={cbAuto}
-                                            isRunning={slRunningAuto.has(String(cbAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
-                                            locale={locale}
-                                            label={q.questionText}
-                                          />
-                                        </div>
-                                      );
-                                    }
-                                    if (stAuto) {
-                                      const stDisp = (slDispositions as any[]).find((d: any) => String(d.id) === String(stAuto.dispositionId));
-                                      const isCallback = !!stDisp && ["callback", "schedule_email", "schedule_sms"].includes(stDisp.actionType);
-                                      return (
-                                        <div key={q.id} data-testid={`sl-question-${q.id}`}>
-                                          <SlStatusButton
-                                            automation={stAuto}
-                                            isRunning={slRunningAuto.has(String(stAuto.id))}
-                                            onRun={(a, opts) => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); handleSlRunAction(a, opts); doAutoConfirmParent(); }}
-                                            locale={locale}
-                                            isCallback={isCallback}
-                                            label={q.questionText}
-                                          />
-                                        </div>
-                                      );
-                                    }
-                                    // No actionable automations: plain interactive choice chip
-                                    // ONE mode: show radio-dot indicator regardless of fieldType
-                                    const isOneMode = groupMode === "ONE";
-                                    return (
-                                      <button
-                                        key={q.id}
-                                        type="button"
-                                        onClick={() => { handleSlQuestionAnswer(q, true, exclusiveQs, groupMode); doAutoConfirmParent(); }}
-                                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
-                                          answered
-                                            ? "bg-primary text-primary-foreground border-primary"
-                                            : "bg-background border-border hover:border-primary/50 text-foreground"
-                                        }`}
-                                        style={q.color ? (answered ? { backgroundColor: q.color, borderColor: q.color, color: "#fff" } : { borderColor: q.color, color: q.color }) : undefined}
-                                        data-testid={`btn-sl-q-${q.id}`}
-                                      >
-                                        {(ft === "radio" || isOneMode) && (
-                                          <div className={`w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
-                                            {answered && <div className="w-1 h-1 rounded-full bg-white" />}
-                                          </div>
-                                        )}
-                                        {ft === "checkbox" && !isOneMode && (
-                                          <div className={`w-2.5 h-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>
-                                            {answered && <Check className="h-1.5 w-1.5 text-white" />}
-                                          </div>
-                                        )}
-                                        {q.questionText}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                      <StatusListAgentQuestionChoices
+                        itemId={String(item.id)}
+                        questions={item.questions || []}
+                        questionSelectionMode={item.questionSelectionMode}
+                        answers={slQuestionAnswers}
+                        yesLabel="Áno"
+                        noLabel="Nie"
+                        onAnswer={(question, value, exclusiveQuestions, groupMode) => {
+                          const q = question as any;
+                          const actionable = (q.automations || []).some((automation: any) =>
+                            automation.actionType === "set_contact_status" || automation.actionType === "set_callback" || automation.actionType === "send_email_group"
+                          );
+                          handleSlQuestionAnswer(q, value, exclusiveQuestions, groupMode);
+                          if (isStatusListYesNo(q.fieldType || "checkbox") && actionable) {
+                            for (const automation of q.automations || []) handleSlRunAction(automation);
+                          }
+                          if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
+                            handleSlToggle(String(item.id), true);
+                            for (const automation of item.automations || []) handleSlRunAction(automation);
+                          }
+                        }}
+                        renderAction={(question, exclusiveQuestions, groupMode) => {
+                          const q = question as any;
+                          const autoConfirmParent = () => {
+                            if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
+                              handleSlToggle(String(item.id), true);
+                              for (const automation of item.automations || []) handleSlRunAction(automation);
+                            }
+                          };
+                          const callbackAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_callback");
+                          if (callbackAutomation) return <SlCallbackButton automation={callbackAutomation} isRunning={slRunningAuto.has(String(callbackAutomation.id))}
+                            onRun={(automation, options) => { handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode); handleSlRunAction(automation, options); autoConfirmParent(); }}
+                            locale={locale} label={q.questionText} />;
+                          const statusAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_contact_status");
+                          if (!statusAutomation) return null;
+                          const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
+                          const isCallback = !!disposition && ["callback", "schedule_email", "schedule_sms"].includes(disposition.actionType);
+                          return <SlStatusButton automation={statusAutomation} isRunning={slRunningAuto.has(String(statusAutomation.id))}
+                            onRun={(automation, options) => { handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode); handleSlRunAction(automation, options); autoConfirmParent(); }}
+                            locale={locale} isCallback={isCallback} label={q.questionText} />;
+                        }}
+                      />
                       {(() => {
                         const itemState = currentStatusStateRows.find((s: any) => String(s.statusListItemId) === String(item.id));
                         if (!itemState?.confirmedAt) return null;
@@ -7317,17 +7079,19 @@ export function CommunicationCanvas({
                     })}
                   </div>
                 )}
-                </div>
+                </StatusListAgentItemFrame>
                 ); })}
               </div>
 
               {/* ── Batch-save button (batch mode only) ──────────── */}
               {statusListMode === "batch" && (
-                <div className="px-3 py-2 shrink-0">
-                  <button
-                    type="button"
-                    disabled={batchUnsavedIds.size === 0 || slBatchSaving}
-                    onClick={() => {
+                <StatusListBatchSaveButton
+                  label={slt("batchSave", locale)}
+                  count={batchUnsavedIds.size}
+                  disabled={slBatchSaving}
+                  pendingAutomationCount={pendingAutomationCount}
+                  pendingAutomationLabel={slt("batchAutomationsPending", locale)}
+                  onSave={() => {
                       // Note-only changes save immediately.  The callback/
                       // reschedule dialog is only meaningful for new steps.
                       if (batchSlSelections.size === 0) {
@@ -7338,25 +7102,8 @@ export function CommunicationCanvas({
                       setSlBatchCallbackDt("");
                       setSlBatchCallbackNote("");
                       setSlBatchSaveOpen(true);
-                    }}
-                    className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-sm font-bold transition-all shadow-sm ${batchUnsavedIds.size > 0 ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200/50 dark:shadow-emerald-900/30" : "bg-muted text-muted-foreground border border-dashed border-border cursor-default opacity-60"}`}
-                    data-testid="btn-sl-batch-save"
-                  >
-                    <Save className="h-4 w-4" />
-                    {slt("batchSave", locale)}
-                    {batchUnsavedIds.size > 0 && (
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/25 px-1 text-[11px] font-black">
-                        {batchUnsavedIds.size}
-                      </span>
-                    )}
-                    {pendingAutomationCount > 0 && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-400/30 px-1.5 text-[10px] font-semibold text-amber-100">
-                        <Zap className="h-2.5 w-2.5" />
-                        {pendingAutomationCount} {slt("batchAutomationsPending", locale)}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                  }}
+                />
               )}
 
               {/* ── Nexus Pulse Footer ─────────────────────────────── */}

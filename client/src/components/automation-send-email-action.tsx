@@ -164,7 +164,7 @@ export function AutomationSendEmailAction({
       ...patch,
       senderMode,
       emailActionVersion: 2,
-      ...(senderMode === "personal"
+      ...(["personal", "agent"].includes(senderMode)
         ? { includeSystemSignature: false }
         : { includeSystemSignature: patch.includeSystemSignature ?? config.includeSystemSignature ?? true }),
     };
@@ -531,14 +531,18 @@ export function AutomationSendEmailAction({
         <Label>{copy.sender}</Label>
         <Select value={config.senderMode || "system"} onValueChange={(value) => update({
           senderMode: value,
-          ...(value === "personal" ? { includeSystemSignature: false } : {}),
+          ...(["personal", "agent"].includes(value) ? { includeSystemSignature: false } : {}),
         })}>
-          <SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+          <SelectTrigger data-testid={`${testId}-sender`}><SelectValue /></SelectTrigger><SelectContent>
             <SelectItem value="system">{copy.systemSender}</SelectItem><SelectItem value="personal">{copy.personalSender}</SelectItem>
+            <SelectItem value="agent">{t.missionCommunication.agentSender}</SelectItem>
+            <SelectItem value="mission">{t.missionCommunication.missionSender}</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-xs text-muted-foreground">{config.senderMode === "personal" ? copy.authorSender : copy.systemSender}</p>
-        {config.senderMode === "personal"
+        <p className="text-xs text-muted-foreground">{config.senderMode === "agent" ? t.missionCommunication.agentHelp
+          : config.senderMode === "mission" ? t.missionCommunication.missionHelp
+          : config.senderMode === "personal" ? copy.authorSender : copy.systemSender}</p>
+        {!["agent", "mission"].includes(config.senderMode) && (config.senderMode === "personal"
           ? <MailboxStatus copy={copy} mailbox={personal} loading={mailboxQuery.isLoading} />
           : countryCodes.length
             ? selectedSystem.length
@@ -547,12 +551,12 @@ export function AutomationSendEmailAction({
                 <MailboxStatus copy={copy} mailbox={selectedSystem.find((item) => item.countryCode === code)} loading={mailboxQuery.isLoading} />
               </div>)}</div>
               : <MailboxStatus copy={copy} loading={mailboxQuery.isLoading} />
-            : <MailboxStatus copy={copy} loading={mailboxQuery.isLoading} />}
+            : <MailboxStatus copy={copy} loading={mailboxQuery.isLoading} />)}
       </div>
       <div className="space-y-1.5">
         <Label>{copy.displayName}</Label>
         <Input value={config.senderDisplayName || ""} onChange={(event) => update({ senderDisplayName: event.target.value })} />
-        {config.senderMode !== "personal" && <label className="flex items-center gap-2 text-xs text-muted-foreground">
+        {!["personal", "agent"].includes(config.senderMode) && <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={config.includeSystemSignature !== false} onChange={(event) => update({ includeSystemSignature: event.target.checked })} />
           {copy.includeSignature}
         </label>}

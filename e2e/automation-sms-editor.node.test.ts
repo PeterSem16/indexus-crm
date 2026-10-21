@@ -1,4 +1,5 @@
 import test from "node:test";
+import missionCopy from "../client/src/i18n/mission-communication-translations";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { build } from "esbuild";
@@ -53,7 +54,7 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
       setup(builder) {
         builder.onResolve({ filter: /^@\/i18n$/ }, () => ({ path: "language", namespace: "fixture" }));
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
-          contents: `export const useI18n=()=>({locale:"sk",t:{common:{close:"Zavrieť"}}});`, loader: "ts",
+          contents: `export const useI18n=()=>({locale:"sk",t:{missionCommunication:${JSON.stringify(missionCopy.sk)},common:{close:"Zavrieť"}}});`, loader: "ts",
         }));
       },
     }],
@@ -63,6 +64,7 @@ test("SMS editor: explicit multiple phones, prefix selection, modal variables/sn
   const styles = await postcss([tailwindcss({ ...loadConfig(`${process.cwd()}/tailwind.config.ts`), content: [
     "client/src/components/automation-send-sms-action.tsx", "client/src/components/phone-number-field.tsx",
     "client/src/components/ui/{dialog,input,textarea,button,badge,select,label,popover,command}.tsx",
+    "client/src/components/automation-template-picker.tsx",
   ] })]).process(await readFile("client/src/index.css", "utf8"), { from: `${process.cwd()}/client/src/index.css` });
   const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
   try {

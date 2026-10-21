@@ -10,6 +10,7 @@ import loadConfig from "tailwindcss/loadConfig";
 import editorCopy from "../client/src/i18n/send-email-editor-translations";
 import executionCopy from "../client/src/i18n/automation-execution-settings-translations";
 import assistanceCopy from "../client/src/i18n/automation-editor-help-translations";
+import missionCopy from "../client/src/i18n/mission-communication-translations";
 
 test("automation email modal edits the real rule draft safely, preserves recipients and fits desktop/mobile", async () => {
   const translationSource = ts.createSourceFile("translations.ts", await readFile("client/src/i18n/translations.ts", "utf8"), ts.ScriptTarget.Latest, true);
@@ -57,7 +58,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
         builder.onResolve({ filter: /^@\/i18n$/ }, () => ({ path: "language", namespace: "fixture" }));
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
            contents: `import {automationEmailCardRecipientCopy} from "./client/src/i18n/automation-email-card-recipient-translations"; import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; import assistanceCopy from "./client/src/i18n/automation-editor-help-translations"; ${emailCopy.getText(translationSource)}
-               export const useI18n=()=>({locale:"sk",t:{automationEmailCardRecipients:automationEmailCardRecipientCopy.sk,sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,automationEditorHelp:assistanceCopy.sk,common:{close:"Zavrieť"}}});`,
+               export const useI18n=()=>({locale:"sk",t:{missionCommunication:${JSON.stringify(missionCopy.sk)},automationEmailCardRecipients:automationEmailCardRecipientCopy.sk,sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,automationEditorHelp:assistanceCopy.sk,common:{close:"Zavrieť"}}});`,
           resolveDir: process.cwd(), loader: "ts",
         }));
       },
@@ -82,6 +83,13 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     await page.addStyleTag({ content: styles.css + await readFile("client/src/components/tasks/task-modal-modern.css", "utf8") + await readFile("client/src/pages/automations-workspace.css", "utf8") });
     await page.addStyleTag({ content: ":root{--background:0 0% 100%;--foreground:222 25% 15%;--card:0 0% 100%;--muted:220 16% 95%;--muted-foreground:220 10% 40%;--border:220 15% 85%;--primary:200 75% 35%;--primary-foreground:0 0% 100%}" });
     await page.addScriptTag({ content: result.outputFiles[0].text });
+    await page.getByTestId("mail-sender").click();
+    await page.getByRole("option", { name: missionCopy.sk.agentSender, exact: true }).click();
+    await expect(page.getByTestId("mail")).toContainText(missionCopy.sk.agentHelp);
+    await page.getByTestId("mail-sender").click();
+    await page.getByRole("option", { name: missionCopy.sk.missionSender, exact: true }).click();
+    await expect(page.getByTestId("mail")).toContainText(missionCopy.sk.missionHelp);
+    await expect(page.getByTestId("mail")).not.toContainText("author@example.test");
     await expect(page.locator("iframe")).toHaveCount(0);
     await expect(page.locator("textarea")).toHaveCount(0);
     await expect(page.getByTestId("mail-subject")).toHaveCount(0);
@@ -143,7 +151,7 @@ test("automation email modal edits the real rule draft safely, preserves recipie
     assert.ok(config.body.includes("cid:indexus-automation-task"));
     assert.equal(config.templateId, "saved-template");
     assert.equal(config.templateSnapshot, true);
-    assert.equal(config.senderMode, "personal");
+    assert.equal(config.senderMode, "mission");
     assert.equal(config.to, "contact@example.test");
     assert.equal(config.customSetting, "keep");
     await page.screenshot({ path: "/tmp/automation-email-editor-desktop.png" });

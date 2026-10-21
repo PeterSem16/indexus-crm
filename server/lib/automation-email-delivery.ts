@@ -13,6 +13,7 @@ import { automationEmailInlineAttachments } from "./automation-email-assets";
 import { automationDisplayValues } from "./automation-display-values";
 import { lookupAutomationReference } from "./automation-reference-lookup";
 import { resolveAutomationEmailCardRecipients } from "./automation-email-card-recipients";
+import { resolveAutomationMissionSender } from "./automation-mission-sender";
 
 export async function planAutomationEmailRecipients(config: any) {
   return resolveEmailRecipients(config, {
@@ -34,6 +35,14 @@ export async function deliverAutomationEmail(config: any, context: any) {
     if (context.event?.module === "call" &&
         (!context.newValues?.campaignId || !context.event?.countryCode))
       throw new Error("Inbound email requires verified Mission and queue country");
+    const requestedSenderMode = config.senderMode || "system";
+    const resolvedSender = await resolveAutomationMissionSender(config, context, {
+      campaign: id => storage.getCampaign(id),
+      user: id => storage.getUser(id),
+      session: id => storage.getActiveAgentSession(id),
+      sharedMailboxes: id => storage.getUserMs365SharedMailboxes(id),
+    });
+    config = resolvedSender.config;
     const ctx = taskTemplateContext(context, config.templateLanguage);
     const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
     const addresses = await resolveAutomationEmailCardRecipients(
@@ -104,12 +113,12 @@ export async function deliverAutomationEmail(config: any, context: any) {
     const recipient = (address: string) => ({ emailAddress: { address } });
     await sendAutomationGraphEmail(tokens.accessToken, {
       message: { subject, body: { contentType: "HTML", content: html },
-        from: { emailAddress: { address: mailbox.email, ...(displayName ? { name: displayName } : {}) } },
+        from: { emailAddress: { address: resolvedSender.sharedMailboxEmail || mailbox.email, ...(displayName ? { name: displayName } : {}) } },
         toRecipients: recipients.to.map(recipient), ccRecipients: recipients.cc.map(recipient),
         bccRecipients: recipients.bcc.map(recipient), attachments },
       saveToSentItems: true,
-    });
-    return { ok: true, output: { provider: "ms365", senderMode: personal ? "personal" : "system",
+    }, undefined, resolvedSender.sharedMailboxEmail);
+    return { ok: true, output: { provider: "ms365", senderMode: requestedSenderMode,
       countryCode: country || null, toCount: recipients.to.length, ccCount: recipients.cc.length,
       bccCount: recipients.bcc.length, sentCount: recipients.count } };
   } catch (error) {

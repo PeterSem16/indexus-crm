@@ -14,6 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
+import { translations, type Locale } from "@/i18n/translations";
 import { StatusListWorkspace } from "@/components/status-list-workspace";
 import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-copy";
 import { outlinePhase } from "@/lib/status-list-outline";
@@ -24,7 +25,7 @@ import { StatusListQuickOptionIcon, StatusListQuickOptionIconPicker } from "@/co
 import { StatusListDispositionImportEditor } from "@/components/status-list-disposition-import-editor";
 import { StatusListTemplateEditor } from "@/components/status-list-template-editor";
 import { StatusListConfirmProvider, useStatusListConfirm } from "./status-list-confirm";
-import { StatusListAdminPreview } from "./status-list-admin-preview";
+import { StatusListAgentPreview, readStatusListMode } from "./status-list-agent-preview";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
@@ -838,106 +839,31 @@ function PreviewQuestions({
   );
 }
 
-function StatusListPreview({ items, locale }: { items: StatusListItem[]; locale: string }) {
-  const [checked, setChecked] = useState<Set<string>>(new Set());
-  return <StatusListAdminPreview items={items} locale={locale}/>;
-
-  if (items.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-        <ListChecks className="h-8 w-8 opacity-30" />
-        <p className="text-sm">{sl("previewEmpty", locale)}</p>
-      </div>
-    );
+function StatusListPreview({ items, locale, campaignId }: { items: StatusListItem[]; locale: string; campaignId: string }) {
+  const campaignQuery = useQuery<any>({
+    queryKey: ["/api/campaigns", campaignId],
+    queryFn: () => fetch(`/api/campaigns/${campaignId}`, { credentials: "include" }).then(response => {
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+      return response.json();
+    }),
+  });
+  const copy = translations[locale as Locale].statusListAgentPreview;
+  if (campaignQuery.isLoading) {
+    return <div className="space-y-3 rounded-xl border bg-card p-4" aria-label={copy.loading} data-testid="status-list-preview-settings-loading">
+      <div className="h-10 animate-pulse rounded-lg bg-muted" />
+      <div className="h-16 animate-pulse rounded-lg bg-muted" />
+      <div className="h-12 animate-pulse rounded-lg bg-muted" />
+    </div>;
   }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 mb-3 pb-2 border-b">
-        <ListChecks className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold text-foreground">{sl("previewTitle", locale)}</span>
-        <span className="ml-auto text-xs text-muted-foreground">{items.length} {sl("previewSteps", locale)}</span>
-      </div>
-      {(() => {
-        const previewRoots = items.filter(i => !i.parentId);
-        const previewChildrenOf = (pid: string) => items.filter(i => i.parentId === pid);
-        return previewRoots.map((item, idx) => {
-        const ConfirmIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === item.confirmationType)?.icon || SquareCheck;
-        const isChecked = checked.has(item.id);
-        const autoCount = item.automations?.length ?? 0;
-        const previewChildren = previewChildrenOf(item.id);
-        return (
-          <div key={item.id}>
-          <div
-            className={`rounded-lg border p-3 transition-colors ${isChecked ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-xs font-mono text-muted-foreground/60 w-5 shrink-0 pt-0.5">{idx + 1}.</span>
-              <button
-                type="button"
-                onClick={() => setChecked(prev => {
-                  const next = new Set(prev);
-                  if (next.has(item.id)) { next.delete(item.id); } else { next.add(item.id); }
-                  return next;
-                })}
-                className={`mt-0.5 shrink-0 transition-colors ${item.confirmationType === "info" ? "cursor-default" : "cursor-pointer"}`}
-                title={item.confirmationType}
-              >
-                <ConfirmIcon className={`h-4 w-4 ${isChecked ? "text-primary" : "text-muted-foreground/50"}`} />
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-sm font-medium ${isChecked ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                    {localizeText(item.label, locale)}
-                  </span>
-                  {item.required && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 font-medium">
-                      {sl("requiredBadge", locale)}
-                    </span>
-                  )}
-                  {autoCount > 0 && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
-                      <Zap className="h-2.5 w-2.5" />
-                      {autoCount} {sl("previewAutomations", locale)}
-                    </span>
-                  )}
-                </div>
-                {item.description && (
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-3 leading-relaxed whitespace-pre-line">
-                    {localizeText(item.description, locale)}
-                  </p>
-                )}
-                {(item.questions?.length ?? 0) > 0 && (
-                  <PreviewQuestions questions={item.questions} locale={locale} allItems={items} />
-                )}
-              </div>
-            </div>
-          </div>
-          {previewChildren.length > 0 && (
-            <div className="ml-5 mt-1 space-y-1.5 pl-3 border-l-2 border-dashed border-border">
-              {previewChildren.map((child) => {
-                const ChildIcon = CONFIRM_TYPE_OPTIONS.find(o => o.value === child.confirmationType)?.icon || SquareCheck;
-                const childChecked = checked.has(child.id);
-                return (
-                  <div key={child.id} className={`rounded-lg border p-2.5 transition-colors ${childChecked ? "border-primary/30 bg-primary/5" : "border-border bg-card"}`}>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => setChecked(prev => { const next = new Set(prev); if (next.has(child.id)) next.delete(child.id); else next.add(child.id); return next; })} className="shrink-0">
-                        <ChildIcon className={`h-3.5 w-3.5 ${childChecked ? "text-primary" : "text-muted-foreground/50"}`} />
-                      </button>
-                      <span className={`text-xs font-medium ${childChecked ? "line-through text-muted-foreground" : ""}`}>{localizeText(child.label, locale)}</span>
-                    </div>
-                    {child.description && <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-line">{localizeText(child.description, locale)}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          </div>
-        );
-      });
-      })()}
-    </div>
-  );
+  if (campaignQuery.isError) {
+    return <div className="flex flex-col items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-center" role="alert" data-testid="status-list-preview-settings-error">
+      <p className="text-sm text-destructive">{copy.error}</p>
+      <Button type="button" variant="outline" size="sm" onClick={() => void campaignQuery.refetch()}>{copy.retry}</Button>
+    </div>;
+  }
+  const campaign = campaignQuery.data;
+  const statusListMode = readStatusListMode(campaign?.settings);
+  return <StatusListAgentPreview items={items} locale={locale} statusListMode={statusListMode}/>;
 }
 
 const ACTION_TYPE_OPTIONS = [
@@ -4076,7 +4002,7 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
       </section>
 
 
-      {previewMode && <StatusListPreview items={items} locale={locale} />}
+      {previewMode && <StatusListPreview items={items} locale={locale} campaignId={campaignId} />}
       </>}
       definition={(selectedItemId, selectedQuestionId, controls) => {
         const selectedItem = items.find(item => item.id === selectedItemId);

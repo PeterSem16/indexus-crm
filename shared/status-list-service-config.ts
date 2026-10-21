@@ -45,7 +45,7 @@ export function statusListNativeActionIssues(actionType: string, config: unknown
     if (c.smsActionVersion !== 2) issues.push("Use the current SMS editor");
     try { smsRecipientList(c.to); } catch { issues.push("Choose valid international SMS recipients"); }
     if (typeof c.text !== "string" || !c.text.trim()) issues.push("SMS message is required");
-    if (c.provider != null && !["default", "bulkgate", "smstools"].includes(c.provider)) issues.push("Invalid SMS gateway");
+    if (c.provider != null && !["default", "mission", "bulkgate", "smstools"].includes(c.provider)) issues.push("Invalid SMS gateway");
     if (c.kind != null && !["transactional", "promotional"].includes(c.kind)) issues.push("Invalid SMS kind");
     return issues;
   }

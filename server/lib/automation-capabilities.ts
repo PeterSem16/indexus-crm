@@ -786,7 +786,7 @@ export function validateRuleCapabilities(rule: {
         fail(`${path}.config.text`, "SMS message is required");
       if (specified(config.kind) && !["transactional", "promotional"].includes(config.kind))
         fail(`${path}.config.kind`, "Unknown SMS kind");
-      if (specified(config.provider) && !["bulkgate", "smstools", "default"].includes(config.provider))
+      if (specified(config.provider) && !["bulkgate", "smstools", "default", "mission"].includes(config.provider))
         fail(`${path}.config.provider`, "Unknown SMS gateway");
       if (config.templateLanguage !== undefined &&
           !["en", "sk", "cs", "cz", "hu", "ro", "it", "de"].includes(config.templateLanguage))

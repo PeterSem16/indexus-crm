@@ -5,6 +5,8 @@ import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action
 import { getStatusListWorkflowCopy } from "../components/status-list-workflow-copy";
 import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
+import missionCommunicationTranslations from "./mission-communication-translations";
+import statusListAgentPreviewTranslations, { type StatusListAgentPreviewCopy } from "./status-list-agent-preview-copy";
 import { automationEmailCardRecipientCopy } from "./automation-email-card-recipient-translations";
 import { getUpdateRecordCopy } from "./automation-update-record-copy";
 import automationExecutionSettingsTranslations from "./automation-execution-settings-translations";
@@ -104,6 +106,8 @@ export interface Translations {
   sendEmailAction: typeof sendEmailActionTranslations.en;
   personEmail: typeof personEmailTranslations.en;
   sendEmailEditor: typeof sendEmailEditorTranslations.en;
+  missionCommunication: typeof missionCommunicationTranslations.en;
+  statusListAgentPreview: StatusListAgentPreviewCopy;
   automationEmailCardRecipients: Record<keyof typeof automationEmailCardRecipientCopy.en, string>;
   automationUpdateRecord: ReturnType<typeof getUpdateRecordCopy>;
   automationExecutionSettings: typeof automationExecutionSettingsTranslations.en;
@@ -64129,6 +64133,8 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].sendEmailAction = sendEmailActionTranslations[locale] as unknown as Translations["sendEmailAction"];
   translations[locale].personEmail = personEmailTranslations[locale];
   translations[locale].sendEmailEditor = sendEmailEditorTranslations[locale];
+  translations[locale].missionCommunication = missionCommunicationTranslations[locale];
+  translations[locale].statusListAgentPreview = statusListAgentPreviewTranslations[locale];
   translations[locale].automationEmailCardRecipients = automationEmailCardRecipientCopy[locale];
   translations[locale].automationUpdateRecord = getUpdateRecordCopy(locale);
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];

@@ -58,10 +58,10 @@ export function emailActionIssues(config: any): string[] {
       issues.push(`Invalid ${field} card recipients`);
   for (const key of ["toTargets", "ccTargets", "bccTargets"])
     if (config[key] !== undefined && !validEmailTargets(config[key])) issues.push(`Invalid ${key}`);
-  if (!["personal", "system"].includes(config.senderMode || "system")) issues.push("Unknown email sender mode");
+  if (!["personal", "system", "agent", "mission"].includes(config.senderMode || "system")) issues.push("Unknown email sender mode");
   if (config.includeSystemSignature != null && typeof config.includeSystemSignature !== "boolean")
     issues.push("System signature must be a boolean");
-  if (config.senderMode === "personal" && config.includeSystemSignature) issues.push("Personal email cannot use a country system signature");
+  if (["personal", "agent"].includes(config.senderMode) && config.includeSystemSignature) issues.push("Personal email cannot use a country system signature");
   if (config.senderDisplayName != null &&
       (typeof config.senderDisplayName !== "string" || config.senderDisplayName.length > 100 ||
        /[{}\r\n]/.test(config.senderDisplayName))) issues.push("Invalid sender display name");

@@ -12,9 +12,14 @@ type RecipientDeps = {
   userEmail: (id: string) => Promise<string>;
 };
 
-/** Identity is server-owned: actor and client-provided sender IDs never win. */
+/** Personal means rule author; agent means the authenticated event actor. */
 export function selectAutomationEmailSender(config: any, context: any) {
   const country = typeof context.event?.countryCode === "string" ? context.event.countryCode : undefined;
+  if (config.senderMode === "agent") {
+    const authorId = context.event?.actorUserId || context.actorUserId;
+    if (typeof authorId !== "string" || !authorId) throw new Error("Configured sender requires the triggering agent");
+    return { mode: "personal" as const, authorId, country };
+  }
   if (config.senderMode === "personal") {
     const authorId = context.rule?.createdByUserId;
     if (typeof authorId !== "string" || !authorId) throw new Error("Personal email requires a known rule author");

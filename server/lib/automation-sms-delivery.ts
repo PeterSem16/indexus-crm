@@ -17,6 +17,8 @@ export async function deliverAutomationSms(rendered: any, ctx: any, deps: Delive
   if (modern && !country) throw new Error("SMS country is missing or ambiguous in the event/rule");
   const campaignId = ctx.newValues?.campaignId || ctx.oldValues?.campaignId ||
     ctx.event?.newValues?.campaignId || ctx.event?.oldValues?.campaignId || undefined;
+  if (rendered.provider === "mission" && !campaignId)
+    throw new Error("Mission SMS sender requires a verified Mission");
   const promotional = rendered.kind === "promotional" || rendered.promotional === true;
   const outcomes: any[] = [];
   for (const number of recipients) {
@@ -30,7 +32,7 @@ export async function deliverAutomationSms(rendered: any, ctx: any, deps: Delive
         entityType: ctx.contact?.type || ctx.customer?.type || ctx.event?.entityType
           || (ctx.customer || ctx.event?.customerId ? "customer" : undefined),
         entityId: ctx.contact?.id || ctx.customer?.id || ctx.event?.entityId || ctx.event?.customerId || undefined,
-        userId: ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
+        userId: ctx.event?.actorUserId || ctx.actorUserId || ctx.user?.id || ctx.actor?.id || ctx.event?.userId || null,
         type: "sms", direction: "outbound", content: text, recipientPhone: number, status: "pending",
         metadata: JSON.stringify({ source: "automation_engine", ruleId: ctx.rule?.id || ctx.event?.ruleId || null,
           campaignId: campaignId || null }),
@@ -41,7 +43,7 @@ export async function deliverAutomationSms(rendered: any, ctx: any, deps: Delive
         // General rules keep their legacy Mission override. The Status List
         // bridge preflights an explicit gateway and still passes reject-conflict
         // to the provider; an unpinned Mission can honor that explicit choice.
-        provider: rendered.provider === "default" || (campaignId && !ctx.statusListService) ? undefined : rendered.provider,
+        provider: ["default", "mission"].includes(rendered.provider) || (campaignId && !ctx.statusListService) ? undefined : rendered.provider,
         campaignId, campaignProviderMode: "reject-conflict", promotional,
         unicode: rendered.unicode === true, tag: communicationId,
       });

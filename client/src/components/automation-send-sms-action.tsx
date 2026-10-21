@@ -39,7 +39,7 @@ export function AutomationSendSmsAction({
   onDraftValidityChange?: (invalid: boolean) => void;
   sourceModule?: string;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const copy = getSmsActionCopy(locale);
   const countryNames = smsCountryNames[(locale in smsCountryNames ? locale : "en") as keyof typeof smsCountryNames];
   const rawRecipients = Array.isArray(config.to)
@@ -278,10 +278,12 @@ export function AutomationSendSmsAction({
           <SelectTrigger id={`${testId}-gateway`} data-testid={`${testId}-gateway`}><SelectValue /></SelectTrigger>
           <SelectContent className="z-[10041]">
             <SelectItem value="default">{copy.gatewayDefault}</SelectItem>
+            <SelectItem value="mission">{t.missionCommunication.smsMission}</SelectItem>
             <SelectItem value="bulkgate">{copy.bulkgate}</SelectItem>
             <SelectItem value="smstools">{copy.smstools}</SelectItem>
           </SelectContent>
         </Select>
+        {config.provider === "mission" && <p className="text-xs text-muted-foreground">{t.missionCommunication.smsHelp}</p>}
         <p className="text-xs text-muted-foreground">{copy.gatewayHelp}</p>
       </div>
     </div>

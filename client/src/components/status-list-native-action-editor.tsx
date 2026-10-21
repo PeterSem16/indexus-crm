@@ -100,7 +100,7 @@ export function StatusListNativeActionEditor({ draft, setDraft, locale, countryC
           recipientTemplates={variables.map(variable => variable.value).filter(value => /email$/i.test(value))} sourceModule="status_list" ruleId={actionId} testId="status-list-email-action"
           missionContext={missionContext} defaultRecipientTemplate={draft.actionType === "send_email" ? "contact.email" : undefined}
           onDraftValidityChange={onDraftValidityChange} />
-        <p className="slsae-callout"><Check size={16} /> {copy.owner}</p>
+        {!["agent", "mission"].includes(config.senderMode) && <p className="slsae-callout"><Check size={16} /> {copy.owner}</p>}
       </div>
       : null}
     {draft.actionType === "update_record" && <div className="wide">
@@ -121,7 +121,7 @@ export function StatusListNativeActionEditor({ draft, setDraft, locale, countryC
     </div>}
     {draft.actionType === "send_sms" && <div className="wide">
       {missionGateway && <p className="slsae-callout"><MessageSquareText size={16} /> {copy.inherited}: {missionGateway}</p>}
-      {missionGateway && config.provider && config.provider !== "default" && config.provider !== missionGateway && <p className="slsae-error" role="alert"><AlertTriangle size={16} /> {copy.conflict}</p>}
+      {missionGateway && config.provider && !["default", "mission", missionGateway].includes(config.provider) && <p className="slsae-error" role="alert"><AlertTriangle size={16} /> {copy.conflict}</p>}
       <AutomationSendSmsAction config={config} onChange={next => setConfig(next)} availableVariables={variables} countryCodes={countryCodes}
         sourceModule="status_list" testId="status-list-sms-action" onDraftValidityChange={onDraftValidityChange} />
     </div>}
