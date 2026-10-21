@@ -20,7 +20,12 @@ export const UPDATE_RECORD_ENTITIES: Record<string, UpdateField[]> = {
   ],
   customer: [text("notes"), { key: "leadScore", kind: "number", min: 0, max: 100 }, reference("assignedUserId", "user")],
   hospital: [{ key: "isActive", kind: "boolean" }, { key: "autoRecruiting", kind: "boolean" }, reference("responsiblePersonId", "user")],
-  clinic: [text("notes"), { key: "isActive", kind: "boolean" }, date("nextContactDate")],
+  clinic: [
+    text("notes"), { key: "isActive", kind: "boolean" }, date("nextContactDate"),
+    { key: "leadSource", kind: "enum", nullable: true, options: ["new_contact", "former_collaborator", "current_collaborator"] },
+    date("leadSourceDate"), text("leadSourceNotes"), date("contractSentDate"), date("contractReturnedDate"),
+    { key: "hasFlyers", kind: "boolean" },
+  ],
   invoice: [text("note"), date("dueDate")],
   collection: [text("note"), text("doctorNote"), date("collectionDate"), { key: "status", kind: "reference", reference: "collection_status", nullable: true }],
   collaborator: [{ key: "isActive", kind: "boolean" }],

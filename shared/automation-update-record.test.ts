@@ -37,6 +37,28 @@ test("Explicit target, typed values, non-empty changes and acknowledgment are ma
   ]) assert.ok(updateRecordIssues(bad, "clinic").length, JSON.stringify(bad));
   assert.deepEqual(updateRecordIssues(config({ isActive: false }), "clinic"), []);
 });
+test("Clinic screenshot fields use persisted keys, exact contact choices and typed calendar/boolean values", () => {
+  const fields = {
+    leadSource: "current_collaborator", leadSourceDate: "2026-10-21",
+    leadSourceNotes: "Source details\nSecond line", contractSentDate: "2026-10-22",
+    contractReturnedDate: "2026-10-23", hasFlyers: false,
+  };
+  assert.deepEqual(updateRecordIssues(config(fields), "clinic"), []);
+  assert.deepEqual(UPDATE_RECORD_ENTITIES.clinic.find(field => field.key === "leadSource")?.options,
+    ["new_contact", "former_collaborator", "current_collaborator"]);
+  for (const source of ["new_contact", "former_collaborator", "current_collaborator"])
+    assert.deepEqual(updateRecordIssues(config({ leadSource: source }), "clinic"), []);
+  for (const invalid of [{ leadSource: "arbitrary" }, { leadSource: "doctor_referral" },
+    { leadSourceDate: "2026-02-30" }, { contractSentDate: "yesterday" },
+    { contractReturnedDate: "2026-13-01" }, { hasFlyers: "false" }, { hasFlyers: null }])
+    assert.ok(updateRecordIssues(config(invalid), "clinic").length);
+  const clear = { leadSource: null, leadSourceDate: null, leadSourceNotes: null,
+    contractSentDate: null, contractReturnedDate: null };
+  assert.ok(updateRecordIssues(config(clear), "clinic").includes("clearAcknowledge"));
+  assert.deepEqual(updateRecordIssues(config(clear, { clearAcknowledged: true }), "clinic"), []);
+  assert.ok(updateRecordIssues(config(fields, { acknowledged: false }), "clinic").includes("acknowledge"));
+  assert.ok(updateRecordIssues(config(fields, { target: { mode: "event", entityType: "hospital" } }), "hospital").length);
+});
 test("Explicit clearing and safe dates/variables, never implicit conversions", () => {
   assert.ok(updateRecordIssues(config({ notes: null }), "clinic").includes("clearAcknowledge"));
   assert.deepEqual(updateRecordIssues(config({ notes: null }, { clearAcknowledged: true }), "clinic"), []);

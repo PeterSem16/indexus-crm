@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { humanAutomationCatalog } from "../server/lib/automation-human-templates";
 import { templateEligibility } from "../client/src/components/automation-template-eligibility";
 import { STATUS_LIST_ACTIVITY_FIELDS } from "../shared/status-list-template-context";
+import { UPDATE_RECORD_ENTITIES } from "../shared/automation-update-record";
+import { getUpdateRecordCopy } from "../client/src/i18n/automation-update-record-copy";
 
 const savedWrites: Record<string, unknown>[] = [];
 let nativeTemplates: Awaited<ReturnType<typeof humanAutomationCatalog>>["templates"] = [];
@@ -72,7 +74,7 @@ async function parityApi(page: import("@playwright/test").Page, options: { broke
       : path === "/api/automation/email-mailboxes" ? { personal: { connected: true, email: "manager@example.invalid" }, system: [] }
       : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "manager@example.invalid" }]
       : path === "/api/automation/update-record/catalog" ? {
-        entities: [{ value: "clinic", fields: ["notes", "isActive", "nextContactDate"] },
+        entities: [{ value: "clinic", fields: UPDATE_RECORD_ENTITIES.clinic.map(field => field.key) },
           { value: "hospital", fields: ["isActive", "autoRecruiting", "responsiblePersonId"] }], relations: {},
       }
       : [];
@@ -149,6 +151,43 @@ test("an unreadable template attachment blocks saving and preserves the previous
   expect(savedWrites).toHaveLength(0);
 });
 
+test("Update record offers all six pictured clinic fields, preserves typed values and shows their localized review", async ({ page }) => {
+  await parityApi(page);
+  await page.goto("/test-fixtures/status-list-native-action.html?action=update_record", { waitUntil: "networkidle" });
+  await page.getByTestId("service-action-stage-details").click();
+  const copy = getUpdateRecordCopy("en");
+  for (const key of ["leadSource", "leadSourceDate", "leadSourceNotes", "contractSentDate", "contractReturnedDate", "hasFlyers"] as const) {
+    await page.getByTestId("update-record-0-add-field").click();
+    await page.getByRole("option", { name: copy.field[key], exact: true }).click();
+  }
+  await page.getByTestId("update-record-0-value-leadSource").click();
+  await page.getByRole("option", { name: copy.option.current_collaborator, exact: true }).click();
+  await page.getByTestId("update-record-0-value-leadSourceNotes").fill("Verified source\nSecond line");
+  const year = String(new Date().getFullYear() + 1);
+  for (const [key, day] of [["leadSourceDate", "22"], ["contractSentDate", "23"], ["contractReturnedDate", "24"]]) {
+    const picker = page.getByTestId(`update-record-0-value-${key}`);
+    await picker.getByTestId("input-create-task-duedate-year").selectOption(year);
+    await picker.getByTestId("input-create-task-duedate-month").selectOption("11");
+    await picker.getByTestId("input-create-task-duedate-day").selectOption(day);
+  }
+  await page.getByTestId("update-record-0-value-hasFlyers").click();
+  await page.getByRole("option", { name: copy.false, exact: true }).click();
+  await page.getByTestId("update-record-0-ack").check();
+  await page.getByTestId("service-action-stage-review").click();
+  const review = page.getByTestId("service-action-review");
+  await expect(review).toContainText("Contact date");
+  await expect(review).toContainText("Contract returned date");
+  await expect(review).toContainText("Verified source");
+  await page.screenshot({ path: "/tmp/status-list-clinic-update-fields.jpg" });
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0].serviceActionConfig).toMatchObject({
+    acknowledged: true, fields: { notes: "Clinic reviewed", leadSource: "current_collaborator",
+      leadSourceDate: `${year}-11-22`, leadSourceNotes: "Verified source\nSecond line",
+      contractSentDate: `${year}-11-23`, contractReturnedDate: `${year}-11-24`, hasFlyers: false },
+  });
+});
+
 for (const hospital of [false, true]) test(`Update record uses the shared ${hospital ? "hospital" : "clinic"} editor, requires confirmation and saves typed changes`, async ({ page }) => {
   await parityApi(page, { hospital });
   const errors: string[] = [];
@@ -162,7 +201,7 @@ for (const hospital of [false, true]) test(`Update record uses the shared ${hosp
   await page.getByTestId("update-record-0-ack").check();
   await page.screenshot({ path: `/tmp/status-list-update-${hospital ? "hospital" : "clinic"}.jpg` });
   await page.getByTestId("service-action-stage-review").click();
-  await expect(page.getByTestId("service-action-review")).toContainText(hospital ? "autoRecruiting" : "Clinic reviewed");
+  await expect(page.getByTestId("service-action-review")).toContainText(hospital ? getUpdateRecordCopy("en").field.autoRecruiting : "Clinic reviewed");
   await page.getByTestId("status-list-automation-save").click();
   await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
   expect(savedWrites[0]).toMatchObject({ actionType: "update_record", serviceActionConfig: {

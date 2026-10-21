@@ -43,6 +43,37 @@ test("Update record: real database scope, persisted relationships, typed atomic 
     assert.equal(changed.after.notes, "Changed");
     assert.equal(changed.after.isActive, false);
     assert.equal(changed.after.countryCode, "SK");
+    await db.update(clinics).set({
+      initialStatus: "not_contacted", interestCooperation: "interested", contractStatus: "none",
+      flyersLocation: "Reception", flyersSentDate: new Date("2026-09-01T00:00:00Z"),
+    }).where(eq(clinics.id, clinicId));
+    const clinicFields = {
+      leadSource: "current_collaborator", leadSourceDate: "2026-10-21",
+      leadSourceNotes: "Source details\nSecond line", contractSentDate: "2026-10-22",
+      contractReturnedDate: "2026-10-23", hasFlyers: true,
+    };
+    const clinicChanged = await executeUpdateRecord(config(clinicFields), ctx);
+    for (const key of ["leadSourceDate", "contractSentDate", "contractReturnedDate"] as const)
+      assert.equal(new Date(clinicChanged.after[key]).toISOString(), `${clinicFields[key]}T00:00:00.000Z`);
+    assert.equal(clinicChanged.after.leadSource, "current_collaborator");
+    assert.equal(clinicChanged.after.leadSourceNotes, clinicFields.leadSourceNotes);
+    assert.equal(clinicChanged.after.hasFlyers, true);
+    const unplaced = await executeUpdateRecord(config({ hasFlyers: false }), ctx);
+    assert.equal(unplaced.after.hasFlyers, false);
+    const [persistedClinic] = await db.select().from(clinics).where(eq(clinics.id, clinicId));
+    assert.equal(persistedClinic.notes, "Changed");
+    assert.equal(persistedClinic.initialStatus, "not_contacted");
+    assert.equal(persistedClinic.interestCooperation, "interested");
+    assert.equal(persistedClinic.contractStatus, "none");
+    assert.equal(persistedClinic.flyersLocation, "Reception");
+    assert.equal(persistedClinic.flyersSentDate?.toISOString(), "2026-09-01T00:00:00.000Z");
+    for (const leadSource of ["new_contact", "former_collaborator"])
+      assert.equal((await executeUpdateRecord(config({ leadSource }), ctx)).after.leadSource, leadSource);
+    const clearedFields = { leadSource: null, leadSourceDate: null, leadSourceNotes: null,
+      contractSentDate: null, contractReturnedDate: null };
+    await assert.rejects(executeUpdateRecord(config(clearedFields), ctx), /clearAcknowledge/);
+    const cleared = await executeUpdateRecord(config(clearedFields, { clearAcknowledged: true }), ctx);
+    for (const key of Object.keys(clearedFields)) assert.equal(cleared.after[key], null);
     // The browser/event snapshot lies about the relationship: only persisted clinicId is authoritative.
     const related = config({ notes: "{{newValues.note}}" }, { target: { mode: "related", entityType: "clinic", relation: "clinicId" } });
     const linked = await executeUpdateRecord(related, ctx);

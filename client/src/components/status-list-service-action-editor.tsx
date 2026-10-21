@@ -13,6 +13,8 @@ import { filterStatusListActionVariables, StatusListNativeActionEditor } from ".
 import { emptyNativeActionConfig, nativeConfigFromLegacy, nativeServiceActionTypes } from "@/lib/status-list-action-draft";
 import { statusListNativeActionIssues } from "@shared/status-list-service-config";
 import { getAutomationEmailCardRecipientCopy } from "@/i18n/automation-email-card-recipient-translations";
+import { getUpdateRecordCopy } from "@/i18n/automation-update-record-copy";
+import { UPDATE_RECORD_ENTITIES } from "@shared/automation-update-record";
 import "./status-list-service-action-editor.css";
 
 const migrationCopy: Record<string, Record<string, string>> = {
@@ -88,7 +90,16 @@ function nativeReviewRows(actionType: string, config: Record<string, any>, local
   } else if (actionType === "update_record") {
     add(labels.target, `${labels.mode}: ${config.target?.mode || "—"} · ${config.target?.entityType || "—"}${config.target?.recordId ? ` · ${config.target.recordId}` : ""}`);
     const fields = Object.entries(config.fields || {});
-    if (fields.length) add(labels.changedFields, fields.map(([key, value]) => `${key} = ${value == null ? labels.clearValue : String(value)}`).join(" · "));
+    const updateCopy = getUpdateRecordCopy(locale);
+    if (fields.length) add(labels.changedFields, fields.map(([key, value]) => {
+      const field = UPDATE_RECORD_ENTITIES[config.target?.entityType]?.find(field => field.key === key);
+      const name = (updateCopy.field as Record<string, string>)[key] || key;
+      const display = value == null ? labels.clearValue
+        : field?.kind === "boolean" && typeof value === "boolean" ? (value ? updateCopy.true : updateCopy.false)
+        : field?.kind === "enum" ? (updateCopy.option as Record<string, string>)[String(value)] || String(value)
+        : String(value);
+      return `${name} = ${display}`;
+    }).join(" · "));
   } else if (actionType === "send_sms") {
     add(labels.recipient, Array.isArray(config.to) ? config.to.join(", ") : config.to);
     const gateway = config.provider && config.provider !== "default" ? config.provider

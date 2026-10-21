@@ -6,6 +6,7 @@ import { getStatusListWorkflowCopy } from "../components/status-list-workflow-co
 import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
 import { automationEmailCardRecipientCopy } from "./automation-email-card-recipient-translations";
+import { getUpdateRecordCopy } from "./automation-update-record-copy";
 import automationExecutionSettingsTranslations from "./automation-execution-settings-translations";
 import automationEditorHelpTranslations, { type AutomationEditorCopy } from "./automation-editor-help-translations";
 import { taskCommunicationTranslations, type TaskCommunicationCopy } from "./task-communication-translations";
@@ -104,6 +105,7 @@ export interface Translations {
   personEmail: typeof personEmailTranslations.en;
   sendEmailEditor: typeof sendEmailEditorTranslations.en;
   automationEmailCardRecipients: Record<keyof typeof automationEmailCardRecipientCopy.en, string>;
+  automationUpdateRecord: ReturnType<typeof getUpdateRecordCopy>;
   automationExecutionSettings: typeof automationExecutionSettingsTranslations.en;
   automationEditorHelp: AutomationEditorCopy;
   taskAction: TaskActionCopy;
@@ -64128,6 +64130,7 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].personEmail = personEmailTranslations[locale];
   translations[locale].sendEmailEditor = sendEmailEditorTranslations[locale];
   translations[locale].automationEmailCardRecipients = automationEmailCardRecipientCopy[locale];
+  translations[locale].automationUpdateRecord = getUpdateRecordCopy(locale);
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
   translations[locale].forwardReview = forwardReviewTranslations[locale];

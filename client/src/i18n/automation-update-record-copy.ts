@@ -1,3 +1,34 @@
+const clinicFields = {
+  en: {
+    field: { leadSource: "Contact type", leadSourceDate: "Contact date", leadSourceNotes: "Source notes", contractSentDate: "Contract sent date", contractReturnedDate: "Contract returned date", hasFlyers: "Placement of flyers / posters" },
+    option: { new_contact: "New contact (not yet approached)", former_collaborator: "Former collaborator", current_collaborator: "Current collaborator (ongoing)" },
+  },
+  sk: {
+    field: { leadSource: "Typ kontaktu", leadSourceDate: "Dátum kontaktu", leadSourceNotes: "Poznámky k zdroju", contractSentDate: "Dátum odoslania zmluvy", contractReturnedDate: "Dátum vrátenia zmluvy", hasFlyers: "Umiestnenie letákov / plagátov" },
+    option: { new_contact: "Nový kontakt (ešte neoslovený)", former_collaborator: "Bývalý spolupracovník", current_collaborator: "Súčasný spolupracovník (prebiehajúca spolupráca)" },
+  },
+  cs: {
+    field: { leadSource: "Typ kontaktu", leadSourceDate: "Datum kontaktu", leadSourceNotes: "Poznámky ke zdroji", contractSentDate: "Datum odeslání smlouvy", contractReturnedDate: "Datum vrácení smlouvy", hasFlyers: "Umístění letáků / plakátů" },
+    option: { new_contact: "Nový kontakt (dosud neoslovený)", former_collaborator: "Bývalý spolupracovník", current_collaborator: "Současný spolupracovník (probíhající spolupráce)" },
+  },
+  hu: {
+    field: { leadSource: "Kapcsolat típusa", leadSourceDate: "Kapcsolatfelvétel dátuma", leadSourceNotes: "Forrás megjegyzései", contractSentDate: "Szerződés elküldésének dátuma", contractReturnedDate: "Szerződés visszaérkezésének dátuma", hasFlyers: "Szórólapok / plakátok elhelyezése" },
+    option: { new_contact: "Új kapcsolat (még nem kerestük meg)", former_collaborator: "Korábbi együttműködő", current_collaborator: "Jelenlegi együttműködő (folyamatban)" },
+  },
+  ro: {
+    field: { leadSource: "Tip de contact", leadSourceDate: "Data contactării", leadSourceNotes: "Note despre sursă", contractSentDate: "Data trimiterii contractului", contractReturnedDate: "Data returnării contractului", hasFlyers: "Amplasarea pliantelor / afișelor" },
+    option: { new_contact: "Contact nou (încă neabordat)", former_collaborator: "Fost colaborator", current_collaborator: "Colaborator actual (în curs)" },
+  },
+  it: {
+    field: { leadSource: "Tipo di contatto", leadSourceDate: "Data del contatto", leadSourceNotes: "Note sulla fonte", contractSentDate: "Data di invio del contratto", contractReturnedDate: "Data di restituzione del contratto", hasFlyers: "Posizionamento di volantini / poster" },
+    option: { new_contact: "Nuovo contatto (non ancora contattato)", former_collaborator: "Ex collaboratore", current_collaborator: "Collaboratore attuale (in corso)" },
+  },
+  de: {
+    field: { leadSource: "Kontaktart", leadSourceDate: "Kontaktdatum", leadSourceNotes: "Notizen zur Quelle", contractSentDate: "Versanddatum des Vertrags", contractReturnedDate: "Rückgabedatum des Vertrags", hasFlyers: "Platzierung von Flyern / Plakaten" },
+    option: { new_contact: "Neuer Kontakt (noch nicht angesprochen)", former_collaborator: "Ehemaliger Kooperationspartner", current_collaborator: "Aktueller Kooperationspartner (laufend)" },
+  },
+};
+
 const copy = {
   en: {
     heading: "Update a record", description: "Choose the exact record first, then review every change.", cancel: "Cancel", convert: "Convert to safe editor",
@@ -184,5 +215,7 @@ const copy = {
 };
 export function getUpdateRecordCopy(locale: string) {
   const language = locale.toLowerCase().split(/[-_]/)[0] as keyof typeof copy;
-  return copy[language] || copy.en;
+  const base = copy[language] || copy.en;
+  const clinic = clinicFields[language] || clinicFields.en;
+  return { ...base, field: { ...base.field, ...clinic.field }, option: { ...base.option, ...clinic.option } };
 }
