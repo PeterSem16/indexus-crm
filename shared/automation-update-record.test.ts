@@ -6,6 +6,7 @@ import {
   contractInstances, campaigns, products,
 } from "./schema";
 import { UPDATE_RECORD_ENTITIES, updateRecordIssues, resolveUpdateRecordDate, isUpdateRecordRelativeDate } from "./automation-update-record";
+import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "./clinic-contact-type";
 const config = (fields: Record<string, unknown> = { notes: "Reviewed" }, overrides: any = {}) => ({
   updateRecordVersion: 2, target: { mode: "event", entityType: "clinic" },
   acknowledged: true, fields, ...overrides,
@@ -85,6 +86,23 @@ test("Clinic subquestions match the card's persisted choices and flyer dates rem
   }
   assert.deepEqual(updateRecordIssues(config({ flyersSentDate: "2026-10-21" }), "clinic"), []);
   assert.deepEqual(updateRecordIssues(config({ flyersSentDate: null }, { clearAcknowledged: true }), "clinic"), []);
+});
+
+test("Every branch of the canonical clinic-card tree is writable, with no missing leaf or synthetic default", () => {
+  assert.equal(CLINIC_CONTACT_TYPES.length, 3);
+  assert.deepEqual(CLINIC_CONTACT_QUESTIONS.map(question => question.options.length), [3, 3, 3, 2]);
+  assert.deepEqual(CLINIC_CONTACT_QUESTIONS.flatMap(question => question.options.map(option => `${question.prefix}:${option.value}`)), [
+    "initial:not_contacted", "initial:former", "initial:active_contract",
+    "coop:unknown", "coop:interested", "coop:not_interested",
+    "contract_int:unknown", "contract_int:interested", "contract_int:not_interested",
+    "contract:none", "contract:active",
+  ]);
+  for (const source of CLINIC_CONTACT_TYPES) for (const question of CLINIC_CONTACT_QUESTIONS) {
+    assert.deepEqual(UPDATE_RECORD_ENTITIES.clinic.find(field => field.key === question.fieldKey)?.options,
+      question.options.map(option => option.value));
+    for (const option of question.options)
+      assert.deepEqual(updateRecordIssues(config({ leadSource: source, [question.fieldKey]: option.value }), "clinic"), []);
+  }
 });
 
 test("Relative dates are date-only configuration, strictly validated and resolved at runtime", () => {

@@ -1,6 +1,8 @@
 export const updateRecordDateCopy = {
   en: {
-    contactQuestions: "Contact type subquestions", contactQuestionsHelp: "Enable only the changes you want. Other contact answers remain unchanged.",
+    contactQuestions: "Contact type subquestions", contactQuestionsHelp: "Expand a question and choose its exact answer. Other answers remain unchanged.",
+    leaveUnchanged: "Leave unchanged", advancedValue: "Variable or advanced value",
+    expand: "Expand", collapse: "Collapse",
     dateMode: "Date setting", fixedDate: "Specific date", relativeDate: "Offset from execution day",
     today: "Today", tomorrow: "Tomorrow", offsetDays: "Number of days", dayType: "Count days as",
     calendarDays: "Calendar days", businessDays: "Working days (Mon–Fri)",
@@ -9,7 +11,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Not contacted", former: "Former collaborator", active_contract: "Active contract", unknown: "Unknown", interested: "Interested", not_interested: "Not interested", none: "No contract", active: "Active contract" },
   },
   sk: {
-    contactQuestions: "Podotázky typu kontaktu", contactQuestionsHelp: "Zapnite iba požadované zmeny. Ostatné odpovede kontaktu zostanú nezmenené.",
+    contactQuestions: "Podotázky typu kontaktu", contactQuestionsHelp: "Rozbaľte podotázku a vyberte konkrétnu odpoveď. Ostatné odpovede zostanú nezmenené.",
+    leaveUnchanged: "Ponechať bez zmeny", advancedValue: "Premenná alebo rozšírená hodnota",
+    expand: "Rozbaliť", collapse: "Zbaliť",
     dateMode: "Nastavenie dátumu", fixedDate: "Konkrétny dátum", relativeDate: "Posun od dňa vykonania",
     today: "Dnes", tomorrow: "Zajtra", offsetDays: "Počet dní", dayType: "Počítanie dní",
     calendarDays: "Kalendárne dni", businessDays: "Pracovné dni (Po–Pi)",
@@ -18,7 +22,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Neoslovený", former: "Bývalý spolupracovník", active_contract: "Aktívna zmluva", unknown: "Neznámy", interested: "Má záujem", not_interested: "Nemá záujem", none: "Bez zmluvy", active: "Aktívna zmluva" },
   },
   cs: {
-    contactQuestions: "Podotázky typu kontaktu", contactQuestionsHelp: "Zapněte pouze požadované změny. Ostatní odpovědi kontaktu zůstanou nezměněné.",
+    contactQuestions: "Podotázky typu kontaktu", contactQuestionsHelp: "Rozbalte podotázku a vyberte konkrétní odpověď. Ostatní odpovědi zůstanou nezměněné.",
+    leaveUnchanged: "Ponechat beze změny", advancedValue: "Proměnná nebo rozšířená hodnota",
+    expand: "Rozbalit", collapse: "Sbalit",
     dateMode: "Nastavení data", fixedDate: "Konkrétní datum", relativeDate: "Posun ode dne provedení",
     today: "Dnes", tomorrow: "Zítra", offsetDays: "Počet dní", dayType: "Počítání dní",
     calendarDays: "Kalendářní dny", businessDays: "Pracovní dny (Po–Pá)",
@@ -27,7 +33,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Neoslovený", former: "Bývalý spolupracovník", active_contract: "Aktivní smlouva", unknown: "Neznámý", interested: "Má zájem", not_interested: "Nemá zájem", none: "Bez smlouvy", active: "Aktivní smlouva" },
   },
   hu: {
-    contactQuestions: "Kapcsolattípus alkérdései", contactQuestionsHelp: "Csak a kívánt módosításokat kapcsolja be. A többi válasz változatlan marad.",
+    contactQuestions: "Kapcsolattípus alkérdései", contactQuestionsHelp: "Nyissa ki az alkérdést és válassza ki a pontos választ. A többi válasz változatlan marad.",
+    leaveUnchanged: "Változatlanul hagyás", advancedValue: "Változó vagy speciális érték",
+    expand: "Kibontás", collapse: "Összecsukás",
     dateMode: "Dátum beállítása", fixedDate: "Konkrét dátum", relativeDate: "Eltolás a végrehajtás napjától",
     today: "Ma", tomorrow: "Holnap", offsetDays: "Napok száma", dayType: "Napok számítása",
     calendarDays: "Naptári napok", businessDays: "Munkanapok (H–P)",
@@ -36,7 +44,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Még nem kerestük meg", former: "Korábbi együttműködő", active_contract: "Aktív szerződés", unknown: "Ismeretlen", interested: "Érdeklődik", not_interested: "Nem érdeklődik", none: "Nincs szerződés", active: "Aktív szerződés" },
   },
   ro: {
-    contactQuestions: "Subîntrebări pentru tipul de contact", contactQuestionsHelp: "Activați numai modificările dorite. Celelalte răspunsuri rămân neschimbate.",
+    contactQuestions: "Subîntrebări pentru tipul de contact", contactQuestionsHelp: "Extindeți subîntrebarea și alegeți răspunsul exact. Celelalte răspunsuri rămân neschimbate.",
+    leaveUnchanged: "Păstrează neschimbat", advancedValue: "Variabilă sau valoare avansată",
+    expand: "Extinde", collapse: "Restrânge",
     dateMode: "Setarea datei", fixedDate: "Dată specifică", relativeDate: "Decalaj față de ziua executării",
     today: "Astăzi", tomorrow: "Mâine", offsetDays: "Număr de zile", dayType: "Calcularea zilelor",
     calendarDays: "Zile calendaristice", businessDays: "Zile lucrătoare (L–V)",
@@ -45,7 +55,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Necontactat", former: "Fost colaborator", active_contract: "Contract activ", unknown: "Necunoscut", interested: "Interesat", not_interested: "Neinteresat", none: "Fără contract", active: "Contract activ" },
   },
   it: {
-    contactQuestions: "Sottodomande del tipo di contatto", contactQuestionsHelp: "Attiva solo le modifiche desiderate. Le altre risposte rimangono invariate.",
+    contactQuestions: "Sottodomande del tipo di contatto", contactQuestionsHelp: "Espandi la sottodomanda e scegli la risposta esatta. Le altre risposte rimangono invariate.",
+    leaveUnchanged: "Lascia invariato", advancedValue: "Variabile o valore avanzato",
+    expand: "Espandi", collapse: "Comprimi",
     dateMode: "Impostazione data", fixedDate: "Data specifica", relativeDate: "Scostamento dal giorno di esecuzione",
     today: "Oggi", tomorrow: "Domani", offsetDays: "Numero di giorni", dayType: "Conteggio dei giorni",
     calendarDays: "Giorni di calendario", businessDays: "Giorni lavorativi (lun–ven)",
@@ -54,7 +66,9 @@ export const updateRecordDateCopy = {
     option: { not_contacted: "Non contattato", former: "Ex collaboratore", active_contract: "Contratto attivo", unknown: "Sconosciuto", interested: "Interessato", not_interested: "Non interessato", none: "Nessun contratto", active: "Contratto attivo" },
   },
   de: {
-    contactQuestions: "Unterfragen zur Kontaktart", contactQuestionsHelp: "Aktivieren Sie nur die gewünschten Änderungen. Andere Antworten bleiben unverändert.",
+    contactQuestions: "Unterfragen zur Kontaktart", contactQuestionsHelp: "Öffnen Sie die Unterfrage und wählen Sie die genaue Antwort. Andere Antworten bleiben unverändert.",
+    leaveUnchanged: "Unverändert lassen", advancedValue: "Variable oder erweiterter Wert",
+    expand: "Aufklappen", collapse: "Zuklappen",
     dateMode: "Datumseinstellung", fixedDate: "Bestimmtes Datum", relativeDate: "Versatz ab Ausführungstag",
     today: "Heute", tomorrow: "Morgen", offsetDays: "Anzahl der Tage", dayType: "Tage zählen als",
     calendarDays: "Kalendertage", businessDays: "Arbeitstage (Mo–Fr)",

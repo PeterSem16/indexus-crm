@@ -10,6 +10,7 @@ import {
 } from "./automation-update-record";
 import { validateRuleCapabilities } from "./automation-capabilities";
 import express from "express";
+import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "../../shared/clinic-contact-type";
 
 test("Update record: real database scope, persisted relationships, typed atomic updates and protected routes", async () => {
   const ownerId = randomUUID(), limitedId = randomUUID();
@@ -93,6 +94,17 @@ test("Update record: real database scope, persisted relationships, typed atomic 
     assert.equal(runtime.after.hasFlyers, false);
     assert.equal(runtime.after.flyersLocation, "Reception");
     assert.equal(runtime.after.notes, "Changed");
+    let previous = runtime.after;
+    for (const source of CLINIC_CONTACT_TYPES) for (const question of CLINIC_CONTACT_QUESTIONS) for (const option of question.options) {
+      const result = await executeUpdateRecord(config({ leadSource: source, [question.fieldKey]: option.value }), ctx);
+      assert.equal(result.after.leadSource, source);
+      assert.equal(result.after[question.fieldKey], option.value);
+      for (const other of CLINIC_CONTACT_QUESTIONS.filter(item => item.fieldKey !== question.fieldKey))
+        assert.equal(result.after[other.fieldKey], previous[other.fieldKey]);
+      assert.equal(result.after.notes, "Changed");
+      assert.equal(result.after.flyersLocation, "Reception");
+      previous = result.after;
+    }
     const later = await executeUpdateRecord(config({ contractSentDate: runtimeChanges.contractSentDate }), ctx, new Date("2026-10-24T12:00:00Z"));
     assert.equal(later.after.contractSentDate.toISOString(), "2026-10-24T00:00:00.000Z");
     await assert.rejects(executeUpdateRecord(config({ flyersSentDate: runtimeChanges.flyersSentDate },

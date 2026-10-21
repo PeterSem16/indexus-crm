@@ -5,6 +5,7 @@ import { UPDATE_RECORD_ENTITIES, UPDATE_RECORD_RELATIONS, CLINIC_CONTACT_SUBFIEL
 import { useI18n } from "@/i18n";
 import { getUpdateRecordCopy, getUpdateRecordDateSummary } from "@/i18n/automation-update-record-copy";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
+import { AutomationClinicContactTree } from "@/components/automation-clinic-contact-tree";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -317,6 +318,7 @@ export function AutomationUpdateRecordAction({
     const relative = value && typeof value === "object" && (value as any).kind === "relative_date" ? value as UpdateRecordRelativeDate : null;
     const variable = typeof value === "string" ? value.match(tokenPattern)?.[1] : undefined;
     const selectedOption = optionData[key]?.find(item => String(item.value) === String(value));
+    const contactTree = key === "leadSource" && target.entityType === "clinic";
     return <div className="space-y-2">
       {field.kind === "text" && <textarea className="min-h-24 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" maxLength={10000} value={typeof value === "string" && !variable ? value : ""}
         placeholder={copy.enterValue} data-testid={`${root}-value-${key}`} onChange={event => saveFields({ ...fields, [key]: event.target.value })} />}
@@ -329,30 +331,12 @@ export function AutomationUpdateRecordAction({
         <SelectTrigger data-testid={`${root}-value-${key}`}><SelectValue placeholder={copy.selectValue} /></SelectTrigger>
         <SelectContent><SelectItem value="true">{copy.true}</SelectItem><SelectItem value="false">{copy.false}</SelectItem></SelectContent>
       </Select>}
-      {field.kind === "enum" && <Select value={typeof value === "string" ? value : ""} onValueChange={next => saveFields({ ...fields, [key]: next })}>
+      {field.kind === "enum" && !contactTree && <Select value={typeof value === "string" ? value : ""} onValueChange={next => saveFields({ ...fields, [key]: next })}>
         <SelectTrigger data-testid={`${root}-value-${key}`}><SelectValue placeholder={copy.selectValue} /></SelectTrigger>
         <SelectContent>{(field.options || []).map(option => <SelectItem key={option} value={option}>{(copy.option as Record<string, string>)[option] || option}</SelectItem>)}</SelectContent>
       </Select>}
-      {key === "leadSource" && target.entityType === "clinic" && <fieldset className="space-y-3 rounded-lg border bg-muted/20 p-3" data-testid={`${root}-contact-subquestions`}>
-        <legend className="px-1 text-sm font-medium">{copy.contactQuestions}</legend>
-        <p className="text-xs text-muted-foreground">{copy.contactQuestionsHelp}</p>
-        {CLINIC_CONTACT_SUBFIELDS.filter(child => supportedFields.some(spec => spec.key === child)).map(child => {
-          const enabled = Object.hasOwn(fields, child);
-          return <div key={child} className="space-y-2">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="checkbox" className="accent-primary" checked={enabled} data-testid={`${root}-enable-${child}`} onChange={event => {
-                const next = { ...fields };
-                if (event.target.checked) next[child] = ""; else delete next[child];
-                saveFields(next);
-              }} /><span>{fieldLabel(child)}</span>
-            </label>
-            {enabled && <div className="space-y-2 border-l pl-3">
-              {optionsField(child, fieldMap.get(child)!)}
-              {validation.includes(`value:${child}`) && <p role="alert" className="text-xs text-destructive">{copy.invalidValue}</p>}
-            </div>}
-          </div>;
-        })}
-      </fieldset>}
+      {contactTree && <AutomationClinicContactTree fields={fields} supportedFields={supportedFields} onChange={saveFields} root={root} locale={locale}
+        renderAdvanced={child => optionsField(child.key, child)} />}
       {key === "hasFlyers" && target.entityType === "clinic" && supportedFields.some(spec => spec.key === "flyersSentDate") && <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <input type="checkbox" className="accent-primary" checked={Object.hasOwn(fields, "flyersSentDate")} data-testid={`${root}-enable-flyersSentDate`} onChange={event => {

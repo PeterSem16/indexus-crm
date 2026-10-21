@@ -1,3 +1,5 @@
+import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "./clinic-contact-type";
+
 /** The same contract is used by the editor, save validation and execution. */
 export type UpdateField = {
   key: string;
@@ -11,7 +13,7 @@ export type UpdateField = {
 const text = (key: string): UpdateField => ({ key, kind: "text", nullable: true });
 const date = (key: string): UpdateField => ({ key, kind: "date", nullable: true });
 const reference = (key: string, reference: string): UpdateField => ({ key, kind: "reference", reference, nullable: true });
-export const CLINIC_CONTACT_SUBFIELDS = ["initialStatus", "interestCooperation", "interestContract", "contractStatus"] as const;
+export const CLINIC_CONTACT_SUBFIELDS = CLINIC_CONTACT_QUESTIONS.map(question => question.fieldKey);
 export type UpdateRecordRelativeDate = {
   kind: "relative_date";
   offsetDays: number;
@@ -51,11 +53,8 @@ export const UPDATE_RECORD_ENTITIES: Record<string, UpdateField[]> = {
   hospital: [{ key: "isActive", kind: "boolean" }, { key: "autoRecruiting", kind: "boolean" }, reference("responsiblePersonId", "user")],
   clinic: [
     text("notes"), { key: "isActive", kind: "boolean" }, date("nextContactDate"),
-    { key: "leadSource", kind: "enum", nullable: true, options: ["new_contact", "former_collaborator", "current_collaborator"] },
-    { key: "initialStatus", kind: "enum", nullable: true, options: ["not_contacted", "former", "active_contract"] },
-    { key: "interestCooperation", kind: "enum", nullable: true, options: ["unknown", "interested", "not_interested"] },
-    { key: "interestContract", kind: "enum", nullable: true, options: ["unknown", "interested", "not_interested"] },
-    { key: "contractStatus", kind: "enum", nullable: true, options: ["none", "active"] },
+    { key: "leadSource", kind: "enum", nullable: true, options: [...CLINIC_CONTACT_TYPES] },
+    ...CLINIC_CONTACT_QUESTIONS.map(question => ({ key: question.fieldKey, kind: "enum" as const, nullable: true, options: question.options.map(option => option.value) })),
     date("leadSourceDate"), text("leadSourceNotes"), date("contractSentDate"), date("contractReturnedDate"),
     { key: "hasFlyers", kind: "boolean" }, date("flyersSentDate"),
   ],

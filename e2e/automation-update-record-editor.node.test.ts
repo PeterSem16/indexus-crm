@@ -64,6 +64,7 @@ test("Update record editor: seven-language help, event default, scoped search an
   const styles = await postcss([tailwindcss({
     ...loadConfig(`${process.cwd()}/tailwind.config.ts`), content: [
       "client/src/components/automation-update-record-action.tsx",
+      "client/src/components/automation-clinic-contact-tree.tsx",
       "client/src/components/tasks/task-create-controls.tsx",
       "client/src/components/ui/{dialog,input,button,select,label,calendar,popover}.tsx",
     ],
@@ -118,11 +119,8 @@ test("Update record editor: seven-language help, event default, scoped search an
       await page.getByTestId("update-record-0-add-field").click();
       await page.getByRole("option", { name: clinicCopy.field[key], exact: true }).click();
     }
-    await page.getByTestId("update-record-0-value-leadSource").click();
-    await page.getByRole("option", { name: clinicCopy.option.new_contact, exact: true }).click();
-    await page.getByTestId("update-record-0-enable-initialStatus").check();
-    await page.getByTestId("update-record-0-value-initialStatus").click();
-    await page.getByRole("option", { name: clinicCopy.option.active_contract, exact: true }).click();
+    await page.getByTestId("update-record-0-contact-source-new_contact").check();
+    await page.getByTestId("update-record-0-contact-answer-new_contact-initialStatus-active_contract").check();
     await page.getByTestId("update-record-0-date-mode-flyersSentDate").click();
     await page.getByRole("option", { name: clinicCopy.relativeDate, exact: true }).click();
     await page.getByTestId("update-record-0-date-offset-flyersSentDate").fill("5");

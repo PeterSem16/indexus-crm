@@ -3,6 +3,7 @@ import { humanAutomationCatalog } from "../server/lib/automation-human-templates
 import { templateEligibility } from "../client/src/components/automation-template-eligibility";
 import { STATUS_LIST_ACTIVITY_FIELDS } from "../shared/status-list-template-context";
 import { UPDATE_RECORD_ENTITIES } from "../shared/automation-update-record";
+import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "../shared/clinic-contact-type";
 import { getUpdateRecordCopy } from "../client/src/i18n/automation-update-record-copy";
 
 const savedWrites: Record<string, unknown>[] = [];
@@ -160,8 +161,7 @@ test("Update record offers all six pictured clinic fields, preserves typed value
     await page.getByTestId("update-record-0-add-field").click();
     await page.getByRole("option", { name: copy.field[key], exact: true }).click();
   }
-  await page.getByTestId("update-record-0-value-leadSource").click();
-  await page.getByRole("option", { name: copy.option.current_collaborator, exact: true }).click();
+  await page.getByTestId("update-record-0-contact-source-current_collaborator").check();
   await page.getByTestId("update-record-0-value-leadSourceNotes").fill("Verified source\nSecond line");
   const year = String(new Date().getFullYear() + 1);
   for (const [key, day] of [["leadSourceDate", "22"], ["contractSentDate", "23"], ["contractReturnedDate", "24"]]) {
@@ -197,18 +197,18 @@ test("Update record saves contact subquestions and execution-relative contract a
     await page.getByTestId("update-record-0-add-field").click();
     await page.getByRole("option", { name: copy.field[key], exact: true }).click();
   }
-  await page.getByTestId("update-record-0-value-leadSource").click();
-  await page.getByRole("option", { name: copy.option.new_contact, exact: true }).click();
+  await page.getByTestId("update-record-0-contact-source-new_contact").check();
   const subquestions = { initialStatus: "former", interestCooperation: "interested", interestContract: "not_interested", contractStatus: "active" };
   for (const [key, value] of Object.entries(subquestions)) {
-    await page.getByTestId(`update-record-0-enable-${key}`).check();
-    await page.getByTestId(`update-record-0-value-${key}`).click();
-    await page.getByRole("option", { name: copy.option[value as keyof typeof copy.option], exact: true }).click();
+    const question = page.getByTestId(`update-record-0-contact-question-new_contact-${key}`);
+    if (await question.getAttribute("aria-expanded") !== "true") await question.click();
+    await page.getByTestId(`update-record-0-contact-answer-new_contact-${key}-${value}`).check();
   }
-  await page.getByTestId("update-record-0-contact-subquestions").scrollIntoViewIfNeeded();
+  await page.getByTestId("update-record-0-contact-tree").scrollIntoViewIfNeeded();
   await page.screenshot({ path: "/tmp/update-record-contact-subquestions.jpg" });
-  await page.getByTestId("update-record-0-enable-initialStatus").uncheck();
-  await expect(page.getByTestId("update-record-0-value-initialStatus")).toHaveCount(0);
+  const initial = page.getByTestId("update-record-0-contact-question-new_contact-initialStatus");
+  if (await initial.getAttribute("aria-expanded") !== "true") await initial.click();
+  await page.getByTestId("update-record-0-contact-unchanged-new_contact-initialStatus").click();
   await page.getByTestId("update-record-0-value-hasFlyers").click();
   await page.getByRole("option", { name: copy.true, exact: true }).click();
   await page.getByTestId("update-record-0-enable-flyersSentDate").check();
@@ -245,6 +245,57 @@ test("Update record saves contact subquestions and execution-relative contract a
     flyersSentDate: { kind: "relative_date", offsetDays: 7, dayType: "business" },
   });
   expect(savedWrites[0].serviceActionConfig.fields).not.toHaveProperty("initialStatus");
+});
+
+test("Update record exposes and selects every answer in all 33 contact-type branches", async ({ page }) => {
+  await parityApi(page);
+  await page.goto("/test-fixtures/status-list-native-action.html?action=update_record", { waitUntil: "networkidle" });
+  await page.getByTestId("service-action-stage-details").click();
+  const copy = getUpdateRecordCopy("en");
+  await page.getByTestId("update-record-0-add-field").click();
+  await page.getByRole("option", { name: copy.field.leadSource, exact: true }).click();
+  await expect(page.getByTestId("update-record-0-contact-answer-new_contact-initialStatus-not_contacted")).toBeVisible();
+  let visited = 0;
+  for (const source of CLINIC_CONTACT_TYPES) {
+    await page.getByTestId(`update-record-0-contact-source-${source}`).check();
+    await page.getByTestId("update-record-0-ack").check();
+    const sourceToggle = page.getByTestId(`update-record-0-contact-source-toggle-${source}`);
+    await sourceToggle.click();
+    await expect(page.getByTestId("update-record-0-ack")).toBeChecked();
+    await sourceToggle.click();
+    for (const question of CLINIC_CONTACT_QUESTIONS) {
+      const toggle = page.getByTestId(`update-record-0-contact-question-${source}-${question.fieldKey}`);
+      if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
+      await expect(page.getByTestId("update-record-0-ack")).toBeChecked();
+      for (const option of question.options) {
+        const answer = page.getByTestId(`update-record-0-contact-answer-${source}-${question.fieldKey}-${option.value}`);
+        const alreadySelected = await answer.isChecked();
+        await answer.check();
+        await expect(answer).toBeChecked();
+        if (!alreadySelected) await expect(page.getByTestId("update-record-0-ack")).not.toBeChecked();
+        await expect(page.getByTestId("update-record-0-summary")).toContainText(copy.field[question.fieldKey]);
+        await page.getByTestId("update-record-0-ack").check();
+        visited++;
+      }
+    }
+  }
+  expect(visited).toBe(33);
+  const source = "current_collaborator";
+  await page.getByTestId(`update-record-0-contact-clear-${source}-initialStatus`).click();
+  await expect(page.getByTestId("update-record-0-ack")).not.toBeChecked();
+  await page.getByTestId("update-record-0-ack").check();
+  await page.getByTestId("service-action-stage-review").click();
+  await expect(page.getByTestId("status-list-automation-save")).toBeDisabled();
+  await page.getByTestId("service-action-stage-details").click();
+  await page.getByTestId(`update-record-0-contact-unchanged-${source}-initialStatus`).click();
+  await page.getByTestId("update-record-0-ack").check();
+  await page.getByTestId("service-action-stage-review").click();
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0].serviceActionConfig.fields).toEqual({
+    notes: "Clinic reviewed", leadSource: "current_collaborator",
+    interestCooperation: "not_interested", interestContract: "not_interested", contractStatus: "active",
+  });
 });
 
 for (const hospital of [false, true]) test(`Update record uses the shared ${hospital ? "hospital" : "clinic"} editor, requires confirmation and saves typed changes`, async ({ page }) => {

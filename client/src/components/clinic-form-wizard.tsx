@@ -1,4 +1,5 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
+import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "@shared/clinic-contact-type";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import ReactQuill from "react-quill";
@@ -123,7 +124,7 @@ interface ClinicFormData {
 const LEAD_SOURCE_TYPES = ["new_contact", "former_collaborator", "current_collaborator", "doctor_referral", "conference"] as const;
 type LeadSourceType = typeof LEAD_SOURCE_TYPES[number];
 
-const MAIN_SOURCE_TYPES: LeadSourceType[] = ["new_contact", "former_collaborator", "current_collaborator"];
+const MAIN_SOURCE_TYPES: LeadSourceType[] = [...CLINIC_CONTACT_TYPES];
 
 const LEAD_SOURCE_ICONS: Record<LeadSourceType, typeof UserPlus> = {
   new_contact: UserPlus,
@@ -172,39 +173,17 @@ interface PipelineCategory {
   options: PipelineOption[];
 }
 
-const PIPELINE_CATEGORIES: PipelineCategory[] = [
-  {
-    key: "initial", labelKey: "initialStatus", icon: CircleDot,
-    options: [
-      { value: "initial:not_contacted", labelKey: "notContacted", icon: Circle, stage: 1, sentiment: "neutral", color: "text-gray-500" },
-      { value: "initial:former", labelKey: "formerCollaborator", icon: Users, stage: 1, sentiment: "neutral", color: "text-amber-600" },
-      { value: "initial:active_contract", labelKey: "activeContract", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
-    ],
-  },
-  {
-    key: "cooperation", labelKey: "cooperationInterest", icon: Handshake,
-    options: [
-      { value: "coop:unknown", labelKey: "unknown", icon: HelpCircle, stage: 2, sentiment: "neutral", color: "text-gray-500" },
-      { value: "coop:interested", labelKey: "interested", icon: CheckCircle2, stage: 3, sentiment: "positive", color: "text-green-600" },
-      { value: "coop:not_interested", labelKey: "notInterested", icon: Ban, stage: 3, sentiment: "negative", color: "text-red-500" },
-    ],
-  },
-  {
-    key: "contract_interest", labelKey: "contractInterest", icon: FileSignature,
-    options: [
-      { value: "contract_int:unknown", labelKey: "unknown", icon: HelpCircle, stage: 3, sentiment: "neutral", color: "text-gray-500" },
-      { value: "contract_int:interested", labelKey: "interested", icon: CheckCircle2, stage: 4, sentiment: "positive", color: "text-green-600" },
-      { value: "contract_int:not_interested", labelKey: "notInterested", icon: Ban, stage: 4, sentiment: "negative", color: "text-red-500" },
-    ],
-  },
-  {
-    key: "contract_status", labelKey: "contractStatus", icon: ScrollText,
-    options: [
-      { value: "contract:none", labelKey: "noContract", icon: ScrollText, stage: 4, sentiment: "neutral", color: "text-gray-500" },
-      { value: "contract:active", labelKey: "activeContract", icon: ShieldCheck, stage: 5, sentiment: "positive", color: "text-green-600" },
-    ],
-  },
-];
+const PIPELINE_ICONS = { CircleDot, Circle, Users, ShieldCheck, Handshake, HelpCircle, CheckCircle2, Ban, FileSignature, ScrollText };
+const PIPELINE_CATEGORIES: PipelineCategory[] = CLINIC_CONTACT_QUESTIONS.map(category => ({
+  key: category.key,
+  labelKey: category.labelKey,
+  icon: PIPELINE_ICONS[category.icon],
+  options: category.options.map(option => ({
+    ...option,
+    value: `${category.prefix}:${option.value}` as PipelineValue,
+    icon: PIPELINE_ICONS[option.icon],
+  })),
+}));
 
 const ALL_PIPELINE_OPTIONS = PIPELINE_CATEGORIES.flatMap(c => c.options);
 
