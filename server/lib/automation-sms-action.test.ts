@@ -13,6 +13,22 @@ after(async () => { await pool.end(); });
 const ctx = { event: { module: "task", entityType: "task", entityId: "task-fixture", countryCode: "SK" },
   rule: { id: "rule-fixture", countryCode: "CZ" }, newValues: {} };
 
+test("Status List forwards its preflighted gateway without dropping trusted Mission enforcement", async () => {
+  const sends: any[] = [];
+  const result = await deliverAutomationSms({
+    smsActionVersion: 2, to: ["+421900000000"], text: "Message", provider: "smstools",
+  }, { ...ctx, statusListService: true, newValues: { campaignId: "verified-mission" } }, {
+    createMessage: async () => ({ id: "communication" }),
+    updateMessage: async () => undefined,
+    send: async options => { sends.push(options); return { success: true, provider: "smstools" }; },
+  });
+  assert.equal(result.ok, true);
+  assert.equal(sends[0].provider, "smstools");
+  assert.equal(sends[0].campaignId, "verified-mission");
+  assert.equal(sends[0].campaignProviderMode, "reject-conflict");
+  assert.equal(sends[0].country, "SK");
+});
+
 test("explicit phones normalize, deduplicate and preflight the whole recipient list", async () => {
   assert.equal(normalizeSmsRecipient("00421 900 123 456"), "+421900123456");
   assert.deepEqual(smsRecipientList(["+421 900 123 456", "+421900123456", "+420 600 123 456"]),

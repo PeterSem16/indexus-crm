@@ -454,6 +454,26 @@ app.use((req, res, next) => {
 
     await pool.query(`
       ALTER TABLE campaign_status_list_automations
+        ADD COLUMN IF NOT EXISTS service_action_config jsonb,
+        ADD COLUMN IF NOT EXISTS service_action_owner_id varchar;
+      CREATE TABLE IF NOT EXISTS status_list_service_executions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        campaign_id varchar NOT NULL,
+        campaign_contact_id varchar NOT NULL,
+        automation_id varchar NOT NULL,
+        actor_id varchar NOT NULL,
+        owner_id varchar NOT NULL,
+        trigger_key text NOT NULL,
+        action_type text NOT NULL,
+        status text NOT NULL DEFAULT 'pending',
+        result jsonb,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        finished_at timestamptz,
+        UNIQUE (campaign_contact_id,automation_id,trigger_key)
+      );
+      CREATE INDEX IF NOT EXISTS status_list_service_executions_mission_time
+        ON status_list_service_executions(campaign_id,created_at DESC);
+      ALTER TABLE campaign_status_list_automations
         ADD COLUMN IF NOT EXISTS question_id varchar;
     `);
     console.log('[migration] question_id column ensured on automations');

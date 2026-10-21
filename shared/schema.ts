@@ -8272,6 +8272,8 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   sortOrder: integer("sort_order").notNull().default(0),
   actionType: text("action_type").notNull(),
   targetRole: text("target_role"),
+  serviceActionConfig: jsonb("service_action_config").$type<Record<string, unknown>>(),
+  serviceActionOwnerId: varchar("service_action_owner_id"),
   emailTemplateId: varchar("email_template_id"),
   emailRecipients: text("email_recipients").array().notNull().default(sql`ARRAY[]::text[]`),
   smsTemplateId: varchar("sms_template_id"),
@@ -8303,6 +8305,8 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   updatedAt: true,
 }).extend({
   questionId: z.string().optional().nullable(),
+  serviceActionConfig: z.record(z.unknown()).optional().nullable(),
+  serviceActionOwnerId: z.string().optional().nullable(),
   targetRole: z.string().optional().nullable(),
   emailTemplateId: z.string().optional().nullable(),
   emailRecipients: z.array(z.string()).optional().default([]),

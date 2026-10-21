@@ -38,9 +38,10 @@ export async function deliverAutomationSms(rendered: any, ctx: any, deps: Delive
       communicationId = communication.id;
       result = await deps.send({
         number, text, country,
-        // An event-owned Mission is authoritative; explicit gateway choices
-        // apply only when no Mission owns the message.
-        provider: campaignId || rendered.provider === "default" ? undefined : rendered.provider,
+        // General rules keep their legacy Mission override. The Status List
+        // bridge preflights an explicit gateway and still passes reject-conflict
+        // to the provider; an unpinned Mission can honor that explicit choice.
+        provider: rendered.provider === "default" || (campaignId && !ctx.statusListService) ? undefined : rendered.provider,
         campaignId, campaignProviderMode: "reject-conflict", promotional,
         unicode: rendered.unicode === true, tag: communicationId,
       });

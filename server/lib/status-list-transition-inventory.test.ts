@@ -42,7 +42,7 @@ async function testReadOnly(fail = false) {
   const client = {
     async query(sql: string, params?: unknown[]) {
       statements.push(sql);
-      if (sql.includes("SELECT to_jsonb(a)")) {
+      if (sql.includes("AS config") && sql.includes("FROM campaign_status_list_automations a")) {
         assert.deepEqual(params, [campaignId]);
         if (fail) throw new Error("simulated read failure");
         return { rows: [row] };

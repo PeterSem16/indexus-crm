@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { actionCopy, catalogFieldLabel, catalogOperatorLabel } from "../components/status-list-service-action-copy";
 import {
   statusListActionDraft, statusListActionPayload, statusListActionDirty, statusListActionError,
-  statusListServiceActions, type SavedStatusListAction,
+  statusListServiceActions, nativeConfigFromLegacy, emptyNativeActionConfig, type SavedStatusListAction,
 } from "./status-list-action-draft";
 const original: SavedStatusListAction = {
   id: "action", statusListItemId: "source", questionId: "question", sortOrder: 7, actionType: "assign_task",
@@ -86,12 +86,35 @@ check(statusListActionPayload(statusDraft, status, null, true).callbackTime === 
   && statusListActionPayload(statusDraft, status, null, true).callbackOffsetDays === 1, "Choosing a callback disposition persists its displayed defaults");
 check(statusListActionError({ ...statusDraft, callbackTime: "25:80" }, true) === "callback", "Invalid fixed callback times cannot save");
 fresh = statusListActionDraft(undefined, "send_sms");
-check(statusListActionPayload({ ...fresh, smsProvider: "bulkgate", taskDescription: "Synthetic" }, undefined, "smstools").smsProvider === null, "Mission SMS policy remains authoritative");
-check(statusListActionPayload({ ...fresh, smsProvider: "bulkgate", taskDescription: "Synthetic" }).smsProvider === "bulkgate", "Explicit gateway works only without Mission policy");
-check(statusListActionError(fresh) === "sms", "An empty SMS cannot be saved as a send action");
+const legacySmsDraft = { ...fresh, serviceActionExplicit: false };
+const savedLegacySms = { ...original, actionType: "send_sms", serviceActionConfig: null };
+check(statusListActionPayload({ ...legacySmsDraft, smsProvider: "default", taskDescription: "Synthetic" }, savedLegacySms, "smstools").smsProvider === null, "Mission SMS policy remains authoritative");
+check(statusListActionPayload({ ...legacySmsDraft, smsProvider: "smstools", taskDescription: "Synthetic" }, savedLegacySms).smsProvider === "smstools", "Explicit gateway works only without Mission policy");
+check(statusListActionError(legacySmsDraft) === "sms", "An empty legacy SMS cannot be saved as a send action");
 fresh = statusListActionDraft(undefined, "notify_email");
-check(statusListActionError({ ...fresh, emailRecipients: "not-an-email" }) === "email", "Invalid explicit email addresses are rejected");
-check(statusListActionPayload({ ...fresh, emailRecipients: "one@example.invalid;two@example.invalid\nthree@example.invalid" }).emailRecipients instanceof Array, "Multiple email recipients serialize to the existing array");
+const legacyEmailDraft = { ...fresh, serviceActionExplicit: false };
+const savedLegacyNotifyEmail = { ...original, actionType: "notify_email", serviceActionConfig: null };
+check(statusListActionError({ ...legacyEmailDraft, emailRecipients: "not-an-email" }) === "email", "Invalid explicit email addresses are rejected");
+check(statusListActionPayload({ ...legacyEmailDraft, emailRecipients: "one@example.invalid;two@example.invalid\nthree@example.invalid" }, savedLegacyNotifyEmail).emailRecipients instanceof Array, "Multiple email recipients serialize to the existing array");
+const savedLegacyEmail = { ...original, actionType: "notify_email", serviceActionConfig: null, emailRecipients: ["ops@example.invalid"] };
+const openedLegacyEmail = statusListActionDraft(savedLegacyEmail);
+check(openedLegacyEmail.serviceActionExplicit === false, "Opening a saved legacy supported action does not opt into native config");
+check(statusListActionPayload({ ...openedLegacyEmail, conditionAnswer: "yes" }, savedLegacyEmail).serviceActionConfig === null,
+  "Editing only a legacy condition preserves a null native config");
+check(!statusListActionDirty(openedLegacyEmail, savedLegacyEmail), "Mounting a saved legacy action does not make the draft dirty");
+const convertedLegacyEmail = { ...openedLegacyEmail, serviceActionConfig: nativeConfigFromLegacy(savedLegacyEmail), serviceActionExplicit: true };
+check((convertedLegacyEmail.serviceActionConfig.to as string).includes("ops@example.invalid"), "Explicit conversion retains saved email recipients");
+check(typeof statusListActionPayload(convertedLegacyEmail, savedLegacyEmail).serviceActionConfig === "object",
+  "Explicit conversion writes a native config object");
+const freshNativeSms = statusListActionDraft(undefined, "send_sms");
+check(freshNativeSms.serviceActionExplicit && statusListActionPayload(freshNativeSms).serviceActionConfig !== null,
+  "New supported actions start with native configuration");
+const preservedConfig = { ...original, serviceActionConfig: { type: "opaque", templateSnapshot: { html: "<p>Raw</p>" }, dormant: false } };
+check(JSON.stringify(statusListActionPayload(statusListActionDraft(preservedConfig), preservedConfig).serviceActionConfig) === JSON.stringify(preservedConfig.serviceActionConfig),
+  "Existing native config snapshots and dormant values are preserved byte-for-byte structurally");
+const switchedNative = { ...freshNativeSms, actionType: "send_email_group", serviceActionConfig: emptyNativeActionConfig("send_email") };
+check(statusListActionPayload(switchedNative).serviceActionConfig !== freshNativeSms.serviceActionConfig,
+  "Switching between native action types uses a fresh compatible config");
 fresh = statusListActionDraft(undefined, "sys_webhook");
 check(statusListActionError({ ...fresh, webhookTarget: "javascript:alert(1)" }) === "webhook", "Webhook configuration rejects executable URI schemes");
 check(statusListActionError({ ...fresh, webhookTarget: "https://example.invalid/hook" }) === null, "HTTPS webhooks remain supported");

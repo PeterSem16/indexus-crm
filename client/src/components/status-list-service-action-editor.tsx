@@ -9,7 +9,58 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusListServiceActionFields, type ServiceActionOption, type ServiceTaskTemplate } from "./status-list-service-action-fields";
 import { StatusListServiceActionConditions, type ConditionFieldMetadata } from "./status-list-service-action-conditions";
 import { actionCopy, catalogFieldLabel, catalogOperatorLabel } from "./status-list-service-action-copy";
+import { filterStatusListActionVariables, StatusListNativeActionEditor } from "./status-list-native-action-editor";
+import { emptyNativeActionConfig, nativeConfigFromLegacy, nativeServiceActionTypes } from "@/lib/status-list-action-draft";
+import { statusListNativeActionIssues } from "@shared/status-list-service-config";
 import "./status-list-service-action-editor.css";
+
+const migrationCopy: Record<string, Record<string, string>> = {
+  en: { legacyNativeNotice: "This saved action still uses its original behavior. It changes only if you explicitly convert it.", convertNative: "Convert to modern editor", invalidDraft: "Finish or correct the pending recipient entry before saving." },
+  sk: { legacyNativeNotice: "Táto uložená akcia stále používa pôvodné správanie. Zmení sa iba po výslovnom prevedení.", convertNative: "Previesť na moderný editor", invalidDraft: "Pred uložením dokončite alebo opravte rozpracovaného príjemcu." },
+  cs: { legacyNativeNotice: "Tato uložená akce stále používá původní chování. Změní se pouze po výslovném převedení.", convertNative: "Převést do moderního editoru", invalidDraft: "Před uložením dokončete nebo opravte rozpracovaného příjemce." },
+  hu: { legacyNativeNotice: "Ez a mentett művelet még az eredeti működést használja. Csak kifejezett átalakítás után változik.", convertNative: "Átalakítás a modern szerkesztőre", invalidDraft: "Mentés előtt fejezze be vagy javítsa a függőben lévő címzettet." },
+  ro: { legacyNativeNotice: "Această acțiune salvată folosește încă comportamentul inițial. Se schimbă numai după conversia explicită.", convertNative: "Convertește în editorul modern", invalidDraft: "Finalizați sau corectați destinatarul înainte de salvare." },
+  it: { legacyNativeNotice: "Questa azione salvata usa ancora il comportamento originale. Cambierà solo dopo una conversione esplicita.", convertNative: "Converti nell’editor moderno", invalidDraft: "Completa o correggi il destinatario in sospeso prima di salvare." },
+  de: { legacyNativeNotice: "Diese gespeicherte Aktion verwendet noch das ursprüngliche Verhalten. Sie ändert sich erst nach einer ausdrücklichen Umwandlung.", convertNative: "In den modernen Editor umwandeln", invalidDraft: "Vervollständigen oder korrigieren Sie den Empfänger vor dem Speichern." },
+};
+const reviewFieldCopy: Record<string, Record<string, string>> = {
+  en: { title: "Title", message: "Message", recipient: "Recipients", sender: "Sender", priority: "Priority", deadline: "Deadline", description: "Description", text: "SMS text", gateway: "Gateway", template: "Template", personal: "Manager’s personal account", system: "System account", inherited: "Campaign gateway" },
+  sk: { title: "Názov", message: "Správa", recipient: "Príjemcovia", sender: "Odosielateľ", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablóna", personal: "Osobný účet manažéra", system: "Systémový účet", inherited: "Brána kampane" },
+  cs: { title: "Název", message: "Zpráva", recipient: "Příjemci", sender: "Odesílatel", priority: "Priorita", deadline: "Termín", description: "Popis", text: "Text SMS", gateway: "Brána", template: "Šablona", personal: "Osobní účet manažera", system: "Systémový účet", inherited: "Brána kampaně" },
+  hu: { title: "Cím", message: "Üzenet", recipient: "Címzettek", sender: "Feladó", priority: "Prioritás", deadline: "Határidő", description: "Leírás", text: "SMS-szöveg", gateway: "Átjáró", template: "Sablon", personal: "Vezető személyes fiókja", system: "Rendszerfiók", inherited: "Kampány átjárója" },
+  ro: { title: "Titlu", message: "Mesaj", recipient: "Destinatari", sender: "Expeditor", priority: "Prioritate", deadline: "Termen", description: "Descriere", text: "Text SMS", gateway: "Gateway", template: "Șablon", personal: "Contul personal al managerului", system: "Cont de sistem", inherited: "Gateway-ul campaniei" },
+  it: { title: "Titolo", message: "Messaggio", recipient: "Destinatari", sender: "Mittente", priority: "Priorità", deadline: "Scadenza", description: "Descrizione", text: "Testo SMS", gateway: "Gateway", template: "Modello", personal: "Account personale del responsabile", system: "Account di sistema", inherited: "Gateway della campagna" },
+  de: { title: "Titel", message: "Nachricht", recipient: "Empfänger", sender: "Absender", priority: "Priorität", deadline: "Frist", description: "Beschreibung", text: "SMS-Text", gateway: "Gateway", template: "Vorlage", personal: "Persönliches Konto der Leitung", system: "Systemkonto", inherited: "Kampagnen-Gateway" },
+};
+function nativeReviewRows(actionType: string, config: Record<string, any>, locale: string, missionGateway: string | null) {
+  const labels = reviewFieldCopy[locale.split("-")[0]] || reviewFieldCopy.en;
+  const targets = Array.isArray(config.recipients) ? config.recipients : [];
+  const notifyTargets = config.taskGroupId ? [config.taskGroupId] : config.targetRole ? [config.targetRole] : config.userIds || (config.userId ? [config.userId] : []);
+  const emailTargets = [...(Array.isArray(config.toTargets) ? config.toTargets.map((item: any) => `${item.kind}:${item.id}`) : []), String(config.to || "")].filter(Boolean);
+  const text = actionType === "send_sms" ? config.text : actionType === "send_email_group" || actionType === "notify_email" || actionType === "send_contact_email" ? config.body : config.taskText || config.description;
+  const rows: string[] = [];
+  const add = (label: string, value: unknown) => { if (value != null && String(value).trim()) rows.push(`${label}: ${String(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}`); };
+  if (actionType === "notify_role") {
+    add(labels.title, config.title); add(labels.message, config.message);
+    add(labels.recipient, notifyTargets.join(", ")); add(labels.priority, config.priority);
+  } else if (["send_email_group", "notify_email", "send_contact_email"].includes(actionType)) {
+    add(labels.recipient, emailTargets.join(", ")); add(labels.sender, config.senderMode === "personal" ? labels.personal : labels.system);
+    add(labels.title, config.subject); add(labels.message, text);
+    if (config.templateId) add(labels.template, config.templateName || config.templateId);
+  } else if (actionType === "send_sms") {
+    add(labels.recipient, Array.isArray(config.to) ? config.to.join(", ") : config.to);
+    const gateway = config.provider && config.provider !== "default" ? config.provider
+      : missionGateway ? `${labels.inherited}: ${missionGateway}` : labels.system;
+    add(labels.text, text); add(labels.gateway, gateway);
+    if (config.templateId) add(labels.template, config.templateName || config.templateId);
+  } else {
+    add(labels.title, config.title); add(labels.description, config.description || config.taskText);
+    add(labels.recipient, targets.map((item: any) => `${item.kind}:${item.id}`).join(", ") || [config.assignedUserId, config.taskGroupId, config.targetRole].filter(Boolean).join(", "));
+    add(labels.priority, config.priority);
+    add(labels.deadline, config.dueAt || (config.dueInHours != null ? `${config.dueInHours} h` : ""));
+  }
+  return rows;
+}
 
 export type StatusListServiceActionOption = { value: string; label: string; help: string; icon?: React.ReactNode };
 export type StatusListServiceActionTranslate = (key: string) => string;
@@ -159,10 +210,14 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const copy = (key: string) => actionCopy(locale, key);
+  const migration = migrationCopy[locale.split("-")[0]] || migrationCopy.en;
+  const supportedVariables = filterStatusListActionVariables(variables);
   const initialType = initialActionType || "assign_task";
   const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType));
   const [stage, setStage] = useState<Stage>(initialStage);
   const [attemptedSave, setAttemptedSave] = useState(false);
+  const [nativeActionError, setNativeActionError] = useState<string | null>(null);
+  const [nativeDraftInvalid, setNativeDraftInvalid] = useState(false);
   const [originalConditionJson, setOriginalConditionJson] = useState<string | null>(automation?.conditionJson || null);
   const originalRef = useRef<SavedStatusListAction | undefined>(automation);
   const initializedRef = useRef<string | null>(null);
@@ -182,7 +237,6 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     setAttemptedSave(false);
   }, [automation?.id, campaignId, itemId, questionId, initialType, initialStage]);
 
-  const isEdit = automation?.id != null;
   const needsRole = ["assign_task", "send_email_group", "notify_role"].includes(draft.actionType);
   const needsTaskGroups = draft.actionType === "assign_task";
   const needsEmail = ["send_email_group", "notify_email", "send_contact_email"].includes(draft.actionType);
@@ -190,6 +244,10 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const needsDisposition = draft.actionType === "set_contact_status";
   const needsHospitals = draft.conditionMode === "field_changed_to" && draft.fieldChangedKey === "contact.hospital_id";
   const needsClinics = draft.conditionMode === "field_changed_to" && draft.fieldChangedKey === "contact.clinic_id";
+  const isEdit = automation?.id != null;
+  const supportsNativeAction = !!nativeServiceActionTypes[draft.actionType];
+  const nativeActionActive = supportsNativeAction && (!isEdit || draft.serviceActionExplicit || automation?.serviceActionConfig != null);
+  const legacyNativeAction = isEdit && supportsNativeAction && automation?.serviceActionConfig == null && !draft.serviceActionExplicit;
 
   const campaignQuery = useQuery<any>({
     queryKey: ["/api/campaigns", campaignId],
@@ -321,9 +379,10 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
       toast({ title: translated === key ? copy("saved") : translated });
       onSaved();
     },
-    onError: () => {
+      onError: (error: any) => {
+      setNativeActionError(error?.message || null);
       const translated = translate("saveErr");
-      toast({ title: translated === "saveErr" ? copy("saveError") : translated, variant: "destructive" });
+      toast({ title: translated === "saveErr" ? copy("saveError") : translated, description: error?.message, variant: "destructive" });
     },
   });
 
@@ -337,6 +396,23 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   };
   const save = () => {
     setAttemptedSave(true);
+    if (nativeActionActive) {
+      if (nativeDraftInvalid) {
+        setNativeActionError(migration.invalidDraft);
+        return;
+      }
+      const config = draft.serviceActionConfig || {};
+      const sharedIssues = statusListNativeActionIssues(draft.actionType, config);
+      if (sharedIssues.length) {
+        setNativeActionError(sharedIssues.join(" · "));
+        return;
+      }
+      if (draft.actionType === "send_sms" && campaignSmsProvider && config.provider && config.provider !== "default" && config.provider !== campaignSmsProvider) {
+        setNativeActionError("The selected SMS gateway conflicts with the campaign gateway.");
+        return;
+      }
+    }
+    setNativeActionError(null);
     if (statusListActionError(draft, callbackDisposition) || conditionValueInvalid) return;
     saveMutation.mutate();
   };
@@ -362,7 +438,10 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     type: copy("chooseHelp"), details: copy("detailsHelp"), conditions: copy("conditionsHelp"), review: copy("reviewHelp"),
   };
   const retryLookups = () => { failedQueries.forEach(query => { void query.refetch(); }); };
-  const saveBlocked = saveMutation.isPending || (needsSms && (campaignQuery.isLoading || campaignQuery.isError));
+  const saveBlocked = saveMutation.isPending || (needsSms && (campaignQuery.isLoading || campaignQuery.isError)) ||
+    (nativeActionActive && nativeDraftInvalid) ||
+    (nativeActionActive && draft.actionType === "send_sms" && !!campaignSmsProvider && !!draft.serviceActionConfig?.provider
+      && draft.serviceActionConfig.provider !== "default" && draft.serviceActionConfig.provider !== campaignSmsProvider);
 
   return <section className={`slsae${presentation === "inline" ? " slsae-inline" : ""}`} data-presentation={presentation} aria-busy={saveMutation.isPending} data-testid="status-list-service-action-editor">
     <fieldset className="slsae-lock" disabled={saveMutation.isPending}>
@@ -380,7 +459,15 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
       <div className="slsae-intro"><span>{String(STAGES.indexOf(stage) + 1).padStart(2, "0")} / 04</span><h3>{stepHeading[stage]}</h3><p>{stepHelp[stage]}</p></div>
       {stage === "type" && <div className="slsae-field-grid">
         <label className="slsae-field wide"><span>{copy("actionLabel")}</span>
-          <select data-testid="service-action-type" value={draft.actionType} onChange={event => setDraft(previous => ({ ...previous, actionType: event.target.value }))}>
+          <select data-testid="service-action-type" value={draft.actionType} onChange={event => {
+            const nextType = event.target.value;
+            setNativeActionError(null);
+            setNativeDraftInvalid(false);
+            setDraft(previous => ({ ...previous, actionType: nextType,
+              serviceActionConfig: nativeServiceActionTypes[nextType] ? emptyNativeActionConfig(nextType) : null,
+              serviceActionExplicit: !!nativeServiceActionTypes[nextType],
+            }));
+          }}>
             {availableActions.map(action => <option key={action.value} value={action.value}>{action.label}</option>)}
           </select>
         </label>
@@ -388,11 +475,37 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
         {selectedAction?.help && <p className="slsae-callout wide">{selectedAction.help}</p>}
         <p className="slsae-callout wide">{copy("safety")}</p>
       </div>}
-      {stage === "details" && <>
+      {stage === "details" && nativeActionActive && <StatusListNativeActionEditor draft={draft} setDraft={setDraft} locale={locale}
+        countryCodes={Array.isArray(campaignQuery.data?.countryCodes) ? campaignQuery.data.countryCodes : []}
+        missionGateway={campaignSmsProvider} sourceLabel={sourceLabel} variables={supportedVariables} actionId={automation?.id == null ? undefined : String(automation.id)}
+        onDraftValidityChange={setNativeDraftInvalid}
+        legacyTemplateId={automation && automation.serviceActionConfig == null && draft.serviceActionExplicit && draft.actionType === automation.actionType
+          ? draft.actionType === "send_sms" ? automation.smsTemplateId
+            : ["send_email_group", "notify_email", "send_contact_email"].includes(draft.actionType) ? automation.emailTemplateId : null
+          : null} />}
+      {stage === "details" && legacyNativeAction && <>
+        <div className="slsae-callout wide" role="note">
+          <span>{migration.legacyNativeNotice}</span>
+          <button type="button" className="slsae-button" data-testid="service-action-convert-native" onClick={() => {
+            setNativeDraftInvalid(false);
+            setDraft(previous => ({ ...previous, serviceActionConfig: nativeConfigFromLegacy(originalRef.current), serviceActionExplicit: true }));
+          }}>{migration.convertNative}</button>
+        </div>
         {lookupLoading && <div className="slsae-loading" aria-label={copy("detailsTitle")}><div className="slsae-skeleton" /><div className="slsae-skeleton" /><div className="slsae-skeleton" /></div>}
         {failedQueries.length > 0 && <div className="slsae-error" role="alert">{copy("lookupError")} <button className="slsae-button" type="button" onClick={retryLookups}>{copy("retry")}</button></div>}
         <StatusListServiceActionFields
-          draft={draft} setDraft={setDraft} locale={locale} taskTemplates={taskTemplates} variables={variables}
+          draft={draft} setDraft={setDraft} locale={locale} taskTemplates={taskTemplates} variables={supportedVariables}
+          roleFallbacks={roleFallbacks} countries={countries} deadlines={deadlines} priorities={priorities}
+          taskGroups={groupsQuery.data || []} roles={rolesQuery.data || []} templates={templates}
+          categories={categoriesQuery.data || []} dispositions={dispositions}
+          provider={campaignSmsProvider} callbackDisposition={callbackDisposition}
+        />
+      </>}
+      {stage === "details" && !nativeActionActive && !legacyNativeAction && <>
+        {lookupLoading && <div className="slsae-loading" aria-label={copy("detailsTitle")}><div className="slsae-skeleton" /><div className="slsae-skeleton" /><div className="slsae-skeleton" /></div>}
+        {failedQueries.length > 0 && <div className="slsae-error" role="alert">{copy("lookupError")} <button className="slsae-button" type="button" onClick={retryLookups}>{copy("retry")}</button></div>}
+        <StatusListServiceActionFields
+          draft={draft} setDraft={setDraft} locale={locale} taskTemplates={taskTemplates} variables={supportedVariables}
           roleFallbacks={roleFallbacks} countries={countries} deadlines={deadlines} priorities={priorities}
           taskGroups={groupsQuery.data || []} roles={rolesQuery.data || []} templates={templates}
           categories={categoriesQuery.data || []} dispositions={dispositions}
@@ -408,15 +521,17 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
       </>}
       {stage === "review" && <div className="slsae-review" data-testid="service-action-review">
         <div className="slsae-review-main">
-          <section className="slsae-review-card"><h4>{copy("actionSection")}</h4><p>{selectedAction?.label || draft.actionType}</p>{reviewRows.map(row => <p key={row}>{row}</p>)}</section>
+          <section className="slsae-review-card"><h4>{copy("actionSection")}</h4><p>{selectedAction?.label || draft.actionType}</p>
+            {(nativeActionActive ? nativeReviewRows(draft.actionType, draft.serviceActionConfig || {}, locale, campaignSmsProvider) : reviewRows).map(row => <p key={row}>{row}</p>)}</section>
           <section className="slsae-review-card"><h4>{copy("conditionSection")}</h4><p>{condition}</p></section>
           <section className="slsae-review-card"><h4>{copy("scopeSection")}</h4><p>{copy("sourceLine")} · {sourceLabel}</p></section>
         </div>
         <aside className="slsae-review-aside"><strong>{copy("reviewHelp")}</strong>{copy("safety")}<br /><br />{copy("noElse")}</aside>
       </div>}
     </div>
-    {attemptedSave && validationError && <p className="slsae-error" role="alert">{errorMap[validationError]}</p>}
-    {saveMutation.isError && <p className="slsae-error" role="alert">{copy("saveError")}</p>}
+     {nativeActionActive && nativeDraftInvalid && <p className="slsae-error" role="alert">{migration.invalidDraft}</p>}
+     {attemptedSave && validationError && <p className="slsae-error" role="alert">{errorMap[validationError]}</p>}
+     {(nativeActionError || saveMutation.isError) && <p className="slsae-error" role="alert">{nativeActionError || (saveMutation.error as Error)?.message || copy("saveError")}</p>}
     <footer className="slsae-footer">
       <div className="slsae-footer-left"><span className="slsae-help">{saveMutation.isPending ? copy("saving") : dirty || !isEdit ? copy("dirty") : copy("saved")}</span>
         <button type="button" className="slsae-button" onClick={onCancel}>{copy("cancel")}</button>

@@ -15,7 +15,7 @@ import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner, wi
 import { readStatusListServiceHistory } from "./status-list-service-history";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
-async function authorize(req: Request, manage: boolean, contactId?: string) {
+export async function authorize(req: Request, manage: boolean, contactId?: string) {
   const user = (req as any).session?.user;
   if (!user) throw new StatusListWorkflowError("unauthorized", 401);
   const mission = (await pool.query("SELECT country_codes FROM campaigns WHERE id=$1", [req.params.campaignId])).rows[0];
@@ -256,8 +256,12 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   app.put(`${contactRoot}/answers/:questionId`, requireAuth, route(async (req, res) => {
     const user = await authorize(req, false, req.params.campaignContactId);
     const { value } = z.object({ value: workflowAnswerSchema.nullable() }).strict().parse(req.body);
-    await saveWorkflowQuestion({ campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId,
+    const change = await saveWorkflowQuestion({ campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId,
       questionId: req.params.questionId, actorId: user.id, value });
-    res.json({ ok: true });
+    const serviceActions = change ? await (await import("./status-list-native-service")).executeStatusListQuestionNativeServices({
+      campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId,
+      questionId: req.params.questionId, userId: user.id, confirmationId: `answer:${change.revision}`,
+    }) : [];
+    res.json({ ok: true, serviceActions });
   }));
 }

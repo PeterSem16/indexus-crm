@@ -390,6 +390,7 @@ export async function saveWorkflowQuestion(input: {
       const now = await client.query("SELECT clock_timestamp() AS at");
       await executeEvent(client, { ...input, source: { kind: "question", id: input.questionId },
         value: input.value, eventId: `answer:${revision}`, occurredAt: now.rows[0].at });
+      return { revision };
     }
   });
 }

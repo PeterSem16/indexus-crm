@@ -63,7 +63,7 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
     await client.query("SET LOCAL statement_timeout = '10s'");
     await client.query("SET LOCAL lock_timeout = '2s'");
     const { rows } = await client.query<TransitionInventoryRow>(`
-      SELECT to_jsonb(a) AS config, md5(to_jsonb(a)::text) AS fingerprint,
+      SELECT native.config AS config, md5(native.config::text) AS fingerprint,
         i.id AS item_id,i.step_id AS step_code,
         d.action_type AS disposition_type,d.campaign_id AS disposition_campaign_id,
         (a.question_id IS NULL OR EXISTS(
@@ -71,6 +71,10 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
           WHERE q.id=a.question_id AND q.item_id=i.id
         )) AS question_valid
       FROM campaign_status_list_automations a
+      CROSS JOIN LATERAL (SELECT CASE
+        WHEN coalesce(to_jsonb(a)->'service_action_config','null'::jsonb)='null'::jsonb
+        THEN to_jsonb(a)-'service_action_config'-'service_action_owner_id'
+        ELSE to_jsonb(a) END AS config) native
       JOIN campaign_status_list_items i ON i.id=a.status_list_item_id
       LEFT JOIN campaign_dispositions d ON d.id=a.disposition_id
       WHERE i.campaign_id=$1 ORDER BY i.sort_order,i.id,a.sort_order,a.id`, [campaignId]);

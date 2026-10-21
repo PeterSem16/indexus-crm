@@ -19,6 +19,8 @@ try {
     CREATE TABLE campaign_status_list_automations(id text,status_list_item_id text,question_id text);
     CREATE TABLE mission_callback_events(id int,created_at timestamptz,actor_id text,
       campaign_id text,automation_id text,payload jsonb,status text,result jsonb);
+    CREATE TABLE status_list_service_executions(id text,created_at timestamptz,actor_id text,
+      campaign_id text,automation_id text,action_type text,status text);
     INSERT INTO users VALUES('agent','Agent');
     INSERT INTO campaign_contacts VALUES('contact','mission'),('foreign','other-mission');
     INSERT INTO campaign_status_list_items VALUES('step','mission','Contact result');
@@ -51,6 +53,14 @@ try {
   assert.equal((await readStatusListServiceHistory(client, "mission", "absent")).events.length, 0);
   await client.query("INSERT INTO mission_callback_events SELECT n,'2026-10-22T10:00:00Z'::timestamptz,'agent','mission','callback','{}','pending',null FROM generate_series(3,120) n");
   assert.equal((await readStatusListServiceHistory(client, "mission")).events.length, 100);
+  await client.query(`INSERT INTO status_list_service_executions VALUES
+    ('native-email','2026-10-23T10:00:00Z','agent','mission','email','send_contact_email','succeeded'),
+    ('native-foreign','2026-10-24T10:00:00Z','agent','other-mission','email','send_contact_email','failed')`);
+  const native = await readStatusListServiceHistory(client, "mission", "email");
+  assert.equal(native.events.length, 2);
+  assert.equal(native.events[0].id, "native:native-email");
+  assert.equal(native.events[0].state, "done");
+  assert.equal(native.events[0].outcome, null, "executing is not verified delivery");
   console.log("Service history: Mission/action scope, privacy projection, callback deduplication, honest legacy state and limit passed.");
 } finally {
   await client.query("ROLLBACK");

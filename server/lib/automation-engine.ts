@@ -317,7 +317,9 @@ async function actionCreateTask(config: any, ctx: any, runId: string): Promise<A
         country: taskCountry,
         attachments: analysisAttachments,
         forwardReview: ctx.forwardReview || null,
-        tags: assignment.tags,
+        tags: ctx.statusListService && ctx.statusList?.itemId && ctx.contact?.id
+          ? [...new Set([...(assignment.tags || []), "status_list", `source_entity:${ctx.contact.type}:${ctx.contact.id}`])]
+          : assignment.tags,
         dueDate,
         sourceRunId: runId,
         }).returning();
@@ -1081,6 +1083,15 @@ const ACTION_HANDLERS: Record<keyof typeof AUTOMATION_ACTION_POLICY, (cfg: any, 
   add_tag: (cfg, ctx, runId) => actionTagMutation(cfg, ctx, "add", runId),
   remove_tag: (cfg, ctx, runId) => actionTagMutation(cfg, ctx, "remove", runId),
 };
+
+/** Used by Status List only after server-side Mission, owner and config checks.
+ * This deliberately dispatches to the very same executors as general rules. */
+export async function executeSharedServiceAction(
+  type: "create_task" | "notify_user" | "send_email" | "send_sms",
+  config: Record<string, unknown>, context: any, runId: string,
+): Promise<ActionResult> {
+  return ACTION_HANDLERS[type](config, context, runId);
+}
 
 /* ------------------------------------------------------------
  *  Engine

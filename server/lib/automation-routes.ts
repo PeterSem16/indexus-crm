@@ -106,8 +106,12 @@ export function registerAutomationRoutes(app: Express) {
     try {
       const ruleId = typeof req.query.ruleId === "string" ? req.query.ruleId : undefined;
       const [rule] = ruleId ? await db.select().from(workflowRules).where(eq(workflowRules.id, ruleId)).limit(1) : [];
-      if (ruleId && !rule) return res.status(404).json({ error: "Rule not found" });
-      const authorId = rule ? rule.createdByUserId : getSessionUser(req)!.id;
+      let authorId = rule ? rule.createdByUserId : getSessionUser(req)!.id;
+      if (ruleId && !rule) {
+        const resolved = await (await import("./status-list-native-service")).resolveStatusListServiceAuthor(ruleId, getSessionUser(req));
+        if (resolved.status !== 200) return res.status(resolved.status).json({ error: resolved.error });
+        authorId = resolved.ownerId;
+      }
       const personal = authorId ? await storage.getUserMs365Connection(authorId) : undefined;
       const system = await Promise.all(COUNTRIES.map(async country => {
         const [mailbox, settings] = await Promise.all([

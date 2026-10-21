@@ -300,6 +300,8 @@ export async function cloneCampaignWithConfiguration(
         emailRecipients: row.emailRecipients,
         smsTemplateId: row.smsTemplateId,
         smsProvider: row.smsProvider,
+        serviceActionConfig: row.serviceActionConfig,
+        serviceActionOwnerId: row.serviceActionOwnerId,
         callbackOffsetDays: row.callbackOffsetDays,
         callbackTime: row.callbackTime,
         callbackBusinessDaysOnly: row.callbackBusinessDaysOnly,

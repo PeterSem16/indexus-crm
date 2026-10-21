@@ -51,9 +51,10 @@ import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count,
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { registerStatusListWorkflowRoutes } from "./lib/status-list-workflow-routes";
-import { processStatusListItemWorkflow, workflowCatalog } from "./lib/status-list-workflow";
+import { processStatusListItemWorkflow, workflowCatalog, StatusListWorkflowError } from "./lib/status-list-workflow";
 import { storage } from "./storage";
 import { executeStatusListTaskAction } from "./lib/status-list-task-action";
+import { authorizeStatusListServiceWrite, executeStatusListNativeService } from "./lib/status-list-native-service";
 import {
   ensureTaskAiChecklist,
   getTaskAiChecklistState,
@@ -1161,6 +1162,8 @@ async function executeStatusListItemAutomations(
 
   for (const automation of automations) {
     const actionType = automation.actionType;
+    // Modern question actions belong to that answer event, not every parent confirmation.
+    if (automation.serviceActionConfig && automation.questionId) continue;
     // These callbacks were captured atomically with this confirmation. Never
     // run them through the old fire-and-forget branch as well, even when the
     // event has already been completed by another worker.
@@ -1181,7 +1184,10 @@ async function executeStatusListItemAutomations(
         userId: context.userId,
         itemId: context.itemId,
       };
-      if (actionType === "assign_task") {
+      if (automation.serviceActionConfig) {
+        const result = await executeStatusListNativeService(automation, context);
+        if (!result.ok) throw new Error("Status List service action did not complete");
+      } else if (actionType === "assign_task") {
         await executeStatusListTaskAction(automation, {
           ...actionContext,
           contactId: context.contactId,
@@ -33209,7 +33215,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  app.post("/api/campaigns/:campaignId/status-list/:itemId/automations", requireAuth, async (req, res) => {
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/automations", requireAuth, authorizeStatusListServiceWrite, async (req, res) => {
     try {
       const { campaignId, itemId } = req.params;
       const [source] = await db.select({ id: campaignStatusListItems.id }).from(campaignStatusListItems)
@@ -33229,7 +33235,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  app.put("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
+  app.put("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, authorizeStatusListServiceWrite, async (req, res) => {
     try {
       const { campaignId, itemId, autoId } = req.params;
       const parsed = insertCampaignStatusListAutomationSchema.partial().safeParse(req.body);
@@ -33272,7 +33278,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     }
   });
 
-  app.delete("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, async (req, res) => {
+  app.delete("/api/campaigns/:campaignId/status-list/:itemId/automations/:autoId", requireAuth, authorizeStatusListServiceWrite, async (req, res) => {
     try {
       const { campaignId, itemId, autoId } = req.params;
       const [existing] = await db.select().from(campaignStatusListAutomations)
@@ -33687,7 +33693,7 @@ Respond ONLY with valid JSON in this exact format:
 
   // ===== Question-level Automation Route =====
 
-  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/automations", requireAuth, async (req, res) => {
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId/automations", requireAuth, authorizeStatusListServiceWrite, async (req, res) => {
     try {
       const { campaignId, itemId, questionId } = req.params;
       const [source] = await db.select({ id: campaignStatusListQuestions.id }).from(campaignStatusListQuestions)
@@ -35320,6 +35326,21 @@ Respond ONLY with valid JSON in this exact format:
           note: callbackNote ?? null,
         });
         if (durable) return res.json({ ...durable, actionType: automation.actionType });
+      }
+      if (automation.serviceActionConfig) {
+        try {
+          await (await import("./lib/status-list-workflow-routes")).authorize(req, false, campaignContactId);
+        } catch (error) {
+          if (error instanceof StatusListWorkflowError) return res.status(error.status).json({ error: error.code });
+          throw error;
+        }
+        const requestId = req.body.requestId;
+        if (requestId != null && (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId)))
+          return res.status(400).json({ error: "invalid_request_id" });
+        const result = await executeStatusListNativeService(automation, {
+          campaignId, campaignContactId, itemId: automation.statusListItemId, userId, requestId,
+        });
+        return res.status(result.ok ? 200 : 409).json({ ...result, actionType: automation.actionType });
       }
       if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
         const r = await runStatusListEmailGroup(automation, {
