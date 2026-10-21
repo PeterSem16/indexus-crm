@@ -11,7 +11,12 @@ export function templateEligibility(template: Template, variables: { value: stri
   const selected = sourceForModule(sourceModule);
   const parts = template.id.split("-");
   const activityModule = template.id.startsWith("indexus-activity-") && !analyzed ? parts[3] : null;
-  const sourceMismatch = Boolean(sourceModule && requiredSource && (analyzed
+  // The original general-purpose templates are explicitly reusable in Status List.
+  // Keep their exact IDs, markup and variables; do not clone or simplify them.
+  // Source-specific activity, call and analysis catalogs retain their boundaries.
+  const generalStatusListTemplate = sourceModule === "status_list" && !analyzed &&
+    !template.id.startsWith("indexus-activity-") && (family === "tasks" || family === "records" || family === "other");
+  const sourceMismatch = Boolean(!generalStatusListTemplate && sourceModule && requiredSource && (analyzed
     ? !variables.some(item => item.value.replace(/[{}]/g, "").trim().startsWith("analysis."))
     : requiredSource !== selected || (requiredSource === "records" && activityModule !== sourceModule)));
   return {

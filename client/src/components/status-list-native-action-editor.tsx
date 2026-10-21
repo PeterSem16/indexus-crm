@@ -7,6 +7,8 @@ import { AutomationNotifyUserAction } from "@/components/automation-notify-user-
 import { AutomationSendEmailAction } from "@/components/automation-send-email-action";
 import { AutomationSendSmsAction } from "@/components/automation-send-sms-action";
 import type { StatusListActionDraft } from "@/lib/status-list-action-draft";
+import { STATUS_LIST_ACTIVITY_FIELDS } from "@shared/status-list-template-context";
+import { templateFieldLabel } from "./automation-template-field-label";
 
 type User = { id: string; fullName?: string; email?: string; label?: string };
 type Group = { id: string; name: string; displayAlias?: string | null; members?: Array<{ userId: string }> };
@@ -26,7 +28,7 @@ async function queryJson<T>(url: string): Promise<T> {
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json();
 }
-export function filterStatusListActionVariables(values: { token: string; label: string }[]) {
+export function filterStatusListActionVariables(values: { token: string; label: string }[], locale = "en") {
   const contactFields = ["id", "type", "name", "firstName", "lastName", "email", "phone", "country", "countryCode"];
   const allowed = new Set(["event.country", "event.entity", "event.actor", "campaign.id", "campaign.name", "user.id"]);
   for (const field of contactFields) {
@@ -35,8 +37,11 @@ export function filterStatusListActionVariables(values: { token: string; label: 
   }
   allowed.add("newValues.campaignId");
   allowed.add("newValues.campaignContactId");
+  for (const field of STATUS_LIST_ACTIVITY_FIELDS) allowed.add(field.value);
   const seen = new Set<string>();
-  return values.filter(variable => {
+  return [...values, ...STATUS_LIST_ACTIVITY_FIELDS.map(field => ({
+    token: `{{${field.value}}}`, label: templateFieldLabel(field.value, locale, []),
+  }))].filter(variable => {
     const token = variable.token.replace(/^{{\s*|\s*}}$/g, "").trim();
     if (!allowed.has(token) || seen.has(token)) return false;
     seen.add(token);
@@ -58,7 +63,7 @@ export function StatusListNativeActionEditor({ draft, setDraft, locale, countryC
   const loading = usersQ.isLoading || groupsQ.isLoading || rolesQ.isLoading;
   const failed = [usersQ, groupsQ, rolesQ].some(query => query.isError);
   const retry = () => [usersQ, groupsQ, rolesQ].filter(query => query.isError).forEach(query => { void query.refetch(); });
-  const variables = filterStatusListActionVariables(suppliedVariables).map(variable => ({ value: variable.token.replace(/^{{|}}$/g, ""), label: variable.label }));
+  const variables = filterStatusListActionVariables(suppliedVariables, locale).map(variable => ({ value: variable.token.replace(/^{{|}}$/g, ""), label: variable.label }));
 
   return <section className="slsae-native-action" data-testid="status-list-native-action">
     {legacyTemplateId && <p className="slsae-callout wide">{copy.legacyTemplate.replace("{id}", legacyTemplateId)}</p>}

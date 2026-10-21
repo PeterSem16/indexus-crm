@@ -211,7 +211,7 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const { toast } = useToast();
   const copy = (key: string) => actionCopy(locale, key);
   const migration = migrationCopy[locale.split("-")[0]] || migrationCopy.en;
-  const supportedVariables = filterStatusListActionVariables(variables);
+  const supportedVariables = filterStatusListActionVariables(variables, locale);
   const initialType = initialActionType || "assign_task";
   const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType));
   const [stage, setStage] = useState<Stage>(initialStage);

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db";
 import { executeStatusListNativeService, executeStatusListQuestionNativeServices } from "./status-list-native-service";
+import { taskTemplateContext } from "./task-template-variables";
 
 const client = await pool.connect();
 try {
@@ -13,7 +14,8 @@ try {
   await client.query(`SET LOCAL search_path TO "${schema}"`);
   await client.query(`
     CREATE TABLE campaigns(id varchar,name text,country_codes text[],settings jsonb);
-    CREATE TABLE campaign_contacts(id varchar,campaign_id varchar,contact_type text,clinic_id varchar,hospital_id varchar,collaborator_id varchar,customer_id varchar);
+    CREATE TABLE campaign_contacts(id varchar,campaign_id varchar,contact_type text,clinic_id varchar,hospital_id varchar,collaborator_id varchar,customer_id varchar,
+      status text,assigned_to varchar,created_at timestamptz,updated_at timestamptz,callback_date timestamptz);
     CREATE TABLE campaign_status_list_items(id varchar,campaign_id varchar);
     CREATE TABLE campaign_status_list_automations(id varchar,status_list_item_id varchar,question_id varchar);
     CREATE TABLE mission_status_list_answers(campaign_contact_id varchar,question_id varchar,value jsonb,revision varchar);
@@ -23,7 +25,8 @@ try {
     CREATE TABLE customers(id varchar,first_name text,last_name text,email text,phone text,country text);
     CREATE TABLE users(id varchar,role text,assigned_countries text[],is_active boolean);
     INSERT INTO campaigns VALUES('mission','Mission',ARRAY['SK'],'{"smsProvider":"smstools"}');
-    INSERT INTO campaign_contacts VALUES('membership','mission','clinic','clinic',null,null,null);
+    INSERT INTO campaign_contacts VALUES('membership','mission','clinic','clinic',null,null,null,
+      'callback_scheduled','agent','2026-10-20T07:00:00Z','2026-10-21T07:00:00Z','2026-10-22T07:00:00Z');
     INSERT INTO campaign_status_list_items VALUES('item','mission');
     INSERT INTO campaign_status_list_automations VALUES('action','item',null);
     INSERT INTO clinics VALUES('clinic','Clinic','contact@example.test','+421900000000','SK');
@@ -52,6 +55,14 @@ try {
       assert.equal(config.text, "Message");
       assert.equal(context.contact.email, "contact@example.test");
       assert.equal(context.rule.createdByUserId, "manager");
+      const rendered = taskTemplateContext(context);
+      assert.equal(rendered.activity.title, context.contact.name);
+      assert.equal(rendered.activity.status, "callback_scheduled");
+      assert.equal(rendered.activity.assignedUserId, "agent");
+      assert.equal(rendered.activity.createdAt, "2026-10-20T07:00:00.000Z");
+      assert.equal(rendered.activity.updatedAt, "2026-10-21T07:00:00.000Z");
+      assert.equal(rendered.activity.dueDate, "2026-10-22T07:00:00.000Z");
+      assert.equal(rendered.activity.eventType, "status_list.service_action");
       return { ok: true, output: { sentCount: 1 } };
     } };
   assert.equal((await executeStatusListNativeService(action, input, deps)).ok, true);

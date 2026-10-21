@@ -1,10 +1,17 @@
 import { expect, test } from "@playwright/test";
-import { loadStatusListServiceTemplates } from "../server/lib/status-list-service-templates";
+import { humanAutomationCatalog } from "../server/lib/automation-human-templates";
+import { templateEligibility } from "../client/src/components/automation-template-eligibility";
+import { STATUS_LIST_ACTIVITY_FIELDS } from "../shared/status-list-template-context";
 
 const savedWrites: Record<string, unknown>[] = [];
-const nativeTemplates = loadStatusListServiceTemplates().map(template => ({ ...template, isActive: true, countryCodes: [] }));
-const nativeTemplate = (type: string) => nativeTemplates.find(template => template.type === type && template.language === "en" && template.id.includes("-information-"))!;
-const templateCatalog = (url: string) => nativeTemplates.filter(template => template.type === new URL(url).searchParams.get("type"));
+let nativeTemplates: Awaited<ReturnType<typeof humanAutomationCatalog>>["templates"] = [];
+test.beforeAll(async () => {
+  nativeTemplates = (await humanAutomationCatalog()).templates.filter(template => !template.id.startsWith("indexus-activity-"));
+});
+const nativeTemplate = (type: string) => nativeTemplates.find(template => template.type === type && template.language === "en" &&
+  templateEligibility(template, STATUS_LIST_ACTIVITY_FIELDS, "status_list").usable)!;
+const templateCatalog = (url: string) => nativeTemplates.filter(template => template.type === new URL(url).searchParams.get("type"))
+  .map(template => ({ ...template, isActive: true, countryCodes: [] }));
 test("legacy status-list notification keeps null config until explicit conversion; cancelled message edits are discarded and applied payload persists", async ({ page }) => {
   savedWrites.length = 0;
   const errors: string[] = [];

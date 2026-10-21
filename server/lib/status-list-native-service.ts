@@ -92,6 +92,9 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   const [source] = (await deps.query(`
     SELECT c.name AS campaign_name,c.country_codes AS mission_countries,c.settings AS mission_settings,
       cc.contact_type,a.question_id,qa.value AS question_value,qa.revision AS answer_revision,
+      cc.status AS source_status,cc.assigned_to AS source_assigned_to,
+      cc.created_at AS source_created_at,cc.updated_at AS source_updated_at,
+      cc.callback_date AS source_due_date,
       CASE cc.contact_type WHEN 'clinic' THEN cl.id WHEN 'hospital' THEN h.id
         WHEN 'collaborator' THEN co.id ELSE cu.id END AS entity_id,
       CASE cc.contact_type WHEN 'clinic' THEN cl.country_code WHEN 'hospital' THEN h.country_code
@@ -152,13 +155,19 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     email: source.email || "", phone: source.phone || "", country, countryCode: country,
   };
   const values = { ...contact, campaignId: input.campaignId, campaignContactId: input.campaignContactId,
+    title: contact.name, status: source.source_status || "",
+    assignedUserId: source.source_assigned_to || "",
+    createdAt: source.source_created_at || "", updatedAt: source.source_updated_at || "",
+    dueDate: source.source_due_date || "",
+    customerId: contact.type === "customer" ? contact.id : "",
+    priority: type === "assign_task" ? automation.serviceActionConfig.priority || "medium" : "",
     ...(source.question_id ? { answer: source.question_value, questionId: source.question_id } : {}) };
   const context = {
     statusListService: true,
     statusList: { itemId: input.itemId, campaignId: input.campaignId, campaignContactId: input.campaignContactId },
     rule: { createdByUserId: owner.id, countryCodes: codes(source.mission_countries) },
     event: { id: input.confirmationId || input.requestId || randomUUID(), module: contact.type,
-      source: "status_list", entityType: contact.type, entityId: contact.id, countryCode: country,
+      source: "status_list", eventType: "status_list.service_action", entityType: contact.type, entityId: contact.id, countryCode: country,
       actorUserId: input.userId, newValues: values, oldValues: {}, createdAt: new Date() },
     newValues: values, oldValues: {}, contact,
     ...(contact.type === "customer" ? { customer: contact } : {}),

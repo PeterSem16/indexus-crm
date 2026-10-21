@@ -9,9 +9,9 @@ const variants = [
   ["reminder", "statusListReminder"],
 ] as const;
 
-/** Same approved visual family, but only variables supplied by native Status List execution.
- * No fictitious task deadlines, call outcomes, or AI findings are copied from other sources. */
-export function loadStatusListServiceTemplates() {
+/** Historical rejected substitutes, reconstructed ONLY for exact-byte retirement.
+ * Never offer or seed these; the editor must use the original shared catalog. */
+export function retiredStatusListServiceTemplates() {
   return ACTIVITY_TEMPLATE_LANGUAGES.flatMap(language =>
     (["email", "sms", "notification", "task"] as const).flatMap(type =>
       variants.map(([variant, label]) => {
@@ -27,20 +27,19 @@ export function loadStatusListServiceTemplates() {
       })));
 }
 
-/** Language-scoped one-time seeds preserve edited, disabled and deleted defaults and rule copies. */
+/** Use the original shared catalog. Retire only our rejected, unchanged substitutes;
+ * manager edits, deletions and already saved action snapshots are not touched. */
 export async function ensureStatusListServiceTemplates(pool: { query: (sql: string) => Promise<unknown> }) {
-  const templates = loadStatusListServiceTemplates();
+  const templates = retiredStatusListServiceTemplates();
   const quote = (value: string | null | undefined) => value == null ? "NULL" : `'${value.replaceAll("'", "''")}'`;
   for (const language of ACTIVITY_TEMPLATE_LANGUAGES) {
     const rows = templates.filter(template => template.language === language).map(template =>
       `(${[template.id, template.name, template.subject, template.type, template.format, template.content, template.contentHtml].map(quote).join(",")})`).join(",\n");
-    await pool.query(`WITH seed AS (
-      INSERT INTO automation_template_seeds(id) VALUES (${quote(`status-list-service-templates-${language}`)})
-      ON CONFLICT(id) DO NOTHING RETURNING id
-    ), defaults(id,name,subject,type,format,content,html) AS (VALUES ${rows})
-    INSERT INTO message_templates(id,name,subject,type,format,content,content_html,language,category_id,is_active,country_codes)
-    SELECT defaults.id,name,subject,type,format,content,html,${quote(language)},
-      CASE WHEN type='email' THEN 'indexus-automation-email-category' ELSE NULL END,true,ARRAY[]::text[]
-    FROM defaults CROSS JOIN seed ON CONFLICT(id) DO NOTHING;`);
+    await pool.query(`WITH rejected(id,name,subject,type,format,content,html) AS (VALUES ${rows})
+      UPDATE message_templates AS t SET is_active=false FROM rejected AS r
+      WHERE t.id=r.id AND t.name=r.name AND t.type=r.type AND t.format=r.format
+        AND t.language=${quote(language)} AND t.is_active=true AND cardinality(t.country_codes)=0
+        AND t.subject IS NOT DISTINCT FROM r.subject AND t.content=r.content
+        AND t.content_html IS NOT DISTINCT FROM r.html;`);
   }
 }
