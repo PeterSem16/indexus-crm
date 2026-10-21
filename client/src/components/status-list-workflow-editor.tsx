@@ -118,7 +118,7 @@ export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSou
       </div>;
     })}</div>}
     {showBackgroundSources && <StatusListBackgroundSourcePanel campaignId={campaignId} locale={locale}/>}
-    {draft && <StatusListWorkflowDialog open draft={draft} catalog={catalog} locale={locale} editing={!!editing} pending={saveMutation.isPending} validation={validation} onUpdate={update} onClose={close} onSave={apply}/>}
+    {draft && <StatusListWorkflowDialog open draft={draft} catalog={catalog} campaignId={campaignId} locale={locale} editing={!!editing} pending={saveMutation.isPending} validation={validation} onUpdate={update} onClose={close} onSave={apply}/>}
   </section>;
 }
 export default StatusListWorkflowEditor;

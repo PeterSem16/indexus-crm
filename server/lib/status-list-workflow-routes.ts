@@ -6,6 +6,7 @@ import { canAgentReadCampaignByWorkspaceCountry } from "./agent-workspace-countr
 import { workflowAnswerSchema } from "../../shared/status-list-workflow";
 import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
+import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
@@ -69,6 +70,10 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/condition-options`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    res.json(await readWorkflowConditionOptions(pool, req.params.campaignId, req.query));
+  }));
   app.get(`${root}/contact-types`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const rows = (await pool.query(`SELECT DISTINCT coalesce(contact_type,'customer') AS type

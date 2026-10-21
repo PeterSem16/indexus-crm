@@ -6,10 +6,12 @@ import { isWorkflowNoteAction, workflowActionSupportsTarget, type WorkflowAction
 import { groupWorkflowCatalog, isWorkflowBoolean, isWorkflowSupported, isWorkflowYesNo, workflowCatalogPath, workflowDefaultAnswer, workflowNewAction, workflowRefKey, type WorkflowCatalogNode } from "@/lib/status-workflow-catalog";
 import { getStatusWorkflowActionCopy } from "./status-list-workflow-action-copy";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
+import { getStatusListWorkflowConditionCopy } from "./status-list-workflow-condition-copy";
 import { getStatusWorkflowDesignCopy } from "./status-list-workflow-design-copy";
 import { getStatusListBackgroundCopy } from "./status-list-background-copy";
 import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
 import { getStatusListChainCopy } from "./status-list-chain-copy";
+import { StatusListWorkflowConditionValue } from "./status-list-workflow-condition-value";
 import "./status-list-workflow-dialog.css";
 
 type Block = "overview" | "when" | "if" | "then" | "else";
@@ -31,7 +33,9 @@ function AnswerValue({ item, value, onChange, copy, design, allowFalse = false, 
     </div>;
   }
   if (isWorkflowYesNo(item)) return <label className="wf-field"><span>{copy.answer}</span><select data-testid={testId} value={String(value ?? "yes")} onChange={e => onChange(e.target.value)}><option value="yes">{copy.yes}</option><option value="no">{copy.no}</option></select></label>;
-  return <label className="wf-field"><span>{copy.value}</span><input data-testid={testId} type={item?.fieldType.toLowerCase() === "number" ? "number" : item?.fieldType.toLowerCase() === "date" ? "date" : "text"} value={typeof value === "string" ? value : ""} onChange={e => onChange(e.target.value)}/></label>;
+  const fieldType = item?.fieldType.toLowerCase();
+  const inputType = fieldType === "number" || fieldType === "date" || fieldType === "email" || fieldType === "phone" ? fieldType === "phone" ? "tel" : fieldType : "text";
+  return <label className="wf-field"><span>{copy.value}</span><input data-testid={testId} type={inputType} value={typeof value === "string" ? value : ""} onChange={e => onChange(e.target.value)}/></label>;
 }
 
 function CatalogPicker({ picker, catalog, value, source, copy, design, onChoose, onClose, restoreFocus }: {
@@ -77,11 +81,12 @@ function CatalogPicker({ picker, catalog, value, source, copy, design, onChoose,
   </Dialog>;
 }
 
-export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing, pending, validation, onUpdate, onClose, onSave }: {
-  open: boolean; draft: StatusListWorkflow; catalog: WorkflowCatalogItem[]; locale: string; editing: boolean;
+export function StatusListWorkflowDialog({ open, draft, catalog, campaignId, locale, editing, pending, validation, onUpdate, onClose, onSave }: {
+  open: boolean; draft: StatusListWorkflow; catalog: WorkflowCatalogItem[]; campaignId: string; locale: string; editing: boolean;
   pending: boolean; validation: string; onUpdate: (patch: Partial<StatusListWorkflow>) => void; onClose: () => void; onSave: () => void;
 }) {
   const copy = getStatusListWorkflowCopy(locale);
+  const conditionCopy = getStatusListWorkflowConditionCopy(locale);
   const design = getStatusWorkflowDesignCopy(locale);
   const backgroundCopy = getStatusListBackgroundCopy(locale);
   const actionCopy = getStatusWorkflowActionCopy(locale);
@@ -140,10 +145,13 @@ export function StatusListWorkflowDialog({ open, draft, catalog, locale, editing
             <label className="wf-field"><span>{copy.conditions}</span><select data-testid="status-workflow-condition-logic" value={draft.logic} onChange={e => onUpdate({ logic: e.target.value as "and" | "or" })}><option value="and">{copy.all}</option><option value="or">{copy.any}</option></select></label>
             {!draft.conditions.length && <p className="subtle-note">{design.conditionsEmpty}</p>}
             {draft.conditions.map((condition, index) => <article className="condition-card" key={index}><div className="condition-card-head"><span>{design.conditionNumber} {String(index + 1).padStart(2, "0")}</span><button type="button" className="icon-button danger-icon" aria-label={copy.remove} onClick={() => onUpdate({ conditions: draft.conditions.filter((_, i) => i !== index) })}><Trash2 size={16}/></button></div><div className="condition-grid">
-              <label className="wf-field"><span>{copy.field}</span><select data-testid={`status-workflow-condition-field-${index}`} value={condition.field} onChange={e => { const field = e.target.value as WorkflowCondition["field"]; const item = catalog[0]; onUpdate({ conditions: draft.conditions.map((entry, i) => i === index ? { field, op: "equals", ...(field === "answer" ? { ref: item ? { kind: item.kind, id: item.id } : undefined, value: workflowDefaultAnswer(item) } : { value: "" }) } : entry) }); }}>{(["answer", "hospital_id", "clinic_id", "status", "contact_type"] as const).map(field => <option key={field} value={field}>{({ answer: copy.answer, hospital_id: copy.hospital, clinic_id: copy.clinic, status: copy.status, contact_type: copy.contactType })[field]}</option>)}</select></label>
+              <label className="wf-field"><span>{copy.field}</span><select data-testid={`status-workflow-condition-field-${index}`} value={condition.field} onChange={e => { const field = e.target.value as WorkflowCondition["field"]; const item = catalog[0]; const conditionValue = field === "answer" ? workflowDefaultAnswer(item) : undefined; onUpdate({ conditions: draft.conditions.map((entry, i) => i === index ? { field, op: "equals", ...(field === "answer" && item ? { ref: { kind: item.kind, id: item.id } } : {}), value: conditionValue } : entry) }); }}>{(["answer", "hospital_id", "clinic_id", "status", "contact_type"] as const).map(field => <option key={field} value={field}>{({ answer: copy.answer, hospital_id: conditionCopy.hospital, clinic_id: conditionCopy.clinic, status: copy.status, contact_type: copy.contactType })[field]}</option>)}</select></label>
               {condition.field === "answer" && selection(condition.ref, design.refLabel, element => openPicker({ purpose: "condition", index }, element), `status-workflow-condition-ref-${index}`)}
-              <label className="wf-field"><span>{design.comparison}</span><select data-testid={`status-workflow-condition-op-${index}`} value={condition.op} onChange={e => updateCondition(index, { op: e.target.value as WorkflowCondition["op"], value: ["empty", "not_empty"].includes(e.target.value) ? undefined : condition.value ?? (condition.field === "answer" ? workflowDefaultAnswer(selected(condition.ref)) : "") })}>{(["equals", "not_equals", "empty", "not_empty"] as const).map(op => <option key={op} value={op}>{({ equals: copy.equals, not_equals: copy.notEquals, empty: copy.opEmpty, not_empty: copy.opNotEmpty })[op]}</option>)}</select></label>
-              {["equals", "not_equals"].includes(condition.op) && (condition.field === "answer" ? <AnswerValue allowFalse item={selected(condition.ref)} value={condition.value} onChange={value => updateCondition(index, { value })} copy={copy} design={design} testId={`status-workflow-condition-value-${index}`}/> : <label className="wf-field"><span>{copy.value}</span><input data-testid={`status-workflow-condition-value-${index}`} value={typeof condition.value === "string" ? condition.value : String(condition.value ?? "")} onChange={e => updateCondition(index, { value: e.target.value })}/></label>)}
+              <label className="wf-field"><span>{design.comparison}</span><select data-testid={`status-workflow-condition-op-${index}`} value={condition.op} onChange={e => updateCondition(index, { op: e.target.value as WorkflowCondition["op"], value: ["empty", "not_empty"].includes(e.target.value) ? undefined : condition.value ?? (condition.field === "answer" ? workflowDefaultAnswer(selected(condition.ref)) : undefined) })}>{(["equals", "not_equals", "empty", "not_empty"] as const).map(op => <option key={op} value={op}>{({ equals: copy.equals, not_equals: copy.notEquals, empty: copy.opEmpty, not_empty: copy.opNotEmpty })[op]}</option>)}</select></label>
+              {["equals", "not_equals"].includes(condition.op) && (condition.field === "answer" ? selected(condition.ref)?.backgroundSource === "representative_assignment_type"
+                ? <StatusListWorkflowConditionValue field="representative_assignment_type" campaignId={campaignId} locale={locale} value={condition.value} onChange={value => updateCondition(index, { value })} testId={`status-workflow-condition-value-${index}`}/>
+                : <AnswerValue allowFalse item={selected(condition.ref)} value={condition.value} onChange={value => updateCondition(index, { value })} copy={copy} design={design} testId={`status-workflow-condition-value-${index}`}/>
+                : <StatusListWorkflowConditionValue key={`${campaignId}:${condition.field}`} field={condition.field} campaignId={campaignId} locale={locale} value={condition.value} onChange={value => updateCondition(index, { value })} testId={`status-workflow-condition-value-${index}`}/>)}
             </div></article>)}
             <button type="button" className="add-secondary" data-testid="status-workflow-add-condition" disabled={draft.conditions.length >= 20 || !catalog.length} onClick={() => { const item = catalog[0]; onUpdate({ conditions: [...draft.conditions, { field: "answer", ref: { kind: item.kind, id: item.id }, op: "equals", value: workflowDefaultAnswer(item) }] }); }}><Plus size={16}/>{copy.addCondition}</button>
           </div>}

@@ -21,6 +21,133 @@ const catalog = [
   item("refused", "Cooperation refused", { parentId: "source", itemType: "option", multiSelectable: true }),
 ];
 
+test("IF uses allowed values and named Mission references, preserving typed answers and exact saved values", async ({ page }) => {
+  const typedCatalog = [...catalog,
+    item("assignment", "Assignment type", { kind: "question", fieldType: "text", parentId: "destination", writable: false, backgroundSource: "representative_assignment_type" }),
+    item("numeric", "Amount", { kind: "question", fieldType: "number", parentId: "destination" }),
+    item("date", "Date", { kind: "question", fieldType: "date", parentId: "destination" }),
+  ];
+  let rule: any = { id: "choices", campaignId: "workflow-test", name: "Choice regression", enabled: true,
+    source: { kind: "item", id: "source" }, trigger: "agent_confirmation", logic: "and",
+    thenActions: [{ type: "set_answer", target: { kind: "item", id: "destination" }, value: true, mode: "if_empty" }],
+    elseActions: [], conditions: [
+      { field: "contact_type", op: "equals", value: "legacy_type" },
+      { field: "status", op: "equals", value: "callback_scheduled" },
+      { field: "clinic_id", op: "equals", value: "cl1" },
+      { field: "hospital_id", op: "equals", value: "Legacy hospital" },
+      { field: "answer", op: "equals", ref: { kind: "question", id: "text" }, value: "hello" },
+      { field: "answer", op: "equals", ref: { kind: "question", id: "numeric" }, value: "14" },
+      { field: "answer", op: "equals", ref: { kind: "question", id: "date" }, value: "2026-10-21" },
+      { field: "answer", op: "equals", ref: { kind: "question", id: "yesno" }, value: "no" },
+      { field: "answer", op: "equals", ref: { kind: "item", id: "accepted" }, value: false },
+      { field: "answer", op: "equals", ref: { kind: "question", id: "assignment" }, value: "manual" },
+    ] };
+  const errors: string[] = [];
+  let failedRequests = 0;
+  page.on("pageerror", error => errors.push(error.message));
+  await page.route("**/api/**", async route => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/condition-options")) {
+      const q = url.searchParams.get("q") || "";
+      if (q === "fail" && failedRequests++ === 0) return route.fulfill({ status: 500, json: { error: "test_failure" } });
+      if (q === "slow") await new Promise(resolve => setTimeout(resolve, 650));
+      const all = url.searchParams.get("field") === "clinic_id"
+        ? [{ value: "cl1", label: "Clinic Alpha" }, { value: "cl2", label: "Clinic Beta" }]
+        : [{ value: "Legacy hospital", label: "Legacy hospital" }, { value: "h1", label: "Hospital Alpha" }];
+      return route.fulfill({ json: { options: all.filter(o => !q || o.label.includes(q) || o.value === url.searchParams.get("value")), truncated: false } });
+    }
+    if (url.pathname.endsWith("/sources")) return route.fulfill({ json: { sources: [], catalog: typedCatalog } });
+    if (!url.pathname.includes("status-list-workflows")) return route.fulfill({ json: [] });
+    if (route.request().method() === "GET") return route.fulfill({ json: { catalog: typedCatalog, rules: [rule] } });
+    rule = { ...rule, ...route.request().postDataJSON() };
+    return route.fulfill({ json: rule });
+  });
+  await page.goto("/test-fixtures/status-workflow-editor.html?locale=en");
+  await page.getByRole("button", { name: "Edit workflow", exact: true }).click();
+  await page.getByTestId("status-workflow-nav-if").click();
+  const value = (i: number) => page.getByTestId(`status-workflow-condition-value-${i}`);
+  await expect(value(0)).toHaveValue("legacy_type");
+  await expect(value(0).locator("option:checked")).toContainText(/saved/i);
+  for (const choice of ["customer", "clinic", "hospital", "collaborator"]) {
+    await value(0).selectOption(choice);
+    await expect(value(0)).toHaveValue(choice);
+  }
+  await value(0).selectOption("clinic");
+  for (const choice of ["pending", "contacted", "completed", "failed", "no_answer", "callback_scheduled", "not_interested"]) {
+    await value(1).selectOption(choice);
+    await expect(value(1)).toHaveValue(choice);
+  }
+  await value(1).selectOption("callback_scheduled");
+  await expect(value(2).locator("option:checked")).toHaveText("Clinic Alpha");
+  await page.getByTestId("status-workflow-condition-value-2-search").fill("Beta");
+  await expect(value(2).locator('option[value="cl2"]')).toHaveCount(1);
+  await value(2).selectOption("cl2");
+  await expect(value(2).locator("option:checked")).toHaveText("Clinic Beta");
+  await value(3).selectOption("h1");
+  await expect(value(3).locator("option:checked")).toHaveText("Hospital Alpha");
+  await expect(value(4)).toHaveAttribute("type", "text");
+  await expect(value(5)).toHaveAttribute("type", "number");
+  await expect(value(6)).toHaveAttribute("type", "date");
+  await expect(value(7)).toHaveValue("no");
+  await expect(value(8).getByRole("button").nth(1)).toHaveAttribute("aria-pressed", "true");
+  for (const choice of ["manual", "bulk_region", "bulk_district", "swap", "import"]) {
+    await value(9).selectOption(choice);
+    await expect(value(9)).toHaveValue(choice);
+  }
+  await page.getByTestId("status-workflow-condition-op-0").selectOption("empty");
+  await expect(value(0)).toHaveCount(0);
+  await page.getByTestId("status-workflow-condition-op-0").selectOption("equals");
+  await expect(value(0)).toHaveValue("");
+  await page.getByTestId("status-workflow-save").click();
+  await expect(page.locator(".status-workflow-shell")).toHaveCount(1);
+  await value(0).selectOption("clinic");
+  await page.getByTestId("status-workflow-condition-field-4").selectOption("contact_type");
+  await expect(value(4)).toHaveValue("");
+  await value(4).selectOption("hospital");
+  await page.getByTestId("status-workflow-condition-value-2-search").fill("fail");
+  await expect(page.getByTestId("status-workflow-condition-value-2-retry")).toBeVisible();
+  await expect(value(2)).toHaveValue("cl2");
+  await page.getByTestId("status-workflow-condition-value-2-retry").click();
+  await expect(page.getByTestId("status-workflow-condition-value-2-retry")).toHaveCount(0);
+  await expect(value(2)).toBeEnabled();
+  await page.getByTestId("status-workflow-condition-value-2-search").fill("missing");
+  await expect(page.getByText("No matching options.", { exact: true })).toBeVisible();
+  await expect(value(2)).toHaveValue("cl2");
+  await Promise.all([
+    page.waitForRequest(request => request.url().includes("q=slow")),
+    page.getByTestId("status-workflow-condition-value-2-search").fill("slow"),
+  ]);
+  await page.getByTestId("status-workflow-condition-field-2").selectOption("hospital_id");
+  await expect(value(2).locator('option[value="h1"]')).toHaveCount(1);
+  await page.waitForTimeout(750);
+  await expect(value(2).locator('option[value="cl2"]')).toHaveCount(0);
+  await page.getByTestId("status-workflow-condition-field-2").selectOption("clinic_id");
+  await expect(value(2).locator('option[value="cl2"]')).toHaveCount(1);
+  await value(2).selectOption("cl2");
+  await page.getByTestId("status-workflow-condition-value-2-search").fill("");
+  await expect(value(2).locator('option[value="cl1"]')).toHaveCount(1);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await value(0).scrollIntoViewIfNeeded();
+  await expect(page.getByTestId("status-workflow-save")).toBeInViewport();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: "/tmp/status-workflow-if-choices-mobile.jpg" });
+  await page.getByTestId("status-workflow-save").click();
+  await expect(page.locator(".status-workflow-shell")).toHaveCount(0);
+  expect(rule.conditions.slice(0, 5)).toEqual([
+    { field: "contact_type", op: "equals", value: "clinic" },
+    { field: "status", op: "equals", value: "callback_scheduled" },
+    { field: "clinic_id", op: "equals", value: "cl2" },
+    { field: "hospital_id", op: "equals", value: "h1" },
+    { field: "contact_type", op: "equals", value: "hospital" },
+  ]);
+  await page.getByRole("button", { name: "Edit workflow", exact: true }).click();
+  await page.getByTestId("status-workflow-nav-if").click();
+  await expect(value(0)).toHaveValue("clinic");
+  await expect(value(2).locator("option:checked")).toHaveText("Clinic Beta");
+  await expect(value(9)).toHaveValue("import");
+  expect(errors).toEqual([]);
+});
+
 test("real editor groups answers, persists exact branches, reopens, toggles and deletes", async ({ page }) => {
   let rules: any[] = []; const writes: any[] = []; const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
