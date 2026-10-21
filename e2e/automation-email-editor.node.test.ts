@@ -56,8 +56,8 @@ test("automation email modal edits the real rule draft safely, preserves recipie
       setup(builder) {
         builder.onResolve({ filter: /^@\/i18n$/ }, () => ({ path: "language", namespace: "fixture" }));
         builder.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({
-           contents: `import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; import assistanceCopy from "./client/src/i18n/automation-editor-help-translations"; ${emailCopy.getText(translationSource)}
-              export const useI18n=()=>({locale:"sk",t:{sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,automationEditorHelp:assistanceCopy.sk,common:{close:"Zavrieť"}}});`,
+           contents: `import {automationEmailCardRecipientCopy} from "./client/src/i18n/automation-email-card-recipient-translations"; import editorCopy from "./client/src/i18n/send-email-editor-translations"; import executionCopy from "./client/src/i18n/automation-execution-settings-translations"; import assistanceCopy from "./client/src/i18n/automation-editor-help-translations"; ${emailCopy.getText(translationSource)}
+               export const useI18n=()=>({locale:"sk",t:{automationEmailCardRecipients:automationEmailCardRecipientCopy.sk,sendEmailAction:sendEmailActionTranslations.sk,sendEmailEditor:editorCopy.sk,automationExecutionSettings:executionCopy.sk,automationEditorHelp:assistanceCopy.sk,common:{close:"Zavrieť"}}});`,
           resolveDir: process.cwd(), loader: "ts",
         }));
       },

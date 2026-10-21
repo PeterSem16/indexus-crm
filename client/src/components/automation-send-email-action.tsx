@@ -13,6 +13,7 @@ import { AutomationEmailContentEditor, type EmailEditorSelections } from "@/comp
 import { AutomationTemplatePicker } from "./automation-template-picker";
 import { filterActivityCatalogTemplates } from "@/components/automation-activity-template-utils";
 import { statusListEmailActionCopy } from "@/i18n/translations";
+import type { EmailCardRecipientSource } from "@/i18n/automation-email-card-recipient-translations";
 
 type Target = { kind: "user" | "group" | "role"; id: string };
 type RecipientField = "to" | "cc" | "bcc";
@@ -40,6 +41,11 @@ const rewriteArtworkForPreview = (html: string) => html.replace(
 );
 const cleanVariable = (value: string) => value.replace(/^{{\s*|\s*}}$/g, "").trim();
 const emailPattern = /^[^@\s<>,;{}]+@[^@\s<>,;{}]+\.[^@\s<>,;{}]+$/;
+const cardMainTokens = new Set(["contact.email", "clinic.email", "hospital.email"]);
+const isLegacyCardMainAddress = (address: string) => {
+  const match = address.match(/^{{\s*([^{}]+?)\s*}}$/);
+  return Boolean(match && cardMainTokens.has(match[1].trim().toLowerCase()));
+};
 
 export function AutomationSendEmailAction({
   config, onChange, users, groups, roles, countryCodes, ruleId, availableVariables, recipientTemplates, testId, onDraftValidityChange, sourceModule, missionContext, defaultRecipientTemplate,
@@ -72,6 +78,7 @@ export function AutomationSendEmailAction({
   const attachmentRequest = useRef(0);
   const mounted = useRef(true);
   const statusCopy = statusListEmailActionCopy[(locale.split("-")[0] as keyof typeof statusListEmailActionCopy)] || statusListEmailActionCopy.en;
+  const cardRecipientCopy = t.automationEmailCardRecipients;
   useEffect(() => setTemplateLanguage(locale), [locale]);
   useEffect(() => {
     mounted.current = true;
@@ -89,7 +96,9 @@ export function AutomationSendEmailAction({
     }
   }, [config]);
   useEffect(() => {
-    if (!defaultRecipientTemplate || config.to || config.toTargets?.length || config.emailActionVersion !== 2) return;
+    const configuredCardSources = Array.isArray(config.toCardSources) ? config.toCardSources : null;
+    if (!defaultRecipientTemplate || config.to || config.toTargets?.length || config.emailActionVersion !== 2
+      || configuredCardSources !== null) return;
     update({ to: `{{${cleanVariable(defaultRecipientTemplate)}}}` });
   // Apply the status-list contact default once when the empty action is first opened.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -255,7 +264,37 @@ export function AutomationSendEmailAction({
   };
   const addressesFor = (field: RecipientField) =>
     String(config[field] ?? "").split(/[;,]/).map((address) => address.trim()).filter(Boolean);
-  const addressCount = (field: RecipientField) => addressesFor(field).length + targetsFor(field).length;
+  const cardSourcesFor = (field: RecipientField): EmailCardRecipientSource[] => {
+    const configured = config[`${field}CardSources`];
+    if (Array.isArray(configured)) return configured.filter((source: unknown): source is EmailCardRecipientSource => source === "main" || source === "persons");
+    if (!hasCardRecipients) return [];
+    const hasLegacyMain = addressesFor(field).some(isLegacyCardMainAddress);
+    return hasLegacyMain ? ["main"] : [];
+  };
+  const visibleAddressesFor = (field: RecipientField) => cardSourcesFor(field).includes("main")
+    ? addressesFor(field).filter(address => !isLegacyCardMainAddress(address))
+    : addressesFor(field);
+  const addressCount = (field: RecipientField) => visibleAddressesFor(field).length + targetsFor(field).length + cardSourcesFor(field).length;
+  const hasCardRecipients = (() => {
+    const namespaces = new Set(availableVariables.map(item => cleanVariable(item.value).split(".")[0].toLowerCase()));
+    const hasFacilityNamespace = namespaces.has("clinic") || namespaces.has("hospital");
+    const isKnownCustomerOnly = sourceModule === "customer"
+      || (namespaces.has("customer") && !hasFacilityNamespace && !namespaces.has("collaborator"));
+    if (isKnownCustomerOnly) return false;
+    if (sourceModule === "clinic" || sourceModule === "hospital") return true;
+    if (sourceModule === "status_list") return true;
+    return hasFacilityNamespace;
+  })();
+  const setCardSource = (field: RecipientField, source: EmailCardRecipientSource, enabled: boolean) => {
+    const current = cardSourcesFor(field);
+    const nextSources = enabled
+      ? Array.from(new Set([...current, source]))
+      : current.filter(value => value !== source);
+    // Legacy institution tokens represented the main card address. Once the user
+    // edits these controls, move that intent into the explicit source config.
+    const nextAddresses = addressesFor(field).filter(address => !isLegacyCardMainAddress(address));
+    update({ [`${field}CardSources`]: nextSources, [field]: nextAddresses.join(", ") });
+  };
   const addAddresses = (field: RecipientField, value = addressDraft[field]) => {
     const pieces = value.split(/[;,\s]+/).map((part) => part.trim()).filter(Boolean);
     if (!pieces.length) return { invalid: false };
@@ -314,12 +353,25 @@ export function AutomationSendEmailAction({
           <div><h3 className="text-sm font-medium">{title}</h3><p className="text-xs text-muted-foreground">{description}</p></div>
           <Badge variant="outline">{addressCount(field)} {copy.recipientsCount}</Badge>
         </div>
+        {hasCardRecipients && <fieldset className="space-y-2 rounded-md border bg-muted/20 p-3">
+          <legend className="px-1 text-xs font-medium">{cardRecipientCopy.section}</legend>
+          {(["main", "persons"] as const).map(source => <label key={source} className="flex cursor-pointer items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-0.5 accent-primary"
+              checked={cardSourcesFor(field).includes(source)}
+              onChange={event => setCardSource(field, source, event.target.checked)} />
+            <span>{cardRecipientCopy[source]}</span>
+          </label>)}
+          <p className="text-xs leading-relaxed text-muted-foreground">{cardRecipientCopy.help}</p>
+        </fieldset>}
+        {cardSourcesFor(field).length > 0 && <div className="flex flex-wrap gap-1.5">
+          {cardSourcesFor(field).map(source => <Badge key={source} variant="outline">{cardRecipientCopy[source]}</Badge>)}
+        </div>}
         <div className="flex flex-wrap gap-1.5">
           {targetsFor(field).map((target) => <Badge key={`${target.kind}:${target.id}`} variant="secondary" className="gap-1">
             <span>{targetLabel(target)}</span>
             <button type="button" aria-label={`${copy.remove} ${targetLabel(target)}`} onClick={() => removeTarget(field, target)}><X className="h-3 w-3" /></button>
           </Badge>)}
-          {addressesFor(field).map((address, index) => {
+          {visibleAddressesFor(field).map((address, index) => {
             const variable = /^\{\{/.test(address);
             const label = variable ? recipientValueLabel(address) : address;
             return <Badge key={`${field}-${address}-${index}`} variant={variable ? "outline" : "secondary"} className="gap-1">

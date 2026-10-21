@@ -42,10 +42,20 @@ export function emailAddressList(value: unknown): string[] {
   return [...new Set(parts.map(part => part.toLowerCase()))];
 }
 
+export type EmailCardSource = "main" | "persons";
+export function validEmailCardSources(value: unknown): value is EmailCardSource[] {
+  return Array.isArray(value) && value.length <= 2 &&
+    value.every(source => source === "main" || source === "persons") &&
+    new Set(value).size === value.length;
+}
+
 export function emailActionIssues(config: any): string[] {
   if (config?.emailActionVersion !== 2) return [];
   const issues: string[] = [];
   issues.push(...emailAttachmentIssues(config.attachments));
+  for (const field of ["to", "cc", "bcc"])
+    if (config[`${field}CardSources`] !== undefined && !validEmailCardSources(config[`${field}CardSources`]))
+      issues.push(`Invalid ${field} card recipients`);
   for (const key of ["toTargets", "ccTargets", "bccTargets"])
     if (config[key] !== undefined && !validEmailTargets(config[key])) issues.push(`Invalid ${key}`);
   if (!["personal", "system"].includes(config.senderMode || "system")) issues.push("Unknown email sender mode");
@@ -57,7 +67,7 @@ export function emailActionIssues(config: any): string[] {
        /[{}\r\n]/.test(config.senderDisplayName))) issues.push("Invalid sender display name");
   if (typeof config.subject !== "string" || !config.subject.trim()) issues.push("Email subject is required");
   if (typeof config.body !== "string" || !config.body.trim()) issues.push("Email body is required");
-  if (!config.to && !config.toTargets?.length && !config.taskGroupId && !config.targetRole)
+  if (!config.to && !config.toTargets?.length && !config.toCardSources?.length && !config.taskGroupId && !config.targetRole)
     issues.push("At least one To recipient is required");
   for (const key of ["to", "cc", "bcc"]) {
     if (config[key] != null && typeof config[key] !== "string" &&

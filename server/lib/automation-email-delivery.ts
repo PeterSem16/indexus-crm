@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { COUNTRIES, users } from "@shared/schema";
-import { db } from "../db";
+import { db, pool } from "../db";
 import { storage } from "../storage";
 import { resolveAutomationRecipientTarget } from "./automation-recipient-target";
 import { getValidAccessToken } from "./ms365";
@@ -12,6 +12,7 @@ import { sendAutomationGraphEmail } from "./automation-email-graph";
 import { automationEmailInlineAttachments } from "./automation-email-assets";
 import { automationDisplayValues } from "./automation-display-values";
 import { lookupAutomationReference } from "./automation-reference-lookup";
+import { resolveAutomationEmailCardRecipients } from "./automation-email-card-recipients";
 
 export async function planAutomationEmailRecipients(config: any) {
   return resolveEmailRecipients(config, {
@@ -35,7 +36,8 @@ export async function deliverAutomationEmail(config: any, context: any) {
       throw new Error("Inbound email requires verified Mission and queue country");
     const ctx = taskTemplateContext(context, config.templateLanguage);
     const display = await automationDisplayValues(ctx, [config.subject, config.body], lookupAutomationReference, config.templateLanguage);
-    const addresses = renderEmailAddressConfig(config, ctx);
+    const addresses = await resolveAutomationEmailCardRecipients(
+      renderEmailAddressConfig(config, ctx), context, (text, values) => pool.query(text, values));
     const recipients = await planAutomationEmailRecipients(addresses);
     const sender = selectAutomationEmailSender(config, context);
     const personal = sender.mode === "personal";

@@ -12,6 +12,7 @@ import { actionCopy, catalogFieldLabel, catalogOperatorLabel } from "./status-li
 import { filterStatusListActionVariables, StatusListNativeActionEditor } from "./status-list-native-action-editor";
 import { emptyNativeActionConfig, nativeConfigFromLegacy, nativeServiceActionTypes } from "@/lib/status-list-action-draft";
 import { statusListNativeActionIssues } from "@shared/status-list-service-config";
+import { getAutomationEmailCardRecipientCopy } from "@/i18n/automation-email-card-recipient-translations";
 import "./status-list-service-action-editor.css";
 
 const migrationCopy: Record<string, Record<string, string>> = {
@@ -34,9 +35,13 @@ const reviewFieldCopy: Record<string, Record<string, string>> = {
 };
 function nativeReviewRows(actionType: string, config: Record<string, any>, locale: string, missionGateway: string | null) {
   const labels = reviewFieldCopy[locale.split("-")[0]] || reviewFieldCopy.en;
+  const cardCopy = getAutomationEmailCardRecipientCopy(locale);
   const targets = Array.isArray(config.recipients) ? config.recipients : [];
   const notifyTargets = config.taskGroupId ? [config.taskGroupId] : config.targetRole ? [config.targetRole] : config.userIds || (config.userId ? [config.userId] : []);
-  const emailTargets = [...(Array.isArray(config.toTargets) ? config.toTargets.map((item: any) => `${item.kind}:${item.id}`) : []), String(config.to || "")].filter(Boolean);
+  const emailTargets = [
+    ...(Array.isArray(config.toTargets) ? config.toTargets.map((item: any) => `${item.kind}:${item.id}`) : []),
+    ...String(config.to || "").split(/[;,]/).map(value => value.trim()).filter(Boolean),
+  ];
   const text = actionType === "send_sms" ? config.text : ["send_email", "send_email_group", "notify_email", "send_contact_email"].includes(actionType) ? config.body : config.taskText || config.description;
   const rows: string[] = [];
   const add = (label: string, value: unknown) => { if (value != null && String(value).trim()) rows.push(`${label}: ${String(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}`); };
@@ -44,12 +49,36 @@ function nativeReviewRows(actionType: string, config: Record<string, any>, local
     add(labels.title, config.title); add(labels.message, config.message);
     add(labels.recipient, notifyTargets.join(", ")); add(labels.priority, config.priority);
   } else if (["send_email", "send_email_group", "notify_email", "send_contact_email"].includes(actionType)) {
+    const cardSourceLines = (field: "to" | "cc" | "bcc") => {
+      const configured = config[`${field}CardSources`];
+      const legacyMain = String(config[field] || "").split(/[;,]/).some(address => {
+        const match = address.trim().match(/^{{\s*([^{}]+?)\s*}}$/);
+        return Boolean(match && ["contact.email", "clinic.email", "hospital.email"].includes(match[1].trim().toLowerCase()));
+      });
+      const sources = Array.isArray(configured)
+        ? configured.filter((source: unknown) => source === "main" || source === "persons")
+        : legacyMain ? ["main"] : [];
+      return sources.map((source: "main" | "persons") => source === "main" ? cardCopy.main : cardCopy.persons);
+    };
+    const addressSummary = (field: "to" | "cc" | "bcc") => String(config[field] || "").split(/[;,]/).map(address => address.trim()).filter(address => {
+      const match = address.match(/^{{\s*([^{}]+?)\s*}}$/);
+      return !(cardSourceLines(field).includes(cardCopy.main) && match
+        && ["contact.email", "clinic.email", "hospital.email"].includes(match[1].trim().toLowerCase()));
+    }).join(", ");
+    const toCardSources = cardSourceLines("to");
     const recipientLines = [
-      ...emailTargets,
+      ...emailTargets.filter(target => {
+        const match = target.match(/^{{\s*([^{}]+?)\s*}}$/);
+        return !(toCardSources.includes(cardCopy.main) && match
+          && ["contact.email", "clinic.email", "hospital.email"].includes(match[1].trim().toLowerCase()));
+      }),
+      ...toCardSources,
       ...(Array.isArray(config.ccTargets) ? config.ccTargets.map((item: any) => `${labels.cc}: ${item.kind}:${item.id}`) : []),
-      ...(config.cc ? [`${labels.cc}: ${config.cc}`] : []),
+      ...(addressSummary("cc") ? [`${labels.cc}: ${addressSummary("cc")}`] : []),
+      ...cardSourceLines("cc").map((source: string) => `${labels.cc}: ${source}`),
       ...(Array.isArray(config.bccTargets) ? config.bccTargets.map((item: any) => `${labels.bcc}: ${item.kind}:${item.id}`) : []),
-      ...(config.bcc ? [`${labels.bcc}: ${config.bcc}`] : []),
+      ...(addressSummary("bcc") ? [`${labels.bcc}: ${addressSummary("bcc")}`] : []),
+      ...cardSourceLines("bcc").map((source: string) => `${labels.bcc}: ${source}`),
     ];
     add(labels.recipient, recipientLines.join(", "));
     add(labels.sender, config.senderMode === "personal" ? labels.personal : labels.system);

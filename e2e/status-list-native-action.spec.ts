@@ -18,6 +18,39 @@ const missionTemplate = { id: "mission-default-email", type: "email", name: "Mis
   subject: "{{clinic.doctorTitle}} {{clinic.doctorLastName}}",
   contentHtml: "<p>{{clinic.doctorSalutationDoc}} {{clinic.doctorLastName}}</p><p>{{user.fullName}}</p>",
   attachments: [{ fileName: "mission.pdf", mimeType: "application/pdf", size: 3 }] };
+
+for (const hospital of [false, true]) {
+  for (const mode of ["persons", "both"] as const) {
+    test(`card recipients ${hospital ? "hospital" : "clinic"}: ${mode} saves dynamic sources without the hidden main token`, async ({ page }) => {
+      await parityApi(page, { hospital });
+      await page.goto("/test-fixtures/status-list-native-action.html?action=send_email", { waitUntil: "networkidle" });
+      await page.getByTestId("service-action-stage-details").click();
+      const main = page.getByRole("checkbox", { name: "Main clinic / hospital email", exact: true });
+      const persons = page.getByRole("checkbox", { name: "Assigned people", exact: true });
+      await expect(main).toBeChecked();
+      await expect(persons).not.toBeChecked();
+      await persons.check();
+      if (mode === "persons") await main.uncheck();
+      await expect(persons).toBeChecked();
+      await expect(main).toHaveJSProperty("checked", mode === "both");
+      // Closing/reopening Details must not inject the former {{contact.email}} default.
+      await page.getByTestId("service-action-stage-type").click();
+      await page.getByTestId("service-action-stage-details").click();
+      await expect(main).toHaveJSProperty("checked", mode === "both");
+      await expect(persons).toBeChecked();
+      if (!hospital && mode === "both") await page.screenshot({ path: "/tmp/status-list-card-email-recipients.jpg" });
+      await page.getByTestId("service-action-stage-review").click();
+      await expect(page.getByTestId("service-action-review")).toContainText("Assigned people");
+      await page.getByTestId("status-list-automation-save").click();
+      await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+      expect(savedWrites[0].serviceActionConfig).toMatchObject({
+        to: "", toCardSources: mode === "both" ? ["main", "persons"] : ["persons"],
+        subject: "Original subject", body: "<p>Original body</p>",
+      });
+    });
+  }
+}
+
 async function parityApi(page: import("@playwright/test").Page, options: { brokenAttachment?: boolean; hospital?: boolean } = {}) {
   savedWrites.length = 0;
   await page.route("**/api/**", async route => {
@@ -46,6 +79,26 @@ async function parityApi(page: import("@playwright/test").Page, options: { broke
     return route.fulfill({ json: body });
   });
 }
+
+test("card recipients keep manual addresses independent and support CC and BCC sources", async ({ page }) => {
+  await parityApi(page);
+  await page.goto("/test-fixtures/status-list-native-action.html?action=send_email", { waitUntil: "networkidle" });
+  await page.getByTestId("service-action-stage-details").click();
+  await page.getByRole("checkbox", { name: "Main clinic / hospital email", exact: true }).uncheck();
+  const address = page.locator("#status-list-email-action-to-address");
+  await address.fill("manual@example.test");
+  await address.press("Enter");
+  await page.getByRole("tab", { name: /^CC\b/ }).click();
+  await page.getByRole("checkbox", { name: "Assigned people", exact: true }).check();
+  await page.getByRole("tab", { name: /^BCC\b/ }).click();
+  await page.getByRole("checkbox", { name: "Main clinic / hospital email", exact: true }).check();
+  await page.getByTestId("service-action-stage-review").click();
+  await page.getByTestId("status-list-automation-save").click();
+  await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
+  expect(savedWrites[0].serviceActionConfig).toMatchObject({
+    to: "manual@example.test", toCardSources: [], ccCardSources: ["persons"], bccCardSources: ["main"],
+  });
+});
 
 test("one email action offers the actual Mission template, copies its exact content and PDF bytes, and persists a snapshot", async ({ page }) => {
   await parityApi(page);
