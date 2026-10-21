@@ -6,6 +6,7 @@ import { getStatusListWorkflowCopy } from "../components/status-list-workflow-co
 import personEmailTranslations from "./person-email-translations";
 import sendEmailEditorTranslations from "./send-email-editor-translations";
 import missionCommunicationTranslations from "./mission-communication-translations";
+import statusListExecutionCopy from "./status-list-execution-copy";
 import statusListAgentPreviewTranslations, { type StatusListAgentPreviewCopy } from "./status-list-agent-preview-copy";
 import { automationEmailCardRecipientCopy } from "./automation-email-card-recipient-translations";
 import { getUpdateRecordCopy } from "./automation-update-record-copy";
@@ -107,6 +108,7 @@ export interface Translations {
   personEmail: typeof personEmailTranslations.en;
   sendEmailEditor: typeof sendEmailEditorTranslations.en;
   missionCommunication: typeof missionCommunicationTranslations.en;
+  statusListExecution: typeof statusListExecutionCopy.en;
   statusListAgentPreview: StatusListAgentPreviewCopy;
   automationEmailCardRecipients: Record<keyof typeof automationEmailCardRecipientCopy.en, string>;
   automationUpdateRecord: ReturnType<typeof getUpdateRecordCopy>;
@@ -64134,6 +64136,7 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].personEmail = personEmailTranslations[locale];
   translations[locale].sendEmailEditor = sendEmailEditorTranslations[locale];
   translations[locale].missionCommunication = missionCommunicationTranslations[locale];
+  translations[locale].statusListExecution = statusListExecutionCopy[locale];
   translations[locale].statusListAgentPreview = statusListAgentPreviewTranslations[locale];
   translations[locale].automationEmailCardRecipients = automationEmailCardRecipientCopy[locale];
   translations[locale].automationUpdateRecord = getUpdateRecordCopy(locale);

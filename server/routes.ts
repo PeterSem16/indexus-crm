@@ -51,6 +51,8 @@ import { eq, ne, desc, and, gte, lte, lt, inArray, isNotNull, isNull, or, count,
 import { db, pool } from "./db";
 import { evaluateAutomationCondition, updateFieldSnapshot } from "./lib/condition-evaluator";
 import { registerStatusListWorkflowRoutes } from "./lib/status-list-workflow-routes";
+import { checkStatusListExecution } from "../shared/status-list-execution-policy";
+import { statusListEffectOnce } from "./lib/status-list-effect-receipt";
 import { processStatusListItemWorkflow, workflowCatalog, StatusListWorkflowError } from "./lib/status-list-workflow";
 import { storage } from "./storage";
 import { executeStatusListTaskAction } from "./lib/status-list-task-action";
@@ -1143,7 +1145,7 @@ async function executeStatusListItemAutomations(
     boNotifContext: string;
     confirmationId?: string;
   },
-): Promise<void> {
+): Promise<any[]> {
   const automations = await db.select().from(campaignStatusListAutomations)
     .where(eq(campaignStatusListAutomations.statusListItemId, context.itemId));
   const durableCallbacks = context.confirmationId && context.campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN
@@ -1151,7 +1153,9 @@ async function executeStatusListItemAutomations(
   if (durableCallbacks.size) await drainCallbackEvents(context.campaignContactId);
 
   const trackedFieldChanges = new Set<string>();
-  for (const automation of automations) {
+  const outcomes: any[] = [];
+  for (const automation of automations.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))) {
+    if (automation.questionId) continue;
     if (!automation.conditionJson) continue;
     try {
       const parsed = JSON.parse(automation.conditionJson);
@@ -1164,18 +1168,19 @@ async function executeStatusListItemAutomations(
   for (const automation of automations) {
     const actionType = automation.actionType;
     // Modern question actions belong to that answer event, not every parent confirmation.
-    if (automation.serviceActionConfig && automation.questionId) continue;
+    if (automation.questionId) continue;
     // These callbacks were captured atomically with this confirmation. Never
     // run them through the old fire-and-forget branch as well, even when the
     // event has already been completed by another worker.
     if (durableCallbacks.has(automation.id)) continue;
+    const fire = async () => {
     const conditionMet = await evaluateAutomationCondition(automation, {
       contactId: context.contactId,
       campaignId: context.campaignId,
       agentId: context.userId,
       contactCountry: context.contactCountry,
     });
-    if (!conditionMet) continue;
+    if (!conditionMet) return { ok: true, skipped: true };
 
     try {
       const actionContext = {
@@ -1197,23 +1202,38 @@ async function executeStatusListItemAutomations(
           boNotifContext: context.boNotifContext,
         });
       } else if (actionType === "send_email_group" || actionType === "notify_email") {
-        await runStatusListEmailGroup(automation, actionContext);
+        const result = await runStatusListEmailGroup(automation, actionContext);
+        if (!result.ok) throw new Error("email_failed");
       } else if (actionType === "set_contact_status") {
-        await runStatusListSetStatus(automation, actionContext, context.callbackDate, context.callbackNote);
+        const result = await runStatusListSetStatus(automation, actionContext, context.callbackDate, context.callbackNote);
+        if (!result.ok) throw new Error("status_failed");
+        return { ...result, actionType };
       } else if (actionType === "set_callback") {
-        await runStatusListSetCallback(automation, actionContext, context.callbackDate, context.callbackNote);
+        const result = await runStatusListSetCallback(automation, actionContext, context.callbackDate, context.callbackNote);
+        if (!result.ok) throw new Error("callback_failed");
+        return { ...result, actionType };
       } else if (actionType === "send_contact_email") {
-        await runStatusListContactEmail(automation, actionContext);
+        const result = await runStatusListContactEmail(automation, actionContext);
+        if (!result.ok) throw new Error("email_failed");
       } else if (actionType === "send_sms") {
-        await runStatusListContactSms(automation, actionContext);
+        const result = await runStatusListContactSms(automation, actionContext);
+        if (!result.ok) throw new Error("sms_failed");
       }
     } catch (error) {
-      if (actionType === "assign_task") throw error;
-      console.error(`[status-list:${actionType}] firing failed:`, error);
+      throw new Error("status_list_action_failed");
     }
+    return { ok: true };
+    };
+    const result = context.confirmationId
+      ? await statusListEffectOnce((text, values) => pool.query(text, values), {
+        contactId: context.campaignContactId, automationId: automation.id,
+        eventKey: `confirmation:${context.confirmationId}`, actorId: context.userId,
+      }, fire)
+      : await fire();
+    outcomes.push({ automationId: automation.id, ...result });
   }
 
-  if (context.contactId) {
+  if (context.contactId && outcomes.some(result => !result.duplicate)) {
     for (const fieldName of trackedFieldChanges) {
       await updateFieldSnapshot(context.contactId, context.campaignId, fieldName, {
         contactId: context.contactId,
@@ -1223,6 +1243,7 @@ async function executeStatusListItemAutomations(
       });
     }
   }
+  return outcomes;
 }
 
 const SL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -34968,6 +34989,8 @@ Respond ONLY with valid JSON in this exact format:
 
       const userId = req.session.user!.id;
       const { confirm, overrideCallbackDate, overrideCallbackNote, skipAutomations, itemNote } = req.body as { confirm: boolean; overrideCallbackDate?: string | null; overrideCallbackNote?: string | null; skipAutomations?: boolean; itemNote?: string | null };
+      if (typeof confirm !== "boolean") return res.status(400).json({ error: "invalid_confirmation" });
+      await (await import("./lib/status-list-workflow-routes")).authorize(req, false, campaignContactId);
       // Bind both route resources before any state, automation, or history
       // writes.  A valid id from another campaign must never be usable through
       // this campaign-scoped endpoint.
@@ -34990,6 +35013,14 @@ Respond ONLY with valid JSON in this exact format:
       if (!itemRouteItem || itemRouteItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Status-list item not found in campaign" });
       }
+      const executionSettings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [campaignId])).rows[0]?.settings;
+      try { checkStatusListExecution(executionSettings, req.body); }
+      catch (error) { return res.status(409).json({ error: (error as Error).message }); }
+      if (skipAutomations) return res.status(400).json({ error: "status_list_suppression_not_allowed" });
+      const executionRequestId = req.body.requestId;
+      if (executionRequestId != null && (typeof executionRequestId !== "string" ||
+          !/^[a-f0-9-]{36}$/i.test(executionRequestId)))
+        return res.status(400).json({ error: "invalid_request_id" });
       const sourceOwner = await pool.query(`SELECT 1 FROM mission_status_list_option_sources s
         JOIN campaign_status_list_items i ON i.id=$2 WHERE s.campaign_id=$1
         AND (s.group_id=i.id OR s.group_id=i.parent_id) LIMIT 1`, [campaignId, itemId]);
@@ -35021,6 +35052,8 @@ Respond ONLY with valid JSON in this exact format:
 
       if (confirm) {
         let stateRow;
+        let actionResults: any[] = [];
+        let resumeWorkflow = false;
         const existing = await db.select()
           .from(campaignContactStatusListState)
           .where(and(
@@ -35029,22 +35062,19 @@ Respond ONLY with valid JSON in this exact format:
           ))
           .limit(1);
         if (existing.length === 0) {
+          resumeWorkflow = true;
           const retainedNote = (await readWorkflowNotes(pool, campaignContactId))[itemId] ?? null;
-          const inserted = campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN
-            ? await persistCallbackConfirmation({
+          const inserted = await persistCallbackConfirmation({
               campaignId, campaignContactId, itemId, actorId: userId, itemNote: itemNote ?? retainedNote,
               manualDate: overrideCallbackDate ? (parseCallbackDateInput(overrideCallbackDate)?.toISOString() ?? null) : null,
-              note: overrideCallbackNote ?? null, skipAutomations: !!skipAutomations,
-            })
-            : (await db.insert(campaignContactStatusListState)
-              .values({ campaignContactId, statusListItemId: itemId, confirmedByUserId: userId, itemNote: itemNote ?? retainedNote })
-              .returning())[0];
+              note: overrideCallbackNote ?? null, skipAutomations: false, requestId: executionRequestId,
+            });
           stateRow = inserted;
           if (itemNote != null) await writeWorkflowNote(pool, campaignContactId, itemId, userId, itemNote);
 
           if (!skipAutomations) {
             const boNotifContext = await resolveStatusListTaskNotificationContext(ccRow, taskCustomerId);
-            await executeStatusListItemAutomations({
+            actionResults = await executeStatusListItemAutomations({
               campaignId,
               campaignContactId,
               itemId,
@@ -35208,13 +35238,28 @@ Respond ONLY with valid JSON in this exact format:
           } else {
             stateRow = existing[0];
           }
+          // Resume only this exact new confirmation after a lost response. Never
+          // replay a historical confirmation or another user's confirmation.
+          if (executionRequestId && stateRow.executionRequestId === executionRequestId &&
+              stateRow.confirmedByUserId === userId) {
+            resumeWorkflow = true;
+            actionResults = await executeStatusListItemAutomations({
+              campaignId, campaignContactId, itemId, userId, contactCountry, contactId,
+              customerId: taskCustomerId, ccRow, callbackDate: overrideCallbackDate ?? null,
+              callbackNote: overrideCallbackNote ?? null,
+              boNotifContext: await resolveStatusListTaskNotificationContext(ccRow, taskCustomerId),
+              confirmationId: stateRow.id,
+            });
+          }
         }
-        if (!skipAutomations) {
+        if (resumeWorkflow) {
           await processStatusListItemWorkflow({
             campaignId, campaignContactId, itemId, actorId: userId, stateId: stateRow.id,
           });
         }
-        return res.json({ ...stateRow, confirmed: true });
+        const currentContact = (await pool.query("SELECT status,callback_date FROM campaign_contacts WHERE id=$1", [campaignContactId])).rows[0];
+        return res.json({ ...stateRow, confirmed: true, contactStatus: currentContact?.status, callbackDate: currentContact?.callback_date,
+          ok: actionResults.every(result => result.ok !== false), actionResults });
       } else {
         // Remove confirmation row
         await preserveWorkflowNote(pool, campaignContactId, itemId);
@@ -35235,6 +35280,7 @@ Respond ONLY with valid JSON in this exact format:
         return res.json({ confirmed: false });
       }
     } catch (error) {
+      if (error instanceof StatusListWorkflowError) return res.status(error.status).json({ error: error.code });
       if (error instanceof CallbackTransitionError) return res.status(error.status).json({ error: error.code });
       console.error("Failed to update status list state:", error);
       res.status(500).json({ error: "Failed to update status list state" });
@@ -35276,6 +35322,7 @@ Respond ONLY with valid JSON in this exact format:
       const { campaignId, campaignContactId, automationId } = req.params;
       const userId = req.session.user!.id;
       const { callbackDate, callbackNote } = req.body as { callbackDate?: string | null; callbackNote?: string | null };
+      await (await import("./lib/status-list-workflow-routes")).authorize(req, false, campaignContactId);
 
       // Validate the contact belongs to the campaign
       const [ccRow] = await db.select().from(campaignContacts)
@@ -35314,11 +35361,25 @@ Respond ONLY with valid JSON in this exact format:
       if (!isAdmin && country && !userCountries.includes(country)) {
         return res.status(403).json({ error: "Forbidden: contact is outside your assigned countries" });
       }
+      const settings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [campaignId])).rows[0]?.settings;
+      try { checkStatusListExecution(settings, req.body); }
+      catch (error) { return res.status(409).json({ error: (error as Error).message }); }
+      const invocationId = req.body.requestId;
+      if (typeof invocationId !== "string" || !/^[a-f0-9-]{36}$/i.test(invocationId))
+        return res.status(400).json({ error: "invalid_request_id" });
+      const outcome = await statusListEffectOnce((text, values) => pool.query(text, values), {
+        contactId: campaignContactId, automationId, eventKey: `manual:${invocationId}`, actorId: userId,
+      }, async () => {
+      const contactId = ccRow.contactType === "clinic" ? (ccRow.clinicId || ccRow.customerId) :
+        ccRow.contactType === "hospital" ? (ccRow.hospitalId || ccRow.customerId) :
+        ccRow.contactType === "collaborator" ? (ccRow.collaboratorId || ccRow.customerId) : ccRow.customerId;
+      if (!await evaluateAutomationCondition(automation, { contactId: contactId ?? null,
+        campaignId, agentId: userId, contactCountry: country })) return { ok: true, skipped: true };
       if (campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN &&
         ["set_callback", "set_contact_status"].includes(automation.actionType)) {
         const requestId = req.body.requestId ?? crypto.randomUUID();
         if (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId)) {
-          return res.status(400).json({ error: "invalid_request_id" });
+          throw new Error("invalid_request_id");
         }
         const durable = await runDurableManualCallback({
           campaignId, campaignContactId, itemId: automation.statusListItemId, actorId: userId,
@@ -35326,52 +35387,54 @@ Respond ONLY with valid JSON in this exact format:
           manualDate: callbackDate ? (parseCallbackDateInput(callbackDate)?.toISOString() ?? null) : null,
           note: callbackNote ?? null,
         });
-        if (durable) return res.json({ ...durable, actionType: automation.actionType });
+        if (durable) return { ...durable, actionType: automation.actionType };
       }
       if (automation.serviceActionConfig) {
         try {
           await (await import("./lib/status-list-workflow-routes")).authorize(req, false, campaignContactId);
         } catch (error) {
-          if (error instanceof StatusListWorkflowError) return res.status(error.status).json({ error: error.code });
           throw error;
         }
         const requestId = req.body.requestId;
         if (requestId != null && (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/i.test(requestId)))
-          return res.status(400).json({ error: "invalid_request_id" });
+          throw new Error("invalid_request_id");
         const result = await executeStatusListNativeService(automation, {
           campaignId, campaignContactId, itemId: automation.statusListItemId, userId, requestId,
         });
-        return res.status(result.ok ? 200 : 409).json({ ...result, actionType: automation.actionType });
+        return { ...result, actionType: automation.actionType };
       }
       if (automation.actionType === "send_email_group" || automation.actionType === "notify_email") {
         const r = await runStatusListEmailGroup(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         });
-        return res.json({ ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider });
+        return { ok: r.ok, actionType: automation.actionType, sent: r.sent, provider: r.provider };
       } else if (automation.actionType === "set_contact_status") {
         const r = await runStatusListSetStatus(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         }, callbackDate ?? null, callbackNote ?? null);
-        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null, keptExisting: r.keptExisting ?? false });
+        return { ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate ?? null, keptExisting: r.keptExisting ?? false };
       } else if (automation.actionType === "set_callback") {
         const r = await runStatusListSetCallback(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         }, callbackDate ?? null, callbackNote ?? null);
-        return res.json({ ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate, keptExisting: r.keptExisting ?? false });
+        return { ok: r.ok, actionType: automation.actionType, callbackDate: r.callbackDate, keptExisting: r.keptExisting ?? false };
       } else if (automation.actionType === "send_contact_email") {
         const r = await runStatusListContactEmail(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         });
-        return res.json({ ok: r.ok, actionType: automation.actionType, provider: r.provider });
+        return { ok: r.ok, actionType: automation.actionType, provider: r.provider };
       } else if (automation.actionType === "send_sms") {
         const r = await runStatusListContactSms(automation, {
           campaignId, campaignContactId, contactCountry: country, userId, itemId: automation.statusListItemId,
         });
-        return res.json({ ok: r.ok, actionType: automation.actionType });
+        return { ok: r.ok, actionType: automation.actionType };
       }
-      return res.status(400).json({ error: `Action type not supported for manual run: ${automation.actionType}` });
+      throw new Error("unsupported_manual_action");
+      });
+      return res.status(outcome.ok ? 200 : 409).json(outcome);
     } catch (error) {
       if (error instanceof CallbackTransitionError) return res.status(error.status).json({ error: error.code });
+      if (error instanceof StatusListWorkflowError) return res.status(error.status).json({ error: error.code });
       console.error("Failed to run status-list action:", error);
       res.status(500).json({ error: "Failed to run status-list action" });
     }

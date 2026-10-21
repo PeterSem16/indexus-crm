@@ -4,6 +4,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WorkflowAnswer, WorkflowCatalogItem } from "@shared/status-list-workflow";
 
 export type WorkflowContactData = {
+  executionIssues?: Array<{ automationId: string; eventKey: string; status: string; createdAt: string; itemLabel?: string }>;
   answers: Record<string, WorkflowAnswer>;
   runs: Array<{ id: string; ruleName: string; branch: string; results: unknown[]; createdAt: string; actorName: string }>;
   catalog: WorkflowCatalogItem[];

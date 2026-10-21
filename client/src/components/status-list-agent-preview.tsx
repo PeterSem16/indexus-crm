@@ -58,7 +58,7 @@ export function StatusListAgentQuestionChoices({
         const exclusiveQuestions = groupMode === "ONE" && allGroupsAreOne ? visibleQuestions : group;
         const customAction = isStatusListYesNo(fieldType) ? null : renderAction?.(question, exclusiveQuestions, groupMode);
         if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}>{customAction}</div>;
-        const answered = answers[question.id] !== undefined;
+        const answered = answers[question.id] != null;
         if (isStatusListYesNo(fieldType)) return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
           {question.questionText && <p className="text-[10px] text-foreground/70 mb-1">{question.questionText}</p>}
           <div className="flex gap-1">

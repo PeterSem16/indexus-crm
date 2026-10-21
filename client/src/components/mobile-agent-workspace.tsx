@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, type CSSProperties, type RefObject } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
+import { useI18n } from "@/i18n";
+import { StatusListExecutionHelp } from "@/components/status-list-execution-help";
 import { Slider } from "@/components/ui/slider";
 import { Phone, PhoneOff, PhoneIncoming, Mic, MicOff, PauseCircle, PlayCircle,
   Hash, Check, CheckCircle, ChevronDown, ChevronUp, Info, Zap, Coffee, LogOut, User,
@@ -266,6 +268,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
   batchSlSelections?: Set<string>;
   onBatchSave?: () => void;
 }) {
+  const { locale } = useI18n();
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
   const [currentTab, setCurrentTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
 
@@ -287,6 +290,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
   return (
     <div className="mx-4 mb-4 rounded-2xl border bg-card overflow-hidden">
       <div>
+          <StatusListExecutionHelp locale={locale} mode={statusListMode === "batch" ? "batch" : "immediate"} />
           {/* Phase Journey Pipeline */}
           {hasTabAssignment && (() => {
             const mobilePhaseDefs = [

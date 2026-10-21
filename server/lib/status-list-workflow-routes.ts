@@ -4,7 +4,8 @@ import { pool } from "../db";
 import { storage } from "../storage";
 import { canAgentReadCampaignByWorkspaceCountry } from "./agent-workspace-country-access";
 import { workflowAnswerSchema } from "../../shared/status-list-workflow";
-import { saveWorkflowQuestion, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
+import { saveWorkflowQuestion, saveWorkflowQuestions, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
+import { checkStatusListExecution } from "../../shared/status-list-execution-policy";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
 import { configureBackgroundSource } from "./status-list-background";
@@ -261,12 +262,42 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       previous_label AS "previousLabel",value_label AS "valueLabel",previous,value,baseline,created_at AS "createdAt"
       FROM mission_status_list_transitions WHERE campaign_id=$1 AND campaign_contact_id=$2 ORDER BY created_at DESC,id DESC LIMIT 50`,
     [req.params.campaignId, req.params.campaignContactId]);
-    res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows,
+    const executionIssues = (await pool.query(`SELECT r.automation_id AS "automationId",r.event_key AS "eventKey",
+      r.status,r.created_at AS "createdAt",i.label AS "itemLabel"
+      FROM status_list_effect_receipts r
+      LEFT JOIN campaign_status_list_automations a ON a.id=r.automation_id
+      LEFT JOIN campaign_status_list_items i ON i.id=a.status_list_item_id
+      WHERE r.campaign_contact_id=$1 AND (r.status='failed' OR
+        (r.status='running' AND r.created_at < now()-interval '2 minutes'))
+      ORDER BY r.created_at DESC LIMIT 30`, [req.params.campaignContactId])).rows;
+    res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows, executionIssues,
       notes: await readWorkflowNotes(pool, req.params.campaignContactId),
       runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId) });
   }));
+  app.put(`${contactRoot}/answers`, requireAuth, route(async (req, res) => {
+    const user = await authorize(req, false, req.params.campaignContactId);
+    const body = z.object({
+      requestId: z.string().uuid(), executionMode: z.enum(["immediate", "batch"]), commit: z.boolean(),
+      changes: z.array(z.object({ questionId: z.string().min(1), expected: workflowAnswerSchema.nullable(),
+        value: workflowAnswerSchema.nullable() }).strict()).min(1).max(200),
+    }).strict().parse(req.body);
+    const settings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [req.params.campaignId])).rows[0]?.settings;
+    try { checkStatusListExecution(settings, body); }
+    catch (error) { throw new StatusListWorkflowError((error as Error).message, 409); }
+    const events = await saveWorkflowQuestions({ ...body, actorId: user.id,
+      campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId });
+    const serviceActions = [];
+    for (const event of events) serviceActions.push(...await (await import("./status-list-native-service")).executeStatusListQuestionNativeServices({
+      campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId,
+      questionId: event.questionId, userId: user.id, confirmationId: `answer:${event.revision}`,
+    }));
+    res.json({ ok: serviceActions.every(result => result.ok !== false), saved: true, serviceActions });
+  }));
   app.put(`${contactRoot}/answers/:questionId`, requireAuth, route(async (req, res) => {
     const user = await authorize(req, false, req.params.campaignContactId);
+    const settings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [req.params.campaignId])).rows[0]?.settings;
+    try { checkStatusListExecution(settings, {}); }
+    catch (error) { throw new StatusListWorkflowError((error as Error).message, 409); }
     const { value } = z.object({ value: workflowAnswerSchema.nullable() }).strict().parse(req.body);
     const change = await saveWorkflowQuestion({ campaignId: req.params.campaignId, campaignContactId: req.params.campaignContactId,
       questionId: req.params.questionId, actorId: user.id, value });

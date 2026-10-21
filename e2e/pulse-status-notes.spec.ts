@@ -170,6 +170,9 @@ function expectOnlyNoteMutations(requests: Array<{ method: string; url: string }
 }
 
 test.beforeEach(async ({ page }) => {
+  // This fixture imports the real workspace; cold Vite transforms exceed 30s.
+  test.setTimeout(120_000);
+  page.setDefaultNavigationTimeout(120_000);
   await page.addInitScript(() => {
     localStorage.setItem("locale", "en");
   });

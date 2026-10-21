@@ -1,4 +1,5 @@
 export const CALLBACK_TRANSITION_SCHEMA = `
+ALTER TABLE IF EXISTS campaign_contact_status_list_state ADD COLUMN IF NOT EXISTS execution_request_id varchar;
 CREATE TABLE IF NOT EXISTS mission_callback_ownership (
  campaign_id varchar PRIMARY KEY REFERENCES campaigns(id) ON DELETE CASCADE,
  owner text NOT NULL CHECK(owner IN ('legacy','compatible')),

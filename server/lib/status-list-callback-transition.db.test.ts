@@ -22,7 +22,7 @@ try {
   await root.query(`
     CREATE TABLE campaigns(id varchar PRIMARY KEY,name text,country_codes text[] DEFAULT ARRAY['SK']);
     CREATE TABLE users(id varchar PRIMARY KEY,full_name text);
-    CREATE TABLE campaign_status_list_items(id varchar PRIMARY KEY,campaign_id varchar,sort_order int,step_id text,parent_id varchar);
+    CREATE TABLE campaign_status_list_items(id varchar PRIMARY KEY,campaign_id varchar,sort_order int,step_id text,parent_id varchar,question_selection_mode text);
     CREATE TABLE campaign_status_list_questions(id varchar PRIMARY KEY,item_id varchar);
     CREATE TABLE campaign_dispositions(id varchar PRIMARY KEY,campaign_id varchar,code text,action_type text);
     CREATE TABLE campaign_status_list_automations(id varchar PRIMARY KEY,status_list_item_id varchar,sort_order int DEFAULT 0,

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
+import { preserveWorkflowNote } from "./status-list-workflow-notes";
 import { pool } from "../db";
 import { medicalPartnerAudit, MEDICAL_PARTNER_AUDIT_CAMPAIGN, EXCLUDED_MEDICAL_PARTNER_EMAIL } from "../../shared/status-list-transition-audit";
 import type { CallbackOwner, CallbackTransitionReadiness } from "../../shared/status-list-callback-transition";
@@ -263,6 +264,7 @@ export async function enqueueCallbackConfirmation(client: Client, input: {
 export async function persistCallbackConfirmation(input: {
   campaignId: string; campaignContactId: string; itemId: string; actorId: string;
   manualDate: string | null; note: string | null; itemNote: string | null; skipAutomations: boolean;
+  requestId?: string;
 }, connections: Connections = pool) {
   const client = await connections.connect();
   try {
@@ -276,13 +278,31 @@ export async function persistCallbackConfirmation(input: {
     const existing = await client.query(`SELECT id FROM campaign_contact_status_list_state
       WHERE campaign_contact_id=$1 AND status_list_item_id=$2`, [input.campaignContactId, input.itemId]);
     if (existing.rowCount) throw new CallbackTransitionError("confirmation_already_exists");
+    // ONE/single step groups are a server invariant, not a race-prone series
+    // of browser unchecks. Preserve notes before removing superseded siblings.
+    const siblings = (await client.query(`SELECT s.status_list_item_id AS id
+      FROM campaign_status_list_items item
+      JOIN campaign_status_list_items parent ON parent.id=item.parent_id AND parent.question_selection_mode='single'
+      JOIN campaign_status_list_items sibling ON sibling.parent_id=parent.id AND sibling.id<>item.id
+      JOIN campaign_contact_status_list_state s ON s.status_list_item_id=sibling.id AND s.campaign_contact_id=$2
+      WHERE item.id=$1 AND item.campaign_id=$3 FOR UPDATE OF s`, [input.itemId, input.campaignContactId, input.campaignId])).rows;
+    for (const sibling of siblings) {
+      await preserveWorkflowNote(client as PoolClient, input.campaignContactId, sibling.id);
+      await client.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2",
+        [input.campaignContactId, sibling.id]);
+      await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
+        VALUES($1,$2,'status_list_confirmation',$3::jsonb)`, [input.campaignContactId, input.actorId,
+        JSON.stringify({ campaignId: input.campaignId, statusListItemId: sibling.id, confirmed: false })]);
+    }
     const inserted = (await client.query(`INSERT INTO campaign_contact_status_list_state
-      (campaign_contact_id,status_list_item_id,confirmed_by_user_id,item_note)
-      VALUES($1,$2,$3,$4) RETURNING id,campaign_contact_id AS "campaignContactId",
+      (campaign_contact_id,status_list_item_id,confirmed_by_user_id,item_note,execution_request_id)
+      VALUES($1,$2,$3,$4,$5) RETURNING id,campaign_contact_id AS "campaignContactId",
       status_list_item_id AS "statusListItemId",confirmed_by_user_id AS "confirmedByUserId",
-      confirmed_at AS "confirmedAt",created_at AS "createdAt",item_note AS "itemNote",note_updated_at AS "noteUpdatedAt"`,
-    [input.campaignContactId, input.itemId, input.actorId, input.itemNote])).rows[0];
-    if (!input.skipAutomations) await enqueueCallbackConfirmation(client, { ...input, confirmationId: inserted.id });
+      confirmed_at AS "confirmedAt",created_at AS "createdAt",item_note AS "itemNote",note_updated_at AS "noteUpdatedAt",
+      execution_request_id AS "executionRequestId"`,
+    [input.campaignContactId, input.itemId, input.actorId, input.itemNote, input.requestId ?? null])).rows[0];
+    if (input.campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN && !input.skipAutomations)
+      await enqueueCallbackConfirmation(client, { ...input, confirmationId: inserted.id });
     await client.query("COMMIT");
     return inserted;
   } catch (error) { await client.query("ROLLBACK"); throw error; }

@@ -87,8 +87,9 @@ export async function validateWorkflow(campaignId: string, raw: unknown, client:
   }
   return rule;
 }
-export async function workflowTransaction<T>(campaignContactId: string, fn: (client: PoolClient) => Promise<T>) {
-  const client = await pool.connect();
+export async function workflowTransaction<T>(campaignContactId: string, fn: (client: PoolClient) => Promise<T>,
+  connections: { connect(): Promise<PoolClient> } = pool) {
+  const client = await connections.connect();
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow:${campaignContactId}`]);
@@ -131,6 +132,7 @@ async function exclusiveAnswerExists(client: Queryable, campaignId: string, cc: 
 }
 async function setAnswer(client: PoolClient, input: {
   campaignId: string; campaignContactId: string; actorId: string; target: WorkflowRef; value: WorkflowAnswer;
+  revision?: string;
 }) {
   const { campaignContactId: cc, target, actorId, value, campaignId } = input;
   const cleared: { kind: string; id: string; previous: unknown }[] = [];
@@ -159,7 +161,7 @@ async function setAnswer(client: PoolClient, input: {
     await client.query(`INSERT INTO mission_status_list_answers(campaign_contact_id,question_id,value,revision,updated_by)
       VALUES($1,$2,$3::jsonb,$4,$5) ON CONFLICT(campaign_contact_id,question_id)
       DO UPDATE SET value=EXCLUDED.value,revision=EXCLUDED.revision,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-    [cc, target.id, JSON.stringify(value), randomUUID(), actorId]);
+    [cc, target.id, JSON.stringify(value), input.revision ?? randomUUID(), actorId]);
   } else {
     const siblings = await client.query(`
       SELECT s.status_list_item_id AS id FROM campaign_status_list_items i
@@ -367,6 +369,9 @@ export async function saveWorkflowQuestion(input: {
   campaignId: string; campaignContactId: string; actorId: string; questionId: string; value: WorkflowAnswer | null;
 }) {
   return workflowTransaction(input.campaignContactId, async client => {
+    if (!(await client.query("SELECT 1 FROM campaign_contacts WHERE id=$1 AND campaign_id=$2",
+      [input.campaignContactId, input.campaignId])).rowCount)
+      throw new StatusListWorkflowError("contact_not_found", 404);
     const catalog = await workflowCatalog(input.campaignId, client);
     const entry = catalog.find(item => item.kind === "question" && item.id === input.questionId);
     if (!entry) throw new StatusListWorkflowError("question_not_found", 404);
@@ -381,7 +386,7 @@ export async function saveWorkflowQuestion(input: {
       await client.query(`UPDATE mission_status_list_answers SET value='null'::jsonb,revision=$3,updated_by=$4,updated_at=now()
         WHERE campaign_contact_id=$1 AND question_id=$2`, [input.campaignContactId, input.questionId, revision, input.actorId]);
     } else {
-      await setAnswer(client, { ...input, target: { kind: "question", id: input.questionId }, value: input.value });
+      await setAnswer(client, { ...input, revision, target: { kind: "question", id: input.questionId }, value: input.value });
     }
     await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
       VALUES($1,$2,'status_list_answer',$3::jsonb)`, [input.campaignContactId, input.actorId,
@@ -393,4 +398,75 @@ export async function saveWorkflowQuestion(input: {
       return { revision };
     }
   });
+}
+
+/** One user change (including radio siblings), or the final Batch answer draft.
+ * Validate everything first, persist the complete snapshot, then evaluate rules.
+ * Stable revisions bind native services to the same event across lost responses.
+ */
+export async function saveWorkflowQuestions(input: {
+  campaignId: string; campaignContactId: string; actorId: string; requestId: string;
+  changes: Array<{ questionId: string; expected: WorkflowAnswer | null; value: WorkflowAnswer | null }>;
+}, connections: { connect(): Promise<PoolClient> } = pool) {
+  return workflowTransaction(input.campaignContactId, async client => {
+    if (!(await client.query("SELECT 1 FROM campaign_contacts WHERE id=$1 AND campaign_id=$2",
+      [input.campaignContactId, input.campaignId])).rowCount)
+      throw new StatusListWorkflowError("contact_not_found", 404);
+    const catalog = await workflowCatalog(input.campaignId, client);
+    const current = (await client.query(`SELECT question_id,value,revision,updated_by
+      FROM mission_status_list_answers WHERE campaign_contact_id=$1`, [input.campaignContactId])).rows;
+    const before = new Map(current.map(row => [row.question_id, row]));
+    const seen = new Set<string>();
+    for (const change of input.changes) {
+      if (seen.has(change.questionId)) throw new StatusListWorkflowError("duplicate_question");
+      seen.add(change.questionId);
+      const entry = catalog.find(item => item.kind === "question" && item.id === change.questionId);
+      if (!entry || entry.hidden || !entry.writable) throw new StatusListWorkflowError("question_not_writable");
+      if (change.value !== null) validateWorkflowValue(entry, change.value);
+      const previous = before.get(change.questionId);
+      const ownRetry = previous?.revision === `${input.requestId}:${change.questionId}` && previous?.updated_by === input.actorId;
+      if (ownRetry && previous.value !== change.value) throw new StatusListWorkflowError("request_id_conflict", 409);
+      if (!ownRetry && (previous?.value ?? null) !== change.expected)
+        throw new StatusListWorkflowError("answer_conflict", 409);
+    }
+    const final = new Map(current.map(row => [row.question_id, row.value]));
+    input.changes.forEach(change => final.set(change.questionId, change.value));
+    const groups = (await client.query(`SELECT q.id,q.item_id,q.group_name,q.logic_operator,q.field_type,
+      i.question_selection_mode FROM campaign_status_list_questions q
+      JOIN campaign_status_list_items i ON i.id=q.item_id WHERE i.campaign_id=$1`,
+    [input.campaignId])).rows;
+    for (const selected of groups.filter(row => final.get(row.id) != null)) {
+      const siblings = groups.filter(row => row.item_id === selected.item_id && final.get(row.id) != null);
+      const sameGroup = siblings.filter(row => (row.group_name || "") === (selected.group_name || ""));
+      if ((selected.question_selection_mode === "single" && siblings.length > 1) ||
+          (selected.logic_operator === "ONE" && sameGroup.length > 1) ||
+          (selected.field_type === "radio" && sameGroup.filter(row => row.field_type === "radio").length > 1))
+        throw new StatusListWorkflowError("answer_group_conflict", 409);
+    }
+    const events: Array<{ questionId: string; revision: string; value: WorkflowAnswer; repeated?: boolean }> = [];
+    for (const change of input.changes) {
+      const previous = before.get(change.questionId);
+      const revision = `${input.requestId}:${change.questionId}`;
+      if (previous?.revision === revision && previous?.updated_by === input.actorId) {
+        if (change.value !== null) events.push({ questionId: change.questionId, revision, value: change.value, repeated: true });
+        continue;
+      }
+      if ((previous?.value ?? null) === change.value) continue;
+      await client.query(`INSERT INTO mission_status_list_answers(campaign_contact_id,question_id,value,revision,updated_by)
+        VALUES($1,$2,$3::jsonb,$4,$5) ON CONFLICT(campaign_contact_id,question_id) DO UPDATE
+        SET value=EXCLUDED.value,revision=EXCLUDED.revision,updated_by=EXCLUDED.updated_by,updated_at=now()`,
+      [input.campaignContactId, change.questionId, JSON.stringify(change.value), revision, input.actorId]);
+      await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
+        VALUES($1,$2,'status_list_answer',$3::jsonb)`, [input.campaignContactId, input.actorId,
+        JSON.stringify({ campaignId: input.campaignId, questionId: change.questionId,
+          previous: previous?.value ?? null, value: change.value })]);
+      if (change.value !== null) events.push({ questionId: change.questionId, revision, value: change.value });
+    }
+    const now = (await client.query("SELECT clock_timestamp() AS at")).rows[0].at;
+    for (const event of events.filter(event => !event.repeated)) await executeEvent(client, {
+      ...input, source: { kind: "question", id: event.questionId }, value: event.value,
+      eventId: `answer:${event.revision}`, occurredAt: now,
+    });
+    return events;
+  }, connections);
 }

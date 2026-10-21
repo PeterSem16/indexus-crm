@@ -24,7 +24,7 @@ const contact = {
 const campaign = {
   id: "campaign-1",
   name: "Pulse notes regression",
-  settings: JSON.stringify({ statusListMode: "batch", showScript: false }),
+  settings: JSON.stringify({ statusListMode: new URLSearchParams(location.search).get("mode") === "immediate" ? "immediate" : "batch", showScript: false }),
   script: null,
 };
 

@@ -14,6 +14,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
+import { createStatusListExecutionClient } from "@/lib/status-list-execution-client";
+import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/status-list-execution-policy";
+import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
+import { StatusListExecutionHelp } from "@/components/status-list-execution-help";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
@@ -249,7 +253,7 @@ import { PulseToastScope } from "@/hooks/use-toast";
 import { usePulseToast } from "@/hooks/use-pulse-toast";
 import { useSip } from "@/contexts/sip-context";
 import { useCall } from "@/contexts/call-context";
-import { format, addBusinessDays, startOfDay, addDays, startOfWeek } from "date-fns";
+import { format, addBusinessDays, startOfDay, addDays, addMonths, startOfWeek } from "date-fns";
 import { sk } from "date-fns/locale";
 import { useAgentSession } from "@/contexts/agent-session-context";
 import { useWallboardPresence } from "@/hooks/use-wallboard-presence";
@@ -2964,7 +2968,7 @@ export function CommunicationCanvas({
     return () => clearInterval(id);
   }, []);
   const [slBatchSaving, setSlBatchSaving] = useState(false);
-  const [slBatchAction, setSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
+  const [slBatchAction, setSlBatchAction] = useState<"rules" | "reschedule" | "do_not_call">("rules");
   const [slBatchCallbackDt, setSlBatchCallbackDt] = useState("");
   const [slBatchCallbackNote, setSlBatchCallbackNote] = useState("");
   // Per-item notes for confirmed items (populated from DB, editable for retention items)
@@ -2983,6 +2987,20 @@ export function CommunicationCanvas({
     };
   }
   const statusListScopeToken = `${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}`;
+  const slExecutionRef = useRef({ scope: statusListScopeToken, client: createStatusListExecutionClient() });
+  if (slExecutionRef.current.scope !== statusListScopeToken)
+    slExecutionRef.current = { scope: statusListScopeToken, client: createStatusListExecutionClient() };
+  const slMutationBusyRef = useRef(false);
+  const [slExecuting, setSlExecuting] = useState(false);
+  const setSlBusy = useCallback((busy: boolean) => {
+    slMutationBusyRef.current = busy;
+    setSlExecuting(busy);
+  }, []);
+  const slQuestionAnswersRef = useRef<Record<string, any>>({});
+  const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
+  const workflowContact = useStatusListWorkflowContact(campaign?.id, campaignContactId);
+  const [batchSlAnswers, setBatchSlAnswers] = useState<Record<string, { expected: any; value: any }>>({});
+  const [batchSlActions, setBatchSlActions] = useState<Record<string, { automation: any; opts?: { callbackDate?: string; callbackNote?: string } }>>({});
   const [slBatchBannerDismissed, setSlBatchBannerDismissed] = useState(false);
 
   const statusListMode = useMemo(() => {
@@ -3036,7 +3054,8 @@ export function CommunicationCanvas({
 
   const [slRunningOption, setSlRunningOption] = useState<string | null>(null);
   const handleSlOptionSelect = useCallback(async (option: any) => {
-    if (!campaign?.id || !campaignContactId) return;
+    if (!campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
+    const sender = slExecutionRef.current.client;
 
     // In batch mode: just stage the option, don't fire automations
     if (statusListMode === "batch") {
@@ -3048,37 +3067,35 @@ export function CommunicationCanvas({
       return;
     }
 
+    setSlBusy(true);
     setSlRunningOption(option.id);
     let isDefinitive = false;
     let keptExistingCallback = false;
     try {
-      for (const automation of (option.automations || [])) {
-        const autoId = String(automation.id);
-        const res = await apiRequest(
-          "POST",
-          `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-          { callbackDate: null, callbackNote: null, contactCountry: contact?.country ?? null, requestId: crypto.randomUUID() },
-        );
-        const data = await res.json().catch(() => ({}));
-        if (automation.actionType === "set_callback" || automation.actionType === "set_contact_status") {
-          // A later callback/status action can replace the earlier outcome.
-          keptExistingCallback = data?.keptExisting === true;
-        }
-        if (automation.actionType === "set_contact_status" && !data?.callbackDate) {
-          isDefinitive = true;
-        }
+      const data = await sender.send(
+        `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${option.id}`,
+        { confirm: true }, "immediate");
+      if (slExecutionRef.current.client !== sender) return;
+      if (data.ok === false) {
+        toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+        return;
       }
+      isDefinitive = ["completed", "do_not_call", "not_interested"].includes(data.contactStatus) && !data.callbackDate;
+      keptExistingCallback = (data.actionResults || []).some((result: any) => result.keptExisting);
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-      toast({ title: option.label, description: keptExistingCallback ? actionCopy(locale, "callbackKeptNotice") : "Možnosť vykonaná" });
+      toast({ title: option.label, description: keptExistingCallback ? actionCopy(locale, "callbackKeptNotice") : getStatusListExecutionCopy(locale).saved });
       if (isDefinitive) {
         onCloseCallAfterStatusList?.();
       }
     } catch {
-      toast({ title: "Chyba pri vykonaní možnosti", variant: "destructive" });
+      if (slExecutionRef.current.client !== sender) return;
+      toast({ title: slt("actionFailed", locale), variant: "destructive" });
     } finally {
-      setSlRunningOption(null);
+      if (slExecutionRef.current.client === sender) { setSlRunningOption(null); setSlBusy(false); }
     }
   }, [campaign?.id, campaignContactId, contact?.country, locale, onCloseCallAfterStatusList, statusListMode, toast]);
 
@@ -3113,7 +3130,10 @@ export function CommunicationCanvas({
   const batchUnsavedIds = useMemo(() => new Set<string>([
     ...Array.from(batchSlSelections).map(String),
     ...Array.from(batchDirtyNoteIds).map(String),
-  ]), [batchSlSelections, batchDirtyNoteIds]);
+    ...Array.from(batchSlDeletions).map(String),
+    ...Object.keys(batchSlAnswers).map(id => `q:${id}`),
+    ...Object.keys(batchSlActions).map(id => `a:${id}`),
+  ]), [batchSlSelections, batchDirtyNoteIds, batchSlDeletions, batchSlAnswers, batchSlActions]);
 
   // Notify the parent workspace whenever the unsaved batch count changes so it
   // can gate navigation away (contact-switch / card-close) with a confirmation dialog.
@@ -3148,6 +3168,13 @@ export function CommunicationCanvas({
     setBatchSlNotes({});
     setBatchSlDirtyNoteIds(new Set());
     setBatchSlDeletions(new Set());
+    setBatchSlAnswers({});
+    setBatchSlActions({});
+    setSlQuestionAnswers({});
+    slQuestionAnswersRef.current = {};
+    setSlBusy(false);
+    setSlBatchSaving(false);
+    setSlBatchAction("rules");
     slSavedNoteAckRef.current = {};
   }, [campaign?.id, campaignContactId]);
 
@@ -3163,7 +3190,7 @@ export function CommunicationCanvas({
       // ── Auto-cleanup: enforce 1× (single-select) integrity on load ──────────
       // If a previous batch-save left multiple children confirmed in a
       // single-select parent, keep only the most recently confirmed one and
-      // fire background DELETEs for the rest so the UI and DB stay in sync.
+      // render only the newest locally; opening a card must never write history.
       const stateByItemId = new Map<string, any>();
       for (const row of currentStatusStateRows) stateByItemId.set(String(row.statusListItemId), row);
 
@@ -3186,16 +3213,13 @@ export function CommunicationCanvas({
           const [, ...toDelete] = confirmedChildren;
           for (const dup of toDelete) {
             confirmedIds.delete(String(dup.id));
-            // Fire-and-forget DELETE to align DB with the enforced single-select rule
-            apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${dup.id}`, {
-              confirm: false,
-              contactCountry: contact?.country ?? null,
-            }).catch(() => {/* best-effort */});
           }
         }
       }
       // ────────────────────────────────────────────────────────────────────────
 
+      for (const id of batchSlSelections) confirmedIds.add(id);
+      for (const id of batchSlDeletions) confirmedIds.delete(id);
       setDbSlChecked(confirmedIds);
       // Restore per-item notes from DB.  Batch drafts are merged rather than
       // replaced: a refetch during editing must not erase a local textarea.
@@ -3239,25 +3263,36 @@ export function CommunicationCanvas({
     if (!Array.isArray(dbStatusList) || !dbStatusList.length || !campaignContactId || !campaign?.id) return;
     const confirmedIds = new Set<string>(currentStatusStateRows.map((s: any) => String(s.statusListItemId)));
     const autoItems = (dbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
+    if (statusListMode === "batch") {
+      setBatchSlSelections(previous => {
+        const next = new Set(previous);
+        for (const item of autoItems) if (!confirmedIds.has(String(item.id))) next.add(String(item.id));
+        return next.size === previous.size ? previous : next;
+      });
+      return;
+    }
     for (const autoItem of autoItems) {
       const key = `${campaign.id}:${campaignContactId}:${autoItem.id}`;
       if (!confirmedIds.has(String(autoItem.id)) && !slAutoRunRef.current.has(key)) {
         slAutoRunRef.current.add(key);
-        void apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${autoItem.id}`, {
+        void slExecutionRef.current.client.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${autoItem.id}`, {
           confirm: true, contactCountry: null,
+        }, "immediate").then(result => {
+          if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, variant: "destructive" });
+        }).catch(() => {
+          toast({ title: slt("actionFailed", locale), variant: "destructive" });
         });
-        for (const auto of (autoItem.automations || [])) {
-          handleSlRunAction(auto);
-        }
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign?.id, campaignContactId, dbStatusList, currentStatusStateRows]);
+  }, [campaign?.id, campaignContactId, dbStatusList, currentStatusStateRows, statusListMode]);
 
   // Declared here (before the useCallbacks that reference it in deps) to avoid TDZ in production Rollup build.
   const [slPendingCallback, setSlPendingCallback] = useState<{ itemId: string; itemLabel: string; allAutomations: any[]; cbAuto: any | null; dt: string; note: string } | null>(null);
 
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+    if (slMutationBusyRef.current) return;
+    const sender = slExecutionRef.current.client;
     if ((dbStatusList as any[]).some(item => String(item.id) === itemId && item.sourceManaged)) return;
     // In batch mode: just toggle visual state and stage in batchSlSelections (no API, no automations)
     if (statusListMode === "batch") {
@@ -3269,12 +3304,19 @@ export function CommunicationCanvas({
       setBatchSlSelections(prev => {
         const next = new Set(prev);
         // Only track newly checked items (not ones already confirmed from server)
-        if (newChecked) { next.add(itemId); } else { next.delete(itemId); }
+        if (newChecked && !slStateMap.has(itemId)) next.add(itemId); else next.delete(itemId);
+        return next;
+      });
+      setBatchSlDeletions(prev => {
+        const next = new Set(prev);
+        if (!newChecked && slStateMap.has(itemId)) next.add(itemId); else next.delete(itemId);
         return next;
       });
       // A note on a row that is explicitly unchecked is not a save candidate.
       // Drop it so a later Save cannot persist a note for an unconfirmed row.
       if (!newChecked) {
+        setBatchSlActions(prev => Object.fromEntries(Object.entries(prev)
+          .filter(([, action]) => String(action.automation.statusListItemId) !== itemId)));
         setBatchSlNotes(prev => {
           if (!(itemId in prev)) return prev;
           const next = { ...prev };
@@ -3321,23 +3363,29 @@ export function CommunicationCanvas({
     }
     if (!campaign?.id || !campaignContactId) return;
     try {
-      await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+      setSlBusy(true);
+      const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
         confirm: newChecked,
         contactCountry: contactCountry ?? null,
-      });
+      }, "immediate");
+      if (slExecutionRef.current.client !== sender) return;
+      if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
     } catch {
+      if (slExecutionRef.current.client !== sender) return;
       setDbSlChecked(prev => {
         const next = new Set(prev);
         if (newChecked) next.delete(itemId); else next.add(itemId);
         return next;
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
-    }
-  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode]);
+    } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, slStateMap, locale, toast]);
 
   const handleSlConfirmWithCallback = useCallback(async () => {
-    if (!slPendingCallback || !campaign?.id || !campaignContactId) return;
+    if (!slPendingCallback || !campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
+    const sender = slExecutionRef.current.client;
+    setSlBusy(true);
     const { itemId, cbAuto, dt, note } = slPendingCallback;
     setSlPendingCallback(null);
     setDbSlChecked(prev => { const next = new Set(prev); next.add(itemId); return next; });
@@ -3348,57 +3396,87 @@ export function CommunicationCanvas({
       localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, tab);
     }
     try {
-      await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+      const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
         confirm: true,
         contactCountry: contactCountry ?? null,
         ...(cbAuto ? { overrideCallbackDate: dt, overrideCallbackNote: note || null } : {}),
-      });
+      }, "immediate");
+      if (slExecutionRef.current.client !== sender) return;
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
-      if (cbAuto) {
+      if (result.ok === false) {
+        toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+      } else if (cbAuto && result.callbackDate && (result.actionResults || []).some((action: any) =>
+        action.ok && !action.skipped && ["set_callback", "set_contact_status"].includes(action.actionType))) {
         let dtLabel = "";
-        try { const d = new Date(dt); dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" }); } catch {}
-        toast({ title: slt("callbackSet", locale), description: dtLabel || dt });
+        try { const d = new Date(result.callbackDate); dtLabel = d.toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }); } catch {}
+        toast({ title: (result.actionResults || []).some((action: any) => action.keptExisting)
+          ? actionCopy(locale, "callbackPolicyKeep") : slt("callbackSet", locale), description: dtLabel });
       } else {
         toast({ title: slt("cfmDone", locale) });
       }
     } catch {
+      if (slExecutionRef.current.client !== sender) return;
       setDbSlChecked(prev => { const next = new Set(prev); next.delete(itemId); return next; });
       toast({ title: "Chyba", variant: "destructive" });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
-    }
+    } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
   }, [slPendingCallback, campaign?.id, campaignContactId, contactCountry, dbStatusList, toast, locale]);
 
   const handleSlBatchSaveConfirm = useCallback(async () => {
-    if (!campaign?.id || !campaignContactId || batchUnsavedIds.size === 0) return;
+    if (!campaign?.id || !campaignContactId || batchUnsavedIds.size === 0 || slMutationBusyRef.current) return;
     const saveScopeToken = statusListScopeToken;
     const scopeIsCurrent = () => `${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}` === saveScopeToken;
+    const sender = slExecutionRef.current.client;
+    setSlBusy(true);
     setSlBatchSaving(true);
+    let actionProblems = false;
     try {
+      const answerChanges = Object.entries(batchSlAnswers).map(([questionId, draft]) => ({ questionId, ...draft }));
+      if (answerChanges.length) {
+        const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/answers`,
+          { changes: answerChanges }, "batch", true, "PUT");
+        actionProblems ||= result.ok === false;
+        if (!scopeIsCurrent()) return;
+      }
       // First: remove siblings that were deselected for single-select groups.
       // These were only cleared locally (batch-mode handleSlToggle never fires DELETE).
       // Skip any that the agent re-selected (present in batchSlSelections too).
       for (const itemId of Array.from(batchSlDeletions)) {
         if (!batchSlSelections.has(itemId)) {
-          await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+          const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
             confirm: false,
             contactCountry: contactCountry ?? null,
-          });
+          }, "batch", true);
+          actionProblems ||= result.ok === false;
           if (!scopeIsCurrent()) return;
         }
       }
-      // Then: persist all staged items without firing automations
+      // Final answers are already persisted. Confirm each final step, with its
+      // real rules enabled. Retained receipts make partial retries safe.
       for (const itemId of Array.from(batchSlSelections)) {
         const itemNote = statusListNotePayload(batchSlNotes[itemId]);
-        await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
+        const item = (dbStatusList as any[]).find(item => String(item.id) === itemId);
+        const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
           confirm: true,
           contactCountry: contactCountry ?? null,
-          skipAutomations: true,
           itemNote,
-        });
+          ...(slBatchAction === "reschedule" && hasStatusListCallbackAction(item, slDispositions)
+            ? { overrideCallbackDate: slBatchCallbackDt, overrideCallbackNote: slBatchCallbackNote || null } : {}),
+        }, "batch", true);
+        actionProblems ||= result.ok === false;
         if (!scopeIsCurrent()) return;
         slSavedNoteAckRef.current[itemId] = itemNote ?? "";
+      }
+      for (const [autoId, action] of Object.entries(batchSlActions)) {
+        const automaticOnStep = !action.automation.questionId && batchSlSelections.has(String(action.automation.statusListItemId));
+        const automaticOnAnswer = action.automation.serviceActionConfig && batchSlAnswers[action.automation.questionId]?.value != null;
+        if (automaticOnStep || automaticOnAnswer) continue;
+        const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
+          { callbackDate: action.opts?.callbackDate ?? null, callbackNote: action.opts?.callbackNote ?? null }, "batch", true);
+        actionProblems ||= result.ok === false;
+        if (!scopeIsCurrent()) return;
       }
 
       // Existing confirmed rows are intentionally updated through the note
@@ -3416,12 +3494,23 @@ export function CommunicationCanvas({
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/entity-history", contact?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       if (!scopeIsCurrent()) return;
 
       // A note-only save is complete after the PATCHes above.  Do not open the
       // callback dialog or alter the contact status in that case.
-      if (batchSlSelections.size === 0) {
-        toast({ title: slt("noteSaved", locale) });
+      if (actionProblems || batchSlSelections.size === 0 || slBatchAction === "rules") {
+        const copy = getStatusListExecutionCopy(locale);
+        toast({ title: actionProblems ? copy.failed : copy.saved,
+          description: actionProblems ? copy.failedDetail : undefined, variant: actionProblems ? "destructive" : undefined });
+        setBatchSlSelections(new Set());
+        setBatchSlDeletions(new Set());
+        setBatchSlAnswers({});
+        setBatchSlActions({});
+        sender.clear();
         setBatchSlNotes(prev => {
           const next = { ...prev };
           for (const id of noteOnlyIds) delete next[id];
@@ -3441,10 +3530,10 @@ export function CommunicationCanvas({
       if (slBatchAction === "reschedule") {
         const selectedCallbackItem = Array.from(batchSlSelections)
           .map(itemId => (dbStatusList as any[]).find((item: any) => String(item.id) === String(itemId)))
-          .find((item: any) => (item?.automations || []).some((automation: any) =>
-            automation.actionType === "set_callback" || automation.actionType === "set_contact_status"
-          ));
-        await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
+          .find((item: any) => hasStatusListCallbackAction(item, slDispositions));
+        // A configured callback already received the selected date in its one
+        // confirmation event. Never bypass its keep-existing policy with PATCH.
+        if (!selectedCallbackItem) await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}`, {
           status: "callback_scheduled",
           callbackDate: slBatchCallbackDt || null,
           callbackNote: slBatchCallbackNote || null,
@@ -3461,7 +3550,7 @@ export function CommunicationCanvas({
           const d = new Date(slBatchCallbackDt);
           dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
         } catch { /* no-op */ }
-        toast({ title: slt("batchSaved", locale), description: dtLabel || slBatchCallbackDt });
+        toast({ title: getStatusListExecutionCopy(locale).saved });
         // Auto-close if all required status-list items are now confirmed
         const allUnits = (dbStatusList as any[]).filter(
           (i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto"
@@ -3496,6 +3585,10 @@ export function CommunicationCanvas({
       }
 
       setBatchSlSelections(new Set());
+      setBatchSlDeletions(new Set());
+      setBatchSlAnswers({});
+      setBatchSlActions({});
+      sender.clear();
       setBatchSlNotes({});
       setBatchSlDirtyNoteIds(new Set());
       setSlBatchSaveOpen(false);
@@ -3506,9 +3599,9 @@ export function CommunicationCanvas({
         toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
       }
     } finally {
-      if (scopeIsCurrent()) setSlBatchSaving(false);
+      if (scopeIsCurrent()) { setSlBatchSaving(false); setSlBusy(false); }
     }
-  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, dbSlChecked, user?.id, contact?.id, updateSlNoteCache]);
+  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache]);
 
   const handleSlNoteChange = useCallback((itemId: string, value: string) => {
     if (statusListMode === "batch") {
@@ -3565,11 +3658,13 @@ export function CommunicationCanvas({
 
   // Manual ("run now") trigger for a single configured status-list automation.
   const [slRunningAuto, setSlRunningAuto] = useState<Set<string>>(new Set());
-  const [slQuestionAnswers, setSlQuestionAnswers] = useState<Record<string, any>>({});
-  const workflowContact = useStatusListWorkflowContact(campaign?.id, campaignContactId);
   useEffect(() => {
-    setSlQuestionAnswers(workflowContact.data?.answers || {});
-  }, [campaignContactId, workflowContact.data?.answers]);
+    if (slMutationBusyRef.current) return;
+    const merged = { ...workflowContact.data?.answers };
+    for (const [id, draft] of Object.entries(batchSlAnswers)) merged[id] = draft.value;
+    setSlQuestionAnswers(merged);
+    slQuestionAnswersRef.current = merged;
+  }, [campaignContactId, workflowContact.data?.answers, batchSlAnswers]);
   useEffect(() => {
     if (campaign?.id && campaignContactId) {
       void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
@@ -3586,21 +3681,33 @@ export function CommunicationCanvas({
     }
   }, []);
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
-    if (!campaign?.id || !campaignContactId) return;
+    if (!campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
+    const sender = slExecutionRef.current.client;
     const autoId = String(automation.id);
+    if (statusListMode === "batch") {
+      setBatchSlActions(prev => {
+        const next = { ...prev };
+        if (next[autoId] && JSON.stringify(next[autoId].opts) === JSON.stringify(opts)) delete next[autoId];
+        else next[autoId] = { automation, opts };
+        return next;
+      });
+      toast({ title: getStatusListExecutionCopy(locale).staged });
+      return;
+    }
+    setSlBusy(true);
     setSlRunningAuto(prev => new Set(prev).add(autoId));
     try {
-      const res = await apiRequest(
-        "POST",
+      const data = await sender.send(
         `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-actions/${autoId}/run`,
-        { callbackDate: opts?.callbackDate ?? null, callbackNote: opts?.callbackNote ?? null, contactCountry: contactCountry ?? null, requestId: crypto.randomUUID() },
+        { callbackDate: opts?.callbackDate ?? null, callbackNote: opts?.callbackNote ?? null, contactCountry: contactCountry ?? null }, "immediate",
       );
-      const data = await res.json().catch(() => ({}));
+      if (slExecutionRef.current.client !== sender) return;
       const okFlag = data?.ok !== false;
-      let msg = slt("statusSet", locale);
+      let msg = okFlag ? slt("statusSet", locale) : getStatusListExecutionCopy(locale).failed;
       if (automation.actionType === "send_email_group") msg = okFlag ? slt("emailSent", locale) : slt("emailFailed", locale);
-      else if (automation.actionType === "set_callback") msg = slt("callbackSet", locale);
-      else if (automation.actionType === "set_contact_status" && data?.callbackDate) msg = slt("callbackSet", locale);
+      else if (okFlag && automation.actionType === "set_callback") msg = slt("callbackSet", locale);
+      else if (okFlag && automation.actionType === "set_contact_status" && data?.callbackDate) msg = slt("callbackSet", locale);
+      if (data?.skipped) msg = getStatusListExecutionCopy(locale).skipped;
       if (data?.keptExisting === true) {
         toast({ title: actionCopy(locale, "callbackPolicyKeep"), description: actionCopy(locale, "callbackKeptNotice"), variant: okFlag ? undefined : "destructive" });
       } else {
@@ -3615,19 +3722,25 @@ export function CommunicationCanvas({
       // call won't appear until a manual refresh.
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
     } catch {
+      if (slExecutionRef.current.client !== sender) return;
       toast({ title: slt("actionFailed", locale), variant: "destructive" });
     } finally {
-      setSlRunningAuto(prev => { const n = new Set(prev); n.delete(autoId); return n; });
+      if (slExecutionRef.current.client === sender) {
+        setSlRunningAuto(prev => { const n = new Set(prev); n.delete(autoId); return n; });
+        setSlBusy(false);
+      }
     }
-  }, [campaign?.id, campaignContactId, contactCountry, locale, toast]);
+  }, [campaign?.id, campaignContactId, contactCountry, locale, toast, statusListMode]);
 
   // Toggle a status-list question answer locally. For radio fields, clears all
   // other radio answers in the same group first (exclusive-select semantics).
   // When groupMode === "ONE" ALL group questions are cleared regardless of fieldType —
   // this prevents a radio-type question from leaving a non-radio sibling selected.
-  const handleSlQuestionAnswer = useCallback((q: any, value: any, allGroupQs: any[], groupMode?: string) => {
+  const handleSlQuestionAnswer = useCallback(async (q: any, value: any, allGroupQs: any[], groupMode?: string, forceSelected = false) => {
+    if (slMutationBusyRef.current || !campaign?.id || !campaignContactId || !workflowContact.data) return false;
+    const sender = slExecutionRef.current.client;
     const ft = q.fieldType || "checkbox";
-    const prev = slQuestionAnswers;
+    const prev = slQuestionAnswersRef.current;
       const next = { ...prev };
       if (ft === "radio") {
         allGroupQs.filter((gq: any) => (gq.fieldType || "checkbox") === "radio")
@@ -3637,19 +3750,51 @@ export function CommunicationCanvas({
         // Always run — even when ft === "radio" — so mixed-type groups clear properly
         allGroupQs.forEach((gq: any) => { delete next[gq.id]; });
       }
-      if ((ft === "checkbox" || ft === "radio") && prev[q.id] === value) {
+      if (!forceSelected && (ft === "checkbox" || ft === "radio") && prev[q.id] === value) {
         delete next[q.id];
-      } else if (groupMode === "ONE" && prev[q.id] !== undefined) {
+      } else if (!forceSelected && groupMode === "ONE" && prev[q.id] != null) {
         // was answered → keep cleared (deselect completed above)
       } else {
         next[q.id] = value;
       }
     setSlQuestionAnswers(next);
-    void workflowContact.save(q.id, next[q.id] ?? null).catch(() => {
+    slQuestionAnswersRef.current = next;
+    const changes = statusListAnswerChanges(prev, next);
+    if (!changes.length) return true;
+    if (statusListMode === "batch") {
+      const clearedQuestions = new Set(changes.filter(change => change.value === null).map(change => change.questionId));
+      if (clearedQuestions.size) setBatchSlActions(draft => Object.fromEntries(Object.entries(draft)
+        .filter(([, action]) => !clearedQuestions.has(String(action.automation.questionId)))));
+      setBatchSlAnswers(draft => {
+        const result = { ...draft };
+        for (const change of changes) {
+          const expected = result[change.questionId] ? result[change.questionId].expected : change.expected;
+          if (expected === change.value) delete result[change.questionId];
+          else result[change.questionId] = { expected, value: change.value };
+        }
+        return result;
+      });
+      return true;
+    }
+    setSlBusy(true);
+    try {
+      const result = await sender.send(
+        `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/answers`,
+        { changes }, "immediate", false, "PUT");
+      if (slExecutionRef.current.client !== sender) return false;
+      if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      void queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+    } catch {
+      if (slExecutionRef.current.client !== sender) return false;
       toast({ title: getStatusListWorkflowCopy(locale).answerError, variant: "destructive" });
-      void workflowContact.refetch();
-    });
-  }, [slQuestionAnswers, workflowContact.save, workflowContact.refetch, toast, locale]);
+      setSlQuestionAnswers(prev);
+      slQuestionAnswersRef.current = prev;
+      return false;
+    } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
+    return true;
+  }, [campaign?.id, campaignContactId, statusListMode, workflowContact.data, toast, locale]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   const localPhoneOverride = phoneOverride ?? null;
@@ -6333,6 +6478,7 @@ export function CommunicationCanvas({
           });
 
           return (
+            <fieldset disabled={slExecuting || slBatchSaving} className="contents">
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* ── Nexus Pulse Header + Phase Pipeline ─────────────── */}
               <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
@@ -6466,8 +6612,10 @@ export function CommunicationCanvas({
               })()}
 
               {/* ── Batch mode active banner ────────────────────────── */}
+              <StatusListExecutionHelp locale={locale} mode={statusListMode} issues={workflowContact.data?.executionIssues}
+                onOpen={() => { void workflowContact.refetch(); }} />
               {statusListMode === "batch" && !slBatchBannerDismissed && (
-                <StatusListBatchBanner title={slu("batchBannerTitle", locale)} message={slu("batchBannerMsg", locale)} onDismiss={() => {
+                <StatusListBatchBanner title={slu("batchBannerTitle", locale)} message={getStatusListExecutionCopy(locale).batch} onDismiss={() => {
                   if (campaignContactId) localStorage.setItem(`sl-batch-banner-${campaignContactId}`, "1");
                   setSlBatchBannerDismissed(true);
                 }} />
@@ -6651,8 +6799,8 @@ export function CommunicationCanvas({
                       </DialogTitle>
                       <DialogDescription asChild>
                         <div className="text-sm text-muted-foreground pt-1">
-                          {batchSlSelections.size > 0
-                            ? `${batchSlSelections.size} ${slt("batchSelectedCount", locale)}`
+                          {batchUnsavedIds.size > 0
+                            ? `${batchUnsavedIds.size} ${getStatusListExecutionCopy(locale).pendingAnswers}`
                             : slt("batchNoItems", locale)}
                         </div>
                       </DialogDescription>
@@ -6676,17 +6824,17 @@ export function CommunicationCanvas({
                       </div>
                     )}
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">{slt("batchSaveHint", locale)}</p>
+                      <p className="text-xs font-medium text-muted-foreground">{getStatusListExecutionCopy(locale).batch}</p>
                       <div className="flex gap-2">
-                        {(["reschedule", "do_not_call"] as const).map(action => (
+                        {(["rules", "reschedule", "do_not_call"] as const).map(action => (
                           <button
                             key={action}
                             type="button"
                             onClick={() => setSlBatchAction(action)}
                             className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${slBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
                           >
-                            {action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                            {slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
+                            {action === "rules" ? <Check className="h-3.5 w-3.5" /> : action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                            {action === "rules" ? getStatusListExecutionCopy(locale).rulesOnly : slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
                           </button>
                         ))}
                       </div>
@@ -6699,7 +6847,7 @@ export function CommunicationCanvas({
                             { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
                             { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
                             { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
-                            { label: slt("batchM1", locale), fn: () => { const d = addDays(new Date(), 30); d.setHours(9, 0, 0, 0); return d; } },
+                            { label: slt("batchM1", locale), fn: () => { const d = addMonths(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
                           ].map(chip => (
                             <button
                               key={chip.label}
@@ -6746,6 +6894,7 @@ export function CommunicationCanvas({
                         size="sm"
                         disabled={slBatchSaving || (slBatchAction === "reschedule" && !slBatchCallbackDt)}
                         onClick={handleSlBatchSaveConfirm}
+                        data-testid="btn-sl-batch-save-confirm"
                         className={`font-semibold shadow-sm ${slBatchAction === "do_not_call" ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : ""}`}
                       >
                         {slBatchSaving ? (
@@ -6858,18 +7007,20 @@ export function CommunicationCanvas({
                         answers={slQuestionAnswers}
                         yesLabel="Áno"
                         noLabel="Nie"
-                        onAnswer={(question, value, exclusiveQuestions, groupMode) => {
+                        onAnswer={async (question, value, exclusiveQuestions, groupMode) => {
                           const q = question as any;
                           const actionable = (q.automations || []).some((automation: any) =>
                             automation.actionType === "set_contact_status" || automation.actionType === "set_callback" || automation.actionType === "send_email_group"
                           );
-                          handleSlQuestionAnswer(q, value, exclusiveQuestions, groupMode);
+                          if (!await handleSlQuestionAnswer(q, value, exclusiveQuestions, groupMode)) return;
+                          if (slQuestionAnswersRef.current[q.id] == null) return;
                           if (isStatusListYesNo(q.fieldType || "checkbox") && actionable) {
-                            for (const automation of q.automations || []) handleSlRunAction(automation);
+                            for (const automation of q.automations || []) {
+                              if (!automation.serviceActionConfig) await handleSlRunAction(automation);
+                            }
                           }
                           if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
                             handleSlToggle(String(item.id), true);
-                            for (const automation of item.automations || []) handleSlRunAction(automation);
                           }
                         }}
                         renderAction={(question, exclusiveQuestions, groupMode) => {
@@ -6877,19 +7028,24 @@ export function CommunicationCanvas({
                           const autoConfirmParent = () => {
                             if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
                               handleSlToggle(String(item.id), true);
-                              for (const automation of item.automations || []) handleSlRunAction(automation);
                             }
                           };
                           const callbackAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_callback");
                           if (callbackAutomation) return <SlCallbackButton automation={callbackAutomation} isRunning={slRunningAuto.has(String(callbackAutomation.id))}
-                            onRun={(automation, options) => { handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode); handleSlRunAction(automation, options); autoConfirmParent(); }}
+                            onRun={async (automation, options) => {
+                              if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
+                              await handleSlRunAction(automation, options); autoConfirmParent();
+                            }}
                             locale={locale} label={q.questionText} />;
                           const statusAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_contact_status");
                           if (!statusAutomation) return null;
                           const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
                           const isCallback = !!disposition && ["callback", "schedule_email", "schedule_sms"].includes(disposition.actionType);
                           return <SlStatusButton automation={statusAutomation} isRunning={slRunningAuto.has(String(statusAutomation.id))}
-                            onRun={(automation, options) => { handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode); handleSlRunAction(automation, options); autoConfirmParent(); }}
+                            onRun={async (automation, options) => {
+                              if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
+                              await handleSlRunAction(automation, options); autoConfirmParent();
+                            }}
                             locale={locale} isCallback={isCallback} label={q.questionText} />;
                         }}
                       />
@@ -7098,7 +7254,7 @@ export function CommunicationCanvas({
                         void handleSlBatchSaveConfirm();
                         return;
                       }
-                      setSlBatchAction("reschedule");
+                      setSlBatchAction("rules");
                       setSlBatchCallbackDt("");
                       setSlBatchCallbackNote("");
                       setSlBatchSaveOpen(true);
@@ -7128,6 +7284,7 @@ export function CommunicationCanvas({
                 </div>
               </div>
             </div>
+            </fieldset>
           );
         }
         const clSections = internalChecklistConfig.sections;
@@ -12162,18 +12319,37 @@ function AgentWorkspacePageContent() {
   const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size : desktopBatchUnsavedCount;
   const [mobileSlBatchSaveOpen, setMobileSlBatchSaveOpen] = useState(false);
   const [mobileSlBatchSaving, setMobileSlBatchSaving] = useState(false);
-  const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"reschedule" | "do_not_call">("reschedule");
+  const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"rules" | "reschedule" | "do_not_call">("rules");
   const [mobileSlBatchCallbackDt, setMobileSlBatchCallbackDt] = useState("");
   const [mobileSlBatchCallbackNote, setMobileSlBatchCallbackNote] = useState("");
+  const mobileSlScope = `${selectedCampaignId}:${effectiveCampaignContactId}`;
+  const mobileSlExecution = useRef({ scope: mobileSlScope, client: createStatusListExecutionClient() });
+  if (mobileSlExecution.current.scope !== mobileSlScope)
+    mobileSlExecution.current = { scope: mobileSlScope, client: createStatusListExecutionClient() };
+  const mobileSlBusy = useRef(false);
+  const mobileSlQueue = useRef(Promise.resolve());
+  const mobileAutoRuns = useRef(new Set<string>());
+  useEffect(() => {
+    setMobileBatchSlSelections(new Set());
+    setMobileDbSlChecked(new Set());
+    mobileSlBusy.current = false;
+    setMobileSlBatchSaving(false);
+    setMobileSlBatchSaveOpen(false);
+    setMobileSlBatchAction("rules");
+  }, [mobileSlScope]);
 
   useEffect(() => {
     if (!isMobile) return;
     const confirmedIds = new Set<string>((mobileDbSlState as any[]).map((s: any) => String(s.statusListItemId)));
     const autoItems = (mobileDbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
     const autoChecked = autoItems.filter((i: any) => confirmedIds.has(String(i.id)));
-    setMobileDbSlChecked(new Set([...Array.from(confirmedIds), ...autoChecked.map((i: any) => String(i.id))]));
-    // Reset staged batch selections when the contact's server state reloads (new contact opened)
-    setMobileBatchSlSelections(new Set());
+    setMobileDbSlChecked(previous => {
+      const next = new Set([...Array.from(confirmedIds), ...autoChecked.map((i: any) => String(i.id))]);
+      for (const id of mobileBatchSlSelections) {
+        if (previous.has(id)) next.add(id); else next.delete(id);
+      }
+      return next;
+    });
   }, [mobileDbSlState, mobileDbStatusList, isMobile]);
 
   // Warn agents before closing / navigating away from the browser tab
@@ -12192,7 +12368,7 @@ function AgentWorkspacePageContent() {
   }, [batchUnsavedCount]);
 
   const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
-    if (!selectedCampaignId || !effectiveCampaignContactId) return;
+    if (!selectedCampaignId || !effectiveCampaignContactId || mobileSlBusy.current) return;
     // Batch mode: stage locally — no API call, no automations
     if (mobileStatusListMode === "batch") {
       setMobileDbSlChecked(prev => {
@@ -12202,7 +12378,8 @@ function AgentWorkspacePageContent() {
       });
       setMobileBatchSlSelections(prev => {
         const next = new Set(prev);
-        if (newChecked) next.add(itemId); else next.delete(itemId);
+        const persisted = (mobileDbSlState as any[]).some(row => String(row.statusListItemId) === itemId);
+        if (newChecked !== persisted) next.add(itemId); else next.delete(itemId);
         return next;
       });
       return;
@@ -12212,35 +12389,72 @@ function AgentWorkspacePageContent() {
       if (newChecked) next.add(itemId); else next.delete(itemId);
       return next;
     });
+    const sender = mobileSlExecution.current.client;
+    const scope = mobileSlScope;
+    const task = mobileSlQueue.current.catch(() => {}).then(async () => {
     try {
-      await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
+      const result = await sender.send(`/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
         confirm: newChecked,
-      });
+      }, "immediate");
+      if (mobileSlExecution.current.client !== sender) return;
+      if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
     } catch {
+      if (mobileSlExecution.current.client !== sender) return;
       setMobileDbSlChecked(prev => {
         const next = new Set(prev);
         if (newChecked) next.delete(itemId); else next.add(itemId);
         return next;
       });
+      toast({ title: slt("actionFailed", locale), variant: "destructive" });
     }
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode]);
+    });
+    mobileSlQueue.current = task;
+    await task;
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode, mobileDbSlState, mobileSlScope, locale, toast]);
+
+  useEffect(() => {
+    if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) return;
+    for (const item of mobileDbStatusList as any[]) {
+      if (item.confirmationType !== "auto" || item.isHidden ||
+          (mobileDbSlState as any[]).some(row => String(row.statusListItemId) === String(item.id))) continue;
+      const key = `${mobileSlScope}:${item.id}`;
+      if (mobileAutoRuns.current.has(key)) continue;
+      mobileAutoRuns.current.add(key);
+      void handleMobileSlToggle(String(item.id), true);
+    }
+  }, [isMobile, selectedCampaignId, effectiveCampaignContactId, mobileDbStatusList, mobileDbSlState, mobileSlScope, handleMobileSlToggle]);
 
   const handleMobileBatchSaveConfirm = useCallback(async () => {
-    if (!selectedCampaignId || !effectiveCampaignContactId || mobileBatchSlSelections.size === 0) return;
+    if (!selectedCampaignId || !effectiveCampaignContactId || mobileBatchSlSelections.size === 0 || mobileSlBusy.current) return;
+    mobileSlBusy.current = true;
+    const sender = mobileSlExecution.current.client;
+    const scope = mobileSlScope;
+    const currentScope = () => mobileSlExecution.current.client === sender;
     setMobileSlBatchSaving(true);
+    let actionProblems = false;
     try {
       for (const itemId of Array.from(mobileBatchSlSelections)) {
-        await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
-          confirm: true,
-          skipAutomations: true,
-        });
+        const item = (mobileDbStatusList as any[]).find(item => String(item.id) === itemId);
+        const result = await sender.send(`/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
+          confirm: mobileDbSlChecked.has(itemId),
+          ...(mobileSlBatchAction === "reschedule" && hasStatusListCallbackAction(item, campaignDispositions)
+            ? { overrideCallbackDate: mobileSlBatchCallbackDt, overrideCallbackNote: mobileSlBatchCallbackNote || null } : {}),
+        }, "batch", true);
+        actionProblems ||= result.ok === false;
+        if (!currentScope()) return;
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
-      if (mobileSlBatchAction === "reschedule") {
-        await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
+      if (actionProblems || mobileSlBatchAction === "rules") {
+        const copy = getStatusListExecutionCopy(locale);
+        toast({ title: actionProblems ? copy.failed : copy.saved,
+          description: actionProblems ? copy.failedDetail : undefined, variant: actionProblems ? "destructive" : undefined });
+      } else if (mobileSlBatchAction === "reschedule") {
+        const configuredCallback = Array.from(mobileBatchSlSelections).some(id => mobileDbSlChecked.has(id) &&
+          hasStatusListCallbackAction((mobileDbStatusList as any[]).find(item => String(item.id) === id), campaignDispositions));
+        if (!configuredCallback) await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
           ...buildScheduledCallbackPatch(
             mobileSlBatchCallbackDt || null,
             mobileSlBatchCallbackNote || null,
@@ -12254,7 +12468,7 @@ function AgentWorkspacePageContent() {
           const d = new Date(mobileSlBatchCallbackDt);
           dtLabel = d.toLocaleDateString("sk-SK", { weekday: "short", day: "numeric", month: "numeric" }) + " " + d.toLocaleTimeString("sk-SK", { hour: "2-digit", minute: "2-digit" });
         } catch { /* no-op */ }
-        toast({ title: slt("batchSaved", locale), description: dtLabel || mobileSlBatchCallbackDt });
+        toast({ title: getStatusListExecutionCopy(locale).saved });
       } else {
         await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}`, {
           status: "do_not_call",
@@ -12263,16 +12477,18 @@ function AgentWorkspacePageContent() {
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
         toast({ title: slt("batchSaved", locale) });
       }
+      if (!currentScope()) return;
       setMobileBatchSlSelections(new Set());
+      sender.clear();
       setMobileSlBatchSaveOpen(false);
       setMobileSlBatchCallbackDt("");
       setMobileSlBatchCallbackNote("");
     } catch {
-      toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
+      if (currentScope()) toast({ title: slt("batchSaveFailed", locale), variant: "destructive" });
     } finally {
-      setMobileSlBatchSaving(false);
+      if (currentScope()) { setMobileSlBatchSaving(false); mobileSlBusy.current = false; }
     }
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileDbSlChecked, mobileDbStatusList, campaignDispositions, mobileSlScope, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast]);
 
   const isStatusListMode = useMemo(() => {
     try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
@@ -15802,7 +16018,7 @@ function AgentWorkspacePageContent() {
               statusListMode={mobileStatusListMode}
               batchSlSelections={mobileBatchSlSelections}
               onBatchSave={() => {
-                setMobileSlBatchAction("reschedule");
+                setMobileSlBatchAction("rules");
                 setMobileSlBatchCallbackDt("");
                 setMobileSlBatchCallbackNote("");
                 setMobileSlBatchSaveOpen(true);
@@ -15879,17 +16095,17 @@ function AgentWorkspacePageContent() {
                 </div>
               )}
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">{slt("batchSaveHint", locale)}</p>
+                <p className="text-xs font-medium text-muted-foreground">{getStatusListExecutionCopy(locale).batch}</p>
                 <div className="flex gap-2">
-                  {(["reschedule", "do_not_call"] as const).map(action => (
+                  {(["rules", "reschedule", "do_not_call"] as const).map(action => (
                     <button
                       key={action}
                       type="button"
                       onClick={() => setMobileSlBatchAction(action)}
                       className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${mobileSlBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
                     >
-                      {action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                      {slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
+                      {action === "rules" ? <Check className="h-3.5 w-3.5" /> : action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
+                      {action === "rules" ? getStatusListExecutionCopy(locale).rulesOnly : slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
                     </button>
                   ))}
                 </div>
@@ -15902,7 +16118,7 @@ function AgentWorkspacePageContent() {
                       { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
                       { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
                       { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
-                      { label: slt("batchM1", locale), fn: () => { const d = addDays(new Date(), 30); d.setHours(9, 0, 0, 0); return d; } },
+                      { label: slt("batchM1", locale), fn: () => { const d = addMonths(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
                     ].map(chip => (
                       <button
                         key={chip.label}

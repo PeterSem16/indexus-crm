@@ -200,6 +200,8 @@ app.use((req, res, next) => {
   await ensureProviderFinderSchema(pool);
   const { ensureStatusListWorkflowSchema } = await import("./lib/status-list-workflow-schema");
   await ensureStatusListWorkflowSchema(pool);
+  const { ensureStatusListExecutionSchema } = await import("./lib/status-list-execution-schema");
+  await ensureStatusListExecutionSchema(pool);
   const { ensureCallbackTransitionSchema } = await import("./lib/status-list-callback-transition-schema");
   await ensureCallbackTransitionSchema(pool);
 

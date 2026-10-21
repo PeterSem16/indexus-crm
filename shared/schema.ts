@@ -8397,6 +8397,7 @@ export type CampaignStatusListQuestion = typeof campaignStatusListQuestions.$inf
 export type InsertCampaignStatusListQuestion = z.infer<typeof insertCampaignStatusListQuestionSchema>;
 
 export const campaignContactStatusListState = pgTable("campaign_contact_status_list_state", {
+  executionRequestId: varchar("execution_request_id"),
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   campaignContactId: varchar("campaign_contact_id").notNull(),
   statusListItemId: varchar("status_list_item_id").notNull(),
