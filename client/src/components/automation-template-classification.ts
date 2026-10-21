@@ -11,7 +11,7 @@ export function sourceForModule(module?: string): AutomationTemplateSource | nul
   if (/^(communication|analysis)$/.test(module)) return "analysis";
   if (/^(email|emails)$/.test(module)) return "email";
   if (/^(sms|chat|message|messages)$/.test(module)) return "messages";
-  if (/^(customer|clinic|hospital|contract|invoice|campaign|collection|product|metric|collaborator)s?$/.test(module)) return "records";
+  if (/^(customer|clinic|hospital|contract|invoice|campaign|collection|product|metric|collaborator|status_list)s?$/.test(module)) return "records";
   if (/^notifications?$/.test(module)) return "notifications";
   return "other";
 }

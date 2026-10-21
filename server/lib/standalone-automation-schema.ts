@@ -2,6 +2,7 @@ import { ensureTaskMessageTemplates } from "./task-message-templates";
 import { ensureAutomationEmailTemplates } from "./automation-email-templates";
 import { ensureAutomationCallTemplates } from "./automation-call-templates";
 import { ensureAutomationActivityTemplates } from "./automation-activity-templates";
+import { ensureStatusListServiceTemplates } from "./status-list-service-templates";
 import { ensureLegacyAutomationTemplateVariables } from "./automation-legacy-template-upgrade";
 import { ensureAutomationTaskEventTemplates } from "./automation-task-event-templates";
 import { ensureAutomationNotificationTemplates } from "./automation-notification-templates";
@@ -86,4 +87,5 @@ export async function ensureStandaloneAutomationSchema(pool: {
   await ensureAutomationActivityTemplates(pool);
   await ensureLegacyAutomationTemplateVariables(pool);
   await (await import("./automation-human-templates")).ensureHumanAutomationTemplates(pool);
+  await ensureStatusListServiceTemplates(pool);
 }

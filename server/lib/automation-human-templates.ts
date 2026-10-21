@@ -21,14 +21,16 @@ export function humanizeAutomationTemplate(template: LegacyDefault, sourceLines:
   const call = /call-|analysis-(?:inbound|outbound|voice)-/.test(template.id);
   const task = template.type === "task" || /new-task|task-event|task-template-(?!call)|deadline|overdue|assigned|handover/.test(template.id);
   const communication = analysis || lines.some(([, path]) => path.startsWith("communication."));
-  if (!communication && !call && !lines.some(([, path]) => path === "activity.actorUserId"))
+  const statusList = template.id.startsWith(`indexus-activity-${template.type}-status_list-`);
+  if (!statusList && !communication && !call && !lines.some(([, path]) => path === "activity.actorUserId"))
     lines.push(["from", "activity.actorUserId"]);
   if (template.id.includes("invoice-found")) lines.push(["count", "analysis.invoiceCount"]);
   const title = communication
     ? lines.find(([, path]) => path === "communication.subject" || path === "communication.taskTitle")?.[1] || "communication.senderName"
-    : call ? null : "activity.title";
+    : call ? null : statusList ? "contact.name" : "activity.title";
   const subject = `${template.name}${title ? ` · ${token(title)}` : ""}`;
-  const lead = template.type === "task" && !template.id.startsWith("indexus-activity-")
+  const lead = statusList ? c(task ? "task" : "record").replaceAll("{{activity.title}}", token("contact.name"))
+    : template.type === "task" && !template.id.startsWith("indexus-activity-")
     ? template.content.replace(/\{\{\s*(?:entityId|activity\.id|communication\.id|communication\.callId|newValues\.id)\s*\}\}/g, "{{activity.title}}").replace(/\bID\s*[:·]\s*/gi, "")
     : c(communication ? "source" : call ? "call" : task ? "task" : "record");
   const unique = [...new Map(lines.filter(([key, path]) =>

@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { loadStatusListServiceTemplates } from "../server/lib/status-list-service-templates";
 
 const savedWrites: Record<string, unknown>[] = [];
+const nativeTemplates = loadStatusListServiceTemplates().map(template => ({ ...template, isActive: true, countryCodes: [] }));
+const nativeTemplate = (type: string) => nativeTemplates.find(template => template.type === type && template.language === "en" && template.id.includes("-information-"))!;
+const templateCatalog = (url: string) => nativeTemplates.filter(template => template.type === new URL(url).searchParams.get("type"));
 test("legacy status-list notification keeps null config until explicit conversion; cancelled message edits are discarded and applied payload persists", async ({ page }) => {
   savedWrites.length = 0;
   const errors: string[] = [];
@@ -16,6 +20,7 @@ test("legacy status-list notification keeps null config until explicit conversio
     if (request.method() !== "GET") return route.fulfill({ status: 405, json: { error: "Unexpected fixture write" } });
     const body = path === "/api/auth/me" || path === "/api/auth/user"
       ? { id: "manager-17", username: "Mira", fullName: "Mira Novak", email: "mira@example.invalid", role: "manager", assignedCountries: ["SK"] }
+      : path === "/api/message-templates" ? templateCatalog(request.url())
       : path === "/api/campaigns/42" ? { id: "42", name: "Campaign registration", countryCodes: ["SK"], settings: { smsProvider: "smstools" } }
         : path === "/api/roles" ? [{ id: "supervisor", name: "supervisor", description: "Team supervisor", isActive: true }]
           : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "mira@example.invalid" }]
@@ -47,6 +52,10 @@ test("legacy status-list notification keeps null config until explicit conversio
   const reopened = page.getByTestId("notify-user-editor-0");
   await expect(reopened.getByTestId("notify-user-title-0")).toHaveValue("Manager notice");
   await expect(reopened.getByTestId("notify-user-message-0")).toHaveValue("Manager notice");
+  await reopened.getByTestId("notify-user-template-0").click();
+  await page.getByTestId(`notify-user-template-0-template-${nativeTemplate("notification").id}`).click();
+  await expect(reopened.getByTestId("notify-user-title-0")).toHaveValue(nativeTemplate("notification").subject);
+  await expect(reopened.getByTestId("notify-user-message-0")).toHaveValue(nativeTemplate("notification").content);
   await reopened.getByTestId("notify-user-title-0").fill("Registration needs review");
   await reopened.getByTestId("notify-user-message-0").fill("Please review {{contact.name}}.");
   await reopened.getByTestId("notify-user-apply-0").click();
@@ -59,6 +68,7 @@ test("legacy status-list notification keeps null config until explicit conversio
   expect(savedWrites).toHaveLength(1);
   expect(savedWrites[0].serviceActionConfig).toMatchObject({
     notificationActionVersion: 2,
+    templateId: nativeTemplate("notification").id,
     targetRole: "role:supervisor",
     title: "Registration needs review",
     message: "Please review {{contact.name}}.",
@@ -80,8 +90,7 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
     }
     if (request.method() !== "GET") return route.fulfill({ status: 405, json: {} });
     const body = path === "/api/campaigns/42" ? { id: "42", name: "Campaign registration", countryCodes: ["SK"], settings: { smsProvider: "smstools" } }
-      : path === "/api/message-templates" ? [{ id: "status-list-compatible-email", name: "Status List follow-up", type: "email", language: "en",
-        isActive: true, countryCodes: ["SK"], subject: "Template subject", contentHtml: "<p>Hello {{contact.name}}</p>" }]
+      : path === "/api/message-templates" ? templateCatalog(request.url())
       : path === "/api/roles" ? [{ id: "supervisor", name: "supervisor", isActive: true }]
         : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "mira@example.invalid" }]
           : path === "/api/task-groups" ? []
@@ -114,10 +123,12 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
   const editor = page.getByTestId("status-list-email-action-content-editor");
   await expect(editor).toBeVisible();
   await editor.getByTestId("status-list-email-action-editor-template").click();
-  await page.getByTestId("status-list-email-action-editor-template-template-status-list-compatible-email").click();
-  await expect(editor.getByTestId("status-list-email-action-editor-subject")).toHaveValue("Template subject");
-  await expect(editor.getByTestId("status-list-email-action-editor-body")).toHaveValue("<p>Hello {{contact.name}}</p>");
-  await expect(page.getByTestId("status-list-email-action-editor-template-template-status-list-compatible-email")).not.toBeVisible();
+  const selectedTemplate = page.getByTestId(`status-list-email-action-editor-template-template-${nativeTemplate("email").id}`);
+  await expect(selectedTemplate).toBeEnabled();
+  await selectedTemplate.click();
+  await expect(editor.getByTestId("status-list-email-action-editor-subject")).toHaveValue(nativeTemplate("email").subject);
+  await expect(editor.getByTestId("status-list-email-action-editor-body")).toHaveValue(nativeTemplate("email").contentHtml!);
+  await expect(selectedTemplate).not.toBeVisible();
   await page.screenshot({ path: "/tmp/status-list-email-template-loaded.jpg" });
   await editor.getByTestId("status-list-email-action-editor-subject").fill("Registration status");
   await editor.getByTestId("status-list-email-action-editor-body").fill("<p>Reviewed successfully.</p>");
@@ -126,7 +137,7 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
   await page.getByTestId("status-list-automation-save").click();
   await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
   expect(savedWrites[0].serviceActionConfig).toMatchObject({
-    emailActionVersion: 2, senderMode: "personal", subject: "Registration status", body: "<p>Reviewed successfully.</p>",
+    emailActionVersion: 2, senderMode: "personal", subject: "Registration status", body: "<p>Reviewed successfully.</p>", templateId: nativeTemplate("email").id,
   });
   expect(String((savedWrites[0].serviceActionConfig as any).to)).toContain("dispatch@example.invalid");
   expect(errors).toEqual([]);
@@ -144,7 +155,7 @@ test("native SMS editor shows campaign gateway and accepts the inherited default
     if (request.method() !== "GET") return route.fulfill({ status: 405, json: {} });
     const body = path === "/api/campaigns/42" ? { id: "42", name: "Campaign registration", countryCodes: ["SK"], settings: { smsProvider: "smstools" } }
       : path === "/api/roles" ? [] : path === "/api/automation/users" ? [] : path === "/api/task-groups" ? []
-        : path === "/api/message-templates" ? [] : [];
+         : path === "/api/message-templates" ? templateCatalog(request.url()) : [];
     return route.fulfill({ json: body });
   });
   await page.goto("/test-fixtures/status-list-native-action.html?action=send_sms", { waitUntil: "networkidle" });
@@ -154,13 +165,16 @@ test("native SMS editor shows campaign gateway and accepts the inherited default
   await sms.getByTestId("status-list-sms-action-open-editor").click();
   const editor = page.getByTestId("status-list-sms-action-editor");
   await expect(editor).toBeVisible();
+  await editor.getByTestId("status-list-sms-action-template").click();
+  await page.getByTestId(`status-list-sms-action-template-template-${nativeTemplate("sms").id}`).click();
+  await expect(editor.getByTestId("status-list-sms-action-text")).toHaveValue(nativeTemplate("sms").content);
   await editor.getByTestId("status-list-sms-action-text").fill("Your registration is ready.");
   await editor.getByTestId("status-list-sms-action-apply").click();
   await page.getByTestId("service-action-stage-review").click();
   await page.getByTestId("status-list-automation-save").click();
   await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
   expect(savedWrites[0].serviceActionConfig).toMatchObject({
-    smsActionVersion: 2, provider: "default", text: "Your registration is ready.", to: ["+421900123456"],
+    smsActionVersion: 2, provider: "default", text: "Your registration is ready.", to: ["+421900123456"], templateId: nativeTemplate("sms").id,
   });
 });
 
@@ -178,12 +192,16 @@ test("native task editor reuses task participant dialog and saves task content w
       : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "mira@example.invalid" }]
         : path === "/api/task-groups" ? [{ id: "triage", name: "Triage", members: [{ userId: "manager-17" }] }]
           : path === "/api/roles" ? [{ id: "supervisor", name: "supervisor", isActive: true }]
-            : path === "/api/message-templates" ? [] : [];
+            : path === "/api/message-templates" ? templateCatalog(request.url()) : [];
     return route.fulfill({ json: body });
   });
   await page.goto("/test-fixtures/status-list-native-action.html?action=assign_task", { waitUntil: "networkidle" });
   const task = page.getByTestId("status-list-task-action");
   await expect(task).toBeVisible();
+  await task.getByTestId("select-task-action-template").click();
+  await page.getByTestId(`select-task-action-template-template-${nativeTemplate("task").id}`).click();
+  await expect(task.getByTestId("input-task-action-title")).toHaveValue(nativeTemplate("task").subject);
+  await expect(task.getByTestId("textarea-task-action-text")).toHaveValue(nativeTemplate("task").content);
   await expect(task.getByTestId("button-edit-task-recipients")).toContainText("Mira Novak");
   await task.getByTestId("input-task-action-title").fill("Check registration");
   await task.getByTestId("textarea-task-action-text").fill("Call {{contact.name}}.");
@@ -194,6 +212,6 @@ test("native task editor reuses task participant dialog and saves task content w
   await page.getByTestId("status-list-automation-save").click();
   await expect(page.getByTestId("fixture-saved")).toHaveText('"saved"');
   expect(savedWrites[0].serviceActionConfig).toMatchObject({
-    title: "Check registration", taskText: "Call {{contact.name}}.", recipients: [{ kind: "user", id: "manager-17" }],
+    title: "Check registration", taskText: "Call {{contact.name}}.", recipients: [{ kind: "user", id: "manager-17" }], templateId: nativeTemplate("task").id,
   });
 });
