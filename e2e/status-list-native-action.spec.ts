@@ -69,6 +69,8 @@ test("legacy status-list notification keeps null config until explicit conversio
 
 test("native email editor keeps pending recipients unsavable, then saves the same native email config", async ({ page }) => {
   savedWrites.length = 0;
+  const errors: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
   await page.route("**/api/**", async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     if (request.method() === "PUT" && path.includes("/status-list/12/automations/")) {
@@ -78,6 +80,8 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
     }
     if (request.method() !== "GET") return route.fulfill({ status: 405, json: {} });
     const body = path === "/api/campaigns/42" ? { id: "42", name: "Campaign registration", countryCodes: ["SK"], settings: { smsProvider: "smstools" } }
+      : path === "/api/message-templates" ? [{ id: "status-list-compatible-email", name: "Status List follow-up", type: "email", language: "en",
+        isActive: true, countryCodes: ["SK"], subject: "Template subject", contentHtml: "<p>Hello {{contact.name}}</p>" }]
       : path === "/api/roles" ? [{ id: "supervisor", name: "supervisor", isActive: true }]
         : path === "/api/automation/users" ? [{ id: "manager-17", fullName: "Mira Novak", email: "mira@example.invalid" }]
           : path === "/api/task-groups" ? []
@@ -88,6 +92,15 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
   await page.goto("/test-fixtures/status-list-native-action.html?action=send_email_group", { waitUntil: "networkidle" });
   const email = page.getByTestId("status-list-email-action");
   await expect(email).toBeVisible();
+  for (const width of [1100, 700, 374]) {
+    await page.setViewportSize({ width: Math.max(width + 30, 390), height: 1000 });
+    await expect.poll(async () => {
+      const [form, container] = await Promise.all([email.boundingBox(), page.getByTestId("status-list-native-action").boundingBox()]);
+      return form && container ? form.width / container.width : 0;
+    }).toBeGreaterThan(0.95);
+    if (width === 700) await page.screenshot({ path: "/tmp/status-list-email-full-width.jpg" });
+  }
+  await page.setViewportSize({ width: 1360, height: 1000 });
   await expect(email).toContainText("manager@example.invalid");
   const address = page.locator("#status-list-email-action-to-address");
   await address.fill("not-an-email");
@@ -100,6 +113,12 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
   await email.getByTestId("status-list-email-action-open-editor").click();
   const editor = page.getByTestId("status-list-email-action-content-editor");
   await expect(editor).toBeVisible();
+  await editor.getByTestId("status-list-email-action-editor-template").click();
+  await page.getByTestId("status-list-email-action-editor-template-template-status-list-compatible-email").click();
+  await expect(editor.getByTestId("status-list-email-action-editor-subject")).toHaveValue("Template subject");
+  await expect(editor.getByTestId("status-list-email-action-editor-body")).toHaveValue("<p>Hello {{contact.name}}</p>");
+  await expect(page.getByTestId("status-list-email-action-editor-template-template-status-list-compatible-email")).not.toBeVisible();
+  await page.screenshot({ path: "/tmp/status-list-email-template-loaded.jpg" });
   await editor.getByTestId("status-list-email-action-editor-subject").fill("Registration status");
   await editor.getByTestId("status-list-email-action-editor-body").fill("<p>Reviewed successfully.</p>");
   await editor.getByTestId("status-list-email-action-editor-close").click();
@@ -110,6 +129,7 @@ test("native email editor keeps pending recipients unsavable, then saves the sam
     emailActionVersion: 2, senderMode: "personal", subject: "Registration status", body: "<p>Reviewed successfully.</p>",
   });
   expect(String((savedWrites[0].serviceActionConfig as any).to)).toContain("dispatch@example.invalid");
+  expect(errors).toEqual([]);
 });
 
 test("native SMS editor shows campaign gateway and accepts the inherited default without a false conflict", async ({ page }) => {

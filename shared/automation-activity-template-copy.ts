@@ -67,6 +67,7 @@ const copy: Record<string, readonly string[]> = {
   invoice: ["Invoice", "Faktúra", "Faktura", "Számla", "Factură", "Fattura", "Rechnung"],
   collection: ["Collection", "Odber", "Odběr", "Mintavétel", "Recoltare", "Raccolta", "Entnahme"],
   campaign: ["Mission", "Mission", "Mission", "Mission", "Mission", "Mission", "Mission"],
+  status_list: ["Status List", "Status List", "Stavový seznam", "Állapotlista", "Listă de status", "Elenco stati", "Statusliste"],
   product: ["Product", "Produkt", "Produkt", "Termék", "Produs", "Prodotto", "Produkt"],
   metric: ["Metric monitoring", "Monitoring metrík", "Monitoring metrik", "Mutatók figyelése", "Monitorizare indicatori", "Monitoraggio metriche", "Kennzahlenüberwachung"],
   value: ["Value", "Hodnota", "Hodnota", "Érték", "Valoare", "Valore", "Wert"],

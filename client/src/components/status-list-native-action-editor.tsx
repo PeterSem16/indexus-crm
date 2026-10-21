@@ -60,7 +60,7 @@ export function StatusListNativeActionEditor({ draft, setDraft, locale, countryC
   const retry = () => [usersQ, groupsQ, rolesQ].filter(query => query.isError).forEach(query => { void query.refetch(); });
   const variables = filterStatusListActionVariables(suppliedVariables).map(variable => ({ value: variable.token.replace(/^{{|}}$/g, ""), label: variable.label }));
 
-  return <section className="slsae-field-grid" data-testid="status-list-native-action">
+  return <section className="slsae-native-action" data-testid="status-list-native-action">
     {legacyTemplateId && <p className="slsae-callout wide">{copy.legacyTemplate.replace("{id}", legacyTemplateId)}</p>}
     {(loading || failed) && <div className="slsae-callout wide" role={failed ? "alert" : "status"}>
       {failed ? <>{copy.error} <button type="button" onClick={retry}>{copy.retry}</button></> : copy.loading}
