@@ -1,3 +1,4 @@
+import { getStatusListHistoryCopy } from "./status-list-history-copy";
 export type ServiceActionLocale = "en" | "sk" | "cs" | "hu" | "ro" | "it" | "de";
 const supported: ServiceActionLocale[] = ["en", "sk", "cs", "hu", "ro", "it", "de"];
 const localeOf = (value: string): ServiceActionLocale => supported.includes(value as ServiceActionLocale) ? value as ServiceActionLocale : "en";
@@ -199,8 +200,8 @@ const optionLabels: Record<string, Record<ServiceActionLocale,string>> = {
   true:{en:"Yes",sk:"Áno",cs:"Ano",hu:"Igen",ro:"Da",it:"Sì",de:"Ja"},
   false:{en:"No",sk:"Nie",cs:"Ne",hu:"Nem",ro:"Nu",it:"No",de:"Nein"},
 };
-export function catalogFieldLabel(locale:string,key:string,fallback:string){return fieldLabels[key]?.[localeOf(locale)]||fallback}
-export function catalogDescription(locale:string,key:string,fallback:string){return descriptions[key]?.[localeOf(locale)]||genericFieldDescription[localeOf(locale)]||fallback}
+export function catalogFieldLabel(locale:string,key:string,fallback:string){return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.label||fieldLabels[key]?.[localeOf(locale)]||fallback}
+export function catalogDescription(locale:string,key:string,fallback:string){return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.description||descriptions[key]?.[localeOf(locale)]||genericFieldDescription[localeOf(locale)]||fallback}
 export function catalogOperatorLabel(locale:string,key:string,fallback:string){return opLabels[key]?.[localeOf(locale)]||fallback}
 export function catalogOptionLabel(locale:string,key:string,fallback:string){return optionLabels[key]?.[localeOf(locale)]||fallback}
-export function catalogCategoryLabel(locale:string,key:string){return actionCopy(locale,`categoryGroup_${key}`)}
+export function catalogCategoryLabel(locale:string,key:string){return key==="history"?getStatusListHistoryCopy(locale).title:actionCopy(locale,`categoryGroup_${key}`)}

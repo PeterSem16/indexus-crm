@@ -1,4 +1,5 @@
 import React from "react";
+import { getStatusListHistoryCopy } from "./status-list-history-copy";
 import type { ActionRule, SavedStatusListAction, StatusListActionDraft } from "@/lib/status-list-action-draft";
 import type { ServiceActionOption } from "./status-list-service-action-fields";
 import {
@@ -125,6 +126,7 @@ export function StatusListServiceActionConditions({ draft, setDraft, locale, con
       {selectedChangedField && <p className="slsae-callout wide">{catalogDescription(locale, selectedChangedField.key, localized(locale, selectedChangedField.descSk, selectedChangedField.descEn))} {copy("fieldChangedHelp")}</p>}
     </>}
     {draft.conditionMode === "compound" && <>
+      <p className="slsae-callout wide" data-testid="service-action-history-help">{getStatusListHistoryCopy(locale).scope} {getStatusListHistoryCopy(locale).timing}</p>
       <label className="slsae-field wide"><span>{copy("logic")}</span>
         <select data-testid="service-action-condition-logic" value={draft.conditionLogic} onChange={event => update("conditionLogic", event.target.value)}>
           <option value="AND">{copy("and")}</option><option value="OR">{copy("or")}</option>

@@ -1,6 +1,9 @@
 import { db } from "../db";
 import { customers, campaigns, tasks as tasksTable } from "../../shared/schema";
 import { eq, and, count, sql } from "drizzle-orm";
+import { isStatusListHistoryField, statusListHistoryMatches } from "../../shared/status-list-history";
+import { loadStatusListHistoryFacts } from "./status-list-history";
+import { pool } from "../db";
 
 export interface ConditionRule {
   field: string;
@@ -14,6 +17,7 @@ export interface ConditionGroup {
 }
 
 export interface AutomationConditionContext {
+  campaignContactId?: string | null;
   contactId?: string | null;
   campaignId?: string | null;
   agentId?: string | null;
@@ -55,6 +59,12 @@ export async function evaluateConditionGroup(
   group: ConditionGroup,
   ctx: AutomationConditionContext
 ): Promise<boolean> {
+  if (group.rules.some(rule => rule.field.startsWith("history."))) {
+    const facts = await loadStatusListHistoryFacts(pool, ctx.campaignId, ctx.campaignContactId);
+    const results = await Promise.all(group.rules.map(rule => rule.field.startsWith("history.")
+      ? statusListHistoryMatches(facts, rule.field, rule.op, rule.value) : evaluateSingleRule(rule, ctx)));
+    return group.logic === "AND" ? results.every(Boolean) : group.logic === "OR" && results.some(Boolean);
+  }
   const results: boolean[] = await Promise.all(
     group.rules.map(rule => evaluateSingleRule(rule, ctx))
   );
@@ -67,6 +77,8 @@ async function evaluateSingleRule(
 ): Promise<boolean> {
   const { field, op, value } = rule;
   const { contactId, campaignId, contactCountry } = ctx;
+  if (isStatusListHistoryField(field))
+    return statusListHistoryMatches(await loadStatusListHistoryFacts(pool, campaignId, ctx.campaignContactId), field, op, value);
 
   // ── Category A: Call activity ──────────────────────────────────────────
   if (field === "call_count") {
@@ -441,8 +453,11 @@ export async function evaluateAutomationCondition(
 ): Promise<boolean> {
   // New compound condition / field_changed_to
   if (automation.conditionJson) {
+    let usesHistory = false;
     try {
       const parsed = JSON.parse(automation.conditionJson);
+      usesHistory = typeof parsed?.field === "string" && parsed.field.startsWith("history.") ||
+        Array.isArray(parsed?.rules) && parsed.rules.some((rule: any) => typeof rule?.field === "string" && rule.field.startsWith("history."));
 
       // True delta condition: fires only when the field value actually changed to the target
       if (parsed.__type === "field_changed_to" && parsed.field) {
@@ -468,7 +483,9 @@ export async function evaluateAutomationCondition(
 
       const group: ConditionGroup = parsed;
       return await evaluateConditionGroup(group, ctx);
-    } catch {
+    } catch (error) {
+      // A failed history lookup is an execution error, not a successful skip or permission to send.
+      if (usesHistory || automation.conditionJson.includes("history.")) throw error;
       return true;
     }
   }

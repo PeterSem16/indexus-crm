@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { statusListHistoryFields, isStatusListHistoryField, statusListHistoryMatches } from "./status-list-history";
 
 export const workflowRefSchema = z.object({
   kind: z.enum(["item", "question"]),
@@ -6,11 +7,14 @@ export const workflowRefSchema = z.object({
 });
 export const workflowAnswerSchema = z.union([z.boolean(), z.string().max(4000)]);
 export const workflowConditionSchema = z.object({
-  field: z.enum(["answer", "hospital_id", "clinic_id", "status", "contact_type"]),
+  field: z.enum(["answer", "hospital_id", "clinic_id", "status", "contact_type", ...statusListHistoryFields]),
   ref: workflowRefSchema.optional(),
   op: z.enum(["equals", "not_equals", "empty", "not_empty"]),
   value: workflowAnswerSchema.optional(),
 }).superRefine((value, ctx) => {
+  if (isStatusListHistoryField(value.field) && (!["equals", "not_equals"].includes(value.op) ||
+      ![true, false, "true", "false"].includes(value.value as any)))
+    ctx.addIssue({ code: "custom", message: "History conditions require Yes/No and equals/not equals" });
   if (value.field === "answer" && !value.ref) ctx.addIssue({ code: "custom", message: "Answer reference required" });
   if (["equals", "not_equals"].includes(value.op) && value.value === undefined)
     ctx.addIssue({ code: "custom", message: "Comparison value required" });
@@ -83,6 +87,10 @@ export function answerIsEmpty(value: unknown) {
   return value === undefined || value === null || value === "";
 }
 export function workflowConditionMatches(condition: WorkflowCondition, value: unknown) {
+  if (isStatusListHistoryField(condition.field)) {
+    if (typeof value !== "boolean") return false;
+    return statusListHistoryMatches({ [condition.field]: value } as any, condition.field, condition.op, condition.value);
+  }
   if (condition.op === "empty") return answerIsEmpty(value);
   if (condition.op === "not_empty") return !answerIsEmpty(value);
   if (value === undefined || value === null) return false;

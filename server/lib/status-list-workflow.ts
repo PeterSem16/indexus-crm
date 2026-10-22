@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
+import { isStatusListHistoryField } from "../../shared/status-list-history";
+import { loadStatusListHistoryFacts } from "./status-list-history";
 import { pool } from "../db";
 import {
   answerIsEmpty, statusListWorkflowSchema, workflowConditionMatches,
@@ -211,6 +213,14 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
   const snapshot = await readAnswers(client, event.campaignContactId);
   const { rows: rules } = await client.query(`SELECT id,definition FROM mission_status_list_rules
     WHERE campaign_id=$1 AND updated_at <= $2 ORDER BY created_at,id`, [event.campaignId, event.occurredAt]);
+  // Read once, on this transaction, only for rules relevant to this event.
+  const needsHistory = rules.some(stored => {
+    const rule = stored.definition;
+    return rule.enabled && rule.source?.kind === event.source.kind && rule.source?.id === event.source.id &&
+      rule.trigger === (event.trigger || "agent_confirmation") &&
+      rule.conditions?.some((condition: any) => isStatusListHistoryField(condition.field));
+  });
+  const history = needsHistory ? await loadStatusListHistoryFacts(client, event.campaignId, event.campaignContactId) : null;
   for (const stored of rules) {
     const rule = statusListWorkflowSchema.parse(stored.definition);
     if (rule.trigger !== (event.trigger || "agent_confirmation")) continue;
@@ -242,14 +252,18 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
     context.lastRunId = claimed.rows[0].id;
     let branch: "then" | "else" | "invalid" = "then";
     const results: any[] = [];
-    try { await validateWorkflow(event.campaignId, stored.definition, client); }
+    try {
+      await validateWorkflow(event.campaignId, stored.definition, client);
+      if (!history && rule.conditions.some(condition => isStatusListHistoryField(condition.field)))
+        throw new StatusListWorkflowError("communication_history_unresolved");
+    }
     catch (error) {
       branch = "invalid";
       results.push({ status: "invalid", reason: error instanceof StatusListWorkflowError ? error.code : "invalid_rule" });
     }
     if (branch !== "invalid") {
       const matches = rule.conditions.map(condition => {
-        const value = condition.field === "answer"
+        const value = isStatusListHistoryField(condition.field) ? history?.[condition.field] : condition.field === "answer"
           ? snapshot.get(`${condition.ref!.kind}:${condition.ref!.id}`)
           : condition.field === "hospital_id" ? contact.condition_hospital_id
           : condition.field === "clinic_id" ? contact.condition_clinic_id

@@ -162,7 +162,7 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     if (!source.question_id || normalize(source.question_value) !== normalize(automation.conditionValue))
       return { ok: true, skipped: true, status: "condition_false" };
   } else if ((automation.conditionField || automation.conditionJson) && deps.condition &&
-      !await deps.condition(automation, { contactId: source.entity_id, campaignId: input.campaignId,
+      !await deps.condition(automation, { contactId: source.entity_id, campaignId: input.campaignId, campaignContactId: input.campaignContactId,
         agentId: input.userId, contactCountry: country })) {
     return { ok: true, skipped: true, status: "condition_false" };
   }

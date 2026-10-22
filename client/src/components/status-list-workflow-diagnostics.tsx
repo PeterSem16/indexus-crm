@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { isStatusListHistoryField } from "@shared/status-list-history";
+import { getStatusListHistoryCopy } from "./status-list-history-copy";
 import { useQuery } from "@tanstack/react-query";
 import { Play, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,9 +50,9 @@ export function StatusListWorkflowDiagnostics({ campaignId, locale }: { campaign
       {rule && <>
         {!rule.enabled && <p className="slw-notice">{workflowCopy.disabled}</p>}
         {field("WHEN · " + (catalog.find(item => item.kind === rule.source.kind && item.id === rule.source.id)?.label || rule.source.id), source, value => { setSource(value); setResult(null); }, catalog.find(item => item.kind === rule.source.kind && item.id === rule.source.id))}
-        {rule.conditions.map((condition, index) => <div key={index}>{field("IF · " + (catalog.find(item => item.kind === condition.ref?.kind && item.id === condition.ref?.id)?.label || condition.field), values[index],
+        {rule.conditions.map((condition, index) => <div key={index}>{field("IF · " + (getStatusListHistoryCopy(locale).fields.find(item => item.key === condition.field)?.label || catalog.find(item => item.kind === condition.ref?.kind && item.id === condition.ref?.id)?.label || condition.field), values[index],
           value => { setValues(previous => { const next = [...previous]; next[index] = value; return next; }); setResult(null); },
-          catalog.find(item => item.kind === condition.ref?.kind && item.id === condition.ref?.id))}</div>)}
+          isStatusListHistoryField(condition.field) ? { kind: "question", id: condition.field, label: condition.field, fieldType: "boolean", hidden: false, writable: false } : catalog.find(item => item.kind === condition.ref?.kind && item.id === condition.ref?.id))}</div>)}
         <Button data-testid="status-list-run-test" onClick={() => setResult(dryRunStatusListRule(rule, source, values))}><Play size={14} className="mr-2"/>{copy.run}</Button>
       </>}
       {result && <div className="slw-run" data-testid="status-list-test-result">

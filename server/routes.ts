@@ -1175,6 +1175,7 @@ async function executeStatusListItemAutomations(
     if (durableCallbacks.has(automation.id)) continue;
     const fire = async () => {
     const conditionMet = await evaluateAutomationCondition(automation, {
+      campaignContactId: context.campaignContactId,
       contactId: context.contactId,
       campaignId: context.campaignId,
       agentId: context.userId,
@@ -35373,7 +35374,7 @@ Respond ONLY with valid JSON in this exact format:
       const contactId = ccRow.contactType === "clinic" ? (ccRow.clinicId || ccRow.customerId) :
         ccRow.contactType === "hospital" ? (ccRow.hospitalId || ccRow.customerId) :
         ccRow.contactType === "collaborator" ? (ccRow.collaboratorId || ccRow.customerId) : ccRow.customerId;
-      if (!await evaluateAutomationCondition(automation, { contactId: contactId ?? null,
+      if (!await evaluateAutomationCondition(automation, { contactId: contactId ?? null, campaignContactId,
         campaignId, agentId: userId, contactCountry: country })) return { ok: true, skipped: true };
       if (campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN &&
         ["set_callback", "set_contact_status"].includes(automation.actionType)) {
