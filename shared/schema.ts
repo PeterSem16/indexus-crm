@@ -8484,6 +8484,13 @@ export const missionStatusListNotes = pgTable("mission_status_list_notes", {
   updatedBy: varchar("updated_by").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [primaryKey({ columns: [table.campaignContactId, table.statusListItemId] })]);
+export const missionStatusListQuestionNotes = pgTable("mission_status_list_question_notes", {
+  campaignContactId: varchar("campaign_contact_id").notNull().references(() => campaignContacts.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id").notNull().references(() => campaignStatusListQuestions.id, { onDelete: "cascade" }),
+  note: text("note"),
+  updatedBy: varchar("updated_by").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [primaryKey({ columns: [table.campaignContactId, table.questionId] })]);
 export const missionStatusListRuleRuns = pgTable("mission_status_list_rule_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()::text`),
   ruleId: varchar("rule_id").notNull(),

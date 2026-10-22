@@ -23,6 +23,9 @@ import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { actionCopy } from "@/components/status-list-service-action-copy";
 import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
+import { statusListReportingLabel } from "@/components/status-list-reporting-label";
+import { STATUS_LIST_DIALOG_FRAME_CLASS } from "@/components/status-list-dialog-frame";
+import "@/components/status-list-dialog-frame.css";
 import { StatusListAgentActionRow, StatusListAgentItemFrame, StatusListAgentItemHeading, StatusListAgentQuestionChoices, StatusListBatchBanner, StatusListBatchSaveButton, StatusListPhasePipeline, StatusListQuickOptionsPanel } from "@/components/status-list-agent-preview";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -396,6 +399,7 @@ const SL_ACTION_T: Record<string, Record<string, string>> = {
   batchDoNotCall:      { sk: "Nevolať", en: "Do not call", cs: "Nevolat", hu: "Ne hívja", ro: "Nu apelați", it: "Non chiamare", de: "Nicht anrufen" },
   batchRescheduleDesc: { sk: "Naplánuj nový hovor na konkrétny termín.", en: "Schedule a new call for a specific date.", cs: "Naplánujte nový hovor na konkrétní datum.", hu: "Ütemezzen új hívást egy meghatározott időpontra.", ro: "Programați un nou apel la o dată specifică.", it: "Pianifica una nuova chiamata per una data specifica.", de: "Planen Sie einen neuen Anruf für ein bestimmtes Datum." },
   batchDoNotCallDesc:  { sk: "Kontakt sa v tejto kampani nebude ďalej volať.", en: "This contact will not be called again in this campaign.", cs: "Tento kontakt nebude v této kampani dále voláni.", hu: "Ez a kapcsolat nem kerül újra hívásra ebben a kampányban.", ro: "Acest contact nu va mai fi apelat în această campanie.", it: "Questo contatto non verrà più chiamato in questa campagna.", de: "Dieser Kontakt wird in dieser Kampagne nicht mehr angerufen." },
+  batchStatusWillSet: { sk: "Nastavený status:", en: "Status to set:", cs: "Nastavený stav:", hu: "Beállítandó státusz:", ro: "Status de setat:", it: "Stato da impostare:", de: "Zu setzender Status:" },
   batchD1:             { sk: "+1 pracovný deň", en: "+1 working day", cs: "+1 pracovní den", hu: "+1 munkanap", ro: "+1 zi lucrătoare", it: "+1 giorno lavorativo", de: "+1 Werktag" },
   batchD3:             { sk: "+3 pracovné dni", en: "+3 working days", cs: "+3 pracovní dny", hu: "+3 munkanap", ro: "+3 zile lucrătoare", it: "+3 giorni lavorativi", de: "+3 Werktage" },
   batchD5:             { sk: "+5 pracovných dní", en: "+5 working days", cs: "+5 pracovních dní", hu: "+5 munkanap", ro: "+5 zile lucrátoare", it: "+5 giorni lavorativi", de: "+5 Werktage" },
@@ -484,8 +488,8 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 // "Set status" button. For a plain disposition it just runs the action; for a
 // callback-type disposition it opens a reschedule picker (prefilled from the rule's
 // term) so the agent can override the callback time before scheduling.
-function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string;
+function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
@@ -512,10 +516,10 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
           {label ?? slt("runStatus", locale)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
+      <PopoverContent className="sl-agent-dialog-popover w-[min(90vw,20rem)] p-0" align="start">
         <div className="bg-purple-50 dark:bg-purple-900/30 px-3 py-2 flex items-center gap-2 border-b border-purple-200 dark:border-purple-700">
           <Tag className="h-3.5 w-3.5 text-purple-600" />
-          <span className="text-xs font-semibold text-purple-800 dark:text-purple-200">{slt("runStatus", locale)}</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-purple-800 dark:text-purple-200">{statusName || slt("runStatus", locale)}</span>
           <span className="ml-auto text-[9px] text-purple-500 font-medium">{slt("forEveryone", locale)}</span>
         </div>
         <div className="p-3 space-y-2.5">
@@ -560,10 +564,10 @@ function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
           {label ?? slt("runCallback", locale)}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 overflow-hidden" align="start">
+      <PopoverContent className="sl-agent-dialog-popover w-[min(90vw,20rem)] p-0" align="start">
         <div className="bg-cyan-50 dark:bg-cyan-900/30 px-3 py-2 flex items-center gap-2 border-b border-cyan-200 dark:border-cyan-700">
           <Phone className="h-3.5 w-3.5 text-cyan-600" />
-          <span className="text-xs font-semibold text-cyan-800 dark:text-cyan-200">{slt("runCallback", locale)}</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-cyan-800 dark:text-cyan-200">{label || slt("runCallback", locale)}</span>
           <span className="ml-auto text-[9px] text-cyan-500 font-medium">{slt("forEveryone", locale)}</span>
         </div>
         <div className="p-3 space-y-2.5">
@@ -6667,7 +6671,7 @@ export function CommunicationCanvas({
               {/* ── Callback scheduling dialog ─────────────────────── */}
               {slPendingCallback && (
                 <Dialog open onOpenChange={(open) => { if (!open) setSlPendingCallback(null); }}>
-                  <DialogContent className="max-w-sm" style={STONE_TERRACOTTA_VARS}>
+                  <DialogContent className={STATUS_LIST_DIALOG_FRAME_CLASS} style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
                       <DialogTitle className="text-base flex items-center gap-2">
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
@@ -6702,7 +6706,7 @@ export function CommunicationCanvas({
                         } else if (a.actionType === "set_contact_status") {
                           const disp = (slDispositions as any[]).find((d: any) => String(d.id) === String(a.dispositionId));
                           Icon = Tag; tone = "amber"; title = slt("cfmStatusTitle", locale); desc = slt("cfmStatusDesc", locale);
-                          if (disp) right = <span className="text-xs font-semibold whitespace-nowrap" style={{ color: disp.color || undefined }}>{disp.name || disp.code}</span>;
+                          if (disp) right = <span className="text-xs font-semibold whitespace-nowrap" style={{ color: disp.color || undefined }}>{DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[locale] || disp.name || disp.code}</span>;
                         } else if (a.actionType === "send_email_group") {
                           Icon = Mail; tone = "green"; title = slt("cfmEmailTitle", locale); desc = slt("cfmEmailDesc", locale);
                         } else if (a.actionType === "notify_email") {
@@ -6820,7 +6824,7 @@ export function CommunicationCanvas({
               {/* ── Batch-save modal ──────────────────────────────── */}
               {slBatchSaveOpen && (
                 <Dialog open onOpenChange={(open) => { if (!open) setSlBatchSaveOpen(false); }}>
-                  <DialogContent className="max-w-md" style={STONE_TERRACOTTA_VARS}>
+                  <DialogContent className={STATUS_LIST_DIALOG_FRAME_CLASS} style={STONE_TERRACOTTA_VARS}>
                     <DialogHeader>
                       <DialogTitle className="text-base flex items-center gap-2">
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
@@ -6873,6 +6877,17 @@ export function CommunicationCanvas({
                     {slBatchAction === "reschedule" && (
                       <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
                         <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
+                        {(() => {
+                          const selectedNames = Array.from(batchSlSelections).flatMap((id: string) => {
+                            const item = (dbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+                            return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
+                              const disposition = (campaignDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
+                              return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
+                            });
+                          });
+                          const uniqueNames = [...new Set(selectedNames.filter(Boolean))];
+                          return uniqueNames.length ? <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-foreground" data-testid="sl-batch-reschedule-status">{slt("batchStatusWillSet", locale)} {uniqueNames.join(", ")}</p> : null;
+                        })()}
                         <div className="flex flex-wrap gap-1.5">
                           {[
                             { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
@@ -6977,7 +6992,8 @@ export function CommunicationCanvas({
                           const ck = item.canonicalClinicStatusKey as string;
                           const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
                           const cCls = cPhase === "acq" ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700/40" : cPhase === "con" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700/40" : cPhase === "ret" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/40" : "bg-muted/50 text-muted-foreground border-border/50";
-                          return <span className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-mono font-medium rounded border leading-none ${cCls}`}>{ck.replace(/_/g, " ")}</span>;
+                          const label = statusListReportingLabel(ck, locale);
+                          return <span title={`${label} · ${ck}`} className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-medium rounded border leading-none ${cCls}`}>{label}</span>;
                         })()}
                         {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
                         {/* Confirmation timestamp — shown on every checked item.
@@ -6994,6 +7010,7 @@ export function CommunicationCanvas({
                             <div className={`flex items-center gap-1 mt-1 text-[10px] ${isStale ? 'text-amber-500/90 dark:text-amber-400/80' : 'text-emerald-600/80 dark:text-emerald-400/70'}`}>
                               <Clock className="h-2.5 w-2.5 shrink-0" />
                               <span>{label}</span>
+                              {stateRow?.confirmedByName && <span>· {stateRow.confirmedByName}</span>}
                               {isStale && <span className="italic opacity-70">({locale === 'sk' ? 'staré' : locale === 'cs' ? 'staré' : locale === 'hu' ? 'régi' : 'old'})</span>}
                             </div>
                           );
@@ -7001,7 +7018,7 @@ export function CommunicationCanvas({
                         {/* Retention-tab note field — shown when item is checked (immediate) or staged (batch).
               Show for items explicitly tagged retention, OR for tab=null items currently
               viewed inside the retention tab (tab=null = show on all tabs). */}
-                        {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
+                        {(isChecked || (statusListMode === 'batch' && batchSlSelections.has(String(item.id)))) && (() => {
                           const isBatch = statusListMode === 'batch';
                           const noteVal = isBatch
                             ? (batchSlNotes[String(item.id)] ?? slItemNotes[String(item.id)] ?? '')
@@ -7036,6 +7053,16 @@ export function CommunicationCanvas({
                         questions={item.questions || []}
                         questionSelectionMode={item.questionSelectionMode}
                         answers={slQuestionAnswers}
+                        locale={locale}
+                        answerMetadata={workflowContact.data?.answerMetadata || {}}
+                        questionNotes={workflowContact.data?.questionNotes || {}}
+                        pendingQuestionIds={new Set(Object.keys(batchSlAnswers))}
+                        scopeKey={campaignContactId || ""}
+                        onSaveQuestionNote={async (questionId, note) => {
+                          if (!campaign?.id || !campaignContactId) throw new Error("Missing contact");
+                          await apiRequest("PATCH", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/answers/${questionId}/note`, { note });
+                          await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
+                        }}
                         yesLabel="Áno"
                         noLabel="Nie"
                         onAnswer={async (question, value, exclusiveQuestions, groupMode) => {
@@ -7072,17 +7099,18 @@ export function CommunicationCanvas({
                           if (!statusAutomation) return null;
                           const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
                           const isCallback = !!disposition && ["callback", "schedule_email", "schedule_sms"].includes(disposition.actionType);
+                          const statusName = disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name) : undefined;
                           return <SlStatusButton automation={statusAutomation} isRunning={slRunningAuto.has(String(statusAutomation.id))}
                             onRun={async (automation, options) => {
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, options); autoConfirmParent();
                             }}
-                            locale={locale} isCallback={isCallback} label={q.questionText} />;
+                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} />;
                         }}
                       />
-                      {(() => {
-                        const itemState = currentStatusStateRows.find((s: any) => String(s.statusListItemId) === String(item.id));
-                        if (!itemState?.confirmedAt) return null;
+                        {(() => {
+                          const itemState = currentStatusStateRows.find((s: any) => String(s.statusListItemId) === String(item.id));
+                          if (!itemState?.confirmedAt) return null;
                         const statusAuto = (item.automations || []).find((a: any) => a.actionType === "set_contact_status" && a.dispositionId);
                         const disp = statusAuto ? (slDispositions as any[]).find((d: any) => String(d.id) === String(statusAuto.dispositionId)) : null;
                         const dispName = disp ? (DISPOSITION_NAME_TRANSLATIONS[disp.code]?.[locale] || disp.name) : null;
@@ -7213,10 +7241,11 @@ export function CommunicationCanvas({
                               const ck = child.canonicalClinicStatusKey as string;
                               const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
                               const cCls = cPhase === "acq" ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-700/40" : cPhase === "con" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-700/40" : cPhase === "ret" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700/40" : "bg-muted/50 text-muted-foreground border-border/50";
-                              return <span className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-mono font-medium rounded border leading-none ${cCls}`}>{ck.replace(/_/g, " ")}</span>;
+                              const label = statusListReportingLabel(ck, locale);
+                              return <span title={`${label} · ${ck}`} className={`inline-flex items-center mt-0.5 px-1.5 py-px text-[9px] font-medium rounded border leading-none ${cCls}`}>{label}</span>;
                             })()}
                             {child.description && <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{child.description}</p>}
-                            {childChecked && (() => {
+                              {childChecked && (() => {
                               const childState = slStateMap.get(String(child.id));
                               const ts = childState?.confirmedAt;
                               if (!ts) return null;
@@ -7225,12 +7254,13 @@ export function CommunicationCanvas({
                                 <div className={`flex items-center gap-1 mt-0.5 text-[10px] ${isStale ? 'text-amber-500/90 dark:text-amber-400/80' : 'text-emerald-600/80 dark:text-emerald-400/70'}`}>
                                   <Clock className="h-2.5 w-2.5 shrink-0" />
                                   <span>{new Date(ts as any).toLocaleString(locale === 'sk' ? 'sk-SK' : locale === 'cs' ? 'cs-CZ' : locale === 'hu' ? 'hu-HU' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                  {childState?.confirmedByName && <span>· {childState.confirmedByName}</span>}
                                   {isStale && <span className="italic opacity-70">({locale === 'sk' ? 'staré' : locale === 'cs' ? 'staré' : locale === 'hu' ? 'régi' : 'old'})</span>}
                                 </div>
                               );
                             })()}
                             {/* Retention note — same as top-level items, keyed by child.id */}
-                            {(item.tab === 'retention' || (!item.tab && slActiveTab === 'retention')) && (childChecked || (statusListMode === 'batch' && batchSlSelections.has(String(child.id)))) && (() => {
+                            {(childChecked || (statusListMode === 'batch' && batchSlSelections.has(String(child.id)))) && (() => {
                               const isBatch = statusListMode === 'batch';
                               const noteVal = isBatch
                                 ? (batchSlNotes[String(child.id)] ?? slItemNotes[String(child.id)] ?? '')
@@ -8999,6 +9029,33 @@ export function CustomerInfoPanel({
                                       </span>
                                     );
                                   })}
+                                </div>
+                              );
+                            })() : (item as any).action === "status_list_question_note_update" ? (() => {
+                              const meta = (item as any).metadata || {};
+                              const previous = meta.previousNote == null || String(meta.previousNote).trim() === ""
+                                ? slt("noteCleared", locale)
+                                : String(meta.previousNote);
+                              const next = meta.note == null || String(meta.note).trim() === ""
+                                ? slt("noteCleared", locale)
+                                : String(meta.note);
+                              return (
+                                <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/25 overflow-hidden" data-testid={`history-question-note-${item.id}`}>
+                                  <div className={`${isModal ? "p-2.5" : "p-2"}`}>
+                                    <div className="flex items-center gap-1.5">
+                                      <FileText className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} shrink-0 text-amber-600 dark:text-amber-400`} />
+                                      <span className={`${isModal ? "text-[10px]" : "text-[9px]"} font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400`}>
+                                        {slt("noteUpdated", locale)}
+                                      </span>
+                                    </div>
+                                    <p className={`${isModal ? "text-sm" : "text-[11px]"} font-semibold leading-snug text-foreground mt-0.5`}>
+                                      {highlightMatch(String(meta.questionText || "—"))}
+                                    </p>
+                                    <div className="mt-1 grid gap-1 text-foreground/90">
+                                      <p className={`${isModal ? "text-xs" : "text-[10px]"} leading-relaxed whitespace-pre-wrap`}><span className="font-semibold">{t.statusListWorkflow.previous}:</span> {previous}</p>
+                                      <p className={`${isModal ? "text-xs" : "text-[10px]"} leading-relaxed whitespace-pre-wrap`}><span className="font-semibold">{t.statusListWorkflow.newValue}:</span> {next}</p>
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })() : (item as any).action === "status_list_note_update" ? (() => {
@@ -12339,6 +12396,7 @@ function AgentWorkspacePageContent() {
     staleTime: 0,
     refetchOnMount: "always",
   });
+  const mobileWorkflowContact = useStatusListWorkflowContact(selectedCampaignId, effectiveCampaignContactId);
 
   // Mobile batch-save mode — mirrors CommunicationCanvas batch state for the mobile layout
   const mobileStatusListMode = useMemo(() => {
@@ -16076,6 +16134,19 @@ function AgentWorkspacePageContent() {
               dbStatusList={mobileDbStatusList}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
+               dbSlState={mobileDbSlState}
+               answerMetadata={mobileWorkflowContact.data?.answerMetadata || {}}
+               questionNotes={mobileWorkflowContact.data?.questionNotes || {}}
+               onSaveSlNote={async (itemId, note) => {
+                 if (!selectedCampaignId || !effectiveCampaignContactId) throw new Error("Missing contact");
+                 await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}/note`, { note });
+                 await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+               }}
+               onSaveQuestionNote={async (questionId, note) => {
+                 if (!selectedCampaignId || !effectiveCampaignContactId) throw new Error("Missing contact");
+                 await apiRequest("PATCH", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/answers/${questionId}/note`, { note });
+                 await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
+               }}
               statusListMode={mobileStatusListMode}
               batchSlSelections={mobileAutomaticBatchPending>0
                 ? new Set([...Array.from(mobileBatchSlSelections),"automatic:pending"]) : mobileBatchSlSelections}
@@ -16123,7 +16194,7 @@ function AgentWorkspacePageContent() {
         {/* ── Mobile batch-save dialog — same UX as desktop, uses mobile state ── */}
         {isMobile && mobileSlBatchSaveOpen && (
           <Dialog open onOpenChange={(open) => { if (!open) setMobileSlBatchSaveOpen(false); }}>
-            <DialogContent className="max-w-md" style={STONE_TERRACOTTA_VARS}>
+            <DialogContent className={STATUS_LIST_DIALOG_FRAME_CLASS} style={STONE_TERRACOTTA_VARS}>
               <DialogHeader>
                 <DialogTitle className="text-base flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
@@ -16175,6 +16246,17 @@ function AgentWorkspacePageContent() {
               {mobileSlBatchAction === "reschedule" && (
                 <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
                   <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
+                  {(() => {
+                    const selectedNames = Array.from(mobileBatchSlSelections).flatMap((id: string) => {
+                      const item = (mobileDbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+                      return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
+                        const disposition = (campaignDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
+                        return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
+                      });
+                    });
+                    const uniqueNames = [...new Set(selectedNames.filter(Boolean))];
+                    return uniqueNames.length ? <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-foreground" data-testid="sl-mobile-batch-reschedule-status">{slt("batchStatusWillSet", locale)} {uniqueNames.join(", ")}</p> : null;
+                  })()}
                   <div className="flex flex-wrap gap-1.5">
                     {[
                       { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },

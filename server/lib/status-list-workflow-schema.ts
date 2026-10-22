@@ -54,6 +54,14 @@ CREATE TABLE IF NOT EXISTS mission_status_list_answers (
  updated_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY(campaign_contact_id, question_id)
 );
+CREATE TABLE IF NOT EXISTS mission_status_list_question_notes (
+ campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
+ question_id varchar NOT NULL REFERENCES campaign_status_list_questions(id) ON DELETE CASCADE,
+ note text,
+ updated_by varchar NOT NULL,
+ updated_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(campaign_contact_id, question_id)
+);
 CREATE TABLE IF NOT EXISTS mission_status_list_rule_runs (
  id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
  rule_id varchar NOT NULL,

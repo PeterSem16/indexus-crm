@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/i18n";
+import { statusListReportingLabel, statusListReportingTooltip } from "@/components/status-list-reporting-label";
 
 export type PulseDisplayMode = "tiles" | "compact";
 export type PulseDefaultExpand = "all" | "first" | "none";
@@ -308,6 +309,7 @@ export interface PulseStatus {
   allowEmail?: boolean;
   allowSms?: boolean;
   isActive?: boolean;
+  canonicalClinicStatusKey?: string | null;
   sortOrder?: number;
   [k: string]: any;
 }
@@ -341,7 +343,7 @@ export function NexusPulseView({
   multiSelectMode,
   emptyMessage,
 }: PulseViewProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [prefs, setPrefs] = usePulsePrefs();
 
   const STATUS_ACTION_LABELS: Record<string, string> = {
@@ -471,6 +473,7 @@ export function NexusPulseView({
                 {STATUS_ACTION_LABELS[action] || action}
               </span>
             )}
+            {status.canonicalClinicStatusKey && <span title={statusListReportingTooltip(status.canonicalClinicStatusKey, locale)} className="max-w-36 truncate rounded-full border border-border/70 bg-muted/35 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(status.canonicalClinicStatusKey, locale)}</span>}
             {subCount > 0 && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: hex, color: "#fff" }}>{subCount}↳</span>
             )}
@@ -518,6 +521,7 @@ export function NexusPulseView({
                   {STATUS_ACTION_LABELS[action] || action}
                 </span>
               )}
+              {status.canonicalClinicStatusKey && <span title={statusListReportingTooltip(status.canonicalClinicStatusKey, locale)} className="max-w-36 truncate rounded-full border border-border/70 bg-muted/35 px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(status.canonicalClinicStatusKey, locale)}</span>}
               {subCount > 0 && (
                 <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ background: hex, color: "#fff" }}>
                   {subCount}<ChevronRight className="h-2.5 w-2.5" />

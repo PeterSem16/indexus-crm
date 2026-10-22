@@ -6,6 +6,8 @@ import type { WorkflowAnswer, WorkflowCatalogItem } from "@shared/status-list-wo
 export type WorkflowContactData = {
   executionIssues?: Array<{ automationId: string; eventKey: string; status: string; createdAt: string; itemLabel?: string }>;
   answers: Record<string, WorkflowAnswer>;
+  answerMetadata?: Record<string, { answeredAt: string | null; answeredByName: string | null; actorKind: string | null }>;
+  questionNotes?: Record<string, { note: string | null; updatedAt: string | null; updatedByName: string | null }>;
   runs: Array<{ id: string; ruleName: string; branch: string; results: unknown[]; createdAt: string; actorName: string }>;
   catalog: WorkflowCatalogItem[];
 };

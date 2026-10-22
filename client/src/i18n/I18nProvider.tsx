@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { translations, Translations, Locale, COUNTRY_TO_LOCALE } from './translations';
 
 interface I18nContextType {

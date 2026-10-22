@@ -7,6 +7,7 @@ import { workflowAnswerSchema } from "../../shared/status-list-workflow";
 import { saveWorkflowQuestion, saveWorkflowQuestions, StatusListWorkflowError, validateWorkflow, workflowCatalog } from "./status-list-workflow";
 import { checkStatusListExecution } from "../../shared/status-list-execution-policy";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
+import { readQuestionAudit, writeQuestionNote, questionNoteSchema } from "./status-list-question-audit";
 import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
 import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
 import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from "./status-list-automatic";
@@ -395,9 +396,25 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       WHERE r.campaign_contact_id=$1 AND (r.status='failed' OR
         (r.status='running' AND r.created_at < now()-interval '2 minutes'))
       ORDER BY r.created_at DESC LIMIT 30`, [req.params.campaignContactId])).rows;
-    res.json({ answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows, executionIssues,
+    res.json({ ...await readQuestionAudit(pool, req.params.campaignId, req.params.campaignContactId),
+      answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows, executionIssues,
       notes: await readWorkflowNotes(pool, req.params.campaignContactId),
       runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId) });
+  }));
+  app.patch(`${contactRoot}/answers/:questionId/note`, requireAuth, route(async (req, res) => {
+    const user = await authorize(req, false, req.params.campaignContactId);
+    const { note } = questionNoteSchema.parse(req.body);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await writeQuestionNote(client, { campaignId: req.params.campaignId,
+        contactId: req.params.campaignContactId, questionId: req.params.questionId, actorId: user.id, note });
+      await client.query("COMMIT");
+      res.json({ ok: true });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally { client.release(); }
   }));
   app.put(`${contactRoot}/answers`, requireAuth, route(async (req, res) => {
     const user = await authorize(req, false, req.params.campaignContactId);

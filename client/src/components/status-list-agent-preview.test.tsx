@@ -1,9 +1,11 @@
 import { createElement } from "react";
+import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readStatusListMode, StatusListAgentPreview } from "./status-list-agent-preview";
 import { translations } from "@/i18n/translations";
+import { I18nProvider } from "@/i18n/I18nProvider";
 
 const items = [
   {
@@ -11,12 +13,14 @@ const items = [
     tab: "acquisition", required: true, confirmationType: "checkbox",
     automations: [{ id: "automation-1", actionType: "send_email_group" }],
     questions: [
-      { id: "q-yes-no", questionText: "Reached the decision maker?", fieldType: "yesno", groupName: "Contact" },
+      { id: "q-yes-no", questionText: "Reached the decision maker?", fieldType: "yesno", groupName: "Contact", icon: "PhoneCall" },
       { id: "q-choice", questionText: "Call back later", fieldType: "checkbox", automations: [{ actionType: "set_callback" }] },
     ],
   },
   { id: "opt-1", stepId: "OPT-01", itemType: "option", label: "Do not call", color: "#775b74", icon: "Phone", tab: null, confirmationType: "option", questions: [] },
 ];
+const renderPreview = (props: ComponentProps<typeof StatusListAgentPreview>) =>
+  renderToStaticMarkup(createElement(I18nProvider, null, createElement(StatusListAgentPreview, props)));
 
 describe("Status List agent preview", () => {
   it("uses the saved Mission status list mode and safely defaults invalid settings", () => {
@@ -27,8 +31,9 @@ describe("Status List agent preview", () => {
   });
 
   it("renders the shared agent phase, step and question UI with local-only actions", () => {
-    const html = renderToStaticMarkup(createElement(StatusListAgentPreview, { items, locale: "en", statusListMode: "batch" }));
+    const html = renderPreview({ items, locale: "en", statusListMode: "batch" });
     assert.ok(html.includes('data-testid="sl-phase-acquisition"'));
+    assert.ok(html.includes("lucide-phone-call"), "saved question icon is visible to the agent");
     assert.ok(html.includes('data-testid="status-list-options-panel"'));
     assert.ok(html.includes('id="sl-step-STEP-01"'));
     assert.ok(html.includes('data-testid="sl-questions-step-1"'));
@@ -44,13 +49,13 @@ describe("Status List agent preview", () => {
   it("localizes visible phase, answer, batch and safety copy in all supported locales", () => {
     const locales = ["sk", "en", "cs", "hu", "ro", "it", "de"];
     for (const locale of locales) {
-      const html = renderToStaticMarkup(createElement(StatusListAgentPreview, { items, locale, statusListMode: "batch" }));
+      const html = renderPreview({ items, locale, statusListMode: "batch" });
       assert.ok(html.includes('data-testid="sl-phase-acquisition"'));
       assert.ok(html.includes('data-testid="sl-batch-mode-banner"'));
       assert.ok(html.includes('data-testid="btn-sl-batch-save"'));
       assert.ok(html.includes('data-testid="status-list-preview-safety"'));
     }
-    const immediate = renderToStaticMarkup(createElement(StatusListAgentPreview, { items, locale: "de", statusListMode: "immediate" }));
+    const immediate = renderPreview({ items, locale: "de", statusListMode: "immediate" });
     assert.ok(!immediate.includes('data-testid="sl-batch-mode-banner"'));
     assert.ok(!immediate.includes('data-testid="btn-sl-batch-save"'));
   });
@@ -69,5 +74,17 @@ describe("Status List agent preview", () => {
     assert.equal(translations.sk.statusListAgentPreview.save, "Uložiť status list");
     assert.equal(translations.sk.statusListAgentPreview.note, "Poznámka k tomuto kroku...");
     assert.ok(translations.en.statusListAgentPreview.batchMessage.includes("preview only"));
+  });
+
+  it("registers localized appearance and reporting-label namespaces for every supported language", () => {
+    const locales = ["en", "sk", "cs", "hu", "ro", "it", "de"] as const;
+    for (const locale of locales) {
+      const appearance = translations[locale].statusListQuestionAppearance;
+      assert.equal(appearance.palette.length, 6);
+      assert.ok(appearance.icon && appearance.color && appearance.keep);
+      assert.ok(translations[locale].statusListQuestionHistory.save);
+      assert.ok(translations[locale].mobileStatusListNote.placeholder);
+      assert.ok(translations[locale].statusListReportingLabels.acquisition_contacted);
+    }
   });
 });

@@ -16,6 +16,9 @@ import { priorityBuilderCopy } from "@/components/agent/priority-builder-copy";
 import { QueueMetadataBadges } from "@/components/agent/queue-metadata-badges";
 import { getPriorityContactCityLocation, isPriorityNewReferral, isPriorityReferral, type PriorityQueueItem, type PriorityQueueSegmentId } from "@/components/agent/priority-builder";
 import { getAgentBreakIcon } from "@/lib/agent-break-icons";
+import { statusListReportingLabel, statusListReportingTooltip } from "@/components/status-list-reporting-label";
+import { StatusListQuestionHistory } from "@/components/status-list-agent-preview";
+import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
 
 type MobileBreakType = {
   id: string;
@@ -108,6 +111,11 @@ export interface MobileAgentWorkspaceProps {
   statusListMode?: string;
   batchSlSelections?: Set<string>;
   onBatchSave?: () => void;
+  dbSlState?: any[];
+  onSaveSlNote?: (itemId: string, note: string | null) => Promise<void>;
+  answerMetadata?: Record<string, { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null }>;
+  questionNotes?: Record<string, { note?: string | null; updatedAt?: string | null; updatedByName?: string | null }>;
+  onSaveQuestionNote?: (questionId: string, note: string | null) => Promise<void>;
   agentStatus: string;
   isOnBreak: boolean;
   workTime: string;
@@ -258,8 +266,32 @@ function BackBar({ onBack, label }: { onBack: () => void; label: string }) {
   );
 }
 
+function MobileStatusListNote({ itemId, savedNote, onSave }: {
+  itemId: string; savedNote: string; onSave: (itemId: string, note: string | null) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [draft, setDraft] = useState(savedNote);
+  const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const lastSavedNote = useRef(savedNote);
+  useEffect(() => {
+    if (savedNote !== lastSavedNote.current) {
+      setDraft(current => current === lastSavedNote.current ? savedNote : current);
+      lastSavedNote.current = savedNote;
+    }
+  }, [savedNote]);
+  const copy = t.mobileStatusListNote;
+  return <div className="mx-3 mb-2 flex items-end gap-2 rounded-lg border border-border/70 bg-background/80 p-2">
+    <textarea className="min-h-10 min-w-0 flex-1 resize-y bg-transparent text-[11px] leading-relaxed outline-none placeholder:text-muted-foreground/60"
+      rows={2} value={draft} placeholder={copy.placeholder} onChange={event => setDraft(event.target.value)} data-testid={`sl-mobile-note-${itemId}`} />
+    <button type="button" disabled={saving || draft.trim() === lastSavedNote.current.trim()} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-primary disabled:opacity-40"
+      onClick={async () => { setSaving(true); setFailed(false); try { await onSave(itemId, draft.trim() || null); } catch { setFailed(true); } finally { setSaving(false); } }}
+      data-testid={`sl-mobile-note-save-${itemId}`}>{saving ? copy.saving : failed ? copy.saveError : copy.save}</button>
+  </div>;
+}
+
 /* ── StatusListPanel — hierarchical, large touch targets ────────────── */
-function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSlSelections, onBatchSave }: {
+function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSlSelections, onBatchSave, dbSlState = [], onSaveSlNote, answerMetadata = {}, questionNotes = {}, onSaveQuestionNote, scopeKey = "" }: {
   items: any[];
   checked: Set<string>;
   onToggle: (id: string, v: boolean) => void;
@@ -267,6 +299,12 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
   statusListMode?: string;
   batchSlSelections?: Set<string>;
   onBatchSave?: () => void;
+  dbSlState?: any[];
+  onSaveSlNote?: (itemId: string, note: string | null) => Promise<void>;
+  answerMetadata?: Record<string, { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null }>;
+  questionNotes?: Record<string, { note?: string | null; updatedAt?: string | null; updatedByName?: string | null }>;
+  onSaveQuestionNote?: (questionId: string, note: string | null) => Promise<void>;
+  scopeKey?: string;
 }) {
   const { locale } = useI18n();
   const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
@@ -281,6 +319,18 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
     : topLevelAll;
   const options = items.filter((i: any) => !i.isHidden && i.itemType === "option");
   const childrenOf = (pid: number) => items.filter((i: any) => i.parentId === pid && !i.isHidden);
+  const stateByItemId = new Map(dbSlState.map(row => [String(row.statusListItemId), row]));
+  const historyLine = (id: string) => {
+    const row = stateByItemId.get(id);
+    if (!row?.confirmedAt) return null;
+    return <p className="mt-1 text-[10px] text-emerald-700/80 dark:text-emerald-300/80" data-testid={`sl-mobile-confirmed-${id}`}>
+      {new Date(row.confirmedAt).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" })}{row.confirmedByName ? ` · ${row.confirmedByName}` : ""}
+    </p>;
+  };
+  const noteEditor = (id: string) => {
+    const row = stateByItemId.get(id);
+    return onSaveSlNote ? <MobileStatusListNote key={`${scopeKey}:${id}`} itemId={id} savedNote={row?.itemNote || ""} onSave={onSaveSlNote} /> : null;
+  };
 
   const confirmed = allVisible.filter((i: any) => checked.has(String(i.id))).length;
   const total = allVisible.length;
@@ -427,8 +477,11 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                       {item.required && <span className="ml-1 text-rose-500">*</span>}
                     </p>
                     {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
+                    {item.canonicalClinicStatusKey && <span title={statusListReportingTooltip(item.canonicalClinicStatusKey, locale)} className="mt-1 inline-flex rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(item.canonicalClinicStatusKey, locale)}</span>}
                   </button>
                 </div>
+                {isChecked && historyLine(String(item.id))}
+                {(isChecked || (statusListMode === "batch" && batchSlSelections?.has(String(item.id)))) && noteEditor(String(item.id))}
 
                 {/* Child items via parentId — always visible */}
                 {childrenOf(item.id).length > 0 && (() => {
@@ -457,7 +510,8 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                       const childChecked = checked.has(String(child.id));
                       const childInfo = child.confirmationType === "info";
                       return (
-                        <div key={child.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${childChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                        <div key={child.id} className={`border-b last:border-b-0 pl-4 ${childChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                          <div className="flex items-stretch">
                           <button
                             disabled={childInfo}
                             onClick={() => handleChildToggle(String(child.id), childChecked, childInfo)}
@@ -486,7 +540,11 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                               {child.required && <span className="ml-1 text-rose-500">*</span>}
                             </p>
                             {child.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{child.description}</p>}
+                            {child.canonicalClinicStatusKey && <span title={statusListReportingTooltip(child.canonicalClinicStatusKey, locale)} className="mt-1 inline-flex rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(child.canonicalClinicStatusKey, locale)}</span>}
                           </button>
+                          </div>
+                          {childChecked && historyLine(String(child.id))}
+                          {(childChecked || (statusListMode === "batch" && batchSlSelections?.has(String(child.id)))) && noteEditor(String(child.id))}
                         </div>
                       );
                     })}
@@ -525,7 +583,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                         return (
                           <div key={q.id} className="pl-6 pr-4 py-3 border-b last:border-b-0">
                             <p className="text-xs font-semibold text-foreground mb-2 leading-snug">
-                              ↳ {q.questionText}
+                              <StatusListQuickOptionIcon name={q.icon} className="mr-1 inline-block h-3.5 w-3.5" />{q.questionText}
                               {q.required && <span className="ml-1 text-rose-500">*</span>}
                             </p>
                             {q.description && <p className="text-[11px] text-muted-foreground/70 mb-2">{q.description}</p>}
@@ -559,13 +617,16 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                                 data-testid={`sl-mobile-no-${q.id}`}
                               >Nie</button>
                             </div>
+                            <StatusListQuestionHistory key={`${scopeKey}:${q.id}`} questionId={String(q.id)} locale={locale} metadata={answerMetadata[String(q.id)]}
+                              note={questionNotes[String(q.id)]} pending={statusListMode === "batch" && !!batchSlSelections?.has(String(q.id))} onSaveNote={onSaveQuestionNote} />
                           </div>
                         );
                       }
 
                       // Default: checkbox / single-select radio
                       return (
-                        <div key={q.id} className={`flex items-stretch border-b last:border-b-0 pl-4 ${qChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                        <div key={q.id} className={`border-b last:border-b-0 pl-4 ${qChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
+                          <div className="flex items-stretch">
                           <button
                             onClick={() => handleQToggle(String(q.id), qChecked)}
                             className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
@@ -590,11 +651,14 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
                             <p className={`text-xs leading-snug ${qChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
-                              ↳ {q.questionText}
+                              <StatusListQuickOptionIcon name={q.icon} className="mr-1 inline-block h-3.5 w-3.5" />{q.questionText}
                               {q.required && <span className="ml-1 text-rose-500">*</span>}
                             </p>
                             {q.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{q.description}</p>}
                           </button>
+                          </div>
+                          <StatusListQuestionHistory key={`${scopeKey}:${q.id}`} questionId={String(q.id)} locale={locale} metadata={answerMetadata[String(q.id)]}
+                            note={questionNotes[String(q.id)]} pending={statusListMode === "batch" && !!batchSlSelections?.has(String(q.id))} onSaveNote={onSaveQuestionNote} />
                         </div>
                       );
                     })}
@@ -904,7 +968,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     onEndCall, onToggleMute, onToggleHold, onSendDtmf, onMakeCall, isSipRegistered, phoneOverride,
     sipIncomingCall, onAnswerIncoming, onRejectIncoming,
     onOpenDisposition, isStatusListMode,
-    dbStatusList, dbSlChecked, onSlToggle,
+    dbStatusList, dbSlChecked, onSlToggle, dbSlState, onSaveSlNote, answerMetadata, questionNotes, onSaveQuestionNote,
     statusListMode, batchSlSelections, onBatchSave,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
@@ -1296,7 +1360,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {contactInfoSection}
             </div>
             {dbStatusList.length > 0 && (
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} scopeKey={currentCampaignContactId || ""} />
             )}
           </div>
         </div>
@@ -1336,7 +1400,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
           )}
           {contactInfoSection}
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
+          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} scopeKey={currentCampaignContactId || ""} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
@@ -1440,7 +1504,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* Status list */}
           {dbStatusList.length > 0 && (
             <div className="-mx-4">
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} />
             </div>
           )}
 

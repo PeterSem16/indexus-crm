@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Activity,
   AlertCircle,
@@ -79,18 +80,19 @@ function localeIndex(locale: string) {
   return index < 0 ? 0 : index;
 }
 
-export function StatusListQuickOptionIconPicker({ value, onChange, locale, disabled = false }: {
+export function StatusListQuickOptionIconPicker({ value, onChange, locale, disabled = false, title }: {
   value: string | null;
   onChange: (value: string | null) => void;
   locale: string;
   disabled?: boolean;
+  title?: string;
 }) {
   const lang = localeIndex(locale);
   const known = value !== null && Object.prototype.hasOwnProperty.call(iconRegistry, value);
   const copy = (values: readonly string[]) => values[lang] ?? values[0];
 
   return <fieldset disabled={disabled} className="min-w-0 space-y-2.5 border-0 p-0 dark:[&_[aria-pressed=true]]:text-foreground" data-testid="quick-option-icon-picker">
-    <legend className="mb-2 text-xs font-medium">{copy(pickerCopy.title)}</legend>
+    <legend className="mb-2 text-xs font-medium">{title || copy(pickerCopy.title)}</legend>
     {value !== null && !known && <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-2 text-xs text-muted-foreground">
       <span>{copy(pickerCopy.unknown)}</span>
       <button type="button" className="shrink-0 rounded px-2 py-1 font-medium text-foreground underline decoration-border underline-offset-2 hover:text-primary disabled:opacity-50" disabled={disabled} onClick={() => onChange(null)}>

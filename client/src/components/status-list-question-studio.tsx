@@ -11,6 +11,7 @@ import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListRelationshipsEditor } from "./status-list-relationships-editor";
 import { getStatusListRelationshipsCopy } from "./status-list-relationships-copy";
+import { StatusListQuestionAppearance } from "./status-list-question-appearance";
 import { relationshipSelection, relationshipTargets } from "@/lib/status-list-relationships";
 import "./status-list-question-studio.css";
 
@@ -285,6 +286,8 @@ export function StatusListQuestionStudio({
             {isQuestion ? <div className="slqs-fields">
               <label className="slqs-field slqs-wide"><span>{copy.questionText}</span><input data-testid="status-list-question-text" value={questionDraft.questionText} onChange={event => setQuestion("questionText", event.target.value)} placeholder={copy.questionText} /></label>
               <label className="slqs-field slqs-wide"><span>{copy.questionDescription}</span><textarea data-testid="status-list-question-description" rows={3} value={questionDraft.description} onChange={event => setQuestion("description", event.target.value)} placeholder={copy.guidanceExample} /></label>
+               <StatusListQuestionAppearance locale={locale} icon={questionDraft.icon} color={questionDraft.color}
+                 onIconChange={value => setQuestion("icon", value || "")} onColorChange={value => setQuestion("color", value)} />
               <div className="slqs-guidance slqs-wide">{copy.guidanceExample}</div>
             </div> : <div className="slqs-fields">
               {renderText(copy.stepName, stepDraft.label, value => setStep("label", value), "status-list-step-name")}
@@ -355,21 +358,12 @@ export function StatusListQuestionStudio({
               onGroupChange={value => setQuestion("groupName", value)} onLogicChange={value => setQuestion("logicOperator", value)}
               onGuidanceChange={value => setStep("restrictions", value)}
             />
-            {isQuestion && <div className="slqs-fields">
-              <div className="slqs-advanced-grid slqs-wide">
-                {renderText(copy.icon, questionDraft.icon, value => setQuestion("icon", value))}
-                {renderText(copy.color, questionDraft.color, value => setQuestion("color", value))}
-              </div>
-            </div>}
             <div className="slqs-children">{renderChildren()}</div>
           </div>}
           {stage === "actions" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">05 / 05</span><h3>{copy.actionsTitle}</h3><p>{copy.actionsHelp}</p></div>
             <div className="slqs-action-retained"><span>✓</span><p>{copy.actionsHelp}</p></div>
             <div className="slqs-actions-content">{renderActions(questionId || null, setActionDirty)}</div>
-            {isQuestion && <div className="slqs-fields">
-              <div className="slqs-advanced-grid slqs-wide">{renderText(copy.icon, questionDraft.icon, value => setQuestion("icon", value))}{renderText(copy.color, questionDraft.color, value => setQuestion("color", value))}</div>
-            </div>}
           </div>}
         </section>
         <footer className="slqs-footer">

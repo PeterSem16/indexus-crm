@@ -17,6 +17,7 @@ import systemMailboxCheckTranslations from "./system-mailbox-check-translations"
 import omniSmsTranslations from "./omni-sms-translations";
 import { healthcareLegalEntityTranslations, type HealthcareLegalEntityCopy } from "./healthcare-legal-entity-translations";
 import { providerFinderTranslations, type ProviderFinderCopy } from "./provider-finder-translations";
+import { statusListCopyNamespaces, type StatusListCopyNamespaces } from "../components/status-list-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -75,6 +76,11 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
+  statusListQuestionAppearance: StatusListCopyNamespaces["statusListQuestionAppearance"];
+  statusListReportingLabels: StatusListCopyNamespaces["statusListReportingLabels"];
+  statusListCanonicalStatusHint: StatusListCopyNamespaces["statusListCanonicalStatusHint"];
+  statusListQuestionHistory: StatusListCopyNamespaces["statusListQuestionHistory"];
+  mobileStatusListNote: StatusListCopyNamespaces["mobileStatusListNote"];
   statusListWorkflow: ReturnType<typeof getStatusListWorkflowCopy>;
   automationBlockEditor: import("./automation-block-editor-copy").AutomationBlockEditorCopy;
   forwardReview: {
@@ -64126,6 +64132,7 @@ const forwardReviewTranslations: Record<Locale, Translations["forwardReview"]> =
 };
 
 for (const locale of Object.keys(translations) as Locale[]) {
+  Object.assign(translations[locale], statusListCopyNamespaces[locale]);
   const restored = automationNamespaceTranslations[locale];
   translations[locale].automationServices = restored.automationServices;
   translations[locale].automationCatalog = restored.automationCatalog;

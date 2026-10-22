@@ -1,9 +1,10 @@
-import React, { useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, CheckCircle, ChevronRight, Info, Loader2, Mail, Phone, Save, Tag, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { translations, type Locale } from "@/i18n/translations";
+import { useI18n } from "@/i18n/I18nProvider";
 
 type Phase = {
   key: "acquisition" | "contract" | "retention";
@@ -20,12 +21,50 @@ type Phase = {
 
 export type AgentStatusQuestion = {
   id: string; questionText: string; isHidden?: boolean; groupName?: string | null;
-  logicOperator?: string; fieldType?: string | null; color?: string | null;
+  logicOperator?: string; fieldType?: string | null; color?: string | null; icon?: string | null;
   automations?: any[];
 };
 
+export function StatusListQuestionHistory({ questionId, locale, metadata, note, pending, onSaveNote }: {
+  questionId: string; locale: string;
+  metadata?: { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null };
+  note?: { note?: string | null; updatedAt?: string | null; updatedByName?: string | null };
+  pending: boolean; onSaveNote?: (questionId: string, note: string | null) => Promise<void> | void;
+}) {
+  const { t } = useI18n();
+  const copy = t.statusListQuestionHistory;
+  const [draft, setDraft] = useState(note?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const lastSavedNote = useRef(note?.note ?? "");
+  useEffect(() => {
+    const incoming = note?.note ?? "";
+    if (incoming !== lastSavedNote.current) {
+      setDraft(current => current === lastSavedNote.current ? incoming : current);
+      lastSavedNote.current = incoming;
+    }
+  }, [note?.note, note?.updatedAt]);
+  const dirty = draft.trim() !== lastSavedNote.current.trim();
+  const stamp = (value?: string | null) => value ? new Date(value).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" }) : "";
+  return <div className="mt-1.5 w-full space-y-1.5" data-testid={`sl-question-history-${questionId}`}>
+    {pending ? <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" data-testid={`sl-question-pending-${questionId}`}>{copy.pending}</span>
+      : metadata?.answeredAt ? <div className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80" data-testid={`sl-question-answered-${questionId}`}>
+        {copy.saved} · {stamp(metadata.answeredAt)}{metadata.answeredByName ? ` · ${copy.by} ${metadata.answeredByName}` : ""}
+      </div> : null}
+    <div className="flex flex-wrap items-center gap-2">
+      <input aria-label={copy.note} className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-[10px] font-normal text-foreground placeholder:text-muted-foreground"
+        value={draft} placeholder={copy.notePlaceholder} onChange={event => setDraft(event.target.value)} data-testid={`sl-question-note-${questionId}`} />
+      {onSaveNote && <button type="button" disabled={!dirty || saving} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-45"
+        onClick={async () => { setSaving(true); setError(false); try { await onSaveNote(questionId, draft.trim() || null); } catch { setError(true); } finally { setSaving(false); } }}
+        data-testid={`sl-question-note-save-${questionId}`}>{saving ? copy.saving : error ? copy.saveError : copy.save}</button>}
+    </div>
+    {note?.updatedAt && <div className="text-[9px] text-muted-foreground">{stamp(note.updatedAt)}{note.updatedByName ? ` · ${note.updatedByName}` : ""}</div>}
+  </div>;
+}
+
 export function StatusListAgentQuestionChoices({
   itemId, questions, questionSelectionMode, answers, yesLabel, noLabel, onAnswer, renderAction,
+  locale = "en", answerMetadata = {}, questionNotes = {}, pendingQuestionIds = new Set<string>(), onSaveQuestionNote, scopeKey = "",
 }: {
   itemId: string;
   questions: AgentStatusQuestion[];
@@ -33,6 +72,12 @@ export function StatusListAgentQuestionChoices({
   answers: Record<string, any>;
   yesLabel: string;
   noLabel: string;
+  locale?: string;
+  answerMetadata?: Record<string, { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null }>;
+  questionNotes?: Record<string, { note?: string | null; updatedAt?: string | null; updatedByName?: string | null }>;
+  pendingQuestionIds?: Set<string>;
+  onSaveQuestionNote?: (questionId: string, note: string | null) => Promise<void> | void;
+  scopeKey?: string;
   onAnswer: (question: AgentStatusQuestion, value: string | boolean, exclusiveQuestions: AgentStatusQuestion[], groupMode?: string) => void;
   renderAction?: (question: AgentStatusQuestion, exclusiveQuestions: AgentStatusQuestion[], groupMode?: string) => ReactNode | null;
 }) {
@@ -57,24 +102,30 @@ export function StatusListAgentQuestionChoices({
         const groupMode = stepSingleSelect || group[0]?.logicOperator === "ONE" ? "ONE" : undefined;
         const exclusiveQuestions = groupMode === "ONE" && allGroupsAreOne ? visibleQuestions : group;
         const customAction = isStatusListYesNo(fieldType) ? null : renderAction?.(question, exclusiveQuestions, groupMode);
-        if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}>{customAction}</div>;
+        const history = <StatusListQuestionHistory key={`${scopeKey}:${question.id}`} questionId={question.id} locale={locale} metadata={answerMetadata[question.id]}
+          note={questionNotes[question.id]} pending={pendingQuestionIds.has(question.id)} onSaveNote={onSaveQuestionNote} />;
+        if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}><div className="flex items-center gap-1.5"><StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{customAction}</div>{history}</div>;
         const answered = answers[question.id] != null;
         if (isStatusListYesNo(fieldType)) return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
-          {question.questionText && <p className="text-[10px] text-foreground/70 mb-1">{question.questionText}</p>}
+          {question.questionText && <p className="flex items-center gap-1.5 text-[10px] text-foreground/70 mb-1"><StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{question.questionText}</p>}
           <div className="flex gap-1">
             <button type="button" onClick={() => onAnswer(question, "yes", exclusiveQuestions, groupMode)} className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[question.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`} data-testid={`btn-sl-q-yes-${question.id}`}>{yesLabel}</button>
             <button type="button" onClick={() => onAnswer(question, "no", exclusiveQuestions, groupMode)} className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[question.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`} data-testid={`btn-sl-q-no-${question.id}`}>{noLabel}</button>
           </div>
+          {history}
         </div>;
         const oneMode = groupMode === "ONE";
-        return <button key={question.id} type="button" onClick={() => onAnswer(question, true, exclusiveQuestions, groupMode)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${answered ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50 text-foreground"}`}
-          style={question.color ? (answered ? { backgroundColor: question.color, borderColor: question.color, color: "#fff" } : { borderColor: question.color, color: question.color }) : undefined}
-          data-testid={`btn-sl-q-${question.id}`}>
-          {(fieldType === "radio" || oneMode) && <div className={`w-2.5 h-2.5 rounded-full border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>{answered && <div className="w-1 h-1 rounded-full bg-white" />}</div>}
-          {fieldType === "checkbox" && !oneMode && <div className={`w-2.5 h-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>{answered && <Check className="h-1.5 w-1.5 text-white" />}</div>}
-          {question.questionText}
-        </button>;
+        return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
+          <button type="button" onClick={() => onAnswer(question, true, exclusiveQuestions, groupMode)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${answered ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50 text-foreground"}`}
+            style={question.color ? (answered ? { backgroundColor: question.color, borderColor: question.color, color: "#fff" } : { borderColor: question.color, color: question.color }) : undefined}
+            data-testid={`btn-sl-q-${question.id}`}>
+            {(fieldType === "radio" || oneMode) && <div className={`h-2.5 w-2.5 rounded-full border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>{answered && <div className="h-1 w-1 rounded-full bg-white" />}</div>}
+            {fieldType === "checkbox" && !oneMode && <div className={`h-2.5 w-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>{answered && <Check className="h-1.5 w-1.5 text-white" />}</div>}
+            <StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{question.questionText}
+          </button>
+          {history}
+        </div>;
       })}</div>
     </div>)}
   </div>;
@@ -182,7 +233,8 @@ export function StatusListBatchSaveButton({ label, count, onSave, pendingAutomat
 }
 
 const tr = (key: string, locale: string) => {
-  const copy = translations[locale as Locale]?.statusListAgentPreview as unknown as Record<string, string> | undefined;
+  const lang = locale.toLowerCase().split(/[-_]/)[0] as Locale;
+  const copy = translations[lang]?.statusListAgentPreview as unknown as Record<string, string> | undefined;
   return copy?.[key] || translations.en.statusListAgentPreview[key as keyof typeof translations.en.statusListAgentPreview] || key;
 };
 export function readStatusListMode(settings?: string | null): "batch" | "immediate" {

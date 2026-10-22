@@ -1,0 +1,13 @@
+.sl-agent-dialog-frame{border-color:#e6ded1;background:#fbf8f2;color:#302a24;box-shadow:0 24px 80px rgb(40 33 25/.24);--sl-dialog-accent:#bd7655}
+.sl-agent-dialog-frame [data-slot=dialog-header]{gap:.4rem}
+.sl-agent-dialog-frame [data-slot=dialog-title]{letter-spacing:-.025em}
+.sl-agent-dialog-frame [data-slot=dialog-description]{color:#837a6e}
+.sl-agent-dialog-frame textarea,.sl-agent-dialog-frame input{border-color:#ded5c8;background:#fffdf9}
+.sl-agent-dialog-frame [data-slot=dialog-footer]{margin-top:.5rem;gap:.6rem}
+.sl-agent-dialog-popover{overflow:hidden;border:1px solid #e6ded1;border-radius:15px;background:#fbf8f2;color:#302a24;box-shadow:0 16px 48px rgb(40 33 25/.2)}
+.dark .sl-agent-dialog-frame{border-color:#4b443b;background:#211f1b;color:#eee8de;box-shadow:0 24px 80px rgb(0 0 0/.55);--sl-dialog-accent:#d18a68}
+.dark .sl-agent-dialog-frame [data-slot=dialog-description]{color:#aaa092}
+.dark .sl-agent-dialog-frame textarea,.dark .sl-agent-dialog-frame input{border-color:#514a40;background:#2b2823;color:#eee8de}
+.dark .sl-agent-dialog-frame textarea::placeholder,.dark .sl-agent-dialog-frame input::placeholder{color:#958b7e}
+.dark .sl-agent-dialog-popover{border-color:#4b443b;background:#211f1b;color:#eee8de;box-shadow:0 16px 48px rgb(0 0 0/.5)}
+@media(max-width:520px){.sl-agent-dialog-frame{width:calc(100vw - 1.25rem);max-width:none;padding:1rem}.sl-agent-dialog-frame [data-slot=dialog-footer]{flex-direction:column-reverse}.sl-agent-dialog-frame [data-slot=dialog-footer]>*{width:100%}}
