@@ -22,13 +22,14 @@ function mapErrorMessage(error: unknown, c: ProviderFinderCopy) {
   return c.mapUnavailable;
 }
 
-export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
+export function ProviderMap({ prefix, point, results, selected, onSelect, c, showRecommendations = true }: {
   prefix: string;
   point: FinderPoint;
   results: FinderResult[];
   selected?: string;
   onSelect: (id: string) => void;
   c: ProviderFinderCopy;
+  showRecommendations?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const selectRef = useRef(onSelect);
@@ -124,7 +125,7 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
 
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `pf-map-marker${selected === key ? " selected" : ""}`;
+      button.className = `pf-map-marker${showRecommendations && row.quality?.tier === "recommended" ? " recommended" : ""}${selected === key ? " selected" : ""}`;
       button.textContent = String(index + 1);
       button.setAttribute("aria-label", `${index + 1}. ${row.name}`);
       button.setAttribute("aria-pressed", String(selected === key));
@@ -146,7 +147,7 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c }: {
       }
       markerButtons.current = [];
     };
-  }, [libraries, point.lat, point.lng, results, c.origin]);
+  }, [libraries, point.lat, point.lng, results, c.origin, showRecommendations]);
 
   useEffect(() => {
     for (const { key, button } of markerButtons.current) {

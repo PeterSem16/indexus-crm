@@ -1,261 +1,176 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, MapPin, Search, X, Navigation, Building2, Stethoscope, Loader2 } from "lucide-react";
-import { finderCriteria } from "@shared/provider-finder";
-import type { FinderContext, FinderCriterion, FinderPoint, FinderResult, FinderSelection } from "@shared/provider-finder";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Crosshair, Hospital, Loader2, MapPin, Navigation, Search, SlidersHorizontal, Stethoscope, X } from "lucide-react";
+import type { FinderCriterion } from "@shared/provider-finder";
 import type { Locale } from "@/i18n";
 import { providerFinderTranslations } from "@/i18n/provider-finder-translations";
 import { ProviderMap } from "./ProviderMap";
-import { finderApi } from "./api";
+import { providerKey, useProviderFinder, type ProviderFinderProps } from "./use-provider-finder";
 import "./provider-finder.css";
+import "./provider-finder-atlas.css";
 
-type Candidate = { label: string; point: FinderPoint; approximate: boolean };
-const qualityCriterionLabel = (criterion: FinderCriterion) => criterion;
-type RankedFinderResult = FinderResult & {
-  cooperating?: boolean;
-  uploadedContract?: boolean;
-  hasRepresentative?: boolean;
-  priorityScore?: number;
-};
-export function ProviderFinder({ context, prefix, initialAddress = "", customerName, locale, publicView = false, onSelect, onClose, onInvalidate }: {
-  context: FinderContext; prefix: string; initialAddress?: string; customerName?: string; locale: Locale;
-  publicView?: boolean; onSelect: (selection: FinderSelection, result: FinderResult) => Promise<void> | void;
-  onClose?: () => void; onInvalidate?: () => void;
-}) {
-  const c = providerFinderTranslations[locale] || providerFinderTranslations.en;
-  const [address, setAddress] = useState(initialAddress);
-  const [point, setPoint] = useState<FinderPoint | null>(null);
-  const [originLabel, setOriginLabel] = useState("");
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [radius, setRadius] = useState(context.policy.defaultRadiusKm);
-  const [types, setTypes] = useState<("clinic" | "hospital")[]>(["clinic", "hospital"]);
-  const [peopleOnly, setPeopleOnly] = useState(false);
-  const [personQuery, setPersonQuery] = useState("");
-  const [results, setResults] = useState<RankedFinderResult[]>([]);
-  const [missing, setMissing] = useState(0);
-  const [selected, setSelected] = useState("");
-  const [selectedPerson, setSelectedPerson] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [geoBusy, setGeoBusy] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [searched, setSearched] = useState(false);
-  const [view, setView] = useState<"list" | "map">("list");
+export function ProviderFinder(props: ProviderFinderProps) {
+  const { context, customerName, locale, prefix, publicView = false, onClose } = props;
+  const c = providerFinderTranslations[locale as Locale] || providerFinderTranslations.en;
+  const f = useProviderFinder(props, c);
+  const [details, setDetails] = useState<string[]>([]);
+  const [mobilePane, setMobilePane] = useState<"map" | "results">("map");
   const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 761px)").matches);
+  const cards = useRef<Record<string, HTMLElement | null>>({});
   useEffect(() => {
     const media = window.matchMedia("(min-width: 761px)");
     const update = () => setDesktop(media.matches);
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  const generation = useRef(0);
-  const onInvalidateRef = useRef(onInvalidate); onInvalidateRef.current = onInvalidate;
-  const invalidate = () => {
-    generation.current++; setSelected(""); setSelectedPerson(""); setResults([]);
-    setSearched(false); setError(""); setBusy(false); setGeoBusy(false); onInvalidateRef.current?.();
-  };
-  useEffect(() => () => { generation.current++; }, []);
-  useEffect(() => {
-    setAddress(initialAddress); setPoint(null); setOriginLabel(""); setCandidates([]);
-    setView("list");
-    setRadius(context.policy.defaultRadiusKm); invalidate(); setBusy(false);
-  }, [context.billingCompanyId, context.country, initialAddress]);
-  const errorMessage = (e: { code?: string }) => {
-    const code = e.code || "";
-    if (code === "maps_not_configured") return c.mapsMissing;
-    if (["maps_authorization", "maps_auth", "maps_unauthorized", "maps_forbidden"].includes(code)) return c.mapsAuthorization;
-    if (["maps_billing_or_quota", "maps_over_query_limit"].includes(code)) return c.mapsBillingOrQuota;
-    if (["maps_quota", "rate_limited"].includes(code)) return c.mapsQuota;
-    if (["maps_unavailable", "maps_timeout"].includes(code)) return c.mapUnavailable;
-    if (["queue_full", "geocode_queue_full", "geocode_wait_timeout"].includes(code)) return c.geocodeRetry;
-    return c.error;
-  };
-  async function searchAt(origin: FinderPoint) {
-    const request = ++generation.current; setBusy(true); setError(""); setSelected(""); setSelectedPerson("");
-    onInvalidateRef.current?.();
-    try {
-      const response = await finderApi<{ results: RankedFinderResult[]; missingLocations?: number }>(`${prefix}/search`, "POST",
-        { point: origin, radiusKm: radius, service: "", types, peopleOnly, personQuery });
-      if (request !== generation.current) return;
-      setResults(response.results); setMissing(response.missingLocations || 0); setSearched(true);
-    } catch (e) {
-      if (request === generation.current) { setResults([]); setError(errorMessage(e as any)); setSearched(false); }
-    } finally { if (request === generation.current) setBusy(false); }
+  useEffect(() => { setDetails([]); setMobilePane("map"); }, [prefix, props.initialAddress]);
+  function pick(key: string) {
+    f.pick(key);
+    if (desktop || mobilePane === "results") cards.current[key]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
-  useEffect(() => {
-    if (!point) return;
-    const timer = window.setTimeout(() => { void searchAt(point); }, 250);
-    return () => window.clearTimeout(timer);
-  }, [point, radius, types, peopleOnly, personQuery]);
-  async function geocode() {
-    invalidate(); setPoint(null); setCandidates([]); setOriginLabel("");
-    const request = ++generation.current; setBusy(true); setGeoBusy(true); setError("");
-    try {
-      const response = await finderApi<{ candidates: Candidate[] }>(`${prefix}/geocode`, "POST", { address, language: locale });
-      if (request !== generation.current) return;
-      setCandidates(response.candidates);
-      if (!response.candidates.length) setError(c.empty);
-      // Even one match requires explicit confirmation; never guess an ambiguous or approximate address.
-    } catch (e) { if (request === generation.current) setError(errorMessage(e as any)); }
-    finally { if (request === generation.current) { setBusy(false); setGeoBusy(false); } }
-  }
-  function gps() {
-    invalidate(); setPoint(null); setOriginLabel(""); setCandidates([]);
-    const request = ++generation.current; setBusy(true);
-    if (!navigator.geolocation) { setError(c.error); setBusy(false); return; }
-    navigator.geolocation.getCurrentPosition(position => {
-      if (generation.current !== request) return;
-      setPoint({ lat: position.coords.latitude, lng: position.coords.longitude }); setOriginLabel(c.gps); setBusy(false);
-    }, () => { if (generation.current === request) { setError(c.error); setBusy(false); } }, { timeout: 10000, maximumAge: 0 });
-  }
-  function confirmCandidate(candidate: Candidate) {
-    invalidate();
-    setError("");
-    setCandidates([]);
-    // Keep the user's own input as the map caption; Google formatted addresses
-    // must not be displayed alongside a map in the EEA.
-    setOriginLabel(address.trim());
-    setPoint(candidate.point);
-  }
-  const current = results.find(r => `${r.type}:${r.id}` === selected);
-  function pick(key: string, suggestedPersonId?: string) {
-    setSelected(key);
-    setSelectedPerson(suggestedPersonId || "");
-    setError("");
-  }
-  const suggestedPersonId = current?.suggestedPersonId || (!publicView ? current?.quality?.personId : undefined);
-  const missingRequiredPerson = !!suggestedPersonId && !selectedPerson;
-  async function confirm() {
-    if (!current || busy || saving || missingRequiredPerson) return;
-    setSaving(true); setError("");
-    try {
-      await onSelect({ id: current.id, type: current.type, billingCompanyId: context.billingCompanyId, country: context.country,
-        ...(selectedPerson ? { personId: selectedPerson } : {}) }, current);
-    } catch { setError(c.error); }
-    finally { setSaving(false); }
-  }
-  return <section className={`pf-root pf-content pf-finder${publicView ? " pf-public" : ""}`} aria-label={c.title} data-testid="provider-finder">
-    <header className="pf-modal-head pf-finder-head">
-      <div className="pf-brand-lockup"><span className="pf-brand-mark">I</span><div><div className="pf-kicker">INDEXUS · {context.country}</div><h2 className="pf-title">{c.title}</h2></div></div>
-      {onClose && <button type="button" className="pf-icon-button" onClick={onClose} aria-label={c.close}><X size={17} /></button>}
-    </header>
-    <div className={`pf-modal-body pf-finder-body${candidates.length ? " pf-candidates-visible" : ""}`}>
-      <aside className={`pf-panel pf-filter-panel${view === "map" ? " pf-hide-mobile" : ""}`}>
-        <div className="pf-customer-context">
-          <div className="pf-kicker">{customerName || c.origin}</div>
-          <strong>{initialAddress || c.address}</strong>
-          <span>{context.companyName} · {context.country}</span>
-        </div>
-        <div className="pf-address-search">
-          <label className="pf-label" htmlFor="pf-address">{c.address}</label>
-          <div className="pf-search-line">
-            <input id="pf-address" value={address} maxLength={300} onChange={e => {
-              setAddress(e.target.value); invalidate(); setPoint(null); setOriginLabel(""); setCandidates([]); setBusy(false);
-            }} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (!busy && address.trim().length >= 4) void geocode(); } }} />
-            <button type="button" className="pf-button pf-search-button" onClick={() => void geocode()} disabled={busy || saving || address.trim().length < 4}>
-              {busy && geoBusy ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}<span>{c.search}</span>
-            </button>
-          </div>
-          <div className="pf-location-actions">
-            <button type="button" className="pf-text-button" onClick={gps} disabled={busy || saving}><Navigation size={13} />{c.gps}</button>
-            <span className="pf-note">{c.addressHint}</span>
-          </div>
-        </div>
-        <div className="pf-filter-block">
-          <div className="pf-radius-heading"><label className="pf-label" htmlFor="pf-radius">{c.radius}</label><strong>{radius} <small>km</small></strong></div>
-          <input id="pf-radius" type="range" min={1} max={context.policy.maxRadiusKm} value={radius} disabled={saving}
-            onChange={e => { invalidate(); setRadius(Number(e.target.value)); }} />
-          <div className="pf-type-filters">{(["clinic", "hospital"] as const).map(type => <button key={type} type="button"
-            className={`pf-pill${types.includes(type) ? " active" : ""}`} aria-pressed={types.includes(type)} disabled={saving}
-            onClick={() => { invalidate(); setTypes(previous => previous.includes(type) ? previous.filter(t => t !== type) : [...previous, type]); }}>
-            {type === "clinic" ? <Stethoscope size={13} /> : <Building2 size={13} />}{c[type]}</button>)}
-            <button type="button" className={`pf-pill${peopleOnly ? " active" : ""}`} aria-pressed={peopleOnly} disabled={saving}
-              onClick={() => { invalidate(); setPeopleOnly(!peopleOnly); }}>{c.people}</button>
-          </div>
-          {peopleOnly && <div className="pf-control pf-person-filter"><label htmlFor="pf-person">{c.personSearch}</label><input id="pf-person" value={personQuery}
-            onChange={e => { invalidate(); setPersonQuery(e.target.value); }} maxLength={100} /></div>}
-        </div>
-        {!context.mapsReady && <div className="pf-message" role="status">{c.mapsMissing}</div>}
-        {candidates.length > 0 && <div className="pf-candidate-confirmation" aria-label={c.confirmAddress}>
-          <strong>{c.confirmAddress}</strong><p className="pf-note">{c.candidateHint}</p>
-          <div className="pf-stack">{candidates.map((candidate, index) => <button type="button" className="pf-result" key={`${candidate.point.lat}:${candidate.point.lng}:${index}`}
-            onClick={() => confirmCandidate(candidate)}><MapPin size={14} /><span>{candidate.label}{candidate.approximate && <span className="pf-note pf-candidate-approximate">{c.approximate}</span>}</span></button>)}</div>
-          <div className="pf-google-attribution" translate="no">{c.googleAttribution}</div>
+  const criterionLabel = (key: FinderCriterion) => c[key];
+  const initials = customerName?.trim().split(/\s+/).map(part => part[0]).slice(0, 2).join("");
+
+  return <div className={`pf-root atlas-stage pf-live-finder${publicView ? " pf-public" : ""}`} data-testid="provider-finder">
+    <section className="atlas-modal" aria-label={c.title} aria-busy={f.busy}>
+      <header className="atlas-header">
+        <div className="atlas-brand"><span className="atlas-mark" aria-hidden="true">I</span><div>
+          <div className="atlas-overline">INDEXUS <span>/</span> {context.country}</div><h1>{c.title}</h1>
+        </div></div>
+        {customerName && <div className="atlas-header-context"><div className="atlas-customer-icon">{initials}</div>
+          <div><strong>{customerName}</strong><span>{context.companyName} · {c.customer}</span></div></div>}
+        {onClose && <button className="atlas-close" type="button" aria-label={c.close} onClick={onClose}><X size={18} /></button>}
+      </header>
+      <section className={`atlas-searchbar${f.editing ? " is-editing" : ""}`}>
+        <div className="atlas-origin-block"><span className="atlas-origin-symbol"><MapPin size={16} /></span>
+          <div className="atlas-origin-copy"><span className="atlas-eyebrow">{c.origin}</span>
+            <strong>{f.originLabel || f.filters.address || c.addressMissing}</strong></div></div>
+        <div className="atlas-search-summary"><span><Crosshair size={14} /> {f.filters.radius} km</span>
+          <span>{f.filters.types.map(type => c[type]).join(" + ")}</span>
+          {f.filters.peopleOnly && <span>{c.people}{f.filters.personQuery ? ` · ${f.filters.personQuery}` : ""}</span>}</div>
+        <button type="button" className="atlas-edit-button" disabled={f.saving} aria-expanded={f.editing}
+          aria-controls="provider-search-editor" onClick={() => f.editing ? f.setEditing(false) : f.openEditor()}>
+          <SlidersHorizontal size={15} />{f.editing ? c.closeEdits : c.editSearch}</button>
+        {f.editing && <div className="atlas-edit-panel" id="provider-search-editor" role="region" aria-label={c.editCriteria}>
+          <div className="atlas-edit-heading"><div><span className="atlas-eyebrow">{c.searchScope}</span><h2>{c.editCriteria}</h2></div>
+            <span className="atlas-notice">{c.addressHint}</span></div>
+          <form onSubmit={event => { event.preventDefault(); f.apply(); }}>
+            <label className="atlas-field-label" htmlFor="pf-address">{c.address}</label>
+            <div className="atlas-address-edit"><MapPin size={16} /><input id="pf-address" value={f.draft.address} maxLength={300} autoFocus
+              onChange={event => f.setDraft(previous => ({ ...previous, address: event.target.value }))} placeholder={c.address} disabled={f.saving} /></div>
+            <div className="atlas-edit-controls">
+              <div className="atlas-radius-edit"><label htmlFor="pf-radius">{c.radius}</label><div>
+                <input id="pf-radius" type="range" min={1} max={context.policy.maxRadiusKm} value={f.draft.radius} disabled={f.saving}
+                  onChange={event => f.setDraft(previous => ({ ...previous, radius: Number(event.target.value) }))} /><strong>{f.draft.radius} km</strong></div></div>
+              <div className="atlas-edit-types"><span className="atlas-field-label">{c.facilityType}</span><div className="atlas-type-options">
+                {(["clinic", "hospital"] as const).map(type => <button type="button" key={type}
+                  className={f.draft.types.includes(type) ? "active" : ""} aria-pressed={f.draft.types.includes(type)} disabled={f.saving}
+                  onClick={() => f.setDraft(previous => ({ ...previous, types: previous.types.includes(type) ? previous.types.filter(item => item !== type) : [...previous.types, type] }))}>
+                  {type === "clinic" ? <Stethoscope size={15} /> : <Hospital size={15} />}{c[type]}</button>)}</div></div>
+              <div className="atlas-person-edit"><label className="atlas-person-toggle"><input type="checkbox" checked={f.draft.peopleOnly} disabled={f.saving}
+                onChange={event => f.setDraft(previous => ({ ...previous, peopleOnly: event.target.checked }))} /><span>{c.peopleOnly}</span></label>
+                {f.draft.peopleOnly && <input aria-label={c.personSearch} value={f.draft.personQuery} maxLength={100} disabled={f.saving}
+                  onChange={event => f.setDraft(previous => ({ ...previous, personQuery: event.target.value }))} placeholder={c.personSearch} />}</div>
+            </div>
+            {f.error && <p className="atlas-inline-error" role="alert">{f.error}</p>}
+            <div className="atlas-edit-actions"><button type="button" className="atlas-quiet-button" onClick={f.gps} disabled={f.saving}>
+              <Navigation size={14} />{c.gps}</button>
+              <button type="button" className="atlas-quiet-button" onClick={() => f.setEditing(false)}>{c.cancel}</button>
+              <button type="submit" className="atlas-primary-button" disabled={f.saving}>{f.busy ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}{c.applySearch}</button></div>
+          </form>
         </div>}
-        {error && <div className="pf-message pf-error" role="alert">{error}</div>}
-        <p className="pf-filter-note">{c.privacy}</p>
-      </aside>
-      <main className={`pf-results-panel${view === "map" ? " pf-hide-mobile" : ""}`} aria-label={c.results}>
-        <div className="pf-results-heading">
-          <div><div className="pf-kicker">{c.origin}</div><h3>{searched ? c.results : c.title}</h3></div>
-          <div className="pf-results-actions">
-            {searched && <span className="pf-result-count">{results.length}</span>}
-            <button type="button" className="pf-button pf-map-toggle" onClick={() => setView(view === "map" ? "list" : "map")}>
-              <MapPin size={14} /><span>{view === "map" ? c.list : c.map}</span>
-            </button>
-          </div>
+      </section>
+      {f.error && !f.editing && <p className="atlas-live-error" role="alert">{f.error}</p>}
+      {!context.mapsReady && !f.error && <p className="atlas-live-notice" role="status">{c.mapsMissing}</p>}
+      {f.candidates.length ? <section className="atlas-address-confirmation" aria-label={c.confirmAddress}>
+        <MapPin size={25} /><h2>{c.confirmAddress}</h2><p>{c.candidateHint}</p>
+        <div>{f.candidates.map((candidate, index) => <button type="button" className="atlas-candidate" key={`${candidate.point.lat}:${candidate.point.lng}:${index}`}
+          onClick={() => f.confirmCandidate(candidate)} disabled={f.saving}><MapPin size={17} /><span>{candidate.label}
+            {candidate.approximate && <small>{c.approximate}</small>}</span><ArrowRight size={16} /></button>)}</div>
+        <small className="pf-google-attribution" translate="no">{c.googleAttribution}</small>
+      </section> : <>
+        <div className="atlas-main">
+          <section className={`atlas-map-section${mobilePane === "results" ? " atlas-mobile-hide" : ""}`} aria-label={c.map}>
+            <div className="atlas-map-topline"><div><span className="atlas-eyebrow">{c.map}</span><strong>{f.originLabel || f.filters.address || c.addressMissing}</strong></div>
+              {f.point && <span className="atlas-map-key"><i />{c.origin}</span>}</div>
+            <div className="atlas-map-wrap">
+              {f.point && (desktop || mobilePane === "map") ? <ProviderMap prefix={prefix} point={f.point} results={f.results}
+                selected={f.selected} onSelect={pick} c={c} showRecommendations={!publicView} />
+                : <div className="atlas-map-placeholder" role="status">{f.busy ? <><Loader2 size={24} className="animate-spin" /><span>{c.loading}</span></> : <><MapPin size={26} /><span>{f.error || c.addressRequired}</span>
+                  <button type="button" className="atlas-quiet-button" onClick={f.openEditor}>{c.editSearch}</button></>}</div>}
+              {f.point && !publicView && <div className="atlas-map-legend"><span><b className="atlas-legend-dot atlas-dot-recommended" />{c.recommended}</span>
+                <span><b className="atlas-legend-dot atlas-dot-other" />{c.other}</span></div>}
+            </div>
+            <div className="atlas-map-bottom"><span><MapPin size={12} />{c.distance} · {f.filters.radius} km</span></div>
+          </section>
+          <aside className={`atlas-results${mobilePane === "map" ? " atlas-mobile-hide" : ""}`} aria-label={c.results}>
+            <div className="atlas-results-head"><div><span className="atlas-eyebrow">{publicView ? c.origin : c.priorityScore}</span><h2>{c.results}</h2></div>
+              <span className="atlas-count">{f.busy ? "—" : f.results.length}<small> {c.found}</small></span></div>
+            {!publicView && <p className="atlas-score-note" title={c.qualitySafety}><i />{c.rankingSafetyShort}</p>}
+            <div className="atlas-result-list" aria-live="polite">
+              {f.busy ? <div className="atlas-list-skeleton" role="status" aria-label={c.loading}>
+                {[0, 1, 2].map(index => <div className="atlas-card-skeleton" key={index}><span /><span /><span /></div>)}
+              </div> : f.results.length ? f.results.map((row, index) => {
+                const key = providerKey(row), quality = !publicView ? row.quality : undefined;
+                const active = f.selected === key, expanded = details.includes(key);
+                return <article key={key} ref={node => { cards.current[key] = node; }}
+                  className={`atlas-result-card${active ? " is-selected" : ""}${quality?.tier === "recommended" ? " is-recommended" : ""}`} data-provider-key={key}>
+                  <button type="button" className="atlas-card-main" aria-pressed={active} disabled={f.busy || f.saving} onClick={() => pick(key)}>
+                    <span className={`atlas-rank${quality?.tier === "recommended" ? " rank-recommended" : ""}`}>{String(index + 1).padStart(2, "0")}</span>
+                    <div className="atlas-card-copy"><strong>{row.name}</strong><span>{row.address}, {row.city}</span>
+                      <div className="atlas-card-meta">{row.type === "clinic" ? <Stethoscope size={12} /> : <Hospital size={12} />}<span>{c[row.type]}</span>
+                        {row.people.length > 0 && <span>{row.people.map(person => person.name).join(" · ")}</span>}</div></div>
+                    <span className="atlas-distance">{row.distanceKm.toLocaleString(locale, { maximumFractionDigits: 1 })}<small> km</small></span>
+                  </button>
+                  {quality && <div className="atlas-evidence-summary">
+                    <div className="atlas-tier-score"><span className={`atlas-tier atlas-tier-${quality.tier}`}>{c[quality.tier]}</span>
+                      <span className="atlas-score">{quality.score}<small> / 100</small></span><span className="atlas-score-label">{c.score}</span></div>
+                    <p className="atlas-evidence-overview">{quality.matched.slice(0, 2).map(criterionLabel).join(" · ") || c.unknown}
+                      {quality.matched.length > 2 && <span> · +{quality.matched.length - 2}</span>}</p>
+                    <button type="button" className="atlas-evidence-toggle" aria-expanded={expanded}
+                      onClick={() => setDetails(previous => previous.includes(key) ? previous.filter(item => item !== key) : [...previous, key])}>
+                      {c.qualityDetails}{expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}</button>
+                    {expanded && <div className="atlas-evidence-details">
+                      <p>{quality.personName ? <><strong>{c.evidenceForPerson}:</strong> {quality.personName}</> : <strong>{c.evidenceAtFacility}</strong>}</p>
+                      <div className="atlas-evidence-columns">{(["matched", "missing", "unknown"] as const).map(kind => quality[kind].length ? <div key={kind}>
+                        <strong>{c[kind]}</strong><ul>{quality[kind].map(criterion => <li key={criterion}>{criterionLabel(criterion)}</li>)}</ul></div> : null)}</div>
+                      <div className="atlas-breakdown"><strong>{c.score}</strong>{quality.breakdown.map((item, itemIndex) => <span key={`${item.criterion}-${itemIndex}`}>
+                        {item.criterion === "distance" ? c.distance : c[item.criterion]} · {item.points.toLocaleString(locale, { maximumFractionDigits: 1 })} {c.points}</span>)}</div>
+                      {quality.notNearest && <p className="atlas-not-nearest">{c.notNearest}</p>}
+                    </div>}
+                  </div>}
+                  {!publicView && !quality && <div className="atlas-facility-facts">
+                    {typeof row.cooperating === "boolean" && <span>{c.cooperation}: {row.cooperating ? c.yes : c.no}</span>}
+                    {typeof row.uploadedContract === "boolean" && <span>{c.uploadedContract}: {row.uploadedContract ? c.yes : c.no}</span>}
+                    {typeof row.hasRepresentative === "boolean" && <span>{c.representative}: {row.hasRepresentative ? c.yes : c.no}</span>}
+                  </div>}
+                </article>;
+              }) : <div className="atlas-empty"><MapPin size={24} /><strong>{f.searched ? c.empty : f.error || c.confirmAddress}</strong>
+                <button type="button" onClick={f.openEditor}>{c.editSearch}</button>
+                {f.searched && f.filters.radius < context.policy.maxRadiusKm && <button type="button" onClick={f.expand}>{c.expand} · {Math.min(context.policy.maxRadiusKm, f.filters.radius + 25)} km</button>}</div>}
+            </div>
+            {!publicView && f.missing > 0 && <p className="atlas-ranking-footnote">{c.missingLocations}: {f.missing}</p>}
+            <p className="atlas-ranking-footnote">{publicView ? c.publicHint : c.orderHint}</p>
+          </aside>
         </div>
-        {busy && <div className="pf-loading-state" role="status"><span className="pf-loading-line" /><span>{geoBusy ? c.geocodeWaiting : c.loading}</span></div>}
-        {!busy && searched && <>
-          {!publicView && missing > 0 && <p className="pf-results-footnote">{c.missingLocations}: {missing}</p>}
-          {results.length ? <div className="pf-result-list">{results.map((row, index) => <article key={`${row.type}:${row.id}`}
-            className={`pf-result pf-provider-card${selected === `${row.type}:${row.id}` ? " selected" : ""}${!publicView && row.quality?.tier === "recommended" ? " pf-is-recommended" : ""}`}>
-            <button type="button" className="pf-result-select" onClick={() => pick(`${row.type}:${row.id}`, row.suggestedPersonId || (!publicView ? row.quality?.personId : undefined))}
-              aria-pressed={selected === `${row.type}:${row.id}`}>
-              <div className="pf-result-top"><span className="pf-number">{index + 1}</span><div className="pf-result-copy">
-                <strong>{row.name}</strong><p className="pf-note">{c[row.type]} · {row.address}, {row.city}</p></div>
-                <span className="pf-result-distance">{row.distanceKm.toLocaleString(locale)} <small>km</small></span></div>
-              {!publicView && row.quality && <div className="pf-recommendation-line">
-                <span className={`pf-tier pf-tier-${row.quality.tier}`}>{c[row.quality.tier]}</span>
-                {row.quality.tier === "recommended" && row.quality.matched.length > 0 &&
-                  <span className="pf-reason">{c.matched}: {row.quality.matched.map(key => c[qualityCriterionLabel(key)]).join(" · ")}</span>}
-              </div>}
-              {!publicView && !row.quality && <div className="pf-row pf-facts">
-                {typeof row.cooperating === "boolean" && <span className="pf-tag">{c.cooperation}: {row.cooperating ? c.yes : c.no}</span>}
-                {typeof row.uploadedContract === "boolean" && <span className="pf-tag">{c.uploadedContract}: {row.uploadedContract ? c.yes : c.no}</span>}
-                {typeof row.hasRepresentative === "boolean" && <span className="pf-tag">{c.representative}: {row.hasRepresentative ? c.yes : c.no}</span>}
-                {row.recentContact && <span className="pf-tag">{c.recent}</span>}
-              </div>}
-              {row.people.length > 0 && <p className="pf-result-people">{row.people.map(p => p.name).join(" · ")}</p>}
-            </button>
-            {!publicView && row.quality && <div className="pf-quality-result">
-              <div className="pf-row pf-quality-result-head"><span className="pf-quality-score">{row.quality.score}<small>/100 · {c.score}</small></span>
-                {row.quality.tier === "recommended" && row.quality.notNearest && <span className="pf-not-nearest">{c.notNearest}</span>}</div>
-              <details className="pf-quality-details"><summary>{c.qualityDetails}</summary>
-                <div className="pf-quality-source">{row.quality.personName ? <><strong>{c.evidenceForPerson}</strong> {row.quality.personName}</> : <strong>{c.evidenceAtFacility}</strong>}</div>
-                <div className="pf-evidence-grid">
-                  {finderCriteria.some(key => row.quality?.matched.includes(key)) && <div><strong>{c.matched}</strong><ul>{row.quality.matched.map(key => <li key={key}>{c[key]}</li>)}</ul></div>}
-                  {finderCriteria.some(key => row.quality?.missing.includes(key)) && <div><strong>{c.missing}</strong><ul>{row.quality.missing.map(key => <li key={key}>{c[key]}</li>)}</ul></div>}
-                  {finderCriteria.some(key => row.quality?.unknown.includes(key)) && <div><strong>{c.unknown}</strong><ul>{row.quality.unknown.map(key => <li key={key}>{c[key]}</li>)}</ul></div>}
-                </div>
-                <div className="pf-breakdown"><strong>{c.score}</strong>{row.quality.breakdown.map((item, itemIndex) => <span key={`${item.criterion}-${itemIndex}`}>
-                  {item.criterion === "distance" ? c.distance : c[item.criterion]} · {item.points.toLocaleString(locale, { maximumFractionDigits: 1 })} {c.points}</span>)}</div>
-              </details>
-            </div>}
-          </article>)}</div> : <div className="pf-empty"><MapPin size={24} /><strong>{c.empty}</strong>
-            {radius < context.policy.maxRadiusKm && <button type="button" className="pf-button" onClick={() => {
-              invalidate(); setRadius(Math.min(context.policy.maxRadiusKm, radius + 25));
-            }}>{c.expand} · {Math.min(context.policy.maxRadiusKm, radius + 25)} km</button>}</div>}
-          <p className="pf-results-footnote">{publicView ? c.publicHint : c.orderHint}</p>
-        </>}
-        {!searched && !busy && <div className="pf-start-state"><span className="pf-start-icon"><MapPin size={20} /></span>
-          <strong>{c.confirmAddress}</strong><p>{c.candidateHint}</p></div>}
-      </main>
-      {candidates.length === 0 && <section className={`pf-map-panel${view === "map" ? " pf-map-active" : ""}`} aria-label={c.map}>
-        <div className="pf-map-panel-heading"><div className="pf-kicker">{c.origin}</div><strong>{originLabel || c.confirmAddress}</strong></div>
-        {point && (desktop || view === "map") ? <ProviderMap point={point} results={results} prefix={prefix} selected={selected} onSelect={pick} c={c} />
-          : <div className="pf-empty pf-map-empty"><MapPin size={24} /><p>{c.confirmAddress}</p></div>}
-      </section>}
-    </div>
-    <footer className="pf-modal-foot pf-finder-foot">
-      <div className="pf-selection-summary"><span className="pf-kicker">{c.selected}</span><strong>{current?.name || c.select}</strong>
-        {missingRequiredPerson ? <span className="pf-note">{c.suggestedPersonRequired}</span> : !current && <span className="pf-note">{c.publicHint}</span>}
-        {current && (current.publicPhone || current.publicEmail) && <span className="pf-note">{[current.publicPhone, current.publicEmail].filter(Boolean).join(" · ")}</span>}
-        {current && current.people.length > 0 && <div className="pf-person-select"><label htmlFor="pf-selected-person">{c.people}</label>
-          <select id="pf-selected-person" value={selectedPerson} disabled={saving} onChange={e => setSelectedPerson(e.target.value)}>
-            <option value="">{c.all}</option>{current.people.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></div>}
-      </div>
-      <button type="button" className="pf-button primary pf-confirm-button" disabled={!current || busy || saving || missingRequiredPerson} onClick={() => void confirm()}>
-        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}{c.select}</button>
-    </footer>
-  </section>;
+        <nav className="atlas-mobile-nav" aria-label={`${c.map} / ${c.list}`}>
+          <button type="button" className={mobilePane === "map" ? "active" : ""} aria-pressed={mobilePane === "map"} onClick={() => setMobilePane("map")}><MapPin size={15} />{c.map}</button>
+          <button type="button" className={mobilePane === "results" ? "active" : ""} aria-pressed={mobilePane === "results"} onClick={() => setMobilePane("results")}><Hospital size={15} />{c.results} · {f.results.length}</button>
+        </nav>
+      </>}
+      <footer className={`atlas-footer pf-modal-foot${f.current ? " has-selection" : ""}`}>
+        <div className="atlas-selection"><span className="atlas-selection-mark">{f.current ? <Check size={17} /> : <MapPin size={17} />}</span>
+          <div className="atlas-selection-copy"><span className="atlas-eyebrow">{f.current ? c.pendingSelection : c.selected}</span>
+            <strong>{f.current?.name || c.pickProvider}</strong>
+            {f.current && <span>{f.current.address}, {f.current.city} · {f.current.distanceKm.toLocaleString(locale, { maximumFractionDigits: 1 })} km</span>}
+            {publicView && f.current && (f.current.publicPhone || f.current.publicEmail) && <span>{[f.current.publicPhone, f.current.publicEmail].filter(Boolean).join(" · ")}</span>}
+          </div></div>
+        {!!f.current?.people.length && <div className="atlas-doctor-picker"><label htmlFor="pf-selected-person">{c.doctor}</label>
+          <select id="pf-selected-person" value={f.selectedPerson} disabled={f.saving} onChange={event => f.setSelectedPerson(event.target.value)}>
+            {!f.requiredPerson && <option value="">{c.noPerson}</option>}{f.current.people.map(person => <option value={person.id} key={person.id}>{person.name}</option>)}</select>
+          {f.missingPerson && <span>{c.suggestedPersonRequired}</span>}</div>}
+        <button type="button" className="atlas-confirm" disabled={!f.canConfirm} onClick={() => void f.confirm()}>
+          {f.saving ? <Loader2 size={16} className="animate-spin" /> : null}{c.select}{!f.saving && <ArrowRight size={16} />}</button>
+      </footer>
+    </section>
+  </div>;
 }
