@@ -8,6 +8,7 @@ import { DEFAULT_FINDER_POLICY } from "../shared/provider-finder";
 const output = "generated-artifacts/provider-finder-redesign";
 const prefix = "/api/provider-finder-layout-test";
 const liveMap = process.argv.includes("--live-map");
+const markerFailure = process.argv.includes("--marker-failure");
 const fixtures = Array.from({ length: 7 }, (_, index) => ({
   id: `layout-${index}`, type: index === 5 ? "hospital" : "clinic",
   name: ["Ambulancia Harmónia", "Gynekologické centrum Dúbravka", "Ambulancia Pod lesom",
@@ -41,6 +42,23 @@ try {
     const context = await browser.newContext({
       viewport, geolocation: { latitude: 48.19, longitude: 17.04 }, permissions: ["geolocation"],
     });
+    if (markerFailure) await context.addInitScript(`(() => {
+      class FailedMarker extends HTMLElement {
+        constructor() {
+          super();
+          throw new TypeError("Cannot read properties of undefined (reading 'keys')");
+        }
+      }
+      customElements.define("gmp-advanced-marker", FailedMarker);
+      const libraries = {
+        maps: { Map: class { fitBounds() {} setCenter() {} } },
+        marker: { AdvancedMarkerElement: FailedMarker },
+        core: { LatLngBounds: class { extend() {} } },
+      };
+      window.google = {
+        maps: { importLibrary: async name => libraries[name] },
+      };
+    })()`);
     const page = await context.newPage();
     await page.emulateMedia({ reducedMotion: "reduce" });
     const errors: string[] = [];
@@ -50,6 +68,8 @@ try {
     await page.route(`**${prefix}/**`, async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/map-config")) {
+        if (markerFailure)
+          return route.fulfill({ json: { browserKey: "synthetic-marker-failure-test-only" } });
         if (liveMap && process.env.GOOGLE_MAPS_BROWSER_API_KEY)
           return route.fulfill({ json: { browserKey: process.env.GOOGLE_MAPS_BROWSER_API_KEY } });
         // Explicitly exercise the usable list even when Google is unavailable.
@@ -115,6 +135,11 @@ try {
     if (viewport.width < 761) await finder.locator(".atlas-mobile-nav button").nth(1).click();
     await finder.locator(".atlas-result-card").first().waitFor();
     assert.equal(await finder.locator(".atlas-result-card").count(), 7, "automatic search needs no first click");
+    if (markerFailure && viewport.width >= 761) {
+      await finder.getByTestId("provider-results-map").getByRole("alert").waitFor();
+      assert.equal(await finder.locator(".atlas-result-card").count(), 7,
+        "the exact SDK keys error stays inside the map and preserves the usable finder");
+    }
     assert.equal(await finder.locator(".is-recommended").count(), publicView ? 0 : 2,
       "recommendation highlighting follows real tiers and is never exposed publicly");
     if (publicView)

@@ -133,11 +133,17 @@ export async function importGoogleMapsLibraries(google: GoogleMapsApi) {
   });
   try {
     const libraries = await Promise.race([
-      Promise.all([
-        google.importLibrary("maps"),
-        google.importLibrary("marker"),
-        google.importLibrary("core"),
-      ]),
+      (async () => {
+        const imported = await Promise.all([
+          google.importLibrary("maps"),
+          google.importLibrary("marker"),
+          google.importLibrary("core"),
+        ]);
+        // AdvancedMarkerElement is a custom element. Its constructor must not
+        // run before the SDK has registered and initialized that element.
+        await window.customElements.whenDefined("gmp-advanced-marker");
+        return imported;
+      })(),
       authFailure,
       timeoutFailure,
     ]);

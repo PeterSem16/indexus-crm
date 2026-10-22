@@ -104,50 +104,62 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c, sho
     if (!libraries) return;
     const { map, Marker, Bounds } = libraries;
     const markers: MapMarkerRecord[] = [];
-    const bounds = new Bounds();
-    bounds.extend({ lat: point.lat, lng: point.lng });
-
-    const origin = document.createElement("div");
-    origin.className = "pf-map-origin-marker";
-    origin.setAttribute("aria-hidden", "true");
-    markers.push({ marker: new Marker({
-      map,
-      position: { lat: point.lat, lng: point.lng },
-      content: origin,
-      title: c.origin,
-    }) });
-
-    const visibleResults = results.flatMap((row, index) => {
-      if (row.lat === null || row.lng === null) return [];
-      const key = `${row.type}:${row.id}`;
-      const position = { lat: row.lat, lng: row.lng };
-      bounds.extend(position);
-
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = `pf-map-marker${showRecommendations && row.quality?.tier === "recommended" ? " recommended" : ""}${selected === key ? " selected" : ""}`;
-      button.textContent = String(index + 1);
-      button.setAttribute("aria-label", `${index + 1}. ${row.name}`);
-      button.setAttribute("aria-pressed", String(selected === key));
-      button.title = row.name;
-      const marker = new Marker({ map, position, content: button, title: row.name });
-      const select = () => selectRef.current(key);
-      button.addEventListener("click", select);
-      markers.push({ marker, cleanup: () => button.removeEventListener("click", select) });
-      return [{ key, button }];
-    });
-    markerButtons.current = visibleResults;
-    if (visibleResults.length) map.fitBounds(bounds, 36);
-    else map.setCenter({ lat: point.lat, lng: point.lng });
-
-    return () => {
+    const cleanup = () => {
       for (const { marker, cleanup } of markers) {
         cleanup?.();
-        marker.map = null;
+        // SDK failures must not escape React's effect cleanup either.
+        try { marker.map = null; } catch { /* Best-effort disposal of an SDK object. */ }
       }
+      markers.length = 0;
       markerButtons.current = [];
     };
-  }, [libraries, point.lat, point.lng, results, c.origin, showRecommendations]);
+
+    try {
+      const bounds = new Bounds();
+      bounds.extend({ lat: point.lat, lng: point.lng });
+
+      const origin = document.createElement("div");
+      origin.className = "pf-map-origin-marker";
+      origin.setAttribute("aria-hidden", "true");
+      const originMarker = new Marker({
+        position: { lat: point.lat, lng: point.lng },
+        content: origin,
+        title: c.origin,
+      });
+      markers.push({ marker: originMarker });
+      originMarker.map = map;
+
+      const visibleResults = results.flatMap((row, index) => {
+        if (row.lat === null || row.lng === null) return [];
+        const key = `${row.type}:${row.id}`;
+        const position = { lat: row.lat, lng: row.lng };
+        bounds.extend(position);
+
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `pf-map-marker${showRecommendations && row.quality?.tier === "recommended" ? " recommended" : ""}${selected === key ? " selected" : ""}`;
+        button.textContent = String(index + 1);
+        button.setAttribute("aria-label", `${index + 1}. ${row.name}`);
+        button.setAttribute("aria-pressed", String(selected === key));
+        button.title = row.name;
+        const marker = new Marker({ position, content: button, title: row.name });
+        const select = () => selectRef.current(key);
+        button.addEventListener("click", select);
+        markers.push({ marker, cleanup: () => button.removeEventListener("click", select) });
+        marker.map = map;
+        return [{ key, button }];
+      });
+      markerButtons.current = visibleResults;
+      if (visibleResults.length) map.fitBounds(bounds, 36);
+      else map.setCenter({ lat: point.lat, lng: point.lng });
+      setError("");
+    } catch (reason) {
+      cleanup();
+      setLoading(false);
+      setError(mapErrorMessage(reason, c));
+    }
+    return cleanup;
+  }, [libraries, point.lat, point.lng, results, c.origin, c.mapUnavailable, c.mapsAuthorization, c.mapsMissing, c.mapsQuota, c.mapsBillingOrQuota, showRecommendations]);
 
   useEffect(() => {
     for (const { key, button } of markerButtons.current) {

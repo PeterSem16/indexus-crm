@@ -11,6 +11,7 @@ function sandbox() {
   const previous = () => {};
   const window: any = {
     gm_authFailure: previous,
+    customElements: { whenDefined: async () => {} },
     setTimeout(fn: () => void) { timers.set(++serial, fn); return serial; },
     clearTimeout(id: number) { timers.delete(id); },
   };
@@ -85,4 +86,30 @@ test("library imports have bounded timeout and restore auth listeners on every o
     assert.equal(s.timers.size, 0);
     assert.equal(s.window.gm_authFailure, s.previous);
   }
+});
+test("library readiness waits for advanced-marker registration and bounds that wait", async () => {
+  const s = sandbox();
+  let registered!: () => void;
+  s.window.customElements.whenDefined = (name: string) => {
+    assert.equal(name, "gmp-advanced-marker");
+    return new Promise<void>(resolve => { registered = resolve; });
+  };
+  let ready = false;
+  const pending = s.api.importGoogleMapsLibraries({ importLibrary: async (name: string) => name })
+    .then((libraries: unknown) => { ready = true; return libraries; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(ready, false, "imported classes alone do not mean the custom element is initialized");
+  assert.equal(s.timers.size, 1);
+  registered();
+  assert.deepEqual(Array.from(await pending), ["maps", "marker", "core"]);
+  assert.equal(s.timers.size, 0);
+
+  const stalled = sandbox();
+  stalled.window.customElements.whenDefined = () => new Promise(() => {});
+  const waiting = stalled.api.importGoogleMapsLibraries({ importLibrary: async () => ({}) });
+  const rejected = assert.rejects(waiting, { message: "maps_unavailable" });
+  for (const timer of [...stalled.timers.values()]) timer();
+  await rejected;
+  assert.equal(stalled.timers.size, 0);
+  assert.equal(stalled.window.gm_authFailure, stalled.previous);
 });
