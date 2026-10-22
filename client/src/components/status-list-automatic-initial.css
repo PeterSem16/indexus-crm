@@ -1,0 +1,33 @@
+.slai{display:grid;gap:11px;min-width:0;padding:12px;border:1px solid hsl(var(--primary)/.2);border-radius:8px;background:hsl(var(--primary)/.025);color:hsl(var(--foreground))}
+.slai-heading{display:flex;align-items:flex-start;gap:9px}.slai-icon{display:grid;place-items:center;flex:0 0 auto;width:28px;height:28px;border-radius:7px;background:hsl(var(--primary)/.1);color:hsl(var(--primary))}
+.slai-heading h4{font-size:11px;font-weight:750;line-height:1.35}.slai-heading p{margin-top:3px;max-width:660px;font-size:9px;line-height:1.5;color:hsl(var(--muted-foreground))}
+.slai-scope{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px;border:1px solid hsl(var(--border));border-radius:7px;background:hsl(var(--background))}
+.slai-label{margin-right:auto;font-size:9px;font-weight:700;color:hsl(var(--muted-foreground))}
+.slai-scope label{display:flex;align-items:center;gap:5px;min-height:28px;padding:3px 7px;border:1px solid hsl(var(--border));border-radius:5px;font-size:9px;font-weight:600;cursor:pointer}
+.slai-scope input,.slai-ack input{accent-color:hsl(var(--primary))}
+.slai-caution,.slai-error,.slai-success{display:flex;align-items:flex-start;gap:7px;padding:8px;border-radius:6px;font-size:9px;line-height:1.5}
+.slai-caution{border:1px solid hsl(var(--destructive)/.2);background:hsl(var(--destructive)/.045);color:hsl(var(--foreground))}
+.slai-caution svg,.slai-error svg,.slai-success svg{flex:0 0 auto;margin-top:1px}
+.slai-error{border:1px solid hsl(var(--destructive)/.2);background:hsl(var(--destructive)/.04);color:hsl(var(--destructive))}
+.slai-success{border:1px solid hsl(var(--primary)/.2);background:hsl(var(--primary)/.05);color:hsl(var(--primary))}
+.slai-note{font-size:9px;line-height:1.5;color:hsl(var(--muted-foreground))}
+.slai-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.slai-mode{font-size:9px;color:hsl(var(--muted-foreground))}
+.slai-plan{display:grid;gap:9px;padding-top:10px;border-top:1px solid hsl(var(--border))}
+.slai-plan>h5{font-size:9px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;color:hsl(var(--muted-foreground))}
+.slai-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.slai-totals>div{display:grid;gap:3px;padding:8px;border:1px solid hsl(var(--border));border-radius:6px;background:hsl(var(--background))}
+.slai-totals strong{font-size:15px;line-height:1;font-variant-numeric:tabular-nums}.slai-totals span{font-size:8px;line-height:1.4;color:hsl(var(--muted-foreground))}
+.slai-contacts{display:grid;gap:8px;max-height:560px;overflow:auto;overscroll-behavior:contain}
+.slai-contact{display:grid;gap:5px;padding:8px;border:1px solid hsl(var(--border));border-radius:7px;background:hsl(var(--background))}
+.slai-contact>header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-bottom:4px;border-bottom:1px solid hsl(var(--border))}
+.slai-contact>header h6{min-width:0;font-size:10px;font-weight:700;overflow-wrap:anywhere}.slai-contact>header span{flex:0 0 auto;font-size:8px;color:hsl(var(--muted-foreground))}
+.slai-action{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:7px;padding:7px 0;border-bottom:1px solid hsl(var(--border)/.7)}
+.slai-action:last-child{border-bottom:0}.slai-action-copy{display:grid;gap:3px;min-width:0}.slai-action-copy strong{font-size:9px;overflow-wrap:anywhere}
+.slai-action-copy small{font-size:8px;line-height:1.4;color:hsl(var(--muted-foreground));overflow-wrap:anywhere}
+.slai-action-copy ul{display:grid;gap:2px;margin:2px 0 0;padding-left:13px;color:hsl(var(--destructive));font-size:8px;line-height:1.4}
+.slai-status{max-width:180px;padding:3px 6px;border-radius:4px;background:hsl(var(--muted));font-size:8px;line-height:1.35;font-weight:700}
+.slai-status.is-ready{background:hsl(var(--primary)/.1);color:hsl(var(--primary))}.slai-status.is-skipped{background:hsl(var(--muted));color:hsl(var(--muted-foreground))}
+.slai-ack{display:flex;align-items:flex-start;gap:7px;font-size:9px;line-height:1.5;cursor:pointer}.slai-ack input{margin-top:2px;flex:0 0 auto}
+.slai button:focus-visible,.slai input:focus-visible{outline:2px solid hsl(var(--ring));outline-offset:2px}
+@media(max-width:600px){.slai{padding:10px}.slai-scope{align-items:flex-start}.slai-label{flex:0 0 100%}.slai-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.slai-action{grid-template-columns:minmax(0,1fr)}.slai-status{max-width:none;justify-self:start}.slai-contacts{max-height:440px}}
+@media(prefers-reduced-motion:reduce){.slai *{animation:none!important;transition:none!important}}

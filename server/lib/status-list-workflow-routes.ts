@@ -11,6 +11,7 @@ import { readWorkflowConditionOptions } from "./status-list-workflow-condition-o
 import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
 import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from "./status-list-automatic";
 import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
+import { initialScopeSchema, previewAutomaticInitial, confirmAutomaticInitial } from "./status-list-automatic-initial";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
@@ -74,6 +75,37 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  const initialRoot=`${root}/automatic-items/:itemId`;
+  app.post(`${initialRoot}/initial-preview`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,true);
+    const scope=initialScopeSchema.parse(req.body);
+    if(scope.scope==="contact")await authorize(req,true,scope.contactId);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout='15s'");
+      const plan=await previewAutomaticInitial(client,req.params.campaignId,req.params.itemId,scope,actor.id);
+      await client.query("COMMIT");res.json(plan);
+    }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  }));
+  app.post(`${initialRoot}/initial-confirm`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,true);
+    const payload=z.object({scope:z.enum(["mission","contact"]),contactId:z.string().uuid().optional(),
+      fingerprint:z.string().regex(/^[a-f0-9]{64}$/),acknowledged:z.literal(true)}).strict().parse(req.body);
+    const scope=initialScopeSchema.parse({scope:payload.scope,...(payload.contactId ? {contactId:payload.contactId} : {})});
+    if(scope.scope==="contact")await authorize(req,true,scope.contactId);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await client.query("SET LOCAL statement_timeout='15s'");
+      const result=await confirmAutomaticInitial(client,req.params.campaignId,req.params.itemId,scope,actor.id,payload.fingerprint);
+      await client.query("COMMIT");res.json(result);
+    }catch(error) {
+      await client.query("ROLLBACK");
+      if((error as any)?.code==="40001")throw new StatusListWorkflowError("preview_changed",409);
+      throw error;
+    }finally{client.release();}
+  }));
   app.get(`${root}/automatic-items/:itemId`, requireAuth, route(async (req, res) => {
     await authorize(req,true);
     const result=await automaticOverview(pool,req.params.campaignId,req.params.itemId);

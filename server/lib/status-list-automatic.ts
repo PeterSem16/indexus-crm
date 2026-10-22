@@ -132,7 +132,8 @@ async function contactContext(client: Reader,campaignId: string,contactId: strin
 }
 /** Single reader for preview, card-open admission and background admission. */
 export async function inspectAutomaticContact(client: Reader, campaignId: string,contactId: string,itemId: string,
-  options: {enqueue?: boolean; trigger?: AutomaticTrigger; actorId?: string; batchCommit?: boolean; sourceEvent?: WorkflowEvent} = {}) {
+  options: {enqueue?: boolean; trigger?: AutomaticTrigger; actorId?: string; batchCommit?: boolean;
+    sourceEvent?: WorkflowEvent; initialState?: boolean; initialApproval?: string} = {}) {
   const item = await loadItem(client,campaignId,itemId);
   const contact = await contactContext(client,campaignId,contactId);
   if (!item || !contact) throw Error("contact_or_item_not_found");
@@ -157,6 +158,12 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
   const executions = (await client.query(`SELECT automation_id,trigger_key,state FROM mission_status_list_automatic_events
     WHERE campaign_contact_id=$1 AND automation_id=ANY($2::varchar[]) ORDER BY created_at DESC,id DESC`,
   [contactId,actions.map(action=>action.id)])).rows;
+  // Initial processing is deliberately conservative: an earlier native attempt,
+  // including an uncertain/failed one, must not be silently replayed.
+  const nativeAttempts = options.initialState ? (await client.query(`SELECT automation_id,id,status
+    FROM status_list_service_executions WHERE campaign_id=$1 AND campaign_contact_id=$2
+    AND automation_id=ANY($3::varchar[]) ORDER BY id`,
+  [campaignId,contactId,actions.map(action=>action.id)])).rows : [];
   const output: any[] = [];
   for (const action of actions) {
     const derived=managed.some(row=>row.kind==="question" ? row.id===action.questionId : !action.questionId);
@@ -171,7 +178,7 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
     const fingerprint=createHash("sha256").update(canonical([action,config.revision])).digest("hex");
     const old = states.find(row=>row.automation_id===action.id && row.definition_fingerprint===fingerprint);
     const nextGeneration = old ? Number(old.generation) + (!old.matched && evaluation.value === true ? 1 : 0) : 0;
-    const key = sourceEvent ? `source:${sourceEvent.eventId}` :
+    const key = options.initialState ? `initial:${action.id}` : sourceEvent ? `source:${sourceEvent.eventId}` :
       config.trigger === "card_open" ? `open:${action.id}` : `change:${fingerprint}:${nextGeneration}`;
     const prior = executions.find(row=>row.automation_id===action.id && (derived && !sourceEvent || row.trigger_key===key));
     let status = automaticAdmission({
@@ -182,9 +189,16 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
     });
     if (derived && !sourceEvent && ["ready","background_baseline","waiting_transition","batch_deferred"].includes(status))
       status="waiting_transition";
-    if (options.enqueue && config.enabled && config.trigger === options.trigger && (!derived || eventMatches)) {
+    if (options.initialState) status=automaticAdmission({
+      trigger:"card_open",enabled:config.enabled && config.trigger==="background_change",
+      supported:issues.length===0,condition:evaluation.value,issue:evaluation.issue,
+      priorStatus:executions.some(row=>row.automation_id===action.id) ||
+        nativeAttempts.some(row=>row.automation_id===action.id) ? "already_executed" : undefined,
+      batch:mode==="batch",
+    });
+    if (options.enqueue && config.enabled && config.trigger === options.trigger && (!derived || eventMatches || options.initialState)) {
       // A false/unknown condition is not consumed; it may become true later.
-      if (!derived && config.trigger === "background_change" && !evaluation.issue && issues.length===0) {
+      if ((!derived || options.initialState) && config.trigger === "background_change" && !evaluation.issue && issues.length===0) {
         await client.query(`INSERT INTO mission_status_list_automatic_states(campaign_contact_id,automation_id,matched,generation,definition_fingerprint)
           VALUES($1,$2,$3,$4,$5) ON CONFLICT(campaign_contact_id,automation_id) DO UPDATE SET
           matched=EXCLUDED.matched,generation=EXCLUDED.generation,
@@ -199,6 +213,7 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
         [campaignId,contactId,action.id,itemId,key,JSON.stringify(action),config.revision,
           options.actorId || system,JSON.stringify({
             sourceEventId:sourceEvent?.eventId,occurredAt:sourceEvent?.occurredAt,
+            ...(options.initialState ? {initialState:true,approvalFingerprint:options.initialApproval} : {}),
             questionRevision:action.questionId ? answers.find(row=>row.question_id===action.questionId)?.revision ?? null : undefined,
           }),status==="batch_deferred" ? "awaiting_batch" : "pending"]);
         status = inserted.rowCount ? (status==="batch_deferred" ? "batch_deferred" : "pending") : "already_executed";
@@ -208,7 +223,14 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
       condition:evaluation.value,status,issues});
   }
   return {readOnly:!options.enqueue,trigger:config.trigger,enabled:config.enabled,mode,
-    baseline:config.trigger==="background_change" && output.some(action=>action.status==="background_baseline"),actions:output};
+    baseline:config.trigger==="background_change" && output.some(action=>action.status==="background_baseline"),actions:output,
+    ...(options.initialState ? {evidenceFingerprint:createHash("sha256").update(canonical({
+      item,contact,config,actions,facts,
+      answers:[...answers].sort((a,b)=>a.question_id.localeCompare(b.question_id)),
+      states:[...states].sort((a,b)=>a.automation_id.localeCompare(b.automation_id)),
+      managed:[...managed].sort((a,b)=>`${a.kind}:${a.id}`.localeCompare(`${b.kind}:${b.id}`)),
+      executions,nativeAttempts,
+    })).digest("hex")} : {})};
 }
 
 /** Baselines never arrive here: only committed, actual source transitions do. */

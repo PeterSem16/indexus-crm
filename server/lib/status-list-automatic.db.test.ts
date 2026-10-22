@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../db";
 import { STATUS_LIST_WORKFLOW_SCHEMA } from "./status-list-workflow-schema";
 import { inspectAutomaticContact, queueAutomaticSourceEvent, automaticOverview, automaticActionIssues, runAutomaticEvents } from "./status-list-automatic";
+import { previewAutomaticInitial, confirmAutomaticInitial, initialScopeSchema } from "./status-list-automatic-initial";
 
 if(process.env.NODE_ENV==="production" || process.env.REPLIT_DEPLOYMENT)throw Error("Development test only");
 const client=await pool.connect();
@@ -118,6 +119,89 @@ try {
   await runAutomaticEvents(deps);
   assert.equal(deliveries,1,"changed definitions supersede pending deliveries");
   assert.equal((await client.query("SELECT state FROM mission_status_list_automatic_events WHERE trigger_key='source:transition:changed-config'")).rows[0].state,"superseded");
+  // A separate, explicit initial-state plan never changes normal baseline policy.
+  await client.query(`ALTER TABLE clinics ADD COLUMN name text;
+    ALTER TABLE hospitals ADD COLUMN name text;
+    ALTER TABLE collaborators ADD COLUMN first_name text,ADD COLUMN last_name text;
+    ALTER TABLE customers ADD COLUMN first_name text,ADD COLUMN last_name text;
+    CREATE TABLE status_list_service_executions(id varchar PRIMARY KEY,campaign_id varchar,
+      campaign_contact_id varchar,automation_id varchar,status text);
+    DELETE FROM mission_status_list_automatic_events;
+    DELETE FROM mission_status_list_automatic_states;
+    UPDATE campaigns SET settings='{}';
+    UPDATE clinics SET country_code='SK',name='Synthetic clinic';
+    UPDATE campaign_status_list_automations SET question_id=NULL,condition_field='country',
+      condition_value='SK',condition_operator='eq';`);
+  const scope={scope:"contact" as const,contactId:contact};
+  const plan=()=>previewAutomaticInitial(client,mission,item,scope,"admin");
+  const commit=async(fingerprint:string)=>{
+    await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+    try{
+      const result=await confirmAutomaticInitial(client,mission,item,scope,"admin",fingerprint);
+      await client.query("COMMIT");return result;
+    }catch(error){await client.query("ROLLBACK");throw error;}
+  };
+  await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  const first=await plan();
+  await client.query("COMMIT");
+  assert.equal(first.summary.readyActions,1,"currently true is eligible for explicit initial processing");
+  assert.equal(first.contacts[0].label,"Synthetic clinic");
+  assert.equal((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count,"0");
+  assert.equal((await client.query("SELECT count(*) FROM mission_status_list_automatic_states")).rows[0].count,"0");
+  assert.equal((await background()).actions[0].status,"background_baseline","ordinary background remains no-effect");
+  await assert.rejects(()=>commit(first.fingerprint),/preview_changed/,"changed evidence needs a fresh preview");
+  const fresh=await plan();
+  assert.equal(fresh.summary.readyActions,1,"existing true baseline is explicitly processable");
+  assert.notEqual((await previewAutomaticInitial(client,mission,item,scope,"other-admin")).fingerprint,fresh.fingerprint);
+  await client.query("UPDATE campaign_status_list_automations SET service_action_config=jsonb_set(service_action_config,'{title}','\"Changed\"')");
+  await assert.rejects(()=>commit(fresh.fingerprint),/preview_changed/);
+  const changedPlan=await plan();
+  assert.deepEqual(await commit(changedPlan.fingerprint),{queued:1,deferred:0});
+  await assert.rejects(()=>commit(changedPlan.fingerprint),/preview_changed/,"a repeated confirmation cannot replay");
+  assert.equal((await plan()).summary.readyActions,0);
+  assert.equal((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count,"1");
+  await background();
+  assert.equal((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count,"1","polling after initial processing cannot duplicate it");
+  let initialDeliveries=0;
+  const initialDeps={connect:deps.connect,execute:async(_action:any,input:any)=>{
+    assert.equal(inTransaction,false);
+    assert.equal(input.userId,"admin");
+    initialDeliveries++;return {ok:true,executionId:"initial-receipt"};
+  }};
+  await runAutomaticEvents(initialDeps);
+  await runAutomaticEvents(initialDeps);
+  assert.equal(initialDeliveries,1);
+  await client.query("UPDATE clinics SET country_code='CZ'");
+  await background();
+  await client.query("UPDATE clinics SET country_code='SK'");
+  await background();
+  assert.equal((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count,"2","future false->true still runs");
+  await client.query("DELETE FROM mission_status_list_automatic_events");
+  await client.query(`INSERT INTO status_list_service_executions VALUES('old-attempt',$1,$2,$3,'failed')`,[mission,contact,action]);
+  assert.equal((await plan()).summary.readyActions,0,"even failed native attempts are not replayed");
+  await client.query("DELETE FROM status_list_service_executions");
+  await client.query("UPDATE campaigns SET settings='{\"statusListMode\":\"batch\"}'");
+  await client.query("UPDATE campaign_status_list_automations SET question_id=$1,condition_field='answer',condition_value='yes'",[question]);
+  const derivedPlan=await plan();
+  assert.equal(derivedPlan.summary.readyActions,1,"system-owned answer can be explicitly initialized");
+  assert.equal(derivedPlan.mode,"batch");
+  assert.deepEqual(await commit(derivedPlan.fingerprint),{queued:0,deferred:1});
+  await runAutomaticEvents(initialDeps);
+  assert.equal(initialDeliveries,1,"Batch waits for the original Save flow");
+  assert.equal((await plan()).summary.readyActions,0,"awaiting Batch is not admitted twice");
+  await client.query("DELETE FROM mission_status_list_automatic_events");
+  const otherContact=randomUUID();
+  await client.query("INSERT INTO campaign_contacts(id,campaign_id,contact_type,clinic_id) VALUES($1,$2,'clinic',$3)",[otherContact,mission,clinic]);
+  assert.equal((await previewAutomaticInitial(client,mission,item,{scope:"mission"},"admin")).summary.contacts,2);
+  await assert.rejects(()=>previewAutomaticInitial(client,randomUUID(),item,scope,"admin"),/initial_config_inactive/);
+  await assert.rejects(()=>previewAutomaticInitial(client,mission,item,{scope:"contact",contactId:randomUUID()},"admin"),/contact_not_found/);
+  assert.throws(()=>initialScopeSchema.parse({scope:"contact"}));
+  assert.throws(()=>initialScopeSchema.parse({scope:"mission",contactId:contact}));
+  await client.query("INSERT INTO campaign_contacts(id,campaign_id) SELECT gen_random_uuid()::text,$1 FROM generate_series(1,500)",[mission]);
+  await assert.rejects(()=>previewAutomaticInitial(client,mission,item,{scope:"mission"},"admin"),/scope_too_large/);
+  await client.query("UPDATE mission_status_list_automatic_configs SET enabled=false");
+  await assert.rejects(()=>plan(),/initial_config_inactive/);
+  console.log("Initial-state DB: read-only bounded plans, stale/actor evidence, current true baseline, once-only worker, future transitions, native-attempt guard, system answers and Batch passed.");
   console.log("Status List automatic DB: read-only preview, hidden step, no replay, definition baselines, source subquestions, Batch and exact Mission passed.");
 } finally {
   await client.query("ROLLBACK").catch(()=>{});

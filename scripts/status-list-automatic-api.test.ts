@@ -48,8 +48,49 @@ try{
   assert.ok(contacts.contacts.some((row:any)=>row.id===contact));
   await response(await api.put(endpoint,{data:{trigger:"card_open",enabled:false,
     expectedRevision:null,acknowledged:true}}),409);
-  await response(await api.put(endpoint,{data:{trigger:"card_open",enabled:false,
+  // Real authenticated routes, but Batch guarantees these synthetic effects can
+  // never reach the worker; the fixture never invokes the agent Save endpoint.
+  await pool.query("UPDATE campaigns SET settings=$2 WHERE id=$1",[mission,JSON.stringify({statusListMode:"batch"})]);
+  const background=await response(await api.put(endpoint,{data:{trigger:"background_change",enabled:true,
     expectedRevision:enabled.config.revision,acknowledged:true}}));
+  const scope={scope:"contact",contactId:contact};
+  await response(await other.post(`${endpoint}/initial-preview`,{data:scope}),403);
+  await response(await other.post(`${endpoint}/initial-confirm`,{data:{...scope,fingerprint:"0".repeat(64),acknowledged:true}}),403);
+  await response(await api.post(`${endpoint}/initial-preview`,{data:{scope:"contact",contactId:randomUUID()}}),404);
+  await response(await api.post(`${endpoint}/initial-preview`,{data:{scope:"mission",contactId:contact}}),400);
+  let plan=await response(await api.post(`${endpoint}/initial-preview`,{data:scope}));
+  assert.equal(plan.summary.readyActions,1);
+  assert.equal(plan.mode,"batch");
+  assert.equal((await pool.query("SELECT count(*) FROM mission_status_list_automatic_events WHERE campaign_id=$1",[mission])).rows[0].count,before);
+  await response(await api.post(`${endpoint}/initial-confirm`,{data:{...scope,fingerprint:plan.fingerprint}}),400);
+  await response(await api.post(`${endpoint}/initial-confirm`,{data:{...scope,fingerprint:"0".repeat(64),acknowledged:true}}),409);
+  // Recovery may establish its baseline between requests. Confirm a fresh plan,
+  // never suppress a genuine changed-evidence response.
+  let confirmed=false;
+  for(let attempt=0;attempt<3 && !confirmed;attempt++){
+    plan=await response(await api.post(`${endpoint}/initial-preview`,{data:scope}));
+    const confirmations=await Promise.all([1,2].map(()=>api.post(`${endpoint}/initial-confirm`,
+      {data:{...scope,fingerprint:plan.fingerprint,acknowledged:true}})));
+    const successes=confirmations.filter(r=>r.status()===200);
+    if(!successes.length){
+      for(const r of confirmations)assert.equal((await response(r,409)).error,"preview_changed");
+      continue;
+    }
+    assert.equal(successes.length,1,"concurrent confirmations have one winner");
+    assert.deepEqual(await response(successes[0]),{queued:0,deferred:1});
+    await response(confirmations.find(r=>r.status()!==200),409);
+    confirmed=true;
+  }
+  assert.equal(confirmed,true);
+  await response(await api.post(`${endpoint}/initial-confirm`,{data:{...scope,fingerprint:plan.fingerprint,acknowledged:true}}),409);
+  const events=(await pool.query("SELECT state,event_context,actor_id FROM mission_status_list_automatic_events WHERE campaign_id=$1",[mission])).rows;
+  assert.equal(events.length,1);
+  assert.equal(events[0].state,"awaiting_batch");
+  assert.equal(events[0].actor_id,user);
+  assert.equal(events[0].event_context.approvalFingerprint,plan.fingerprint);
+  assert.equal((await response(await api.post(`${endpoint}/initial-preview`,{data:scope}))).summary.readyActions,0);
+  await response(await api.put(endpoint,{data:{trigger:"card_open",enabled:false,
+    expectedRevision:background.config.revision,acknowledged:true}}));
   console.log("Status List automatic API: authenticated preview, exact contact, admin/foreign scope, config concurrency, hidden trigger validation and zero side effects passed.");
 }finally{
   await pool.query("DELETE FROM mission_status_list_dirty WHERE kind='mission' AND entity_id=$1",[mission]).catch(()=>{});
