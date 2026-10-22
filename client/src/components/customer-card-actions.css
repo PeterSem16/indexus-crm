@@ -1,0 +1,113 @@
+.customer-card-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.customer-card-heading {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.customer-card-heading h2 {
+  overflow-wrap: anywhere;
+}
+
+.customer-card-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+
+.customer-card-actions .customer-card-action {
+  position: relative;
+  display: inline-flex;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, #286486 30%, hsl(var(--border)));
+  border-radius: 12px;
+  color: #286486;
+  background: color-mix(in srgb, #e8f0f5 82%, hsl(var(--background)));
+  box-shadow: 0 2px 5px rgb(33 72 60 / 7%);
+  transition: transform 180ms ease, background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.customer-card-actions .customer-card-action svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.customer-card-actions .customer-card-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #286486;
+  color: #1c4059;
+  background: color-mix(in srgb, #e8f0f5 70%, hsl(var(--background)));
+  box-shadow: 0 4px 10px rgb(33 72 60 / 11%);
+}
+
+.customer-card-actions .customer-card-action:active:not(:disabled) {
+  transform: scale(.97);
+}
+
+.customer-card-actions .customer-card-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, #286486 68%, transparent);
+  outline-offset: 3px;
+}
+
+.customer-card-actions .customer-card-action:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+.customer-card-actions .customer-card-action--labeled {
+  width: auto;
+  min-width: 0;
+  height: 38px;
+  gap: 7px;
+  padding-inline: 11px;
+  font-weight: 600;
+}
+
+.dark .customer-card-actions .customer-card-action {
+  border-color: color-mix(in srgb, #8ec4e3 42%, hsl(var(--border)));
+  color: #a3cbe4;
+  background: color-mix(in srgb, #2d485d 82%, hsl(var(--background)));
+  box-shadow: 0 2px 7px rgb(8 23 18 / 32%);
+}
+
+.dark .customer-card-actions .customer-card-action:hover:not(:disabled) {
+  border-color: #8ec4e3;
+  color: #d4e9f5;
+  background: color-mix(in srgb, #2d485d 66%, hsl(var(--background)));
+}
+
+.dark .customer-card-actions .customer-card-action:focus-visible {
+  outline-color: color-mix(in srgb, #8ec4e3 82%, white);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-card-actions .customer-card-action {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .customer-card-header {
+    align-items: flex-start;
+  }
+
+  .customer-card-actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+}

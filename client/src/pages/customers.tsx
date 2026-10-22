@@ -1,5 +1,6 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { CustomerOwnerBadge } from "@/components/customer-owner-badge";
+import "@/components/customer-card-actions.css";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -7488,8 +7489,8 @@ export default function CustomersPage() {
             data-testid="customer-edit-backdrop"
           />
           <div data-fluid-drawer-width="wide" className="fixed inset-y-0 right-0 z-[51] w-[960px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
-              <div className="flex items-center gap-3">
+            <div className="customer-card-header shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="customer-card-heading flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
                   <UserCircle className="h-4.5 w-4.5 text-primary" />
                 </div>
@@ -7517,40 +7518,40 @@ export default function CustomersPage() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="customer-card-actions">
                 <CustomerProviderFinder key={editingCustomer.id} customer={editingCustomer} placement="header" />
                 {editingCustomer.phone && isRegistered && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                  <Button variant="ghost" size="icon" className="customer-card-action" aria-label={t.customers.details.phone} title={t.customers.details.phone} onClick={() => {
                     if (makeCall && editingCustomer.phone) {
                       const customerName = [editingCustomer.firstName, editingCustomer.lastName].filter(Boolean).join(" ");
                       callContext.setAutoRecord(false);
                       makeCall({ phoneNumber: editingCustomer.phone, customerId: editingCustomer.id, customerName: customerName || undefined });
                     }
-                  }} data-testid="button-call-from-drawer"><Phone className="h-4 w-4" /></Button>
+                  }} data-testid="button-call-from-drawer"><Phone /></Button>
                 )}
                 {editingCustomer.phone && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                  <Button variant="ghost" size="icon" className="customer-card-action" aria-label={t.customers.details.sendSms} title={t.customers.details.sendSms} onClick={() => {
                     const phones = [editingCustomer.phone];
                     if (editingCustomer.phone2) phones.push(editingCustomer.phone2);
                     setSelectedPhones(phones.filter(Boolean) as string[]);
                     setSmsDialogCustomer(editingCustomer);
                     setSmsDialogOpenedAt(Date.now());
-                  }} data-testid="button-sms-from-drawer"><MessageSquare className="h-4 w-4" /></Button>
+                  }} data-testid="button-sms-from-drawer"><MessageSquare /></Button>
                 )}
                 {editingCustomer.email && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                  <Button variant="ghost" size="icon" className="customer-card-action" aria-label={t.customers.details.sendEmail} title={t.customers.details.sendEmail} onClick={() => {
                     const emails = [editingCustomer.email];
                     if (editingCustomer.email2) emails.push(editingCustomer.email2);
                     setSelectedEmails(emails.filter(Boolean) as string[]);
                     setEmailDialogCustomer(editingCustomer);
                     setEmailDialogOpenedAt(Date.now());
-                  }} data-testid="button-email-from-drawer"><Mail className="h-4 w-4" /></Button>
+                  }} data-testid="button-email-from-drawer"><Mail /></Button>
                 )}
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewingCustomer(editingCustomer)} data-testid="button-view-customer-details" title={t.customers.detailsTitle}>
-                  <Eye className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="customer-card-action" onClick={() => setViewingCustomer(editingCustomer)} data-testid="button-view-customer-details" title={t.customers.detailsTitle} aria-label={t.customers.detailsTitle}>
+                  <Eye />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setEditingCustomer(null)} data-testid="button-close-customer-drawer">
-                  <X className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="customer-card-action" onClick={() => setEditingCustomer(null)} data-testid="button-close-customer-drawer" aria-label={t.common.close} title={t.common.close}>
+                  <X />
                 </Button>
               </div>
             </div>
@@ -7613,8 +7614,8 @@ export default function CustomersPage() {
             data-testid="customer-view-backdrop"
           />
           <div data-fluid-drawer-width="standard" className="fixed inset-y-0 right-0 z-[51] w-[720px] max-w-[95vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
-            <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
-              <div className="flex items-center gap-3">
+            <div className="customer-card-header shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+              <div className="customer-card-heading flex items-center gap-3">
                 <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Eye className="h-4.5 w-4.5 text-primary" />
                 </div>
@@ -7625,13 +7626,13 @@ export default function CustomersPage() {
                   <p className="text-xs text-muted-foreground">{t.customers.detailsTitle}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Button variant="outline" size="sm" onClick={() => { setViewingCustomer(null); setEditingCustomer(viewingCustomer); }} data-testid="button-edit-from-view">
-                  <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              <div className="customer-card-actions">
+                <Button variant="outline" size="sm" className="customer-card-action customer-card-action--labeled" aria-label={t.common.edit} onClick={() => { setViewingCustomer(null); setEditingCustomer(viewingCustomer); }} data-testid="button-edit-from-view">
+                  <Pencil />
                   {t.common.edit}
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewingCustomer(null)} data-testid="button-close-view-customer">
-                  <X className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="customer-card-action" onClick={() => setViewingCustomer(null)} data-testid="button-close-view-customer" aria-label={t.common.close} title={t.common.close}>
+                  <X />
                 </Button>
               </div>
             </div>
