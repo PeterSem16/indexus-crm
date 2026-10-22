@@ -444,6 +444,8 @@
 .pf-live-finder .atlas-header-context+.atlas-close{margin-left:0}
 .pf-live-finder .atlas-result-list{flex:1 1 auto;overscroll-behavior:contain}
 .pf-live-finder .atlas-edit-button{font-size:12px;font-weight:600}
+.pf-live-finder .atlas-address-edit:focus-within{border-color:var(--atlas-blue);box-shadow:none}
+.pf-live-finder .atlas-address-edit input:focus,.pf-live-finder .atlas-address-edit input:focus-visible{outline:none;box-shadow:none;border:0}
 .pf-live-finder .atlas-footer{flex-wrap:nowrap}
 .pf-live-finder .atlas-score-note{margin-bottom:10px}
 .pf-live-finder .atlas-ranking-footnote{margin-top:8px}

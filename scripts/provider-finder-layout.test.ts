@@ -155,6 +155,14 @@ try {
       const edit = async (address: string) => {
         if (!await finder.locator("#pf-address").isVisible()) await finder.locator(".atlas-edit-button").click();
         await finder.locator("#pf-address").fill(address);
+        const focusStyle = await finder.locator("#pf-address").evaluate(element => {
+          const input = getComputedStyle(element);
+          const field = getComputedStyle(element.parentElement!);
+          return { outline: input.outlineStyle, border: input.borderTopWidth, shadow: field.boxShadow, fieldBorder: field.borderTopWidth };
+        });
+        assert.deepEqual(focusStyle, { outline: "none", border: "0px", shadow: "none", fieldBorder: "1px" },
+          "focused address has only one thin wrapper border, never a second inner outline");
+        if (address === "Ambiguous fixture") await page.screenshot({ path: `${output}/finder-edit-focus.jpg` });
         await finder.locator("#pf-address").press("Enter");
       };
       const rerender = async (initialAddress: string) =>
