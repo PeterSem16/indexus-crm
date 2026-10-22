@@ -271,3 +271,34 @@
   .pf-finder .pf-map-toggle{display:none}
 }
 @media(prefers-reduced-motion:reduce){.pf-loading-line{animation:none}.pf-finder *{scroll-behavior:auto}}
+
+/* Compact customer-header launch control: a precise pin with a small route marker. */
+.pf-header-root{display:contents}
+.pf-header-launch{
+  position:relative;isolation:isolate;display:grid;place-items:center;flex:none;
+  width:38px;height:38px;min-width:38px;min-height:38px;padding:0;
+  overflow:visible;border:1px solid color-mix(in srgb,var(--pf-teal) 30%,var(--pf-line));
+  border-radius:12px;background:var(--pf-teal-soft);color:var(--pf-teal);
+  cursor:pointer;box-shadow:0 2px 5px #21483c12;
+  transition:transform .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.pf-header-launch:before{
+  position:absolute;z-index:-1;inset:-4px;border:1px solid color-mix(in srgb,var(--pf-teal) 26%,transparent);
+  border-radius:15px;content:"";opacity:0;transform:scale(.78);
+  transition:transform .2s ease,opacity .2s ease;
+}
+.pf-header-launch:after{
+  position:absolute;top:5px;right:6px;width:5px;height:5px;border-radius:50%;
+  background:var(--pf-red);box-shadow:0 0 0 2px var(--pf-teal-soft);content:"";
+}
+.pf-header-launch:hover{transform:translateY(-1px) rotate(-3deg);background:color-mix(in srgb,var(--pf-teal-soft) 72%,var(--pf-surface));border-color:var(--pf-teal);box-shadow:0 4px 10px #21483c1a}
+.pf-header-launch:hover:before{opacity:.72;transform:scale(1)}
+.pf-header-launch:active{transform:translateY(0) scale(.96)}
+.pf-header-launch:focus-visible{outline:3px solid color-mix(in srgb,var(--pf-teal) 74%,transparent);outline-offset:3px}
+.dark .pf-header-launch{border-color:color-mix(in srgb,var(--pf-teal) 48%,var(--pf-line));background:var(--pf-teal-soft);box-shadow:0 2px 7px #08171266}
+.dark .pf-header-launch:after{box-shadow:0 0 0 2px var(--pf-teal-soft)}
+.dark .pf-header-launch:focus-visible{outline-color:color-mix(in srgb,var(--pf-teal) 84%,white)}
+.pf-header-launch-art{position:relative;display:grid;place-items:center;width:25px;height:25px}
+.pf-header-pin{color:var(--pf-teal);fill:color-mix(in srgb,var(--pf-teal) 13%,transparent)}
+.pf-header-nav{position:absolute;right:-1px;bottom:1px;color:var(--pf-red);fill:var(--pf-surface)}
+@media(prefers-reduced-motion:reduce){.pf-header-launch,.pf-header-launch:before{transition:none}}

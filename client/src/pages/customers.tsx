@@ -54,7 +54,7 @@ import { AdvancedFilters, type CustomerFilters } from "@/components/advanced-fil
 import { DataTable } from "@/components/data-table";
 import { StatusBadge } from "@/components/status-badge";
 import { CustomerForm, type CustomerFormData } from "@/components/customer-form";
-import { CustomerProviderFinder } from "@/components/provider-finder/CustomerProviderFinder";
+import { CustomerProviderFinder, CustomerProviderFinderSummary } from "@/components/provider-finder/CustomerProviderFinder";
 import { CustomerFormWizard, type CustomerFormData as WizardCustomerFormData } from "@/components/customer-form-wizard";
 import { PotentialCaseForm, EmbeddedPotentialCaseForm } from "@/components/potential-case-form";
 import { CallCustomerButton } from "@/components/sip-phone";
@@ -3771,9 +3771,14 @@ export function CustomerDetailsContent({
 
   return (
     <div className={compact ? "space-y-2" : "mt-6 space-y-6"}>
-      <RecordTagsBadges entityType="customer" entityId={customer.id} tags={customer.tags} />
-      <CustomerOwnerBadge customerId={customer.id} />
-      <CustomerProviderFinder key={customer.id} customer={customer} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <RecordTagsBadges entityType="customer" entityId={customer.id} tags={customer.tags} />
+          <CustomerOwnerBadge customerId={customer.id} />
+        </div>
+        <CustomerProviderFinder key={customer.id} customer={customer} placement="header" />
+      </div>
+      <CustomerProviderFinderSummary customerId={customer.id} />
       {compact ? null : (
         <>
           <div className="flex items-center gap-4">
@@ -7513,6 +7518,7 @@ export default function CustomersPage() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <CustomerProviderFinder key={editingCustomer.id} customer={editingCustomer} placement="header" />
                 {editingCustomer.phone && isRegistered && (
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
                     if (makeCall && editingCustomer.phone) {

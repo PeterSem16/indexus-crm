@@ -36,7 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { getDocumentStatusLabel, getDocumentStatusVariant, getDocumentTypeLabel } from "@/lib/document-status";
 import { useI18n } from "@/i18n/I18nProvider";
-import { CustomerProviderFinder } from "@/components/provider-finder/CustomerProviderFinder";
+import { CustomerProviderFinderSummary } from "@/components/provider-finder/CustomerProviderFinder";
 import { EmbeddedPotentialCaseForm } from "./potential-case-form";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { PhoneNumberField } from "@/components/phone-number-field";
@@ -479,7 +479,7 @@ export function CustomerForm({ initialData, onSubmit, isLoading, onCancel, useCa
         }
       })} className="flex flex-col h-full">
         <div className="shrink-0 space-y-0">
-          {initialData?.id && <div className="px-4 py-2 border-b"><CustomerProviderFinder key={initialData.id} customer={initialData} /></div>}
+          {initialData?.id && <div className="px-4 border-b empty:hidden"><CustomerProviderFinderSummary customerId={initialData.id} /></div>}
           {regSource && (
             <div className={`flex items-center gap-2 px-4 py-2 ${regSource.bgColor} border-b ${regSource.borderColor}`}>
               <regSource.icon className={`h-4 w-4 ${regSource.color}`} />
