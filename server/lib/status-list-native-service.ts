@@ -35,11 +35,23 @@ export function createStatusListServiceWriteGuard(deps: {
     const user = (req as any).session?.user;
     if (!user) return res.status(401).json({ error: "unauthorized" });
     const [source] = (await deps.query(
-      `SELECT c.country_codes FROM campaigns c JOIN campaign_status_list_items i
-       ON i.campaign_id=c.id WHERE c.id=$1 AND i.id=$2`, [req.params.campaignId, req.params.itemId])).rows;
+      `SELECT c.country_codes,(
+        EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=c.id
+          AND (s.group_id=i.id OR s.group_id=i.parent_id)) OR
+        EXISTS(SELECT 1 FROM mission_status_list_sources s
+          JOIN campaign_status_list_questions q ON q.id=s.question_id AND q.item_id=i.id
+          WHERE s.campaign_id=c.id AND s.question_id=coalesce($3::varchar,
+            (SELECT a.question_id FROM campaign_status_list_automations a
+              WHERE a.id=$4 AND a.status_list_item_id=i.id)))
+      ) AS derived_service_target
+       FROM campaigns c JOIN campaign_status_list_items i
+       ON i.campaign_id=c.id WHERE c.id=$1 AND i.id=$2`,
+      [req.params.campaignId, req.params.itemId, req.params.questionId ?? null, req.params.autoId ?? null])).rows;
     if (!source) return res.status(404).json({ error: "Status List item not found" });
     if (!canManageNativeMission(user, source.country_codes)) return res.status(403).json({ error: "forbidden" });
     if (req.method === "DELETE") return next();
+    if (source.derived_service_target)
+      return res.status(409).json({ error: "background_service_action_not_supported" });
     const body = req.body;
     if (!body || typeof body !== "object" || Array.isArray(body)) return res.status(400).json({ error: "Invalid action" });
     let existing: any;

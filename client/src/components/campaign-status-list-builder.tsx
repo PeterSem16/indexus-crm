@@ -30,6 +30,8 @@ import { StatusListAgentPreview, readStatusListMode } from "./status-list-agent-
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
+import { getServiceTriggerCopy } from "@/components/status-list-service-trigger-copy";
+import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
   ClipboardList, Mail, MessageSquare, Tag, Webhook, Bell,
@@ -2362,6 +2364,20 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
   };
   const savedEditor = () => { setEditorDirty(false); setEditing(null); };
   const actions = questionId ? item.questions.find(question => question.id === questionId)?.automations || [] : item.automations;
+  const triggerCopy = getServiceTriggerCopy(locale);
+  const triggerQuery = useQuery<{ catalog: WorkflowCatalogItem[] }>({
+    queryKey: ["/api/campaigns", campaignId, "status-list-workflows"],
+    queryFn: async () => {
+      const response = await fetch(`/api/campaigns/${campaignId}/status-list-workflows`, { credentials: "include" });
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const triggerSource = triggerQuery.data?.catalog.find(entry => entry.id === (questionId || item.id) && entry.kind === (questionId ? "question" : "item"));
+  // Unknown is not permission to save a definition that may never be invoked.
+  const serviceBlocked = !triggerSource || !!triggerSource.backgroundSource || !triggerSource.writable || triggerQuery.isError;
   const remove = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${id}`),
     onSuccess: (_result, id) => {
@@ -2398,19 +2414,24 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h4 className="flex items-center gap-2 text-sm font-semibold"><Zap className="h-4 w-4 text-primary"/>{quickOption ? getQuickOptionCopy(locale).actions : actionCopy(locale, "title")}</h4>
-        <Button type="button" size="sm" variant="outline" disabled={editorPending} data-testid="service-action-add" onClick={() => openEditor("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
+        <Button type="button" size="sm" variant="outline" disabled={editorPending || serviceBlocked} data-testid="service-action-add" onClick={() => openEditor("new")}><Plus className="mr-1 h-4 w-4"/>{sl("addActionBtn", locale)}</Button>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">{quickOption ? sl("inspectorAutomationHelp", locale) : actionCopy(locale, "safety")}</p>
+      <p role={serviceBlocked ? "alert" : "status"} data-testid="service-action-trigger"
+        className={`rounded-lg border p-3 text-xs leading-relaxed ${serviceBlocked ? "border-amber-500/40 bg-amber-500/10" : "bg-muted/30 text-muted-foreground"}`}>
+        {triggerQuery.isLoading ? triggerCopy.loading : triggerQuery.isError || !triggerSource ? triggerCopy.error : serviceBlocked ? triggerCopy.blocked : triggerCopy.manual}
+      </p>
       {quickOption && <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={editorPending} data-testid="quick-option-add-status" onClick={() => openEditor("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
-        <Button type="button" variant="outline" size="sm" disabled={editorPending} data-testid="quick-option-add-callback" onClick={() => openEditor("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={editorPending || serviceBlocked} data-testid="quick-option-add-status" onClick={() => openEditor("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
+        <Button type="button" variant="outline" size="sm" disabled={editorPending || serviceBlocked} data-testid="quick-option-add-callback" onClick={() => openEditor("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
       </div>}
       {actions.map(action => <div key={action.id} className="flex items-center gap-3 rounded-xl border bg-card p-3" data-testid={`studio-original-action-${action.id}`}>
         <span className="rounded-lg bg-primary/5 p-2 text-primary">{getActionIcon(action.actionType)}</span>
         <div className="min-w-0 flex-1"><strong className="block text-sm">{getActionLabel(action.actionType, locale)}</strong>
+          {!!triggerSource?.backgroundSource && <p className="text-xs text-amber-700 dark:text-amber-300">{triggerCopy.inactive}</p>}
           {(action.conditionJson || action.conditionField) && <p className="mt-1 text-xs text-muted-foreground">{getConditionSummary(action.conditionJson, action.conditionField, action.conditionValue, locale)}</p>}
         </div>
-        <Button type="button" size="icon" variant="ghost" disabled={editorPending} title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => openEditor(action)}><PenLine className="h-4 w-4"/></Button>
+        <Button type="button" size="icon" variant="ghost" disabled={editorPending || serviceBlocked} title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => openEditor(action)}><PenLine className="h-4 w-4"/></Button>
         <Button type="button" size="icon" variant="ghost" title={sl("deleteStepBtn", locale)} aria-label={sl("deleteStepBtn", locale)} disabled={remove.isPending || editorPending} onClick={async () => {
           if (await confirm(`${getActionLabel(action.actionType, locale)} — ${getStatusListQuestionStudioCopy(locale).deleteConfirm}`, { destructive: true })) remove.mutate(action.id);
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>

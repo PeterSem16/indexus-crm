@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { getStatusListWorkflowCopy } from "./status-list-workflow-copy";
+import { getStatusListBackgroundCopy } from "./status-list-background-copy";
 import { StatusListBackgroundSourcePanel } from "./status-list-background-source-panel";
 import { StatusListWorkflowDialog } from "./status-list-workflow-dialog";
 import { workflowBackgroundTrigger } from "@/lib/status-workflow-catalog";
@@ -19,6 +20,7 @@ type CatalogResponse = { rules: SavedStatusListWorkflow[]; catalog: WorkflowCata
 
 export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSources = true, sourceIds }: { campaignId: string; locale: Locale | string; showBackgroundSources?: boolean; sourceIds?: string[] }) {
   const copy = getStatusListWorkflowCopy(locale);
+  const backgroundCopy = getStatusListBackgroundCopy(locale);
   const confirm = useStatusListConfirm(locale);
   const { toast } = useToast();
   const queryKey = ["/api/campaigns", campaignId, "status-list-workflows"];
@@ -108,7 +110,7 @@ export function StatusListWorkflowEditor({ campaignId, locale, showBackgroundSou
     {rules.length > 0 && <div className="mt-4 space-y-2">{rules.map(rule => {
       const source = catalog.find(item => workflowRefKey(item) === workflowRefKey(rule.source));
       return <div key={rule.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-background/70 px-3 py-2.5">
-        <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm font-semibold">{rule.name}</strong>{!rule.enabled && <Badge variant="secondary">{copy.disabled}</Badge>}</div><p className="mt-0.5 truncate text-xs text-muted-foreground">{source?.label || rule.source.id} · {rule.conditions.length} {copy.conditions} · {rule.thenActions.length} {copy.then}</p></div>
+         <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><strong className="text-sm font-semibold">{rule.name}</strong><Badge variant="outline">{rule.trigger === "background_transition" ? backgroundCopy.backgroundMode : backgroundCopy.manualMode}</Badge>{!rule.enabled && <Badge variant="secondary">{copy.disabled}</Badge>}</div><p className="mt-0.5 truncate text-xs text-muted-foreground">{source?.label || rule.source.id} · {rule.conditions.length} {copy.conditions} · {rule.thenActions.length} {copy.then}</p></div>
         <Switch aria-label={copy.enabled} checked={rule.enabled} disabled={saveMutation.isPending} onCheckedChange={enabled => {
           const { id, campaignId: _campaignId, ...payload } = rule;
           saveMutation.mutate({ id, data: { ...payload, enabled } });

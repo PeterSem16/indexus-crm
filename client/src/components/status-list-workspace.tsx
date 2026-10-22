@@ -8,6 +8,7 @@ import { StatusListOptionSourcePanel, isOptionGroup } from "./status-list-option
 import { StatusListBackgroundSourcePanel } from "./status-list-background-source-panel";
 import { StatusListWorkflowEditor } from "./status-list-workflow-editor";
 import { StatusListWorkflowDiagnostics } from "@/components/status-list-workflow-diagnostics";
+import { StatusListBackgroundDiagnostics } from "./status-list-background-diagnostics";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
 import { StatusListViewport } from "./status-list-viewport";
 import { StatusListPhaseOrganizer, getPhaseOrganizerCopy } from "./status-list-phase-organizer";
@@ -245,11 +246,12 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
                 {sourceQuery.isLoading ? <div className="h-20 animate-pulse rounded bg-muted"/> : sourceQuery.isError ? <Button variant="outline" onClick={() => void sourceQuery.refetch()}>{copy.error}</Button> :
                   eligibleGroup && !selectedQuestion ? <StatusListOptionSourcePanel key={sourceGroup!.id} campaignId={campaignId} locale={locale} targetGroupId={sourceGroup!.id} onDirtyChange={onDirtyChange}/> :
                   !hasQuestions && <p className="slw-notice">{copy.unsupported}</p>}
+                {source && !selectedQuestion && <StatusListBackgroundDiagnostics campaignId={campaignId} locale={locale} groupId={source.groupId}/>}
                 {hasQuestions && <StatusListBackgroundSourcePanel key={`${selected.id}:${selectedQuestion?.id || ""}`} campaignId={campaignId} locale={locale} targetItemId={selected.id} targetQuestionId={selectedQuestion?.id} hideOptionSources onDirtyChange={onDirtyChange}/>}
                 </>,
                 workflows: <>
                 <p className="slw-notice">{copy.chaining}</p>
-                <StatusListWorkflowEditor campaignId={campaignId} locale={locale} sourceIds={contextIds} showBackgroundSources={false}/>
+                <StatusListWorkflowEditor campaignId={campaignId} locale={locale} sourceIds={contextIds} showBackgroundSources/>
                 <p className="slw-message">{copy.transition}</p>
                 <p className="slw-message">{copy.originalHint}</p>
                 </>,
@@ -262,7 +264,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     </>}
     {tab === "rules" && <div className="slw-page">
       <p className="slw-notice">{copy.transition}</p>
-      <StatusListWorkflowEditor campaignId={campaignId} locale={locale} showBackgroundSources={false}/>
+      <StatusListWorkflowEditor campaignId={campaignId} locale={locale} showBackgroundSources/>
       <section className="slw-original"><h3>{copy.original} · {originalActions.length}</h3>
         {originalActions.map(action => {
           const label = statusListActionLabel(action.actionType, locale);
@@ -276,7 +278,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
         <StatusListServiceHistory campaignId={campaignId} locale={locale}/>
       </section>
     </div>}
-    {tab === "tests" && <div className="slw-page"><p className="slw-history-scope">{copy.historyScope}</p><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
+    {tab === "tests" && <div className="slw-page"><p className="slw-history-scope">{copy.historyScope}</p><StatusListBackgroundDiagnostics campaignId={campaignId} locale={locale}/><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
     </div>
   </section></StatusListViewport>;
 }

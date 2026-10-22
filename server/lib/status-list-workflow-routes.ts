@@ -8,6 +8,7 @@ import { saveWorkflowQuestion, saveWorkflowQuestions, StatusListWorkflowError, v
 import { checkStatusListExecution } from "../../shared/status-list-execution-policy";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
+import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
@@ -71,6 +72,20 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/background-diagnostics`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout='10s'");
+      const result = await readBackgroundDiagnostics(client, req.params.campaignId);
+      await client.query("COMMIT");
+      res.json(result);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally { client.release(); }
+  }));
   app.get(`${root}/condition-options`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     res.json(await readWorkflowConditionOptions(pool, req.params.campaignId, req.query));
