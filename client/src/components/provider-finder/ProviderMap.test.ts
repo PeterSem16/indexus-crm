@@ -61,7 +61,7 @@ function setup(failure: "origin" | "result" | "bounds" | "viewport" | "dispose" 
     },
   });
   module.exports.ProviderMap({
-    prefix: "/fixture", point: { lat: 48.19, lng: 17.04 },
+    prefix: "/fixture", locale: "en", point: { lat: 48.19, lng: 17.04 },
     results: [
       { id: "one", type: "clinic", name: "First", lat: 48.2, lng: 17.05 },
       { id: "two", type: "hospital", name: "Second", lat: 48.21, lng: 17.06 },

@@ -22,13 +22,14 @@ function mapErrorMessage(error: unknown, c: ProviderFinderCopy) {
   return c.mapUnavailable;
 }
 
-export function ProviderMap({ prefix, point, results, selected, onSelect, c, showRecommendations = true }: {
+export function ProviderMap({ prefix, point, results, selected, onSelect, c, locale, showRecommendations = true }: {
   prefix: string;
   point: FinderPoint;
   results: FinderResult[];
   selected?: string;
   onSelect: (id: string) => void;
   c: ProviderFinderCopy;
+  locale: string;
   showRecommendations?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -61,7 +62,7 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c, sho
     void (async () => {
       const config = await finderApi<{ browserKey: string }>(`${prefix}/map-config`);
       if (!config.browserKey) throw new Error("maps_not_configured");
-      const google = await loadGoogleMaps(config.browserKey);
+      const google = await loadGoogleMaps(config.browserKey, locale);
       const [mapsLibrary, markerLibrary, coreLibrary] = await importGoogleMapsLibraries(google);
       if (cancelled || authFailed || !container.current) return;
       map = new mapsLibrary.Map(container.current, {
@@ -98,7 +99,7 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c, sho
       if (map) window.google?.maps?.event?.clearInstanceListeners?.(map);
       map = null;
     };
-  }, [prefix, c.mapsAuthorization, c.mapsMissing, c.mapsQuota, c.mapUnavailable]);
+  }, [prefix, locale, c.mapsAuthorization, c.mapsMissing, c.mapsQuota, c.mapUnavailable]);
 
   useEffect(() => {
     if (!libraries) return;
@@ -170,8 +171,8 @@ export function ProviderMap({ prefix, point, results, selected, onSelect, c, sho
   }, [selected, libraries, results]);
 
   return <div className="pf-map-host" aria-label={c.map} data-testid="provider-results-map">
-    <div className="pf-map-canvas" ref={container} />
-    {(loading || error) && <div className={`pf-message ${error ? "pf-error" : ""}`} role={error ? "alert" : "status"}>
+    <div className="pf-map-canvas" ref={container} style={error ? { visibility: "hidden" } : undefined} aria-hidden={!!error} />
+    {(loading || error) && <div className={`pf-message ${error ? "pf-error absolute inset-0 z-10 grid content-center text-center" : ""}`} role={error ? "alert" : "status"}>
       {error || c.loading}
     </div>}
   </div>;

@@ -94,7 +94,7 @@ export function ProviderFinder(props: ProviderFinderProps) {
               {f.point && <span className="atlas-map-key"><i />{c.origin}</span>}</div>
             <div className="atlas-map-wrap">
               {f.point && (desktop || mobilePane === "map") ? <ProviderMap prefix={prefix} point={f.point} results={f.results}
-                selected={f.selected} onSelect={pick} c={c} showRecommendations={!publicView} />
+                selected={f.selected} onSelect={pick} c={c} locale={locale} showRecommendations={!publicView} />
                 : <div className="atlas-map-placeholder" role="status">{f.busy ? <><Loader2 size={24} className="animate-spin" /><span>{c.loading}</span></> : <><MapPin size={26} /><span>{f.error || c.addressRequired}</span>
                   <button type="button" className="atlas-quiet-button" onClick={f.openEditor}>{c.editSearch}</button></>}</div>}
               {f.point && !publicView && <div className="atlas-map-legend"><span><b className="atlas-legend-dot atlas-dot-recommended" />{c.recommended}</span>

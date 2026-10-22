@@ -9,6 +9,8 @@ const output = "generated-artifacts/provider-finder-redesign";
 const prefix = "/api/provider-finder-layout-test";
 const liveMap = process.argv.includes("--live-map");
 const markerFailure = process.argv.includes("--marker-failure");
+const authFailure = process.argv.includes("--auth-failure");
+const fixtureLocale = process.argv.includes("--english") ? "en" : "sk";
 const fixtures = Array.from({ length: 7 }, (_, index) => ({
   id: `layout-${index}`, type: index === 5 ? "hospital" : "clinic",
   name: ["Ambulancia Harmónia", "Gynekologické centrum Dúbravka", "Ambulancia Pod lesom",
@@ -41,17 +43,26 @@ try {
     const { publicView, ...viewport } = size;
     const context = await browser.newContext({
       viewport, geolocation: { latitude: 48.19, longitude: 17.04 }, permissions: ["geolocation"],
+      locale: "sk-SK",
     });
-    if (markerFailure) await context.addInitScript(`(() => {
+    if (markerFailure || authFailure) await context.addInitScript(`(() => {
       class FailedMarker extends HTMLElement {
         constructor() {
           super();
-          throw new TypeError("Cannot read properties of undefined (reading 'keys')");
+          if (${markerFailure}) throw new TypeError("Cannot read properties of undefined (reading 'keys')");
         }
       }
       customElements.define("gmp-advanced-marker", FailedMarker);
       const libraries = {
-        maps: { Map: class { fitBounds() {} setCenter() {} } },
+        maps: { Map: class {
+          constructor(host) {
+            if (${authFailure}) {
+              host.textContent = "Ojoi! Niečo sa pokazilo.";
+              setTimeout(() => window.gm_authFailure?.(), 50);
+            }
+          }
+          fitBounds() {} setCenter() {}
+        } },
         marker: { AdvancedMarkerElement: FailedMarker },
         core: { LatLngBounds: class { extend() {} } },
       };
@@ -62,13 +73,19 @@ try {
     const page = await context.newPage();
     await page.emulateMedia({ reducedMotion: "reduce" });
     const errors: string[] = [];
+    const mapLanguages: string[] = [];
     const geocodes: string[] = [], searches: any[] = [];
     let releaseGeocode: (() => void) | undefined, releaseSearch: (() => void) | undefined;
     page.on("pageerror", error => errors.push(error.message));
+    page.on("request", request => {
+      const url = new URL(request.url());
+      if (url.hostname === "maps.googleapis.com" && url.pathname === "/maps/api/js")
+        mapLanguages.push(url.searchParams.get("language") || "");
+    });
     await page.route(`**${prefix}/**`, async route => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/map-config")) {
-        if (markerFailure)
+        if (markerFailure || authFailure)
           return route.fulfill({ json: { browserKey: "synthetic-marker-failure-test-only" } });
         if (liveMap && process.env.GOOGLE_MAPS_BROWSER_API_KEY)
           return route.fulfill({ json: { browserKey: process.env.GOOGLE_MAPS_BROWSER_API_KEY } });
@@ -104,7 +121,7 @@ try {
       context: { billingCompanyId: "country", country: "SK", companyName: "INDEXUS", mapsReady: true,
         policy: { ...DEFAULT_FINDER_POLICY, enabled: true, quality: { ...DEFAULT_FINDER_POLICY.quality, enabled: true } } },
       prefix, publicView, initialAddress: "Testovacia 1, Bratislava",
-      customerName: publicView ? undefined : "Testovacia klientka", locale: "sk",
+      customerName: publicView ? undefined : "Testovacia klientka", locale: fixtureLocale,
     };
     await page.evaluate(`(async () => {
       const mainSource=await (await fetch('/src/main.tsx')).text();
@@ -135,10 +152,16 @@ try {
     if (viewport.width < 761) await finder.locator(".atlas-mobile-nav button").nth(1).click();
     await finder.locator(".atlas-result-card").first().waitFor();
     assert.equal(await finder.locator(".atlas-result-card").count(), 7, "automatic search needs no first click");
-    if (markerFailure && viewport.width >= 761) {
+    if ((markerFailure || authFailure) && viewport.width >= 761) {
       await finder.getByTestId("provider-results-map").getByRole("alert").waitFor();
       assert.equal(await finder.locator(".atlas-result-card").count(), 7,
         "the exact SDK keys error stays inside the map and preserves the usable finder");
+      assert.equal(await finder.locator(".pf-map-canvas").isVisible(), false,
+        "the rejected SDK canvas must not show its browser-localized error screen");
+      assert.doesNotMatch(await finder.innerText(), /Ojoi! Niečo sa pokazilo/);
+      if (authFailure && fixtureLocale === "en")
+        assert.match(await finder.getByTestId("provider-results-map").getByRole("alert").innerText(),
+          /could not authorize/, "English app copy stays English despite a Slovak browser");
     }
     assert.equal(await finder.locator(".is-recommended").count(), publicView ? 0 : 2,
       "recommendation highlighting follows real tiers and is never exposed publicly");
@@ -165,6 +188,7 @@ try {
       await marker.click();
       assert.equal(await finder.locator(".atlas-result-card").nth(1).locator(".atlas-card-main").getAttribute("aria-pressed"), "true",
         "live Google marker selects the matching candidate");
+      assert.deepEqual(mapLanguages, [fixtureLocale], "SDK language follows the app, not the browser or country");
       await first.locator(".atlas-card-main").click();
     }
     await finder.locator(".atlas-confirm").click();

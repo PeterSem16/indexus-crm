@@ -16,10 +16,12 @@ declare global {
 }
 
 let loader: LoaderState | undefined;
+let authorizationFailed = false;
 const authFailureListeners = new Set<() => void>();
 let previousAuthFailure: (() => void) | undefined;
 
 function dispatchAuthFailure() {
+  authorizationFailed = true;
   for (const listener of [...authFailureListeners]) listener();
 }
 
@@ -48,7 +50,8 @@ export function onGoogleMapsAuthorizationFailure(listener: () => void) {
   return subscribeAuthFailure(listener);
 }
 
-export function loadGoogleMaps(browserKey: string): Promise<GoogleMapsApi> {
+export function loadGoogleMaps(browserKey: string, locale = "en"): Promise<GoogleMapsApi> {
+  if (authorizationFailed) return Promise.reject(new Error("maps_auth"));
   const existingMaps = window.google?.maps;
   if (existingMaps?.importLibrary) return Promise.resolve(existingMaps);
   if (loader) return loader.promise;
@@ -108,6 +111,7 @@ export function loadGoogleMaps(browserKey: string): Promise<GoogleMapsApi> {
   window.__indexusProviderMapsReady = readyCallback;
   script.src = `https://maps.googleapis.com/maps/api/js?${new URLSearchParams({
     key: browserKey,
+    language: normalizeMapsLanguage(locale),
     v: "weekly",
     loading: "async",
     callback: "__indexusProviderMapsReady",
@@ -119,7 +123,13 @@ export function loadGoogleMaps(browserKey: string): Promise<GoogleMapsApi> {
   return promise;
 }
 
+export function normalizeMapsLanguage(locale: string) {
+  const language = locale.toLowerCase().split(/[-_]/)[0];
+  return ["en", "sk", "cs", "hu", "ro", "it", "de"].includes(language) ? language : "en";
+}
+
 export async function importGoogleMapsLibraries(google: GoogleMapsApi) {
+  if (authorizationFailed) throw new Error("maps_auth");
   let timeout = 0;
   let unsubscribeAuth = () => {};
   const authFailure = new Promise<never>((_, reject) => {

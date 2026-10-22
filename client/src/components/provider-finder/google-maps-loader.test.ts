@@ -31,6 +31,7 @@ test("shared Google loader uses callback/async loading, resolves only when ready
   assert.equal(s.scripts.length, 1);
   const url = new URL(s.scripts[0].src);
   assert.equal(url.searchParams.get("loading"), "async");
+  assert.equal(url.searchParams.get("language"), "en");
   assert.ok(url.searchParams.get("callback"));
   assert.equal(s.scripts[0].onload, undefined, "script load alone is not Google API readiness");
   s.window.google = { maps: { importLibrary: async () => ({}) } };
@@ -112,4 +113,31 @@ test("library readiness waits for advanced-marker registration and bounds that w
   await rejected;
   assert.equal(stalled.timers.size, 0);
   assert.equal(stalled.window.gm_authFailure, stalled.previous);
+});
+test("Maps SDK language follows the application language, including regional locale tags", async () => {
+  for (const [locale, expected] of [
+    ["en", "en"], ["sk-SK", "sk"], ["cs-CZ", "cs"], ["hu", "hu"],
+    ["ro-RO", "ro"], ["it_IT", "it"], ["de-DE", "de"], ["unsupported", "en"],
+  ]) {
+    const s = sandbox();
+    const pending = s.api.loadGoogleMaps("synthetic-browser-test-only", locale);
+    const url = new URL(s.scripts[0].src);
+    assert.equal(url.searchParams.get("language"), expected);
+    s.window.google = { maps: { importLibrary: async () => ({}) } };
+    s.window[url.searchParams.get("callback")!]();
+    await pending;
+  }
+});
+test("late Google authorization failure is retained across subsequent dialogs", async () => {
+  const s = sandbox();
+  const unsubscribe = s.api.onGoogleMapsAuthorizationFailure(() => {});
+  const pending = s.api.loadGoogleMaps("synthetic-browser-test-only", "en");
+  s.window.google = { maps: { importLibrary: async () => ({}) } };
+  s.window.__indexusProviderMapsReady();
+  await pending;
+  s.window.gm_authFailure();
+  unsubscribe();
+  await assert.rejects(s.api.loadGoogleMaps("synthetic-browser-test-only", "en"), { message: "maps_auth" });
+  await assert.rejects(s.api.importGoogleMapsLibraries(s.window.google.maps), { message: "maps_auth" });
+  assert.equal(s.scripts.length, 1, "do not re-initialize the rejected global SDK for the next customer");
 });
