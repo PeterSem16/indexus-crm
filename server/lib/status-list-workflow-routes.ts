@@ -9,6 +9,8 @@ import { checkStatusListExecution } from "../../shared/status-list-execution-pol
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
 import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
+import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from "./status-list-automatic";
+import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
 import { configureBackgroundSource } from "./status-list-background";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
@@ -72,6 +74,82 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.get(`${root}/automatic-items/:itemId`, requireAuth, route(async (req, res) => {
+    await authorize(req,true);
+    const result=await automaticOverview(pool,req.params.campaignId,req.params.itemId);
+    if (!result) throw new StatusListWorkflowError("item_not_found",404);
+    res.json(result);
+  }));
+  app.put(`${root}/automatic-items/:itemId`, requireAuth, route(async (req, res) => {
+    await authorize(req,true);
+    try { await saveAutomaticConfig(req.params.campaignId,req.params.itemId,req.body); }
+    catch (error) {
+      if (error instanceof z.ZodError) throw error;
+      const code=error instanceof Error ? error.message : "invalid_config";
+      if (["config_changed","agent_cannot_confirm","no_actions","unsupported_action","use_system_source_rules"].includes(code))
+        throw new StatusListWorkflowError(code,409);
+      if (code==="item_not_found") throw new StatusListWorkflowError(code,404);
+      throw error;
+    }
+    res.json(await automaticOverview(pool,req.params.campaignId,req.params.itemId));
+  }));
+  app.get(`${root}/automatic-contacts`,requireAuth,route(async(req,res)=>{
+    await authorize(req,true);
+    const { search }=z.object({search:z.string().trim().max(120).default("")}).parse(req.query);
+    // An admin chooses an exact Mission membership, not an address match across Missions.
+    const rows=(await pool.query(`SELECT cc.id,
+      coalesce(CASE cc.contact_type WHEN 'clinic' THEN cl.name WHEN 'hospital' THEN h.name
+        WHEN 'collaborator' THEN concat_ws(' ',co.first_name,co.last_name)
+        ELSE concat_ws(' ',cu.first_name,cu.last_name) END,'—') AS label
+      FROM campaign_contacts cc
+      LEFT JOIN clinics cl ON cl.id=cc.clinic_id LEFT JOIN hospitals h ON h.id=cc.hospital_id
+      LEFT JOIN collaborators co ON co.id=cc.collaborator_id LEFT JOIN customers cu ON cu.id=cc.customer_id
+      WHERE cc.campaign_id=$1 AND ($2='' OR coalesce(CASE cc.contact_type
+        WHEN 'clinic' THEN cl.name WHEN 'hospital' THEN h.name
+        WHEN 'collaborator' THEN concat_ws(' ',co.first_name,co.last_name)
+        ELSE concat_ws(' ',cu.first_name,cu.last_name) END,'') ILIKE '%'||$2||'%')
+      ORDER BY label,cc.id LIMIT 30`,[req.params.campaignId,search])).rows;
+    res.json({contacts:rows});
+  }));
+  app.post(`${contactRoot}/automatic-preview`,requireAuth,route(async(req,res)=>{
+    await authorize(req,true,req.params.campaignContactId);
+    const {itemId}=z.object({itemId:z.string().uuid()}).strict().parse(req.body);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout='10s'");
+      const result=await inspectAutomaticContact(client,req.params.campaignId,req.params.campaignContactId,itemId);
+      await client.query("COMMIT");
+      res.json(result);
+    } catch(error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+  }));
+  app.post(`${contactRoot}/automatic-open`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    const {executionMode,commit}=z.object({executionMode:z.enum(["immediate","batch"]),commit:z.boolean().optional()}).strict().parse(req.body);
+    const campaignId=req.params.campaignId,contactId=req.params.campaignContactId;
+    const settings=(await pool.query("SELECT settings FROM campaigns WHERE id=$1",[campaignId])).rows[0]?.settings;
+    const mode=statusListExecutionMode(settings);
+    if (mode!==executionMode || (mode==="immediate" && commit))
+      throw new StatusListWorkflowError("execution_mode_mismatch",409);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`${campaignId}:${contactId}:automatic-open`]);
+      const ids=(await client.query(`SELECT item_id FROM mission_status_list_automatic_configs
+        WHERE campaign_id=$1 AND trigger='card_open' AND enabled=true ORDER BY item_id`,[campaignId])).rows;
+      const results=[];
+      for(const row of ids)results.push(await inspectAutomaticContact(client,campaignId,contactId,row.item_id,
+        {enqueue:mode==="immediate" || commit===true,trigger:"card_open",actorId:actor.id,batchCommit:commit===true}));
+      if(mode==="batch" && commit===true) await client.query(`UPDATE mission_status_list_automatic_events
+        SET state='pending' WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,
+      [campaignId,contactId]);
+      const deferred=(await client.query(`SELECT count(*)::integer AS count FROM mission_status_list_automatic_events
+        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,[campaignId,contactId])).rows[0].count;
+      const pendingCount=deferred+results.reduce((n,result)=>n+result.actions.filter(action=>action.status==="batch_deferred").length,0);
+      await client.query("COMMIT");res.json({results,pendingCount});
+    }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  }));
   app.get(`${root}/background-diagnostics`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const client = await pool.connect();

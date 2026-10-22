@@ -33169,6 +33169,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             .where(inArray(campaignStatusListQuestions.itemId, itemIds))
             .orderBy(campaignStatusListQuestions.sortOrder)
         : [];
+      const automaticConfigs = (await pool.query(`SELECT item_id,trigger,enabled FROM mission_status_list_automatic_configs
+        WHERE campaign_id=$1 AND enabled=true`,[campaignId])).rows;
       const itemsWithData = items.map(item => {
         const itemQuestions = questions.filter(q => q.itemId === item.id);
         const itemAutomations = automations.filter(a => a.statusListItemId === item.id && !a.questionId);
@@ -33186,6 +33188,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       res.json(itemsWithData.map(item => {
         const meta = ownership.find(row => row.kind === "item" && row.id === item.id);
         return { ...item, backgroundSource: meta?.backgroundSource,
+          automaticTrigger: automaticConfigs.find(row=>row.item_id===item.id)?.trigger || null,
           sourceManaged: meta?.writable === false && (meta.backgroundSource !== undefined ||
             ownership.some(child => child.parentId === item.id && !!child.backgroundSource)),
           isHidden: meta?.hidden ?? item.isHidden };

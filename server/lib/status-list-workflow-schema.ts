@@ -1,4 +1,41 @@
 export const STATUS_LIST_WORKFLOW_SCHEMA = `
+CREATE TABLE IF NOT EXISTS mission_status_list_automatic_configs (
+ item_id varchar PRIMARY KEY REFERENCES campaign_status_list_items(id) ON DELETE CASCADE,
+ campaign_id varchar NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+ trigger text NOT NULL CHECK(trigger IN ('agent_confirmation','card_open','background_change')),
+ enabled boolean NOT NULL DEFAULT false,
+ revision varchar NOT NULL DEFAULT gen_random_uuid()::text,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mission_status_list_automatic_configs_campaign ON mission_status_list_automatic_configs(campaign_id,trigger,enabled);
+CREATE TABLE IF NOT EXISTS mission_status_list_automatic_states (
+ campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
+ automation_id varchar NOT NULL REFERENCES campaign_status_list_automations(id) ON DELETE CASCADE,
+ matched boolean NOT NULL,
+ generation integer NOT NULL DEFAULT 0,
+ definition_fingerprint text NOT NULL,
+ evaluated_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(campaign_contact_id,automation_id)
+);
+CREATE TABLE IF NOT EXISTS mission_status_list_automatic_events (
+ id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
+ campaign_id varchar NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+ campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,
+ automation_id varchar NOT NULL REFERENCES campaign_status_list_automations(id) ON DELETE CASCADE,
+ item_id varchar NOT NULL REFERENCES campaign_status_list_items(id) ON DELETE CASCADE,
+ trigger_key text NOT NULL,
+ action_snapshot jsonb NOT NULL,
+ event_context jsonb NOT NULL DEFAULT '{}'::jsonb,
+ config_revision varchar NOT NULL,
+ actor_id varchar NOT NULL,
+ state text NOT NULL DEFAULT 'pending' CHECK(state IN ('awaiting_batch','pending','running','succeeded','failed','superseded','indeterminate')),
+ result jsonb,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ started_at timestamptz,
+ finished_at timestamptz,
+ UNIQUE(campaign_contact_id,automation_id,trigger_key)
+);
+CREATE INDEX IF NOT EXISTS mission_status_list_automatic_events_pending ON mission_status_list_automatic_events(created_at) WHERE state='pending';
 CREATE TABLE IF NOT EXISTS mission_status_list_rules (
  id varchar PRIMARY KEY DEFAULT gen_random_uuid()::text,
  campaign_id varchar NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,

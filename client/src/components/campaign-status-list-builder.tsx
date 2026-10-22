@@ -31,6 +31,7 @@ import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
 import { actionCopy } from "@/components/status-list-service-action-copy";
 import { getServiceTriggerCopy } from "@/components/status-list-service-trigger-copy";
+import { StatusListAutomaticTriggerInspector } from "@/components/status-list-automatic-trigger-inspector";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import {
   Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Zap,
@@ -2377,7 +2378,7 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
   });
   const triggerSource = triggerQuery.data?.catalog.find(entry => entry.id === (questionId || item.id) && entry.kind === (questionId ? "question" : "item"));
   // Unknown is not permission to save a definition that may never be invoked.
-  const serviceBlocked = !triggerSource || !!triggerSource.backgroundSource || !triggerSource.writable || triggerQuery.isError;
+  const serviceBlocked = !triggerSource || triggerQuery.isError;
   const remove = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/campaigns/${campaignId}/status-list/${item.id}/automations/${id}`),
     onSuccess: (_result, id) => {
@@ -2437,6 +2438,7 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
       </div>)}
     </section>
+    <StatusListAutomaticTriggerInspector campaignId={campaignId} itemId={item.id} locale={locale} disabled={editorDirty || editorPending}/>
     {quickOption && editor && <section className="rounded-lg border p-3" data-testid="quick-option-action-editor">{editor}</section>}
     <section className="border-t pt-5">{quickOption ? <details><summary className="cursor-pointer text-xs font-medium">{getStatusListWorkspaceCopy(locale).rules}</summary>{workflows}</details> : workflows}</section>
     {!quickOption && <Dialog open={editing !== null} onOpenChange={open => { if (!open) closeEditor(); }}>

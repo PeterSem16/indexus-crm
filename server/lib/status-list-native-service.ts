@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { statusListNativeActionIssues, statusListNativeActionType } from "../../shared/status-list-service-config";
 import { STATUS_LIST_RECORD_DB_KEYS, statusListRecordValues } from "../../shared/status-list-template-context";
+import { automaticCondition } from "../../shared/status-list-automatic";
 
 type Query = (sql: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
 type Input = {
   campaignId: string; campaignContactId: string; itemId: string; userId: string;
   confirmationId?: string; requestId?: string;
+  automaticEvent?: {id:string;occurredAt:Date|string;questionRevision?:string|null};
 };
 type Dependencies = {
   query: Query;
@@ -50,8 +52,6 @@ export function createStatusListServiceWriteGuard(deps: {
     if (!source) return res.status(404).json({ error: "Status List item not found" });
     if (!canManageNativeMission(user, source.country_codes)) return res.status(403).json({ error: "forbidden" });
     if (req.method === "DELETE") return next();
-    if (source.derived_service_target)
-      return res.status(409).json({ error: "background_service_action_not_supported" });
     const body = req.body;
     if (!body || typeof body !== "object" || Array.isArray(body)) return res.status(400).json({ error: "Invalid action" });
     let existing: any;
@@ -64,6 +64,8 @@ export function createStatusListServiceWriteGuard(deps: {
     const config = Object.prototype.hasOwnProperty.call(body, "serviceActionConfig")
       ? body.serviceActionConfig : existing?.service_action_config;
     const type = body.actionType ?? existing?.action_type;
+    if(source.derived_service_target && (!config || !statusListNativeActionType(type)))
+      return res.status(409).json({error:"background_service_action_not_supported"});
     const issues = statusListNativeActionIssues(type, config);
     if (issues.length) return res.status(400).json({ error: "Invalid service action", issues });
     if (type === "update_record") {
@@ -116,6 +118,11 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   const [source] = (await deps.query(`
     SELECT c.name AS campaign_name,c.country_codes AS mission_countries,c.settings AS mission_settings,
       cc.contact_type,a.question_id,qa.value AS question_value,qa.revision AS answer_revision,
+      (SELECT ac.trigger FROM mission_status_list_automatic_configs ac
+        WHERE ac.item_id=i.id AND ac.enabled) AS automatic_trigger,
+      (EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=c.id
+         AND (s.group_id=i.id OR s.group_id=i.parent_id)) OR
+       EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=c.id AND s.question_id=a.question_id)) AS derived_source,
       (SELECT jsonb_object_agg(f.key,f.value) FROM jsonb_each(
         CASE coalesce(cc.contact_type,'customer') WHEN 'clinic' THEN to_jsonb(cl) WHEN 'hospital' THEN to_jsonb(h)
           WHEN 'customer' THEN to_jsonb(cu) ELSE '{}'::jsonb END) f
@@ -147,6 +154,10 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     WHERE cc.id=$1 AND c.id=$2`,
    [input.campaignContactId, input.campaignId, input.itemId, automation.id, STATUS_LIST_RECORD_DB_KEYS])).rows;
   if (!source?.entity_id) return { ok: false, error: "service_source_not_found" };
+  if (!input.automaticEvent && source.automatic_trigger && source.automatic_trigger!=="agent_confirmation")
+    return {ok:true,skipped:true,status:"different_trigger"};
+  if (source.derived_source && !input.automaticEvent)
+    return {ok:false,error:"service_requires_background_transition"};
   if (type === "update_entity" && automation.serviceActionConfig.target.mode === "event" &&
       automation.serviceActionConfig.target.entityType !== (source.contact_type || "customer"))
     return { ok: false, error: "service_record_target_mismatch" };
@@ -161,12 +172,21 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   const country = source.country?.toUpperCase() || (codes(source.mission_countries).length === 1 ? codes(source.mission_countries)[0] : null);
   if (!country || (codes(source.mission_countries).length > 0 && !codes(source.mission_countries).includes(country)))
     return { ok: false, error: "service_country_unresolved" };
-  if (source.question_id && source.question_value == null)
+  if (source.question_id && source.question_value == null && !input.automaticEvent)
     return { ok: false, error: "service_answer_missing" };
   if (source.question_id && input.confirmationId?.startsWith("answer:") &&
       input.confirmationId !== `answer:${source.answer_revision}`)
     return { ok: true, skipped: true, status: "answer_superseded" };
-  if (automation.conditionField === "answer") {
+  if (input.automaticEvent) {
+    if (source.question_id && Object.prototype.hasOwnProperty.call(input.automaticEvent,"questionRevision") &&
+        (source.answer_revision ?? null)!==(input.automaticEvent.questionRevision ?? null))
+      return {ok:true,skipped:true,status:"answer_superseded"};
+    const facts=JSON.stringify([automation.conditionField,automation.conditionJson]).includes("history.")
+      ? await (await import("./status-list-history")).loadStatusListHistoryFacts(
+          {query:deps.query} as any,input.campaignId,input.campaignContactId) : null;
+    const evaluation=automaticCondition(automation,facts,country,source.question_value);
+    if (evaluation.value!==true) return {ok:true,skipped:true,status:evaluation.issue || "condition_false"};
+  } else if (automation.conditionField === "answer") {
     const normalize = (value: unknown) => {
       const text = String(value ?? "").trim().toLowerCase();
       return ["yes", "1", "true"].includes(text) ? "true" : ["no", "0", "false"].includes(text) ? "false" : text;
@@ -203,7 +223,8 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     rule: { createdByUserId: owner.id, countryCodes: codes(source.mission_countries) },
     event: { id: input.confirmationId || input.requestId || randomUUID(), module: contact.type,
       source: "status_list", eventType: "status_list.service_action", entityType: contact.type, entityId: contact.id, countryCode: country,
-      actorUserId: input.userId, newValues: values, oldValues: {}, createdAt: new Date() },
+       actorUserId: input.userId, newValues: values, oldValues: {},
+       createdAt: input.automaticEvent ? new Date(input.automaticEvent.occurredAt) : new Date() },
     newValues: values, oldValues: {}, contact,
      ...(["clinic", "hospital", "customer"].includes(contact.type)
        ? { [contact.type]: { ...record, id: contact.id } } : {}),

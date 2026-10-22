@@ -4,6 +4,7 @@ import { pool } from "../db";
 import { workflowSourceConfigSchema, type WorkflowAnswer } from "../../shared/status-list-workflow";
 import { executeEvent, StatusListWorkflowError, workflowTransaction } from "./status-list-workflow";
 import { evaluateOptionSources } from "./status-list-option-source";
+import { inspectAutomaticContact, queueAutomaticSourceEvent } from "./status-list-automatic";
 import { lockCallbackTransition, assertCallbackConfigurationIndependent } from "./status-list-callback-transition";
 
 // Explicit non-human principal; never borrow the configurator/representative's
@@ -50,7 +51,16 @@ export async function evaluateBackgroundContact(contactId: string) {
       JOIN campaign_status_list_items i ON i.id=q.item_id AND i.campaign_id=s.campaign_id
       JOIN campaign_contacts cc ON cc.campaign_id=s.campaign_id WHERE cc.id=$1 ORDER BY s.question_id`, [contactId]);
     if (!configs.length) {
-      for (const event of events) await executeEvent(client, event);
+      for (const event of events) {
+        await executeEvent(client,event);
+        await queueAutomaticSourceEvent(client,event);
+      }
+      const autoItems=(await client.query(`SELECT item_id FROM mission_status_list_automatic_configs
+        WHERE campaign_id=(SELECT campaign_id FROM campaign_contacts WHERE id=$1)
+        AND trigger='background_change' AND enabled=true ORDER BY item_id`,[contactId])).rows;
+      for (const row of autoItems) await inspectAutomaticContact(client,events[0]?.campaignId ||
+        (await client.query("SELECT campaign_id FROM campaign_contacts WHERE id=$1",[contactId])).rows[0].campaign_id,
+        contactId,row.item_id,{enqueue:true,trigger:"background_change"});
       return;
     }
     const { rows: contacts } = await client.query(`SELECT cc.*,
@@ -99,12 +109,19 @@ export async function evaluateBackgroundContact(contactId: string) {
     }
     // All source answers are committed with their effects; conditions observe the
     // same new source snapshot, not the ordering of question IDs.
-    for (const event of events) await executeEvent(client, event);
+    for (const event of events) {
+      await executeEvent(client,event);
+      await queueAutomaticSourceEvent(client,event);
+    }
+    const autoItems=(await client.query(`SELECT item_id FROM mission_status_list_automatic_configs
+      WHERE campaign_id=$1 AND trigger='background_change' AND enabled=true ORDER BY item_id`,[contact.campaign_id])).rows;
+    for (const row of autoItems) await inspectAutomaticContact(client,contact.campaign_id,
+      contactId,row.item_id,{enqueue:true,trigger:"background_change"});
   });
 }
 
 export async function installStatusListBackgroundTriggers() {
-  for (const table of ["clinic_representative_assignments", "hospital_representative_assignments", "campaign_contacts", "mission_status_list_sources", "mission_status_list_option_sources"]) {
+  for (const table of ["clinic_representative_assignments", "hospital_representative_assignments", "campaign_contacts", "mission_status_list_sources", "mission_status_list_option_sources", "mission_status_list_automatic_configs"]) {
     // Fixed server-owned identifiers, never user input. CREATE OR REPLACE avoids
     // a DROP window and makes restarts safe on production without db:push.
     const events = table === "campaign_contacts" ? "INSERT OR DELETE OR UPDATE OF contact_type,clinic_id,hospital_id,campaign_id,assigned_to" : "INSERT OR UPDATE OR DELETE";
@@ -123,7 +140,9 @@ let nextRecoveryAt = 0;
 export async function recoverStatusListBackground(client: Pick<PoolClient, "query"> = pool) {
   const contacts = (await client.query(`SELECT cc.id FROM campaign_contacts cc
     WHERE cc.id>$1 AND (EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id)
-      OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id))
+      OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id)
+      OR EXISTS(SELECT 1 FROM mission_status_list_automatic_configs s WHERE s.campaign_id=cc.campaign_id
+        AND s.enabled AND s.trigger='background_change'))
     ORDER BY cc.id LIMIT 50`, [recoveryCursor])).rows;
   for (const contact of contacts) {
     try { await evaluateBackgroundContact(contact.id); }
@@ -142,7 +161,9 @@ export async function runStatusListBackgroundBatch() {
     for (const job of pending) {
       const contacts = (await leader.query(`SELECT cc.id FROM campaign_contacts cc WHERE cc.id>$3 AND
         (EXISTS(SELECT 1 FROM mission_status_list_sources s WHERE s.campaign_id=cc.campaign_id)
-          OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id)) AND (
+          OR EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=cc.campaign_id)
+          OR EXISTS(SELECT 1 FROM mission_status_list_automatic_configs s WHERE s.campaign_id=cc.campaign_id
+            AND s.enabled AND s.trigger='background_change')) AND (
           ($1='clinic' AND cc.contact_type='clinic' AND cc.clinic_id=$2) OR
           ($1='hospital' AND cc.contact_type='hospital' AND cc.hospital_id=$2) OR
           ($1='mission' AND cc.campaign_id=$2) OR ($1='contact' AND cc.id=$2))

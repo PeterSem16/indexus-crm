@@ -3010,16 +3010,38 @@ export function CommunicationCanvas({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
   });
+  const automaticCardScope = useRef("");
+  const [automaticBatchPending,setAutomaticBatchPending] = useState(0);
+  useEffect(() => {
+    const scope = `${campaign?.id || ""}:${campaignContactId || ""}`;
+    if (!campaign?.id || !campaignContactId || !dbStatusList.length) {
+      automaticCardScope.current = "";setAutomaticBatchPending(0);
+      return;
+    }
+    if (!dbStatusList.some((item: any) => ["card_open","background_change"].includes(item.automaticTrigger))) {
+      setAutomaticBatchPending(0);return;
+    }
+    if (statusListMode==="immediate" && automaticCardScope.current===scope)return;
+    if(automaticCardScope.current!==scope)setAutomaticBatchPending(0);
+    let cancelled=false;
+    automaticCardScope.current = scope;
+    const check=()=>void apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/automatic-open`,
+      {executionMode:statusListMode}).then(response=>response.json()).then(result=>{
+        if(!cancelled && automaticCardScope.current===scope)setAutomaticBatchPending(result.pendingCount || 0);
+      }).catch(()=>{if(!cancelled)toast({title:getStatusListExecutionCopy(locale).failed,variant:"destructive"});});
+    check();
+    const timer=statusListMode==="batch" ? setInterval(check,15000) : undefined;
+    return()=>{cancelled=true;if(timer)clearInterval(timer);};
+  }, [campaign?.id,campaignContactId,dbStatusList,statusListMode,locale,toast]);
   // Count of automations deferred across all staged batch steps (fires on Save).
   const pendingAutomationCount = useMemo(() => {
-    if (batchSlSelections.size === 0) return 0;
-    let total = 0;
+    let total = automaticBatchPending;
     for (const id of Array.from(batchSlSelections)) {
       const item = (dbStatusList as any[]).find((i: any) => String(i.id) === id);
       total += (item?.automations || []).length;
     }
     return total;
-  }, [batchSlSelections, dbStatusList]);
+  }, [batchSlSelections, dbStatusList,automaticBatchPending]);
   const { data: dbSlState = [] } = useQuery<any[]>({
     queryKey: ["/api/campaigns", campaign?.id, "contacts", campaignContactId, "status-list-state"],
     enabled: !!campaign?.id && !!campaignContactId,
@@ -3133,7 +3155,8 @@ export function CommunicationCanvas({
     ...Array.from(batchSlDeletions).map(String),
     ...Object.keys(batchSlAnswers).map(id => `q:${id}`),
     ...Object.keys(batchSlActions).map(id => `a:${id}`),
-  ]), [batchSlSelections, batchDirtyNoteIds, batchSlDeletions, batchSlAnswers, batchSlActions]);
+    ...(automaticBatchPending>0 ? ["automatic:pending"] : []),
+  ]), [batchSlSelections, batchDirtyNoteIds, batchSlDeletions, batchSlAnswers, batchSlActions,automaticBatchPending]);
 
   // Notify the parent workspace whenever the unsaved batch count changes so it
   // can gate navigation away (contact-switch / card-close) with a confirmation dialog.
@@ -3262,7 +3285,7 @@ export function CommunicationCanvas({
   useEffect(() => {
     if (!Array.isArray(dbStatusList) || !dbStatusList.length || !campaignContactId || !campaign?.id) return;
     const confirmedIds = new Set<string>(currentStatusStateRows.map((s: any) => String(s.statusListItemId)));
-    const autoItems = (dbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
+    const autoItems = (dbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden && !i.automaticTrigger);
     if (statusListMode === "batch") {
       setBatchSlSelections(previous => {
         const next = new Set(previous);
@@ -3499,6 +3522,14 @@ export function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       if (!scopeIsCurrent()) return;
+      if (!actionProblems && (batchSlSelections.size > 0 || automaticBatchPending>0) &&
+          (dbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
+        try {
+          await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/automatic-open`,
+            {executionMode:"batch",commit:true});
+          if(scopeIsCurrent())setAutomaticBatchPending(0);
+        } catch { actionProblems = true; }
+      }
 
       // A note-only save is complete after the PATCHes above.  Do not open the
       // callback dialog or alter the contact status in that case.
@@ -3601,7 +3632,7 @@ export function CommunicationCanvas({
     } finally {
       if (scopeIsCurrent()) { setSlBatchSaving(false); setSlBusy(false); }
     }
-  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache]);
+  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache,automaticBatchPending]);
 
   const handleSlNoteChange = useCallback((itemId: string, value: string) => {
     if (statusListMode === "batch") {
@@ -12314,15 +12345,36 @@ function AgentWorkspacePageContent() {
     try { return selectedCampaign?.settings ? (JSON.parse(selectedCampaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [selectedCampaign?.settings]);
   const [mobileBatchSlSelections, setMobileBatchSlSelections] = useState<Set<string>>(new Set());
+  const [mobileAutomaticBatchPending,setMobileAutomaticBatchPending] = useState(0);
   // Unified unsaved-batch count used by the navigation guard — covers both desktop
   // (reported back from CustomerInfoPanel) and mobile (tracked locally).
-  const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size : desktopBatchUnsavedCount;
+  const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size + (mobileAutomaticBatchPending>0 ? 1 : 0) : desktopBatchUnsavedCount;
   const [mobileSlBatchSaveOpen, setMobileSlBatchSaveOpen] = useState(false);
   const [mobileSlBatchSaving, setMobileSlBatchSaving] = useState(false);
   const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"rules" | "reschedule" | "do_not_call">("rules");
   const [mobileSlBatchCallbackDt, setMobileSlBatchCallbackDt] = useState("");
   const [mobileSlBatchCallbackNote, setMobileSlBatchCallbackNote] = useState("");
   const mobileSlScope = `${selectedCampaignId}:${effectiveCampaignContactId}`;
+  const mobileAutomaticCardScope = useRef("");
+  useEffect(() => {
+    if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) {
+      mobileAutomaticCardScope.current = "";setMobileAutomaticBatchPending(0);return;
+    }
+    if (!(mobileDbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
+      setMobileAutomaticBatchPending(0);return;
+    }
+    if(mobileStatusListMode==="immediate" && mobileAutomaticCardScope.current===mobileSlScope)return;
+    if(mobileAutomaticCardScope.current!==mobileSlScope)setMobileAutomaticBatchPending(0);
+    let cancelled=false;
+    mobileAutomaticCardScope.current = mobileSlScope;
+    const check=()=>void apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/automatic-open`,
+      {executionMode:mobileStatusListMode}).then(response=>response.json()).then(result=>{
+        if(!cancelled && mobileAutomaticCardScope.current===mobileSlScope)setMobileAutomaticBatchPending(result.pendingCount || 0);
+      }).catch(()=>{if(!cancelled)toast({title:getStatusListExecutionCopy(locale).failed,variant:"destructive"});});
+    check();
+    const timer=mobileStatusListMode==="batch" ? setInterval(check,15000) : undefined;
+    return()=>{cancelled=true;if(timer)clearInterval(timer);};
+  }, [isMobile,selectedCampaignId,effectiveCampaignContactId,mobileDbStatusList,mobileStatusListMode,mobileSlScope,locale,toast]);
   const mobileSlExecution = useRef({ scope: mobileSlScope, client: createStatusListExecutionClient() });
   if (mobileSlExecution.current.scope !== mobileSlScope)
     mobileSlExecution.current = { scope: mobileSlScope, client: createStatusListExecutionClient() };
@@ -12341,7 +12393,7 @@ function AgentWorkspacePageContent() {
   useEffect(() => {
     if (!isMobile) return;
     const confirmedIds = new Set<string>((mobileDbSlState as any[]).map((s: any) => String(s.statusListItemId)));
-    const autoItems = (mobileDbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden);
+    const autoItems = (mobileDbStatusList as any[]).filter((i: any) => i.confirmationType === "auto" && !i.isHidden && !i.automaticTrigger);
     const autoChecked = autoItems.filter((i: any) => confirmedIds.has(String(i.id)));
     setMobileDbSlChecked(previous => {
       const next = new Set([...Array.from(confirmedIds), ...autoChecked.map((i: any) => String(i.id))]);
@@ -12417,7 +12469,7 @@ function AgentWorkspacePageContent() {
   useEffect(() => {
     if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) return;
     for (const item of mobileDbStatusList as any[]) {
-      if (item.confirmationType !== "auto" || item.isHidden ||
+      if (item.confirmationType !== "auto" || item.isHidden || item.automaticTrigger ||
           (mobileDbSlState as any[]).some(row => String(row.statusListItemId) === String(item.id))) continue;
       const key = `${mobileSlScope}:${item.id}`;
       if (mobileAutoRuns.current.has(key)) continue;
@@ -12427,7 +12479,8 @@ function AgentWorkspacePageContent() {
   }, [isMobile, selectedCampaignId, effectiveCampaignContactId, mobileDbStatusList, mobileDbSlState, mobileSlScope, handleMobileSlToggle]);
 
   const handleMobileBatchSaveConfirm = useCallback(async () => {
-    if (!selectedCampaignId || !effectiveCampaignContactId || mobileBatchSlSelections.size === 0 || mobileSlBusy.current) return;
+    if (!selectedCampaignId || !effectiveCampaignContactId ||
+        (mobileBatchSlSelections.size === 0 && mobileAutomaticBatchPending===0) || mobileSlBusy.current) return;
     mobileSlBusy.current = true;
     const sender = mobileSlExecution.current.client;
     const scope = mobileSlScope;
@@ -12447,6 +12500,14 @@ function AgentWorkspacePageContent() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
+      if (!actionProblems && (mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0) &&
+          (mobileDbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
+        try {
+          await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/automatic-open`,
+            {executionMode:"batch",commit:true});
+          if(currentScope())setMobileAutomaticBatchPending(0);
+        } catch { actionProblems = true; }
+      }
       if (actionProblems || mobileSlBatchAction === "rules") {
         const copy = getStatusListExecutionCopy(locale);
         toast({ title: actionProblems ? copy.failed : copy.saved,
@@ -12488,7 +12549,7 @@ function AgentWorkspacePageContent() {
     } finally {
       if (currentScope()) { setMobileSlBatchSaving(false); mobileSlBusy.current = false; }
     }
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileDbSlChecked, mobileDbStatusList, campaignDispositions, mobileSlScope, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileDbSlChecked, mobileDbStatusList, campaignDispositions, mobileSlScope, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast,mobileAutomaticBatchPending]);
 
   const isStatusListMode = useMemo(() => {
     try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
@@ -16016,7 +16077,8 @@ function AgentWorkspacePageContent() {
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
               statusListMode={mobileStatusListMode}
-              batchSlSelections={mobileBatchSlSelections}
+              batchSlSelections={mobileAutomaticBatchPending>0
+                ? new Set([...Array.from(mobileBatchSlSelections),"automatic:pending"]) : mobileBatchSlSelections}
               onBatchSave={() => {
                 setMobileSlBatchAction("rules");
                 setMobileSlBatchCallbackDt("");
@@ -16071,13 +16133,13 @@ function AgentWorkspacePageContent() {
                 </DialogTitle>
                 <DialogDescription asChild>
                   <div className="text-sm text-muted-foreground pt-1">
-                    {mobileBatchSlSelections.size > 0
-                      ? `${mobileBatchSlSelections.size} ${slt("batchSelectedCount", locale)}`
+                    {mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0
+                      ? `${mobileBatchSlSelections.size+(mobileAutomaticBatchPending>0 ? 1 : 0)} ${slt("batchSelectedCount", locale)}`
                       : slt("batchNoItems", locale)}
                   </div>
                 </DialogDescription>
               </DialogHeader>
-              {mobileBatchSlSelections.size > 0 && (
+              {(mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0) && (
                 <div className="space-y-0.5 max-h-32 overflow-y-auto rounded-lg border bg-muted/30 p-2">
                   {Array.from(mobileBatchSlSelections).map(id => {
                     const it = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === id);

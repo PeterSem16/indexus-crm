@@ -1675,6 +1675,9 @@ app.use((req, res, next) => {
       import("./lib/status-list-background").then(({ startStatusListBackgroundWorker }) =>
         startStatusListBackgroundWorker()).catch(() =>
           console.error("[status-list-background] startup_failed"));
+      import("./lib/status-list-automatic").then(({ startAutomaticServiceWorker }) =>
+        startAutomaticServiceWorker()).catch(() =>
+          console.error("[status-list-automatic] startup_failed"));
 
       const wallboardHistoryCleanupTimer = setInterval(() => {
         cleanupWallboardAlarmHistory().catch((error: unknown) =>
