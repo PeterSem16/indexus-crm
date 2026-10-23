@@ -917,6 +917,9 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS icon TEXT;`);
+    await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS preview_actions BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE campaign_status_list_questions ADD COLUMN IF NOT EXISTS note_enabled BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE campaign_status_list_questions ADD COLUMN IF NOT EXISTS preview_actions BOOLEAN NOT NULL DEFAULT false;`);
     console.log('[migration] campaign_status_list_items icon ensured');
   } catch (e: any) {
     console.error('[migration] campaign_status_list_items icon error:', e.message);

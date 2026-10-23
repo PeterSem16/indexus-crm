@@ -19,6 +19,8 @@ import { getAgentBreakIcon } from "@/lib/agent-break-icons";
 import { statusListReportingLabel, statusListReportingTooltip } from "@/components/status-list-reporting-label";
 import { StatusListQuestionHistory } from "@/components/status-list-agent-preview";
 import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
+import { useStatusListActionRecap } from "./use-status-list-action-recap";
+import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 
 type MobileBreakType = {
   id: string;
@@ -116,6 +118,10 @@ export interface MobileAgentWorkspaceProps {
   answerMetadata?: Record<string, { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null }>;
   questionNotes?: Record<string, { note?: string | null; updatedAt?: string | null; updatedByName?: string | null }>;
   onSaveQuestionNote?: (questionId: string, note: string | null) => Promise<void>;
+  questionAnswers?: Record<string, any>;
+  pendingQuestionIds?: Set<string>;
+  onQuestionChanges?: (changes: Array<{ questionId: string; value: string | boolean | null; expected: string | boolean | null }>) => Promise<boolean>;
+  onStatusListVisibilityChange?: (visible: boolean) => void;
   agentStatus: string;
   isOnBreak: boolean;
   workTime: string;
@@ -291,7 +297,7 @@ function MobileStatusListNote({ itemId, savedNote, onSave }: {
 }
 
 /* ── StatusListPanel — hierarchical, large touch targets ────────────── */
-function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSlSelections, onBatchSave, dbSlState = [], onSaveSlNote, answerMetadata = {}, questionNotes = {}, onSaveQuestionNote, scopeKey = "" }: {
+function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSlSelections, onBatchSave, dbSlState = [], onSaveSlNote, answerMetadata = {}, questionNotes = {}, onSaveQuestionNote, questionAnswers = {}, pendingQuestionIds = new Set<string>(), onQuestionChanges, onStatusListVisibilityChange, scopeKey = "", campaignId = null, contactId = null }: {
   items: any[];
   checked: Set<string>;
   onToggle: (id: string, v: boolean) => void;
@@ -304,12 +310,82 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
   answerMetadata?: Record<string, { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null }>;
   questionNotes?: Record<string, { note?: string | null; updatedAt?: string | null; updatedByName?: string | null }>;
   onSaveQuestionNote?: (questionId: string, note: string | null) => Promise<void>;
+  questionAnswers?: Record<string, any>;
+  pendingQuestionIds?: Set<string>;
+  onQuestionChanges?: (changes: Array<{ questionId: string; value: string | boolean | null; expected: string | boolean | null }>) => Promise<boolean>;
+  onStatusListVisibilityChange?: (visible: boolean) => void;
   scopeKey?: string;
+  campaignId?: string | null;
+  contactId?: string | null;
 }) {
-  const { locale } = useI18n();
-  const [yesno, setYesno] = useState<Record<string, "yes" | "no">>({});
+  const { locale, t } = useI18n();
   const [currentTab, setCurrentTab] = useState<'acquisition' | 'contract' | 'retention'>('acquisition');
-
+  const recap = useStatusListActionRecap({
+    campaignId,
+    contactId,
+    locale,
+    items,
+    mode: statusListMode === "batch" ? "batch" : "immediate",
+  });
+  const applyQuestionChanges = async (changes: Array<{ questionId: string; value: string | boolean | null; expected: string | boolean | null }>) => {
+    if (!onQuestionChanges) return false;
+    const recapChanges = changes.map(change => ({ kind: "question" as const, id: change.questionId, value: change.value }));
+    try {
+      if (statusListMode !== "batch" && !await recap.confirm(recapChanges)) return false;
+      return await onQuestionChanges(changes);
+    } catch { return false; }
+  };
+  const questionAnswer = (questionId: string): string | boolean | null => {
+    const value = questionAnswers[questionId];
+    return value === undefined ? null : value;
+  };
+  const questionChecked = (question: any) => {
+    const value = questionAnswer(String(question.id));
+    return isStatusListYesNo(question.fieldType)
+      ? value !== null
+      : value !== null && value !== false && value !== "";
+  };
+  const questionYesNoAnswer = (question: any): "yes" | "no" | undefined => {
+    const value = questionAnswer(String(question.id));
+    if (value === "yes" || value === true) return "yes";
+    if (value === "no" || value === false) return "no";
+    return undefined;
+  };
+  const isSourceManagedQuestion = (question: any) =>
+    question?.sourceManaged === true
+    || question?.systemSourceManaged === true
+    || question?.managedBySystemSource === true
+    || question?.isSystemSourceManaged === true
+    || question?.isSystemSource === true
+    || question?.answerSource === "system"
+    || question?.sourceManagedBy === "system"
+    || question?.managedBy === "system"
+    || question?.managedBy === "system_source"
+    || question?.source?.managed === true
+    || question?.source?.kind === "system"
+    || (question?.systemSource != null && question.systemSource !== false)
+    || (question?.backgroundSource != null && question.backgroundSource !== false)
+    || question?.systemSource?.managed === true
+    || question?.backgroundSource?.managed === true;
+  const exclusiveQuestions = (question: any, questions: any[], selectionMode?: string) => {
+    const id = String(question.id);
+    const sameGroup = questions.filter(entry => (entry.groupName || "") === (question.groupName || ""));
+    const grouped = questions.reduce<Record<string, any[]>>((groups, entry) => {
+      (groups[entry.groupName || "__ungrouped__"] ||= []).push(entry);
+      return groups;
+    }, {});
+    const everyGroupOne = selectionMode === "single" || Object.values(grouped).every(group => group[0]?.logicOperator === "ONE");
+    const groupOne = sameGroup[0]?.logicOperator === "ONE";
+    if (selectionMode === "single" || groupOne) {
+      return (everyGroupOne ? questions : sameGroup).filter(entry => String(entry.id) !== id);
+    }
+    if (question.fieldType === "radio") {
+      return sameGroup.filter(entry => String(entry.id) !== id && entry.fieldType === "radio");
+    }
+    return [];
+  };
+  const visibilityCallbackRef = useRef(onStatusListVisibilityChange);
+  visibilityCallbackRef.current = onStatusListVisibilityChange;
   const hasTabAssignment = items.some((i: any) => !i.parentId && i.tab && i.itemType !== "option" && !i.isHidden);
 
   const allVisible = items.filter((i: any) => i.itemType !== "option" && i.confirmationType !== "auto" && !i.isHidden);
@@ -334,6 +410,12 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
 
   const confirmed = allVisible.filter((i: any) => checked.has(String(i.id))).length;
   const total = allVisible.length;
+  const hasStatusListContent = total > 0 || options.length > 0;
+  useEffect(() => {
+    if (!hasStatusListContent) return;
+    visibilityCallbackRef.current?.(true);
+    return () => visibilityCallbackRef.current?.(false);
+  }, [hasStatusListContent]);
 
   if (total === 0 && options.length === 0) return null;
 
@@ -430,8 +512,8 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
             );
           })()}
           {topLevel.map((item: any) => {
-            const isChecked = checked.has(String(item.id));
             const isInfo = item.confirmationType === "info";
+            const isChecked = !isInfo && checked.has(String(item.id));
             // Sub-questions come from item.questions[] (nested array from API), not flat parentId
             const questions: any[] = Array.isArray(item.questions)
               ? item.questions.filter((q: any) => !q.isHidden)
@@ -473,15 +555,16 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                     className="flex-1 py-3.5 pr-4 text-left min-h-[56px]"
                   >
                     <p className={`text-sm leading-snug ${isChecked ? "font-bold text-emerald-700 dark:text-emerald-300" : "font-semibold"}`}>
+                      <StatusListQuickOptionIcon name={item.icon} className="mr-1 inline-block h-4 w-4 align-[-3px]" />
                       {item.label}
-                      {item.required && <span className="ml-1 text-rose-500">*</span>}
+                      {item.required && !isInfo && <span className="ml-1 text-rose-500">*</span>}
                     </p>
                     {item.description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{item.description}</p>}
                     {item.canonicalClinicStatusKey && <span title={statusListReportingTooltip(item.canonicalClinicStatusKey, locale)} className="mt-1 inline-flex rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(item.canonicalClinicStatusKey, locale)}</span>}
                   </button>
                 </div>
                 {isChecked && historyLine(String(item.id))}
-                {(isChecked || (statusListMode === "batch" && batchSlSelections?.has(String(item.id)))) && noteEditor(String(item.id))}
+                {!isInfo && (isChecked || (statusListMode === "batch" && batchSlSelections?.has(String(item.id)))) && noteEditor(String(item.id))}
 
                 {/* Child items via parentId — always visible */}
                 {childrenOf(item.id).length > 0 && (() => {
@@ -507,8 +590,8 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                       </div>
                     )}
                     {siblings.map((child: any) => {
-                      const childChecked = checked.has(String(child.id));
                       const childInfo = child.confirmationType === "info";
+                      const childChecked = !childInfo && checked.has(String(child.id));
                       return (
                         <div key={child.id} className={`border-b last:border-b-0 pl-4 ${childChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
                           <div className="flex items-stretch">
@@ -536,15 +619,15 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
                             <p className={`text-xs leading-snug ${childChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
-                              ↳ {child.label}
-                              {child.required && <span className="ml-1 text-rose-500">*</span>}
+                              ↳ <StatusListQuickOptionIcon name={child.icon} className="mr-1 inline-block h-3.5 w-3.5 align-[-2px]" />{child.label}
+                              {child.required && !childInfo && <span className="ml-1 text-rose-500">*</span>}
                             </p>
                             {child.description && <p className="text-[11px] text-muted-foreground/70 mt-0.5">{child.description}</p>}
                             {child.canonicalClinicStatusKey && <span title={statusListReportingTooltip(child.canonicalClinicStatusKey, locale)} className="mt-1 inline-flex rounded-full border border-border/70 bg-background/70 px-2 py-0.5 text-[9px] font-medium text-muted-foreground">{statusListReportingLabel(child.canonicalClinicStatusKey, locale)}</span>}
                           </button>
                           </div>
                           {childChecked && historyLine(String(child.id))}
-                          {(childChecked || (statusListMode === "batch" && batchSlSelections?.has(String(child.id)))) && noteEditor(String(child.id))}
+                          {!childInfo && (childChecked || (statusListMode === "batch" && batchSlSelections?.has(String(child.id)))) && noteEditor(String(child.id))}
                         </div>
                       );
                     })}
@@ -553,19 +636,29 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                 })()}
 
                 {/* Sub-questions — from item.questions[], visible when parent is checked */}
-                {isChecked && questions.length > 0 && (() => {
+                {(isChecked || isInfo) && questions.length > 0 && (() => {
                   const isSingleSelect = item.questionSelectionMode === "single";
-                  // For single-select: uncheck all other questions in this step first
-                  const handleQToggle = (qId: string, currentlyChecked: boolean) => {
-                    if (isSingleSelect && !currentlyChecked) {
-                      questions.forEach((pq: any) => {
-                        if (String(pq.id) !== qId && checked.has(String(pq.id))) {
-                          onToggle(String(pq.id), false);
-                        }
+                  const handleQuestionChange = async (question: any, value: string | boolean | null) => {
+                    if (isSourceManagedQuestion(question)) return false;
+                    const questionId = String(question.id);
+                    const expected = questionAnswer(questionId);
+                    if (isStatusListYesNo(question.fieldType) && value === questionYesNoAnswer(question)) return true;
+                    if (expected === value) return true;
+                    const changes: Array<{ questionId: string; value: string | boolean | null; expected: string | boolean | null }> = [];
+                    if (value !== null) {
+                      exclusiveQuestions(question, questions, item.questionSelectionMode).forEach((sibling: any) => {
+                        const siblingId = String(sibling.id);
+                        const siblingExpected = questionAnswer(siblingId);
+                        if (siblingExpected !== null) changes.push({ questionId: siblingId, value: null, expected: siblingExpected });
                       });
                     }
-                    onToggle(qId, !currentlyChecked);
+                    changes.push({ questionId, value, expected });
+                    return applyQuestionChanges(changes);
                   };
+                  const handleQToggle = (question: any, currentlyChecked: boolean) =>
+                    handleQuestionChange(question, currentlyChecked ? null : true);
+                  const yesLabel = np.yes || t.common?.yes;
+                  const noLabel = np.no || t.common?.no;
                   return (
                   <div className="bg-muted/30 border-t">
                     {isSingleSelect && (
@@ -576,10 +669,11 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                     )}
                     {questions.map((q: any) => {
                       const ft = q.fieldType || "checkbox";
-                      const qChecked = checked.has(String(q.id));
-                      const ynAnswer = yesno[q.id];
+                      const qChecked = questionChecked(q);
+                      const ynAnswer = questionYesNoAnswer(q);
+                      const sourceManaged = isSourceManagedQuestion(q);
 
-                      if (ft === "yesno") {
+                      if (isStatusListYesNo(ft)) {
                         return (
                           <div key={q.id} className="pl-6 pr-4 py-3 border-b last:border-b-0">
                             <p className="text-xs font-semibold text-foreground mb-2 leading-snug">
@@ -589,36 +683,24 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                             {q.description && <p className="text-[11px] text-muted-foreground/70 mb-2">{q.description}</p>}
                             <div className="flex gap-2">
                               <button
-                                onClick={() => {
-                                  if (isSingleSelect) {
-                                    questions.forEach((pq: any) => {
-                                      if (String(pq.id) !== String(q.id) && checked.has(String(pq.id))) {
-                                        setYesno(p => { const n = { ...p }; delete n[pq.id]; return n; });
-                                        onToggle(String(pq.id), false);
-                                      }
-                                    });
-                                  }
-                                  setYesno(p => ({ ...p, [q.id]: "yes" }));
-                                  if (!qChecked) onToggle(String(q.id), true);
-                                }}
+                                disabled={sourceManaged || !onQuestionChanges}
+                                onClick={() => void handleQuestionChange(q, "yes")}
                                 className={`flex-1 h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 ${
                                   ynAnswer === "yes" ? "bg-emerald-500 border-emerald-500 text-white" : "border-muted-foreground/30 text-foreground"
                                 }`}
                                 data-testid={`sl-mobile-yes-${q.id}`}
-                              >Áno</button>
+                              >{yesLabel}</button>
                               <button
-                                onClick={() => {
-                                  setYesno(p => ({ ...p, [q.id]: "no" }));
-                                  if (qChecked) onToggle(String(q.id), false);
-                                }}
+                                disabled={sourceManaged || !onQuestionChanges}
+                                onClick={() => void handleQuestionChange(q, "no")}
                                 className={`flex-1 h-10 rounded-xl text-xs font-bold border-2 transition-all active:scale-95 ${
                                   ynAnswer === "no" ? "bg-red-500 border-red-500 text-white" : "border-muted-foreground/30 text-foreground"
                                 }`}
                                 data-testid={`sl-mobile-no-${q.id}`}
-                              >Nie</button>
+                              >{noLabel}</button>
                             </div>
                             <StatusListQuestionHistory key={`${scopeKey}:${q.id}`} questionId={String(q.id)} locale={locale} metadata={answerMetadata[String(q.id)]}
-                              note={questionNotes[String(q.id)]} pending={statusListMode === "batch" && !!batchSlSelections?.has(String(q.id))} onSaveNote={onSaveQuestionNote} />
+                              note={questionNotes[String(q.id)]} pending={pendingQuestionIds.has(String(q.id))} onSaveNote={onSaveQuestionNote} noteEnabled={q.noteEnabled !== false} />
                           </div>
                         );
                       }
@@ -628,7 +710,8 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                         <div key={q.id} className={`border-b last:border-b-0 pl-4 ${qChecked ? "bg-emerald-50/40 dark:bg-emerald-900/10" : ""}`}>
                           <div className="flex items-stretch">
                           <button
-                            onClick={() => handleQToggle(String(q.id), qChecked)}
+                            disabled={sourceManaged || !onQuestionChanges}
+                            onClick={() => void handleQToggle(q, qChecked)}
                             className="shrink-0 flex items-center justify-center w-12 min-h-[48px] active:bg-muted/60"
                             data-testid={`sl-mobile-sub-${q.id}`}
                           >
@@ -647,7 +730,8 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                             )}
                           </button>
                           <button
-                            onClick={() => handleQToggle(String(q.id), qChecked)}
+                            disabled={sourceManaged || !onQuestionChanges}
+                            onClick={() => void handleQToggle(q, qChecked)}
                             className="flex-1 py-3 pr-4 text-left min-h-[48px]"
                           >
                             <p className={`text-xs leading-snug ${qChecked ? "font-bold text-emerald-600 dark:text-emerald-400" : "font-medium text-muted-foreground"}`}>
@@ -658,7 +742,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
                           </button>
                           </div>
                           <StatusListQuestionHistory key={`${scopeKey}:${q.id}`} questionId={String(q.id)} locale={locale} metadata={answerMetadata[String(q.id)]}
-                            note={questionNotes[String(q.id)]} pending={statusListMode === "batch" && !!batchSlSelections?.has(String(q.id))} onSaveNote={onSaveQuestionNote} />
+                            note={questionNotes[String(q.id)]} pending={pendingQuestionIds.has(String(q.id))} onSaveNote={onSaveQuestionNote} noteEnabled={q.noteEnabled !== false} />
                         </div>
                       );
                     })}
@@ -709,6 +793,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
               </button>
             </div>
           )}
+          {recap.dialog}
         </div>
     </div>
   );
@@ -969,6 +1054,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
     sipIncomingCall, onAnswerIncoming, onRejectIncoming,
     onOpenDisposition, isStatusListMode,
     dbStatusList, dbSlChecked, onSlToggle, dbSlState, onSaveSlNote, answerMetadata, questionNotes, onSaveQuestionNote,
+    questionAnswers, pendingQuestionIds, onQuestionChanges, onStatusListVisibilityChange,
     statusListMode, batchSlSelections, onBatchSave,
     agentStatus, isOnBreak, workTime, breakTypes,
     onEndSession, onStartBreak, onEndBreak,
@@ -981,6 +1067,8 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
   const cityCopy = priorityBuilderCopy[(props.locale || "en") as keyof typeof priorityBuilderCopy] || priorityBuilderCopy.en;
   const activeCampaignContact = [...(allCampaignContacts || []), ...campaignContacts]
     .find((item: any) => item.id === currentCampaignContactId);
+  const statusListRecapCampaignId = typeof campaign === "string" ? campaign : campaign?.id ?? campaign?.campaignId ?? null;
+  const statusListRecapContactId = contact?.id ?? activeCampaignContact?.contactId ?? activeCampaignContact?.contact?.id ?? null;
   const activeUnpaidRewardCount = activeCampaignContact?.unpaidRewardPersonCount || 0;
 
   const [dtmfOpen, setDtmfOpen] = useState(false);
@@ -1360,7 +1448,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
               {contactInfoSection}
             </div>
             {dbStatusList.length > 0 && (
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} scopeKey={currentCampaignContactId || ""} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} questionAnswers={questionAnswers} pendingQuestionIds={pendingQuestionIds} onQuestionChanges={onQuestionChanges} onStatusListVisibilityChange={onStatusListVisibilityChange} scopeKey={currentCampaignContactId || ""} campaignId={statusListRecapCampaignId ? String(statusListRecapCampaignId) : null} contactId={statusListRecapContactId ? String(statusListRecapContactId) : null} />
             )}
           </div>
         </div>
@@ -1400,7 +1488,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
             </button>
           )}
           {contactInfoSection}
-          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} scopeKey={currentCampaignContactId || ""} />
+          <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} questionAnswers={questionAnswers} pendingQuestionIds={pendingQuestionIds} onQuestionChanges={onQuestionChanges} onStatusListVisibilityChange={onStatusListVisibilityChange} scopeKey={currentCampaignContactId || ""} campaignId={statusListRecapCampaignId ? String(statusListRecapCampaignId) : null} contactId={statusListRecapContactId ? String(statusListRecapContactId) : null} />
           <button onClick={onClearContact}
             className="w-full flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-amber-400 text-amber-600 dark:text-amber-400 text-sm font-semibold bg-amber-50/50 dark:bg-amber-950/10 active:scale-[0.98] transition-all"
             data-testid="btn-mobile-release-contact-ended">
@@ -1504,7 +1592,7 @@ export function MobileAgentWorkspace(props: MobileAgentWorkspaceProps) {
           {/* Status list */}
           {dbStatusList.length > 0 && (
             <div className="-mx-4">
-              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} />
+              <StatusListPanel items={dbStatusList} checked={dbSlChecked} onToggle={onSlToggle} np={np} statusListMode={statusListMode} batchSlSelections={batchSlSelections} onBatchSave={onBatchSave} dbSlState={dbSlState} onSaveSlNote={onSaveSlNote} answerMetadata={answerMetadata} questionNotes={questionNotes} onSaveQuestionNote={onSaveQuestionNote} questionAnswers={questionAnswers} pendingQuestionIds={pendingQuestionIds} onQuestionChanges={onQuestionChanges} onStatusListVisibilityChange={onStatusListVisibilityChange} scopeKey={currentCampaignContactId || ""} campaignId={statusListRecapCampaignId ? String(statusListRecapCampaignId) : null} contactId={statusListRecapContactId ? String(statusListRecapContactId) : null} />
             </div>
           )}
 

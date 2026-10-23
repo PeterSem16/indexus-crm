@@ -1,13 +1,14 @@
 import { z } from "zod";
 import { isStatusListHistoryField, statusListHistoryMatches, type StatusListHistoryFacts } from "./status-list-history";
 
-export const automaticTriggerSchema = z.enum(["agent_confirmation", "card_open", "background_change"]);
+export const automaticTriggerSchema = z.enum(["agent_confirmation", "card_open", "pulse_open", "background_change"]);
 export type AutomaticTrigger = z.infer<typeof automaticTriggerSchema>;
 export const automaticConfigSchema = z.object({
   trigger: automaticTriggerSchema,
   enabled: z.boolean(),
   expectedRevision: z.string().nullable(),
   acknowledged: z.literal(true),
+  backgroundExecution: z.enum(["mission", "unattended"]).default("mission"),
 }).strict();
 export type AutomaticStatus = "ready" | "disabled" | "unsupported_action" | "invalid_condition" |
   "missing_answer" | "condition_false" | "already_executed" | "background_baseline" |

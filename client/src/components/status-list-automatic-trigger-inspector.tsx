@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Eye, Loader2, Play, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStatusListHistoryCopy } from "./status-list-history-copy";
+import { getStatusListTriggerScopeCopy } from "./status-list-trigger-scope-copy";
 import { StatusListAutomaticInitial } from "./status-list-automatic-initial";
 import "./status-list-automatic-trigger-inspector.css";
 
-type Trigger = "agent_confirmation" | "card_open" | "background_change";
+type Trigger = "agent_confirmation" | "card_open" | "pulse_open" | "background_change";
+type BackgroundExecution = "mission" | "unattended";
 type AutomaticItem = {
   item: { id: string; label: string; isHidden: boolean; confirmationType: string };
-  config: { trigger: Trigger; enabled: boolean; revision: string | null };
+  config: { trigger: Trigger; enabled: boolean; revision: string | null; backgroundExecution?: BackgroundExecution };
   mode: "immediate" | "batch";
   actions: { id: string; actionType: string; questionLabel: string | null; issues: string[] }[];
   supportedConditionFields: string[];
@@ -166,12 +168,20 @@ function localizedField(field: string, locale: string): string {
   return index < 0 ? genericText[locale]?.extraField || genericText.en.extraField : fieldNames[locale]?.[index] || fieldNames.en[index];
 }
 
-const triggerKeys: Trigger[] = ["agent_confirmation", "card_open", "background_change"];
+const triggerKeys: Trigger[] = ["agent_confirmation", "card_open", "pulse_open", "background_change"];
+const normalizeBackgroundExecution = (value: unknown): BackgroundExecution =>
+  value === "unattended" ? "unattended" : "mission";
+const normalizeAutomaticItem = (value: AutomaticItem): AutomaticItem => ({
+  ...value,
+  config: { ...value.config, backgroundExecution: normalizeBackgroundExecution(value.config.backgroundExecution) },
+});
 
 export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale, disabled = false }: { campaignId: string; itemId: string; locale: string; disabled?: boolean }) {
   const t = copy[locale] || copy.en;
+  const scopeCopy = getStatusListTriggerScopeCopy(locale);
   const [record, setRecord] = useState<AutomaticItem | null>(null);
   const [trigger, setTrigger] = useState<Trigger>("agent_confirmation");
+  const [backgroundExecution, setBackgroundExecution] = useState<BackgroundExecution>("mission");
   const [enabled, setEnabled] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -191,6 +201,17 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
   const loadIdentity = useRef(0);
   const previewIdentity = useRef(0);
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/automatic-items/${itemId}`;
+  const isHeadingOnly = record?.item.confirmationType === "info";
+  const hasActivationBlock = !!record?.actions.some(action => action.issues.some(issue => {
+    const normalized = normalizeCode(issue);
+    const key = issueAliases[normalized] || normalized;
+    return key === "owner_required" || key === "invalid_template";
+  }));
+  const isDirty = !!record && (
+    trigger !== record.config.trigger
+    || enabled !== record.config.enabled
+    || backgroundExecution !== normalizeBackgroundExecution(record.config.backgroundExecution)
+  );
 
   const load = async () => {
     const identity = ++loadIdentity.current;
@@ -198,10 +219,11 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
     try {
       const response = await fetch(endpoint, { credentials: "include" });
       if (!response.ok) throw new Error("load");
-      const result = await response.json() as AutomaticItem;
+      const result = normalizeAutomaticItem(await response.json() as AutomaticItem);
       if (identity !== loadIdentity.current) return;
       if (!result?.item || !result?.config || !Array.isArray(result.actions) || !Array.isArray(result.supportedConditionFields)) throw new Error("shape");
-      setRecord(result); setTrigger(result.config.trigger); setEnabled(result.config.enabled); setAcknowledged(false);
+      setRecord(result); setTrigger(result.config.trigger); setEnabled(result.config.enabled);
+      setBackgroundExecution(normalizeBackgroundExecution(result.config.backgroundExecution)); setAcknowledged(false);
     } catch {
       if (identity === loadIdentity.current) { setLoadError(true); setRecord(null); }
     }
@@ -240,12 +262,12 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
   }, [contactId, itemId]);
 
   const save = async () => {
-    if (!record || saving || disabled || (enabled && !acknowledged)) return;
+    if (!record || !isDirty || saving || disabled || isHeadingOnly || (enabled && hasActivationBlock) || (enabled && !acknowledged)) return;
     setSaving(true); setSaveMessage(""); setSaveError(false);
     try {
       const response = await fetch(endpoint, {
         method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trigger, enabled, expectedRevision: record.config.revision, acknowledged: true }),
+        body: JSON.stringify({ trigger, enabled, backgroundExecution, expectedRevision: record.config.revision, acknowledged: true }),
       });
       if (!response.ok) {
         let code = "";
@@ -258,9 +280,10 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
         setSaveError(true);
         return;
       }
-      const next = await response.json() as AutomaticItem;
+      const next = normalizeAutomaticItem(await response.json() as AutomaticItem);
       if (!next?.config || !Array.isArray(next.actions)) throw new Error("shape");
-      setRecord(next); setTrigger(next.config.trigger); setEnabled(next.config.enabled); setAcknowledged(false); setSaveMessage(t.saved);
+      setRecord(next); setTrigger(next.config.trigger); setEnabled(next.config.enabled);
+      setBackgroundExecution(normalizeBackgroundExecution(next.config.backgroundExecution)); setAcknowledged(false); setSaveMessage(t.saved);
       setSaveError(false);
     } catch {
       setSaveMessage(t.saveFailure);
@@ -287,8 +310,12 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
       if (identity === previewIdentity.current && selectedContactId === contactIdRef.current) setPreviewLoading(false);
     }
   };
-  const triggerLabel = (value: Trigger) => value === "agent_confirmation" ? t.agent : value === "card_open" ? t.card : t.background;
-  const behavior = trigger === "agent_confirmation" ? t.behaviorAgent : trigger === "card_open" ? t.behaviorCard : t.behaviorBackground;
+  const triggerLabel = (value: Trigger) => value === "agent_confirmation" ? scopeCopy.agentConfirmation
+    : value === "card_open" ? scopeCopy.missionCard
+    : value === "pulse_open" ? scopeCopy.pulseOpen : scopeCopy.backgroundChange;
+  const behavior = trigger === "agent_confirmation" ? scopeCopy.scopeAgent
+    : trigger === "card_open" ? scopeCopy.scopeCard
+    : trigger === "pulse_open" ? scopeCopy.scopePulse : scopeCopy.scopeBackground;
 
   return <section className="slati" data-testid="automatic-trigger-inspector" aria-busy={!record && !loadError}>
     <header className="slati-head">
@@ -308,14 +335,26 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
         de:"Der ausdrückliche automatische Auslöser ist aus. Bestehende Regeln zur Agentenbestätigung bleiben unverändert und werden hierdurch nicht deaktiviert.",
       } as Record<string,string>)[locale] || "Existing agent-confirmation rules are unchanged."}</p>}
       <div className="slati-meta"><strong>{record.item.label}</strong><span>{record.item.isHidden ? t.hidden : t.visible}</span><span>{record.mode === "batch" ? t.modeBatch : t.modeImmediate}</span></div>
+      {isHeadingOnly
+        ? <div className="slati-explain"><ShieldCheck size={15}/><div><p>{scopeCopy.headingBlock}</p><p>{scopeCopy.visibilitySeparate}</p></div></div>
+        : <div className="slati-explain"><ShieldCheck size={15}/><div>
+          <p><strong>{triggerLabel(trigger)}</strong> · {behavior}</p>
+          {trigger === "background_change" && <p>{scopeCopy.backgroundStart}</p>}
+        </div></div>}
       <div className="slati-controls">
-        <label className="slati-field"><span>{t.trigger}</span><select value={trigger} onChange={event => { setTrigger(event.target.value as Trigger); setSaveMessage(""); setSaveError(false); }}>{triggerKeys.map(value => <option value={value} key={value}>{triggerLabel(value)}</option>)}</select></label>
-        <label className="slati-switch"><span><strong>{t.enabled}</strong><small>{enabled ? t.on : t.off}</small></span><input type="checkbox" checked={enabled} onChange={event => { setEnabled(event.target.checked); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}/><i aria-hidden="true"/></label>
+        <label className="slati-field"><span>{t.trigger}</span><select value={trigger} disabled={disabled || saving || isHeadingOnly} onChange={event => { setTrigger(event.target.value as Trigger); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}>{triggerKeys.map(value => <option value={value} key={value} disabled={isHeadingOnly && value === "agent_confirmation"}>{triggerLabel(value)}</option>)}</select></label>
+        <label className="slati-switch"><span><strong>{t.enabled}</strong><small>{enabled ? t.on : t.off}</small></span><input type="checkbox" checked={enabled} disabled={disabled || saving || isHeadingOnly || (!enabled && hasActivationBlock)} onChange={event => { setEnabled(event.target.checked); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}/><i aria-hidden="true"/></label>
       </div>
-      <div className="slati-explain"><ShieldCheck size={15}/><div><p>{behavior}</p><p>{t.visibility} {t.noReplay}{record.mode === "batch" ? ` ${t.batchNote}` : ""}</p></div></div>
-      {enabled && <label className="slati-ack"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)}/><span>{t.acknowledge}</span></label>}
+      {trigger === "background_change" && !isHeadingOnly && <div className="slati-controls">
+        <label className="slati-field"><span>{scopeCopy.executionScope}</span><select value={backgroundExecution} disabled={disabled || saving} onChange={event => { setBackgroundExecution(event.target.value as BackgroundExecution); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}>
+          <option value="mission">{scopeCopy.missionExecution}</option><option value="unattended">{scopeCopy.unattendedExecution}</option>
+        </select><small>{backgroundExecution === "unattended" ? scopeCopy.unattendedExecutionHelp : scopeCopy.missionExecutionHelp}</small></label>
+      </div>}
+      {!isHeadingOnly && <div className="slati-explain"><ShieldCheck size={15}/><div><p>{scopeCopy.visibilitySeparate} {t.noReplay}{record.mode === "batch" && backgroundExecution === "mission" ? ` ${t.batchNote}` : ""}</p></div></div>}
+      {enabled && !isHeadingOnly && <label className="slati-ack"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)}/><span>{trigger === "background_change" && backgroundExecution === "unattended" ? scopeCopy.unattendedAcknowledgement : t.acknowledge}</span></label>}
       <div className="slati-save-row">
-        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || disabled || (enabled && !acknowledged)}>{saving && <Loader2 size={14} className="mr-1.5 animate-spin"/>}{saving ? t.saving : t.save}</Button>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || disabled || isHeadingOnly || !isDirty || (enabled && hasActivationBlock) || (enabled && !acknowledged)}>{saving && <Loader2 size={14} className="mr-1.5 animate-spin"/>}{saving ? t.saving : t.save}</Button>
+        {isDirty && <small role="status">{scopeCopy.dirty}</small>}
         {saveMessage && <span role={saveError ? "alert" : "status"} className={saveError ? "is-error" : ""}>{saveMessage}</span>}
         {enabled && !acknowledged && <small>{t.acknowledgementRequired}</small>}
       </div>
@@ -329,6 +368,7 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
       />}
       <section className="slati-actions">
         <h4>{t.actions} <b>{record.actions.length}</b></h4>
+        {hasActivationBlock && <p className="slati-muted">{scopeCopy.activationBlock}</p>}
         {record.actions.length ? record.actions.map(action => <article key={action.id}>
           <div><strong>{localizedAction(action.actionType, locale)}</strong>{action.questionLabel && <small>{action.questionLabel}</small>}</div>
           {action.issues.length > 0 && <ul>{action.issues.map((issue, index) => <li key={`${issue}-${index}`}><AlertTriangle size={12}/>{localizedIssue(issue, locale)}</li>)}</ul>}

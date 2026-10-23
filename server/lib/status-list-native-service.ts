@@ -117,7 +117,7 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     return { ok: false, error: "invalid_service_configuration" };
   const [source] = (await deps.query(`
     SELECT c.name AS campaign_name,c.country_codes AS mission_countries,c.settings AS mission_settings,
-      cc.contact_type,a.question_id,qa.value AS question_value,qa.revision AS answer_revision,
+      cc.contact_type,i.confirmation_type,a.question_id,qa.value AS question_value,qa.revision AS answer_revision,
       (SELECT ac.trigger FROM mission_status_list_automatic_configs ac
         WHERE ac.item_id=i.id AND ac.enabled) AS automatic_trigger,
       (EXISTS(SELECT 1 FROM mission_status_list_option_sources s WHERE s.campaign_id=c.id
@@ -154,6 +154,8 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     WHERE cc.id=$1 AND c.id=$2`,
    [input.campaignContactId, input.campaignId, input.itemId, automation.id, STATUS_LIST_RECORD_DB_KEYS])).rows;
   if (!source?.entity_id) return { ok: false, error: "service_source_not_found" };
+  if (source.confirmation_type==="info" && !source.question_id)
+    return {ok:false,error:"heading_cannot_confirm"};
   if (!input.automaticEvent && source.automatic_trigger && source.automatic_trigger!=="agent_confirmation")
     return {ok:true,skipped:true,status:"different_trigger"};
   if (source.derived_source && !input.automaticEvent)

@@ -202,7 +202,22 @@ try {
   await client.query("UPDATE mission_status_list_automatic_configs SET enabled=false");
   await assert.rejects(()=>plan(),/initial_config_inactive/);
   console.log("Initial-state DB: read-only bounded plans, stale/actor evidence, current true baseline, once-only worker, future transitions, native-attempt guard, system answers and Batch passed.");
-  console.log("Status List automatic DB: read-only preview, hidden step, no replay, definition baselines, source subquestions, Batch and exact Mission passed.");
+  await client.query("DELETE FROM mission_status_list_automatic_events");
+  await client.query("DELETE FROM mission_status_list_automatic_states");
+  await client.query("DELETE FROM mission_status_list_sources");
+  await client.query("UPDATE campaign_status_list_automations SET question_id=NULL,condition_field='always',condition_value=NULL");
+  await client.query("UPDATE mission_status_list_automatic_configs SET trigger='pulse_open',enabled=true,background_execution='mission',revision=gen_random_uuid()::text");
+  const pulse=await inspectAutomaticContact(client,mission,contact,item,{enqueue:true,trigger:"pulse_open",actorId:"agent"});
+  assert.equal(pulse.actions[0].status,"batch_deferred","Pulse open respects Batch by default");
+  await client.query("DELETE FROM mission_status_list_automatic_events");
+  await client.query("UPDATE mission_status_list_automatic_configs SET trigger='background_change',background_execution='unattended',revision=gen_random_uuid()::text");
+  assert.equal((await inspectAutomaticContact(client,mission,contact,item,{enqueue:true,trigger:"background_change"})).actions[0].status,"background_baseline");
+  await client.query("UPDATE mission_status_list_automatic_states SET matched=false");
+  const unattended=await inspectAutomaticContact(client,mission,contact,item,{enqueue:true,trigger:"background_change"});
+  assert.equal(unattended.actions[0].status,"pending","explicit unattended background work does not wait for Batch save");
+  assert.equal((await inspectAutomaticContact(client,mission,contact,item,{enqueue:true,trigger:"background_change"})).actions[0].status,"pending","repeat does not create another reservation");
+  assert.equal(Number((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count),1);
+  console.log("Status List automatic DB: Pulse-open scope, unattended Batch override, safe baseline and durable deduplication passed.");
 } finally {
   await client.query("ROLLBACK").catch(()=>{});
   await client.query("SET search_path TO public");

@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS mission_status_list_automatic_configs (
  revision varchar NOT NULL DEFAULT gen_random_uuid()::text,
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE mission_status_list_automatic_configs DROP CONSTRAINT IF EXISTS mission_status_list_automatic_configs_trigger_check;
+ALTER TABLE mission_status_list_automatic_configs ADD COLUMN IF NOT EXISTS background_execution text NOT NULL DEFAULT 'mission';
+ALTER TABLE mission_status_list_automatic_configs ADD CONSTRAINT mission_status_list_automatic_configs_trigger_check
+ CHECK (trigger IN ('agent_confirmation','card_open','pulse_open','background_change'));
 CREATE INDEX IF NOT EXISTS mission_status_list_automatic_configs_campaign ON mission_status_list_automatic_configs(campaign_id,trigger,enabled);
 CREATE TABLE IF NOT EXISTS mission_status_list_automatic_states (
  campaign_contact_id varchar NOT NULL REFERENCES campaign_contacts(id) ON DELETE CASCADE,

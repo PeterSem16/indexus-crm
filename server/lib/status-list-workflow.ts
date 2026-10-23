@@ -17,7 +17,7 @@ type Queryable = Pick<PoolClient, "query">;
 export async function workflowCatalog(campaignId: string, client: Queryable = pool): Promise<WorkflowCatalogItem[]> {
   const { rows } = await client.query(`
     SELECT 'item' AS kind, i.id, i.label, 'checkbox' AS field_type, i.is_hidden AS hidden,
-      i.confirmation_type <> 'auto' AS writable, p.label AS parent_label,
+      i.confirmation_type NOT IN ('auto','info') AS writable, p.label AS parent_label,
       i.parent_id, i.sort_order, i.item_type, i.confirmation_type, NULL::boolean AS system_source_eligible,
       (i.item_type='option' AND p.id IS NOT NULL AND p.question_selection_mode IS DISTINCT FROM 'single') AS multi_selectable
     FROM campaign_status_list_items i LEFT JOIN campaign_status_list_items p ON p.id=i.parent_id

@@ -20,6 +20,7 @@ import { readTransitionInventory } from "./status-list-transition-inventory";
 import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
 import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner, withCallbackRuleChange } from "./status-list-callback-transition";
 import { readStatusListServiceHistory } from "./status-list-service-history";
+import { previewStatusListConfirmation } from "./status-list-confirmation-preview";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 export async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -76,6 +77,17 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.post(`${contactRoot}/confirmation-preview`, requireAuth, route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await client.query("SET LOCAL statement_timeout='10s'");
+      const preview=await previewStatusListConfirmation(client,req.params.campaignId,req.params.campaignContactId,actor.id,req.body);
+      await client.query("COMMIT");res.json(preview);
+    } catch(error) { await client.query("ROLLBACK");throw error; }
+    finally {client.release();}
+  }));
   const initialRoot=`${root}/automatic-items/:itemId`;
   app.post(`${initialRoot}/initial-preview`,requireAuth,route(async(req,res)=>{
     const actor=await authorize(req,true);
@@ -159,7 +171,10 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   }));
   app.post(`${contactRoot}/automatic-open`,requireAuth,route(async(req,res)=>{
     const actor=await authorize(req,false,req.params.campaignContactId);
-    const {executionMode,commit}=z.object({executionMode:z.enum(["immediate","batch"]),commit:z.boolean().optional()}).strict().parse(req.body);
+    const {executionMode,commit,source}=z.object({
+      executionMode:z.enum(["immediate","batch"]),commit:z.boolean().optional(),
+      source:z.enum(["card_open","pulse_open"]).default("card_open"),
+    }).strict().parse(req.body);
     const campaignId=req.params.campaignId,contactId=req.params.campaignContactId;
     const settings=(await pool.query("SELECT settings FROM campaigns WHERE id=$1",[campaignId])).rows[0]?.settings;
     const mode=statusListExecutionMode(settings);
@@ -169,18 +184,25 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     try {
       await client.query("BEGIN");
       await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`${campaignId}:${contactId}:automatic-open`]);
-      const ids=(await client.query(`SELECT item_id FROM mission_status_list_automatic_configs
-        WHERE campaign_id=$1 AND trigger='card_open' AND enabled=true ORDER BY item_id`,[campaignId])).rows;
+      const ids=(await client.query(`SELECT item_id,trigger FROM mission_status_list_automatic_configs
+        WHERE campaign_id=$1 AND (trigger=$2 OR $3 AND trigger IN ('card_open','pulse_open'))
+        AND enabled=true ORDER BY item_id`,[campaignId,source,commit===true])).rows;
       const results=[];
       for(const row of ids)results.push(await inspectAutomaticContact(client,campaignId,contactId,row.item_id,
-        {enqueue:mode==="immediate" || commit===true,trigger:"card_open",actorId:actor.id,batchCommit:commit===true}));
+        {enqueue:mode==="immediate" || commit===true,
+          trigger:commit ? row.trigger : source,
+          actorId:actor.id,batchCommit:commit===true}));
       if(mode==="batch" && commit===true) await client.query(`UPDATE mission_status_list_automatic_events
         SET state='pending' WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,
       [campaignId,contactId]);
-      const deferred=(await client.query(`SELECT count(*)::integer AS count FROM mission_status_list_automatic_events
-        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,[campaignId,contactId])).rows[0].count;
-      const pendingCount=deferred+results.reduce((n,result)=>n+result.actions.filter(action=>action.status==="batch_deferred").length,0);
-      await client.query("COMMIT");res.json({results,pendingCount});
+      const deferredRows=(await client.query(`SELECT automation_id FROM mission_status_list_automatic_events
+        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,[campaignId,contactId])).rows;
+      const deferredIds=new Set(deferredRows.map((row:any)=>row.automation_id));
+      const candidateCount=results.reduce((n,result)=>n+result.actions.filter(action=>
+        action.status==="batch_deferred" && !deferredIds.has(action.id)).length,0);
+      const deferredCount=deferredRows.length;
+      const pendingCount=deferredCount+candidateCount;
+      await client.query("COMMIT");res.json({results,pendingCount,candidateCount,deferredCount});
     }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
   }));
   app.get(`${root}/background-diagnostics`, requireAuth, route(async (req, res) => {
@@ -404,6 +426,11 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   app.patch(`${contactRoot}/answers/:questionId/note`, requireAuth, route(async (req, res) => {
     const user = await authorize(req, false, req.params.campaignContactId);
     const { note } = questionNoteSchema.parse(req.body);
+    const editable = (await pool.query(`SELECT q.note_enabled FROM campaign_status_list_questions q
+      JOIN campaign_status_list_items i ON i.id=q.item_id
+      WHERE q.id=$1 AND i.campaign_id=$2`, [req.params.questionId,req.params.campaignId])).rows[0];
+    if (!editable) throw new StatusListWorkflowError("question_not_found",404);
+    if (editable.note_enabled === false) throw new StatusListWorkflowError("question_note_disabled",409);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");

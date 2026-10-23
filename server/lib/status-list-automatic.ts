@@ -19,8 +19,8 @@ const loadItem = async (client: Reader, campaignId: string, itemId: string) => (
   FROM campaign_status_list_items i JOIN campaigns c ON c.id=i.campaign_id
   WHERE i.campaign_id=$1 AND i.id=$2`, [campaignId,itemId])).rows[0];
 const loadConfig = async (client: Reader, campaignId: string, itemId: string) => (await client.query(`
-  SELECT trigger,enabled,revision FROM mission_status_list_automatic_configs WHERE campaign_id=$1 AND item_id=$2`,
-  [campaignId,itemId])).rows[0] || { trigger: "agent_confirmation",enabled: false,revision: null };
+  SELECT trigger,enabled,revision,background_execution AS "backgroundExecution" FROM mission_status_list_automatic_configs WHERE campaign_id=$1 AND item_id=$2`,
+  [campaignId,itemId])).rows[0] || { trigger: "agent_confirmation",enabled: false,revision: null,backgroundExecution:"mission" };
 const loadActions = async (client: Reader, campaignId: string, itemId: string) => (await client.query(`
   SELECT a.id,a.action_type AS "actionType",a.status_list_item_id AS "itemId",a.question_id AS "questionId",
     q.question_text AS "questionLabel",a.service_action_config AS "serviceActionConfig",
@@ -86,6 +86,9 @@ export async function saveAutomaticConfig(campaignId: string,itemId: string,raw:
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`automatic:${campaignId}:${itemId}`]);
     const item = await loadItem(client,campaignId,itemId);
     if (!item) throw Error("item_not_found");
+    if (item.confirmationType === "info" && payload.enabled) throw Error("agent_cannot_confirm");
+    if (payload.trigger !== "background_change" && payload.backgroundExecution === "unattended")
+      throw Error("unsupported_action");
     const current = await loadConfig(client,campaignId,itemId);
     if (current.revision !== payload.expectedRevision) throw Error("config_changed");
     const actions = await loadActions(client,campaignId,itemId);
@@ -110,12 +113,13 @@ export async function saveAutomaticConfig(campaignId: string,itemId: string,raw:
       [campaignId,itemId,(await client.query("SELECT parent_id FROM campaign_status_list_items WHERE id=$1",[itemId])).rows[0]?.parent_id])).rowCount)
         throw Error("agent_cannot_confirm");
     }
-    const revision = current.revision === null || current.trigger !== payload.trigger || current.enabled !== payload.enabled
+    const revision = current.revision === null || current.trigger !== payload.trigger || current.enabled !== payload.enabled ||
+      current.backgroundExecution !== payload.backgroundExecution
       ? randomUUID() : current.revision;
-    await client.query(`INSERT INTO mission_status_list_automatic_configs(item_id,campaign_id,trigger,enabled,revision)
-      VALUES($1,$2,$3,$4,$5) ON CONFLICT(item_id) DO UPDATE SET trigger=EXCLUDED.trigger,
-      enabled=EXCLUDED.enabled,revision=EXCLUDED.revision,updated_at=now()`,
-    [itemId,campaignId,payload.trigger,payload.enabled,revision]);
+    await client.query(`INSERT INTO mission_status_list_automatic_configs(item_id,campaign_id,trigger,enabled,revision,background_execution)
+      VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(item_id) DO UPDATE SET trigger=EXCLUDED.trigger,
+      enabled=EXCLUDED.enabled,revision=EXCLUDED.revision,background_execution=EXCLUDED.background_execution,updated_at=now()`,
+    [itemId,campaignId,payload.trigger,payload.enabled,revision,payload.backgroundExecution]);
     await client.query("COMMIT");
   } catch(error) { await client.query("ROLLBACK"); throw error; }
   finally { client.release(); }
@@ -179,13 +183,14 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
     const old = states.find(row=>row.automation_id===action.id && row.definition_fingerprint===fingerprint);
     const nextGeneration = old ? Number(old.generation) + (!old.matched && evaluation.value === true ? 1 : 0) : 0;
     const key = options.initialState ? `initial:${action.id}` : sourceEvent ? `source:${sourceEvent.eventId}` :
-      config.trigger === "card_open" ? `open:${action.id}` : `change:${fingerprint}:${nextGeneration}`;
+      ["card_open", "pulse_open"].includes(config.trigger) ? `open:${action.id}` : `change:${fingerprint}:${nextGeneration}`;
     const prior = executions.find(row=>row.automation_id===action.id && (derived && !sourceEvent || row.trigger_key===key));
     let status = automaticAdmission({
-      trigger:config.trigger,enabled:config.enabled,supported:issues.length===0,
+      trigger:config.trigger,enabled:config.enabled && item.confirmationType!=="info",supported:issues.length===0,
       condition:evaluation.value,issue:evaluation.issue,previous:sourceEvent ? false : old?.matched,
       priorStatus: prior?.state==="awaiting_batch" ? "batch_deferred" : prior?.state==="running" ? "pending" : prior?.state,
-      batch:mode==="batch" && !options.batchCommit,
+      batch:mode==="batch" && !options.batchCommit &&
+        !(config.trigger==="background_change" && config.backgroundExecution==="unattended"),
     });
     if (derived && !sourceEvent && ["ready","background_baseline","waiting_transition","batch_deferred"].includes(status))
       status="waiting_transition";

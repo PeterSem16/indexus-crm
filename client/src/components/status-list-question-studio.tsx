@@ -12,6 +12,9 @@ import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListRelationshipsEditor } from "./status-list-relationships-editor";
 import { getStatusListRelationshipsCopy } from "./status-list-relationships-copy";
 import { StatusListQuestionAppearance } from "./status-list-question-appearance";
+import { StatusListQuickOptionIcon } from "./status-list-quick-option-icons";
+import { getStatusListBehaviorCopy } from "./status-list-behavior-copy";
+import { StatusListAutomaticTriggerInspector } from "./status-list-automatic-trigger-inspector";
 import { relationshipSelection, relationshipTargets } from "@/lib/status-list-relationships";
 import "./status-list-question-studio.css";
 
@@ -29,16 +32,17 @@ type StepDraft = {
   stepId: string; label: string; description: string; confirmationType: string; required: boolean;
   autoConfirmOnSubQuestion: boolean; questionSelectionMode: "single" | "multiple";
   nextStepId: string; restrictions: string; isHidden: boolean; tab: string | null;
-  canonicalClinicStatusKey: string | null;
+  canonicalClinicStatusKey: string | null; icon: string; color: string; previewActions: boolean;
 };
 type QuestionDraft = {
   questionText: string; fieldType: string; icon: string; color: string; required: boolean;
   isHidden: boolean; description: string; groupName: string; logicOperator: string; gotoQuestionId: string;
+  noteEnabled: boolean; previewActions: boolean;
 };
 
 const stages: Stage[] = ["placement", "content", "answer", "relationships", "actions"];
-const stepKeys: (keyof StepDraft)[] = ["stepId", "label", "description", "confirmationType", "required", "autoConfirmOnSubQuestion", "questionSelectionMode", "nextStepId", "restrictions", "isHidden", "tab", "canonicalClinicStatusKey"];
-const questionKeys: (keyof QuestionDraft)[] = ["questionText", "fieldType", "icon", "color", "required", "isHidden", "description", "groupName", "logicOperator", "gotoQuestionId"];
+const stepKeys: (keyof StepDraft)[] = ["stepId", "label", "description", "confirmationType", "required", "autoConfirmOnSubQuestion", "questionSelectionMode", "nextStepId", "restrictions", "isHidden", "tab", "canonicalClinicStatusKey", "icon", "color", "previewActions"];
+const questionKeys: (keyof QuestionDraft)[] = ["questionText", "fieldType", "icon", "color", "required", "isHidden", "description", "groupName", "logicOperator", "gotoQuestionId", "noteEnabled", "previewActions"];
 const phaseName = (value: string | null | undefined) => value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
 const stepDraftFrom = (item: any): StepDraft => ({
   stepId: item?.stepId ?? "", label: item?.label ?? "", description: item?.description ?? "",
@@ -47,13 +51,15 @@ const stepDraftFrom = (item: any): StepDraft => ({
   questionSelectionMode: item?.questionSelectionMode === "single" ? "single" : "multiple",
   nextStepId: item?.nextStepId ?? "", restrictions: item?.restrictions ?? "", isHidden: !!item?.isHidden,
   tab: item?.tab ?? null, canonicalClinicStatusKey: item?.canonicalClinicStatusKey ?? null,
+  icon: item?.icon ?? "", color: item?.color ?? "", previewActions: !!item?.previewActions,
 });
 const questionDraftFrom = (question: any): QuestionDraft => ({
   questionText: question?.questionText ?? "", fieldType: question?.fieldType ?? "checkbox",
   icon: question?.icon ?? "", color: question?.color ?? "", required: !!question?.required,
   isHidden: !!question?.isHidden, description: question?.description ?? "",
   groupName: question?.groupName ?? "", logicOperator: question?.logicOperator ?? "OR",
-  gotoQuestionId: question?.gotoQuestionId ?? "",
+  gotoQuestionId: question?.gotoQuestionId ?? "", noteEnabled: question?.noteEnabled !== false,
+  previewActions: !!question?.previewActions,
 });
 const same = (a: object, b: object, keys: string[]) => keys.every(key => (a as any)[key] === (b as any)[key]);
 
@@ -62,6 +68,7 @@ export function StatusListQuestionStudio({
   onSelectItem, onSelectQuestion, renderActions, renderSource, renderChildren, onDeleted, isNew = false, ancestorHidden = false, onSaved, onDirtyChange,
 }: Props) {
   const copy = getStatusListQuestionStudioCopy(locale);
+  const behavior = getStatusListBehaviorCopy(locale);
   const confirm = useStatusListConfirm(locale);
   const guidance = getStatusListGuidanceCopy(locale);
   const { toast } = useToast();
@@ -114,6 +121,7 @@ export function StatusListQuestionStudio({
           questionText: questionDraft.questionText.trim(), fieldType: questionDraft.fieldType || "checkbox",
           icon: questionDraft.icon.trim() || null, color: questionDraft.color.trim() || null,
           required: questionDraft.required, isHidden: questionDraft.isHidden,
+          noteEnabled: questionDraft.noteEnabled, previewActions: questionDraft.previewActions,
           description: questionDraft.description.trim() || null, groupName: questionDraft.groupName.trim() || null,
           logicOperator: questionDraft.logicOperator || "OR",
           gotoQuestionId: questionDraft.gotoQuestionId || null,
@@ -128,6 +136,8 @@ export function StatusListQuestionStudio({
         stepId: stepDraft.stepId.trim(), label: stepDraft.label.trim(), description: stepDraft.description.trim() || null,
         confirmationType: stepDraft.confirmationType, required: stepDraft.required,
         autoConfirmOnSubQuestion: stepDraft.autoConfirmOnSubQuestion,
+        icon: stepDraft.icon.trim() || null, color: stepDraft.color.trim() || null,
+        previewActions: stepDraft.previewActions,
         questionSelectionMode: stepDraft.questionSelectionMode, nextStepId: stepDraft.nextStepId || null,
         restrictions: stepDraft.restrictions.trim() || null, isHidden: stepDraft.isHidden,
         tab: stepDraft.tab, canonicalClinicStatusKey: stepDraft.canonicalClinicStatusKey || null,
@@ -246,7 +256,7 @@ export function StatusListQuestionStudio({
   const renderText = (label: string, value: string, onChange: (value: string) => void, testId?: string, placeholder?: string) =>
     <label className="slqs-field"><span>{label}</span><input data-testid={testId} value={value} placeholder={placeholder} onChange={event => onChange(event.target.value)} /></label>;
   const previewText = isQuestion ? questionDraft.questionText : stepDraft.label;
-  const previewHidden = ancestorHidden || stepDraft.confirmationType === "auto" || (isQuestion ? questionDraft.isHidden || !!stepDraft.isHidden : stepDraft.isHidden);
+  const previewHidden = ancestorHidden || (isQuestion ? questionDraft.isHidden || !!stepDraft.isHidden : stepDraft.isHidden);
   const phase = isQuestion ? (item?.tab || resolvedPhase) : (stepDraft.tab || resolvedPhase);
   return <section className="slqs" data-testid="status-list-question-studio">
     <header className="slqs-header">
@@ -279,6 +289,27 @@ export function StatusListQuestionStudio({
                 </label>
                 <div className="slqs-wide">{renderToggle(copy.visible, !stepDraft.isHidden, value => setStep("isHidden", !value), "switch-item-hidden")}</div>
                 <p className="slqs-impact slqs-wide">{stepDraft.isHidden ? copy.impactHidden : copy.impactVisible}</p>
+                <fieldset className="slqs-behavior-choice slqs-wide">
+                  <legend>{behavior.roleLabel}</legend>
+                  <p>{behavior.roleHelp}</p>
+                  <div className="slqs-behavior-options">
+                    {(["info", "confirmed", "auto"] as const).map(option => {
+                      const selected = option === "info" ? stepDraft.confirmationType === "info"
+                        : option === "auto" ? stepDraft.confirmationType === "auto" : stepDraft.confirmationType !== "info" && stepDraft.confirmationType !== "auto";
+                      const titleKey = `${option}Title` as "infoTitle" | "confirmedTitle" | "autoTitle";
+                      const descriptionKey = `${option}Description` as "infoDescription" | "confirmedDescription" | "autoDescription";
+                      return <button key={option} type="button" aria-pressed={selected} className={selected ? "is-selected" : ""}
+                        onClick={() => setStep("confirmationType", option === "info" ? "info" : option === "auto" ? "auto" : stepDraft.confirmationType === "radio" ? "radio" : "checkbox")}>
+                        <strong>{behavior[titleKey]}</strong><span>{behavior[descriptionKey]}</span>
+                      </button>;
+                    })}
+                  </div>
+                  <small>{stepDraft.confirmationType === "info" ? behavior.infoContext : stepDraft.confirmationType === "auto" ? behavior.autoContext : behavior.confirmedContext}</small>
+                </fieldset>
+                {stepDraft.confirmationType !== "info" && <div className="slqs-wide">
+                  {renderToggle(behavior.previewActions, stepDraft.previewActions, value => setStep("previewActions", value), "status-list-step-preview-actions")}
+                  <small className="slqs-behavior-hint">{behavior.previewActionsHelp}</small>
+                </div>}
               </div>}
           </div>}
           {stage === "content" && <div className="slqs-stage-content">
@@ -292,12 +323,16 @@ export function StatusListQuestionStudio({
             </div> : <div className="slqs-fields">
               {renderText(copy.stepName, stepDraft.label, value => setStep("label", value), "status-list-step-name")}
               <label className="slqs-field slqs-wide"><span>{copy.stepDescription}</span><textarea rows={5} value={stepDraft.description} onChange={event => setStep("description", event.target.value)} placeholder={copy.guidanceExample} /></label>
+              <StatusListQuestionAppearance locale={locale} icon={stepDraft.icon} color={stepDraft.color}
+                onIconChange={value => setStep("icon", value || "")} onColorChange={value => setStep("color", value)} />
               <div className="slqs-guidance slqs-wide">{copy.guidanceExample}</div>
               <details className="slqs-advanced slqs-wide"><summary>{copy.advanced}</summary><div>{renderText(copy.stepId, stepDraft.stepId, value => setStep("stepId", value), "status-list-step-id")}</div></details>
             </div>}
           </div>}
           {stage === "answer" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">03 / 05</span><h3>{copy.answerTitle}</h3><p>{copy.answerHelp}</p></div>
+            {!isQuestion && !isNew && stepDraft.confirmationType==="auto" &&
+              <StatusListAutomaticTriggerInspector campaignId={campaignId} itemId={item.id} locale={locale} disabled={dirty}/>}
             {!isQuestion && !isNew && <section className="mb-5 space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4" data-testid="status-list-answer-branches">
               <h4 className="text-sm font-semibold">{guidance.title}</h4>
               <p className="text-xs leading-relaxed text-muted-foreground">{guidance.help}</p>
@@ -326,21 +361,31 @@ export function StatusListQuestionStudio({
                 {renderToggle(copy.required, questionDraft.required, value => setQuestion("required", value), "status-list-question-required")}
                 {renderToggle(copy.visible, !questionDraft.isHidden, value => setQuestion("isHidden", !value), "status-list-question-hidden")}
               </div>
+              <div className="slqs-wide slqs-toggle-pair">
+                {renderToggle(behavior.noteEnabled, questionDraft.noteEnabled, value => setQuestion("noteEnabled", value), "status-list-question-note-enabled")}
+                {renderToggle(behavior.previewActions, questionDraft.previewActions, value => setQuestion("previewActions", value), "status-list-question-preview-actions")}
+              </div>
+              <p className="slqs-impact slqs-wide">{behavior.notesHistory}</p>
+              <p className="slqs-behavior-hint slqs-wide">{behavior.previewActionsHelp}</p>
               {questionDraft.groupName && <div className="slqs-impact slqs-wide">{copy.impactGroup} {questionDraft.required ? copy.impactRequired : ""}</div>}
               <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource(setSourceDirty)}</div>
             </div> : <div className="slqs-fields">
-              <label className="slqs-field"><span>{copy.confirmation}</span><select data-testid="status-list-confirmation-type" value={stepDraft.confirmationType} onChange={event => setStep("confirmationType", event.target.value)}>
+              {stepDraft.confirmationType !== "info" && <label className="slqs-field"><span>{copy.confirmation}</span><select data-testid="status-list-confirmation-type" value={stepDraft.confirmationType} onChange={event => setStep("confirmationType", event.target.value)}>
                 {!copy.confirmationOptions[stepDraft.confirmationType] && <option value={stepDraft.confirmationType}>{stepDraft.confirmationType}</option>}
                 {Object.entries(copy.confirmationOptions).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select><small>{copy.confirmationHelp}</small></label>
+              </select><small>{stepDraft.confirmationType === "auto" ? behavior.autoContext : copy.confirmationHelp}</small></label>}
               <label className="slqs-field"><span>{copy.selectionMode}</span><select data-testid="status-list-selection-mode" value={stepDraft.questionSelectionMode} onChange={event => setStep("questionSelectionMode", event.target.value as "single" | "multiple")}>
                 <option value="multiple">{copy.selectionMultiple}</option><option value="single">{copy.selectionSingle}</option>
               </select><small>{copy.groupHelp}</small></label>
-              <div className="slqs-wide slqs-toggle-pair">
-                {renderToggle(copy.required, stepDraft.required, value => setStep("required", value), "status-list-step-required")}
-                {renderToggle(copy.autoConfirm, stepDraft.autoConfirmOnSubQuestion, value => setStep("autoConfirmOnSubQuestion", value), "status-list-auto-confirm")}
-              </div>
-              <small className="slqs-wide text-muted-foreground">{copy.impactRequired}</small>
+              {stepDraft.confirmationType !== "info" && stepDraft.confirmationType !== "auto" && <>
+                <div className="slqs-wide slqs-toggle-pair">
+                  {renderToggle(copy.required, stepDraft.required, value => setStep("required", value), "status-list-step-required")}
+                  {renderToggle(copy.autoConfirm, stepDraft.autoConfirmOnSubQuestion, value => setStep("autoConfirmOnSubQuestion", value), "status-list-auto-confirm")}
+                </div>
+                <small className="slqs-wide text-muted-foreground">{copy.impactRequired}</small>
+              </>}
+              {stepDraft.confirmationType === "info" && <p className="slqs-impact slqs-wide">{behavior.infoContext}</p>}
+              {stepDraft.confirmationType === "auto" && <p className="slqs-impact slqs-wide">{behavior.autoContext}</p>}
               <label className="slqs-field slqs-wide"><span>{guidance.reporting}</span><select data-testid="status-list-canonical-status" value={stepDraft.canonicalClinicStatusKey || ""} onChange={event => setStep("canonicalClinicStatusKey", event.target.value || null)}>
                 <option value="">{guidance.none}</option>{canonicalByPhase.map(option => <option value={option.value} key={`${option.phase}:${option.value}`}>{option.label}</option>)}
                 {stepDraft.canonicalClinicStatusKey && !canonicalByPhase.some(option => option.value === stepDraft.canonicalClinicStatusKey) && <option value={stepDraft.canonicalClinicStatusKey}>{canonicalOptions.find(option => option.value === stepDraft.canonicalClinicStatusKey)?.label || stepDraft.canonicalClinicStatusKey}</option>}
@@ -362,8 +407,10 @@ export function StatusListQuestionStudio({
           </div>}
           {stage === "actions" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">05 / 05</span><h3>{copy.actionsTitle}</h3><p>{copy.actionsHelp}</p></div>
-            <div className="slqs-action-retained"><span>✓</span><p>{copy.actionsHelp}</p></div>
-            <div className="slqs-actions-content">{renderActions(questionId || null, setActionDirty)}</div>
+            {stepDraft.confirmationType === "info" && !isQuestion
+              ? <div className="slqs-action-retained"><span aria-hidden="true">i</span><p>{behavior.noOwnActions}</p></div>
+              : <><div className="slqs-action-retained"><span aria-hidden="true">i</span><p>{copy.actionsHelp}</p></div>
+                <div className="slqs-actions-content">{renderActions(questionId || null, setActionDirty)}</div></>}
           </div>}
         </section>
         <footer className="slqs-footer">
@@ -386,21 +433,27 @@ export function StatusListQuestionStudio({
           <div className="slqs-preview-body">
             <div className="slqs-preview-progress"><i /></div>
             <span className="slqs-preview-step">{copy.previewStep}</span>
-            <h4>{isQuestion ? (item?.label || stepDraft.label) : (stepDraft.label || copy.stepName)}</h4>
+            <h4 className="slqs-preview-title">
+              {!isQuestion && <span className="slqs-preview-icon" style={{ color: stepDraft.color || undefined }}>
+                <StatusListQuickOptionIcon name={stepDraft.icon} />
+              </span>}{isQuestion ? (item?.label || stepDraft.label) : (stepDraft.label || copy.stepName)}
+            </h4>
             {isQuestion && <div className="slqs-preview-question">
-              <strong>{previewText || copy.questionText}{questionDraft.required && <em>*</em>}</strong>
+              <strong><span className="slqs-preview-icon" style={{ color: questionDraft.color || undefined }}><StatusListQuickOptionIcon name={questionDraft.icon} /></span>{previewText || copy.questionText}{questionDraft.required && <em>*</em>}</strong>
               {questionDraft.description && <p>{questionDraft.description}</p>}
               {questionDraft.fieldType === "checkbox" && <div className="slqs-preview-option"><i /></div>}
               {isStatusListYesNo(questionDraft.fieldType) && <div className="slqs-preview-yesno"><span>{copy.yes}</span><span>{copy.no}</span></div>}
               {questionDraft.fieldType !== "checkbox" && !isStatusListYesNo(questionDraft.fieldType) && <p className="slqs-preview-unsupported">{copy.unsupportedPreview}</p>}
             </div>}
             {!isQuestion && stepDraft.description && <p className="slqs-preview-description">{stepDraft.description}</p>}
-            {!isQuestion && stepDraft.required && <span className="slqs-required-chip">{copy.requiredMark}</span>}
+            {!isQuestion && stepDraft.confirmationType === "info" && <span className="slqs-preview-role">{behavior.infoTitle}</span>}
+            {!isQuestion && stepDraft.confirmationType === "auto" && <span className="slqs-preview-role is-automatic">{behavior.autoTitle}</span>}
+            {!isQuestion && stepDraft.confirmationType!=="info" && stepDraft.required && <span className="slqs-required-chip">{copy.requiredMark}</span>}
             {previewHidden && <span className="slqs-preview-hidden">{copy.hiddenPreview}</span>}
           </div>
           <div className="slqs-preview-bottom"><span>{phaseName(phase) || copy.sharedPhase}</span></div>
         </div>
-        <p className="slqs-preview-impact">{previewHidden ? copy.impactHidden : isQuestion ? (questionDraft.required ? copy.impactRequired : copy.impactGroup) : copy.impactVisible}</p>
+        <p className="slqs-preview-impact">{previewHidden ? copy.impactHidden : !isQuestion && stepDraft.confirmationType === "auto" ? behavior.autoContext : isQuestion ? (questionDraft.required ? copy.impactRequired : copy.impactGroup) : copy.impactVisible}</p>
         {isQuestion && <div className="slqs-preview-inherit"><span>↳</span>{copy.inherited}<button type="button" onClick={() => onSelectItem(item.id)}>{copy.goToParent}</button></div>}
         <div className="slqs-preview-detail"><span>{copy.phase}</span><strong>{tabLabel(phase)}</strong><span>{isQuestion ? copy.fieldType : copy.selectionMode}</span><strong>{isQuestion ? copy.fieldTypeOptions[isStatusListYesNo(questionDraft.fieldType) ? "yes_no" : questionDraft.fieldType] || questionDraft.fieldType : stepDraft.questionSelectionMode === "single" ? copy.selectionSingle : copy.selectionMultiple}</strong></div>
       </aside>

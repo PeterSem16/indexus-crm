@@ -22,14 +22,14 @@ type Phase = {
 export type AgentStatusQuestion = {
   id: string; questionText: string; isHidden?: boolean; groupName?: string | null;
   logicOperator?: string; fieldType?: string | null; color?: string | null; icon?: string | null;
-  automations?: any[];
+  automations?: any[]; noteEnabled?: boolean; previewActions?: boolean;
 };
 
-export function StatusListQuestionHistory({ questionId, locale, metadata, note, pending, onSaveNote }: {
+export function StatusListQuestionHistory({ questionId, locale, metadata, note, pending, onSaveNote, noteEnabled = true }: {
   questionId: string; locale: string;
   metadata?: { answeredAt?: string | null; answeredByName?: string | null; actorKind?: string | null };
   note?: { note?: string | null; updatedAt?: string | null; updatedByName?: string | null };
-  pending: boolean; onSaveNote?: (questionId: string, note: string | null) => Promise<void> | void;
+  pending: boolean; onSaveNote?: (questionId: string, note: string | null) => Promise<void> | void; noteEnabled?: boolean;
 }) {
   const { t } = useI18n();
   const copy = t.statusListQuestionHistory;
@@ -51,13 +51,13 @@ export function StatusListQuestionHistory({ questionId, locale, metadata, note, 
       : metadata?.answeredAt ? <div className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80" data-testid={`sl-question-answered-${questionId}`}>
         {copy.saved} · {stamp(metadata.answeredAt)}{metadata.answeredByName ? ` · ${copy.by} ${metadata.answeredByName}` : ""}
       </div> : null}
-    <div className="flex flex-wrap items-center gap-2">
+    {noteEnabled ? <div className="flex flex-wrap items-center gap-2">
       <input aria-label={copy.note} className="min-w-0 flex-1 rounded-md border border-input bg-background px-2 py-1.5 text-[10px] font-normal text-foreground placeholder:text-muted-foreground"
         value={draft} placeholder={copy.notePlaceholder} onChange={event => setDraft(event.target.value)} data-testid={`sl-question-note-${questionId}`} />
       {onSaveNote && <button type="button" disabled={!dirty || saving} className="rounded-md border px-2 py-1.5 text-[10px] font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-45"
         onClick={async () => { setSaving(true); setError(false); try { await onSaveNote(questionId, draft.trim() || null); } catch { setError(true); } finally { setSaving(false); } }}
         data-testid={`sl-question-note-save-${questionId}`}>{saving ? copy.saving : error ? copy.saveError : copy.save}</button>}
-    </div>
+    </div> : note?.note ? <p className="whitespace-pre-wrap text-[10px] text-muted-foreground">{note.note}</p> : null}
     {note?.updatedAt && <div className="text-[9px] text-muted-foreground">{stamp(note.updatedAt)}{note.updatedByName ? ` · ${note.updatedByName}` : ""}</div>}
   </div>;
 }
@@ -103,7 +103,7 @@ export function StatusListAgentQuestionChoices({
         const exclusiveQuestions = groupMode === "ONE" && allGroupsAreOne ? visibleQuestions : group;
         const customAction = isStatusListYesNo(fieldType) ? null : renderAction?.(question, exclusiveQuestions, groupMode);
         const history = <StatusListQuestionHistory key={`${scopeKey}:${question.id}`} questionId={question.id} locale={locale} metadata={answerMetadata[question.id]}
-          note={questionNotes[question.id]} pending={pendingQuestionIds.has(question.id)} onSaveNote={onSaveQuestionNote} />;
+          note={questionNotes[question.id]} pending={pendingQuestionIds.has(question.id)} onSaveNote={onSaveQuestionNote} noteEnabled={question.noteEnabled !== false} />;
         if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}><div className="flex items-center gap-1.5"><StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{customAction}</div>{history}</div>;
         const answered = answers[question.id] != null;
         if (isStatusListYesNo(fieldType)) return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
@@ -187,11 +187,11 @@ export function StatusListAgentItemFrame({
   </div>;
 }
 
-export function StatusListAgentItemHeading({ label, selected, required, description, children }: {
-  label: string; selected: boolean; required?: boolean; description?: string | null; children?: ReactNode;
+export function StatusListAgentItemHeading({ label, selected, required, description, children, icon }: {
+  label: string; selected: boolean; required?: boolean; description?: string | null; children?: ReactNode; icon?: string | null;
 }) {
   return <>
-    <div className={`text-sm leading-snug ${selected ? "font-bold text-emerald-700 dark:text-emerald-300" : "font-semibold"}`}>{label}{required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}</div>
+    <div className={`flex items-center gap-1.5 text-sm leading-snug ${selected ? "font-bold text-emerald-700 dark:text-emerald-300" : "font-semibold"}`}><StatusListQuickOptionIcon name={icon} className="h-4 w-4 shrink-0" />{label}{required && <span className="ml-1 text-rose-500 text-[10px] font-bold">*</span>}</div>
     {description && <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>}
     {children}
   </>;
@@ -313,7 +313,7 @@ export function StatusListAgentPreview({ items, locale, statusListMode = "immedi
         return <StatusListAgentItemFrame key={item.id} itemId={item.id} stepId={item.stepId} tab={item.tab} selected={selected} info={item.confirmationType === "info"}>
           <div className="flex items-start gap-3 pl-4 pr-3 py-3">
             <div className="shrink-0 mt-0.5">{item.confirmationType === "info" ? <div className="h-5 w-5 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center"><Info className="h-3 w-3 text-blue-500" /></div> : <button type="button" onClick={() => toggle(item.id)} className={`h-5 w-5 rounded-md border-2 flex items-center justify-center transition-all cursor-pointer ${selected ? "bg-emerald-500 border-emerald-500 shadow-sm shadow-emerald-200" : "border-muted-foreground/30 bg-background hover:border-emerald-400"}`} aria-pressed={selected} data-testid={`sl-check-${item.id}`}>{selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}</button>}</div>
-            <div className="flex-1 min-w-0"><StatusListAgentItemHeading label={item.label} selected={selected} required={item.required} description={item.description} />
+            <div className="flex-1 min-w-0"><StatusListAgentItemHeading label={item.label} icon={item.icon} selected={selected} required={item.confirmationType!=="info" && item.required} description={item.description} />
               <StatusListAgentQuestionChoices itemId={item.id} questions={item.questions || []} questionSelectionMode={item.questionSelectionMode}
                 answers={answers} yesLabel={tr("yes", locale)} noLabel={tr("no", locale)}
                 onAnswer={(question, value, exclusiveQuestions, groupMode) => answer(question, value, exclusiveQuestions, groupMode)}
@@ -325,7 +325,7 @@ export function StatusListAgentPreview({ items, locale, statusListMode = "immedi
                     {callback ? <Phone className="h-3 w-3 text-cyan-600" /> : <Tag className="h-3 w-3 text-purple-600" />}{question.questionText}
                   </Button>;
                 }} />
-              <StatusListAgentActionRow actions={item.automations || []} renderAction={automation => {
+              <StatusListAgentActionRow actions={item.confirmationType==="info"?[]:item.automations || []} renderAction={automation => {
                 const labelKey = automation.actionType === "send_email_group" ? "runEmail" : automation.actionType === "set_callback" ? "runCallback" : "runStatus";
                 const selectedActionId = String(automation.id);
                 const isSelected = selectedAction === selectedActionId;

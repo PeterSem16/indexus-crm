@@ -33170,7 +33170,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             .orderBy(campaignStatusListQuestions.sortOrder)
         : [];
       const automaticConfigs = (await pool.query(`SELECT item_id,trigger,enabled FROM mission_status_list_automatic_configs
-        WHERE campaign_id=$1 AND enabled=true`,[campaignId])).rows;
+        WHERE campaign_id=$1`,[campaignId])).rows;
       const itemsWithData = items.map(item => {
         const itemQuestions = questions.filter(q => q.itemId === item.id);
         const itemAutomations = automations.filter(a => a.statusListItemId === item.id && !a.questionId);
@@ -33188,7 +33188,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       res.json(itemsWithData.map(item => {
         const meta = ownership.find(row => row.kind === "item" && row.id === item.id);
         return { ...item, backgroundSource: meta?.backgroundSource,
-          automaticTrigger: automaticConfigs.find(row=>row.item_id===item.id)?.trigger || null,
+          automaticTrigger: (()=>{const config=automaticConfigs.find(row=>row.item_id===item.id);
+            return config ? config.enabled ? config.trigger : "disabled" : null;})(),
           sourceManaged: meta?.writable === false && (meta.backgroundSource !== undefined ||
             ownership.some(child => child.parentId === item.id && !!child.backgroundSource)),
           isHidden: meta?.hidden ?? item.isHidden };
@@ -33204,6 +33205,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const { campaignId } = req.params;
       const validated = insertCampaignStatusListItemSchema.parse({ ...req.body, campaignId });
       const [item] = await db.insert(campaignStatusListItems).values(validated).returning();
+      if(item.confirmationType==="auto")await pool.query(`INSERT INTO mission_status_list_automatic_configs
+        (item_id,campaign_id,trigger,enabled) VALUES($1,$2,'card_open',false) ON CONFLICT(item_id) DO NOTHING`,
+      [item.id,campaignId]);
       res.json({ ...item, automations: [] });
     } catch (error) {
       console.error("Failed to create status list item:", error);
@@ -33215,6 +33219,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
     try {
       const { campaignId, itemId } = req.params;
       const { automations: _a, ...body } = req.body;
+      if(body.confirmationType==="auto")await pool.query(`INSERT INTO mission_status_list_automatic_configs
+        (item_id,campaign_id,trigger,enabled)
+        SELECT id,campaign_id,'card_open',false FROM campaign_status_list_items
+        WHERE id=$1 AND campaign_id=$2 AND confirmation_type<>'auto'
+        ON CONFLICT(item_id) DO NOTHING`,[itemId,campaignId]);
       const [updated] = await db.update(campaignStatusListItems)
         .set({ ...body, updatedAt: new Date() })
         .where(and(eq(campaignStatusListItems.id, itemId), eq(campaignStatusListItems.campaignId, campaignId)))
@@ -35010,6 +35019,7 @@ Respond ONLY with valid JSON in this exact format:
         label: campaignStatusListItems.label,
         description: campaignStatusListItems.description,
         itemType: campaignStatusListItems.itemType,
+        confirmationType: campaignStatusListItems.confirmationType,
       })
         .from(campaignStatusListItems)
         .where(eq(campaignStatusListItems.id, itemId))
@@ -35017,6 +35027,8 @@ Respond ONLY with valid JSON in this exact format:
       if (!itemRouteItem || itemRouteItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Status-list item not found in campaign" });
       }
+      if (confirm && itemRouteItem.confirmationType === "info")
+        return res.status(409).json({ error: "heading_cannot_confirm" });
       const executionSettings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [campaignId])).rows[0]?.settings;
       try { checkStatusListExecution(executionSettings, req.body); }
       catch (error) { return res.status(409).json({ error: (error as Error).message }); }
@@ -35344,6 +35356,8 @@ Respond ONLY with valid JSON in this exact format:
       if (!slItem || slItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Automation not found in campaign" });
       }
+      if (slItem.confirmationType==="info" && !automation.questionId)
+        return res.status(409).json({error:"heading_cannot_confirm"});
 
       // Authorization + country derivation (server-side; never trust client input).
       // Derive the contact's country from its linked entity, falling back to the

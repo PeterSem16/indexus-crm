@@ -17,6 +17,8 @@ import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-c
 import { createStatusListExecutionClient } from "@/lib/status-list-execution-client";
 import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/status-list-execution-policy";
 import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
+import { useStatusListActionRecap } from "@/components/use-status-list-action-recap";
+import { useStatusListAutomaticOpen } from "@/components/use-status-list-automatic-open";
 import { StatusListExecutionHelp } from "@/components/status-list-execution-help";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
@@ -3014,29 +3016,13 @@ export function CommunicationCanvas({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
   });
-  const automaticCardScope = useRef("");
-  const [automaticBatchPending,setAutomaticBatchPending] = useState(0);
-  useEffect(() => {
-    const scope = `${campaign?.id || ""}:${campaignContactId || ""}`;
-    if (!campaign?.id || !campaignContactId || !dbStatusList.length) {
-      automaticCardScope.current = "";setAutomaticBatchPending(0);
-      return;
-    }
-    if (!dbStatusList.some((item: any) => ["card_open","background_change"].includes(item.automaticTrigger))) {
-      setAutomaticBatchPending(0);return;
-    }
-    if (statusListMode==="immediate" && automaticCardScope.current===scope)return;
-    if(automaticCardScope.current!==scope)setAutomaticBatchPending(0);
-    let cancelled=false;
-    automaticCardScope.current = scope;
-    const check=()=>void apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/automatic-open`,
-      {executionMode:statusListMode}).then(response=>response.json()).then(result=>{
-        if(!cancelled && automaticCardScope.current===scope)setAutomaticBatchPending(result.pendingCount || 0);
-      }).catch(()=>{if(!cancelled)toast({title:getStatusListExecutionCopy(locale).failed,variant:"destructive"});});
-    check();
-    const timer=statusListMode==="batch" ? setInterval(check,15000) : undefined;
-    return()=>{cancelled=true;if(timer)clearInterval(timer);};
-  }, [campaign?.id,campaignContactId,dbStatusList,statusListMode,locale,toast]);
+  const [automaticBatchPending,setAutomaticBatchPending] = useStatusListAutomaticOpen({
+    campaignId:campaign?.id,contactId:campaignContactId,items:dbStatusList,
+    mode:statusListMode,pulseActive:activeChannel==="checklist",locale,
+  });
+  const slActionRecap = useStatusListActionRecap({
+    campaignId:campaign?.id,contactId:campaignContactId,items:dbStatusList,mode:statusListMode,locale,
+  });
   // Count of automations deferred across all staged batch steps (fires on Save).
   const pendingAutomationCount = useMemo(() => {
     let total = automaticBatchPending;
@@ -3320,6 +3306,10 @@ export function CommunicationCanvas({
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     if (slMutationBusyRef.current) return;
     const sender = slExecutionRef.current.client;
+    if ((dbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
+    if (newChecked && statusListMode==="immediate" &&
+        !await slActionRecap.confirm([{kind:"item",id:itemId,value:true}]))return;
+    if(slExecutionRef.current.client!==sender)return;
     if ((dbStatusList as any[]).some(item => String(item.id) === itemId && item.sourceManaged)) return;
     // In batch mode: just toggle visual state and stage in batchSlSelections (no API, no automations)
     if (statusListMode === "batch") {
@@ -3407,7 +3397,7 @@ export function CommunicationCanvas({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
     } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
-  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, slStateMap, locale, toast]);
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, slStateMap, locale, toast, slActionRecap.confirm]);
 
   const handleSlConfirmWithCallback = useCallback(async () => {
     if (!slPendingCallback || !campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
@@ -3455,6 +3445,22 @@ export function CommunicationCanvas({
     if (!campaign?.id || !campaignContactId || batchUnsavedIds.size === 0 || slMutationBusyRef.current) return;
     const saveScopeToken = statusListScopeToken;
     const scopeIsCurrent = () => `${statusListScopeRef.current.key}:${statusListScopeRef.current.generation}` === saveScopeToken;
+    const recapChanges = [
+      ...Array.from(batchSlSelections).map(id=>({kind:"item" as const,id,value:true})),
+      ...Object.entries(batchSlAnswers).map(([id,change])=>({kind:"question" as const,id,value:change.value})),
+    ];
+    const manualActionIds=Object.values(batchSlActions).map(({automation})=>String(automation.id));
+    for(const {automation} of Object.values(batchSlActions)) {
+      const parent=(dbStatusList as any[]).find(item=>(item.automations||[]).some((action:any)=>String(action.id)===String(automation.id)) ||
+        (item.questions||[]).some((q:any)=>(q.automations||[]).some((action:any)=>String(action.id)===String(automation.id))));
+      if(!parent)continue;
+      const kind=automation.questionId ? "question" as const : "item" as const;
+      const id=String(automation.questionId || parent.id);
+      if(!recapChanges.some(change=>change.kind===kind && change.id===id))
+        recapChanges.push({kind,id,value:kind==="question" ? slQuestionAnswersRef.current[id]??true : true});
+    }
+    if(recapChanges.length && !await slActionRecap.confirm(recapChanges,false,manualActionIds))return;
+    if(!scopeIsCurrent())return;
     const sender = slExecutionRef.current.client;
     setSlBusy(true);
     setSlBatchSaving(true);
@@ -3527,7 +3533,7 @@ export function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       if (!scopeIsCurrent()) return;
       if (!actionProblems && (batchSlSelections.size > 0 || automaticBatchPending>0) &&
-          (dbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
+          (dbStatusList as any[]).some(item => ["card_open","pulse_open","background_change"].includes(item.automaticTrigger))) {
         try {
           await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/automatic-open`,
             {executionMode:"batch",commit:true});
@@ -3588,7 +3594,7 @@ export function CommunicationCanvas({
         toast({ title: getStatusListExecutionCopy(locale).saved });
         // Auto-close if all required status-list items are now confirmed
         const allUnits = (dbStatusList as any[]).filter(
-          (i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto"
+          (i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto" && i.confirmationType !== "info"
         );
         const batchSingleParentIds = new Set<string>(
           allUnits.filter((i: any) => !i.parentId && i.questionSelectionMode === "single").map((i: any) => String(i.id))
@@ -3636,7 +3642,7 @@ export function CommunicationCanvas({
     } finally {
       if (scopeIsCurrent()) { setSlBatchSaving(false); setSlBusy(false); }
     }
-  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache,automaticBatchPending]);
+  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, batchUnsavedIds.size, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache,automaticBatchPending,slActionRecap.confirm]);
 
   const handleSlNoteChange = useCallback((itemId: string, value: string) => {
     if (statusListMode === "batch") {
@@ -3715,7 +3721,7 @@ export function CommunicationCanvas({
       setTimeout(() => setSlHighlightedStep(s => s === targetStepId ? null : s), 1800);
     }
   }, []);
-  const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => {
+  const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string; recapReviewed?:boolean }) => {
     if (!campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
     const sender = slExecutionRef.current.client;
     const autoId = String(automation.id);
@@ -3728,6 +3734,15 @@ export function CommunicationCanvas({
       });
       toast({ title: getStatusListExecutionCopy(locale).staged });
       return;
+    }
+    const parent=(dbStatusList as any[]).find(item=>String(item.id)===String(automation.statusListItemId) ||
+      (item.automations||[]).some((action:any)=>String(action.id)===autoId) ||
+      (item.questions||[]).some((question:any)=>(question.automations||[]).some((action:any)=>String(action.id)===autoId)));
+    const question=automation.questionId ? parent?.questions?.find((row:any)=>String(row.id)===String(automation.questionId)) : null;
+    if(!opts?.recapReviewed && (question?.previewActions || !question && parent?.previewActions)) {
+      const change=question ? {kind:"question" as const,id:String(question.id),value:slQuestionAnswersRef.current[question.id]??true}
+        : {kind:"item" as const,id:String(parent.id),value:true};
+      if(!await slActionRecap.confirm([change],true,[autoId]) || slExecutionRef.current.client!==sender)return;
     }
     setSlBusy(true);
     setSlRunningAuto(prev => new Set(prev).add(autoId));
@@ -3765,7 +3780,7 @@ export function CommunicationCanvas({
         setSlBusy(false);
       }
     }
-  }, [campaign?.id, campaignContactId, contactCountry, locale, toast, statusListMode]);
+  }, [campaign?.id, campaignContactId, contactCountry, locale, toast, statusListMode,dbStatusList,slActionRecap.confirm]);
 
   // Toggle a status-list question answer locally. For radio fields, clears all
   // other radio answers in the same group first (exclusive-select semantics).
@@ -3792,10 +3807,13 @@ export function CommunicationCanvas({
       } else {
         next[q.id] = value;
       }
-    setSlQuestionAnswers(next);
-    slQuestionAnswersRef.current = next;
     const changes = statusListAnswerChanges(prev, next);
     if (!changes.length) return true;
+    if(statusListMode==="immediate" &&
+      !await slActionRecap.confirm(changes.map(change=>({kind:"question",id:change.questionId,value:change.value}))))return false;
+    if(slExecutionRef.current.client!==sender)return false;
+    setSlQuestionAnswers(next);
+    slQuestionAnswersRef.current = next;
     if (statusListMode === "batch") {
       const clearedQuestions = new Set(changes.filter(change => change.value === null).map(change => change.questionId));
       if (clearedQuestions.size) setBatchSlActions(draft => Object.fromEntries(Object.entries(draft)
@@ -3829,7 +3847,7 @@ export function CommunicationCanvas({
       return false;
     } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
     return true;
-  }, [campaign?.id, campaignContactId, statusListMode, workflowContact.data, toast, locale]);
+  }, [campaign?.id, campaignContactId, statusListMode, workflowContact.data, toast, locale,slActionRecap.confirm]);
 
   const [phoneSubTab, setPhoneSubTab] = useState<"card" | "details" | "documents" | "sop" | "history">(externalPhoneSubTab || "card");
   const localPhoneOverride = phoneOverride ?? null;
@@ -6447,6 +6465,7 @@ export function CommunicationCanvas({
         </div>
       )}
 
+      {slActionRecap.dialog}
       {activeChannel === "checklist" && (() => {
         if (dbStatusList.length > 0) {
           const dbVisibleItems = (dbStatusList as any[]).filter((i: any) => !i.isHidden && i.itemType !== "option" && i.confirmationType !== "auto");
@@ -6470,7 +6489,7 @@ export function CommunicationCanvas({
           };
           // scoreUnits: child items of a 1× parent are removed; the parent itself stays.
           const scoreUnits = dbVisibleItems.filter((i: any) =>
-            !(i.parentId && singleSelectParentIds.has(String(i.parentId)))
+            i.confirmationType!=="info" && !(i.parentId && singleSelectParentIds.has(String(i.parentId)))
           );
           const isUnitConfirmed = (i: any, checkedSet: Set<string>) =>
             (!i.parentId && i.questionSelectionMode === "single")
@@ -6987,7 +7006,7 @@ export function CommunicationCanvas({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <StatusListAgentItemHeading label={item.label} selected={isChecked} required={item.required} />
+                        <StatusListAgentItemHeading label={item.label} icon={item.icon} selected={isChecked} required={!isInfo && item.required} />
                         {item.canonicalClinicStatusKey && (() => {
                           const ck = item.canonicalClinicStatusKey as string;
                           const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
@@ -7077,14 +7096,14 @@ export function CommunicationCanvas({
                               if (!automation.serviceActionConfig) await handleSlRunAction(automation);
                             }
                           }
-                          if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
+                          if (item.confirmationType!=="info" && item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
                             handleSlToggle(String(item.id), true);
                           }
                         }}
                         renderAction={(question, exclusiveQuestions, groupMode) => {
                           const q = question as any;
                           const autoConfirmParent = () => {
-                            if (item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
+                            if (item.confirmationType!=="info" && item.autoConfirmOnSubQuestion && !dbSlChecked.has(String(item.id))) {
                               handleSlToggle(String(item.id), true);
                             }
                           };
@@ -7092,7 +7111,7 @@ export function CommunicationCanvas({
                           if (callbackAutomation) return <SlCallbackButton automation={callbackAutomation} isRunning={slRunningAuto.has(String(callbackAutomation.id))}
                             onRun={async (automation, options) => {
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
-                              await handleSlRunAction(automation, options); autoConfirmParent();
+                              await handleSlRunAction(automation, {...options,recapReviewed:true}); autoConfirmParent();
                             }}
                             locale={locale} label={q.questionText} />;
                           const statusAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_contact_status");
@@ -7160,7 +7179,7 @@ export function CommunicationCanvas({
                           </div>
                         );
                       })()}
-                      <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />
+                      {!isInfo && <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />}
                       {item.nextStepId && item.nextStepId !== "—" && (() => {
                         const targetItem = (dbStatusList as any[]).find((i: any) => i.stepId === item.nextStepId);
                         const targetExists = !!targetItem;
@@ -12403,39 +12422,66 @@ function AgentWorkspacePageContent() {
     try { return selectedCampaign?.settings ? (JSON.parse(selectedCampaign.settings).statusListMode || "immediate") : "immediate"; } catch { return "immediate"; }
   }, [selectedCampaign?.settings]);
   const [mobileBatchSlSelections, setMobileBatchSlSelections] = useState<Set<string>>(new Set());
-  const [mobileAutomaticBatchPending,setMobileAutomaticBatchPending] = useState(0);
+  const [mobileBatchSlAnswers,setMobileBatchSlAnswers]=useState<Record<string,{expected:any;value:any}>>({});
+  const [mobileStatusListVisible,setMobileStatusListVisible]=useState(false);
+  const onMobileStatusListVisibilityChange=useCallback((visible:boolean)=>setMobileStatusListVisible(visible),[]);
+  const mobileQuestionAnswers=useMemo(()=>{
+    const answers={...mobileWorkflowContact.data?.answers};
+    for(const [id,change] of Object.entries(mobileBatchSlAnswers)) {
+      if(change.value===null)delete answers[id];else answers[id]=change.value;
+    }
+    return answers;
+  },[mobileWorkflowContact.data?.answers,mobileBatchSlAnswers]);
+  const [mobileAutomaticBatchPending,setMobileAutomaticBatchPending] = useStatusListAutomaticOpen({
+    campaignId:selectedCampaignId,contactId:effectiveCampaignContactId,items:mobileDbStatusList,
+    mode:mobileStatusListMode,pulseActive:isMobile && mainWorkspaceTab==="pulse" && mobileStatusListVisible,
+    enabled:isMobile,locale,
+  });
+  const mobileSlActionRecap=useStatusListActionRecap({
+    campaignId:selectedCampaignId,contactId:effectiveCampaignContactId,items:mobileDbStatusList,mode:mobileStatusListMode,locale,
+  });
   // Unified unsaved-batch count used by the navigation guard — covers both desktop
   // (reported back from CustomerInfoPanel) and mobile (tracked locally).
-  const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size + (mobileAutomaticBatchPending>0 ? 1 : 0) : desktopBatchUnsavedCount;
+  const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size + Object.keys(mobileBatchSlAnswers).length + (mobileAutomaticBatchPending>0 ? 1 : 0) : desktopBatchUnsavedCount;
   const [mobileSlBatchSaveOpen, setMobileSlBatchSaveOpen] = useState(false);
   const [mobileSlBatchSaving, setMobileSlBatchSaving] = useState(false);
   const [mobileSlBatchAction, setMobileSlBatchAction] = useState<"rules" | "reschedule" | "do_not_call">("rules");
   const [mobileSlBatchCallbackDt, setMobileSlBatchCallbackDt] = useState("");
   const [mobileSlBatchCallbackNote, setMobileSlBatchCallbackNote] = useState("");
   const mobileSlScope = `${selectedCampaignId}:${effectiveCampaignContactId}`;
-  const mobileAutomaticCardScope = useRef("");
-  useEffect(() => {
-    if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) {
-      mobileAutomaticCardScope.current = "";setMobileAutomaticBatchPending(0);return;
-    }
-    if (!(mobileDbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
-      setMobileAutomaticBatchPending(0);return;
-    }
-    if(mobileStatusListMode==="immediate" && mobileAutomaticCardScope.current===mobileSlScope)return;
-    if(mobileAutomaticCardScope.current!==mobileSlScope)setMobileAutomaticBatchPending(0);
-    let cancelled=false;
-    mobileAutomaticCardScope.current = mobileSlScope;
-    const check=()=>void apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/automatic-open`,
-      {executionMode:mobileStatusListMode}).then(response=>response.json()).then(result=>{
-        if(!cancelled && mobileAutomaticCardScope.current===mobileSlScope)setMobileAutomaticBatchPending(result.pendingCount || 0);
-      }).catch(()=>{if(!cancelled)toast({title:getStatusListExecutionCopy(locale).failed,variant:"destructive"});});
-    check();
-    const timer=mobileStatusListMode==="batch" ? setInterval(check,15000) : undefined;
-    return()=>{cancelled=true;if(timer)clearInterval(timer);};
-  }, [isMobile,selectedCampaignId,effectiveCampaignContactId,mobileDbStatusList,mobileStatusListMode,mobileSlScope,locale,toast]);
   const mobileSlExecution = useRef({ scope: mobileSlScope, client: createStatusListExecutionClient() });
   if (mobileSlExecution.current.scope !== mobileSlScope)
     mobileSlExecution.current = { scope: mobileSlScope, client: createStatusListExecutionClient() };
+  useEffect(()=>{setMobileBatchSlAnswers({});},[mobileSlScope]);
+  const handleMobileQuestionChanges=useCallback(async(changes:Array<{questionId:string;expected:any;value:any}>)=>{
+    if(!selectedCampaignId || !effectiveCampaignContactId || !mobileWorkflowContact.data || mobileSlBusy.current)return false;
+    if(mobileStatusListMode==="batch") {
+      setMobileBatchSlAnswers(previous=>{
+        const next={...previous};
+        for(const change of changes) {
+          const expected=previous[change.questionId] ? previous[change.questionId].expected : change.expected;
+          if(expected===change.value)delete next[change.questionId];
+          else next[change.questionId]={expected,value:change.value};
+        }
+        return next;
+      });
+      return true;
+    }
+    const sender=mobileSlExecution.current.client;
+    try {
+      const result=await sender.send(
+        `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/answers`,
+        {changes},"immediate",false,"PUT");
+      if(mobileSlExecution.current.client!==sender)return false;
+      await queryClient.invalidateQueries({queryKey:["/api/campaigns",selectedCampaignId,"contacts",effectiveCampaignContactId,"status-list-workflows"]});
+      void queryClient.invalidateQueries({queryKey:["/api/campaigns",selectedCampaignId,"contacts",effectiveCampaignContactId,"status-list-state"]});
+      if(result.ok===false)toast({title:getStatusListExecutionCopy(locale).failed,variant:"destructive"});
+      return result.ok!==false;
+    }catch {
+      if(mobileSlExecution.current.client===sender)toast({title:getStatusListWorkflowCopy(locale).answerError,variant:"destructive"});
+      return false;
+    }
+  },[selectedCampaignId,effectiveCampaignContactId,mobileStatusListMode,mobileWorkflowContact.data,locale,toast]);
   const mobileSlBusy = useRef(false);
   const mobileSlQueue = useRef(Promise.resolve());
   const mobileAutoRuns = useRef(new Set<string>());
@@ -12479,6 +12525,11 @@ function AgentWorkspacePageContent() {
 
   const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     if (!selectedCampaignId || !effectiveCampaignContactId || mobileSlBusy.current) return;
+    if((mobileDbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
+    const recapScope=mobileSlExecution.current.client;
+    if(newChecked && mobileStatusListMode==="immediate" &&
+       !await mobileSlActionRecap.confirm([{kind:"item",id:itemId,value:true}]))return;
+    if(mobileSlExecution.current.client!==recapScope)return;
     // Batch mode: stage locally — no API call, no automations
     if (mobileStatusListMode === "batch") {
       setMobileDbSlChecked(prev => {
@@ -12522,7 +12573,7 @@ function AgentWorkspacePageContent() {
     });
     mobileSlQueue.current = task;
     await task;
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode, mobileDbSlState, mobileSlScope, locale, toast]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode, mobileDbSlState, mobileSlScope, locale, toast,mobileSlActionRecap.confirm,mobileDbStatusList]);
 
   useEffect(() => {
     if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) return;
@@ -12538,7 +12589,14 @@ function AgentWorkspacePageContent() {
 
   const handleMobileBatchSaveConfirm = useCallback(async () => {
     if (!selectedCampaignId || !effectiveCampaignContactId ||
-        (mobileBatchSlSelections.size === 0 && mobileAutomaticBatchPending===0) || mobileSlBusy.current) return;
+        (mobileBatchSlSelections.size === 0 && !Object.keys(mobileBatchSlAnswers).length && mobileAutomaticBatchPending===0) || mobileSlBusy.current) return;
+    const recapScope=mobileSlExecution.current.client;
+    const recapChanges=[
+      ...[...mobileBatchSlSelections].map(id=>({kind:"item" as const,id,value:mobileDbSlChecked.has(id)})),
+      ...Object.entries(mobileBatchSlAnswers).map(([id,change])=>({kind:"question" as const,id,value:change.value})),
+    ];
+    if(recapChanges.length && !await mobileSlActionRecap.confirm(recapChanges))return;
+    if(mobileSlExecution.current.client!==recapScope)return;
     mobileSlBusy.current = true;
     const sender = mobileSlExecution.current.client;
     const scope = mobileSlScope;
@@ -12546,6 +12604,15 @@ function AgentWorkspacePageContent() {
     setMobileSlBatchSaving(true);
     let actionProblems = false;
     try {
+      if(Object.keys(mobileBatchSlAnswers).length) {
+        const result=await sender.send(
+          `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/answers`,
+          {changes:Object.entries(mobileBatchSlAnswers).map(([questionId,change])=>({questionId,...change}))},
+          "batch",true,"PUT");
+        if(!currentScope())return;
+        setMobileBatchSlAnswers({});
+        if(result.ok===false)actionProblems=true;
+      }
       for (const itemId of Array.from(mobileBatchSlSelections)) {
         const item = (mobileDbStatusList as any[]).find(item => String(item.id) === itemId);
         const result = await sender.send(`/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
@@ -12559,7 +12626,7 @@ function AgentWorkspacePageContent() {
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
       if (!actionProblems && (mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0) &&
-          (mobileDbStatusList as any[]).some(item => ["card_open","background_change"].includes(item.automaticTrigger))) {
+          (mobileDbStatusList as any[]).some(item => ["card_open","pulse_open","background_change"].includes(item.automaticTrigger))) {
         try {
           await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/automatic-open`,
             {executionMode:"batch",commit:true});
@@ -12607,7 +12674,7 @@ function AgentWorkspacePageContent() {
     } finally {
       if (currentScope()) { setMobileSlBatchSaving(false); mobileSlBusy.current = false; }
     }
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileDbSlChecked, mobileDbStatusList, campaignDispositions, mobileSlScope, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast,mobileAutomaticBatchPending]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileBatchSlSelections, mobileDbSlChecked, mobileDbStatusList, campaignDispositions, mobileSlScope, mobileSlBatchAction, mobileSlBatchCallbackDt, mobileSlBatchCallbackNote, locale, toast,mobileAutomaticBatchPending,mobileBatchSlAnswers,mobileSlActionRecap.confirm]);
 
   const isStatusListMode = useMemo(() => {
     try { return selectedCampaign?.settings ? JSON.parse(selectedCampaign.settings).workflowMode === "status_list" : false; }
@@ -16098,6 +16165,7 @@ function AgentWorkspacePageContent() {
         <div className="flex flex-1 overflow-hidden relative" style={{ minHeight: 0 }}>
 
         {/* ── MOBILE LAYOUT ─────────────────────────────────────── */}
+        {mobileSlActionRecap.dialog}
         {isMobile && (
           <div className="flex-1 flex flex-col overflow-hidden">
             <MobileAgentWorkspace
@@ -16136,6 +16204,10 @@ function AgentWorkspacePageContent() {
               onSlToggle={handleMobileSlToggle}
                dbSlState={mobileDbSlState}
                answerMetadata={mobileWorkflowContact.data?.answerMetadata || {}}
+               questionAnswers={mobileQuestionAnswers}
+               pendingQuestionIds={new Set(Object.keys(mobileBatchSlAnswers))}
+               onQuestionChanges={handleMobileQuestionChanges}
+               onStatusListVisibilityChange={onMobileStatusListVisibilityChange}
                questionNotes={mobileWorkflowContact.data?.questionNotes || {}}
                onSaveSlNote={async (itemId, note) => {
                  if (!selectedCampaignId || !effectiveCampaignContactId) throw new Error("Missing contact");
@@ -16148,8 +16220,8 @@ function AgentWorkspacePageContent() {
                  await queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
                }}
               statusListMode={mobileStatusListMode}
-              batchSlSelections={mobileAutomaticBatchPending>0
-                ? new Set([...Array.from(mobileBatchSlSelections),"automatic:pending"]) : mobileBatchSlSelections}
+              batchSlSelections={new Set([...Array.from(mobileBatchSlSelections),...Object.keys(mobileBatchSlAnswers),
+                ...(mobileAutomaticBatchPending>0?["automatic:pending"]:[])])}
               onBatchSave={() => {
                 setMobileSlBatchAction("rules");
                 setMobileSlBatchCallbackDt("");
