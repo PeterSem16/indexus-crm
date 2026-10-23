@@ -1,0 +1,396 @@
+.sl-recap-dialog.sl-agent-dialog-frame {
+  width: min(94vw, 36rem) !important;
+  max-width: min(94vw, 36rem) !important;
+  max-height: min(86dvh, 48rem) !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  border: 1px solid #cbdce8 !important;
+  border-radius: 22px !important;
+  color: #263b50 !important;
+  background: #f7fafc !important;
+  box-shadow: 0 28px 90px rgb(29 55 76 / 26%), 0 4px 14px rgb(29 55 76 / 8%) !important;
+}
+
+.sl-recap-dialog[data-state="open"] {
+  animation: sl-recap-pop 220ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.sl-recap-dialog [data-slot="dialog-header"] {
+  position: relative;
+  flex: none;
+  gap: 0 !important;
+  padding: 22px 54px 18px 24px;
+  overflow: hidden;
+  border-bottom: 1px solid #dce8f0;
+  background: linear-gradient(112deg, #f0f7fb 0%, #fbfdff 68%, #f4f8fb 100%);
+}
+
+.sl-recap-dialog [data-slot="dialog-header"]::after {
+  position: absolute;
+  right: -30px;
+  top: -64px;
+  width: 190px;
+  height: 160px;
+  border-radius: 48%;
+  background: radial-gradient(ellipse, rgb(75 145 200 / 13%), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.sl-recap-dialog [data-slot="dialog-title"] {
+  color: #263b50 !important;
+  font-size: 1.13rem;
+  font-weight: 750;
+  letter-spacing: -.035em !important;
+  line-height: 1.2;
+}
+
+.sl-recap-dialog [data-slot="dialog-description"] {
+  color: #6d8294 !important;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+
+.sl-recap-dialog .sl-recap-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.sl-recap-dialog .sl-recap-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  place-items: center;
+  border: 1px solid #c9dfef;
+  border-radius: 14px;
+  color: #347caf;
+  background: #e6f1f9;
+  box-shadow: 0 3px 8px rgb(52 124 175 / 9%);
+}
+
+.sl-recap-dialog .sl-recap-content {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 17px 24px 14px;
+  scrollbar-color: #b9ccd9 transparent;
+  scrollbar-width: thin;
+}
+
+.sl-recap-dialog .sl-recap-list {
+  display: grid;
+  gap: 9px;
+}
+
+.sl-recap-dialog .sl-recap-action {
+  display: flex;
+  gap: 12px;
+  padding: 12px 13px;
+  border: 1px solid #dce7ee;
+  border-radius: 15px;
+  color: #263b50;
+  background: #fff;
+  box-shadow: 0 2px 7px rgb(42 73 96 / 4%);
+}
+
+.sl-recap-dialog .sl-recap-action[data-recap-enter] {
+  animation: sl-recap-row-in 260ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.sl-recap-dialog .sl-recap-action[data-condition="not_matched"] {
+  border-style: dashed;
+  background: #f0f5f8;
+  color: #6d8294;
+}
+
+.sl-recap-dialog .sl-recap-action-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.sl-recap-dialog .sl-recap-icon-email,
+.sl-recap-dialog .sl-recap-icon-record {
+  color: #347caf;
+}
+
+.sl-recap-dialog .sl-recap-icon-sms,
+.sl-recap-dialog .sl-recap-icon-notify {
+  color: #258b8c;
+}
+
+.sl-recap-dialog .sl-recap-icon-task,
+.sl-recap-dialog .sl-recap-icon-answer {
+  color: #6e70b5;
+}
+
+.sl-recap-dialog .sl-recap-icon-callback {
+  color: #c0783c;
+}
+
+.sl-recap-dialog .sl-recap-icon-note,
+.sl-recap-dialog .sl-recap-icon-default {
+  color: #627d91;
+}
+
+.sl-recap-dialog .sl-recap-source {
+  color: #6d8294;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .09em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.sl-recap-dialog .sl-recap-action-title {
+  margin-top: 3px;
+  color: #263b50;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sl-recap-dialog .sl-recap-target {
+  margin-top: 4px;
+  color: #49657c;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.sl-recap-dialog .sl-recap-condition {
+  margin-top: 5px;
+  color: #6d8294;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.sl-recap-dialog .sl-recap-condition-matched {
+  color: #27815c;
+}
+
+.sl-recap-dialog .sl-recap-condition-blocked {
+  color: #bb554d;
+}
+
+.sl-recap-dialog .sl-recap-condition-unknown {
+  color: #a27335;
+}
+
+.sl-recap-dialog .sl-recap-condition-skipped {
+  color: #778a99;
+}
+
+.sl-recap-dialog .sl-recap-caution {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8e5ed;
+  border-radius: 12px;
+  color: #60798d;
+  background: #edf4f8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sl-recap-dialog .sl-recap-notice {
+  padding: 13px;
+  border: 1px solid #dce7ee;
+  border-radius: 14px;
+  color: #6d8294;
+  background: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.sl-recap-dialog .sl-recap-notice[role="alert"] {
+  border-color: #efc7c2;
+  color: #873e3b;
+  background: #fff5f3;
+}
+
+.sl-recap-dialog .sl-recap-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 13px 24px 18px;
+  border-top: 1px solid #dce8f0;
+  background: #f2f7fa;
+}
+
+.sl-recap-dialog .sl-recap-footer button {
+  min-height: 38px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sl-recap-dialog .sl-recap-primary {
+  color: #fff !important;
+  background: #347caf !important;
+  box-shadow: 0 3px 8px rgb(52 124 175 / 19%);
+}
+
+.sl-recap-dialog .sl-recap-primary:hover:not(:disabled) {
+  background: #286998 !important;
+}
+
+.sl-recap-dialog .sl-recap-primary:disabled {
+  opacity: .48;
+  box-shadow: none;
+}
+
+.dark .sl-recap-dialog.sl-agent-dialog-frame {
+  border-color: #344c5f !important;
+  color: #e5edf3 !important;
+  background: #172634 !important;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 58%), 0 4px 14px rgb(0 0 0 / 22%) !important;
+}
+
+.dark .sl-recap-dialog [data-slot="dialog-header"] {
+  border-color: #30485a;
+  background: linear-gradient(112deg, #1b3040, #1a2b39 68%, #192a38);
+}
+
+.dark .sl-recap-dialog [data-slot="dialog-title"],
+.dark .sl-recap-dialog .sl-recap-action-title {
+  color: #e5edf3 !important;
+}
+
+.dark .sl-recap-dialog [data-slot="dialog-description"],
+.dark .sl-recap-dialog .sl-recap-source {
+  color: #a4b7c5 !important;
+}
+
+.dark .sl-recap-dialog .sl-recap-mark {
+  border-color: #34576f;
+  color: #8fc6e9;
+  background: #223e52;
+}
+
+.dark .sl-recap-dialog .sl-recap-action {
+  border-color: #344b5d;
+  color: #dce7ee;
+  background: #1c3040;
+  box-shadow: none;
+}
+
+.dark .sl-recap-dialog .sl-recap-action[data-condition="not_matched"] {
+  color: #9fb0bc;
+  background: #1b2a36;
+}
+
+.dark .sl-recap-dialog .sl-recap-condition-matched {
+  color: #72c89c;
+}
+
+.dark .sl-recap-dialog .sl-recap-condition-blocked {
+  color: #ee9389;
+}
+
+.dark .sl-recap-dialog .sl-recap-condition-unknown {
+  color: #e4b876;
+}
+
+.dark .sl-recap-dialog .sl-recap-condition-skipped {
+  color: #a4b7c5;
+}
+
+.dark .sl-recap-dialog .sl-recap-target {
+  color: #b5c7d2;
+}
+
+.dark .sl-recap-dialog .sl-recap-condition,
+.dark .sl-recap-dialog .sl-recap-caution {
+  color: #a4b7c5;
+}
+
+.dark .sl-recap-dialog .sl-recap-caution {
+  border-color: #334a5b;
+  background: #203444;
+}
+
+.dark .sl-recap-dialog .sl-recap-notice {
+  border-color: #344b5d;
+  color: #a4b7c5;
+  background: #1c3040;
+}
+
+.dark .sl-recap-dialog .sl-recap-notice[role="alert"] {
+  border-color: #704b49;
+  color: #f0b7b0;
+  background: #3a292b;
+}
+
+.dark .sl-recap-dialog .sl-recap-footer {
+  border-color: #30485a;
+  background: #192b39;
+}
+
+.dark .sl-recap-dialog .sl-recap-primary {
+  color: #102334 !important;
+  background: #8fc6e9 !important;
+}
+
+.dark .sl-recap-dialog .sl-recap-primary:hover:not(:disabled) {
+  background: #a5d4ef !important;
+}
+
+@keyframes sl-recap-pop {
+  from { opacity: 0; transform: translateY(8px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes sl-recap-row-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+  .sl-recap-dialog.sl-agent-dialog-frame {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: min(88dvh, 52rem) !important;
+    border-radius: 19px !important;
+  }
+
+  .sl-recap-dialog [data-slot="dialog-header"] {
+    padding: 18px 50px 15px 17px;
+  }
+
+  .sl-recap-dialog .sl-recap-content {
+    padding: 13px 15px 12px;
+  }
+
+  .sl-recap-dialog .sl-recap-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 11px 15px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .sl-recap-dialog .sl-recap-footer > button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-recap-dialog.sl-agent-dialog-frame,
+  .sl-recap-dialog [data-recap-enter] {
+    animation: none !important;
+    transition: none !important;
+  }
+}

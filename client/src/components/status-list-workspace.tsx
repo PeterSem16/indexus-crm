@@ -31,9 +31,9 @@ export type WorkspaceItem = {
 type Props = {
   campaignId: string; locale: string; items: WorkspaceItem[]; selectedId: string; onSelect: (id: string) => void;
   navigation?: { itemId: string; questionId?: string; nonce: number };
-  tools: ReactNode; definition: ReactNode | ((selectedItemId: string, selectedQuestionId: string | null, controls: { source: (onDirtyChange: (dirty: boolean) => void) => ReactNode; workflows: ReactNode; ancestorHidden: boolean; onDirtyChange: (dirty: boolean) => void }) => ReactNode); coverage: ReactNode;
+  tools: ReactNode; onPreview?: () => void; previewLabel?: string; definition: ReactNode | ((selectedItemId: string, selectedQuestionId: string | null, controls: { source: (onDirtyChange: (dirty: boolean) => void) => ReactNode; workflows: ReactNode; ancestorHidden: boolean; onDirtyChange: (dirty: boolean) => void }) => ReactNode); coverage: ReactNode;
 };
-export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage, navigation }: Props) {
+export function StatusListWorkspace({ campaignId, locale, items, selectedId, onSelect, tools, definition, coverage, navigation, onPreview, previewLabel }: Props) {
   const copy = getStatusListWorkspaceCopy(locale);
   const confirm = useStatusListConfirm(locale);
   const phaseCopy = getPhaseOrganizerCopy(locale);
@@ -211,6 +211,7 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     <nav className="slw-tabs" aria-label="Status List">
       {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests], ["tools", Wrench, copy.tools]] as const).map(([value, Icon, label]) =>
         <button key={value} type="button" data-testid={`status-list-tab-${value}`} aria-current={tab === value ? "page" : undefined} className={tab === value ? "active" : ""} onClick={() => { if (tab !== value) void (async () => { if (await allowNavigation()) setTab(value); })(); }}><Icon size={15}/>{label}</button>)}
+      {onPreview && <button type="button" data-testid="btn-toggle-preview" aria-haspopup="dialog" onClick={onPreview}><Eye size={15}/>{previewLabel}</button>}
     </nav>
     <div className="slw-body">
      {tab === "tools" && <div className="slw-tools" data-testid="status-list-tools"><header><div><span>{copy.toolsEyebrow}</span><h3>{copy.toolsTitle}</h3><p>{copy.toolsDescription}</p></div></header>{tools}{coverage}</div>}

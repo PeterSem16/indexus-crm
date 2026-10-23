@@ -1,4 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { statusListRefinementTranslations, type StatusListRefinementCopy } from "./status-list-refinement-translations";
 import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
@@ -76,6 +77,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
+  statusListRefinement: StatusListRefinementCopy;
   statusListQuestionAppearance: StatusListCopyNamespaces["statusListQuestionAppearance"];
   statusListReportingLabels: StatusListCopyNamespaces["statusListReportingLabels"];
   statusListCanonicalStatusHint: StatusListCopyNamespaces["statusListCanonicalStatusHint"];
@@ -9276,6 +9278,7 @@ const inboundUiByLocale = {
 export const translations = {
   en: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.en,
+    statusListRefinement: statusListRefinementTranslations.en,
     providerFinder: providerFinderTranslations.en,
     systemMailboxCheck: systemMailboxCheckTranslations.en,
     automationOverview: automationOverviewTranslations.en,
@@ -17144,6 +17147,7 @@ export const translations = {
   },
   sk: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.sk,
+    statusListRefinement: statusListRefinementTranslations.sk,
     providerFinder: providerFinderTranslations.sk,
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
@@ -25008,6 +25012,7 @@ export const translations = {
   },
   cs: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.cs,
+    statusListRefinement: statusListRefinementTranslations.cs,
     providerFinder: providerFinderTranslations.cs,
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
@@ -32831,6 +32836,7 @@ export const translations = {
   },
   hu: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.hu,
+    statusListRefinement: statusListRefinementTranslations.hu,
     providerFinder: providerFinderTranslations.hu,
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
@@ -40652,6 +40658,7 @@ export const translations = {
   },
   ro: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.ro,
+    statusListRefinement: statusListRefinementTranslations.ro,
     providerFinder: providerFinderTranslations.ro,
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
@@ -48481,6 +48488,7 @@ export const translations = {
   },
   it: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.it,
+    statusListRefinement: statusListRefinementTranslations.it,
     providerFinder: providerFinderTranslations.it,
     systemMailboxCheck: systemMailboxCheckTranslations.it,
     automationOverview: automationOverviewTranslations.it,
@@ -56301,6 +56309,7 @@ export const translations = {
   },
   de: {
     healthcareLegalEntity: healthcareLegalEntityTranslations.de,
+    statusListRefinement: statusListRefinementTranslations.de,
     providerFinder: providerFinderTranslations.de,
     systemMailboxCheck: systemMailboxCheckTranslations.de,
     automationOverview: automationOverviewTranslations.de,

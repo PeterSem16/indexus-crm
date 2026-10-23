@@ -374,7 +374,7 @@ function StatusListPanel({ items, checked, onToggle, np, statusListMode, batchSl
       (groups[entry.groupName || "__ungrouped__"] ||= []).push(entry);
       return groups;
     }, {});
-    const everyGroupOne = selectionMode === "single" || Object.values(grouped).every(group => group[0]?.logicOperator === "ONE");
+    const everyGroupOne = selectionMode === "single";
     const groupOne = sameGroup[0]?.logicOperator === "ONE";
     if (selectionMode === "single" || groupOne) {
       return (everyGroupOne ? questions : sameGroup).filter(entry => String(entry.id) !== id);

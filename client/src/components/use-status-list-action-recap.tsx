@@ -1,11 +1,38 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardList, Loader2, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  ContactRound,
+  ListTodo,
+  Mail,
+  MessageSquare,
+  StickyNote,
+  XCircle,
+} from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import type { ConfirmationChange, ConfirmationPreview } from "@shared/status-list-confirmation-preview";
 import { getStatusListRecapCopy, statusListRecapActionLabel } from "./status-list-recap-copy";
 import { STATUS_LIST_DIALOG_FRAME_CLASS } from "./status-list-dialog-frame";
+import "./status-list-action-recap.css";
+
+function getActionVisual(actionType: string) {
+  if (/email/.test(actionType)) return { Icon: Mail, tone: "email" };
+  if (/sms/.test(actionType)) return { Icon: MessageSquare, tone: "sms" };
+  if (/task/.test(actionType)) return { Icon: ListTodo, tone: "task" };
+  if (/callback/.test(actionType)) return { Icon: CalendarClock, tone: "callback" };
+  if (/note/.test(actionType)) return { Icon: StickyNote, tone: "note" };
+  if (/answer|selection|confirm_step/.test(actionType)) return { Icon: ClipboardCheck, tone: "answer" };
+  if (/notif/.test(actionType)) return { Icon: Bell, tone: "notify" };
+  if (/record|status|owner|tag|assign/.test(actionType)) return { Icon: ContactRound, tone: "record" };
+  return { Icon: ClipboardList, tone: "default" };
+}
 
 export function useStatusListActionRecap({campaignId,contactId,locale,items,mode}:{
   campaignId?:string|null;contactId?:string|null;locale:string;items:any[];mode:"immediate"|"batch";
@@ -60,27 +87,66 @@ export function useStatusListActionRecap({campaignId,contactId,locale,items,mode
     return result;
   };
   const dialog=<Dialog open={open} onOpenChange={value=>{if(!value)finish(false);}}>
-    <DialogContent className={`${STATUS_LIST_DIALOG_FRAME_CLASS} z-[10070] max-h-[88dvh] overflow-y-auto sm:max-w-xl`} overlayClassName="z-[10060]">
-      <DialogHeader><div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><ClipboardList className="h-6 w-6"/></div>
-        <DialogTitle>{c.title}</DialogTitle><DialogDescription>{c.help}</DialogDescription></DialogHeader>
-      <div data-testid="status-list-action-recap" aria-busy={loading} className="space-y-3">
-        {loading && <div role="status" className="flex items-center gap-2 py-5 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>{c.loading}</div>}
-        {error && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p>{c.error}</p><Button size="sm" variant="outline" className="mt-3" onClick={()=>void load()}>{c.retry}</Button></div>}
-        {preview && !preview.actions.length && <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">{c.empty}</p>}
-        {preview?.actions.map(action=>{
-          const Icon=action.condition==="matched"?CheckCircle2:action.condition==="not_matched"?XCircle:AlertTriangle;
-          return <article key={`${action.sourceLabel}:${action.id}`} className={`rounded-xl border p-3 ${action.condition==="not_matched"?"bg-muted/30 text-muted-foreground":"bg-card"}`}>
-            <div className="flex items-start gap-3"><Icon className={`mt-0.5 h-4 w-4 shrink-0 ${action.condition==="matched"?"text-emerald-600":action.condition==="blocked"?"text-destructive":"text-muted-foreground"}`}/>
-              <div className="min-w-0 flex-1"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{action.sourceLabel}{action.branch?` · ${c[action.branch]}`:""}</p>
-                <h4 className="mt-1 text-sm font-semibold">{statusListRecapActionLabel(action.actionType,locale)}</h4>
-                {action.targetLabel && <p className="mt-1 flex items-center gap-1 text-xs"><ArrowRight className="h-3 w-3"/>{action.targetLabel}{action.value!=null?` → ${String(action.value)}`:""}</p>}
-                <p className="mt-1 text-xs">{c[action.condition]}</p></div></div>
-          </article>;
-        })}
-        <p className="rounded-lg bg-muted/50 p-3 text-xs leading-relaxed text-muted-foreground">{c.caution}</p>
+    <DialogContent className={`${STATUS_LIST_DIALOG_FRAME_CLASS} sl-recap-dialog z-[10070]`} overlayClassName="z-[10060]">
+      <DialogHeader>
+        <div className="sl-recap-heading">
+          <div className="sl-recap-mark" aria-hidden="true"><ClipboardCheck className="h-5 w-5"/></div>
+          <div className="min-w-0 pt-0.5">
+            <DialogTitle>{c.title}</DialogTitle>
+            <DialogDescription className="mt-1">{c.help}</DialogDescription>
+          </div>
+        </div>
+      </DialogHeader>
+      <div data-testid="status-list-action-recap" aria-busy={loading} className="sl-recap-content">
+        <div className="sl-recap-list">
+          {loading && (
+            <div role="status" className="space-y-3" aria-label={c.loading}>
+              <p className="sr-only">{c.loading}</p>
+              {[0, 1].map((row) => (
+                <div key={row} className="flex items-center gap-3 rounded-[15px] border border-border/60 bg-card p-3">
+                  <div className="h-[34px] w-[34px] shrink-0 animate-pulse rounded-[11px] bg-muted/80 motion-reduce:animate-none"/>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-2.5 w-2/5 animate-pulse rounded-full bg-muted motion-reduce:animate-none"/>
+                    <div className="h-3.5 w-3/5 animate-pulse rounded-full bg-muted/80 motion-reduce:animate-none"/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {error && (
+            <div role="alert" className="sl-recap-notice">
+              <p>{c.error}</p>
+              <Button size="sm" variant="outline" className="mt-3 rounded-lg" onClick={()=>void load()}>{c.retry}</Button>
+            </div>
+          )}
+          {preview && !preview.actions.length && <p className="sl-recap-notice">{c.empty}</p>}
+          {preview?.actions.map(action=>{
+            const ConditionIcon=action.condition==="matched"?CheckCircle2:action.condition==="not_matched"?XCircle:AlertTriangle;
+            const visual=getActionVisual(action.actionType);
+            const ActionIcon=visual.Icon;
+            const conditionTone=action.condition==="matched"?"matched":action.condition==="blocked"?"blocked":action.condition==="not_matched"?"skipped":"unknown";
+            return <article key={`${action.sourceLabel}:${action.id}`} className="sl-recap-action" data-condition={action.condition} data-recap-enter>
+              <div className={`sl-recap-action-icon sl-recap-icon-${visual.tone}`} aria-hidden="true">
+                <ActionIcon className="h-[17px] w-[17px]"/>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="sl-recap-source">{action.sourceLabel}{action.branch?` · ${c[action.branch]}`:""}</p>
+                <h4 className="sl-recap-action-title">{statusListRecapActionLabel(action.actionType,locale)}</h4>
+                {action.targetLabel && <p className="sl-recap-target"><ArrowRight className="mr-1 inline h-3 w-3 align-[-2px]"/>{action.targetLabel}{action.value!=null?` → ${String(action.value)}`:""}</p>}
+                <p className={`sl-recap-condition sl-recap-condition-${conditionTone}`}>
+                  <ConditionIcon className="mr-1 inline h-3.5 w-3.5 align-[-2px]" aria-hidden="true"/>
+                  {c[action.condition]}
+                </p>
+              </div>
+            </article>;
+          })}
+        </div>
+        <p className="sl-recap-caution">{c.caution}</p>
       </div>
-      <div className="mt-2 flex flex-wrap justify-end gap-2"><Button variant="outline" onClick={()=>finish(false)}>{c.cancel}</Button>
-        <Button data-testid="status-list-recap-confirm" disabled={loading || error || !preview} onClick={()=>finish(true)}>{c.confirm}<ArrowRight className="ml-2 h-4 w-4"/></Button></div>
+      <div className="sl-recap-footer">
+        <Button variant="outline" onClick={()=>finish(false)}>{c.cancel}</Button>
+        <Button data-testid="status-list-recap-confirm" className="sl-recap-primary" disabled={loading || error || !preview} onClick={()=>finish(true)}>{c.confirm}<ArrowRight className="ml-2 h-4 w-4"/></Button>
+      </div>
     </DialogContent>
   </Dialog>;
   return {confirm,dialog};

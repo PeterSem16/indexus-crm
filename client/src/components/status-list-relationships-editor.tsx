@@ -10,6 +10,8 @@ import {
 import { getStatusListRelationshipsCopy } from "./status-list-relationships-copy";
 import { getStatusListQuestionStudioCopy } from "./status-list-question-studio-copy";
 import { getStatusListWorkspaceCopy } from "./status-list-workspace-copy";
+import { StatusListQuestionGroupPicker } from "./status-list-question-group-picker";
+import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
 import "./status-list-relationships-editor.css";
 
 type Props = {
@@ -122,19 +124,8 @@ function RelationshipGroupDraft({
     <section className="slre-group" aria-labelledby={headingId}>
       <h3 id={headingId}>{copy.group}</h3>
       <div className="slre-group-fields">
-        <label className="slre-field">
-          <span>{studio.group}</span>
-          <input
-            data-testid="status-list-question-group"
-            list={datalistId}
-            value={groupName}
-            onChange={event => onGroupChange(event.target.value)}
-          />
-          <datalist id={datalistId}>
-            {group.names.map(name => <option key={name} value={name} />)}
-          </datalist>
-          <small>{copy.groupingHelp}</small>
-        </label>
+        <StatusListQuestionGroupPicker locale={locale} questions={item.questions || []} questionId={questionId} value={groupName}
+          onChange={(name, logic) => { onGroupChange(name); if (logic) onLogicChange(logic); }} />
         <label className="slre-field">
           <span>{studio.logic}</span>
           <select
@@ -172,7 +163,7 @@ function RelationshipGroupDraft({
         {group.unknownLogic && <p className="slre-warning" data-testid="relationship-group-unknown">{copy.unknown}</p>}
         {group.stepSingle && <p className="slre-warning" data-testid="relationship-group-single">{copy.stepSingle}</p>}
       </div>
-      <p className="slre-scope-note">{copy.currentOnly}</p>
+      <p className="slre-scope-note">{getStatusListRefinementCopy(locale).groupRuleHelp}</p>
     </section>
   );
 }

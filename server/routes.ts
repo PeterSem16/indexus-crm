@@ -57,6 +57,7 @@ import { processStatusListItemWorkflow, workflowCatalog, StatusListWorkflowError
 import { storage } from "./storage";
 import { executeStatusListTaskAction } from "./lib/status-list-task-action";
 import { authorizeStatusListServiceWrite, executeStatusListNativeService } from "./lib/status-list-native-service";
+import { saveStatusListQuestionDefinition, authorizeStatusListQuestionWrite } from "./lib/status-list-question-definitions";
 import {
   ensureTaskAiChecklist,
   getTaskAiChecklistState,
@@ -33688,28 +33689,25 @@ Respond ONLY with valid JSON in this exact format:
     }
   });
 
-  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions", requireAuth, async (req, res) => {
+  app.post("/api/campaigns/:campaignId/status-list/:itemId/questions", requireAuth, authorizeStatusListQuestionWrite, async (req, res) => {
     try {
-      const { itemId } = req.params;
-      const validated = insertCampaignStatusListQuestionSchema.parse({ ...req.body, itemId });
-      const [question] = await db.insert(campaignStatusListQuestions).values(validated).returning();
+      const question = await saveStatusListQuestionDefinition(pool,req.params.campaignId,req.params.itemId,null,req.body);
       res.json(question);
     } catch (error) {
+      if ((error as any)?.name === "ZodError") return res.status(400).json({error:"invalid_question"});
+      if ([400,404,409].includes((error as any)?.status)) return res.status((error as any).status).json({error:(error as Error).message});
       console.error("Failed to create question:", error);
       res.status(500).json({ error: "Failed to create question" });
     }
   });
 
-  app.put("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId", requireAuth, async (req, res) => {
+  app.put("/api/campaigns/:campaignId/status-list/:itemId/questions/:questionId", requireAuth, authorizeStatusListQuestionWrite, async (req, res) => {
     try {
-      const { questionId } = req.params;
-      const [updated] = await db.update(campaignStatusListQuestions)
-        .set({ ...req.body, updatedAt: new Date() })
-        .where(eq(campaignStatusListQuestions.id, questionId))
-        .returning();
-      if (!updated) return res.status(404).json({ error: "Question not found" });
+      const updated = await saveStatusListQuestionDefinition(pool,req.params.campaignId,req.params.itemId,req.params.questionId,req.body);
       res.json(updated);
     } catch (error) {
+      if ((error as any)?.name === "ZodError") return res.status(400).json({error:"invalid_question"});
+      if ([400,404,409].includes((error as any)?.status)) return res.status((error as any).status).json({error:(error as Error).message});
       console.error("Failed to update question:", error);
       res.status(500).json({ error: "Failed to update question" });
     }

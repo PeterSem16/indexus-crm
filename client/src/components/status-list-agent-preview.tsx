@@ -22,7 +22,7 @@ type Phase = {
 export type AgentStatusQuestion = {
   id: string; questionText: string; isHidden?: boolean; groupName?: string | null;
   logicOperator?: string; fieldType?: string | null; color?: string | null; icon?: string | null;
-  automations?: any[]; noteEnabled?: boolean; previewActions?: boolean;
+  automations?: any[]; noteEnabled?: boolean; previewActions?: boolean; description?: string | null;
 };
 
 export function StatusListQuestionHistory({ questionId, locale, metadata, note, pending, onSaveNote, noteEnabled = true }: {
@@ -89,7 +89,6 @@ export function StatusListAgentQuestionChoices({
     return result;
   }, {});
   const stepSingleSelect = questionSelectionMode === "single";
-  const allGroupsAreOne = stepSingleSelect || Object.values(groups).every(group => group[0]?.logicOperator === "ONE");
   return <div className="mt-2 pt-1.5 border-t border-dashed space-y-2" data-testid={`sl-questions-${itemId}`}>
     {stepSingleSelect && <p className="text-[9px] font-semibold text-muted-foreground/60 uppercase tracking-wider flex items-center gap-1"><span className="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300">1×</span></p>}
     {Object.entries(groups).map(([groupName, group]) => <div key={groupName}>
@@ -100,11 +99,11 @@ export function StatusListAgentQuestionChoices({
       <div className="flex flex-wrap gap-1">{group.map(question => {
         const fieldType = question.fieldType || "checkbox";
         const groupMode = stepSingleSelect || group[0]?.logicOperator === "ONE" ? "ONE" : undefined;
-        const exclusiveQuestions = groupMode === "ONE" && allGroupsAreOne ? visibleQuestions : group;
+        const exclusiveQuestions = stepSingleSelect ? visibleQuestions : group;
         const customAction = isStatusListYesNo(fieldType) ? null : renderAction?.(question, exclusiveQuestions, groupMode);
         const history = <StatusListQuestionHistory key={`${scopeKey}:${question.id}`} questionId={question.id} locale={locale} metadata={answerMetadata[question.id]}
           note={questionNotes[question.id]} pending={pendingQuestionIds.has(question.id)} onSaveNote={onSaveQuestionNote} noteEnabled={question.noteEnabled !== false} />;
-        if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}><div className="flex items-center gap-1.5"><StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{customAction}</div>{history}</div>;
+        if (customAction) return <div key={question.id} data-testid={`sl-question-${question.id}`}>{customAction}{question.description && <p className="mt-1 text-[10px] text-muted-foreground">{question.description}</p>}{history}</div>;
         const answered = answers[question.id] != null;
         if (isStatusListYesNo(fieldType)) return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
           {question.questionText && <p className="flex items-center gap-1.5 text-[10px] text-foreground/70 mb-1"><StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{question.questionText}</p>}
@@ -112,6 +111,7 @@ export function StatusListAgentQuestionChoices({
             <button type="button" onClick={() => onAnswer(question, "yes", exclusiveQuestions, groupMode)} className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[question.id] === "yes" ? "bg-green-500 border-green-500 text-white" : "border-border hover:bg-green-50 dark:hover:bg-green-950/20 text-foreground"}`} data-testid={`btn-sl-q-yes-${question.id}`}>{yesLabel}</button>
             <button type="button" onClick={() => onAnswer(question, "no", exclusiveQuestions, groupMode)} className={`px-2.5 py-1 text-xs rounded border font-semibold transition-colors ${answers[question.id] === "no" ? "bg-red-500 border-red-500 text-white" : "border-border hover:bg-red-50 dark:hover:bg-red-950/20 text-foreground"}`} data-testid={`btn-sl-q-no-${question.id}`}>{noLabel}</button>
           </div>
+          {question.description && <p className="mt-1 text-[10px] text-muted-foreground">{question.description}</p>}
           {history}
         </div>;
         const oneMode = groupMode === "ONE";
@@ -124,6 +124,7 @@ export function StatusListAgentQuestionChoices({
             {fieldType === "checkbox" && !oneMode && <div className={`h-2.5 w-2.5 rounded border-2 flex items-center justify-center shrink-0 ${answered ? "border-white" : "border-current"}`}>{answered && <Check className="h-1.5 w-1.5 text-white" />}</div>}
             <StatusListQuickOptionIcon name={question.icon} className="h-3.5 w-3.5 shrink-0" />{question.questionText}
           </button>
+          {question.description && <p className="mt-1 text-[10px] text-muted-foreground">{question.description}</p>}
           {history}
         </div>;
       })}</div>
@@ -322,7 +323,7 @@ export function StatusListAgentPreview({ items, locale, statusListMode = "immedi
                   const status = (question.automations || []).some(automation => automation.actionType === "set_contact_status");
                   if (!callback && !status) return null;
                   return <Button type="button" variant="outline" size="sm" onClick={() => answer(question, true, exclusiveQuestions, groupMode)} className="h-7 px-2 text-[11px] gap-1" data-testid={`preview-safe-question-action-${question.id}`}>
-                    {callback ? <Phone className="h-3 w-3 text-cyan-600" /> : <Tag className="h-3 w-3 text-purple-600" />}{question.questionText}
+                    {question.icon ? <StatusListQuickOptionIcon name={question.icon} className="h-3 w-3"/> : callback ? <Phone className="h-3 w-3 text-cyan-600"/> : <Tag className="h-3 w-3 text-purple-600"/>}{question.questionText}
                   </Button>;
                 }} />
               <StatusListAgentActionRow actions={item.confirmationType==="info"?[]:item.automations || []} renderAction={automation => {

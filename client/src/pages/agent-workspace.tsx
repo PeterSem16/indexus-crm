@@ -490,8 +490,8 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 // "Set status" button. For a plain disposition it just runs the action; for a
 // callback-type disposition it opens a reschedule picker (prefilled from the rule's
 // term) so the agent can override the callback time before scheduling.
-function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string;
+function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName, icon }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string; icon?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
@@ -504,7 +504,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
     return (
       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
         disabled={isRunning} onClick={() => onRun(automation)} data-testid={`btn-sl-status-${automation.id}`}>
-        {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
+        {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
         {label ?? slt("runStatus", locale)}
       </Button>
     );
@@ -514,7 +514,7 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
           disabled={isRunning} data-testid={`btn-sl-status-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tag className="h-3 w-3 text-purple-600" />}
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
           {label ?? slt("runStatus", locale)}
         </Button>
       </PopoverTrigger>
@@ -548,8 +548,8 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
   );
 }
 
-function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string;
+function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string; icon?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
@@ -562,7 +562,7 @@ function SlCallbackButton({ automation, isRunning, onRun, locale, label }: {
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
           disabled={isRunning} data-testid={`btn-sl-callback-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : <Phone className="h-3 w-3 text-cyan-600" />}
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-cyan-600" /> : <Phone className="h-3 w-3 text-cyan-600" />}
           {label ?? slt("runCallback", locale)}
         </Button>
       </PopoverTrigger>
@@ -7113,7 +7113,7 @@ export function CommunicationCanvas({
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, {...options,recapReviewed:true}); autoConfirmParent();
                             }}
-                            locale={locale} label={q.questionText} />;
+                            locale={locale} label={q.questionText} icon={q.icon} />;
                           const statusAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_contact_status");
                           if (!statusAutomation) return null;
                           const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
@@ -7124,7 +7124,7 @@ export function CommunicationCanvas({
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, options); autoConfirmParent();
                             }}
-                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} />;
+                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} icon={q.icon} />;
                         }}
                       />
                         {(() => {

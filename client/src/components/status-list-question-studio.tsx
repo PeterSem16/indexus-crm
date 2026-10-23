@@ -13,6 +13,10 @@ import { StatusListRelationshipsEditor } from "./status-list-relationships-edito
 import { getStatusListRelationshipsCopy } from "./status-list-relationships-copy";
 import { StatusListQuestionAppearance } from "./status-list-question-appearance";
 import { StatusListQuickOptionIcon } from "./status-list-quick-option-icons";
+import { Phone, Tag } from "lucide-react";
+import { StatusListQuestionGroupPicker } from "./status-list-question-group-picker";
+import { StatusListAgentItemFrame, StatusListAgentItemHeading, StatusListAgentQuestionChoices } from "./status-list-agent-preview";
+import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
 import { getStatusListBehaviorCopy } from "./status-list-behavior-copy";
 import { StatusListAutomaticTriggerInspector } from "./status-list-automatic-trigger-inspector";
 import { relationshipSelection, relationshipTargets } from "@/lib/status-list-relationships";
@@ -88,6 +92,18 @@ export function StatusListQuestionStudio({
   const question = item?.questions?.find((entry: any) => entry.id === questionId);
   const isCreatingQuestion = questionId === "__new__";
   const isQuestion = isCreatingQuestion || (!!questionId && !!question);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, string | boolean>>({});
+  useEffect(() => setPreviewAnswers({}), [recordKey, questionDraft.fieldType, questionDraft.groupName, questionDraft.logicOperator]);
+  const previewQuestion = { ...question, ...questionDraft, id: questionId || "__new__", isHidden: false };
+  const previewQuestions = isQuestion
+    ? [...(item?.questions || []).filter((q: any) => q.id !== questionId && !!questionDraft.groupName.trim() && q.groupName?.trim() === questionDraft.groupName.trim()), previewQuestion]
+    : item?.questions || [];
+  const previewAnswer = (q: {id: string}, value: string | boolean, peers: {id: string}[], mode?: string) => setPreviewAnswers(previous => {
+    const next = { ...previous };
+    if (mode === "ONE") peers.forEach(peer => { delete next[peer.id]; });
+    if (previous[q.id] === value) delete next[q.id]; else next[q.id] = value;
+    return next;
+  });
   const stepDirty = !same(stepDraft, baseStep, stepKeys as string[]);
   const questionDirty = isQuestion && !same(questionDraft, baseQuestion, questionKeys as string[]);
   const dirty = isQuestion ? questionDirty : stepDirty;
@@ -356,7 +372,7 @@ export function StatusListQuestionStudio({
                 {!isStatusListYesNo(questionDraft.fieldType) && !copy.fieldTypeOptions[questionDraft.fieldType] && <option value={questionDraft.fieldType}>{questionDraft.fieldType}</option>}
                 {Object.entries(copy.fieldTypeOptions).map(([value, label]) => <option value={value} key={value}>{label}</option>)}
               </select></label>
-              <label className="slqs-field"><span>{copy.group}</span><input data-testid="status-list-question-group" value={questionDraft.groupName} onChange={event => setQuestion("groupName", event.target.value)} placeholder={copy.group} /><small>{copy.groupHelp}</small></label>
+              <StatusListQuestionGroupPicker locale={locale} questions={item?.questions || []} questionId={questionId} value={questionDraft.groupName} onChange={(name, logic) => {setQuestion("groupName", name); if (logic) setQuestion("logicOperator", logic);}} />
               <div className="slqs-wide slqs-toggle-pair">
                 {renderToggle(copy.required, questionDraft.required, value => setQuestion("required", value), "status-list-question-required")}
                 {renderToggle(copy.visible, !questionDraft.isHidden, value => setQuestion("isHidden", !value), "status-list-question-hidden")}
@@ -429,30 +445,28 @@ export function StatusListQuestionStudio({
       <aside className="slqs-preview" aria-label={copy.preview}>
         <div className="slqs-preview-heading"><div><h3>{copy.preview}</h3></div><span className="slqs-preview-label">{copy.previewTag}</span></div>
         <div className="slqs-preview-device">
-          <div className="slqs-preview-topline"><span>INDEXUS</span><span>{tabLabel(phase)}</span></div>
-          <div className="slqs-preview-body">
-            <div className="slqs-preview-progress"><i /></div>
-            <span className="slqs-preview-step">{copy.previewStep}</span>
-            <h4 className="slqs-preview-title">
-              {!isQuestion && <span className="slqs-preview-icon" style={{ color: stepDraft.color || undefined }}>
-                <StatusListQuickOptionIcon name={stepDraft.icon} />
-              </span>}{isQuestion ? (item?.label || stepDraft.label) : (stepDraft.label || copy.stepName)}
-            </h4>
-            {isQuestion && <div className="slqs-preview-question">
-              <strong><span className="slqs-preview-icon" style={{ color: questionDraft.color || undefined }}><StatusListQuickOptionIcon name={questionDraft.icon} /></span>{previewText || copy.questionText}{questionDraft.required && <em>*</em>}</strong>
-              {questionDraft.description && <p>{questionDraft.description}</p>}
-              {questionDraft.fieldType === "checkbox" && <div className="slqs-preview-option"><i /></div>}
-              {isStatusListYesNo(questionDraft.fieldType) && <div className="slqs-preview-yesno"><span>{copy.yes}</span><span>{copy.no}</span></div>}
-              {questionDraft.fieldType !== "checkbox" && !isStatusListYesNo(questionDraft.fieldType) && <p className="slqs-preview-unsupported">{copy.unsupportedPreview}</p>}
-            </div>}
-            {!isQuestion && stepDraft.description && <p className="slqs-preview-description">{stepDraft.description}</p>}
-            {!isQuestion && stepDraft.confirmationType === "info" && <span className="slqs-preview-role">{behavior.infoTitle}</span>}
-            {!isQuestion && stepDraft.confirmationType === "auto" && <span className="slqs-preview-role is-automatic">{behavior.autoTitle}</span>}
-            {!isQuestion && stepDraft.confirmationType!=="info" && stepDraft.required && <span className="slqs-required-chip">{copy.requiredMark}</span>}
+          <div className="slqs-preview-topline"><span>Nexus Pulse</span><span>{tabLabel(phase)}</span></div>
+          <div className="p-3 text-foreground" data-testid="status-list-live-question-preview">
+            <StatusListAgentItemFrame itemId={`draft-${item?.id || "new"}`} stepId="draft" tab={phase} selected={false} info={stepDraft.confirmationType === "info"}>
+              <div className="p-3 pl-4">
+                <StatusListAgentItemHeading label={isQuestion ? item?.label || copy.stepName : stepDraft.label || copy.stepName} selected={false}
+                  icon={stepDraft.icon} description={isQuestion ? item?.description : stepDraft.description} required={!isQuestion && stepDraft.confirmationType !== "info" && stepDraft.required}/>
+                <StatusListAgentQuestionChoices itemId="draft" questions={previewQuestions} questionSelectionMode={stepDraft.questionSelectionMode}
+                  answers={previewAnswers} yesLabel={copy.yes} noLabel={copy.no} locale={locale} onAnswer={previewAnswer}
+                  renderAction={(q, peers, mode) => {
+                    const callback = q.automations?.some((a: any) => a.actionType === "set_callback");
+                    const status = q.automations?.some((a: any) => a.actionType === "set_contact_status");
+                    if (!callback && !status) return null;
+                    return <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1" onClick={() => previewAnswer(q, true, peers, mode)}>
+                      {q.icon ? <StatusListQuickOptionIcon name={q.icon} className="h-3 w-3"/> : callback ? <Phone className="h-3 w-3 text-cyan-600"/> : <Tag className="h-3 w-3 text-purple-600"/>}{q.questionText}
+                    </Button>;
+                  }}/>
+              </div>
+            </StatusListAgentItemFrame>
             {previewHidden && <span className="slqs-preview-hidden">{copy.hiddenPreview}</span>}
           </div>
-          <div className="slqs-preview-bottom"><span>{phaseName(phase) || copy.sharedPhase}</span></div>
         </div>
+        <p className="slqs-preview-impact">{getStatusListRefinementCopy(locale).previewHelp}</p>
         <p className="slqs-preview-impact">{previewHidden ? copy.impactHidden : !isQuestion && stepDraft.confirmationType === "auto" ? behavior.autoContext : isQuestion ? (questionDraft.required ? copy.impactRequired : copy.impactGroup) : copy.impactVisible}</p>
         {isQuestion && <div className="slqs-preview-inherit"><span>↳</span>{copy.inherited}<button type="button" onClick={() => onSelectItem(item.id)}>{copy.goToParent}</button></div>}
         <div className="slqs-preview-detail"><span>{copy.phase}</span><strong>{tabLabel(phase)}</strong><span>{isQuestion ? copy.fieldType : copy.selectionMode}</span><strong>{isQuestion ? copy.fieldTypeOptions[isStatusListYesNo(questionDraft.fieldType) ? "yes_no" : questionDraft.fieldType] || questionDraft.fieldType : stepDraft.questionSelectionMode === "single" ? copy.selectionSingle : copy.selectionMultiple}</strong></div>

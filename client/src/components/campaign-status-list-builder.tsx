@@ -3975,6 +3975,7 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
       {itemsLoadError && <Button variant="outline" onClick={() => void retryItems()}>{getStatusListWorkspaceCopy(locale).error}</Button>}
       {!itemsLoadError && <>
       <StatusListWorkspace campaignId={campaignId} locale={locale} items={items}
+        onPreview={() => setPreviewMode(true)} previewLabel={sl("previewBtn", locale)}
         selectedId={workspaceSelection} onSelect={setWorkspaceSelection}
         navigation={studioNavigation}
         coverage={<CanonicalCoveragePanel items={items} locale={locale}/>}
@@ -4004,10 +4005,6 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
               {aiSuggestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {sl("aiSuggestBtn", locale)}
             </Button>
-            <Button type="button" variant={previewMode ? "default" : "outline"} size="sm" className="gap-1.5" onClick={() => setPreviewMode(m => !m)} data-testid="btn-toggle-preview">
-              {previewMode ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              {previewMode ? sl("previewClose", locale) : sl("previewBtn", locale)}
-            </Button>
             {bulkSelectedIds.size > 0 && <Button type="button" variant="destructive" size="sm" className="gap-1" disabled={bulkDeleteMutation.isPending} onClick={async () => {
               if (await confirm(`${sl("deleteSelectedBtn", locale)} (${bulkSelectedIds.size})?`, { destructive: true })) bulkDeleteMutation.mutate();
             }} data-testid="btn-delete-selected-items">
@@ -4027,7 +4024,6 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
       </section>
 
 
-      {previewMode && <StatusListPreview items={items} locale={locale} campaignId={campaignId} />}
       </>}
       definition={(selectedItemId, selectedQuestionId, controls) => {
         const selectedItem = items.find(item => item.id === selectedItemId);
@@ -4053,6 +4049,12 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
       }}/>
 
       </>}
+      <Dialog open={previewMode} onOpenChange={setPreviewMode}>
+        <DialogContent className="z-[10070] w-[calc(100vw-2rem)] max-w-5xl max-h-[88dvh] overflow-y-auto rounded-2xl" overlayClassName="z-[10060]" data-testid="status-list-agent-preview-modal">
+          <DialogHeader><DialogTitle>{sl("previewBtn", locale)}</DialogTitle></DialogHeader>
+          <StatusListPreview items={items} locale={locale} campaignId={campaignId} />
+        </DialogContent>
+      </Dialog>
       <Dialog open={studioCreation !== null} onOpenChange={open => { if (!open) void (async () => { if (!studioCreationDirty || await confirm(getStatusListQuestionStudioCopy(locale).discard)) setStudioCreation(null); })(); }}>
         <DialogContent className="max-w-5xl max-h-[90dvh] overflow-y-auto" data-testid="status-list-studio-create">
           <DialogHeader><DialogTitle>{studioCreation?.kind === "question" ? sl("addQuestionBtn", locale) : sl("addStepBtn", locale)}</DialogTitle></DialogHeader>

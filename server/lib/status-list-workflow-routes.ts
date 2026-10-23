@@ -14,6 +14,7 @@ import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from 
 import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
 import { initialScopeSchema, previewAutomaticInitial, confirmAutomaticInitial } from "./status-list-automatic-initial";
 import { configureBackgroundSource } from "./status-list-background";
+import { createStatusListSourceTarget } from "./status-list-source-targets";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
 import { readTransitionInventory } from "./status-list-transition-inventory";
@@ -77,6 +78,17 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.post(`${root}/source-targets`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const target = await createStatusListSourceTarget(client, req.params.campaignId, req.body);
+      await client.query("COMMIT");
+      res.status(201).json(target);
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+  }));
   app.post(`${contactRoot}/confirmation-preview`, requireAuth, route(async(req,res)=>{
     const actor=await authorize(req,false,req.params.campaignContactId);
     const client=await pool.connect();

@@ -12,6 +12,8 @@ import { StatusListOptionSourcePanel } from "./status-list-option-source-panel";
 import { getSourceEditorCopy } from "./status-list-source-editor-copy";
 import { StatusListSourceEditor, type SourceEditorStage } from "./status-list-source-editor";
 import { useStatusListConfirm } from "./status-list-confirm";
+import { StatusListSourceTargetButton } from "./status-list-source-target-button";
+import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
 
 type Source = { questionId: string; source: "representative_assigned" | "representative_assignment_type"; hidden: boolean };
 type SourceResponse = { sources: Source[]; catalog: WorkflowCatalogItem[] };
@@ -42,6 +44,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   const [source, setSource] = useState<Source["source"]>("representative_assigned");
   const [hidden, setHidden] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [stage, setStage] = useState<SourceEditorStage>("source");
   const [baseline, setBaseline] = useState("");
   const ownDirtyRef = useRef(false);
@@ -67,7 +70,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const close = async (force = false) => {
     if (!force && dirty && !await confirm(editorCopy.changed)) return;
-    setEditing(null); setQuestionId(""); setSource("representative_assigned"); setHidden(false);
+    setFormOpen(false); setEditing(null); setQuestionId(""); setSource("representative_assigned"); setHidden(false);
     setStage("source"); setBaseline("");
     onDirtyChange?.(false);
   };
@@ -105,7 +108,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   });
   const editSource = async (entry: Source) => {
     if (dirty && !await confirm(editorCopy.changed)) return;
-    setEditing(entry.questionId);
+    setFormOpen(true); setEditing(entry.questionId);
     setQuestionId(entry.questionId);
     setSource(entry.source);
     setHidden(entry.hidden);
@@ -114,6 +117,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   };
   const begin = () => {
     reset();
+    setFormOpen(true);
     const first = catalog.find(item => item.kind === "question" && relevant(item.id) && supports(item, "representative_assigned", catalog) && !owned.some(entry => entry.questionId === item.id));
     const type = first ? "representative_assigned" : "representative_assignment_type";
     const candidate = catalog.find(item => item.kind === "question" && relevant(item.id) && supports(item, type, catalog) && !owned.some(entry => entry.questionId === item.id));
@@ -123,7 +127,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
     setBaseline(JSON.stringify({ questionId: candidate?.id || "", source: type, hidden: false }));
   };
   const labelFor = (entry: Source) => catalog.find(item => item.kind === "question" && item.id === entry.questionId)?.label || entry.questionId;
-  const open = editing !== null || (questionId && !owned.some(entry => entry.questionId === questionId));
+  const open = formOpen;
   const availableQuestion = catalog.find(item => item.kind === "question" && item.id === questionId);
   const stageHeading = stage === "source" ? editorCopy.stageSource : stage === "mapping" ? editorCopy.stageMapping : stage === "evaluation" ? editorCopy.stageEvaluation : editorCopy.stageReview;
   const stageIndex = (["source", "mapping", "evaluation", "review"] as SourceEditorStage[]).indexOf(stage);
@@ -133,7 +137,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
   return <><section className="slse-panel mt-4 rounded-xl border border-border/70 bg-background/65 p-3" data-testid="status-list-background-sources">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-sm font-semibold">{copy.title}</h3><p className="mt-1 text-xs text-muted-foreground">{copy.subtitle}</p></div>
-      {!open && <Button type="button" size="sm" variant="outline" onClick={begin} disabled={query.isLoading || query.isFetching || query.isError || !hasAvailable}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.add}</Button>}
+      {!open && <Button type="button" size="sm" variant="outline" onClick={begin} disabled={query.isLoading || query.isFetching || query.isError}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.add}</Button>}
     </header>
     {query.isLoading && <div className="mt-3 h-12 animate-pulse rounded-lg bg-muted/60"/>}
     {query.isError && <div className="mt-3 flex items-center justify-between rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm"><span className="flex items-center gap-2"><AlertCircle className="h-4 w-4"/>{copy.loadError}</span><Button type="button" size="sm" variant="outline" onClick={() => void query.refetch()}><RefreshCw className="mr-1.5 h-3.5 w-3.5"/>{copy.retry}</Button></div>}
@@ -145,6 +149,13 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
       <Button type="button" size="icon" variant="ghost" aria-label={copy.remove} disabled={deleteMutation.isPending} onClick={async () => { if (await confirm(copy.clearConfirm, { destructive: true })) deleteMutation.mutate(entry.questionId); }}><Trash2 className="h-4 w-4"/></Button>
     </div>)}</div>}
     {open ? <div className="mt-3">
+      {!questions.length && <div className="mb-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20" data-testid="background-source-prerequisites">
+        <p className="text-xs leading-relaxed">{getStatusListRefinementCopy(locale).backgroundHelp}</p>
+        {!targetQuestionId && <StatusListSourceTargetButton campaignId={campaignId} locale={locale} source={source} parentId={targetItemId} onCreated={target => {
+          setQuestionId(target.questionId || ""); setHidden(true);
+          setBaseline(JSON.stringify({questionId:target.questionId || "",source,hidden:true}));
+        }}/>}
+      </div>}
       <StatusListSourceEditor copy={editorCopy} context={`${copy.source}: ${sourceName} · ${copy.question}: ${valueName}`} editing={editing !== null} stage={stage}
         onStage={setStage} onBack={() => setStageAt(stageIndex - 1)} onNext={() => setStageAt(stageIndex + 1)}
         onSave={() => saveMutation.mutate()} onCancel={() => close()} saving={saveMutation.isPending} canSave={!!questionId}>

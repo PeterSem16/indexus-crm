@@ -8391,7 +8391,7 @@ export const insertCampaignStatusListQuestionSchema = createInsertSchema(campaig
   noteEnabled: z.boolean().optional().default(true),
   previewActions: z.boolean().optional().default(false),
   gotoQuestionId: z.string().optional().nullable(),
-  logicOperator: z.enum(["AND", "OR"]).optional().default("OR"),
+  logicOperator: z.enum(["AND", "OR", "ONE"]).optional().default("OR"),
   required: z.boolean().optional().default(false),
   icon: z.string().optional().nullable(),
   color: z.string().optional().nullable(),

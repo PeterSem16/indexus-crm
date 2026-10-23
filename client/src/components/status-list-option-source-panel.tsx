@@ -14,6 +14,8 @@ import { getStatusListOptionSourceCopy } from "./status-list-option-source-copy"
 import { getSourceEditorCopy } from "./status-list-source-editor-copy";
 import { StatusListSourceEditor, type SourceEditorStage } from "./status-list-source-editor";
 import { useStatusListConfirm } from "./status-list-confirm";
+import { StatusListSourceTargetButton } from "./status-list-source-target-button";
+import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
 
 type Coordinator = { id: string; name: string };
 type SourceResponse = { sources: OptionSource[]; catalog: WorkflowCatalogItem[]; coordinators: Coordinator[] };
@@ -256,7 +258,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-sm font-semibold">{copy.title}</h3><p className="mt-1 max-w-3xl text-xs text-muted-foreground">{copy.subtitle}</p></div>
       {!formOpen && !editing && <Button type="button" size="sm" variant="outline" onClick={startCreate}
-        disabled={query.isLoading || query.isFetching || query.isError || !eligibleGroups.length}>
+        disabled={query.isLoading || query.isFetching || query.isError}>
         <Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.add}
       </Button>}
     </header>
@@ -283,6 +285,13 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
           onClick={async () => { if (await confirm(copy.confirmRemove, { destructive: true })) deleteMutation.mutate(entry.groupId); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
+    {formOpen && !eligibleGroups.length && !editing && <div className="my-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20" data-testid="option-source-prerequisites">
+      <p className="text-xs leading-relaxed">{getStatusListRefinementCopy(locale).optionsHelp}</p>
+      {!targetGroupId && <StatusListSourceTargetButton campaignId={campaignId} locale={locale} source={sourceKind} onCreated={target => {
+        setGroupId(target.groupId || ""); setMapping(target.mapping || {}); setHidden(true);
+        setBaseline(JSON.stringify({groupId:target.groupId || "",sourceKind,hidden:true,mapping:target.mapping || {},policy,users}));
+      }}/>}
+    </div>}
 
     {formOpen && <div className="mt-3">
       <StatusListSourceEditor copy={editorCopy} context={`${copy.source}: ${sourceKind === "reachability" ? copy.reachability : copy.coordinator} · ${copy.group}: ${catalog.find(item => item.id === groupId)?.label || copy.chooseGroup}`} editing={editing !== null} stage={stage}
