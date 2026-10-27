@@ -1,5 +1,17 @@
 import type { StatusListExecutionMode } from "@shared/status-list-execution-policy";
 type Attempt = { requestId: string; result?: any; pending?: Promise<any> };
+
+function createRequestId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") return globalThis.crypto.randomUUID();
+  // randomUUID is restricted to secure contexts, but getRandomValues also
+  // works on intranet HTTP. Preserve UUID v4 entropy and retry identity there.
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 /** Contact-local attempts survive transport errors and partial Batch retries. */
 export function createStatusListExecutionClient() {
   const attempts = new Map<string, Attempt>();
@@ -9,7 +21,7 @@ export function createStatusListExecutionClient() {
       const command = { ...body, executionMode: mode, commit: true };
       const key = `${method}:${url}:${JSON.stringify(command)}`;
       let attempt = attempts.get(key);
-      if (!attempt) { attempt = { requestId: crypto.randomUUID() }; attempts.set(key, attempt); }
+      if (!attempt) { attempt = { requestId: createRequestId() }; attempts.set(key, attempt); }
       if (attempt.result) return attempt.result;
       if (attempt.pending) return attempt.pending;
       const current = attempt;
