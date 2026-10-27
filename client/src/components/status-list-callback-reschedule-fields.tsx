@@ -49,11 +49,12 @@ function wallTimeToUtc(key: string,time: string) {
 }
 
 export function StatusListCallbackRescheduleFields({
-  value,onChange,locale,copy,testId="status-list-recap",
+  value,onChange,locale,copy,testId="status-list-recap",businessDaysOnly=true,
 }:{
   value:string;onChange:(value:string)=>void;locale:string;
   copy:{newDate:string;time:string;time24Hour:string;previousWeekday:string;nextWeekday:string};
   testId?:string;
+  businessDaysOnly?:boolean;
 }) {
   const today=useMemo(()=>dateKeyInZone(new Date()),[]);
   const initial=wallParts(value) || wallParts(`${today}T09:00`);
@@ -68,10 +69,10 @@ export function StatusListCallbackRescheduleFields({
   const validKeys=(year:number,month:number)=> {
     const lastDay=new Date(Date.UTC(year,month,0)).getUTCDate();
     return Array.from({length:lastDay},(_,index)=>keyOf({year,month,day:index+1,hour:0,minute:0}))
-      .filter(key=>weekday(key)>0 && weekday(key)<6 && wallTimeToUtc(key,time).getTime()>now);
+      .filter(key=>(!businessDaysOnly || weekday(key)>0 && weekday(key)<6) && wallTimeToUtc(key,time).getTime()>now);
   };
   const available=validKeys(selectedYear,selectedMonth);
-  if(!available.includes(dateKey) && weekday(dateKey)>0 && weekday(dateKey)<6 &&
+  if(!available.includes(dateKey) && (!businessDaysOnly || weekday(dateKey)>0 && weekday(dateKey)<6) &&
     wallTimeToUtc(dateKey,time).getTime()>now) available.unshift(dateKey);
   const changeDate=(key:string)=>{
     const {year,month}=dateParts(key);

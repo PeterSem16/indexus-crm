@@ -22,6 +22,7 @@ import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
 import { useStatusListActionRecap } from "@/components/use-status-list-action-recap";
 import { StatusListRepresentativeInformationPanel } from "@/components/status-list-representative-information";
 import { StatusListBatchSaveDialog } from "@/components/status-list-batch-save-dialog";
+import { StatusListManualCallbackButton } from "@/components/status-list-manual-callback-button";
 import { StatusListAgentBackground } from "@/components/status-list-agent-background";
 import { useStatusListRepresentativeChecks } from "@/hooks/use-status-list-representative-checks";
 import { useStatusListAutomaticOpen } from "@/components/use-status-list-automatic-open";
@@ -502,13 +503,7 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName, icon, color }: {
   automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string; icon?: string | null; color?: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [dt, setDt] = useState("");
-  const [note, setNote] = useState("");
   const iconColor = getStatusListQuestionColorValue(color);
-  useEffect(() => {
-    if (open) { setDt(slPrefillDt(automation)); setNote(""); }
-  }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
 
   if (!isCallback) {
     return (
@@ -520,94 +515,20 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
       </Button>
     );
   }
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
-          style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
-          disabled={isRunning} data-testid={`btn-sl-status-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
-          {label ?? slt("runStatus", locale)}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="sl-agent-dialog-popover w-[min(90vw,20rem)] p-0" align="start">
-        <div className="bg-purple-50 dark:bg-purple-900/30 px-3 py-2 flex items-center gap-2 border-b border-purple-200 dark:border-purple-700">
-          <Tag className="h-3.5 w-3.5 text-purple-600" />
-          <span className="min-w-0 truncate text-xs font-semibold text-purple-800 dark:text-purple-200">{statusName || slt("runStatus", locale)}</span>
-          <span className="ml-auto text-[9px] text-purple-500 font-medium">{slt("forEveryone", locale)}</span>
-        </div>
-        <div className="p-3 space-y-2.5">
-          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime minDate={new Date()} data-testid={`input-sl-status-callback-${automation.id}`} />
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
-            <textarea
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder={slt("cbNotePh", locale)}
-              rows={2}
-              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              data-testid={`input-sl-status-note-${automation.id}`}
-            />
-          </div>
-          <Button size="sm" className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white" disabled={!dt || isRunning}
-            onClick={() => { onRun(automation, { callbackDate: dt, callbackNote: note || undefined }); setNote(""); setOpen(false); }}
-            data-testid={`btn-sl-status-confirm-${automation.id}`}>
-            {slt("cbConfirm", locale)}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
+  return <StatusListManualCallbackButton automation={automation} isRunning={isRunning} onRun={onRun}
+    locale={locale} kind="status" label={label ?? slt("runStatus", locale)}
+    title={statusName || slt("runStatus", locale)} icon={icon} color={color}
+    copy={{ noteLabel:slt("cbNoteLabel",locale),notePlaceholder:slt("cbNotePh",locale),
+      confirm:slt("cbConfirm",locale),forEveryone:slt("forEveryone",locale) }}/>;
 }
 
 function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon, color }: {
   automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string; icon?: string | null; color?: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [dt, setDt] = useState("");
-  const [note, setNote] = useState("");
-  const iconColor = getStatusListQuestionColorValue(color);
-  useEffect(() => {
-    if (open) { setDt(slPrefillDt(automation)); setNote(""); }
-  }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
-          style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
-          disabled={isRunning} data-testid={`btn-sl-callback-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-cyan-600" /> : <Phone className="h-3 w-3 text-cyan-600" />}
-          {label ?? slt("runCallback", locale)}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="sl-agent-dialog-popover w-[min(90vw,20rem)] p-0" align="start">
-        <div className="bg-cyan-50 dark:bg-cyan-900/30 px-3 py-2 flex items-center gap-2 border-b border-cyan-200 dark:border-cyan-700">
-          <Phone className="h-3.5 w-3.5 text-cyan-600" />
-          <span className="min-w-0 truncate text-xs font-semibold text-cyan-800 dark:text-cyan-200">{label || slt("runCallback", locale)}</span>
-          <span className="ml-auto text-[9px] text-cyan-500 font-medium">{slt("forEveryone", locale)}</span>
-        </div>
-        <div className="p-3 space-y-2.5">
-          <DateTimePicker value={dt} onChange={(v) => setDt(v)} includeTime minDate={new Date()} data-testid={`input-sl-callback-${automation.id}`} />
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground block mb-1">{slt("cbNoteLabel", locale)}</label>
-            <textarea
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder={slt("cbNotePh", locale)}
-              rows={2}
-              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              data-testid={`input-sl-callback-note-${automation.id}`}
-            />
-          </div>
-          <Button size="sm" className="w-full h-8 text-xs bg-cyan-600 hover:bg-cyan-700 text-white" disabled={!dt || isRunning}
-            onClick={() => { onRun(automation, { callbackDate: dt, callbackNote: note || undefined }); setNote(""); setOpen(false); }}
-            data-testid={`btn-sl-callback-confirm-${automation.id}`}>
-            {slt("cbConfirm", locale)}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
+  return <StatusListManualCallbackButton automation={automation} isRunning={isRunning} onRun={onRun}
+    locale={locale} kind="callback" label={label ?? slt("runCallback", locale)} icon={icon} color={color}
+    copy={{ noteLabel:slt("cbNoteLabel",locale),notePlaceholder:slt("cbNotePh",locale),
+      confirm:slt("cbConfirm",locale),forEveryone:slt("forEveryone",locale) }}/>;
 }
 
 type AgentStatus = "available" | "busy" | "break" | "wrap_up" | "offline";
@@ -7173,7 +7094,7 @@ export function CommunicationCanvas({
                             }
                           };
                           const callbackAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_callback");
-                          if (callbackAutomation) return <SlCallbackButton automation={callbackAutomation} isRunning={slRunningAuto.has(String(callbackAutomation.id))}
+                          if (callbackAutomation) return <SlCallbackButton key={`${campaign?.id}:${campaignContactId}`} automation={callbackAutomation} isRunning={slRunningAuto.has(String(callbackAutomation.id))}
                             onRun={async (automation, options) => {
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, {...options,recapReviewed:true}); autoConfirmParent();
@@ -7184,7 +7105,7 @@ export function CommunicationCanvas({
                           const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
                           const isCallback = !!disposition && ["callback", "schedule_email", "schedule_sms"].includes(disposition.actionType);
                           const statusName = disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name) : undefined;
-                          return <SlStatusButton automation={statusAutomation} isRunning={slRunningAuto.has(String(statusAutomation.id))}
+                          return <SlStatusButton key={`${campaign?.id}:${campaignContactId}`} automation={statusAutomation} isRunning={slRunningAuto.has(String(statusAutomation.id))}
                             onRun={async (automation, options) => {
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, options); autoConfirmParent();
@@ -7244,7 +7165,7 @@ export function CommunicationCanvas({
                           </div>
                         );
                       })()}
-                      {!isInfo && <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />}
+                      {!isInfo && <SlActionButtons key={`${campaign?.id}:${campaignContactId}`} automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />}
                     </div>
                     <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
