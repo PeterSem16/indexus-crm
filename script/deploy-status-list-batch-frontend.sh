@@ -141,7 +141,30 @@ main() {
   MODE=$(stat -c %a "$PUBLIC/index.html")
 
   PHASE=offline-build
-  STAGE=$(mktemp -d /tmp/indexus-batch-frontend.XXXXXX)
+  local source_bytes public_bytes available_bytes needed_bytes
+  source_bytes=$(git ls-tree -r -l "$FIX" | awk '$2=="blob"{s+=$4} END{printf "%.0f",s}')
+  public_bytes=$(du -sb "$PUBLIC" | cut -f1)
+  available_bytes=$(df -B1 --output=avail "$ROOT/data" | tail -1 | tr -d ' ')
+  needed_bytes=$((2 * source_bytes + 2 * public_bytes + 1073741824))
+  if [ "$available_bytes" -lt "$needed_bytes" ]; then
+    echo "STOP: datovy disk nema dost miesta; dostupne=$available_bytes, potrebne=$needed_bytes bajtov."
+    return 1
+  fi
+  STAGE=$(sudo mktemp -d "$ROOT/data/.batch-ui-stage-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
+  sudo chown "$(id -u):$(id -g)" "$STAGE"
+  test "$(stat -c %a "$STAGE")" = 700
+  test "$(findmnt -n -o SOURCE --target "$STAGE")" = /dev/sdb1
+  sudo -u www-data test ! -r "$STAGE"
+  local privacy_token privacy_status
+  privacy_token=$(node -e 'console.log(require("node:crypto").randomBytes(24).toString("hex"))')
+  printf '%s' "$privacy_token" > "$STAGE/privacy-check.txt"
+  privacy_status=$(curl -sS --max-time 10 -o "$STAGE/privacy-response.txt" -w '%{http_code}' \
+    "http://127.0.0.1:5000/data/${STAGE##*/}/privacy-check.txt")
+  if grep -Fq "$privacy_token" "$STAGE/privacy-response.txt"; then
+    echo "STOP: pracovny adresar je dostupny cez HTTP; zdroje sa nerozbalia."
+    return 1
+  fi
+  case "$privacy_status" in 200|401|403|404) ;; *) echo "STOP: neoverena ochrana pracoviska HTTP=$privacy_status"; return 1 ;; esac
   echo "PRIPRAVA FRONTENDU: $STAGE"
   git archive --output="$STAGE/source.tar" "$FIX"
   tar -xf "$STAGE/source.tar" -C "$STAGE"
