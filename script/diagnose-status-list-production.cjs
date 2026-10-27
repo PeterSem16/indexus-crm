@@ -4,9 +4,23 @@ const fs = require("node:fs");
 const { execFileSync } = require("node:child_process");
 const ROOT = "/var/www/indexus-crm";
 const ALLOWED = new Set(["sources", "options", "questions", "schema_columns", "source_config", "source_write_plan", "source_counts"]);
+function parseDatabaseUrl(text) {
+  const line = text.split(/\r?\n/).find(value => value.startsWith("DATABASE_URL="));
+  if (!line) throw Object.assign(Error(), { code: "DATABASE_CONFIG_MISSING" });
+  let value = line.slice(13).trim();
+  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))
+    value = value.slice(1, -1);
+  let url;
+  try { url = new URL(value); } catch { throw Object.assign(Error(), { code: "DATABASE_CONFIG_INVALID" }); }
+  if (!["postgres:", "postgresql:"].includes(url.protocol) || !url.hostname || url.pathname.length < 2)
+    throw Object.assign(Error(), { code: "DATABASE_CONFIG_INVALID" });
+  return value;
+}
 function safeError(error) {
   const safe = value => typeof value === "string" && /^[a-zA-Z_][a-zA-Z_0-9]{0,100}$/.test(value) ? value : undefined;
-  return { code: /^[0-9A-Z]{5}$/.test(String(error.code)) ? error.code : "OPERATOR_ERROR",
+  const operatorCodes = ["DATABASE_CONFIG_MISSING", "DATABASE_CONFIG_INVALID", "DATABASE_CONFIG_MISMATCH",
+    "WRONG_HOST", "PM2_PROCESS_COUNT", "ECONNREFUSED", "EACCES", "ENOENT", "ENOSPC", "ETIMEDOUT"];
+  return { code: /^[0-9A-Z]{5}$/.test(String(error.code)) || operatorCodes.includes(error.code) ? error.code : "OPERATOR_ERROR",
     table: safe(error.table), column: safe(error.column), constraint: safe(error.constraint) };
 }
 async function probe(client, name, sql) {
@@ -24,7 +38,8 @@ async function probe(client, name, sql) {
   }
 }
 async function main() {
-  if (require("node:os").hostname().split(".")[0].toUpperCase() !== "CORPCRM01") throw Error("WRONG_HOST");
+  if (require("node:os").hostname().split(".")[0].toUpperCase() !== "CORPCRM01")
+    throw Object.assign(Error(), { code: "WRONG_HOST" });
   process.chdir(ROOT);
   console.log("STATUS_LIST_READ_ONLY_DIAGNOSTICS");
   console.log(execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim());
@@ -36,14 +51,14 @@ async function main() {
       console.log(execFileSync("du", ["-sh", "--", `/tmp/${name}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim());
     } catch { console.log("TEMP_DIRECTORY_NOT_READABLE"); }
   }
-  const { parseDatabaseUrl } = require(`${ROOT}/script/automation-production-db-admin.cjs`);
   const connectionString = parseDatabaseUrl(fs.readFileSync(`${ROOT}/.env`, "utf8"));
   const rows = JSON.parse(execFileSync("pm2", ["jlist"], { encoding: "utf8" }));
   const processes = rows.filter(row => row.name === "indexus-crm");
-  if (processes.length !== 1) throw Error("PM2_PROCESS_COUNT");
+  if (processes.length !== 1) throw Object.assign(Error(), { code: "PM2_PROCESS_COUNT" });
   const managed = processes[0].pm2_env || {};
   if ((managed.DATABASE_URL || managed.env?.DATABASE_URL) &&
-    (managed.DATABASE_URL || managed.env?.DATABASE_URL) !== connectionString) throw Error("DATABASE_CONFIG_MISMATCH");
+    (managed.DATABASE_URL || managed.env?.DATABASE_URL) !== connectionString)
+    throw Object.assign(Error(), { code: "DATABASE_CONFIG_MISMATCH" });
   console.log(JSON.stringify({ backendStatus: managed.status, backendPid: processes[0].pid }));
   const { Client } = require(`${ROOT}/node_modules/pg`);
   const client = new Client({ connectionString, connectionTimeoutMillis: 10000,
@@ -72,4 +87,4 @@ if (require.main === module || process.argv[1] === "-") main().catch(error => {
   console.error(JSON.stringify({ diagnosticFailed: true, ...safeError(error) }));
   process.exitCode = 1;
 });
-module.exports = { safeError, probe };
+module.exports = { safeError, probe, parseDatabaseUrl };
