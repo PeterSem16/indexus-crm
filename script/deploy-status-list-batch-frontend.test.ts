@@ -24,8 +24,12 @@ test("operator requires explicit apply, valid syntax, and cannot restart or migr
   const source = fs.readFileSync(script, "utf8");
   assert.doesNotMatch(source, /\bpm2\s+(?:restart|reload|stop|start)\b|\bpg_dump\b|\bpg_restore\b|\bpsql\b|\bdb:push\b/);
   assert.match(source, /\/dev\/sdb1/);
-  assert.match(source, /mktemp -d "\$ROOT\/data\/\.batch-ui-stage-/);
-  assert.doesNotMatch(source, /mktemp -d \/tmp/);
+  assert.match(source, /mktemp -d "\$ROOT\/data\/\.batch-ui-private-/);
+  assert.match(source, /sudo mount --bind "\$STAGE_STORAGE\/build" "\$STAGE"/);
+  assert.match(source, /findmnt -n -o MAJ:MIN --target "\$STAGE"/);
+  assert.match(source, /test "\$\(sudo stat -c '%u:%g:%a' "\$STAGE_STORAGE"\)" = 0:0:700/);
+  assert.match(source, /trap cleanup_stage_mount EXIT/);
+  assert.match(source, /\/data\/\$\{STAGE_STORAGE##\*\/\}\/build\/privacy-check\.txt/);
   assert.match(source, /available_bytes.*needed_bytes/);
   assert.match(source, /test "\$\(live_pid\)" = "\$OLD_PID"/);
   assert.match(source, /test "\$\(file_hash dist\/index\.cjs\)" = "\$OLD_BACKEND"/);

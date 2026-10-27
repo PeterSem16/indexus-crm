@@ -56,6 +56,18 @@ restore_index() {
   sudo mv -fT "$PUBLIC/.index-batch-restore.$$" "$PUBLIC/index.html" &&
   test "$(file_hash "$PUBLIC/index.html")" = "$OLD_INDEX"
 }
+cleanup_stage_mount() {
+  if [ "${STAGE_MOUNTED:-0}" = 1 ]; then
+    if sudo umount -- "$STAGE"; then
+      STAGE_MOUNTED=0
+      rmdir -- "$STAGE" || true
+    else
+      echo "POZOR: sukromne zostavenie zostalo pripojene: $STAGE" >&2
+    fi
+  elif [ -n "${STAGE:-}" ]; then
+    rmdir -- "$STAGE" 2>/dev/null || true
+  fi
+}
 failed() {
   local code=$1 line=$2
   trap - ERR
@@ -79,17 +91,20 @@ main() {
   ROOT=/var/www/indexus-crm
   PUBLIC="$ROOT/dist/public"
   BASE=d9104f6fafd34ac4640bf69539a970a3b67a3be1
-  FIX=25ca5b8204271e41e4ff0f15146f908b5ec0c21d
+  FIX=ce2872d958a9dde3212df98b3aa8b7f00471a49b
   ORIGINAL_BACKUP="$ROOT/data/.automation-backup-20261027T114049Z-CzHzHN"
   BACKUP=
   SWITCHED=0
+  STAGE=
+  STAGE_MOUNTED=0
   PHASE=preflight
   umask 077
   trap 'failed "$?" "$LINENO"' ERR
+  trap cleanup_stage_mount EXIT
   test "$(hostname -s | tr '[:lower:]' '[:upper:]')" = CORPCRM01
   test "$(id -un)" = seman
   cd "$ROOT"
-  for tool in git node tar sha256sum find cmp curl sudo pm2 findmnt flock; do command -v "$tool" >/dev/null; done
+  for tool in git node tar sha256sum find cmp curl sudo pm2 findmnt flock mount umount; do command -v "$tool" >/dev/null; done
   test -d .git
   test ! -L .git
   test ! -L .git/indexus-frontend.lock
@@ -106,13 +121,14 @@ main() {
   test "$(git rev-parse HEAD)" = "$BASE"
   git diff --quiet
   git diff --cached --quiet
-  test "$(git rev-parse "$FIX^")" = "$BASE"
+  git merge-base --is-ancestor "$BASE" "$FIX"
   test -z "$(git diff --name-only "$BASE" "$FIX" -- server shared package.json package-lock.json)"
-  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq 6
+  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq 12
   EXISTING=()
   while IFS= read -r file; do
     case "$file" in
       client/src/pages/agent-workspace.tsx|client/src/components/status-list-batch-save-dialog.tsx|client/src/components/status-list-batch-save-dialog.css|client/test-fixtures/status-list-batch-save.html|client/test-fixtures/status-list-batch-save.tsx|e2e/status-list-batch-save.node.test.ts) ;;
+      client/src/components/status-list-healthcare-setup.tsx|client/src/components/status-list-healthcare-management-copy.ts|client/src/components/status-list-healthcare-navigation.tsx|client/src/components/status-list-workspace.tsx|client/test-fixtures/status-list-healthcare.tsx|e2e/status-list-healthcare-management.node.test.ts) ;;
       *) echo "STOP: neschvaleny zdroj $file"; false ;;
     esac
     if [ -n "$(git ls-tree "$BASE" -- "$file")" ]; then
@@ -134,6 +150,7 @@ main() {
   test "${#OLD_BACKEND}" -eq 64
   test "$(file_hash dist/index.cjs)" = "$OLD_BACKEND"
   OLD_PID=$(live_pid)
+  test "$(stat -c %u "/proc/$OLD_PID")" = "$(id -u)"
   healthy
   OLD_INDEX=$(file_hash "$PUBLIC/index.html")
   OWNER=$(stat -c %u "$PUBLIC/index.html")
@@ -150,22 +167,31 @@ main() {
     echo "STOP: datovy disk nema dost miesta; dostupne=$available_bytes, potrebne=$needed_bytes bajtov."
     return 1
   fi
-  STAGE=$(sudo mktemp -d "$ROOT/data/.batch-ui-stage-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
-  sudo chown "$(id -u):$(id -g)" "$STAGE"
+  STAGE_STORAGE=$(sudo mktemp -d "$ROOT/data/.batch-ui-private-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
+  test "$(sudo stat -c '%u:%g:%a' "$STAGE_STORAGE")" = 0:0:700
+  test ! -r "$STAGE_STORAGE"
+  sudo -u www-data test ! -r "$STAGE_STORAGE"
+  sudo install -d -o "$(id -u)" -g "$(id -g)" -m 700 "$STAGE_STORAGE/build"
+  # Only this empty mount point lives in /tmp; its contents reside on /dev/sdb1.
+  # The root-owned parent blocks HTTP access through /data even for Node's UID.
+  STAGE=$(mktemp -d /tmp/indexus-private-build.XXXXXX)
+  sudo mount --bind "$STAGE_STORAGE/build" "$STAGE"
+  STAGE_MOUNTED=1
   test "$(stat -c %a "$STAGE")" = 700
-  test "$(findmnt -n -o SOURCE --target "$STAGE")" = /dev/sdb1
-  sudo -u www-data test ! -r "$STAGE"
+  test "$(findmnt -n -o MAJ:MIN --target "$STAGE")" = "$(findmnt -n -o MAJ:MIN --target "$ROOT/data")"
+  test "$(stat -c '%d:%i' "$STAGE")" = "$(sudo stat -c '%d:%i' "$STAGE_STORAGE/build")"
   local privacy_token privacy_status
   privacy_token=$(node -e 'console.log(require("node:crypto").randomBytes(24).toString("hex"))')
   printf '%s' "$privacy_token" > "$STAGE/privacy-check.txt"
   privacy_status=$(curl -sS --max-time 10 -o "$STAGE/privacy-response.txt" -w '%{http_code}' \
-    "http://127.0.0.1:5000/data/${STAGE##*/}/privacy-check.txt")
+    "http://127.0.0.1:5000/data/${STAGE_STORAGE##*/}/build/privacy-check.txt")
   if grep -Fq "$privacy_token" "$STAGE/privacy-response.txt"; then
     echo "STOP: pracovny adresar je dostupny cez HTTP; zdroje sa nerozbalia."
     return 1
   fi
   case "$privacy_status" in 200|401|403|404) ;; *) echo "STOP: neoverena ochrana pracoviska HTTP=$privacy_status"; return 1 ;; esac
-  echo "PRIPRAVA FRONTENDU: $STAGE"
+  echo "SUKROMNE ULOZISKO NA DATOVOM DISKU: $STAGE_STORAGE"
+  echo "PRIPRAVA FRONTENDU CEZ SUKROMNY DOCASNY PRISTUP: $STAGE"
   git archive --output="$STAGE/source.tar" "$FIX"
   tar -xf "$STAGE/source.tar" -C "$STAGE"
   rm -- "$STAGE/source.tar"
