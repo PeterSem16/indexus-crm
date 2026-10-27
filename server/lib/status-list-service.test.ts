@@ -81,6 +81,8 @@ try {
       NULL,NULL,NULL,$6,$7,true,'replace',0)`,
     [a.id, a.itemId, a.type, a.dispositionId, condition && JSON.stringify(condition), a.callback!.days, a.callback!.time]);
   }
+  // Real startup adds this default; inventory and SQL enqueue must hash it identically.
+  await pool.query("ALTER TABLE campaign_status_list_automations ADD COLUMN execution_policy text NOT NULL DEFAULT 'inherit'");
   // Unenrolled insert has NO effect. Historical state becomes baseline on enrollment.
   await pool.query(`INSERT INTO campaign_contacts VALUES('c',$1,'clinic','clinic',NULL,NULL,NULL,
     'callback_scheduled','2020-01-01T08:00Z','old note',NULL,'old agent','old disposition',now())`, [campaignId]);

@@ -151,9 +151,13 @@ export async function runManagedCallback(pool: Pool, input: {
     const action = group?.actions.find((a: TransitionAction) => a.id === input.actionId);
     if (!action) throw new Error("callback_action_not_managed");
     const raw = (await client.query(`SELECT md5((CASE
-      WHEN coalesce(to_jsonb(a)->'service_action_config','null'::jsonb)='null'::jsonb
-      THEN to_jsonb(a)-'service_action_config'-'service_action_owner_id' ELSE to_jsonb(a) END)::text) AS fingerprint,
+      WHEN coalesce(original_native.config->>'execution_policy','inherit')='inherit'
+      THEN original_native.config-'execution_policy' ELSE original_native.config END)::text) AS fingerprint,
       md5(to_jsonb(d)::text) AS disposition_fingerprint FROM campaign_status_list_automations a
+      CROSS JOIN LATERAL (SELECT CASE
+      WHEN coalesce(to_jsonb(a)->'service_action_config','null'::jsonb)='null'::jsonb
+      THEN to_jsonb(a)-'service_action_config'-'service_action_owner_id'
+      ELSE to_jsonb(a) END AS config) original_native
       LEFT JOIN campaign_dispositions d ON d.id=a.disposition_id WHERE a.id=$1`, [input.actionId])).rows[0];
     if (raw?.fingerprint !== action.fingerprint ||
         (action.type === "set_contact_status" && raw.disposition_fingerprint !== action.dispositionFingerprint))
