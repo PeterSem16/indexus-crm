@@ -21,6 +21,7 @@ import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/st
 import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
 import { useStatusListActionRecap } from "@/components/use-status-list-action-recap";
 import { StatusListRepresentativeInformationPanel } from "@/components/status-list-representative-information";
+import { StatusListBatchSaveDialog } from "@/components/status-list-batch-save-dialog";
 import { StatusListAgentBackground } from "@/components/status-list-agent-background";
 import { useStatusListRepresentativeChecks } from "@/hooks/use-status-list-representative-checks";
 import { useStatusListAutomaticOpen } from "@/components/use-status-list-automatic-open";
@@ -6991,137 +6992,51 @@ export function CommunicationCanvas({
               )}
 
               {/* ── Batch-save modal ──────────────────────────────── */}
-              {slBatchSaveOpen && (
-                <Dialog open onOpenChange={(open) => { if (!open) setSlBatchSaveOpen(false); }}>
-                  <DialogContent className={STATUS_LIST_DIALOG_FRAME_CLASS} style={STONE_TERRACOTTA_VARS}>
-                    <DialogHeader>
-                      <DialogTitle className="text-base flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
-                          <Save className="h-3.5 w-3.5" />
-                        </span>
-                        {slt("batchSave", locale)}
-                      </DialogTitle>
-                      <DialogDescription asChild>
-                        <div className="text-sm text-muted-foreground pt-1">
-                          {batchUnsavedIds.size > 0
-                            ? `${batchUnsavedIds.size} ${getStatusListExecutionCopy(locale).pendingAnswers}`
-                            : slt("batchNoItems", locale)}
-                        </div>
-                      </DialogDescription>
-                    </DialogHeader>
-                    {/* Summary of staged items */}
-                    {batchSlSelections.size > 0 && (
-                      <div className="space-y-0.5 max-h-32 overflow-y-auto rounded-lg border bg-muted/30 p-2">
-                        {Array.from(batchSlSelections).map(id => {
-                          const it = (dbStatusList as any[]).find((i: any) => String(i.id) === id);
-                          if (!it) return null;
-                          return (
-                            <div key={id} className="flex items-center gap-2 rounded-md px-2 py-1">
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                              <span className="text-xs font-medium truncate">{it.label}</span>
-                              {it.itemType === "option" && (
-                                <span className="ml-auto shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: it.color || "#6b7280" }}>OPT</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">{getStatusListExecutionCopy(locale).batch}</p>
-                      <div className="flex gap-2">
-                        {(["rules", "reschedule", "do_not_call"] as const).map(action => (
-                          <button
-                            key={action}
-                            type="button"
-                            onClick={() => setSlBatchAction(action)}
-                            className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${slBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
-                          >
-                            {action === "rules" ? <Check className="h-3.5 w-3.5" /> : action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                            {action === "rules" ? getStatusListExecutionCopy(locale).rulesOnly : slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {slBatchAction === "reschedule" && (
-                      <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                        <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
-                        {(() => {
-                          const selectedNames = Array.from(batchSlSelections).flatMap((id: string) => {
-                            const item = (dbStatusList as any[]).find((entry: any) => String(entry.id) === id);
-                            return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
-                              const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
-                              return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
-                            });
-                          });
-                          const uniqueNames = [...new Set(selectedNames.filter(Boolean))];
-                          return uniqueNames.length ? <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-foreground" data-testid="sl-batch-reschedule-status">{slt("batchStatusWillSet", locale)} {uniqueNames.join(", ")}</p> : null;
-                        })()}
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
-                            { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
-                            { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
-                            { label: slt("batchM1", locale), fn: () => { const d = addMonths(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
-                          ].map(chip => (
-                            <button
-                              key={chip.label}
-                              type="button"
-                              onClick={() => setSlBatchCallbackDt(chip.fn().toISOString())}
-                              className="px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors"
-                            >
-                              {chip.label}
-                            </button>
-                          ))}
-                        </div>
-                        <DateTimePicker
-                          value={slBatchCallbackDt}
-                          onChange={setSlBatchCallbackDt}
-                          includeTime
-                          minDate={new Date()}
-                        />
-                        <textarea
-                          placeholder={slt("batchNotePh", locale)}
-                          value={slBatchCallbackNote}
-                          rows={2}
-                          onChange={(e) => setSlBatchCallbackNote(e.target.value)}
-                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    )}
-                    {slBatchAction === "do_not_call" && (
-                      <div className="space-y-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                        <p className="text-xs text-muted-foreground">{slt("batchDoNotCallDesc", locale)}</p>
-                        <textarea
-                          placeholder={slt("batchNotePh", locale)}
-                          value={slBatchCallbackNote}
-                          rows={2}
-                          onChange={(e) => setSlBatchCallbackNote(e.target.value)}
-                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                        />
-                      </div>
-                    )}
-                    <DialogFooter className="gap-2 flex-row justify-end">
-                      <Button variant="outline" size="sm" onClick={() => setSlBatchSaveOpen(false)}>
-                        {slt("cfmCancel", locale)}
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={slBatchSaving || (slBatchAction === "reschedule" && !slBatchCallbackDt)}
-                        onClick={handleSlBatchSaveConfirm}
-                        data-testid="btn-sl-batch-save-confirm"
-                        className={`font-semibold shadow-sm ${slBatchAction === "do_not_call" ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : ""}`}
-                      >
-                        {slBatchSaving ? (
-                          <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />{slt("batchSaving", locale)}</>
-                        ) : (
-                          <><Check className="h-4 w-4 mr-1.5" />{slt("batchConfirm", locale)}</>
-                        )}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
+              {slBatchSaveOpen && <StatusListBatchSaveDialog
+                open={slBatchSaveOpen}
+                onOpenChange={open => { if (!open) setSlBatchSaveOpen(false); }}
+                locale={locale}
+                title={slt("batchSave", locale)}
+                description={batchUnsavedIds.size > 0
+                  ? `${batchUnsavedIds.size} ${getStatusListExecutionCopy(locale).pendingAnswers}`
+                  : batchSlSelections.size > 0 ? `${batchSlSelections.size} ${slt("batchSelectedCount", locale)}` : ""}
+                noItems={slt("batchNoItems", locale)}
+                selectedCount={batchSlSelections.size}
+                items={Array.from(batchSlSelections).flatMap(id => {
+                  const item = (dbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+                  return item ? [{ id, label: item.label, itemType: item.itemType, color: item.color }] : [];
+                })}
+                action={slBatchAction}
+                onActionChange={setSlBatchAction}
+                actionHeading={getStatusListExecutionCopy(locale).batch}
+                rulesLabel={getStatusListExecutionCopy(locale).rulesOnly}
+                rescheduleLabel={slt("batchReschedule", locale)}
+                doNotCallLabel={slt("batchDoNotCall", locale)}
+                rescheduleDescription={slt("batchRescheduleDesc", locale)}
+                doNotCallDescription={slt("batchDoNotCallDesc", locale)}
+                statusPrefix={slt("batchStatusWillSet", locale)}
+                dispositionNames={Array.from(new Set(Array.from(batchSlSelections).flatMap((id: string) => {
+                  const item = (dbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+                  return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
+                    const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
+                    return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
+                  });
+                }).filter(Boolean)))}
+                value={slBatchCallbackDt}
+                onValueChange={setSlBatchCallbackDt}
+                note={slBatchCallbackNote}
+                onNoteChange={setSlBatchCallbackNote}
+                notePlaceholder={slt("batchNotePh", locale)}
+                presetLabels={{ d1: slt("batchD1", locale), d3: slt("batchD3", locale), d5: slt("batchD5", locale), m1: slt("batchM1", locale) }}
+                saving={slBatchSaving}
+                savingLabel={slt("batchSaving", locale)}
+                confirmLabel={slt("batchConfirm", locale)}
+                cancelLabel={slt("cfmCancel", locale)}
+                onConfirm={handleSlBatchSaveConfirm}
+                confirmTestId="btn-sl-batch-save-confirm"
+                cancelTestId="btn-sl-batch-save-cancel"
+                rescheduleStatusTestId="sl-batch-reschedule-status"
+              />}
 
               {/* ── Items list ─────────────────────────────────────── */}
               <div className="flex-1 overflow-y-auto px-3 py-2.5 space-y-2">
@@ -16526,135 +16441,51 @@ function AgentWorkspacePageContent() {
         )}
 
         {/* ── Mobile batch-save dialog — same UX as desktop, uses mobile state ── */}
-        {isMobile && mobileSlBatchSaveOpen && (
-          <Dialog open onOpenChange={(open) => { if (!open) setMobileSlBatchSaveOpen(false); }}>
-            <DialogContent className={STATUS_LIST_DIALOG_FRAME_CLASS} style={STONE_TERRACOTTA_VARS}>
-              <DialogHeader>
-                <DialogTitle className="text-base flex items-center gap-2">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600 animate-in zoom-in-50 duration-700 fill-mode-both motion-reduce:animate-none" style={{ animationTimingFunction: "cubic-bezier(0.34,1.56,0.64,1)" }}>
-                    <Save className="h-3.5 w-3.5" />
-                  </span>
-                  {slt("batchSave", locale)}
-                </DialogTitle>
-                <DialogDescription asChild>
-                  <div className="text-sm text-muted-foreground pt-1">
-                    {mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0
-                      ? `${mobileBatchSlSelections.size+(mobileAutomaticBatchPending>0 ? 1 : 0)} ${slt("batchSelectedCount", locale)}`
-                      : slt("batchNoItems", locale)}
-                  </div>
-                </DialogDescription>
-              </DialogHeader>
-              {(mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending>0) && (
-                <div className="space-y-0.5 max-h-32 overflow-y-auto rounded-lg border bg-muted/30 p-2">
-                  {Array.from(mobileBatchSlSelections).map(id => {
-                    const it = (mobileDbStatusList as any[]).find((i: any) => String(i.id) === id);
-                    if (!it) return null;
-                    return (
-                      <div key={id} className="flex items-center gap-2 rounded-md px-2 py-1">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-medium truncate">{it.label}</span>
-                        {it.itemType === "option" && (
-                          <span className="ml-auto shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: it.color || "#6b7280" }}>OPT</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">{getStatusListExecutionCopy(locale).batch}</p>
-                <div className="flex gap-2">
-                  {(["rules", "reschedule", "do_not_call"] as const).map(action => (
-                    <button
-                      key={action}
-                      type="button"
-                      onClick={() => setMobileSlBatchAction(action)}
-                      className={`flex-1 flex items-center gap-1.5 justify-center px-3 py-2.5 rounded-lg border-2 text-xs font-bold transition-all ${mobileSlBatchAction === action ? (action === "reschedule" ? "border-primary bg-primary/5 text-primary" : "border-rose-500 bg-rose-50/60 dark:bg-rose-950/20 text-rose-600 dark:text-rose-400") : "border-border text-muted-foreground hover:border-primary/40"}`}
-                    >
-                      {action === "rules" ? <Check className="h-3.5 w-3.5" /> : action === "reschedule" ? <CalendarCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
-                      {action === "rules" ? getStatusListExecutionCopy(locale).rulesOnly : slt(action === "reschedule" ? "batchReschedule" : "batchDoNotCall", locale)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {mobileSlBatchAction === "reschedule" && (
-                <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                  <p className="text-xs text-muted-foreground">{slt("batchRescheduleDesc", locale)}</p>
-                  {(() => {
-                    const selectedNames = Array.from(mobileBatchSlSelections).flatMap((id: string) => {
-                      const item = (mobileDbStatusList as any[]).find((entry: any) => String(entry.id) === id);
-                      return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
-                        const disposition = (campaignDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
-                        return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
-                      });
-                    });
-                    const uniqueNames = [...new Set(selectedNames.filter(Boolean))];
-                    return uniqueNames.length ? <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs font-semibold text-foreground" data-testid="sl-mobile-batch-reschedule-status">{slt("batchStatusWillSet", locale)} {uniqueNames.join(", ")}</p> : null;
-                  })()}
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { label: slt("batchD1", locale), fn: () => { const d = addBusinessDays(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
-                      { label: slt("batchD3", locale), fn: () => { const d = addBusinessDays(new Date(), 3); d.setHours(9, 0, 0, 0); return d; } },
-                      { label: slt("batchD5", locale), fn: () => { const d = addBusinessDays(new Date(), 5); d.setHours(9, 0, 0, 0); return d; } },
-                      { label: slt("batchM1", locale), fn: () => { const d = addMonths(new Date(), 1); d.setHours(9, 0, 0, 0); return d; } },
-                    ].map(chip => (
-                      <button
-                        key={chip.label}
-                        type="button"
-                        onClick={() => setMobileSlBatchCallbackDt(chip.fn().toISOString())}
-                        className="px-2.5 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary text-xs font-semibold hover:bg-primary/15 transition-colors"
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-                  <DateTimePicker
-                    value={mobileSlBatchCallbackDt}
-                    onChange={setMobileSlBatchCallbackDt}
-                    includeTime
-                    minDate={new Date()}
-                  />
-                  <textarea
-                    placeholder={slt("batchNotePh", locale)}
-                    value={mobileSlBatchCallbackNote}
-                    rows={2}
-                    onChange={(e) => setMobileSlBatchCallbackNote(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                  />
-                </div>
-              )}
-              {mobileSlBatchAction === "do_not_call" && (
-                <div className="space-y-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-                  <p className="text-xs text-muted-foreground">{slt("batchDoNotCallDesc", locale)}</p>
-                  <textarea
-                    placeholder={slt("batchNotePh", locale)}
-                    value={mobileSlBatchCallbackNote}
-                    rows={2}
-                    onChange={(e) => setMobileSlBatchCallbackNote(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
-                  />
-                </div>
-              )}
-              <DialogFooter className="gap-2 flex-row justify-end">
-                <Button variant="outline" size="sm" onClick={() => setMobileSlBatchSaveOpen(false)}>
-                  {slt("cfmCancel", locale)}
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={mobileSlBatchSaving || (mobileSlBatchAction === "reschedule" && !mobileSlBatchCallbackDt)}
-                  onClick={handleMobileBatchSaveConfirm}
-                  className={`font-semibold shadow-sm ${mobileSlBatchAction === "do_not_call" ? "bg-rose-600 hover:bg-rose-700 text-white border-rose-600" : ""}`}
-                >
-                  {mobileSlBatchSaving ? (
-                    <><Loader2 className="h-4 w-4 mr-1.5 animate-spin" />{slt("batchSaving", locale)}</>
-                  ) : (
-                    <><Check className="h-4 w-4 mr-1.5" />{slt("batchConfirm", locale)}</>
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+        {isMobile && mobileSlBatchSaveOpen && <StatusListBatchSaveDialog
+          open={mobileSlBatchSaveOpen}
+          onOpenChange={open => { if (!open) setMobileSlBatchSaveOpen(false); }}
+          locale={locale}
+          title={slt("batchSave", locale)}
+          description={mobileBatchSlSelections.size > 0 || mobileAutomaticBatchPending > 0
+            ? `${mobileBatchSlSelections.size + (mobileAutomaticBatchPending > 0 ? 1 : 0)} ${slt("batchSelectedCount", locale)}`
+            : ""}
+          noItems={slt("batchNoItems", locale)}
+          selectedCount={mobileBatchSlSelections.size + (mobileAutomaticBatchPending > 0 ? 1 : 0)}
+          items={Array.from(mobileBatchSlSelections).flatMap(id => {
+            const item = (mobileDbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+            return item ? [{ id, label: item.label, itemType: item.itemType, color: item.color }] : [];
+          })}
+          action={mobileSlBatchAction}
+          onActionChange={setMobileSlBatchAction}
+          actionHeading={getStatusListExecutionCopy(locale).batch}
+          rulesLabel={getStatusListExecutionCopy(locale).rulesOnly}
+          rescheduleLabel={slt("batchReschedule", locale)}
+          doNotCallLabel={slt("batchDoNotCall", locale)}
+          rescheduleDescription={slt("batchRescheduleDesc", locale)}
+          doNotCallDescription={slt("batchDoNotCallDesc", locale)}
+          statusPrefix={slt("batchStatusWillSet", locale)}
+          dispositionNames={Array.from(new Set(Array.from(mobileBatchSlSelections).flatMap((id: string) => {
+            const item = (mobileDbStatusList as any[]).find((entry: any) => String(entry.id) === id);
+            return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
+              const disposition = (campaignDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
+              return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
+            });
+          }).filter(Boolean)))}
+          value={mobileSlBatchCallbackDt}
+          onValueChange={setMobileSlBatchCallbackDt}
+          note={mobileSlBatchCallbackNote}
+          onNoteChange={setMobileSlBatchCallbackNote}
+          notePlaceholder={slt("batchNotePh", locale)}
+          presetLabels={{ d1: slt("batchD1", locale), d3: slt("batchD3", locale), d5: slt("batchD5", locale), m1: slt("batchM1", locale) }}
+          saving={mobileSlBatchSaving}
+          savingLabel={slt("batchSaving", locale)}
+          confirmLabel={slt("batchConfirm", locale)}
+          cancelLabel={slt("cfmCancel", locale)}
+          onConfirm={handleMobileBatchSaveConfirm}
+          confirmTestId="btn-sl-batch-save-confirm"
+          cancelTestId="btn-sl-mobile-batch-save-cancel"
+          rescheduleStatusTestId="sl-mobile-batch-reschedule-status"
+        />}
 
         {!isMobile && isLoadingInboundContact && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
