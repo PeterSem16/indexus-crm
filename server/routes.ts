@@ -275,6 +275,7 @@ import {
 import { campaignCallListEventsToExportRows } from "./lib/campaign-call-list-export";
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import { hasForwardedCallEvidence, isMissionCanonicalCall, isMissionInboundOnlyCall } from "./lib/mission-call-list-scope";
+import { callBrowsePageQuery, inboundOnlyBrowseEntry } from "./lib/call-browse-inbound";
 import {
   callRecordingPhoneMatches,
   callRecordingUploadConflict,
@@ -37198,16 +37199,29 @@ Respond ONLY with valid JSON in this exact format:
       const offsetNum = Math.max(parseInt(offsetParam as string) || 0, 0);
 
       const isPrivileged = ["admin", "manager"].includes(user.role);
-      const conditions: any[] = [];
-      if (!isPrivileged) conditions.push(eq(callLogs.userId, user.id));
-      if (dateFrom && !Number.isNaN(new Date(String(dateFrom)).getTime())) {
-        conditions.push(gte(callLogs.startedAt, new Date(String(dateFrom))));
-      }
-      if (dateTo && !Number.isNaN(new Date(String(dateTo)).getTime())) {
-        conditions.push(lte(callLogs.startedAt, new Date(String(dateTo))));
-      }
+      const from = dateFrom ? new Date(String(dateFrom)) : undefined;
+      const to = dateTo ? new Date(String(dateTo)) : undefined;
+      const pageKeys = (await db.execute(callBrowsePageQuery({
+        userId: user.id, isPrivileged, limit: limitNum, offset: offsetNum,
+        dateFrom: from && !Number.isNaN(from.getTime()) ? from : undefined,
+        dateTo: to && !Number.isNaN(to.getTime()) ? to : undefined,
+      }))).rows as { id: string; source: "canonical" | "inbound" }[];
+      const canonicalIds = pageKeys.filter(k => k.source === "canonical").map(k => k.id);
+      const inboundIds = pageKeys.filter(k => k.source === "inbound").map(k => k.id);
+      const inboundRows = inboundIds.length ? await db.select({
+        inbound: inboundCallLogs,
+        queueName: inboundQueues.name,
+        campaignName: campaigns.name,
+        firstName: customers.firstName,
+        lastName: customers.lastName,
+      }).from(inboundCallLogs)
+        .leftJoin(inboundQueues, eq(inboundQueues.id, inboundCallLogs.queueId))
+        // A queue's current Mission is not the call's historical attribution.
+        .leftJoin(campaigns, sql`${campaigns.id} = ${inboundCallLogs.metadata}->>'campaignId'`)
+        .leftJoin(customers, eq(customers.id, inboundCallLogs.customerId))
+        .where(inArray(inboundCallLogs.id, inboundIds)) : [];
 
-      const logs = await db.select({
+      const logs = canonicalIds.length ? await db.select({
         id: callLogs.id,
         userId: callLogs.userId,
         customerId: callLogs.customerId,
@@ -37229,12 +37243,11 @@ Respond ONLY with valid JSON in this exact format:
         inboundQueueId: callLogs.inboundQueueId,
         inboundQueueName: callLogs.inboundQueueName,
       }).from(callLogs)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .where(inArray(callLogs.id, canonicalIds))
         // Recovery/import time is not the time of the call. Keep newest calls
         // first and use a stable tie-breaker when several calls start together.
         .orderBy(desc(callLogs.startedAt), desc(callLogs.id))
-        .limit(limitNum)
-        .offset(offsetNum);
+        : [];
 
       const logIds = logs.map(l => l.id);
       let recordingMap: Record<string, any> = {};
@@ -37543,7 +37556,20 @@ Respond ONLY with valid JSON in this exact format:
         }
       }
 
-      res.json(result);
+      const browseResult = new Map<string, unknown>(
+        result.map(entry => [`canonical:${entry.id}`, entry]),
+      );
+      for (const row of inboundRows) {
+        browseResult.set(`inbound:${row.inbound.id}`, inboundOnlyBrowseEntry(row.inbound, {
+          queueName: row.queueName,
+          campaignName: row.campaignName,
+          customerName: [row.firstName, row.lastName].filter(Boolean).join(" ") || null,
+        }));
+      }
+      res.json(pageKeys.flatMap(key => {
+        const entry = browseResult.get(`${key.source}:${key.id}`);
+        return entry ? [entry] : [];
+      }));
     } catch (error) {
       console.error("Failed to browse call logs:", error);
       res.status(500).json({ error: "Failed to browse call logs" });

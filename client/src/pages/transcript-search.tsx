@@ -30,7 +30,8 @@ interface TranscriptResult {
 }
 
 interface CallLogEntry {
-  id: string; userId: string; customerId: string | null; campaignId: string | null;
+  id: string; userId: string | null; customerId: string | null; campaignId: string | null;
+  recordSource?: "inbound";
   phoneNumber: string; direction: string; status: string; startedAt: string;
   durationSeconds: number | null; notes: string | null; createdAt: string;
   customerName: string | null; campaignName: string | null; hasRecording: boolean; isMobile: boolean; isForwarded: boolean;
@@ -295,7 +296,8 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
   const [playbackState, setPlaybackState] = useState<PlaybackState | null>(null);
   const [isImportant, setIsImportant] = useState(log.isImportant);
   const [togglingImportant, setTogglingImportant] = useState(false);
-  const canOpenFullCard = user?.role === "manager" || user?.role === "admin";
+  const isCanonicalCall = log.recordSource !== "inbound";
+  const canOpenFullCard = isCanonicalCall && (user?.role === "manager" || user?.role === "admin");
   const openFullEntity = async () => {
     if (!canOpenFullCard || openingFullCard) return;
     setOpeningFullCard(true);
@@ -316,6 +318,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
     }
   };
   const toggleImportant = async () => {
+    if (!isCanonicalCall) return;
     setTogglingImportant(true);
     const next = !isImportant;
     try {
@@ -342,7 +345,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!log.id,
+    enabled: !!log.id && isCanonicalCall,
   });
 
   const handleExport = (fmt: string) => { if (rec?.id) window.open(`/api/call-recordings/${rec.id}/export-transcript?format=${fmt}`, "_blank"); };
@@ -390,7 +393,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                 <div className="text-[9px] text-muted-foreground mt-0.5">{ca.sentiment}</div>
               </div>
             )}
-            {(user?.role === "manager" || user?.role === "admin") && (
+            {canOpenFullCard && (
               <Button variant="outline" size="sm"
                 className="group h-9 shrink-0 gap-2 rounded-xl border-primary/25 bg-primary/5 pl-1.5 pr-3 text-primary shadow-sm transition-all duration-200 hover:border-primary/50 hover:bg-primary/10 hover:text-primary hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary dark:bg-primary/10 dark:hover:bg-primary/20"
                 data-testid={`open-call-contact-${log.id}`}
@@ -402,12 +405,12 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-60 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Button>
             )}
-            <button onClick={toggleImportant} disabled={togglingImportant}
+            {isCanonicalCall && <button onClick={toggleImportant} disabled={togglingImportant}
               title={isImportant ? "Odznačiť ako dôležitý" : "Označiť ako dôležitý"}
               data-testid={`btn-important-${log.id}`}
               className={`p-2 rounded-xl transition-all ${isImportant ? "bg-amber-100 dark:bg-amber-900/30 text-amber-500 hover:bg-amber-200" : "text-muted-foreground hover:bg-muted hover:text-amber-500"}`}>
               {togglingImportant ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className={`h-4 w-4 ${isImportant ? "fill-amber-400 text-amber-500" : ""}`} />}
-            </button>
+            </button>}
           </div>
         </div>
 
