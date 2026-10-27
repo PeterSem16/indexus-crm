@@ -1,4 +1,5 @@
 import { getStatusListHistoryCopy } from "./status-list-history-copy";
+import { getHealthcareCopy } from "./status-list-healthcare-copy";
 export type ServiceActionLocale = "en" | "sk" | "cs" | "hu" | "ro" | "it" | "de";
 const supported: ServiceActionLocale[] = ["en", "sk", "cs", "hu", "ro", "it", "de"];
 const localeOf = (value: string): ServiceActionLocale => supported.includes(value as ServiceActionLocale) ? value as ServiceActionLocale : "en";
@@ -200,8 +201,8 @@ const optionLabels: Record<string, Record<ServiceActionLocale,string>> = {
   true:{en:"Yes",sk:"Áno",cs:"Ano",hu:"Igen",ro:"Da",it:"Sì",de:"Ja"},
   false:{en:"No",sk:"Nie",cs:"Ne",hu:"Nem",ro:"Nu",it:"No",de:"Nein"},
 };
-export function catalogFieldLabel(locale:string,key:string,fallback:string){return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.label||fieldLabels[key]?.[localeOf(locale)]||fallback}
-export function catalogDescription(locale:string,key:string,fallback:string){return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.description||descriptions[key]?.[localeOf(locale)]||genericFieldDescription[localeOf(locale)]||fallback}
+export function catalogFieldLabel(locale:string,key:string,fallback:string){const healthcare=getHealthcareCopy(locale);if(key==="healthcare.state")return healthcare.title;if(key==="healthcare.failed_attempts")return healthcare.attempts;return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.label||fieldLabels[key]?.[localeOf(locale)]||fallback}
+export function catalogDescription(locale:string,key:string,fallback:string){const healthcare=getHealthcareCopy(locale);if(key==="healthcare.state")return healthcare.summary;if(key==="healthcare.failed_attempts")return healthcare.threshold;return getStatusListHistoryCopy(locale).fields.find(field=>field.key===key)?.description||descriptions[key]?.[localeOf(locale)]||genericFieldDescription[localeOf(locale)]||fallback}
 export function catalogOperatorLabel(locale:string,key:string,fallback:string){return opLabels[key]?.[localeOf(locale)]||fallback}
-export function catalogOptionLabel(locale:string,key:string,fallback:string){return optionLabels[key]?.[localeOf(locale)]||fallback}
-export function catalogCategoryLabel(locale:string,key:string){return key==="history"?getStatusListHistoryCopy(locale).title:actionCopy(locale,`categoryGroup_${key}`)}
+export function catalogOptionLabel(locale:string,key:string,fallback:string){if(key.startsWith("healthcare.state.")){const state=key.slice("healthcare.state.".length) as keyof ReturnType<typeof getHealthcareCopy>["states"];return getHealthcareCopy(locale).states[state]||fallback}return optionLabels[key]?.[localeOf(locale)]||fallback}
+export function catalogCategoryLabel(locale:string,key:string){return key==="history"?getStatusListHistoryCopy(locale).title:key==="healthcare"?getHealthcareCopy(locale).title:actionCopy(locale,`categoryGroup_${key}`)}

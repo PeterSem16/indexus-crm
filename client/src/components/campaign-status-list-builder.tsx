@@ -17,6 +17,8 @@ import { CLA_TEMPLATE, CLB_TEMPLATE, MPN_TEMPLATE } from "@/data/cla-template";
 import { useI18n } from "@/i18n";
 import { translations, type Locale } from "@/i18n/translations";
 import { StatusListWorkspace } from "@/components/status-list-workspace";
+import { StatusListButtonTranslations } from "@/components/status-list-button-translations";
+import { statusListOptionLabel, type StatusListLabelTranslations } from "@shared/status-list-label-translations";
 import { getStatusListWorkspaceCopy } from "@/components/status-list-workspace-copy";
 import { outlinePhase } from "@/lib/status-list-outline";
 import { StatusListQuestionStudio } from "@/components/status-list-question-studio";
@@ -29,7 +31,10 @@ import { StatusListConfirmProvider, useStatusListConfirm } from "./status-list-c
 import { StatusListAgentPreview, readStatusListMode } from "./status-list-agent-preview";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { StatusListServiceActionEditor } from "@/components/status-list-service-action-editor";
-import { actionCopy } from "@/components/status-list-service-action-copy";
+import { getBackgroundActionCopy } from "./status-list-background-action-copy";
+import { healthcareActionConditionFields } from "./status-list-healthcare-condition-fields";
+import { getRepresentativeCheckCopy } from "@/i18n/status-list-representative-check-copy";
+import { actionCopy, catalogCategoryLabel, catalogDescription, catalogFieldLabel, catalogOptionLabel } from "@/components/status-list-service-action-copy";
 import { getServiceTriggerCopy } from "@/components/status-list-service-trigger-copy";
 import { StatusListAutomaticTriggerInspector } from "@/components/status-list-automatic-trigger-inspector";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
@@ -88,7 +93,7 @@ type StatusListQuestion = {
   automations: StatusListAutomation[];
 };
 
-type StatusListItem = {
+export type StatusListItem = {
   id: string;
   campaignId: string;
   stepId: string;
@@ -447,6 +452,8 @@ const SL: Record<string, Record<string, string>> = {
 
   questionsTitle:  { sk: "Otázky", en: "Questions", cs: "Otázky", hu: "Kérdések", ro: "Întrebări", it: "Domande", de: "Fragen" },
   addQuestionBtn:  { sk: "Pridať otázku", en: "Add question", cs: "Přidat otázku", hu: "Kérdés hozzáadása", ro: "Adăugare întrebare", it: "Aggiungi domanda", de: "Frage hinzufügen" },
+  addSubquestionBtn: { sk: "Pridať podotázku", en: "Add subquestion", cs: "Přidat podotázku", hu: "Alkérdés hozzáadása", ro: "Adaugă subîntrebare", it: "Aggiungi sotto-domanda", de: "Unterfrage hinzufügen" },
+  addSubquestionHelp: { sk: "Vytvorte otázku priamo pod týmto hlavným krokom.", en: "Create an agent-facing question directly under this main step.", cs: "Vytvořte otázku přímo pod tímto hlavním krokem.", hu: "Hozzon létre ügynöknek szóló kérdést közvetlenül ennél a fő lépésnél.", ro: "Creează o întrebare pentru agent direct sub acest pas principal.", it: "Crea una domanda per l’agente direttamente sotto questo passaggio.", de: "Erstellen Sie eine Agentenfrage direkt unter diesem Hauptschritt." },
   qGroupNameLbl:   { sk: "Skupina otázok", en: "Question group", cs: "Skupina otázek", hu: "Kérdéscsoport", ro: "Grup de întrebări", it: "Gruppo di domande", de: "Fragengruppe" },
   qGroupNamePh:    { sk: "napr. Záujem klienta...", en: "e.g. Client interest...", cs: "např. Zájem klienta...", hu: "pl. Ügyfél érdeklődése...", ro: "ex. Interesul clientului...", it: "es. Interesse cliente...", de: "z.B. Kundeninteresse..." },
   questionTextLbl: { sk: "Text otázky", en: "Question text", cs: "Text otázky", hu: "Kérdés szövege", ro: "Textul întrebării", it: "Testo della domanda", de: "Fragetext" },
@@ -1221,9 +1228,10 @@ const CONDITION_FIELDS: ConditionFieldDef[] = [
     descEn: "How many days since the last recorded change to the contact in activity_logs. E.g. > 30 = inactive contact.",
     ops: OPS_NUM, valueType: "number",
   },
+  ...healthcareActionConditionFields,
 ];
 
-const CONDITION_CATEGORIES = ["calls", "contact", "answer", "time", "campaign"] as const;
+const CONDITION_CATEGORIES = ["calls", "contact", "answer", "time", "campaign", "healthcare"] as const;
 
 function getCondFieldDef(key: string): ConditionFieldDef | undefined {
   return CONDITION_FIELDS.find(f => f.key === key);
@@ -1232,6 +1240,7 @@ function getCondFieldDef(key: string): ConditionFieldDef | undefined {
 function getCondFieldLabel(key: string, locale: string): string {
   const f = getCondFieldDef(key);
   if (!f) return key;
+  if (key.startsWith("healthcare.")) return catalogFieldLabel(locale, key, locale === "sk" ? f.labelSk : f.labelEn);
   return locale === "sk" ? f.labelSk : f.labelEn;
 }
 
@@ -2234,10 +2243,10 @@ function AutomationForm({
                     <SelectContent>
                       {CONDITION_CATEGORIES.map(cat => (
                         <React.Fragment key={cat}>
-                          <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider border-t mt-0.5">{sl(cat, locale)}</div>
+                          <div className="px-2 py-1 text-[9px] font-bold text-muted-foreground uppercase tracking-wider border-t mt-0.5">{cat === "healthcare" ? catalogCategoryLabel(locale, cat) : sl(cat, locale)}</div>
                           {(byCategory[cat] ?? []).map(fd => (
                             <SelectItem key={fd.key} value={fd.key} className="text-xs">
-                              {locale === "sk" || locale === "cs" ? fd.labelSk : fd.labelEn}
+                              {fd.key.startsWith("healthcare.") ? catalogFieldLabel(locale, fd.key, locale === "sk" || locale === "cs" ? fd.labelSk : fd.labelEn) : locale === "sk" || locale === "cs" ? fd.labelSk : fd.labelEn}
                             </SelectItem>
                           ))}
                         </React.Fragment>
@@ -2261,7 +2270,7 @@ function AutomationForm({
                       <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {(fieldDef.options ?? []).map(o => (
-                          <SelectItem key={o.value} value={o.value} className="text-xs">{locale === "sk" || locale === "cs" ? o.labelSk : o.labelEn}</SelectItem>
+                          <SelectItem key={o.value} value={o.value} className="text-xs">{fieldDef.key === "healthcare.state" ? catalogOptionLabel(locale, `healthcare.state.${o.value}`, o.labelEn) : locale === "sk" || locale === "cs" ? o.labelSk : o.labelEn}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -2307,7 +2316,7 @@ function AutomationForm({
                   <div className="flex items-start gap-1.5 mt-0.5 mb-1 px-1">
                     <Info className="h-3 w-3 shrink-0 mt-0.5 text-amber-500/70" />
                     <span className="text-[10px] text-muted-foreground leading-snug">
-                      {locale === "sk" || locale === "cs" ? fieldDef.descSk : fieldDef.descEn}
+                      {fieldDef.key.startsWith("healthcare.") ? catalogDescription(locale, fieldDef.key, locale === "sk" || locale === "cs" ? fieldDef.descSk : fieldDef.descEn) : locale === "sk" || locale === "cs" ? fieldDef.descSk : fieldDef.descEn}
                     </span>
                   </div>
                 )}
@@ -2344,13 +2353,13 @@ function AutomationForm({
 
 
 /** Existing action services, presented as a focused list/modal, never a whole legacy item. */
-function StatusListStudioActions({ item, campaignId, questionId, workflows, quickOption = false, onDirtyChange, onPendingChange }: {
+export function StatusListStudioActions({ item, campaignId, questionId, workflows, quickOption = false, onDirtyChange, onPendingChange }: {
   item: StatusListItem; campaignId: string; questionId: string | null; workflows: React.ReactNode; quickOption?: boolean; onDirtyChange?: (dirty: boolean) => void; onPendingChange?: (pending: boolean) => void;
 }) {
   const { locale } = useI18n();
   const confirm = useStatusListConfirm(locale);
   const { toast } = useToast();
-  const [editing, setEditing] = useState<StatusListAutomation | "new" | "status" | "callback" | null>(null);
+  const [editing, setEditing] = useState<StatusListAutomation | "new" | "status" | "callback" | "yes" | "no" | null>(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [editorPending, setEditorPending] = useState(false);
   const openEditor = async (next: NonNullable<typeof editing>) => {
@@ -2377,6 +2386,12 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
     refetchOnMount: "always",
   });
   const triggerSource = triggerQuery.data?.catalog.find(entry => entry.id === (questionId || item.id) && entry.kind === (questionId ? "question" : "item"));
+  const checkSourceQuery = useQuery<{sources:{questionId:string;showInformation?:boolean;check?:{enabled:boolean;trigger:"pulse_open"|"card_open"|"background_change";behavior:"information"|"confirm"|"automatic";assignedActions?:boolean}|null}[]}>({
+    queryKey:[`/api/campaigns/${campaignId}/status-list-workflows/sources`],
+    enabled:!!questionId && triggerSource?.backgroundSource === "representative_assigned",
+    queryFn:async()=>{const res=await fetch(`/api/campaigns/${campaignId}/status-list-workflows/sources`,{credentials:"include"});if(!res.ok)throw Error(String(res.status));return res.json();},
+  });
+  const coordinatorCheck=checkSourceQuery.data?.sources.find(s=>s.questionId===questionId && s.showInformation)?.check;
   // Unknown is not permission to save a definition that may never be invoked.
   const serviceBlocked = !triggerSource || triggerQuery.isError;
   const remove = useMutation({
@@ -2391,8 +2406,9 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
       key={typeof editing === "object" ? editing.id : editing}
       automation={typeof editing === "object" ? { ...editing, emailRecipients: editing.emailRecipients ?? [] } : undefined}
       initialActionType={editing === "callback" ? "set_callback" : editing === "status" || quickOption ? "set_contact_status" : undefined}
+      initialConditionAnswer={editing === "yes" || editing === "no" ? editing : undefined}
       initialStage={quickOption && editing !== "new" ? "details" : "type"}
-      presentation={quickOption ? "inline" : "dialog"}
+      presentation="dialog"
       campaignId={campaignId} itemId={item.id} questionId={questionId || undefined}
       locale={locale} sourceLabel={questionId ? item.questions.find(question => question.id === questionId)?.questionText || questionId : item.label}
       translate={key => sl(key, locale)}
@@ -2420,8 +2436,12 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
       <p className="text-xs leading-relaxed text-muted-foreground">{quickOption ? sl("inspectorAutomationHelp", locale) : actionCopy(locale, "safety")}</p>
       <p role={serviceBlocked ? "alert" : "status"} data-testid="service-action-trigger"
         className={`rounded-lg border p-3 text-xs leading-relaxed ${serviceBlocked ? "border-amber-500/40 bg-amber-500/10" : "bg-muted/30 text-muted-foreground"}`}>
-        {triggerQuery.isLoading ? triggerCopy.loading : triggerQuery.isError || !triggerSource ? triggerCopy.error : serviceBlocked ? triggerCopy.blocked : triggerCopy.manual}
+        {triggerQuery.isLoading ? triggerCopy.loading : triggerQuery.isError || !triggerSource ? triggerCopy.error : triggerSource.backgroundSource ? getBackgroundActionCopy(locale).help : triggerCopy.manual}
       </p>
+      {!!triggerSource?.backgroundSource && questionId && ["yes_no","yesno"].includes(item.questions.find(q=>q.id===questionId)?.fieldType || "") && <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="outline" disabled={editorPending || serviceBlocked} data-testid="background-add-yes" onClick={()=>openEditor("yes")}><Plus className="mr-1 h-3.5 w-3.5"/>{getBackgroundActionCopy(locale).yes}</Button>
+        <Button type="button" size="sm" variant="outline" disabled={editorPending || serviceBlocked} data-testid="background-add-no" onClick={()=>openEditor("no")}><Plus className="mr-1 h-3.5 w-3.5"/>{getBackgroundActionCopy(locale).no}</Button>
+      </div>}
       {quickOption && <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" disabled={editorPending || serviceBlocked} data-testid="quick-option-add-status" onClick={() => openEditor("status")}><Tag className="mr-2 h-4 w-4"/>{getActionLabel("set_contact_status", locale)}</Button>
         <Button type="button" variant="outline" size="sm" disabled={editorPending || serviceBlocked} data-testid="quick-option-add-callback" onClick={() => openEditor("callback")}><Calendar className="mr-2 h-4 w-4"/>{getActionLabel("set_callback", locale)}</Button>
@@ -2429,7 +2449,6 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
       {actions.map(action => <div key={action.id} className="flex items-center gap-3 rounded-xl border bg-card p-3" data-testid={`studio-original-action-${action.id}`}>
         <span className="rounded-lg bg-primary/5 p-2 text-primary">{getActionIcon(action.actionType)}</span>
         <div className="min-w-0 flex-1"><strong className="block text-sm">{getActionLabel(action.actionType, locale)}</strong>
-          {!!triggerSource?.backgroundSource && <p className="text-xs text-amber-700 dark:text-amber-300">{triggerCopy.inactive}</p>}
           {(action.conditionJson || action.conditionField) && <p className="mt-1 text-xs text-muted-foreground">{getConditionSummary(action.conditionJson, action.conditionField, action.conditionValue, locale)}</p>}
         </div>
         <Button type="button" size="icon" variant="ghost" disabled={editorPending || serviceBlocked} title={sl("editAction", locale)} aria-label={sl("editAction", locale)} data-testid={`service-action-edit-${action.id}`} onClick={() => openEditor(action)}><PenLine className="h-4 w-4"/></Button>
@@ -2438,15 +2457,20 @@ function StatusListStudioActions({ item, campaignId, questionId, workflows, quic
         }}><Trash2 className="h-4 w-4 text-destructive"/></Button>
       </div>)}
     </section>
-    <StatusListAutomaticTriggerInspector campaignId={campaignId} itemId={item.id} locale={locale} disabled={editorDirty || editorPending}/>
-    {quickOption && editor && <section className="rounded-lg border p-3" data-testid="quick-option-action-editor">{editor}</section>}
-    <section className="border-t pt-5">{quickOption ? <details><summary className="cursor-pointer text-xs font-medium">{getStatusListWorkspaceCopy(locale).rules}</summary>{workflows}</details> : workflows}</section>
-    {!quickOption && <Dialog open={editing !== null} onOpenChange={open => { if (!open) closeEditor(); }}>
-      <DialogContent className="max-w-4xl max-h-[90dvh] overflow-y-auto" data-testid="studio-original-action-dialog">
-        <DialogHeader><DialogTitle>{editing === "new" ? sl("addActionBtn", locale) : sl("editAction", locale)}</DialogTitle></DialogHeader>
+    {coordinatorCheck ? <div className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 text-xs dark:border-blue-900 dark:bg-blue-950/25" data-testid="background-coordinator-trigger">
+      <strong>{getRepresentativeCheckCopy(locale).title}</strong>
+      <p className="mt-1">{coordinatorCheck.enabled ? getRepresentativeCheckCopy(locale).enabledSummary : getRepresentativeCheckCopy(locale).disabledSummary}
+        {" · "}{getRepresentativeCheckCopy(locale).trigger[coordinatorCheck.trigger]}{" · "}{getRepresentativeCheckCopy(locale).behavior[coordinatorCheck.behavior]}</p>
+      {coordinatorCheck.assignedActions && <p className="mt-2">{getBackgroundActionCopy(locale).assignedHelp}</p>}
+    </div> : checkSourceQuery.isError ? <p role="alert">{triggerCopy.error}</p> :
+      <StatusListAutomaticTriggerInspector campaignId={campaignId} itemId={item.id} locale={locale} disabled={editorDirty || editorPending}/>}
+    {workflows && <section className="border-t pt-5">{quickOption ? <details><summary className="cursor-pointer text-xs font-medium">{getStatusListWorkspaceCopy(locale).rules}</summary>{workflows}</details> : workflows}</section>}
+     <Dialog open={editing !== null} onOpenChange={open => { if (!open) closeEditor(); }}>
+       <DialogContent className="w-[calc(100vw-2rem)] max-w-4xl max-h-[90dvh] overflow-y-auto" data-testid={quickOption ? "quick-option-action-dialog" : "studio-original-action-dialog"}>
+        <DialogHeader><DialogTitle>{editing === "new" || editing === "yes" || editing === "no" ? sl("addActionBtn", locale) : sl("editAction", locale)}</DialogTitle></DialogHeader>
         {editor}
       </DialogContent>
-    </Dialog>}
+     </Dialog>
   </div>;
 }
 
@@ -3570,12 +3594,14 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
   const { toast } = useToast();
   const { locale } = useI18n();
   const copy = getQuickOptionCopy(locale);
-  const [form, setForm] = useState({ label: "", color: "#3b82f6", icon: null as string | null, description: "", canonicalClinicStatusKey: null as string | null });
+  const [form, setForm] = useState({ label: "", labelTranslations: {} as StatusListLabelTranslations, color: "#3b82f6", icon: null as string | null, description: "", canonicalClinicStatusKey: null as string | null });
+  const [translating, setTranslating] = useState(false);
 
   const addMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/campaigns/${campaignId}/status-list`, {
       stepId: `OPT-${String(existingCount + 1).padStart(2, "0")}`,
       label: form.label,
+      labelTranslations: form.labelTranslations,
       description: form.description || null,
       confirmationType: "checkbox",
       required: false,
@@ -3603,7 +3629,9 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
           <Input
             className="h-8 text-xs"
             value={form.label}
-            onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+            onChange={e => setForm(f => ({ ...f, label: e.target.value, labelTranslations: {} }))}
+            maxLength={240}
+            disabled={translating}
             placeholder={copy.placeholder}
             autoFocus
             data-testid="input-option-label"
@@ -3653,13 +3681,15 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
           </Select>
         </div>
       </div>
+      <StatusListButtonTranslations campaignId={campaignId} locale={locale} name={form.label}
+        value={form.labelTranslations} onChange={labelTranslations => setForm(current => ({ ...current, labelTranslations }))} onBusyChange={setTranslating}/>
       <StatusListQuickOptionIconPicker value={form.icon} onChange={icon => setForm(current => ({ ...current, icon }))} locale={locale} disabled={addMutation.isPending}/>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <span>{copy.preview}:</span>
           <span data-testid="quick-option-create-preview" className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-white text-[11px] font-semibold" style={{ backgroundColor: form.color }}>
             <StatusListQuickOptionIcon name={form.icon} className="h-3.5 w-3.5 shrink-0"/>
-            {form.label || copy.name}
+            {statusListOptionLabel(form, locale) || copy.name}
           </span>
         </div>
         <div className="flex gap-2">
@@ -3672,7 +3702,7 @@ function AddOptionForm({ campaignId, existingCount, onSaved, onCancel }: {
             className="h-7 text-xs text-white"
             style={{ backgroundColor: form.color }}
             onClick={() => addMutation.mutate()}
-            disabled={addMutation.isPending || !form.label.trim()}
+            disabled={addMutation.isPending || !form.label.trim() || translating}
             data-testid="btn-confirm-add-option"
           >
             {addMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
@@ -3976,6 +4006,7 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
       {!itemsLoadError && <>
       <StatusListWorkspace campaignId={campaignId} locale={locale} items={items}
         onPreview={() => setPreviewMode(true)} previewLabel={sl("previewBtn", locale)}
+        addStepLabel={sl("addStepBtn", locale)} onAddStep={() => setStudioCreation({ kind: "step", parentId: null })}
         selectedId={workspaceSelection} onSelect={setWorkspaceSelection}
         navigation={studioNavigation}
         coverage={<CanonicalCoveragePanel items={items} locale={locale}/>}
@@ -4044,6 +4075,9 @@ function CampaignStatusListBuilderContent({ campaignId }: { campaignId: string }
           renderSource={onDirtyChange => controls.source(onDirtyChange)}
           renderActions={(questionId, onDirtyChange) => <StatusListStudioActions item={selectedItem} campaignId={campaignId} questionId={questionId} workflows={controls.workflows} onDirtyChange={onDirtyChange}/>}
           renderChildren={() => selectedQuestionId ? null : <StatusListStudioChildren item={selectedItem} allItems={items} onSelectItem={navigateStudio} onSelectQuestion={navigateStudio} onCreate={(kind, parentId) => setStudioCreation({ kind, parentId })}/>}
+           onCreateSubquestion={() => setStudioCreation({ kind: "question", parentId: selectedItem.id })}
+           addSubquestionLabel={sl("addSubquestionBtn", locale)}
+           addSubquestionHelp={sl("addSubquestionHelp", locale)}
           onDeleted={() => setWorkspaceSelection("")}
         />;
       }}/>

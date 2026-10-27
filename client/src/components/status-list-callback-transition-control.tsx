@@ -37,6 +37,7 @@ const blockerCopyKeys: Record<string, keyof ReturnType<typeof getStatusListCallb
   untracked_actions: "labelUntrackedActions",
   unsupported_references: "labelUnsupportedReferences",
   no_callbacks: "labelNoCallbacks",
+  service_transition_reserved: "labelServiceReserved",
   source_unavailable: "labelSourceUnavailable",
   confirmation_required: "labelConfirmationRequired",
 };

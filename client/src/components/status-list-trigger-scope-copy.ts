@@ -18,6 +18,7 @@ export type StatusListTriggerScopeCopy = {
   activationBlock: string;
   headingBlock: string;
   dirty: string;
+  editorBlocked: string;
 };
 
 const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
@@ -41,6 +42,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "An action missing its required owner or template cannot activate. Resolve the listed issues before enabling this workflow.",
     headingBlock: "This is a main-question heading only. It cannot have its own automatic trigger or agent-confirmation workflow; its child questions remain separate.",
     dirty: "Unsaved trigger changes",
+    editorBlocked: "Save or cancel the open action editor first. The trigger is locked while that editor has unsaved changes or is saving.",
   },
   sk: {
     missionCard: "Otvorenie karty kontaktu v Mission",
@@ -62,6 +64,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "Akciu bez povinného vlastníka alebo šablóny nemožno aktivovať. Pred zapnutím workflowu vyriešte uvedené problémy.",
     headingBlock: "Ide iba o nadpis hlavnej otázky. Nemôže mať vlastný automatický spúšťač ani workflow potvrdenia agentom; podotázky zostávajú samostatné.",
     dirty: "Neuložené zmeny spúšťača",
+    editorBlocked: "Najprv uložte alebo zrušte rozpracovanú akciu. Počas jej úprav alebo ukladania je spúšťač uzamknutý.",
   },
   cs: {
     missionCard: "Otevření kontaktní karty Mission",
@@ -83,6 +86,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "Akci bez povinného vlastníka nebo šablony nelze aktivovat. Před zapnutím workflowu vyřešte uvedené problémy.",
     headingBlock: "Jde pouze o nadpis hlavní otázky. Nemůže mít vlastní automatický spouštěč ani workflow potvrzení agentem; podotázky zůstávají samostatné.",
     dirty: "Neuložené změny spouštěče",
+    editorBlocked: "Nejprve uložte nebo zrušte rozpracovanou akci. Během jejích úprav nebo ukládání je spouštěč uzamčený.",
   },
   hu: {
     missionCard: "Mission kapcsolati kártya megnyitása",
@@ -104,6 +108,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "A kötelező tulajdonos vagy sablon nélküli művelet nem aktiválható. A munkafolyamat bekapcsolása előtt oldja meg a felsorolt problémákat.",
     headingBlock: "Ez kizárólag fő kérdés címsora. Nem lehet saját automatikus indítója vagy ügynöki megerősítési munkafolyamata; az al-kérdések különállók.",
     dirty: "Nem mentett indítóbeállítások",
+    editorBlocked: "Előbb mentse vagy vesse el a szerkesztett műveletet. Nem mentett módosítás vagy mentés közben az indító zárolva van.",
   },
   ro: {
     missionCard: "Deschiderea fișei contactului în Mission",
@@ -125,6 +130,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "O acțiune fără proprietarul sau șablonul obligatoriu nu poate fi activată. Rezolvați problemele afișate înainte de activarea fluxului.",
     headingBlock: "Acesta este doar titlul întrebării principale. Nu poate avea declanșator automat sau flux propriu de confirmare; subîntrebările rămân separate.",
     dirty: "Modificări nesalvate ale declanșatorului",
+    editorBlocked: "Salvați sau anulați mai întâi acțiunea editată. Declanșatorul este blocat cât timp există modificări nesalvate sau salvarea este în curs.",
   },
   it: {
     missionCard: "Apertura scheda contatto Mission",
@@ -146,6 +152,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "Un’azione senza il proprietario o il modello richiesto non può essere attivata. Risolvi i problemi elencati prima di abilitare il workflow.",
     headingBlock: "Questa è solo l’intestazione della domanda principale. Non può avere un trigger automatico o un workflow di conferma proprio; le sotto-domande restano separate.",
     dirty: "Modifiche al trigger non salvate",
+    editorBlocked: "Salva o annulla prima l'azione in modifica. Il trigger è bloccato finché ci sono modifiche non salvate o un salvataggio in corso.",
   },
   de: {
     missionCard: "Öffnen der Mission-Kontaktkarte",
@@ -167,6 +174,7 @@ const dictionaries: Record<string, StatusListTriggerScopeCopy> = {
     activationBlock: "Eine Aktion ohne erforderlichen Owner oder Vorlage kann nicht aktiviert werden. Beheben Sie die aufgeführten Probleme, bevor Sie den Workflow einschalten.",
     headingBlock: "Dies ist nur die Überschrift einer Hauptfrage. Sie kann keinen eigenen automatischen Auslöser oder Agentenbestätigungs-Workflow haben; Unterfragen bleiben separat.",
     dirty: "Ungespeicherte Auslöseränderungen",
+    editorBlocked: "Zuerst die bearbeitete Aktion speichern oder verwerfen. Bei ungespeicherten Änderungen oder während des Speicherns ist der Auslöser gesperrt.",
   },
 };
 

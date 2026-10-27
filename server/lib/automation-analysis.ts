@@ -12,12 +12,16 @@ import { attachmentExtensions as extensions, prepareAnalysisAttachment, type Pre
 import type { CommunicationContext } from "../../shared/automation-communication-context";
 import { validatedContentSignals } from "../../shared/automation-content-signals";
 import { evaluateTextSearch, type SearchDocument, type TextSearchResult } from "../../shared/automation-text-search";
+import type { AttachmentOutcome } from "../../shared/automation-attachment-outcomes";
+import { analyzeAttachmentBatch } from "./automation-attachment-batch";
+import { ANALYSIS_RETENTION_SCHEMA, cleanAutomationAnalysis } from "./automation-analysis-retention";
 
 type AnalyzedAttachment = TaskAttachment & { classification: "invoice" | "other"; sourceAttachmentId?: string };
 export type ServiceAnalysis = {
   sentiment: string | null; tone: string | null; summary: string | null; wantsToCancel: boolean | null;
   hasInvoice: boolean | null; invoiceCount: number; attachmentCount: number; failedAttachmentCount: number;
   attachments: AnalyzedAttachment[];
+  attachmentOutcomes?: AttachmentOutcome[];
   communication?: CommunicationContext;
   mentionsInvoice?: boolean | null; hasComplaint?: boolean | null; needsReply?: boolean | null;
   isUrgent?: boolean | null; isThankYou?: boolean | null; requestsCallback?: boolean | null;
@@ -32,9 +36,27 @@ export function ensureAutomationAnalysisSchema() {
       error_code text, created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS workflow_analysis_cache_owner_time ON workflow_analysis_cache(owner_user_id, created_at);
-  `).then(() => undefined).catch(error => { schemaReady = undefined; throw error; });
+  `).then(() => db.execute(sql.raw(ANALYSIS_RETENTION_SCHEMA))).then(() => undefined)
+    .catch(error => { schemaReady = undefined; throw error; });
 }
 const active = new Map<string, Promise<ServiceAnalysis | null>>();
+let retentionStarted = false;
+export function startAutomationAnalysisRetention() {
+  if (retentionStarted) return;
+  retentionStarted = true;
+  const clean = async () => {
+    try {
+      await ensureAutomationAnalysisSchema();
+      const counts = await cleanAutomationAnalysis(pool, join(dirname(DATA_ROOT), "private-task-attachments"));
+      console.log("[Automation] analysis retention", counts);
+    } catch { console.error("[Automation] analysis retention deferred"); }
+  };
+  // Avoid competing with startup schema initialization; at most once per day.
+  const first = setTimeout(() => void clean(), 5 * 60 * 1000);
+  const daily = setInterval(() => void clean(), 24 * 60 * 60 * 1000);
+  first.unref();
+  daily.unref();
+}
 
 async function askAnalysis(text: string, attachment?: PreparedAttachment, extractText = false) {
   if (text.length > 60000) throw new Error("analysis_text_limit");
@@ -75,7 +97,7 @@ ${extractText ? 'Also return "documentText": all visible document text transcrib
         result.documentTextComplete === true && response.status === "completed" } : {}) };
 }
 
-async function storeSnapshot(attachment: SourceAttachment, bytes: Buffer, owner: string, connection: any): Promise<TaskAttachment> {
+async function storeSnapshot(attachment: SourceAttachment, bytes: Buffer, owner: string, connection: any, cacheKey: string): Promise<TaskAttachment> {
   const extension = extensions[attachment.contentType];
   if (!extension) throw new Error("analysis_unsupported_attachment");
   const directory = join(dirname(DATA_ROOT), "private-task-attachments");
@@ -84,20 +106,21 @@ async function storeSnapshot(attachment: SourceAttachment, bytes: Buffer, owner:
   await writeFile(storagePath, bytes, { flag: "wx", mode: 0o600 });
   try {
     const name = attachment.name.replace(/[\/\\]/g, "_").slice(0, 255);
-    const inserted = await connection.query(`INSERT INTO task_attachment_uploads(uploader_user_id,storage_key,name,type,size)
-      VALUES($1,$2,$3,$4,$5) RETURNING id`, [owner, storagePath.split("/").pop()!, name, attachment.contentType, bytes.length]);
+    const inserted = await connection.query(`INSERT INTO task_attachment_uploads(uploader_user_id,storage_key,name,type,size,analysis_cache_key)
+      VALUES($1,$2,$3,$4,$5,$6) RETURNING id`, [owner, storagePath.split("/").pop()!, name, attachment.contentType, bytes.length, cacheKey]);
     const upload = inserted.rows[0];
     return { id: upload.id, name, type: attachment.contentType, size: bytes.length,
       url: `/api/tasks/attachments/${encodeURIComponent(upload.id)}` };
   } catch (error) { await unlink(storagePath).catch(() => {}); throw error; }
 }
 
-export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEvent): Promise<ServiceAnalysis | null> {
+export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEvent, retryAttemptId?: string): Promise<ServiceAnalysis | null> {
   const config = (rule.trigger as any).analysis;
   if (!config) return null;
   await ensureAutomationAnalysisSchema();
   // Updated rule/source identities do not reuse a different source/configuration's result.
-  const key = createHash("sha256").update(JSON.stringify(["communication-private-attachments-v2", rule.id, event.id, config])).digest("hex");
+  const key = createHash("sha256").update(JSON.stringify(["communication-private-attachments-v2", rule.id, event.id, config,
+    ...(retryAttemptId ? ["manual", retryAttemptId] : [])])).digest("hex");
   if (active.has(key)) return active.get(key)!;
   const work = (async () => {
     const source = await loadAnalysisSource(rule, event);
@@ -107,7 +130,11 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
     const connection = await pool.connect();
     try {
       await connection.query("SELECT pg_advisory_lock(hashtext($1))", [key]);
+      const expired = await connection.query("SELECT cache_key FROM workflow_analysis_tombstones WHERE cache_key=$1", [key]);
+      if (expired.rows.length) throw new Error("analysis_result_expired");
       const saved = await connection.query("SELECT result,error_code,created_at FROM workflow_analysis_cache WHERE cache_key=$1", [key]);
+      if (saved.rows.length) await connection.query(
+        "UPDATE workflow_analysis_cache SET rule_id=$2,event_id=$3 WHERE cache_key=$1", [key, rule.id, event.id]);
       if (saved.rows[0]?.result) return { ...saved.rows[0].result, communication: source.communication } as ServiceAnalysis;
       if (saved.rows[0]?.error_code && Date.now() - new Date(saved.rows[0].created_at).getTime() < 60000)
         throw new Error(saved.rows[0].error_code);
@@ -115,10 +142,11 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
       try {
         const quota = await connection.query("SELECT count(*)::int AS n FROM workflow_analysis_cache WHERE owner_user_id=$1 AND created_at>now()-interval '1 hour'", [rule.createdByUserId]);
         if (quota.rows[0].n >= 100) throw new Error("analysis_hourly_limit");
-        await connection.query(`INSERT INTO workflow_analysis_cache(cache_key,owner_user_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, [key, rule.createdByUserId]);
+        await connection.query(`INSERT INTO workflow_analysis_cache(cache_key,owner_user_id,rule_id,event_id)
+          VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [key, rule.createdByUserId, rule.id, event.id]);
       } finally { await connection.query("SELECT pg_advisory_unlock(hashtext($1))", [`analysis-quota:${rule.createdByUserId}`]); }
       const result: ServiceAnalysis = { sentiment: null, tone: null, summary: null, wantsToCancel: null,
-        hasInvoice: false, invoiceCount: 0, attachmentCount: 0, failedAttachmentCount: 0, attachments: [],
+        hasInvoice: false, invoiceCount: 0, attachmentCount: 0, failedAttachmentCount: 0, attachments: [], attachmentOutcomes: [],
         communication: source.communication };
       Object.assign(result, validatedContentSignals({}));
       const searchDocuments: SearchDocument[] = [];
@@ -133,7 +161,7 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
           if (attachments.length > 10) throw new Error("analysis_attachment_limit");
           result.attachmentCount = attachments.length;
           let totalBytes = 0;
-          for (const attachment of attachments) {
+          const batch = await analyzeAttachmentBatch(attachments, async (attachment): Promise<AnalyzedAttachment> => {
             let searchDocument: SearchDocument = { text: null, complete: false };
             try {
               if (attachment.size > 15 * 1024 * 1024 || attachment.size < 0)
@@ -147,12 +175,12 @@ export async function analyzeCommunication(rule: WorkflowRule, event: WorkflowEv
               const classified = await askAnalysis("Classify this communication attachment by its document content.", prepared, extractText);
               if (extractText) searchDocument = { text: classified.documentText ?? null, complete: classified.documentTextComplete === true };
               // Keep the original Office/image bytes, not the extracted text, on the Task.
-              const snapshot = await storeSnapshot({ ...attachment, contentType: prepared.mime }, bytes, rule.createdByUserId!, connection);
-              result.attachments.push({ ...snapshot, classification: classified.classification, sourceAttachmentId: attachment.id });
-              if (classified.classification === "invoice") result.invoiceCount++;
-            } catch { result.failedAttachmentCount++; }
+              const snapshot = await storeSnapshot({ ...attachment, contentType: prepared.mime }, bytes, rule.createdByUserId!, connection, key);
+              return { ...snapshot, classification: classified.classification, sourceAttachmentId: attachment.id };
+            }
             finally { searchDocuments.push(searchDocument); }
-          }
+          });
+          Object.assign(result, batch);
           // Unknown/failed attachments are not classified as non-invoices.
           result.hasInvoice = result.invoiceCount > 0 ? true : result.failedAttachmentCount ? null : false;
         }

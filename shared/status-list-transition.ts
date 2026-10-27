@@ -35,6 +35,13 @@ export type TransitionInventory = {
   activationAllowed: false;
 };
 export type TransitionInventories = { current: TransitionInventory; audited: TransitionInventory | null };
+export type CallbackServiceStatus = {
+  runtimeVersion: string;
+  activationAllowed: false;
+  group: { enrolled: boolean; owner: "legacy" | "service"; generation: number; fingerprint: string } | null;
+  counts: { pending: number; blocked: number; done: number; deferred: number };
+  cutovers: { id: string; fromOwner: string; toOwner: string; generation: number; actorId: string; createdAt: string; eventBoundary: string }[];
+};
 export type TransitionScenario = {
   callCount: number;
   /** This is one hypothetical item-confirmation event, not a campaign-wide firing. */
@@ -62,7 +69,7 @@ export type TransitionComparison = {
   activationAllowed: false;
 };
 export const TRANSITION_GATES = [
-  "executor_missing", "ownership_unverified", "inflight_unverified",
+  "executor_unverified", "ownership_unverified", "inflight_unverified",
   "dependencies_unverified", "live_fingerprint_unverified",
 ] as const;
 

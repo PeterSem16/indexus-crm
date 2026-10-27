@@ -9,11 +9,16 @@ import { getForwardCopy } from "@/i18n/automation-forward-copy";
 import { runDayKey, runDurationMs, runStatistics, type OverviewCatalog,
   type OverviewRule, type OverviewRun } from "@/lib/automation-overview-model";
 import "./automation-overview.css";
+import { AutomationEligibilityDiagnostic } from "./automation-eligibility-diagnostic";
+import { AutomationAttachmentResults } from "./automation-attachment-results";
+import type { AttachmentOutcome } from "@shared/automation-attachment-outcomes";
 
 type RunDetail = {
   run: OverviewRun;
-  event: null | { module: string; entityType: string; eventType: string; entityId?: string; [key: string]: unknown };
-  actions: { id: string; actionIndex: number; actionType: string; status: string; error?: string | null; output?: unknown }[];
+  event: null;
+  sourceAccess: "available" | "unavailable";
+  actions: { id: string; actionIndex: number; actionType: string; status: string; executedAt: string; retryCount: number }[];
+  attachmentAnalysis?: { status: "available" | "unavailable" | "not_recorded"; outcomes: AttachmentOutcome[] };
 };
 type Props = {
   rules: OverviewRule[]; catalog?: OverviewCatalog; ruleId?: string; compact?: boolean;
@@ -54,8 +59,6 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
   } as Record<string, string>)[reason] || reason;
   const moduleLabel = (value: string) => t.automationServices.editorCatalog.moduleLabels[value]
     || catalog?.modules.find(option => option.value === value)?.label || value;
-  const eventLabel = (value: string) => t.automationServices.editorCatalog.eventLabels[value]
-    || catalog?.eventTypes.find(option => option.value === value)?.label || value;
   const actionLabel = (value: string) => value === "record_analysis" ? getRecordEntryCopy(locale).actionLabel
     : value === "forward_message" ? getForwardCopy(locale).heading
       : (t.automationServices.names as Record<string, string>)[value]
@@ -71,7 +74,7 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
     : `${new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(value / 1000)} s`;
   const resetFilters = () => { setSearch(""); setStatus("all"); setModule("all"); setRuleFilter(ruleId || "all"); };
   const filtered = runs.filter(run =>
-    [name(run.ruleId), run.id, run.error, reasonLabel(run.skippedReason), statusLabel(run.status)]
+    [name(run.ruleId), run.id, reasonLabel(run.skippedReason), statusLabel(run.status)]
       .join(" ").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
     && (status === "all" || run.status === status)
     && (module === "all" || ruleById.get(run.ruleId)?.module === module),
@@ -112,6 +115,7 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
   const count = (value: number) => runsQ.isLoading || runsQ.isError ? "—" : value;
   return <main className={`rules-history automation-production-overview ${compact ? "is-compact" : ""}`}>
     <div className="rh-shell">
+      <AutomationEligibilityDiagnostic key={ruleId || "all"} rules={rules} ruleId={ruleId}/>
       {onBack && <button className="rh-back" onClick={onBack} aria-label={copy.backRules}><ArrowLeft size={15}/>{copy.rules}</button>}
       {!compact && <section className="rh-heading"><div>
         <h2>{copy.history}</h2><p>{copy.historySubtitle}</p>
@@ -153,7 +157,7 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
                       onClick={() => pick(run.id)} aria-pressed={selected?.id === run.id} aria-controls={inspectorId}
                       data-run-id={run.id} data-testid={`row-globalrun-${run.id}`}>
                       <span className={`rh-run-icon ${statusClass(run.status)}`}><Icon size={15}/></span>
-                      <span className="rh-run-copy"><b title={name(run.ruleId)}>{name(run.ruleId)}</b><span title={run.error || reasonLabel(run.skippedReason)}>{run.error || reasonLabel(run.skippedReason) || statusLabel(run.status)}</span>
+                      <span className="rh-run-copy"><b title={name(run.ruleId)}>{name(run.ruleId)}</b><span title={reasonLabel(run.skippedReason)}>{reasonLabel(run.skippedReason) || statusLabel(run.status)}</span>
                         <small>{statusLabel(run.status)} · {copy.duration}: {duration(runDurationMs(run))}</small></span>
                       <span className="rh-run-time">{date(run.startedAt, { timeStyle: "short" })}<ChevronRight size={14}/></span>
                     </button>;
@@ -170,23 +174,19 @@ export function AutomationRunHistory({ rules, catalog, ruleId, compact, onBack, 
               <div className="rh-detail-time"><Clock3 size={14}/>{copy.started}: {fullDate(currentRun.startedAt)}</div>
               <p className="rh-detail-meta">{copy.finished}: {currentRun.finishedAt ? fullDate(currentRun.finishedAt) : "—"}<br/>{copy.duration}: {duration(runDurationMs(currentRun))}</p>
               {currentRun.skippedReason && <div className="rh-recovery"><Clock3 size={15}/><span>{copy.reason}: {reasonLabel(currentRun.skippedReason)}</span></div>}
-              {currentRun.error && <div className="rh-recovery rh-error" role="alert"><CircleAlert size={15}/><span>{currentRun.error}</span></div>}
               {detailQ.isLoading ? <div className="rh-detail-loading" role="status"><Loader2 size={16} className="animate-spin"/>{copy.loading}</div>
                 : detailQ.isError ? <div className="rh-recovery" role="alert"><span>{copy.fetchError} <button onClick={() => void detailQ.refetch()}>{copy.retry}</button></span></div>
                   : detail && <>
-                    {detail.event && <section className="rh-event-details"><h4>{copy.event}</h4><b>{eventLabel(detail.event.eventType)}</b>
-                      <p>{moduleLabel(detail.event.module)} · {moduleLabel(detail.event.entityType)}</p>
-                      {detail.event.entityId && <code>{detail.event.entityId}</code>}
-                    </section>}
-                    <section className="rh-action-logs"><h4>{copy.actions}</h4>
+                    {detail.attachmentAnalysis && <AutomationAttachmentResults activity={detail.attachmentAnalysis} />}
+                    {!detail.attachmentAnalysis && detail.sourceAccess === "unavailable" &&
+                      <p role="status">{t.automationAttachments.unavailable}</p>}
+                    {detail.sourceAccess === "available" && <section className="rh-action-logs"><h4>{copy.actions}</h4>
                       {detail.actions.length ? detail.actions.map(action => <article key={action.id} className="rh-logged-action">
                         <span className={`rh-large-state ${statusClass(action.status)}`}><span/>{statusLabel(action.status)}</span>
                         <b>{action.actionIndex + 1}. {actionLabel(action.actionType)}</b>
-                        {action.error && <p className="rh-action-error">{action.error}</p>}
-                        {action.output != null && <details><summary>{copy.output}</summary><pre>{JSON.stringify(action.output, null, 2)}</pre></details>}
+                        {action.executedAt && <time dateTime={action.executedAt}>{fullDate(action.executedAt)}</time>}
                       </article>) : <p>{copy.noActions}</p>}
-                    </section>
-                    <details className="rh-raw-json"><summary>{copy.rawJson}</summary><pre>{JSON.stringify(detail, null, 2)}</pre></details>
+                    </section>}
                   </>}
               {selectedRule && onOpenRule && <button className="rh-rule-button" disabled={!catalog} onClick={() => onOpenRule(selectedRule)}>{copy.openRule}<ArrowUpRight size={14}/></button>}
               <div className="rh-disclaimer">{copy.definitionNotice}</div>

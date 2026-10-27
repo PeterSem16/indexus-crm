@@ -203,6 +203,7 @@ export async function emitEventOnceForIdentity(
   identityValue: string,
   dedupeKey: string,
   taskTextGuard?: { taskId: string; textIdentity: string },
+  delivery?: { createdAt: Date; deferDispatch: true; requireIdentity: true },
 ): Promise<string | null> {
   try {
     const changedFields = diffChangedFields(input.oldValues, input.newValues);
@@ -219,7 +220,7 @@ export async function emitEventOnceForIdentity(
           return [];
         }
       }
-      const priorEvents = await tx.select({ newValues: workflowEvents.newValues })
+      const priorEvents = await tx.select({ id: workflowEvents.id, newValues: workflowEvents.newValues })
         .from(workflowEvents)
         .where(and(
           eq(workflowEvents.source, input.source || "storage"),
@@ -228,7 +229,8 @@ export async function emitEventOnceForIdentity(
           eq(workflowEvents.entityId, input.entityId || ""),
           eq(workflowEvents.eventType, input.eventType),
         ));
-      if (priorEvents.some((event) => (event.newValues as any)?.[identityField] === identityValue)) return [];
+      const prior = priorEvents.find((event) => (event.newValues as any)?.[identityField] === identityValue);
+      if (prior) return delivery?.requireIdentity ? [prior] : [];
       return tx.insert(workflowEvents).values({
         source: input.source || "storage",
         module: input.module,
@@ -241,17 +243,19 @@ export async function emitEventOnceForIdentity(
         actorUserId: input.actorUserId || null,
         countryCode: input.countryCode || null,
         causationRunId: input.causationRunId || null,
+        ...(delivery ? { createdAt: delivery.createdAt } : {}),
       }).returning({ id: workflowEvents.id });
     });
     if (!row) return null;
-    if (dispatcher) {
+    if (dispatcher && !delivery?.deferDispatch) {
       dispatcher(row.id).catch(() => {
         console.error("[EventBus] dispatcher error for identity event");
       });
     }
     return row.id;
-  } catch {
+  } catch (error) {
     console.error("[EventBus] identity event emit failed");
+    if (delivery?.requireIdentity) throw error;
     return null;
   }
 }

@@ -49,7 +49,7 @@ function ruleValueControl(field: ConditionFieldMetadata | undefined, value: stri
   </select>;
   if (field?.valueType === "select" && field.options?.length) return <select aria-label={copy("value")} data-testid={testId} value={value} onChange={event => update(event.target.value)}>
     <option value="">{copy("value")}</option>
-    {addUnknown(field.options.map(option => ({ value: option.value, label: catalogOptionLabel(locale, option.value, localized(locale, option.labelSk, option.labelEn)) })), value).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    {addUnknown(field.options.map(option => ({ value: option.value, label: catalogOptionLabel(locale, field.key==="healthcare.state" ? `healthcare.state.${option.value}` : option.value, localized(locale, option.labelSk, option.labelEn)) })), value).map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
   </select>;
   return <input aria-label={copy("value")} data-testid={testId} type={field?.valueType === "number" ? "number" : "text"} value={value} onChange={event => update(event.target.value)} />;
 }

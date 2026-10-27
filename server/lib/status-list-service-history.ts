@@ -14,6 +14,7 @@ export async function readStatusListServiceHistory(client: Reader, campaignId: s
        JOIN campaign_contacts cc ON cc.id=h.campaign_contact_id AND cc.campaign_id=$1
        WHERE h.action='status_list_action' AND h.metadata->>'automationId' IS NOT NULL
          AND NOT (h.metadata ? 'callbackEventId')
+         AND NOT (h.metadata ? 'eventId' AND h.metadata ? 'generation' AND h.metadata ? 'executor')
          AND ($2::text IS NULL OR h.metadata->>'automationId'=$2)
        ORDER BY h.created_at DESC,h.id DESC LIMIT 100)
       UNION ALL
@@ -22,6 +23,15 @@ export async function readStatusListServiceHistory(client: Reader, campaignId: s
        FROM mission_callback_events e WHERE e.campaign_id=$1
          AND ($2::text IS NULL OR e.automation_id=$2)
         ORDER BY e.created_at DESC,e.id DESC LIMIT 100)
+       UNION ALL
+       (SELECT 'callback-service:' || e.id,e.occurred_at,e.actor_id,e.action_id,
+         e.payload->'action'->>'type',
+         CASE WHEN e.state='blocked' THEN 'failed' ELSE e.state END,
+         CASE WHEN e.result->>'status'='changed' THEN 'callback' ELSE e.result->>'status' END,
+         e.result->>'callbackDate'
+        FROM mission_callback_service_events e WHERE e.campaign_id=$1
+          AND ($2::text IS NULL OR e.action_id=$2)
+        ORDER BY e.occurred_at DESC,e.id DESC LIMIT 100)
        UNION ALL
        (SELECT 'native:' || n.id,n.created_at,n.actor_id,n.automation_id,
          n.action_type,CASE WHEN n.status='succeeded' THEN 'done' ELSE n.status END,

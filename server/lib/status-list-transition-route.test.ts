@@ -16,6 +16,7 @@ const reads: string[] = [];
 let connections = 0, releases = 0, inventories = 0;
 let liveReads = 0, switches = 0;
 let serviceReads = 0;
+let exportFails = false;
 const pool = {
   async query(sql: string) {
     reads.push(sql);
@@ -35,13 +36,19 @@ const construct = new Function(
   "registerStatusListOrganizationRoutes", "readTransitionInventory", "medicalPartnerAudit", "z",
   "CallbackTransitionError", "readCallbackReadiness", "switchCallbackOwner",
   "readStatusListServiceHistory",
+  "readTransitionExport",
+  "readCallbackServiceStatus",
   `${compiled}; return module.exports.registerStatusListWorkflowRoutes;`,
 );
 const register = construct({ exports: {} }, pool, {}, () => false, WorkflowError, () => {},
   async () => { inventories++; return { activationAllowed: false }; },
   () => null, z, WorkflowError, async () => { liveReads++; return { owner: "legacy" }; },
   async () => { switches++; return { ok: true, owner: "compatible" }; },
-  async () => { serviceReads++; return { events: [] }; });
+  async () => { serviceReads++; return { events: [] }; },
+  async () => {
+    if (exportFails) throw new Error("simulated export failure");
+    return { activationAllowed: false, format: "export" };
+  }, async () => ({ activationAllowed: false, counts: { pending: 0, blocked: 0, done: 0, deferred: 0 }, group: null, cutovers: [] }));
 register(app, requireAuth);
 const root = "/api/campaigns/:campaignId/status-list-workflows/transition-inventory";
 const handlers = registered.get(`get ${root}`)!;
@@ -74,6 +81,27 @@ assert.equal((await request({ role: "admin" })).status, 200);
 assert.equal(inventories, 2);
 assert.equal(connections, 2);
 assert.equal(releases, 2);
+const exportRoot = root.replace("transition-inventory", "transition-export");
+const exportEndpoint = `get ${exportRoot}`;
+assert.equal(registered.get(exportEndpoint)![0], requireAuth);
+for (const method of ["post", "put", "patch", "delete"]) assert.ok(!registered.has(`${method} ${exportRoot}`));
+assert.equal((await request(undefined, exportEndpoint)).status, 401);
+assert.equal((await request({ role: "user", assignedCountries: ["SK", "CZ"] }, exportEndpoint)).status, 403);
+assert.equal((await request({ role: "manager", assignedCountries: ["SK"] }, exportEndpoint)).status, 403);
+assert.equal(connections, 2);
+const exported = await request({ role: "manager", assignedCountries: ["SK", "CZ"] }, exportEndpoint);
+assert.equal(exported.status, 200);
+assert.equal(exported.body.format, "export");
+assert.equal(exported.body.activationAllowed, false);
+assert.equal((await request({ role: "owner" }, exportEndpoint)).status, 200);
+assert.equal(connections, 4);
+assert.equal(releases, 4);
+exportFails = true;
+const failed = await request({ role: "admin" }, exportEndpoint);
+assert.equal(failed.status, 500);
+assert.deepEqual(failed.body, { error: "workflow_failed" });
+assert.equal(connections, 5);
+assert.equal(releases, 5);
 assert.ok(reads.every(sql => /^\s*SELECT\b/i.test(sql)));
 const live = `get ${root.replace("transition-inventory", "transition-readiness")}`;
 const change = `post ${root.replace("transition-inventory", "transition-switch")}`;
@@ -101,4 +129,9 @@ assert.equal((await request(manager, change, { ...payload, fingerprint: "histori
 assert.equal(switches, 0);
 assert.equal((await request(manager, change, payload)).status, 200);
 assert.equal(switches, 1);
-console.log("Transition route checks passed: actual inventory/readiness/switch handlers, auth/country boundaries, strict review-only payload, no-store, no GET activation and release.");
+const runtime = `get ${root.replace("transition-inventory", "transition-runtime")}`;
+assert.equal((await request(undefined, runtime)).status, 401);
+assert.equal((await request({ role: "user" }, runtime)).status, 403);
+assert.equal((await request({ ...manager, assignedCountries: ["SK"] }, runtime)).status, 403);
+assert.equal((await request(manager, runtime)).body.activationAllowed, false);
+console.log("Transition route checks passed: actual inventory/export/readiness/switch/service-history handlers, auth/country boundaries, strict payloads, no-store, no GET activation, export failure and release.");

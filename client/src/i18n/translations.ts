@@ -1,4 +1,7 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { getStatusListNavigationCopy } from "./status-list-navigation-copy";
+import { statusListRepresentativeInformationTranslations, type StatusListRepresentativeInformationCopy } from "./status-list-representative-information-copy";
+import { representativeCheckCopy, type RepresentativeCheckCopy } from "./status-list-representative-check-copy";
 import { statusListRefinementTranslations, type StatusListRefinementCopy } from "./status-list-refinement-translations";
 import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
@@ -19,6 +22,10 @@ import omniSmsTranslations from "./omni-sms-translations";
 import { healthcareLegalEntityTranslations, type HealthcareLegalEntityCopy } from "./healthcare-legal-entity-translations";
 import { providerFinderTranslations, type ProviderFinderCopy } from "./provider-finder-translations";
 import { statusListCopyNamespaces, type StatusListCopyNamespaces } from "../components/status-list-translations";
+import { statusListButtonTranslationCopy, type StatusListButtonTranslationCopy } from "./status-list-button-translation-copy";
+import { getStatusListSetupGuide } from "../components/status-list-setup-guide-copy";
+import { getStatusListRelationshipsHelpCopy } from "../components/status-list-relationships-help-copy";
+import { getSourceValidationCopy } from "../components/status-list-source-validation-copy";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -77,6 +84,13 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
+  statusListRepresentativeInformation: StatusListRepresentativeInformationCopy;
+  statusListRepresentativeCheck: RepresentativeCheckCopy;
+  statusListSetupGuide: ReturnType<typeof getStatusListSetupGuide>;
+  statusListRelationshipsHelp: ReturnType<typeof getStatusListRelationshipsHelpCopy>;
+  statusListNavigation: ReturnType<typeof getStatusListNavigationCopy>;
+  statusListSourceValidation: ReturnType<typeof getSourceValidationCopy>;
+  statusListButtonTranslations: StatusListButtonTranslationCopy;
   statusListRefinement: StatusListRefinementCopy;
   statusListQuestionAppearance: StatusListCopyNamespaces["statusListQuestionAppearance"];
   statusListReportingLabels: StatusListCopyNamespaces["statusListReportingLabels"];
@@ -64142,6 +64156,11 @@ const forwardReviewTranslations: Record<Locale, Translations["forwardReview"]> =
 
 for (const locale of Object.keys(translations) as Locale[]) {
   Object.assign(translations[locale], statusListCopyNamespaces[locale]);
+  translations[locale].statusListRepresentativeInformation = statusListRepresentativeInformationTranslations[locale];
+  translations[locale].statusListRepresentativeCheck = representativeCheckCopy[locale];
+  Object.assign(translations[locale], { statusListButtonTranslations: statusListButtonTranslationCopy[locale] });
+  Object.assign(translations[locale], { statusListSetupGuide: getStatusListSetupGuide(locale) });
+  Object.assign(translations[locale], { statusListNavigation: getStatusListNavigationCopy(locale), statusListRelationshipsHelp: getStatusListRelationshipsHelpCopy(locale), statusListSourceValidation: getSourceValidationCopy(locale) });
   const restored = automationNamespaceTranslations[locale];
   translations[locale].automationServices = restored.automationServices;
   translations[locale].automationCatalog = restored.automationCatalog;

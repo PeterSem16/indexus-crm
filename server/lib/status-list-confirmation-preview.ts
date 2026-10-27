@@ -7,6 +7,31 @@ import { evaluateAutomationCondition } from "./condition-evaluator";
 import { loadStatusListHistoryFacts } from "./status-list-history";
 import { StatusListWorkflowError, workflowCatalog } from "./status-list-workflow";
 import { statusListNativeActionIssues } from "../../shared/status-list-service-config";
+import { statusListCallbackPrefill } from "../../shared/status-list-callback-calendar";
+import { isEligibleScheduledCampaignCallback } from "../../shared/scheduled-callback";
+
+export async function taskTargetLabel(client: Pick<PoolClient,"query">, action: any, actorId: string): Promise<string | undefined> {
+  const config = action.serviceActionConfig;
+  const saved = action.previewConfig || {};
+  const targets: Array<{kind:string;id:string}> = Array.isArray(config?.recipients) ? config.recipients : [];
+  if (!targets.length) {
+    if (config?.taskGroupId || saved.task_group_id) targets.push({kind:"group",id:config?.taskGroupId || saved.task_group_id});
+    else if (config?.targetRole || saved.target_role) targets.push({kind:"role",id:config?.targetRole || saved.target_role});
+    else if (!config) targets.push({kind:"user",id:actorId});
+  }
+  const labels: string[] = [];
+  for (const target of targets) {
+    if (target.kind === "role") { labels.push(target.id.replace(/^role:/,"")); continue; }
+    if (target.kind === "group") {
+      const group = (await client.query("SELECT name FROM task_groups WHERE id=$1", [target.id])).rows[0];
+      if (group?.name) labels.push(group.name);
+    } else if (target.kind === "user") {
+      const user = (await client.query(`SELECT COALESCE(NULLIF(to_jsonb(u)->>'full_name',''),to_jsonb(u)->>'username') AS name FROM users u WHERE id=$1`, [target.id])).rows[0];
+      if (user?.name) labels.push(user.name);
+    }
+  }
+  return labels.length ? [...new Set(labels)].join(" · ") : undefined;
+}
 
 /** Read-only plan. Never calls an executor, reserves an effect, or writes an answer. */
 export async function previewStatusListConfirmation(client: Pick<PoolClient,"query">,
@@ -51,7 +76,7 @@ export async function previewStatusListConfirmation(client: Pick<PoolClient,"que
     const legacy = (await client.query(`SELECT a.id,a.action_type AS "actionType",a.condition_field AS "conditionField",
       a.condition_value AS "conditionValue",a.condition_operator AS "conditionOperator",a.condition_json AS "conditionJson",
       a.service_action_config AS "serviceActionConfig",a.service_action_owner_id AS "serviceActionOwnerId",
-      ac.trigger AS "automaticTrigger",ac.enabled AS "automaticEnabled"
+       ac.trigger AS "automaticTrigger",ac.enabled AS "automaticEnabled",to_jsonb(a) AS "previewConfig"
       FROM campaign_status_list_automations a JOIN campaign_status_list_items i ON i.id=a.status_list_item_id
       LEFT JOIN mission_status_list_automatic_configs ac ON ac.item_id=i.id
       WHERE i.campaign_id=$1 AND (($2='item' AND i.id=$3 AND a.question_id IS NULL)
@@ -82,7 +107,22 @@ export async function previewStatusListConfirmation(client: Pick<PoolClient,"que
           } catch { condition="unknown"; }
         }
       }
-      actions.push({id:action.id,sourceLabel,actionType:action.actionType,condition});
+      const detail: Partial<ConfirmationPreviewAction> = {};
+      if (["assign_task","create_task"].includes(action.actionType))
+        detail.targetLabel = await taskTargetLabel(client,action,actorId);
+      if (action.actionType === "set_callback" && !action.serviceActionConfig) {
+        const saved = action.previewConfig || {};
+        detail.callbackDate = statusListCallbackPrefill({
+          callbackOffsetDays:saved.callback_offset_days,callbackTime:saved.callback_time,
+          callbackBusinessDaysOnly:saved.callback_business_days_only,
+        });
+        if(saved.callback_existing_policy==="keep_existing" && isEligibleScheduledCampaignCallback(contact.status,contact.callback_date)) {
+          detail.callbackDate=new Date(contact.callback_date).toISOString();
+          detail.callbackNote=contact.callback_note || undefined;
+          detail.keptExistingCallback=true;
+        }
+      }
+      actions.push({id:action.id,sourceLabel,actionType:action.actionType,condition,...detail});
     }
     if(!changedEvents.has(`${event.kind}:${event.id}`))continue;
     for (const stored of storedRules) {

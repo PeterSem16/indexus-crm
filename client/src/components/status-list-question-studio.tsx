@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { StatusListHelp } from "./status-list-help";
+import { getStatusListSetupGuide } from "./status-list-setup-guide-copy";
 import { useStatusListConfirm } from "./status-list-confirm";
 import { getStatusListGuidanceCopy } from "./status-list-guidance-copy";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ChevronDown, Save, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, Plus, Save, X } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ type Props = {
   onSelectItem: (id: string) => void; onSelectQuestion: (itemId: string, questionId: string) => void;
   renderActions: (questionId: string | null, onDirtyChange: (dirty: boolean) => void) => ReactNode; renderSource: (onDirtyChange: (dirty: boolean) => void) => ReactNode;
   renderChildren: () => ReactNode; onDeleted: () => void;
+  onCreateSubquestion?: () => void; addSubquestionLabel?: string; addSubquestionHelp?: string;
   isNew?: boolean; ancestorHidden?: boolean; onSaved?: (record: any) => void; onDirtyChange?: (dirty: boolean) => void;
 };
 type Stage = "placement" | "content" | "answer" | "relationships" | "actions";
@@ -69,7 +72,7 @@ const same = (a: object, b: object, keys: string[]) => keys.every(key => (a as a
 
 export function StatusListQuestionStudio({
   campaignId, locale, item, questionId = null, allItems, canonicalOptions, resolvedPhase,
-  onSelectItem, onSelectQuestion, renderActions, renderSource, renderChildren, onDeleted, isNew = false, ancestorHidden = false, onSaved, onDirtyChange,
+  onSelectItem, onSelectQuestion, renderActions, renderSource, renderChildren, onDeleted, onCreateSubquestion, addSubquestionLabel, addSubquestionHelp, isNew = false, ancestorHidden = false, onSaved, onDirtyChange,
 }: Props) {
   const copy = getStatusListQuestionStudioCopy(locale);
   const behavior = getStatusListBehaviorCopy(locale);
@@ -279,6 +282,10 @@ export function StatusListQuestionStudio({
       <div className="slqs-heading"><span className="slqs-kicker">INDEXUS · NEXUS PULSE</span><h2>{copy.title}</h2>
         <p>{isQuestion ? `${copy.question} · ${item?.label || ""}` : `${copy.step} · ${stepDraft.label || item?.label || ""}`}</p></div>
       <div className="slqs-head-controls">
+        {!isQuestion && !isNew && onCreateSubquestion && <Button type="button" variant="outline" size="sm"
+          title={addSubquestionHelp} onClick={onCreateSubquestion} data-testid={`status-list-add-subquestion-${item.id}`}>
+          <Plus size={15}/>{addSubquestionLabel}
+        </Button>}
         <span className={`slqs-save-state${dirty ? " is-dirty" : ""}`} role="status"><i />{mutation.isPending ? copy.saving : dirty ? copy.dirty : copy.saved}</span>
         {!isNew && !isCreatingQuestion && <Button type="button" variant="outline" size="sm" data-testid={isQuestion ? `status-list-delete-question-${questionId}` : `status-list-delete-${item.id}`} disabled={deleteMutation.isPending} onClick={deleteRecord}>{copy.delete}</Button>}
       </div>
@@ -287,7 +294,7 @@ export function StatusListQuestionStudio({
       <main className="slqs-editor">
         <nav className="slqs-stages" aria-label={copy.title}>
           {stages.map((name, index) => <button key={name} type="button" className={stage === name ? "active" : ""} aria-current={stage === name ? "step" : undefined} data-testid={`studio-stage-${name}`} onClick={() => selectStage(name)}>
-            <span className="slqs-stage-number">{String(index + 1).padStart(2, "0")}</span><span>{copy[name]}</span>{stage === name && <ChevronDown size={14} />}
+            <span className="slqs-stage-number">{String(index + 1).padStart(2, "0")}</span><span>{copy[name].replace(/^\d{2}\s·\s/, "")}</span>{stage === name && <ChevronDown size={14} />}
           </button>)}
         </nav>
         <section className="slqs-stage-card" aria-live="polite">
@@ -347,11 +354,15 @@ export function StatusListQuestionStudio({
           </div>}
           {stage === "answer" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">03 / 05</span><h3>{copy.answerTitle}</h3><p>{copy.answerHelp}</p></div>
+            <div className="mb-4 flex flex-wrap gap-2" data-testid="status-list-answer-help">
+              <StatusListHelp locale={locale} section="answerBehavior" contextual/>
+              <StatusListHelp locale={locale} section="answerBranches" contextual/>
+            </div>
             {!isQuestion && !isNew && stepDraft.confirmationType==="auto" &&
               <StatusListAutomaticTriggerInspector campaignId={campaignId} itemId={item.id} locale={locale} disabled={dirty}/>}
             {!isQuestion && !isNew && <section className="mb-5 space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-4" data-testid="status-list-answer-branches">
               <h4 className="text-sm font-semibold">{guidance.title}</h4>
-              <p className="text-xs leading-relaxed text-muted-foreground">{guidance.help}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{getStatusListSetupGuide(locale).answerBranches.paragraphs[0]}</p>
               <label className="slqs-field"><span>{guidance.choose}</span>
                 <select value="" data-testid="status-list-branch-select" onChange={event => {
                   const [kind, id] = event.target.value.split(":");
@@ -405,12 +416,13 @@ export function StatusListQuestionStudio({
               <label className="slqs-field slqs-wide"><span>{guidance.reporting}</span><select data-testid="status-list-canonical-status" value={stepDraft.canonicalClinicStatusKey || ""} onChange={event => setStep("canonicalClinicStatusKey", event.target.value || null)}>
                 <option value="">{guidance.none}</option>{canonicalByPhase.map(option => <option value={option.value} key={`${option.phase}:${option.value}`}>{option.label}</option>)}
                 {stepDraft.canonicalClinicStatusKey && !canonicalByPhase.some(option => option.value === stepDraft.canonicalClinicStatusKey) && <option value={stepDraft.canonicalClinicStatusKey}>{canonicalOptions.find(option => option.value === stepDraft.canonicalClinicStatusKey)?.label || stepDraft.canonicalClinicStatusKey}</option>}
-              </select><small>{copy.canonicalHelp}</small><small>{guidance.reportingExample}</small></label>
+              </select><small>{copy.canonicalHelp}</small><small>{getStatusListSetupGuide(locale).clinicOutcome.paragraphs[2]}</small><small>{guidance.reportingExample}</small><StatusListHelp locale={locale} section="clinicOutcome" contextual/></label>
               <div className="slqs-source-box slqs-wide"><strong>{copy.stageSource}</strong><p>{copy.sourceOwned}</p>{renderSource(setSourceDirty)}</div>
             </div>}
           </div>}
           {stage === "relationships" && <div className="slqs-stage-content">
             <div className="slqs-intro"><span className="slqs-step-marker">04 / 05</span><h3>{copy.relationshipsTitle}</h3><p>{copy.relationshipsHelp}</p></div>
+            <div className="mb-4"><StatusListHelp locale={locale} section="relationships" contextual/></div>
             <StatusListRelationshipsEditor
               locale={locale} item={item} items={allItems} questionId={isQuestion ? questionId : null}
               questionText={questionDraft.questionText} questionHidden={questionDraft.isHidden} groupName={questionDraft.groupName} logicOperator={questionDraft.logicOperator}
@@ -450,7 +462,7 @@ export function StatusListQuestionStudio({
             <StatusListAgentItemFrame itemId={`draft-${item?.id || "new"}`} stepId="draft" tab={phase} selected={false} info={stepDraft.confirmationType === "info"}>
               <div className="p-3 pl-4">
                 <StatusListAgentItemHeading label={isQuestion ? item?.label || copy.stepName : stepDraft.label || copy.stepName} selected={false}
-                  icon={stepDraft.icon} description={isQuestion ? item?.description : stepDraft.description} required={!isQuestion && stepDraft.confirmationType !== "info" && stepDraft.required}/>
+                  icon={stepDraft.icon} color={stepDraft.color} description={isQuestion ? item?.description : stepDraft.description} required={!isQuestion && stepDraft.confirmationType !== "info" && stepDraft.required}/>
                 <StatusListAgentQuestionChoices itemId="draft" questions={previewQuestions} questionSelectionMode={stepDraft.questionSelectionMode}
                   answers={previewAnswers} yesLabel={copy.yes} noLabel={copy.no} locale={locale} onAnswer={previewAnswer}
                   renderAction={(q, peers, mode) => {
@@ -458,7 +470,7 @@ export function StatusListQuestionStudio({
                     const status = q.automations?.some((a: any) => a.actionType === "set_contact_status");
                     if (!callback && !status) return null;
                     return <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1" onClick={() => previewAnswer(q, true, peers, mode)}>
-                      {q.icon ? <StatusListQuickOptionIcon name={q.icon} className="h-3 w-3"/> : callback ? <Phone className="h-3 w-3 text-cyan-600"/> : <Tag className="h-3 w-3 text-purple-600"/>}{q.questionText}
+                      {q.icon ? <StatusListQuickOptionIcon name={q.icon} color={q.color} className="h-3 w-3"/> : callback ? <Phone className="h-3 w-3 text-cyan-600"/> : <Tag className="h-3 w-3 text-purple-600"/>}{q.questionText}
                     </Button>;
                   }}/>
               </div>

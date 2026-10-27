@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { acknowledgeCallbackRequest, callbackRequestIdentity } from "./callback-request-identity";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -31,18 +32,23 @@ export async function apiRequest(
 ): Promise<Response> {
   console.log(`[apiRequest] ${method} ${url}`, data ? "with data" : "no data");
   try {
-    const body = data ? JSON.stringify(data) : undefined;
+    const callbackRun = method.toUpperCase() === "POST" &&
+      /^\/api\/campaigns\/[^/]+\/contacts\/[^/]+\/status-list-actions\/[^/]+\/run$/.test(url);
+    const payload = callbackRun ? { ...(data as Record<string, unknown>),
+      callbackEventId: callbackRequestIdentity(url, sessionStorage) } : data;
+    const body = payload ? JSON.stringify(payload) : undefined;
     console.log(`[apiRequest] Body length: ${body?.length || 0}`);
     
     const res = await fetch(url, {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers: payload ? { "Content-Type": "application/json" } : {},
       body,
       credentials: "include",
     });
 
     console.log(`[apiRequest] Response status: ${res.status}`);
     await throwIfResNotOk(res);
+    if (callbackRun) acknowledgeCallbackRequest(url, sessionStorage);
     return res;
   } catch (error) {
     console.error(`[apiRequest] Error in ${method} ${url}:`, error);

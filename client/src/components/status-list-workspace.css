@@ -9,7 +9,7 @@
 .slw-tools{padding:24px;background:#edf3ef}.slw-tools>header{padding:0 2px 18px}.slw-tools>header span{font-size:9px;letter-spacing:.16em;font-weight:700;color:var(--slw-teal)}.slw-tools>header h3{font-size:20px;letter-spacing:-.03em;color:var(--slw-ink);margin:4px 0}.slw-tools>header p{font-size:12px;line-height:1.6;color:#526b67;max-width:620px}.slw-tools>div{flex-wrap:wrap}.slw-tools>div:first-of-type{gap:8px}
 .slw-layout{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:16px;padding:18px;background:#edf3ef}
 .slw-outline,.slw-detail{background:hsl(var(--background));border:1px solid var(--slw-line);border-radius:9px;min-width:0;align-self:start;box-shadow:0 3px 12px hsl(165 22% 24%/.035)}
-.slw-outline h3{font-size:14px;font-weight:700;padding:16px 14px 11px;color:var(--slw-ink)}
+.slw-outline-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 10px 8px 14px}.slw-outline-heading h3{font-size:14px;font-weight:700;color:var(--slw-ink)}.slw-outline-add-step{height:29px;flex:0 0 auto;gap:5px;padding:0 8px;font-size:10px}
 .slw-filter-label{padding:0 12px 5px;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#647c77}
 .slw-phases{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 10px}.slw-phases>button{font-size:10px;padding:6px 8px;border-radius:5px;color:hsl(var(--muted-foreground));border:1px solid transparent;transition:background .15s,color .15s,border-color .15s}.slw-phases>button.active{background:#e4f0eb;border-color:#c5dbd2;color:var(--slw-teal);font-weight:700}
 .slw-visibility-filters>button.active{background:#f5e8df;border-color:#e7cbbb;color:#884b36}
@@ -99,6 +99,16 @@
 .slw-question-icon{color:hsl(var(--muted-foreground))}
 .slw-quick-row.slw-hidden-row{background:hsl(24 24% 47%/.08)}
 .dark .slw-quick-row.slw-hidden-row{background:hsl(24 24% 47%/.13)}
+.slw-tree-row.slw-hidden-row{border:1px solid hsl(25 52% 53%/.42);background:hsl(25 72% 95%/.88)}
+.slw-tree-row.slw-hidden-row .slw-tree-label{color:hsl(22 38% 31%);font-weight:600}
+.slw-tree-row.slw-hidden-row.selected{border-color:hsl(25 52% 53%/.55);background:hsl(25 72% 94%);box-shadow:inset 3px 0 #2563eb,0 0 0 1px hsl(25 52% 53%/.18)}
+.slw-tree-row.selected{background:hsl(215 90% 96%);box-shadow:inset 3px 0 #2563eb}
+.slw-tree-row.selected .slw-tree-label{color:hsl(215 72% 34%);font-weight:700}
+.dark .slw-tree-row.slw-hidden-row{border-color:hsl(25 48% 53%/.58);background:hsl(23 26% 20%)}
+.dark .slw-tree-row.slw-hidden-row .slw-tree-label{color:hsl(27 83% 82%)}
+.dark .slw-tree-row.slw-hidden-row.selected{background:hsl(23 27% 22%);box-shadow:inset 3px 0 #60a5fa,0 0 0 1px hsl(25 48% 53%/.28)}
+.dark .slw-tree-row.selected{background:hsl(215 45% 21%);box-shadow:inset 3px 0 #60a5fa}
+.dark .slw-tree-row.selected .slw-tree-label{color:hsl(213 93% 82%)}
 @media(max-width:420px){.slw-type-badge{font-size:7px;padding:2px 4px}.slw-row-type-icon{width:12px;height:12px}}
 .slw-original-action{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 11px;border:1px solid var(--slw-line);border-radius:8px;background:hsl(var(--card));margin-top:7px}
 .slw-original-action-icon{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:hsl(var(--primary)/.09);color:hsl(var(--primary))}
@@ -169,3 +179,70 @@
 .slbd-baseline{display:grid;gap:5px;padding:10px;border-left:3px solid hsl(var(--primary)/.4);background:hsl(var(--primary)/.045);border-radius:0 6px 6px 0}
 .slbd-baseline strong{font-size:10px}.slbd-baseline p,.slbd-baseline small{font-size:9px;line-height:1.55;color:hsl(var(--muted-foreground))}
 @media(max-width:600px){.slbd{padding:10px}.slbd-metrics{grid-template-columns:1fr 1fr}.slbd-columns{grid-template-columns:1fr}.slbd-group-id{max-width:42%}.slbd-transitions li{grid-template-columns:1fr;gap:3px}}
+
+/* Selection and visibility are separate signals: blue always means selected;
+   a warm dashed amber treatment always means hidden. Keep these last so the
+   quick-item and dark-theme rules above cannot recolor either state. */
+.slw-tree-row.selected,
+.slw-tree-row.slw-quick-row.selected,
+.slw-tree-row.slw-hidden-row.selected{
+  background:hsl(213 88% 56% / .14);
+  border:1px solid hsl(213 78% 49% / .78);
+  box-shadow:inset 4px 0 hsl(213 82% 48%);
+}
+.slw-tree-row.selected .slw-tree-label{
+  color:hsl(215 78% 34%);
+  font-weight:750;
+}
+.slw-tree-row.selected .slw-tree-label::before{
+  content:"";
+  width:7px;
+  height:7px;
+  flex:0 0 7px;
+  border-radius:50%;
+  background:hsl(213 82% 48%);
+  box-shadow:0 0 0 3px hsl(213 88% 56% / .18);
+}
+.slw-tree-row.slw-hidden-row:not(.selected),
+.slw-tree-row.slw-quick-row.slw-hidden-row:not(.selected){
+  background:hsl(38 100% 94%);
+  border:1px dashed hsl(30 83% 48% / .75);
+}
+.slw-tree-row.slw-hidden-row:not(.selected) .slw-tree-label{
+  color:hsl(25 65% 29%);
+}
+.slw-visibility.is-hidden{
+  color:hsl(25 73% 31%);
+}
+.slw-visibility.is-hidden span{
+  background:hsl(38 100% 87%);
+  border:1px dashed hsl(30 83% 48% / .65);
+  border-radius:4px;
+}
+.dark .slw-tree-row.selected,
+.dark .slw-tree-row.slw-quick-row.selected,
+.dark .slw-tree-row.slw-hidden-row.selected{
+  background:hsl(213 75% 58% / .2);
+  border-color:hsl(213 76% 67% / .8);
+  box-shadow:inset 4px 0 hsl(213 82% 70%);
+}
+.dark .slw-tree-row.selected .slw-tree-label{
+  color:hsl(213 92% 84%);
+}
+.dark .slw-tree-row.selected .slw-tree-label::before{
+  background:hsl(213 90% 74%);
+  box-shadow:0 0 0 3px hsl(213 75% 58% / .22);
+}
+.dark .slw-tree-row.slw-hidden-row:not(.selected),
+.dark .slw-tree-row.slw-quick-row.slw-hidden-row:not(.selected){
+  background:hsl(28 45% 19%);
+  border:1px dashed hsl(35 82% 61% / .7);
+}
+.dark .slw-tree-row.slw-hidden-row:not(.selected) .slw-tree-label,
+.dark .slw-visibility.is-hidden{
+  color:hsl(38 95% 81%);
+}
+.dark .slw-visibility.is-hidden span{
+  background:hsl(28 51% 24%);
+  border-color:hsl(35 82% 61% / .7);
+}

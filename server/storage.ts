@@ -1,4 +1,5 @@
 import { updateMissionAgentAssignments } from "./lib/campaign-agent-assignments";
+import { enqueueChatAnalysis } from "./lib/chat-analysis-outbox";
 import { 
   users, customers, products, customerProducts, invoices, billingDetails, invoiceItems, scheduledInvoices,
   customerNotes, entityNotes, activityLogs, communicationMessages,
@@ -472,7 +473,7 @@ export interface IStorage {
   getTasksByUserPaginated(userId: string, page: number, limit: number): Promise<{ data: Task[], total: number }>;
   getTasksByCustomer(customerId: string): Promise<Task[]>;
   getTasksByCountry(countryCodes: string[]): Promise<Task[]>;
-  createTask(task: InsertTask): Promise<Task>;
+  createTask(task: InsertTask, afterInsert?: (tx: any, task: Task) => Promise<void>): Promise<Task>;
   updateTask(id: string, data: Partial<InsertTask>): Promise<Task | undefined>;
   updateTaskWithActor(
     id: string,
@@ -2637,7 +2638,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(tasks.createdAt));
   }
 
-  async createTask(task: InsertTask): Promise<Task> {
+  async createTask(task: InsertTask, afterInsert?: (tx: any, task: Task) => Promise<void>): Promise<Task> {
     const safeTask = stripTaskWorkTimingInput(task);
     const created = await db.transaction(async (tx) => {
       if (safeTask.requestRecipients) {
@@ -2673,6 +2674,7 @@ export class DatabaseStorage implements IStorage {
       }
       const [created] = await tx.insert(tasks).values(safeTask as any).returning();
       await markTaskAttachmentAssociations(tx, task.attachments, created);
+      if (afterInsert) await afterInsert(tx, created);
       return created;
     });
     // AI is strictly best-effort and starts only after the task transaction commits.
@@ -5732,7 +5734,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChatMessage(data: InsertChatMessage): Promise<ChatMessage> {
-    const [message] = await db.insert(chatMessages).values(data).returning();
+    const message = await db.transaction(async tx => {
+      const [message] = await tx.insert(chatMessages).values(data).returning();
+      await enqueueChatAnalysis(tx, message);
+      return message;
+    });
     void import("./lib/automation-communication-sources").then(module => module.publishCommunicationServiceSource("chat", message.id))
       .catch(() => console.error("[Automation] chat source event unavailable"));
     return message;

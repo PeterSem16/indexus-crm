@@ -39,6 +39,8 @@ import { AutomationServiceCatalog, type ServiceCatalogData, type ServiceId, type
 import { serviceVisual } from "@/components/automation-service-visuals";
 import { AUTOMATION_TRIGGER_PRESETS, type AutomationTriggerPreset } from "@/lib/automation-trigger-presets";
 import { getCommunicationAnalysisCopy } from "@/lib/communication-analysis-copy";
+import { AutomationEligibilityDiagnostic } from "@/components/automation-eligibility-diagnostic";
+import { AutomationAttachmentResults } from "@/components/automation-attachment-results";
 import { getUnifiedAutomationCopy, analysisChannelLabel } from "@/lib/automation-unified-copy";
 import { createAnalysisServiceDraft, createMetricServiceDraft, ANALYSIS_RESULT_FIELDS, type AnalysisServiceId } from "@/lib/automation-unified-service";
 import { AutomationTextSearchEditor } from "@/components/automation-text-search-editor";
@@ -2047,6 +2049,7 @@ export function RuleEditor({
           </TabsContent>
         </Tabs>
 
+        {rule && <AutomationEligibilityDiagnostic key={`${rule.id}:${rule.updatedAt}`} rules={[rule]} ruleId={rule.id}/>}
         <DialogFooter className="task-modern-modal-footer automation-dialog-footer">
           <Button
             variant="outline"
@@ -2771,6 +2774,7 @@ function RunHistory({ ruleId }: { ruleId: string }) {
           </div>
           {run.error && <div className="text-red-500 mt-1">{run.error}</div>}
           {selectedRun === run.id && detailQ.data && (
+            detailQ.data.attachmentAnalysis ? <AutomationAttachmentResults activity={detailQ.data.attachmentAnalysis} /> :
             <pre className="mt-2 bg-muted p-2 rounded overflow-auto text-[11px]">
               {JSON.stringify(detailQ.data, null, 2)}
             </pre>
@@ -3048,6 +3052,7 @@ function GlobalRunsView({ rules }: { rules: Rule[] }) {
                             </div>
                           ) : detailQ.data ? (
                             <div className="space-y-3">
+                              {detailQ.data.attachmentAnalysis && <AutomationAttachmentResults activity={detailQ.data.attachmentAnalysis} />}
                               {detailQ.data.event && (
                                 <div>
                                   <div className="font-semibold text-[11px] mb-1">Trigger event</div>
@@ -3078,12 +3083,12 @@ function GlobalRunsView({ rules }: { rules: Rule[] }) {
                                   </div>
                                 </div>
                               )}
-                              <details>
+                              {!detailQ.data.attachmentAnalysis && <details>
                                 <summary className="cursor-pointer text-[11px] text-muted-foreground">Raw JSON</summary>
                                 <pre className="mt-1 bg-background p-2 rounded overflow-auto text-[10px] max-h-72">
                                   {JSON.stringify(detailQ.data, null, 2)}
                                 </pre>
-                              </details>
+                              </details>}
                             </div>
                           ) : null}
                         </td>

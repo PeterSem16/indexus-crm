@@ -9,6 +9,7 @@ import { analyzeCommunication, selectedAnalysisAttachments, ensureAutomationAnal
 import { executeAssignOwner } from "./automation-assign-owner";
 import { assignmentField } from "../../shared/automation-assign-owner";
 import { admitAutomationRun } from "./automation-run-admission";
+import { analysisEffectSourceKey, claimAnalysisEffect } from "./automation-effect-admission";
 import { ensureTaskAiChecklist } from "./task-ai-checklist";
 import { taskTemplateContext } from "./task-template-variables";
 import { automationDisplayValues, taskDisplayContent, renderAutomationText } from "./automation-display-values";
@@ -1116,28 +1117,36 @@ function taskStatusTriggerMatches(rule: WorkflowRule, newValues: any): boolean {
 }
 
 export function eventMatchesRule(rule: WorkflowRule, event: WorkflowEvent): boolean {
-    if (!rule.enabled || rule.module !== event.module) return false;
-    if (!leadSearchTriggerMatches(rule.trigger, event)) return false;
+    return eventRuleExclusion(rule, event) === null;
+}
+
+/** The exact execution gate, exposed as redacted reason codes for read-only diagnostics. */
+export function eventRuleExclusion(rule: WorkflowRule, event: WorkflowEvent) {
+    if (!rule.enabled) return "rule_disabled" as const;
+    if (rule.module !== event.module) return "event_mismatch" as const;
+    // Recovery is not historical replay for rules created after this message.
+    if (event.eventType === "chat.received" && new Date(rule.createdAt) > new Date(event.createdAt)) return "before_activation" as const;
+    if (!leadSearchTriggerMatches(rule.trigger, event)) return "event_mismatch" as const;
     // Also exclude legacy completion status_changed events already waiting in the queue.
-    if (!taskStatusTriggerMatches(rule, event.newValues)) return false;
+    if (!taskStatusTriggerMatches(rule, event.newValues)) return "event_mismatch" as const;
     const t: any = rule.trigger || {};
-    if (t.reviewActivatedAt && new Date(event.createdAt).getTime() < new Date(t.reviewActivatedAt).getTime()) return false;
-    if (t.listenAfter && new Date(event.createdAt).getTime() < new Date(t.listenAfter).getTime()) return false;
+    if (t.reviewActivatedAt && new Date(event.createdAt).getTime() < new Date(t.reviewActivatedAt).getTime()) return "before_activation" as const;
+    if (t.listenAfter && new Date(event.createdAt).getTime() < new Date(t.listenAfter).getTime()) return "before_activation" as const;
     if (t.type === "event") {
-      if (t.entityType && t.entityType !== event.entityType) return false;
+      if (t.entityType && t.entityType !== event.entityType) return "event_mismatch" as const;
       const communicationSource = isAnalysisServiceEvent(t.eventType) && t.analysis &&
         (ANALYSIS_SOURCE_EVENTS as readonly string[]).includes(event.eventType);
-      if (t.eventType && t.eventType !== event.eventType && !communicationSource) return false;
+      if (t.eventType && t.eventType !== event.eventType && !communicationSource) return "event_mismatch" as const;
       // Inbound services must fail closed on unknown queue country. Keep the
       // legacy matching behavior of unrelated modules unchanged.
       // A country-scoped rule must not run on an event without a verified country.
-      if (event.module === "metric") return (event.newValues as any)?.metricRuleId === rule.id;
-      if (!matchesRuleCountryScope(rule.countryCodes, rule.countryCode, event.countryCode)) return false;
-      return true;
+      if (event.module === "metric") return (event.newValues as any)?.metricRuleId === rule.id ? null : "event_mismatch" as const;
+      if (!matchesRuleCountryScope(rule.countryCodes, rule.countryCode, event.countryCode))
+        return event.countryCode ? "country_mismatch" as const : "country_unknown" as const;
+      return null;
     }
-    return false;
+    return "event_mismatch" as const;
 }
-
 type ScheduledCandidate = { id: string; countryCode: string; newValues: Record<string, unknown> };
 
 function scheduleRuleError(rule: WorkflowRule): string | null {
@@ -1497,11 +1506,20 @@ export async function runRule(
   event: WorkflowEvent,
   causationChain: string[],
   evaluationPass: RuleEvaluationPass = { visited: new Set(), path: [] },
+  manual?: { attemptId: string; analysis: any; authorize: () => Promise<void> },
 ): Promise<void> {
   // A linked ELSE rule must not bypass the selected LEAD SEARCH campaigns.
   if (!leadSearchTriggerMatches(rule.trigger, event)) return;
   if (!await leadSearchExecutionAllowed(rule)) return;
   if (!enterRuleEvaluation(rule.id, evaluationPass)) return;
+  if ((event.eventType === "chat.received" || (rule.trigger as any)?.analysis) && !manual) {
+    const [prior] = await db.select({ id: workflowRuns.id }).from(workflowRuns)
+      .where(and(eq(workflowRuns.ruleId, rule.id), eq(workflowRuns.eventId, event.id))).limit(1);
+    // Running/failed actions are intentionally NOT replayed: a provider may
+    // have accepted them before an interruption. Retryable pre-action analysis
+    // errors do not create a run and therefore cannot trip this guard.
+    if (prior) return;
+  }
   const scheduled = event.source === "schedule";
   const ctx: any = {
     rule,
@@ -1511,17 +1529,26 @@ export async function runRule(
     entityId: event.entityId,
     countryCode: event.countryCode,
     actorUserId: event.actorUserId,
+    ...((rule.trigger as any)?.analysis ? { effectAdmission: "v1" } : {}),
+    ...(manual ? { retryAttemptId: manual.attemptId } : {}),
   };
 
   if ((rule.trigger as any)?.analysis) {
     try {
-      ctx.analysis = await analyzeCommunication(rule, event);
+      ctx.analysis = manual ? manual.analysis : await analyzeCommunication(rule, event);
       if (!ctx.analysis) {
         await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "skipped", skippedReason: "analysis_source_not_eligible" });
         return;
       }
       ctx.communication = ctx.analysis.communication || {};
     } catch (error) {
+      if (event.eventType === "chat.received" && !(error instanceof Error &&
+          ["analysis_text_limit", "analysis_text_unavailable"].includes(error.message))) {
+        // No action has been reserved. Keep the durable handoff pending on
+        // provider/database/quota failures rather than recording a terminal
+        // run that would permanently suppress re-analysis.
+        throw new Error("chat_analysis_deferred");
+      }
       await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "failed",
         error: error instanceof Error && /^analysis_[a-z_]+$/.test(error.message) ? error.message : "analysis_failed",
         finishedAt: new Date() });
@@ -1535,6 +1562,7 @@ export async function runRule(
   if (resultMatch !== true) {
     await db.insert(workflowRuns).values({ ruleId: rule.id, eventId: event.id, status: "skipped",
       skippedReason: resultMatch === null ? "analysis_trigger_unknown" : "analysis_trigger_not_matched",
+      payload: ctx,
       finishedAt: new Date() });
     return;
   }
@@ -1556,7 +1584,7 @@ export async function runRule(
       finishedAt: new Date(),
     });
     const fallbackId = selectedBranch.ruleId;
-    if (eligibleConditions && typeof fallbackId === "string" && rule.module === "communication" &&
+    if (!manual && eligibleConditions && typeof fallbackId === "string" && rule.module === "communication" &&
         (rule.trigger as any)?.analysis && evaluationPass.path.length < 4) {
       const [target] = await findMatchingRules(event, [fallbackId]);
       if (target?.createdByUserId && target.createdByUserId === rule.createdByUserId &&
@@ -1586,6 +1614,7 @@ export async function runRule(
 
   const reservation = await admitAutomationRun(pool, {
     ruleId: rule.id, eventId: scheduled ? null : event.id,
+    deduplicateEvent: (event.eventType === "chat.received" || Boolean((rule.trigger as any)?.analysis)) && !manual,
     payload: scheduled ? { source: "schedule", module: event.module, entityType: event.entityType,
       entityId: event.entityId, eventType: event.eventType, newValues: event.newValues, countryCode: event.countryCode } : ctx,
     causationChain,
@@ -1613,8 +1642,28 @@ export async function runRule(
       overallOk = false;
       continue;
     }
+    // Access revoked between actions aborts before claiming the next effect.
+    // Do not log it as a failed send: that action has not started.
+    if (manual) await manual.authorize();
     try {
+      let effectInput: Parameters<typeof claimAnalysisEffect>[1] | undefined;
+      if ((rule.trigger as any)?.analysis && event.entityId) {
+        effectInput = { ruleId: rule.id, runId: run.id, sourceKey: analysisEffectSourceKey(event),
+          entityId: event.entityId, eventType: event.eventType, eventId: event.id, actionIndex: i, actions };
+        const claim = await claimAnalysisEffect(pool, effectInput);
+        if (claim !== "claimed") {
+          const ok = claim === "success";
+          results.push({ index: i, type: action.type, ok, skipped: true, reason: `effect_${claim}` });
+          await db.insert(workflowActionLog).values({ runId: run.id, actionIndex: i, actionType: action.type,
+            status: "skipped", error: ok ? null : "effect_uncertain", output: { reason: `effect_${claim}` } });
+          if (!ok) overallOk = false;
+          continue;
+        }
+      }
       const r = await handler(action.config || {}, ctx, run.id);
+      if (effectInput) await pool.query(`UPDATE workflow_analysis_effects SET status=$4,finished_at=now()
+        WHERE rule_id=$1 AND source_key=$2 AND action_index=$3 AND run_id=$5`,
+      [rule.id, effectInput.sourceKey, i, r.ok ? "success" : "uncertain", run.id]);
       results.push(scheduled
         ? { index: i, type: action.type, ok: r.ok }
         : { index: i, type: action.type, ...r });
@@ -1726,13 +1775,16 @@ export async function processEvent(eventId: string, onlyRuleIds?: readonly strin
   if (!rules.length) return;
   const baseChain = event.causationRunId ? [event.causationRunId] : [];
   const evaluationPass: RuleEvaluationPass = { visited: new Set(), path: [] };
+  let chatFailure = false;
   for (const rule of rules) {
     try {
       await runRule(rule, event, baseChain, evaluationPass);
     } catch (err) {
       console.error(`[Automation] runRule error rule=${rule.id} event=${event.id}:`, err);
+      if (event.eventType === "chat.received") chatFailure = true;
     }
   }
+  if (chatFailure) throw new Error("chat_rule_evaluation_deferred");
 }
 
 export function initAutomationEngine() {
@@ -1740,6 +1792,8 @@ export function initAutomationEngine() {
   setEventDispatcher(async (eventId: string) => {
     await processEvent(eventId);
   });
+  void import("./chat-analysis-outbox").then(module => module.startChatAnalysisRecovery())
+    .catch(() => console.error("[Automation] chat recovery unavailable"));
   console.log("[Automation] Engine initialized");
 }
 

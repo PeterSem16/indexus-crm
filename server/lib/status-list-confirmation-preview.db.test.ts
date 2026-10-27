@@ -64,6 +64,19 @@ try {
   for(const table of ["mission_status_list_answers","mission_status_list_rule_runs","campaign_contact_status_list_state","mission_status_list_automatic_events"])
     assert.equal(Number((await client.query(`SELECT count(*) FROM ${table}`)).rows[0].count),0,`preview must not write ${table}`);
   await client.query("COMMIT");
+  // Metadata belongs to the real step preview, not only the manual-action UI.
+  await client.query(`ALTER TABLE campaign_status_list_automations ADD COLUMN callback_offset_days integer,
+    ADD COLUMN callback_time text, ADD COLUMN target_role text`);
+  const callback=randomUUID(),taskAction=randomUUID();
+  await client.query(`INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type,callback_offset_days,callback_time,target_role)
+    VALUES($1,$3,'set_callback',4,'14:30',NULL),($2,$3,'assign_task',NULL,NULL,'role:Back Office')`,[callback,taskAction,step]);
+  await client.query("BEGIN READ ONLY");
+  const summary=await previewStatusListConfirmation(client,campaign,contact,"agent",{changes:[{kind:"item",id:step,value:true}]});
+  assert.match(summary.actions.find(action=>action.id===callback)!.callbackDate!,/T14:30$/);
+  assert.equal(summary.actions.find(action=>action.id===taskAction)!.targetLabel,"Back Office");
+  for(const table of ["mission_status_list_answers","mission_status_list_rule_runs","campaign_contact_status_list_state","mission_status_list_automatic_events"])
+    assert.equal(Number((await client.query(`SELECT count(*) FROM ${table}`)).rows[0].count),0);
+  await client.query("COMMIT");
   await client.query(`INSERT INTO mission_status_list_answers(campaign_contact_id,question_id,value,updated_by)
     VALUES($1,$2,'"yes"'::jsonb,'agent')`,[contact,question]);
   await client.query("BEGIN READ ONLY");

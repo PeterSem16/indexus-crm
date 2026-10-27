@@ -8,7 +8,8 @@ type Query = (sql: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: 
 type Input = {
   campaignId: string; campaignContactId: string; itemId: string; userId: string;
   confirmationId?: string; requestId?: string;
-  automaticEvent?: {id:string;occurredAt:Date|string;questionRevision?:string|null};
+  automaticEvent?: {id:string;occurredAt:Date|string;questionRevision?:string|null;
+    representativeCheck?: {questionId:string;episode:string}};
 };
 type Dependencies = {
   query: Query;
@@ -17,7 +18,25 @@ type Dependencies = {
 };
 const defaults: Dependencies = {
   query: async (sql, params) => (await import("../db")).pool.query(sql, params),
-  execute: async (...args) => (await import("./automation-engine")).executeSharedServiceAction(...args),
+  execute: async (type, config, context, runId) => {
+    if(type==="schedule_callback") {
+      const {pool}=await import("../db");
+      const prior=(await pool.query(`SELECT result->'output'->>'callbackDate' AS date FROM status_list_service_executions
+        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND automation_id=$3 AND status='succeeded'
+          AND result->'output'->>'keptExisting'='false' ORDER BY created_at DESC,id DESC LIMIT 1`,
+      [context.statusList.campaignId,context.statusList.campaignContactId,context.statusList.automationId])).rows[0];
+      const {callbackInstant}=await import("./status-list-callback-compatible");
+      const date=callbackInstant({callback:{days:config.days,time:config.time,weekdaysOnly:config.weekdaysOnly,existing:config.existing}} as any,
+        new Date(context.event.createdAt).toISOString());
+      const result=await (await import("./status-list-callback-write")).writeStatusListCallback({
+        campaignId:context.statusList.campaignId,campaignContactId:context.statusList.campaignContactId,policy:config.existing==="replace" ? "replace" : "keep_existing",
+        expectedAutomaticDate:prior?.date,
+        fields:{status:"callback_scheduled",callbackDate:new Date(date),updatedAt:new Date()},
+      });
+      return {ok:true,output:result};
+    }
+    return (await import("./automation-engine")).executeSharedServiceAction(type,config,context,runId);
+  },
   condition: async (...args) => (await import("./condition-evaluator")).evaluateAutomationCondition(...args),
 };
 const admin = (role: string) => ["admin", "superadmin", "owner"].includes(role);
@@ -64,7 +83,7 @@ export function createStatusListServiceWriteGuard(deps: {
     const config = Object.prototype.hasOwnProperty.call(body, "serviceActionConfig")
       ? body.serviceActionConfig : existing?.service_action_config;
     const type = body.actionType ?? existing?.action_type;
-    if(source.derived_service_target && (!config || !statusListNativeActionType(type)))
+    if(source.derived_service_target && ((!config && type!=="set_callback") || !statusListNativeActionType(type)))
       return res.status(409).json({error:"background_service_action_not_supported"});
     const issues = statusListNativeActionIssues(type, config);
     if (issues.length) return res.status(400).json({ error: "Invalid service action", issues });
@@ -78,7 +97,7 @@ export function createStatusListServiceWriteGuard(deps: {
       }
     }
     // The client cannot select another user's personal mailbox by forging an ID.
-    body.serviceActionOwnerId = config == null ? null :
+    body.serviceActionOwnerId = config == null && type!=="set_callback" ? null :
       !existing || existing.action_type !== type || JSON.stringify(config) !== JSON.stringify(existing.service_action_config)
         ? user.id : existing.service_action_owner_id;
     if (type === "send_sms" && config) {
@@ -113,7 +132,7 @@ export async function resolveStatusListServiceAuthor(actionId: string, viewer: a
 export async function executeStatusListNativeService(automation: any, input: Input, deps = defaults) {
   const type = statusListNativeActionType(automation.actionType);
   const issues = statusListNativeActionIssues(automation.actionType, automation.serviceActionConfig);
-  if (!type || !automation.serviceActionConfig || issues.length)
+  if (!type || (!automation.serviceActionConfig && type!=="schedule_callback") || issues.length)
     return { ok: false, error: "invalid_service_configuration" };
   const [source] = (await deps.query(`
     SELECT c.name AS campaign_name,c.country_codes AS mission_countries,c.settings AS mission_settings,
@@ -180,13 +199,26 @@ export async function executeStatusListNativeService(automation: any, input: Inp
       input.confirmationId !== `answer:${source.answer_revision}`)
     return { ok: true, skipped: true, status: "answer_superseded" };
   if (input.automaticEvent) {
+    if (input.automaticEvent.representativeCheck) {
+      const event = (await deps.query(`SELECT * FROM mission_status_list_automatic_events
+        WHERE id=$1 AND campaign_id=$2 AND campaign_contact_id=$3 AND automation_id=$4 AND state='running'`,
+      [input.automaticEvent.id,input.campaignId,input.campaignContactId,automation.id])).rows[0];
+      if (!event || event.event_context?.representativeCheck?.questionId !== source.question_id ||
+        !await (await import("./status-list-representative-check")).representativeEventValid({query:deps.query} as any,event))
+        return {ok:true,skipped:true,status:"answer_superseded"};
+      // Only the persisted, freshly revalidated server event supplies this answer.
+      source.question_value = event.event_context.representativeCheck.state === "assigned" ? "yes" : "no";
+    }
     if (source.question_id && Object.prototype.hasOwnProperty.call(input.automaticEvent,"questionRevision") &&
         (source.answer_revision ?? null)!==(input.automaticEvent.questionRevision ?? null))
       return {ok:true,skipped:true,status:"answer_superseded"};
     const facts=JSON.stringify([automation.conditionField,automation.conditionJson]).includes("history.")
       ? await (await import("./status-list-history")).loadStatusListHistoryFacts(
           {query:deps.query} as any,input.campaignId,input.campaignContactId) : null;
-    const evaluation=automaticCondition(automation,facts,country,source.question_value);
+    const healthcare=JSON.stringify([automation.conditionField,automation.conditionJson]).includes("healthcare.")
+      ? await (await import("./status-list-healthcare")).loadHealthcareConditionFacts(
+        {query:deps.query} as any,input.campaignId,input.campaignContactId) : null;
+    const evaluation=automaticCondition(automation,facts,country,source.question_value,healthcare);
     if (evaluation.value!==true) return {ok:true,skipped:true,status:evaluation.issue || "condition_false"};
   } else if (automation.conditionField === "answer") {
     const normalize = (value: unknown) => {
@@ -217,11 +249,11 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     createdAt: source.source_created_at || "", updatedAt: source.source_updated_at || "",
     dueDate: source.source_due_date || "",
     customerId: contact.type === "customer" ? contact.id : "",
-    priority: type === "assign_task" ? automation.serviceActionConfig.priority || "medium" : "",
+    priority: type === "create_task" ? automation.serviceActionConfig.priority || "medium" : "",
     ...(source.question_id ? { answer: source.question_value, questionId: source.question_id } : {}) };
   const context = {
     statusListService: true,
-    statusList: { itemId: input.itemId, campaignId: input.campaignId, campaignContactId: input.campaignContactId },
+    statusList: { itemId: input.itemId, campaignId: input.campaignId, campaignContactId: input.campaignContactId,automationId:automation.id },
     rule: { createdByUserId: owner.id, countryCodes: codes(source.mission_countries) },
     event: { id: input.confirmationId || input.requestId || randomUUID(), module: contact.type,
       source: "status_list", eventType: "status_list.service_action", entityType: contact.type, entityId: contact.id, countryCode: country,
@@ -253,6 +285,8 @@ export async function executeStatusListNativeService(automation: any, input: Inp
   let result: any;
   try {
     result = await deps.execute(type, {
+      ...(type==="schedule_callback" ? {days:automation.callbackOffsetDays,time:automation.callbackTime || "09:00",
+        weekdaysOnly:automation.callbackBusinessDaysOnly!==false,existing:automation.callbackExistingPolicy || "keep_existing"} : {}),
       ...automation.serviceActionConfig,
       countryCode: country, country,
       createdByUserId: input.userId, entityType: contact.type, entityId: contact.id,
@@ -264,7 +298,7 @@ export async function executeStatusListNativeService(automation: any, input: Inp
     result = { ok: false };
   }
   const output: Record<string, unknown> = {};
-  for (const key of ["taskId", "taskIds", "taskCount", "notifiedUsers", "sentCount", "failedCount", "recipientCount", "provider", "senderMode", "toCount", "ccCount", "bccCount"])
+  for (const key of ["callbackDate", "keptExisting", "taskId", "taskIds", "taskCount", "notifiedUsers", "sentCount", "failedCount", "recipientCount", "provider", "senderMode", "toCount", "ccCount", "bccCount"])
     if (result?.output?.[key] !== undefined) output[key] = result.output[key];
   const safe = { ok: result?.ok === true, ...(result?.ok === true ? {} : { error: "service_action_failed" }), output };
   await deps.query(`UPDATE status_list_service_executions SET status=$2,result=$3::jsonb,finished_at=now() WHERE id=$1`,

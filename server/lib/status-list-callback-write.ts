@@ -7,6 +7,7 @@ type CallbackWrite = {
   campaignId: string;
   campaignContactId: string;
   policy?: string | null;
+  expectedAutomaticDate?: string | null;
   fields: Partial<typeof campaignContacts.$inferInsert>;
 };
 
@@ -28,7 +29,8 @@ export async function writeStatusListCallback(input: CallbackWrite) {
       callbackDate: campaignContacts.callbackDate,
     }).from(campaignContacts).where(scope).for("update");
     if (!existing) throw new Error("Callback contact no longer belongs to the Mission");
-    if (policy === "keep_existing" && isEligibleScheduledCampaignCallback(existing.status, existing.callbackDate)) {
+    if (policy === "keep_existing" && isEligibleScheduledCampaignCallback(existing.status, existing.callbackDate) &&
+      (!input.expectedAutomaticDate || existing.callbackDate!.toISOString() !== input.expectedAutomaticDate)) {
       return { callbackDate: existing.callbackDate!.toISOString(), keptExisting: true };
     }
     const [saved] = await tx.update(campaignContacts).set(input.fields).where(scope)

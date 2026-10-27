@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { representativeCheckSchema } from "./status-list-representative-check";
 import { statusListHistoryFields, isStatusListHistoryField, statusListHistoryMatches } from "./status-list-history";
+import { healthcareConditionFields, isHealthcareConditionField, healthcareConditionMatches } from "./status-list-healthcare-conditions";
+import { healthcareStates } from "./status-list-healthcare";
 
 export const workflowRefSchema = z.object({
   kind: z.enum(["item", "question"]),
@@ -7,11 +10,23 @@ export const workflowRefSchema = z.object({
 });
 export const workflowAnswerSchema = z.union([z.boolean(), z.string().max(4000)]);
 export const workflowConditionSchema = z.object({
-  field: z.enum(["answer", "hospital_id", "clinic_id", "status", "contact_type", ...statusListHistoryFields]),
+  field: z.enum(["answer", "hospital_id", "clinic_id", "status", "contact_type", ...statusListHistoryFields, ...healthcareConditionFields]),
   ref: workflowRefSchema.optional(),
-  op: z.enum(["equals", "not_equals", "empty", "not_empty"]),
+  op: z.enum(["equals", "not_equals", "empty", "not_empty", "gt", "gte", "lt", "lte"]),
   value: workflowAnswerSchema.optional(),
 }).superRefine((value, ctx) => {
+  if (["gt", "gte", "lt", "lte"].includes(value.op) && value.field !== "healthcare.failed_attempts")
+    ctx.addIssue({ code: "custom", message: "Numeric comparison requires a counter" });
+  if (isHealthcareConditionField(value.field)) {
+    if (value.ref || ["empty", "not_empty"].includes(value.op))
+      ctx.addIssue({ code: "custom", message: "Healthcare conditions use the Mission source" });
+    if (value.field === "healthcare.state" && (!["equals", "not_equals"].includes(value.op) ||
+        !healthcareStates.includes(value.value as any)))
+      ctx.addIssue({ code: "custom", message: "Select a healthcare state" });
+    if (value.field === "healthcare.failed_attempts" && (typeof value.value !== "string" ||
+        !/^\d+$/.test(value.value) || !Number.isSafeInteger(Number(value.value))))
+      ctx.addIssue({ code: "custom", message: "Enter a nonnegative integer counter" });
+  }
   if (isStatusListHistoryField(value.field) && (!["equals", "not_equals"].includes(value.op) ||
       ![true, false, "true", "false"].includes(value.value as any)))
     ctx.addIssue({ code: "custom", message: "History conditions require Yes/No and equals/not equals" });
@@ -77,16 +92,24 @@ export type WorkflowCatalogItem = {
   confirmationType?: string;
   systemSourceEligible?: boolean;
   multiSelectable?: boolean;
-  backgroundSource?: "representative_assigned" | "representative_assignment_type" | "coordinator" | "reachability";
+  backgroundSource?: "representative_assigned" | "representative_assignment_type" | "coordinator" | "reachability" | "healthcare_reachability";
 };
 export const workflowSourceConfigSchema = z.object({
   source: z.enum(["representative_assigned", "representative_assignment_type"]),
   hidden: z.boolean(),
-}).strict();
+  showInformation: z.boolean().optional(),
+  check: representativeCheckSchema.nullable().optional(),
+}).strict().refine(config => !config.showInformation || config.source === "representative_assigned", {
+  message: "Information display requires the representative assignment source",
+}).refine(config => !config.check || config.source === "representative_assigned" && config.showInformation === true, {
+  message: "Automatic coordinator checks require the information source",
+});
 export function answerIsEmpty(value: unknown) {
   return value === undefined || value === null || value === "";
 }
 export function workflowConditionMatches(condition: WorkflowCondition, value: unknown) {
+  if (isHealthcareConditionField(condition.field))
+    return healthcareConditionMatches(value as Parameters<typeof healthcareConditionMatches>[0], condition.field, condition.op, condition.value);
   if (isStatusListHistoryField(condition.field)) {
     if (typeof value !== "boolean") return false;
     return statusListHistoryMatches({ [condition.field]: value } as any, condition.field, condition.op, condition.value);

@@ -16,7 +16,10 @@ try {
     CREATE TABLE campaigns(id varchar,name text,country_codes text[],settings jsonb);
     CREATE TABLE campaign_contacts(id varchar,campaign_id varchar,contact_type text,clinic_id varchar,hospital_id varchar,collaborator_id varchar,customer_id varchar,
       status text,assigned_to varchar,created_at timestamptz,updated_at timestamptz,callback_date timestamptz);
-    CREATE TABLE campaign_status_list_items(id varchar,campaign_id varchar);
+    CREATE TABLE campaign_status_list_items(id varchar,campaign_id varchar,confirmation_type text DEFAULT 'manual',parent_id varchar);
+    CREATE TABLE mission_status_list_automatic_configs(item_id varchar,trigger text,enabled boolean);
+    CREATE TABLE mission_status_list_sources(campaign_id varchar,question_id varchar);
+    CREATE TABLE mission_status_list_option_sources(campaign_id varchar,group_id varchar);
     CREATE TABLE campaign_status_list_automations(id varchar,status_list_item_id varchar,question_id varchar);
     CREATE TABLE mission_status_list_answers(campaign_contact_id varchar,question_id varchar,value jsonb,revision varchar);
     CREATE TABLE clinics(id varchar,name text,email text,phone text,country_code text,

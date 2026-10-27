@@ -10,6 +10,9 @@ export type ConfirmationPreviewAction = {
   id: string; sourceLabel: string; actionType: string; targetLabel?: string;
   condition: "matched" | "not_matched" | "unknown" | "blocked";
   branch?: "then" | "else"; value?: string | boolean | null;
+  callbackDate?: string;
+  callbackNote?: string;
+  keptExistingCallback?: boolean;
 };
 export type ConfirmationPreview = {
   readOnly: true; mode: "batch" | "immediate"; actions: ConfirmationPreviewAction[];

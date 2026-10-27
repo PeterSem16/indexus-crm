@@ -8,6 +8,7 @@ type RunInput = {
   eventId: string | null;
   payload: Record<string, unknown>;
   causationChain: string[];
+  deduplicateEvent?: boolean;
 };
 
 /**
@@ -22,6 +23,14 @@ export async function admitAutomationRun(pool: AdmissionPool, input: RunInput): 
   try {
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended('indexus:automation:quota:' || $1::text, 0))", [input.ruleId]);
+    if (input.deduplicateEvent && input.eventId) {
+      const prior = await client.query("SELECT id FROM workflow_runs WHERE rule_id=$1 AND event_id=$2 LIMIT 1",
+        [input.ruleId, input.eventId]);
+      if (prior.rows[0]) {
+        await client.query("COMMIT");
+        return { admitted: false, runId: prior.rows[0].id };
+      }
+    }
     // Read the saved quota, not a stale event-dispatch snapshot. Protect it
     // from an edit until this very short admission transaction commits.
     const current = await client.query(

@@ -23,6 +23,7 @@ function zipEntries() {
   for (const entry of entries) {
     const h = entry.header;
     const name = entry.entryName;
+    if (h.flags & 1) throw new Error("analysis_document_encrypted");
     if (names.has(name) || name.includes("\\") || name.startsWith("/") ||
         name.split("/").includes("..") || (h.flags & 1) ||
         ![0, 8].includes(h.method) || h.size === 0xffffffff ||

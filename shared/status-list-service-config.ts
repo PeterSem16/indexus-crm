@@ -13,8 +13,9 @@ export const statusListNativeActionTypes = {
   send_contact_email: "send_email",
   send_sms: "send_sms",
 } as const;
-export type StatusListNativeActionType = typeof statusListNativeActionTypes[keyof typeof statusListNativeActionTypes];
+export type StatusListNativeActionType = typeof statusListNativeActionTypes[keyof typeof statusListNativeActionTypes] | "schedule_callback";
 export function statusListNativeActionType(actionType: string): StatusListNativeActionType | undefined {
+  if (actionType === "set_callback") return "schedule_callback";
   return Object.prototype.hasOwnProperty.call(statusListNativeActionTypes, actionType)
     ? statusListNativeActionTypes[actionType as keyof typeof statusListNativeActionTypes] : undefined;
 }
@@ -26,6 +27,8 @@ export function statusListNativeActionIssues(actionType: string, config: unknown
   if (!type) return ["This action does not support a shared service configuration"];
   if (typeof config !== "object" || Array.isArray(config)) return ["Action configuration must be an object"];
   const c = config as Record<string, any>;
+  if (type === "schedule_callback") return Object.keys(c).some(key=>key!=="kind") ||
+    c.kind!=null && c.kind!=="healthcare_retry" ? ["Invalid callback configuration"] : [];
   // Email snapshots include copied attachments (up to 25 MB, base64 encoded).
   if (JSON.stringify(c).length > (type === "send_email" ? 36_000_000 : 1_000_000)) return ["Action configuration is too large"];
   if (type === "update_entity") {

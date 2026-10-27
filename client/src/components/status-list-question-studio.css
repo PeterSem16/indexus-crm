@@ -98,6 +98,13 @@
 @media(max-width:520px){.slqs-header{align-items:flex-start;padding:15px}.slqs-head-controls{gap:7px}.slqs-head-controls .slqs-save-state{display:none}.slqs-heading h2{font-size:18px}.slqs-stages button{flex:0 0 auto;min-height:42px;padding-inline:9px;font-size:9px}.slqs-stages button>span:nth-child(2){max-width:88px;overflow:hidden;text-overflow:ellipsis}.slqs-stage-card{padding:18px 14px}.slqs-fields{grid-template-columns:1fr}.slqs-wide{grid-column:auto}.slqs-toggle-pair,.slqs-advanced-grid{grid-template-columns:1fr}.slqs-footer{align-items:flex-start;flex-direction:column;padding:11px 13px}.slqs-footer-left,.slqs-footer-right{width:100%;justify-content:space-between}.slqs-footer-right button{font-size:10px}.slqs-footer-left .slqs-save-state{display:inline-flex}}
 @media(prefers-reduced-motion:reduce){.slqs-stage-content{animation:none}.slqs *{scroll-behavior:auto!important;transition:none!important}}
 .slqs{container-type:inline-size}
+.slqs-subquestion-cta{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 14px;border:1px solid hsl(207 62% 56%/.35);border-radius:9px;background:linear-gradient(105deg,hsl(207 70% 96%/.9),hsl(var(--card)))}
+.slqs-subquestion-cta>div{display:grid;gap:4px;min-width:0}.slqs-subquestion-cta strong{font-size:11px;color:hsl(var(--foreground))}.slqs-subquestion-cta span{font-size:10px;line-height:1.45;color:hsl(var(--muted-foreground))}
+.slqs-stages{position:relative;scrollbar-width:thin}
+.slqs-stages button{min-height:48px;padding-inline:15px}
+.slqs-stages button.active{box-shadow:inset 0 -2px hsl(var(--primary))}
+.slqs-stages button:focus-visible{outline:2px solid hsl(var(--ring));outline-offset:-3px}
+.dark .slqs-subquestion-cta{border-color:hsl(207 58% 60%/.4);background:linear-gradient(105deg,hsl(207 42% 24%/.58),hsl(var(--card)))}
 /* The settings panel is much narrower than the browser. Use its own width. */
 .slqs-header{flex-wrap:wrap;gap:12px}
 .slqs-heading{flex:1 1 220px}
@@ -124,4 +131,6 @@
   .slqs-color-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .slqs-behavior-options{grid-template-columns:1fr}
   .slqs-behavior-options button{min-height:0}
+  .slqs-subquestion-cta{align-items:stretch;flex-direction:column}
+  .slqs-subquestion-cta button{width:100%}
 }

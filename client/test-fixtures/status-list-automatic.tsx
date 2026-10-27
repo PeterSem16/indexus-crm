@@ -9,6 +9,6 @@ createRoot(document.getElementById("root")!).render(
   <main style={{maxWidth:950,margin:"24px auto",padding:16}}>
     <StatusListAutomaticTriggerInspector
       campaignId="11111111-1111-4111-8111-111111111111"
-      itemId="22222222-2222-4222-8222-222222222222" locale={locale}/>
+      itemId="22222222-2222-4222-8222-222222222222" locale={locale} disabled={params.has("disabled")}/>
   </main>,
 );

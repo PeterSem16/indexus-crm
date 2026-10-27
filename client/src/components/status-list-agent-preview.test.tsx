@@ -3,7 +3,7 @@ import type { ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { readStatusListMode, StatusListAgentPreview } from "./status-list-agent-preview";
+import { readStatusListMode, StatusListAgentPreview, StatusListQuickOptionsPanel } from "./status-list-agent-preview";
 import { translations } from "@/i18n/translations";
 import { I18nProvider } from "@/i18n/I18nProvider";
 
@@ -44,6 +44,18 @@ describe("Status List agent preview", () => {
     assert.ok(html.includes('data-testid="btn-sl-batch-save"'));
     assert.ok(html.includes("answers are not saved"));
     assert.ok(html.includes("h-7 px-2 text-[11px] gap-1"));
+  });
+
+  it("styles quick options as native Pulse controls with an independent blue selected state", () => {
+    const html = renderToStaticMarkup(createElement(StatusListQuickOptionsPanel, {
+      options: [{ id: "opt-1", label: "Do not call", color: "#775b74", icon: "Phone" }],
+      label: "Quick options", selectedId: "opt-1", onSelect: () => {},
+    }));
+    assert.ok(html.includes('data-testid="option-btn-opt-1"'));
+    assert.ok(html.includes('aria-pressed="true"'));
+    assert.ok(html.includes("border-blue-600"));
+    assert.ok(!html.includes("shadow-md"));
+    assert.ok(!html.includes("border-amber"));
   });
 
   it("localizes visible phase, answer, batch and safety copy in all supported locales", () => {

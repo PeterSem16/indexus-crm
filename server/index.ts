@@ -198,6 +198,8 @@ app.use((req, res, next) => {
   await ensureHealthcareLegalEntitySchema(pool);
   const { ensureProviderFinderSchema } = await import("./lib/provider-finder-schema");
   await ensureProviderFinderSchema(pool);
+  const { ensureChatAnalysisOutboxSchema } = await import("./lib/chat-analysis-outbox-schema");
+  await ensureChatAnalysisOutboxSchema(pool);
   const { ensureStatusListWorkflowSchema } = await import("./lib/status-list-workflow-schema");
   await ensureStatusListWorkflowSchema(pool);
   const { ensureStatusListExecutionSchema } = await import("./lib/status-list-execution-schema");
@@ -210,6 +212,10 @@ app.use((req, res, next) => {
   try {
     const { ensureStandaloneAutomationSchema } = await import("./lib/standalone-automation-schema");
     await ensureStandaloneAutomationSchema(pool);
+    const { ensureAutomationInputHistorySchema } = await import("./lib/automation-input-history-schema");
+    await ensureAutomationInputHistorySchema(pool);
+    const { ensureAutomationRetrySchema } = await import("./lib/automation-retry-schema");
+    await ensureAutomationRetrySchema(pool);
     console.log("[migration] standalone Automation schema ensured");
   } catch (error) {
     console.error("[migration] fatal standalone Automation schema error:", error instanceof Error ? error.message : error);
@@ -738,6 +744,8 @@ app.use((req, res, next) => {
       ADD COLUMN IF NOT EXISTS ever_associated boolean NOT NULL DEFAULT false;
     ALTER TABLE task_attachment_uploads
       ADD COLUMN IF NOT EXISTS association_history jsonb NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE task_attachment_uploads
+      ADD COLUMN IF NOT EXISTS analysis_cache_key text;
     CREATE INDEX IF NOT EXISTS idx_task_attachment_uploads_uploader
       ON task_attachment_uploads (uploader_user_id);
     ${RECORD_ENTRY_SCHEMA}
@@ -917,6 +925,7 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS icon TEXT;`);
+    await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS label_translations JSONB;`);
     await pool.query(`ALTER TABLE campaign_status_list_items ADD COLUMN IF NOT EXISTS preview_actions BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE campaign_status_list_questions ADD COLUMN IF NOT EXISTS note_enabled BOOLEAN NOT NULL DEFAULT true;
       ALTER TABLE campaign_status_list_questions ADD COLUMN IF NOT EXISTS preview_actions BOOLEAN NOT NULL DEFAULT false;`);
@@ -1681,6 +1690,9 @@ app.use((req, res, next) => {
       import("./lib/status-list-automatic").then(({ startAutomaticServiceWorker }) =>
         startAutomaticServiceWorker()).catch(() =>
           console.error("[status-list-automatic] startup_failed"));
+      import("./lib/status-list-service").then(({ startCallbackServiceWorker }) =>
+        startCallbackServiceWorker(pool)).catch(() =>
+          console.error("[status-list-callback] startup_failed"));
 
       const wallboardHistoryCleanupTimer = setInterval(() => {
         cleanupWallboardAlarmHistory().catch((error: unknown) =>

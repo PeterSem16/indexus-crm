@@ -4,6 +4,8 @@ import { eq, and, count, sql } from "drizzle-orm";
 import { isStatusListHistoryField, statusListHistoryMatches } from "../../shared/status-list-history";
 import { loadStatusListHistoryFacts } from "./status-list-history";
 import { pool } from "../db";
+import { isHealthcareConditionField, healthcareConditionMatches } from "../../shared/status-list-healthcare-conditions";
+import { loadHealthcareConditionFacts } from "./status-list-healthcare";
 
 export interface ConditionRule {
   field: string;
@@ -59,6 +61,15 @@ export async function evaluateConditionGroup(
   group: ConditionGroup,
   ctx: AutomationConditionContext
 ): Promise<boolean> {
+  if (group.rules.some(rule => isHealthcareConditionField(rule.field))) {
+    const facts = await loadHealthcareConditionFacts(pool, ctx.campaignId, ctx.campaignContactId);
+    // Missing scope or disabled evaluation is not permission to enter ELSE or
+    // match a negative comparison in an otherwise valid healthcare condition.
+    if (!facts) return false;
+    const results = await Promise.all(group.rules.map(rule => isHealthcareConditionField(rule.field)
+      ? healthcareConditionMatches(facts, rule.field, rule.op, rule.value) : evaluateSingleRule(rule, ctx)));
+    return group.logic === "AND" ? results.every(Boolean) : group.logic === "OR" && results.some(Boolean);
+  }
   if (group.rules.some(rule => rule.field.startsWith("history."))) {
     const facts = await loadStatusListHistoryFacts(pool, ctx.campaignId, ctx.campaignContactId);
     const results = await Promise.all(group.rules.map(rule => rule.field.startsWith("history.")
@@ -77,6 +88,9 @@ async function evaluateSingleRule(
 ): Promise<boolean> {
   const { field, op, value } = rule;
   const { contactId, campaignId, contactCountry } = ctx;
+  if (isHealthcareConditionField(field))
+    return healthcareConditionMatches(await loadHealthcareConditionFacts(pool, campaignId, ctx.campaignContactId), field, op, value);
+  if (field.startsWith("healthcare.")) return false;
   if (isStatusListHistoryField(field))
     return statusListHistoryMatches(await loadStatusListHistoryFacts(pool, campaignId, ctx.campaignContactId), field, op, value);
 
@@ -461,6 +475,7 @@ export async function evaluateAutomationCondition(
 
       // True delta condition: fires only when the field value actually changed to the target
       if (parsed.__type === "field_changed_to" && parsed.field) {
+        if (parsed.field.startsWith("healthcare.")) return false;
         const targetValue = (parsed.value ?? "").toLowerCase();
         const currentValue = ((await getRawFieldValue(parsed.field, ctx)) ?? "").toLowerCase();
 
@@ -485,11 +500,14 @@ export async function evaluateAutomationCondition(
       return await evaluateConditionGroup(group, ctx);
     } catch (error) {
       // A failed history lookup is an execution error, not a successful skip or permission to send.
-      if (usesHistory || automation.conditionJson.includes("history.")) throw error;
+      if (usesHistory || automation.conditionJson.includes("history.") || automation.conditionJson.includes("healthcare.")) throw error;
       return true;
     }
   }
   // Legacy simple condition
+  if (isHealthcareConditionField(automation.conditionField || ""))
+    return evaluateSingleRule({field:automation.conditionField!,op:automation.conditionOperator || "eq",value:automation.conditionValue || ""},ctx);
+  if (automation.conditionField?.startsWith("healthcare.")) return false;
   if (!automation.conditionField || automation.conditionField === "always") {
     return true;
   }

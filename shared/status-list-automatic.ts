@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isStatusListHistoryField, statusListHistoryMatches, type StatusListHistoryFacts } from "./status-list-history";
+import { isHealthcareConditionField, validHealthcareCondition, healthcareConditionMatches, type HealthcareConditionFacts } from "./status-list-healthcare-conditions";
 
 export const automaticTriggerSchema = z.enum(["agent_confirmation", "card_open", "pulse_open", "background_change"]);
 export type AutomaticTrigger = z.infer<typeof automaticTriggerSchema>;
@@ -12,15 +13,18 @@ export const automaticConfigSchema = z.object({
 }).strict();
 export type AutomaticStatus = "ready" | "disabled" | "unsupported_action" | "invalid_condition" |
   "missing_answer" | "condition_false" | "already_executed" | "background_baseline" |
-  "batch_deferred" | "pending" | "indeterminate" | "succeeded" | "failed" | "superseded" | "waiting_transition";
+  "batch_deferred" | "pending" | "indeterminate" | "succeeded" | "failed" | "superseded" | "waiting_transition" | "awaiting_review";
 
 /** Same strict evaluator for preview, admission and the worker. No unknown-field fallback. */
 export function automaticCondition(action: {
   conditionField?: string | null; conditionValue?: string | null; conditionOperator?: string | null; conditionJson?: unknown;
-}, facts: StatusListHistoryFacts | null, country: string | null, answer: unknown): { value: boolean | null; issue?: AutomaticStatus } {
+}, facts: StatusListHistoryFacts | null, country: string | null, answer: unknown,
+healthcare: HealthcareConditionFacts | null = null): { value: boolean | null; issue?: AutomaticStatus } {
   const boolean = (value: unknown) => ["yes", "true", "1"].includes(String(value).toLowerCase()) ? "true" :
     ["no", "false", "0"].includes(String(value).toLowerCase()) ? "false" : String(value ?? "");
   const match = (field: string, op: string, expected: unknown): boolean | null => {
+    if (isHealthcareConditionField(field))
+      return healthcare && validHealthcareCondition(field,op,expected) ? healthcareConditionMatches(healthcare,field,op,expected) : null;
     if (!["eq", "neq", "equals", "not_equals"].includes(op)) return null;
     const negative = op === "neq" || op === "not_equals";
     if (isStatusListHistoryField(field)) {
