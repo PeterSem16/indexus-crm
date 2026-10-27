@@ -15,6 +15,7 @@ import { StatusListPhaseOrganizer, getPhaseOrganizerCopy } from "./status-list-p
 import { StatusListHelp } from "./status-list-help";
 import { useStatusListConfirm } from "./status-list-confirm";
 import { StatusListServiceHistory } from "./status-list-service-history";
+import { StatusListHealthcareNavigationProvider } from "./status-list-healthcare-navigation";
 import { statusListActionLabel } from "./status-list-action-labels";
 import { outlineHidden, statusListOutline } from "@/lib/status-list-outline";
 import { emptyStatusListOrganization } from "@shared/status-list-organization";
@@ -142,9 +143,31 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     if (!await allowNavigation()) return;
     onSelect(id); setSelectedQuestionId(null); setSelectionRevision(value => value + 1); setTab("content");
   };
+  const openHealthcareContentGroup = async (groupId: string) => {
+    if (!await allowNavigation()) return false;
+    setPhase("all");
+    setVisibility("all");
+    setSearch("");
+    setTab("content");
+    setExpandedItems(previous => new Set(previous).add(groupId));
+    onSelect(groupId);
+    setSelectedQuestionId(null);
+    setSelectionRevision(value => value + 1);
+    return true;
+  };
   const addRootStep = async () => {
     if (!await allowNavigation()) return;
     onAddStep?.();
+  };
+  const addHealthcareCustomQuestion = async () => {
+    if (!onAddStep || !await allowNavigation()) return false;
+    setPhase("all");
+    setVisibility("all");
+    setSearch("");
+    setSelectedQuestionId(null);
+    setTab("content");
+    onAddStep();
+    return true;
   };
   useEffect(() => {
     if (!navigation) return;
@@ -210,7 +233,9 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     ...item.automations.map(action => ({ ...action, item })),
     ...item.questions.flatMap(question => question.automations.map(action => ({ ...action, item, question }))),
   ]);
-  return <StatusListViewport expanded={expanded}><section ref={workspaceRef} className={`slw${expanded ? " slw-fullscreen" : ""}`} data-testid="status-list-workspace" data-fullscreen={expanded} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? "Status List" : undefined}>
+  return <StatusListHealthcareNavigationProvider value={{ openContentGroup: openHealthcareContentGroup,
+    addCustomQuestion: onAddStep ? addHealthcareCustomQuestion : undefined }}>
+  <StatusListViewport expanded={expanded}><section ref={workspaceRef} className={`slw${expanded ? " slw-fullscreen" : ""}`} data-testid="status-list-workspace" data-fullscreen={expanded} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={expanded ? "Status List" : undefined}>
      <header className="slw-heading"><div><h2>Status List</h2><p>{copy.sourceHint}</p></div><div className="slw-heading-actions"><span className="slw-chain-notice"><ShieldCheck size={14}/>{copy.chaining}</span><StatusListHelp locale={locale}/><Button ref={expandButtonRef} type="button" variant="outline" size="icon" data-testid="status-list-toggle-fullscreen" aria-label={expanded ? copy.restore : copy.maximize} title={expanded ? copy.restore : copy.maximize} onClick={() => setExpanded(value => !value)}>{expanded ? <Minimize2 size={16}/> : <Maximize2 size={16}/>}</Button></div></header>
     <nav className="slw-tabs" aria-label="Status List">
       {([["content", Layers3, copy.content], ["rules", Workflow, copy.rules], ["tests", Activity, copy.tests], ["tools", Wrench, copy.tools]] as const).map(([value, Icon, label]) =>
@@ -290,5 +315,5 @@ export function StatusListWorkspace({ campaignId, locale, items, selectedId, onS
     </div>}
     {tab === "tests" && <div className="slw-page"><p className="slw-history-scope">{copy.historyScope}</p><StatusListBackgroundDiagnostics campaignId={campaignId} locale={locale}/><StatusListWorkflowDiagnostics campaignId={campaignId} locale={locale}/></div>}
     </div>
-  </section></StatusListViewport>;
+  </section></StatusListViewport></StatusListHealthcareNavigationProvider>;
 }

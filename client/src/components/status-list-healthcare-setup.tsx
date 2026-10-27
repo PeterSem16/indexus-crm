@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, Plus, PhoneCall } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, PhoneCall, Trash2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -8,6 +8,10 @@ import { healthcarePolicySchema } from "@shared/status-list-healthcare";
 import type { OptionSource } from "@shared/status-list-option-source";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
 import { getHealthcareCopy } from "./status-list-healthcare-copy";
+import { getHealthcareManagementCopy } from "./status-list-healthcare-management-copy";
+import { getStatusListOptionSourceCopy } from "./status-list-option-source-copy";
+import { useStatusListConfirm } from "./status-list-confirm";
+import { useStatusListHealthcareNavigation } from "./status-list-healthcare-navigation";
 import { StatusListHealthcareSourceSettings } from "./status-list-healthcare-source-settings";
 
 type HealthcareSource = Extract<OptionSource, { source: "healthcare_reachability" }>;
@@ -19,6 +23,10 @@ export function StatusListHealthcareSetup({
   campaignId: string; locale: string; targetGroupId?: string; onDirtyChange?: (dirty: boolean) => void;
 }) {
   const c = getHealthcareCopy(locale);
+  const managementCopy = getHealthcareManagementCopy(locale);
+  const sourceCopy = getStatusListOptionSourceCopy(locale);
+  const confirm = useStatusListConfirm(locale);
+  const navigation = useStatusListHealthcareNavigation();
   const { toast } = useToast();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set());
   const [dirtyGroups, setDirtyGroups] = useState<Map<string, boolean>>(() => new Map());
@@ -49,6 +57,24 @@ export function StatusListHealthcareSetup({
       ]);
     },
     onError: () => toast({ title: c.error, variant: "destructive" }),
+  });
+  const removeSource = useMutation({
+    mutationFn: async (groupId: string) => {
+      const response = await fetch(`${optionSourcesPath}/${encodeURIComponent(groupId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(String(response.status));
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [optionSourcesPath] }),
+        queryClient.invalidateQueries({ queryKey: [endpoint] }),
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "status-list"] }),
+      ]);
+      toast({ title: sourceCopy.deleted });
+    },
+    onError: () => toast({ title: sourceCopy.deleteError, variant: "destructive" }),
   });
   const allSources = (query.data?.sources || []).filter((source): source is HealthcareSource =>
     source.source === "healthcare_reachability");
@@ -86,6 +112,7 @@ export function StatusListHealthcareSetup({
       </Button>}
     </div>
     <p className="text-xs leading-relaxed text-muted-foreground">{c.sourceHelp}</p>
+    <p className="text-xs leading-relaxed text-muted-foreground">{managementCopy.contentHelp}</p>
     {query.isLoading && <div role="status" aria-label={c.loading} className="grid gap-2 sm:grid-cols-2">
       {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-16 animate-pulse rounded-md bg-muted/60"/>)}
     </div>}
@@ -112,11 +139,33 @@ export function StatusListHealthcareSetup({
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}/>
         </button>
+          {navigation && <div className="mt-3 flex flex-wrap gap-2">
+            {navigation.addCustomQuestion && <Button type="button" size="sm" variant="outline" data-testid={`healthcare-add-custom-question-${source.groupId}`}
+              disabled={removeSource.isPending || Array.from(dirtyGroups.values()).some(Boolean)}
+              onClick={() => { void navigation.addCustomQuestion?.(); }}>
+              <Plus className="mr-1 h-3.5 w-3.5"/>{managementCopy.addQuestion}
+            </Button>}
+            <Button type="button" size="sm" variant="ghost" data-testid={`healthcare-open-content-${source.groupId}`}
+              disabled={removeSource.isPending || Array.from(dirtyGroups.values()).some(Boolean)}
+              onClick={() => { void navigation.openContentGroup(source.groupId); }}>
+              <ExternalLink className="mr-1 h-3.5 w-3.5"/>{managementCopy.openContent}
+            </Button>
+          </div>}
         <div id={`healthcare-source-${source.groupId}`} hidden={!expanded} className="mt-3 space-y-3">
           <p className="text-xs text-muted-foreground">{c.summary}</p>
           <StatusListHealthcareSourceSettings campaignId={campaignId} locale={locale} source={{ ...source, policy }}
             onDirtyChange={reportDirty(source.groupId)}/>
         </div>
+          {query.data?.sources.some(entry => entry.groupId === source.groupId) && <div className="space-y-1 border-t pt-3">
+            <Button type="button" size="sm" variant="destructive" data-testid={`healthcare-remove-background-source-${source.groupId}`}
+              disabled={removeSource.isPending || !!dirtyGroups.get(source.groupId)} onClick={() => void (async () => {
+                if (await confirm(`${sourceCopy.confirmRemove}\n\n${managementCopy.removeHelp}`, { destructive: true })) removeSource.mutate(source.groupId);
+              })()}>
+              <Trash2 className="mr-1 h-3.5 w-3.5"/>{managementCopy.removeSource}
+            </Button>
+            <p className="text-xs leading-relaxed text-muted-foreground">{managementCopy.removeHelp}</p>
+            {dirtyGroups.get(source.groupId) && <p className="text-xs text-amber-700 dark:text-amber-300">{c.dirtyWarning}</p>}
+          </div>}
       </div>;
     })}
     {!targetGroupId && !query.isLoading && !sources.length && !query.isError && <p className="text-xs text-muted-foreground">{c.create}</p>}
