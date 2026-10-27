@@ -125,8 +125,9 @@ main() {
   fi
   ROOT=/var/www/indexus-crm
   PUBLIC="$ROOT/dist/public"
-  BASE=d9104f6fafd34ac4640bf69539a970a3b67a3be1
-  FIX=ce2872d958a9dde3212df98b3aa8b7f00471a49b
+  BASE=ce2872d958a9dde3212df98b3aa8b7f00471a49b
+  FIX=ffeddd3a7e749232787067248f876781355458b7
+  BACKEND_BASE=d9104f6fafd34ac4640bf69539a970a3b67a3be1
   ORIGINAL_BACKUP="$ROOT/data/.automation-backup-20261027T114049Z-CzHzHN"
   BACKUP=
   SWITCHED=0
@@ -158,12 +159,11 @@ main() {
   git diff --cached --quiet
   git merge-base --is-ancestor "$BASE" "$FIX"
   test -z "$(git diff --name-only "$BASE" "$FIX" -- server shared package.json package-lock.json)"
-  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq 12
+  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq 4
   EXISTING=()
   while IFS= read -r file; do
     case "$file" in
-      client/src/pages/agent-workspace.tsx|client/src/components/status-list-batch-save-dialog.tsx|client/src/components/status-list-batch-save-dialog.css|client/test-fixtures/status-list-batch-save.html|client/test-fixtures/status-list-batch-save.tsx|e2e/status-list-batch-save.node.test.ts) ;;
-      client/src/components/status-list-healthcare-setup.tsx|client/src/components/status-list-healthcare-management-copy.ts|client/src/components/status-list-healthcare-navigation.tsx|client/src/components/status-list-workspace.tsx|client/test-fixtures/status-list-healthcare.tsx|e2e/status-list-healthcare-management.node.test.ts) ;;
+      client/src/components/status-list-healthcare-setup.tsx|client/src/components/status-list-background-source-panel.tsx|client/test-fixtures/status-list-healthcare.tsx|e2e/status-list-healthcare-management.node.test.ts) ;;
       *) echo "STOP: neschvaleny zdroj $file"; false ;;
     esac
     if [ -n "$(git ls-tree "$BASE" -- "$file")" ]; then
@@ -180,7 +180,8 @@ main() {
   test "$(sudo stat -c '%u:%g:%a' "$ORIGINAL_BACKUP")" = 0:0:700
   mapfile -t RELEASE < <(sudo cat "$ORIGINAL_BACKUP/release.txt")
   test "${#RELEASE[@]}" -eq 6
-  test "${RELEASE[1]}" = "$BASE"
+  test "${RELEASE[1]}" = "$BACKEND_BASE"
+  test -z "$(git diff --name-only "$BACKEND_BASE" "$BASE" -- server shared package.json package-lock.json)"
   OLD_BACKEND=${RELEASE[4]}
   test "${#OLD_BACKEND}" -eq 64
   test "$(file_hash dist/index.cjs)" = "$OLD_BACKEND"
@@ -281,7 +282,7 @@ main() {
   test "$(git rev-parse HEAD)" = "$FIX"
   SWITCHED=0
   trap - ERR
-  echo "CALLBACK REDIZAJN NASADENY OK: $FIX"
+  echo "EDITOR OTAZKY NASADENY OK: $FIX"
   echo "ZALOHA: $BACKUP"
   echo "BACKEND PID NEZMENENY: $OLD_PID"
   echo "Bez restartu backendu, bez databazovej migracie a bez zmeny pravidiel."
