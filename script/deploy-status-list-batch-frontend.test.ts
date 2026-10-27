@@ -74,6 +74,32 @@ test("operator requires explicit apply, valid syntax, and cannot restart or migr
   assert.match(source, /test "\$\(file_hash dist\/index\.cjs\)" = "\$OLD_BACKEND"/);
 });
 
+test("callback promotion is a separate, frontend-only phase pinned after the previous fix", () => {
+  const source=fs.readFileSync(script,"utf8");
+  assert.match(source,/BASE=ffeddd3a7e749232787067248f876781355458b7/);
+  assert.match(source,/FIX=0364e2bb907f0c265fd69d5a31f5bb32b19ce115/);
+  assert.match(source,/expected_files=4 callback_release=false/);
+  assert.match(source,/expected_files=7/);
+  assert.match(source,/test "\$callback_release" = true/);
+  const changed=spawnSync("git",["diff","--name-only","ffeddd3a7e749232787067248f876781355458b7",
+    "0364e2bb907f0c265fd69d5a31f5bb32b19ce115"],{encoding:"utf8"});
+  assert.equal(changed.status,0);
+  assert.deepEqual(changed.stdout.trim().split("\n"),[
+    "client/src/components/status-list-callback-reschedule-fields.tsx",
+    "client/src/components/status-list-manual-callback-button.tsx",
+    "client/src/components/status-list-recap-copy.ts",
+    "client/src/pages/agent-workspace.tsx",
+    "client/test-fixtures/status-list-manual-callback.html",
+    "client/test-fixtures/status-list-manual-callback.tsx",
+    "e2e/status-list-manual-callback.node.test.ts",
+  ]);
+  for(const file of changed.stdout.trim().split("\n"))assert.ok(source.includes(file),`operator must allow ${file}`);
+  const server=spawnSync("git",["diff","--name-only","ffeddd3a7e749232787067248f876781355458b7",
+    "0364e2bb907f0c265fd69d5a31f5bb32b19ce115","--","server","shared","package.json","package-lock.json"],{encoding:"utf8"});
+  assert.equal(server.status,0);
+  assert.equal(server.stdout,"");
+});
+
 test("different existing assets and symlinks are rejected before publication", () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "batch-ui-collision-"));
   try {

@@ -119,14 +119,22 @@ failed() {
   exit "$code"
 }
 main() {
-  if [ "$#" -ne 1 ] || [ "${1:-}" != --apply ]; then
-    echo "Usage: bash deploy-status-list-batch-frontend.sh --apply"
+  if { [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; } || [ "${1:-}" != --apply ] ||
+     { [ "$#" -eq 2 ] && [ "${2:-}" != --callbacks ]; }; then
+    echo "Usage: bash deploy-status-list-batch-frontend.sh --apply [--callbacks]"
     return 2
   fi
   ROOT=/var/www/indexus-crm
   PUBLIC="$ROOT/dist/public"
   BASE=ce2872d958a9dde3212df98b3aa8b7f00471a49b
   FIX=ffeddd3a7e749232787067248f876781355458b7
+  local expected_files=4 callback_release=false
+  if [ "$#" -eq 2 ]; then
+    BASE=ffeddd3a7e749232787067248f876781355458b7
+    FIX=0364e2bb907f0c265fd69d5a31f5bb32b19ce115
+    expected_files=7
+    callback_release=true
+  fi
   BACKEND_BASE=d9104f6fafd34ac4640bf69539a970a3b67a3be1
   ORIGINAL_BACKUP="$ROOT/data/.automation-backup-20261027T114049Z-CzHzHN"
   BACKUP=
@@ -159,11 +167,14 @@ main() {
   git diff --cached --quiet
   git merge-base --is-ancestor "$BASE" "$FIX"
   test -z "$(git diff --name-only "$BASE" "$FIX" -- server shared package.json package-lock.json)"
-  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq 4
+  test "$(git diff --name-only "$BASE" "$FIX" | wc -l)" -eq "$expected_files"
   EXISTING=()
   while IFS= read -r file; do
     case "$file" in
-      client/src/components/status-list-healthcare-setup.tsx|client/src/components/status-list-background-source-panel.tsx|client/test-fixtures/status-list-healthcare.tsx|e2e/status-list-healthcare-management.node.test.ts) ;;
+      client/src/components/status-list-healthcare-setup.tsx|client/src/components/status-list-background-source-panel.tsx|client/test-fixtures/status-list-healthcare.tsx|e2e/status-list-healthcare-management.node.test.ts)
+        test "$callback_release" = false ;;
+      client/src/pages/agent-workspace.tsx|client/src/components/status-list-callback-reschedule-fields.tsx|client/src/components/status-list-manual-callback-button.tsx|client/src/components/status-list-recap-copy.ts|client/test-fixtures/status-list-manual-callback.html|client/test-fixtures/status-list-manual-callback.tsx|e2e/status-list-manual-callback.node.test.ts)
+        test "$callback_release" = true ;;
       *) echo "STOP: neschvaleny zdroj $file"; false ;;
     esac
     if [ -n "$(git ls-tree "$BASE" -- "$file")" ]; then
@@ -282,7 +293,11 @@ main() {
   test "$(git rev-parse HEAD)" = "$FIX"
   SWITCHED=0
   trap - ERR
-  echo "EDITOR OTAZKY NASADENY OK: $FIX"
+  if [ "$callback_release" = true ]; then
+    echo "OKNA PREPLANOVANIA NASADENE OK: $FIX"
+  else
+    echo "EDITOR OTAZKY NASADENY OK: $FIX"
+  fi
   echo "ZALOHA: $BACKUP"
   echo "BACKEND PID NEZMENENY: $OLD_PID"
   echo "Bez restartu backendu, bez databazovej migracie a bez zmeny pravidiel."
