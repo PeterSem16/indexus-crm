@@ -108,6 +108,15 @@ try {
   assert.equal(Number((await root.query("SELECT count(*) FROM campaign_contact_history")).rows[0].count), 1, "switch must not replay");
   const pinnedOwnership = (await root.query("SELECT * FROM mission_callback_ownership")).rows;
   const pinnedCandidates = (await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows;
+  await root.query("ALTER TABLE campaign_status_list_automations ADD COLUMN execution_policy text NOT NULL DEFAULT 'inherit'");
+  assert.equal((await callbackReadiness(root, mission)).ready, true,
+    "adding an inherited execution-policy default preserves pre-migration approvals");
+  await root.query("UPDATE campaign_status_list_automations SET execution_policy='review' WHERE id=$1", [action.id]);
+  assert.ok((await callbackReadiness(root, mission)).blockers.includes("legacy_config_changed"),
+    "a non-default policy change on a reviewed callback still requires approval");
+  await root.query("UPDATE campaign_status_list_automations SET execution_policy='inherit' WHERE id=$1", [action.id]);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
   // Creating a new item, question and disabled draft no longer changes approval.
   await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id)
     VALUES('independent',$1,90,'NEW'),('other',$1,91,'OTHER')`, [mission]);

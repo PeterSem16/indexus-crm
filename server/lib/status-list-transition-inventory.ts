@@ -74,7 +74,12 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
       CROSS JOIN LATERAL (SELECT CASE
         WHEN coalesce(to_jsonb(a)->'service_action_config','null'::jsonb)='null'::jsonb
         THEN to_jsonb(a)-'service_action_config'-'service_action_owner_id'
-        ELSE to_jsonb(a) END AS config) native
+        ELSE to_jsonb(a) END AS config) original_native
+      -- Preserve approvals after the additive execution-policy migration.
+      CROSS JOIN LATERAL (SELECT CASE
+        WHEN coalesce(original_native.config->>'execution_policy','inherit')='inherit'
+        THEN original_native.config-'execution_policy'
+        ELSE original_native.config END AS config) native
       JOIN campaign_status_list_items i ON i.id=a.status_list_item_id
       LEFT JOIN campaign_dispositions d ON d.id=a.disposition_id
       WHERE i.campaign_id=$1 ORDER BY i.sort_order,i.id,a.sort_order,a.id`, [campaignId]);
