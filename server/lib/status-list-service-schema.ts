@@ -101,9 +101,15 @@ BEGIN
   );
  END IF;
  FOR a IN SELECT value FROM jsonb_array_elements(g.actions) LOOP
-  SELECT md5((CASE WHEN coalesce(to_jsonb(t)->'service_action_config','null'::jsonb)='null'::jsonb
-    THEN to_jsonb(t)-'service_action_config'-'service_action_owner_id' ELSE to_jsonb(t) END)::text) AS fingerprint,t.status_list_item_id INTO raw
-   FROM campaign_status_list_automations t WHERE t.id=a->>'id';
+  SELECT md5((CASE WHEN coalesce(original_native.config->>'execution_policy','inherit')='inherit'
+    THEN original_native.config-'execution_policy' ELSE original_native.config END)::text) AS fingerprint,
+    t.status_list_item_id INTO raw
+   FROM campaign_status_list_automations t
+   CROSS JOIN LATERAL (SELECT CASE
+    WHEN coalesce(to_jsonb(t)->'service_action_config','null'::jsonb)='null'::jsonb
+    THEN to_jsonb(t)-'service_action_config'-'service_action_owner_id'
+    ELSE to_jsonb(t) END AS config) original_native
+   WHERE t.id=a->>'id';
   missing:=NOT FOUND;
   IF a->>'itemId'<>s.status_list_item_id AND raw.status_list_item_id IS DISTINCT FROM s.status_list_item_id THEN CONTINUE; END IF;
   df:=NULL;
