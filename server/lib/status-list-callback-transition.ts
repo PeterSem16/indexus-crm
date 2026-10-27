@@ -219,6 +219,15 @@ export async function enqueueCallbackConfirmation(client: Client, input: {
     [`mission-callback-contact:${input.campaignContactId}`]);
   const ownership = (await client.query("SELECT owner,fingerprint FROM mission_callback_ownership WHERE campaign_id=$1", [input.campaignId])).rows[0];
   const inventory = await readTransitionInventory(client, input.campaignId, { withinTransaction: true });
+  // Approval protects callback execution, not unrelated Status List answers.
+  // Keep originally reviewed items protected even if their callback was deleted
+  // or changed into an unsupported action. New/invalid callback actions must
+  // also pass readiness rather than silently falling through to legacy writes.
+  const reviewedCallbackItem = medicalPartnerAudit(input.campaignId)!.actions
+    .some(action => action.itemId === input.itemId && action.callback);
+  const currentCallbackItem = inventory.actions.some(action => action.itemId === input.itemId &&
+    (action.type === "set_callback" || action.type === "set_contact_status" || action.callback));
+  if (!reviewedCallbackItem && !currentCallbackItem) return;
   // A changed source must not silently execute as an approved compatible rule.
   if (ownership?.owner === "compatible") {
     const current = await callbackReadiness(client, input.campaignId);

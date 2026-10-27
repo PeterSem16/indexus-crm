@@ -213,8 +213,40 @@ try {
   await drainCallbackEvents(undefined, connections);
   assert.deepEqual((await root.query("SELECT * FROM campaign_contacts")).rows[0], prior);
   assert.equal(Number((await root.query("SELECT count(*) FROM campaign_contact_history")).rows[0].count), 5);
+  // Re-enter the real incident's compatible-owner state through normal approval.
+  await root.query("UPDATE campaign_status_list_automations SET callback_existing_policy='replace' WHERE id=$1", [audit.actions[6].id]);
+  readiness = await callbackReadiness(root, mission);
+  await switchCallbackOwner(mission, "agent", { ...input, fingerprint: readiness.fingerprint,
+    expectedOwner: "legacy", targetOwner: "compatible" }, connections);
   await root.query("UPDATE campaign_status_list_automations SET callback_offset_days=100 WHERE id=$1", [action.id]);
   assert.ok((await callbackReadiness(root, mission)).blockers.includes("legacy_config_changed"));
+  const protectedOwnership = (await root.query("SELECT * FROM mission_callback_ownership")).rows;
+  const protectedCandidates = (await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows;
+  const protectedEventCount = (await root.query("SELECT count(*) FROM mission_callback_events")).rows[0].count;
+  await root.query(`INSERT INTO campaign_contacts(id,campaign_id,contact_type,clinic_id,status)
+    VALUES('scope-contact',$1,'clinic','scope-clinic','pending')`, [mission]);
+  const independentConfirmation = { ...confirmation, campaignContactId: "scope-contact", itemId: "other",
+    manualDate: "2026-11-12T10:00:00Z", itemNote: "Independent quick reschedule" };
+  const independentState = await persistCallbackConfirmation(independentConfirmation, connections);
+  assert.ok(independentState.id, "independent quick step saves with zero calls despite unrelated callback drift");
+  assert.equal((await root.query("SELECT count(*) FROM call_logs WHERE contact_id='scope-clinic'")).rows[0].count, "0");
+  assert.equal((await root.query("SELECT count(*) FROM mission_callback_events")).rows[0].count, protectedEventCount,
+    "independent confirmation must not create callback executor events");
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, protectedOwnership);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, protectedCandidates);
+  const guardedConfirmation = { ...independentConfirmation, itemId: action.itemId };
+  await assert.rejects(persistCallbackConfirmation(guardedConfirmation, connections), /legacy_config_changed/,
+    "reviewed callback still rejects unapproved changes");
+  await root.query("UPDATE campaign_status_list_automations SET callback_offset_days=-1 WHERE id=$1", [action.id]);
+  await assert.rejects(persistCallbackConfirmation(guardedConfirmation, connections), /legacy_config_changed/,
+    "invalid callback must not bypass readiness when normalization removes its callback");
+  const removedAction = (await root.query("SELECT * FROM campaign_status_list_automations WHERE id=$1", [action.id])).rows[0];
+  await root.query("DELETE FROM campaign_status_list_automations WHERE id=$1", [action.id]);
+  await assert.rejects(persistCallbackConfirmation(guardedConfirmation, connections), /legacy_config_changed/,
+    "deleting the reviewed callback must not make its item independent");
+  await root.query(`INSERT INTO campaign_status_list_automations
+    SELECT * FROM jsonb_populate_record(NULL::campaign_status_list_automations,$1::jsonb)`, [JSON.stringify(removedAction)]);
+  await root.query("UPDATE campaign_status_list_automations SET callback_offset_days=100 WHERE id=$1", [action.id]);
   console.log("Isolated PostgreSQL checks passed: atomic capture, concurrent confirmations/workers/reviewers, rollback recovery, live provenance/dependencies, no replay and safe ownership rollback.");
 } finally {
   await root.query("RESET search_path");
