@@ -3,6 +3,7 @@ import test from "node:test";
 import {chromium,expect} from "@playwright/test";
 import {createServer} from "vite";
 import {getHealthcareManagementCopy} from "../client/src/components/status-list-healthcare-management-copy";
+import {getHealthcareCopy} from "../client/src/components/status-list-healthcare-copy";
 import {healthcareStates} from "../shared/status-list-healthcare";
 
 test("healthcare controls create through Content, select the real group and confirm source removal",async()=>{
@@ -16,7 +17,7 @@ test("healthcare controls create through Content, select the real group and conf
     const page=await browser.newPage({viewport:{width:1100,height:900}});
     const errors:string[]=[];
     page.on("pageerror",error=>errors.push(error.message));
-    let removed=0,hasSource=true,failRemove=false;
+    let removed=0,hasSource=true,failRemove=false,created=0;
     const writes:string[]=[];
     await page.route("**/test-fixtures/healthcare-management.html*",route=>route.fulfill({contentType:"text/html",
       body:'<html><body><div id="root"></div><script type="module" src="/test-fixtures/status-list-healthcare.tsx"></script></body></html>'}));
@@ -27,6 +28,8 @@ test("healthcare controls create through Content, select the real group and conf
       if(url.pathname.endsWith("/option-sources/group")&&method==="DELETE") {
         if(failRemove){await route.fulfill({status:409,contentType:"application/json",body:'{"error":"callback_configuration_not_independent"}'});return;}
         removed++;hasSource=false;data={ok:true};
+      } else if(url.pathname.endsWith("/healthcare")&&method==="POST") {
+        created++;hasSource=true;data={groupId:"group"};
       } else if(url.pathname.endsWith("/option-sources"))data={sources:hasSource?[{source:"healthcare_reachability",
         groupId:"group",hidden:true,mapping:Object.fromEntries(healthcareStates.map(state=>[state,`option-${state}`]))}]:[],
         catalog:[{id:"group",kind:"item",label:"Provider reachability",itemType:"step",confirmationType:"info"}]};
@@ -73,6 +76,22 @@ test("healthcare controls create through Content, select the real group and conf
     await expect(page.getByTestId("healthcare-configured-source")).toHaveCount(0);
     assert.equal(removed,1);
     assert.ok(writes.every(write=>write==="DELETE /api/campaigns/mission/status-list-workflows/option-sources/group"));
+    for(const locale of ["sk","en","cs","hu","ro","it","de"]) for(const variant of ["","&subquestion"]) {
+      hasSource=false;
+      const before=created;
+      await page.goto(`http://127.0.0.1:${port}/test-fixtures/healthcare-management.html?workspace&studio&locale=${locale}${variant}`,{timeout:90000});
+      await expect(page.getByTestId("status-list-tab-content")).toHaveAttribute("aria-current","page");
+      await expect(page.getByTestId("status-list-question-studio")).toBeVisible();
+      await page.getByTestId("studio-stage-answer").click();
+      const editor=page.getByTestId("status-list-question-studio");
+      await expect(editor.getByTestId("create-healthcare-source")).toBeVisible();
+      await expect(editor.getByTestId("create-healthcare-source")).toHaveText(getHealthcareCopy(locale).create);
+      assert.equal(created,before,"opening the question must never create a source");
+      await editor.getByTestId("create-healthcare-source").click();
+      await expect.poll(()=>created).toBe(before+1);
+      await expect(editor.getByTestId("create-healthcare-source")).toHaveCount(0);
+      await expect(editor.getByTestId("healthcare-configured-source")).toHaveCount(1);
+    }
     assert.deepEqual(errors,[]);
   } finally {await browser.close();await vite.close();}
 });

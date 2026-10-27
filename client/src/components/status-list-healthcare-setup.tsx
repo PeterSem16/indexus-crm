@@ -100,13 +100,12 @@ export function StatusListHealthcareSetup({
   useEffect(() => {
     onDirtyChange?.(Array.from(dirtyGroups.values()).some(Boolean));
   }, [dirtyGroups, onDirtyChange]);
-  if (targetGroupId && !sources.length && !query.isLoading && !query.isError) return null;
   return <section className="mb-4 space-y-3 rounded-xl border border-border bg-muted/20 p-3" data-testid="healthcare-source-setup">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h4 className="flex items-center gap-2 text-sm font-semibold">
         <PhoneCall className="h-4 w-4 text-primary"/>{c.title}
       </h4>
-      {!targetGroupId && !allSources.length && <Button type="button" size="sm" variant="outline" data-testid="create-healthcare-source"
+      {!allSources.length && <Button type="button" size="sm" variant="outline" data-testid="create-healthcare-source"
         disabled={create.isPending || query.isLoading || query.isError} onClick={() => create.mutate()}>
         <Plus className="mr-1 h-3.5 w-3.5"/>{c.create}
       </Button>}

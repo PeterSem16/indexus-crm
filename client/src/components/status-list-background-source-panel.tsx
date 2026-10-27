@@ -181,7 +181,7 @@ export function StatusListBackgroundSourcePanel({ campaignId, locale, targetItem
     if (!open || isBusy) return;
     void close();
   };
-  return <>{hideOptionSources && <StatusListHealthcareSetup campaignId={campaignId} locale={locale} targetGroupId={targetItemId}/>}
+  return <>{hideOptionSources && <StatusListHealthcareSetup campaignId={campaignId} locale={locale} targetGroupId={targetItemId} onDirtyChange={reportOptionDirty}/>}
   <section className="slse-panel mt-4 rounded-xl border border-border/70 bg-background/65 p-3" data-testid="status-list-background-sources">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-sm font-semibold">{copy.title}</h3><p className="mt-1 text-xs text-muted-foreground">{copy.subtitle}</p></div>
