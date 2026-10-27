@@ -23,6 +23,7 @@ import { useStatusListActionRecap } from "@/components/use-status-list-action-re
 import { StatusListRepresentativeInformationPanel } from "@/components/status-list-representative-information";
 import { StatusListBatchSaveDialog } from "@/components/status-list-batch-save-dialog";
 import { StatusListManualCallbackButton } from "@/components/status-list-manual-callback-button";
+import { formatStatusListHistory } from "@shared/status-list-history-display";
 import { StatusListAgentBackground } from "@/components/status-list-agent-background";
 import { useStatusListRepresentativeChecks } from "@/hooks/use-status-list-representative-checks";
 import { useStatusListAutomaticOpen } from "@/components/use-status-list-automatic-open";
@@ -466,12 +467,15 @@ function slPrefillDt(automation: any): string {
 
 // Per-item manual action buttons rendered on the agent's mission status list.
 // Only appear for items that have a configured send_email_group / set_contact_status / set_callback automation.
-function SlActionButtons({ automations, onRun, running, locale, dispositions }: {
+type StatusListDispositionSource = { statusListItemId: string; questionId?: string | null };
+
+function SlActionButtons({ automations, onRun, running, locale, dispositions, onOpenDisposition }: {
   automations: any[];
   onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void;
   running: Set<string>;
   locale: string;
   dispositions: any[];
+  onOpenDisposition?: (source?: StatusListDispositionSource) => void;
 }) {
   const actionable = (automations || []).filter((a: any) =>
     a.actionType === "send_email_group" || a.actionType === "set_contact_status" || a.actionType === "set_callback"
@@ -491,35 +495,31 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
         if (a.actionType === "set_contact_status") {
           const disp = (dispositions || []).find((d: any) => String(d.id) === String(a.dispositionId));
           const isCallback = !!disp && ["callback", "schedule_email", "schedule_sms"].includes(disp.actionType);
-          return <SlStatusButton automation={a} isRunning={isRunning} onRun={onRun} locale={locale} isCallback={isCallback} />;
+          return <SlStatusButton automation={a} isRunning={isRunning} onRun={onRun} locale={locale} isCallback={isCallback} onOpenDisposition={onOpenDisposition} />;
         }
         return <SlCallbackButton automation={a} isRunning={isRunning} onRun={onRun} locale={locale} />;
       }} />;
 }
 
-// "Set status" button. For a plain disposition it just runs the action; for a
-// callback-type disposition it opens a reschedule picker (prefilled from the rule's
-// term) so the agent can override the callback time before scheduling.
-function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName, icon, color }: {
+// Manual status selection uses the Mission's existing disposition chooser.
+// It must not execute the automation's preconfigured disposition or open its
+// callback calendar before the agent has chosen a status.
+export function SlStatusButton({ automation, isRunning, locale, label, icon, color, onOpenDisposition }: {
   automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string; icon?: string | null; color?: string | null;
+  onOpenDisposition?: (source?: StatusListDispositionSource) => void;
 }) {
   const iconColor = getStatusListQuestionColorValue(color);
 
-  if (!isCallback) {
     return (
       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
         style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
-        disabled={isRunning} onClick={() => onRun(automation)} data-testid={`btn-sl-status-${automation.id}`}>
+        disabled={isRunning || !onOpenDisposition}
+        onClick={() => onOpenDisposition?.({ statusListItemId: automation.statusListItemId, questionId: automation.questionId })}
+        data-testid={`btn-sl-status-${automation.id}`}>
         {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
         {label ?? slt("runStatus", locale)}
       </Button>
     );
-  }
-  return <StatusListManualCallbackButton automation={automation} isRunning={isRunning} onRun={onRun}
-    locale={locale} kind="status" label={label ?? slt("runStatus", locale)}
-    title={statusName || slt("runStatus", locale)} icon={icon} color={color}
-    copy={{ noteLabel:slt("cbNoteLabel",locale),notePlaceholder:slt("cbNotePh",locale),
-      confirm:slt("cbConfirm",locale),forEveryone:slt("forEveryone",locale) }}/>;
 }
 
 function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon, color }: {
@@ -2687,7 +2687,7 @@ export function CommunicationCanvas({
   volume?: number;
   micVolume?: number;
   onEndCall?: () => void;
-  onOpenDisposition?: () => void;
+  onOpenDisposition?: (source?: StatusListDispositionSource) => void;
   onToggleMute?: () => void;
   onToggleHold?: () => void;
   onSendDtmf?: (digit: string) => void;
@@ -4738,8 +4738,8 @@ export function CommunicationCanvas({
       type: h.type === "disposition" ? "system" as const : h.type as TimelineEntry["type"],
       direction: h.direction,
       timestamp: new Date(h.date),
-      content: h.content || h.notes || "",
-      details: h.details || h.campaignName || "",
+      content: formatStatusListHistory(h, locale)?.title || h.content || h.notes || "",
+      details: formatStatusListHistory(h, locale)?.details ?? h.details ?? h.campaignName ?? "",
       status: h.status,
       htmlBody: h.htmlBody,
       fullContent: h.fullContent,
@@ -4791,7 +4791,7 @@ export function CommunicationCanvas({
       email: all.filter(e => e.type === "email"),
       sms: all.filter(e => e.type === "sms"),
     };
-  }, [timeline, contactHistory]);
+  }, [timeline, contactHistory, locale]);
 
 
   // Keep refs in sync with latest values so useEffect can read them without deps
@@ -7110,7 +7110,7 @@ export function CommunicationCanvas({
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, options); autoConfirmParent();
                             }}
-                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} icon={q.icon} color={q.color} />;
+                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} icon={q.icon} color={q.color} onOpenDisposition={onOpenDisposition} />;
                         }}
                       />
                         {(() => {
@@ -7165,7 +7165,7 @@ export function CommunicationCanvas({
                           </div>
                         );
                       })()}
-                      {!isInfo && <SlActionButtons key={`${campaign?.id}:${campaignContactId}`} automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />}
+                      {!isInfo && <SlActionButtons key={`${campaign?.id}:${campaignContactId}`} automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} onOpenDisposition={onOpenDisposition} />}
                     </div>
                     <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
@@ -8862,10 +8862,11 @@ export function CustomerInfoPanel({
               {filteredHistory.length > 0 && (
                 <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-2"}`}>
                   {filteredHistory.map((item) => {
+                    const statusListDisplay = formatStatusListHistory(item, locale);
                     const isClickable = item.type === "email" || item.type === "sms";
-                    const plainDetails = htmlToPlainPreview(item.details);
+                    const plainDetails = htmlToPlainPreview(statusListDisplay ? statusListDisplay.details : item.details);
                     const isCall = item.type === "call";
-                    const contentText = decodeHtmlEntities(item.content || item.notes || "");
+                    const contentText = decodeHtmlEntities(statusListDisplay?.title || item.content || item.notes || "");
 
                     const itemAc = item.type === "call" ? "#B5622E" : item.type === "email" ? "#5B4FCF" : item.type === "sms" ? "#2E75B6" : "#7A6858";
                     return (
@@ -8910,7 +8911,10 @@ export function CustomerInfoPanel({
                                 </span>
                               )}
                               {item.type === "disposition" && (
-                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}>{t.agentWorkspace.historyDispositionType}</span>
+                                <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}
+                                  data-testid={statusListDisplay ? `status-list-history-source-${item.id}` : undefined}>
+                                  {statusListDisplay?.source || t.agentWorkspace.historyDispositionType}
+                                </span>
                               )}
                               {!isCall && (item as any).dispositionName && (() => {
                                 const dColor = (item as any).dispositionColor || "gray";
@@ -10783,6 +10787,10 @@ function AgentWorkspacePageContent() {
   const [createTaskAttachments, setCreateTaskAttachments] = useState<TaskAttachment[]>([]);
   const [createTaskAttachmentsBusy, setCreateTaskAttachmentsBusy] = useState(false);
   const [dispositionModalOpen, setDispositionModalOpen] = useState(false);
+  const statusListDispositionSourceRef = useRef<(StatusListDispositionSource & { campaignId: string; contactId: string }) | null>(null);
+  useEffect(() => {
+    if (!dispositionModalOpen) statusListDispositionSourceRef.current = null;
+  }, [dispositionModalOpen]);
   const [dispositionOpenedAt, setDispositionOpenedAt] = useState<number | null>(null);
   const [dispositionChannelFilter, setDispositionChannelFilter] = useState<"phone" | "email" | "sms" | null>(null);
   const [modalSelectedParent, setModalSelectedParent] = useState<string | null>(null);
@@ -13016,8 +13024,8 @@ function AgentWorkspacePageContent() {
       notes: item.notes,
       agentName: item.agentName,
       agentId: item.agentId,
-      content: item.content,
-      details: item.details,
+      content: formatStatusListHistory(item, locale)?.title || item.content,
+      details: formatStatusListHistory(item, locale)?.details ?? item.details,
       campaignName: item.campaignName,
       campaignId: item.campaignId,
       action: item.action,
@@ -13033,7 +13041,7 @@ function AgentWorkspacePageContent() {
       outcomeBadges: item.outcomeBadges || [],
       metadata: item.metadata || null,
     }));
-  }, [persistentHistory]);
+  }, [persistentHistory, locale]);
 
   useEffect(() => {
     if (autoTimerRef.current) {
@@ -13072,7 +13080,7 @@ function AgentWorkspacePageContent() {
   }, [selectedCampaignId]);
 
   const dispositionMutation = useMutation({
-    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any>; checklistCodes?: string[] }) => {
+    mutationFn: async (data: { contactId: string; campaignId: string; disposition: string; notes: string; callbackDateTime?: string; parentCode?: string; callbackAssignedTo?: string | null; callbackNote?: string; callMeta?: Record<string, any>; checklistCodes?: string[]; statusListSource?: StatusListDispositionSource }) => {
       // Resolve effective disposition for action: checklist children override parent's action
       const ACTION_PRIORITY = ['dnd', 'complete', 'callback', 'schedule_sms', 'schedule_email', 'convert', 'send_email', 'send_sms', 'none'];
       const parentDisp = campaignDispositions.find(d => d.code === data.disposition)
@@ -13107,12 +13115,15 @@ function AgentWorkspacePageContent() {
       
       const updateData: Record<string, any> = {
         status: newStatus,
-        lastAttemptAt: new Date().toISOString(),
         notes: data.notes || undefined,
         dispositionCode: data.disposition,
-        incrementAttempt: true,
-        assignedTo: user?.id || null,
-        callMeta: data.callMeta || undefined,
+        statusListSource: data.statusListSource,
+        ...(!data.statusListSource ? {
+          lastAttemptAt: new Date().toISOString(),
+          incrementAttempt: true,
+          assignedTo: user?.id || null,
+          callMeta: data.callMeta || undefined,
+        } : {}),
       };
 
       if (data.checklistCodes?.length) {
@@ -13144,7 +13155,8 @@ function AgentWorkspacePageContent() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_response, data) => {
+      if (data.statusListSource) toast({ title: slt("statusSet", locale) });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
@@ -13164,6 +13176,31 @@ function AgentWorkspacePageContent() {
   const handleDisposition = (value: string, parentCode?: string, callbackDateTime?: string, callbackAssignedTo?: string | null, callbackNote?: string, notesOverride?: string, checklistCodes?: string[]) => {
     const disp = campaignDispositions.find(d => d.code === value)
       || campaignDispositions.find(d => d.code === parentCode);
+
+    const manualSource = statusListDispositionSourceRef.current;
+    if (manualSource) {
+      statusListDispositionSourceRef.current = null;
+      // A Status-list choice changes only the contact's status. It is neither
+      // finishing the current call nor executing the configured question/rule
+      // (which could otherwise overwrite the agent's selected status).
+      if (manualSource.campaignId !== selectedCampaignId || manualSource.contactId !== currentCampaignContactId) {
+        toast({ title: slt("actionFailed", locale), variant: "destructive" });
+        return;
+      }
+      dispositionMutation.mutate({
+        campaignId: manualSource.campaignId, contactId: manualSource.contactId,
+        disposition: value, parentCode, notes: notesOverride ?? callNotes,
+        callbackDateTime, callbackAssignedTo, callbackNote, checklistCodes,
+        statusListSource: { statusListItemId: manualSource.statusListItemId, questionId: manualSource.questionId },
+      });
+      setDispositionModalOpen(false);
+      setModalSelectedParent(null);
+      setChecklistParentId(null);
+      setChecklistSelectedCodes([]);
+      setMandatoryDisposition(false);
+      setDispositionChannelFilter(null);
+      return;
+    }
 
     const assignLabel = callbackAssignedTo ? "osobný" : "pre všetkých";
     const dispositionElapsed = callEndTimestamp ? Math.round((Date.now() - callEndTimestamp) / 1000) : undefined;
@@ -13201,6 +13238,8 @@ function AgentWorkspacePageContent() {
     const isNewContactActive = !!(dCtx?.contactId && currentContact?.id && dCtx.contactId !== currentContact.id);
 
     if (effectiveCampaignContactId && effectiveCampaignId) {
+      const source = statusListDispositionSourceRef.current;
+      statusListDispositionSourceRef.current = null;
       dispositionMutation.mutate({
         contactId: effectiveCampaignContactId,
         campaignId: effectiveCampaignId,
@@ -13212,6 +13251,8 @@ function AgentWorkspacePageContent() {
         callbackNote: callbackNote || undefined,
         callMeta,
         checklistCodes,
+        statusListSource: source?.campaignId === effectiveCampaignId && source.contactId === effectiveCampaignContactId
+          ? { statusListItemId: source.statusListItemId, questionId: source.questionId } : undefined,
       });
     }
 
@@ -16564,7 +16605,12 @@ function AgentWorkspacePageContent() {
               volume={callContext.volume}
               micVolume={callContext.micVolume}
               onEndCall={() => callContext.endCallFn.current?.()}
-              onOpenDisposition={() => { setDispositionChannelFilter(null); setDispositionModalOpen(true); }}
+              onOpenDisposition={(source) => {
+                statusListDispositionSourceRef.current = source && selectedCampaignId && currentCampaignContactId
+                  ? { ...source, campaignId: selectedCampaignId, contactId: currentCampaignContactId } : null;
+                setDispositionChannelFilter(source ? "phone" : null);
+                setDispositionModalOpen(true);
+              }}
               onToggleMute={() => callContext.toggleMuteFn.current?.()}
               onToggleHold={() => callContext.toggleHoldFn.current?.()}
               onSendDtmf={(digit) => callContext.sendDtmfFn.current?.(digit)}

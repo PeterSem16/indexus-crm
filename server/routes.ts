@@ -276,6 +276,8 @@ import { campaignCallListEventsToExportRows } from "./lib/campaign-call-list-exp
 import { canAgentReadCampaignByWorkspaceCountry } from "./lib/agent-workspace-country-access";
 import { hasForwardedCallEvidence, isMissionCanonicalCall, isMissionInboundOnlyCall } from "./lib/mission-call-list-scope";
 import { callBrowsePageQuery, inboundOnlyBrowseEntry } from "./lib/call-browse-inbound";
+import { loadStatusListHistoryDisplay, resolveManualStatusListSource } from "./lib/status-list-history-display";
+import { formatStatusListHistory } from "../shared/status-list-history-display";
 import {
   callRecordingPhoneMatches,
   callRecordingUploadConflict,
@@ -1739,7 +1741,7 @@ async function runStatusListSetStatus(automation: any, ctx: StatusListActionCtx,
       campaignContactId: ctx.campaignContactId,
       userId: ctx.userId,
       action: "status_list_action",
-      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, status: update.status ?? null, callbackDate: scheduledCb ?? null, callbackNote: scheduledCb ? callbackNote?.trim() || null : null, campaignId: ctx.campaignId },
+      metadata: { actionType: "set_contact_status", automationId: automation.id, dispositionCode: disp.code, dispositionName: disp.name, status: update.status ?? null, callbackDate: scheduledCb ?? null, callbackNote: scheduledCb ? callbackNote?.trim() || null : null, campaignId: ctx.campaignId },
     });
   } catch (e) { console.error("[status-list:set_status] history log failed:", e); }
   return { ok: true, callbackDate: scheduledCb };
@@ -15184,6 +15186,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         }
       }
 
+      const slHistoryDisplay = await loadStatusListHistoryDisplay(pool, campaignHistory);
       for (const h of campaignHistory) {
         const agentName = userMap.get(h.userId) || "Neznámy";
         const actionLabels: Record<string, string> = {
@@ -15226,6 +15229,12 @@ Return ONLY valid JSON, no markdown code blocks.`,
           content = `Poznámka ku kroku aktualizovaná: ${itemLabel}`;
           (h as any)._slAugmented = { itemLabel, itemDescription };
         }
+        const slMetadata = h.action.startsWith("status_list_") ? {
+          ...((h.metadata as any) || {}), ...((h as any)._slAugmented || {}),
+          statusListHistory: slHistoryDisplay.get(h.id) || {},
+        } : null;
+        const slDisplay = formatStatusListHistory({ action: h.action, metadata: slMetadata });
+        if (slDisplay) content = slDisplay.title;
 
         let dispositionName: string | null = null;
         let dispositionColor: string | null = null;
@@ -15245,7 +15254,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
           agentName,
           agentId: h.userId,
           content,
-          details: dispositionName
+          details: slDisplay ? slDisplay.details : dispositionName
             ? null
             : h.action === "status_list_note_update"
               ? ((h.metadata as any)?.itemNote ?? "")
@@ -15259,9 +15268,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
           action: h.action,
           previousStatus: h.previousStatus,
           newStatus: h.newStatus,
-          metadata: (h.action === "status_list_confirmation" || h.action === "status_list_note_update") && (h as any)._slAugmented
+          metadata: slMetadata || ((h.action === "status_list_confirmation" || h.action === "status_list_note_update") && (h as any)._slAugmented
             ? { ...((h.metadata as any) || {}), ...(h as any)._slAugmented }
-            : ((h.metadata as any) || null),
+            : ((h.metadata as any) || null)),
         });
       }
 
@@ -31969,7 +31978,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       
       const previousStatus = existingContact.status;
       
-      const { incrementAttempt, lastContactedAt, result, callMeta, ...cleanBody } = req.body;
+      const { incrementAttempt, lastContactedAt, result, callMeta, statusListSource, ...cleanBody } = req.body;
+      let manualStatusListMetadata: Record<string, unknown> | undefined;
+      if (statusListSource !== undefined) {
+        await (await import("./lib/status-list-workflow-routes")).authorize(req, false, req.params.contactId);
+        try {
+          manualStatusListMetadata = await resolveManualStatusListSource(pool, statusListSource, req.params.campaignId);
+        } catch {
+          return res.status(400).json({ error: "invalid_status_list_source" });
+        }
+        if (typeof cleanBody.dispositionCode !== "string" || !cleanBody.dispositionCode)
+          return res.status(400).json({ error: "disposition_required" });
+      }
       
       const updatePayload: Record<string, any> = { ...cleanBody };
       
@@ -32016,6 +32036,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         // Determine effective disposition (checklist child override)
         const ACTION_PRIORITY = ['dnd','complete','callback','schedule_sms','schedule_email','convert','send_email','send_sms'];
         let effectiveDisp = allDisps.find(d => d.code === updatePayload.dispositionCode);
+        if (manualStatusListMetadata && !effectiveDisp)
+          return res.status(400).json({ error: "disposition_not_in_mission" });
         const checklistCodes = Array.isArray(req.body.checklistCodes) ? req.body.checklistCodes as string[] : [];
         if (checklistCodes.length > 0) {
           const children = allDisps.filter(d => checklistCodes.includes(d.code) && d.actionType && d.actionType !== 'none');
@@ -32026,6 +32048,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         }
 
         if (effectiveDisp) {
+          if (manualStatusListMetadata) Object.assign(manualStatusListMetadata, {
+            dispositionCode: effectiveDisp.code, dispositionName: effectiveDisp.name,
+          });
           const actionType = effectiveDisp.actionType || 'none';
           const dispActionStatusMap: Record<string, string> = {
             callback: "callback_scheduled", schedule_email: "callback_scheduled", schedule_sms: "callback_scheduled",
@@ -32093,15 +32118,18 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const agentName = agentUser?.fullName || agentUser?.username || "Agent";
       
       // Log history if status changed
-      if (updatePayload.status && updatePayload.status !== previousStatus) {
+      if (manualStatusListMetadata || updatePayload.status && updatePayload.status !== previousStatus) {
         await storage.createCampaignContactHistory({
           campaignContactId: req.params.contactId,
           userId: req.session.user!.id,
-          action: "status_change",
+          action: manualStatusListMetadata ? "status_list_action" : "status_change",
           previousStatus,
           newStatus: updatePayload.status,
           notes: updatePayload.notes || updatePayload.dispositionCode || null,
-          metadata: callMeta || undefined,
+          metadata: manualStatusListMetadata ? { ...(callMeta || {}), ...manualStatusListMetadata,
+            callbackDate: contact.status === "callback_scheduled" ? contact.callbackDate?.toISOString() ?? null : null,
+            callbackNote: contact.status === "callback_scheduled" ? contact.callbackNote ?? null : null,
+          } : callMeta || undefined,
         });
 
         // Persist disposition timing fields into the most recent callLog for this contact

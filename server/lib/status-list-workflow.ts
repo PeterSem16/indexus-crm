@@ -393,7 +393,7 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
     await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
       VALUES($1,$2,'status_list_workflow',$3::jsonb)`, [event.campaignContactId, event.actorId,
       JSON.stringify({ campaignId: event.campaignId, ruleId: stored.id, ruleName: rule.name,
-         runId: claimed.rows[0].id, source: event.source, branch, results, chained: !!event.causation,
+         runId: claimed.rows[0].id, source: event.source, sourceLabel, branch, results: auditResults, chained: !!event.causation,
          causation: event.causation, actorKind: actorKind(event) })]);
   }
 }
@@ -434,7 +434,8 @@ export async function saveWorkflowQuestion(input: {
     }
     await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
       VALUES($1,$2,'status_list_answer',$3::jsonb)`, [input.campaignContactId, input.actorId,
-      JSON.stringify({ campaignId: input.campaignId, questionId: input.questionId, previous: before, value: input.value })]);
+      JSON.stringify({ campaignId: input.campaignId, questionId: input.questionId, questionLabel: entry.label,
+        previous: before, value: input.value })]);
     if (input.value !== null) {
       const now = await client.query("SELECT clock_timestamp() AS at");
       await executeEvent(client, { ...input, source: { kind: "question", id: input.questionId },
@@ -503,6 +504,7 @@ export async function saveWorkflowQuestions(input: {
       await client.query(`INSERT INTO campaign_contact_history(campaign_contact_id,user_id,action,metadata)
         VALUES($1,$2,'status_list_answer',$3::jsonb)`, [input.campaignContactId, input.actorId,
         JSON.stringify({ campaignId: input.campaignId, questionId: change.questionId,
+          questionLabel: catalog.find(entry => entry.kind === "question" && entry.id === change.questionId)?.label ?? null,
           previous: previous?.value ?? null, value: change.value })]);
       if (change.value !== null) events.push({ questionId: change.questionId, revision, value: change.value });
     }
