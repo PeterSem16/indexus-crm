@@ -16,6 +16,45 @@ function shell(body: string) {
   return spawnSync("bash", ["-c", `source ${q(script)}\nsudo() { "$@"; }\nOWNER=${process.getuid!()}; GROUP=${process.getgid!()};\n${body}`], { encoding: "utf8" });
 }
 
+test("real EACCES becomes HTTP 500; privacy requires independent denial and a healthy app", {
+  skip: process.getuid?.() === 0,
+}, async () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"indexus-private-probe-"));
+  const privateDir=path.join(dir,"private"), file=path.join(privateDir,"privacy-check.txt");
+  const response=path.join(dir,"response.txt"), token="independent-private-canary";
+  fs.mkdirSync(privateDir);fs.writeFileSync(file,token);
+  fs.chmodSync(privateDir,0);
+  const app=express();
+  app.use("/data",express.static(dir));
+  app.use((err:any,_req:any,res:any,_next:any)=>res.status(err.status||err.statusCode||500).json({error:err.code}));
+  const server=app.listen(0,"127.0.0.1");
+  await new Promise<void>(resolve=>server.once("listening",resolve));
+  try {
+    const address=server.address() as {port:number};
+    const result=await fetch(`http://127.0.0.1:${address.port}/data/private/privacy-check.txt`);
+    assert.equal(result.status,500);
+    const body=await result.text();
+    assert.match(body,/EACCES/);
+    fs.writeFileSync(response,body);
+    const probe=(status:number,health=true,physical=file,pid=process.pid)=>
+      shell(`healthy() { return ${health?0:1}; }\nverify_stage_privacy ${status} ${q(response)} ${q(token)} ${q(physical)} ${pid}`);
+    assert.equal(probe(500).status,0,"a real permission denial plus health permits staging");
+    assert.notEqual(probe(500,false).status,0,"global server failure must not be accepted");
+    assert.notEqual(probe(502).status,0,"unexpected proxy failure stays blocked");
+    assert.notEqual(probe(500,true,response).status,0,"a readable directory is unsafe even with HTTP 500");
+    assert.notEqual(probe(404,true,response).status,0,"HTTP 404 alone is not privacy proof");
+    assert.notEqual(probe(500,true,path.join(dir,"absent")).status,0,"ENOENT is not EACCES");
+    assert.notEqual(probe(500,true,file,999999999).status,0,"unknown backend identity stays blocked");
+    fs.writeFileSync(response,token);
+    assert.notEqual(probe(500).status,0,"a leaked canary is always rejected");
+    assert.notEqual(probe(200).status,0);
+  } finally {
+    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+    fs.chmodSync(privateDir,0o700);
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
 test("operator requires explicit apply, valid syntax, and cannot restart or migrate the backend", () => {
   assert.equal(spawnSync("bash", ["-n", script]).status, 0);
   for (const args of [[], ["--prepare"], ["--apply", "--restart"]]) {

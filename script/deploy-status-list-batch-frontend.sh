@@ -21,6 +21,41 @@ healthy() {
   [ "$(curl -s --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/)" = 200 ] &&
   [ "$(curl -s --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/api/users)" = 401 ]
 }
+verify_stage_privacy() {
+  local status=$1 response=$2 token=$3 physical_file=$4 backend_pid=$5
+  test -n "$token" && test -f "$response" || return 1
+  if grep -Fq -- "$token" "$response"; then
+    echo "STOP: pracovny adresar je dostupny cez HTTP; zdroje sa nerozbalia."
+    return 1
+  fi
+  # A 500 is not itself proof of privacy. Independently require EACCES from
+  # Node running as the same non-root UID as the live backend.
+  if ! node - "$physical_file" "$backend_pid" <<'NODE'
+const fs=require("node:fs");
+try {
+  const uid=process.getuid();
+  if(uid===0 || !/^[1-9]\d*$/.test(process.argv[3]) ||
+    fs.statSync(`/proc/${process.argv[3]}`).uid!==uid) process.exit(1);
+  try { fs.readFileSync(process.argv[2]); process.exit(1); }
+  catch(error) { if(error.code!=="EACCES") process.exit(1); }
+} catch { process.exit(1); }
+NODE
+  then
+    echo "STOP: Node UID nema preukazane odmietnutie EACCES pre sukromne pracovisko."
+    return 1
+  fi
+  case "$status" in
+    200|401|403|404) ;;
+    500)
+      if ! healthy; then
+        echo "STOP: HTTP 500 a bezne kontrolne endpointy nie su zdrave."
+        return 1
+      fi
+      echo "SUKROMIE OVERENE: Node UID dostava EACCES, HTTP nevracia kontrolny obsah; aplikacia je zdrava."
+      ;;
+    *) echo "STOP: neoverena ochrana pracoviska HTTP=$status"; return 1 ;;
+  esac
+}
 validate_assets() {
   local current=$1 incoming=$2 file relative
   test -z "$(find "$current" "$incoming" -type l -print -quit)"
@@ -185,11 +220,8 @@ main() {
   printf '%s' "$privacy_token" > "$STAGE/privacy-check.txt"
   privacy_status=$(curl -sS --max-time 10 -o "$STAGE/privacy-response.txt" -w '%{http_code}' \
     "http://127.0.0.1:5000/data/${STAGE_STORAGE##*/}/build/privacy-check.txt")
-  if grep -Fq "$privacy_token" "$STAGE/privacy-response.txt"; then
-    echo "STOP: pracovny adresar je dostupny cez HTTP; zdroje sa nerozbalia."
-    return 1
-  fi
-  case "$privacy_status" in 200|401|403|404) ;; *) echo "STOP: neoverena ochrana pracoviska HTTP=$privacy_status"; return 1 ;; esac
+  verify_stage_privacy "$privacy_status" "$STAGE/privacy-response.txt" "$privacy_token" \
+    "$STAGE_STORAGE/build/privacy-check.txt" "$OLD_PID"
   echo "SUKROMNE ULOZISKO NA DATOVOM DISKU: $STAGE_STORAGE"
   echo "PRIPRAVA FRONTENDU CEZ SUKROMNY DOCASNY PRISTUP: $STAGE"
   git archive --output="$STAGE/source.tar" "$FIX"
