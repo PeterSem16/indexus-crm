@@ -4,10 +4,10 @@ import type { SourceEditorCopy } from "./status-list-source-editor-copy";
 import "./status-list-source-editor.css";
 
 export type SourceEditorStage = "source" | "mapping" | "evaluation" | "review";
-export function StatusListSourceEditor({ copy, context, editing, stage, onStage, onNext, onBack, onSave, onCancel, saving, canSave, children }: {
+export function StatusListSourceEditor({ copy, context, editing, stage, onStage, onNext, onBack, onSave, onCancel, saving, canSave, saveDisabledReason, children }: {
   copy: SourceEditorCopy; context: string; editing: boolean; stage: SourceEditorStage;
   onStage: (stage: SourceEditorStage) => void; onNext: () => void; onBack: () => void;
-  onSave: () => void; onCancel: () => void; saving: boolean; canSave: boolean; children: ReactNode;
+  onSave: () => void; onCancel: () => void; saving: boolean; canSave: boolean; saveDisabledReason?: string; children: ReactNode;
 }) {
   const stages: SourceEditorStage[] = ["source", "mapping", "evaluation", "review"];
   const labels: Record<SourceEditorStage, string> = { source: copy.source, mapping: copy.mapping, evaluation: copy.evaluation, review: copy.review };
@@ -25,7 +25,7 @@ export function StatusListSourceEditor({ copy, context, editing, stage, onStage,
       <div className="slse-foot-group"><Button type="button" size="sm" variant="ghost" data-testid="source-editor-cancel" onClick={onCancel} disabled={saving}>{copy.cancel}</Button>
         {index > 0 && <Button type="button" size="sm" variant="outline" data-testid="source-editor-back" onClick={onBack} disabled={saving}>{copy.back}</Button>}</div>
       {stage === "review"
-        ? <div className="slse-foot-group"><span className="slse-foot-note">{saving ? "" : copy.noReplay}</span><Button type="button" size="sm" data-testid="source-editor-save" onClick={onSave} disabled={!canSave || saving}>{saving ? copy.saving : copy.save}</Button></div>
+        ? <div className="slse-foot-group"><span className={`slse-foot-note${!canSave && saveDisabledReason ? " text-destructive" : ""}`} role={!canSave && saveDisabledReason ? "status" : undefined}>{saving ? "" : !canSave && saveDisabledReason ? saveDisabledReason : copy.noReplay}</span><Button type="button" size="sm" data-testid="source-editor-save" onClick={onSave} disabled={!canSave || saving}>{saving ? copy.saving : copy.save}</Button></div>
         : <Button type="button" size="sm" data-testid="source-editor-next" onClick={onNext} disabled={saving}>{copy.next}</Button>}
     </footer>
   </div>;

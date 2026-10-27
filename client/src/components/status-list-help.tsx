@@ -4,29 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { getStatusListHelpCopy, statusListHelpSectionIds, type HelpSectionId } from "./status-list-help-copy";
 import "./status-list-help.css";
+import { translations, type Locale } from "@/i18n/translations";
+import { getRepresentativeCheckCopy } from "@/i18n/status-list-representative-check-copy";
 
 const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase().trim();
 
 /** Read-only help. Kept local to Status List so it can open over template drafts. */
-export function StatusListHelp({ locale }: { locale: string }) {
+export function StatusListHelp({ locale, section: initialSection = "start", contextual = false }: { locale: string; section?: HelpSectionId; contextual?: boolean }) {
   const copy = getStatusListHelpCopy(locale);
+  const informationCopy = (translations[locale as Locale] || translations.en).statusListRepresentativeInformation;
+  const checkCopy = getRepresentativeCheckCopy(locale);
+  const informationText = `${informationCopy.type} ${checkCopy.title} ${checkCopy.scope} ${checkCopy.actionSteps.join(" ")} ${checkCopy.reopening}`;
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [active, setActive] = useState<HelpSectionId>("start");
+  const [active, setActive] = useState<HelpSectionId>(initialSection);
   const articleRef = useRef<HTMLElement>(null);
   const id = useId();
   const query = normalize(search);
   const visible = statusListHelpSectionIds.filter(key => !query || normalize(
-    `${copy.sections[key].title} ${copy.sections[key].paragraphs.join(" ")}`
+    `${copy.sections[key].title} ${copy.sections[key].paragraphs.join(" ")} ${(copy.sections[key].examples || []).map(example => `${example.title} ${example.paragraphs.join(" ")}`).join(" ")} ${key === "answerSources" ? informationText : ""}`
   ).includes(query));
   const current = visible.includes(active) ? active : visible[0];
   const section = current ? copy.sections[current] : undefined;
   return <Dialog open={open} onOpenChange={next => {
     setOpen(next);
-    if (next) { setSearch(""); setActive("start"); }
+    if (next) { setSearch(""); setActive(initialSection); }
   }}>
-    <DialogTrigger asChild><Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="status-list-help-open">
-      <BookOpen className="h-3.5 w-3.5" aria-hidden="true"/><span>{copy.help}</span>
+    <DialogTrigger asChild><Button type="button" variant="outline" size="sm" className="max-w-full h-auto min-h-8 gap-1.5 text-left whitespace-normal" data-testid={contextual ? `status-list-help-open-${initialSection}` : "status-list-help-open"}>
+      <BookOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true"/><span>{contextual ? copy.sections[initialSection].title.replace(/^\d+\.\s*/, "") : copy.help}</span>
     </Button></DialogTrigger>
     <DialogContent className="status-list-help-dialog flex flex-col gap-0 overflow-hidden p-0" overlayClassName="!z-[10059]" hideCloseButton data-testid="status-list-help-dialog">
       <DialogHeader className="border-b px-5 py-4 pr-12">
@@ -46,6 +51,19 @@ export function StatusListHelp({ locale }: { locale: string }) {
         </aside>
         <article ref={articleRef} id={`${id}-article`} className="status-list-help-article" tabIndex={0} aria-labelledby={section ? `${id}-title` : undefined} data-testid="status-list-help-article">
           {section ? <><h3 id={`${id}-title`}>{section.title}</h3>{section.paragraphs.map((text, index) => <p key={`${current}-${index}`}>{text}</p>)}</> : <p role="status">{copy.empty}</p>}
+          {section?.examples?.map((example, index) => <section className="status-list-help-example" key={`${current}-${index}`}
+            data-testid={`status-list-help-example-${index}`} aria-labelledby={`${id}-example-${index}`}>
+            <h4 id={`${id}-example-${index}`}>{example.title}</h4>
+            {example.paragraphs.map((text, paragraphIndex) => <p key={paragraphIndex}>{text}</p>)}
+          </section>)}
+          {current === "answerSources" && <section data-testid="representative-information-manual">
+            <h3>{informationCopy.type}</h3><p>{checkCopy.scope}</p>
+            <p>{checkCopy.enabled}: {checkCopy.enabledHelp}</p>
+            <p>{checkCopy.triggerLabel}: {Object.values(checkCopy.trigger).join(" · ")}</p>
+            <p>{checkCopy.behaviorLabel}: {Object.values(checkCopy.behavior).join(" · ")}</p>
+            <ol>{checkCopy.actionSteps.map(step=><li key={step}>{step}</li>)}</ol>
+            <p>{checkCopy.reopening}</p><p>{checkCopy.hiddenIndependent}</p>
+          </section>}
         </article>
       </div>
       <DialogFooter className="border-t px-5 py-3"><Button type="button" variant="outline" onClick={() => setOpen(false)} data-testid="status-list-help-close"><X className="mr-1.5 h-4 w-4" aria-hidden="true"/>{copy.close}</Button></DialogFooter>

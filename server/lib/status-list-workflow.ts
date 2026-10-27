@@ -9,6 +9,9 @@ import {
   type WorkflowRef, type WorkflowAnswer, type WorkflowCatalogItem,
 } from "../../shared/status-list-workflow";
 import { preserveWorkflowNote, readWorkflowNotes, writeWorkflowNote } from "./status-list-workflow-notes";
+import { callbackBarrier, hasCallbackAdmission } from "./status-list-service";
+import { isHealthcareConditionField } from "../../shared/status-list-healthcare-conditions";
+import { loadHealthcareConditionFacts } from "./status-list-healthcare";
 
 export class StatusListWorkflowError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
@@ -18,7 +21,9 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
   const { rows } = await client.query(`
     SELECT 'item' AS kind, i.id, i.label, 'checkbox' AS field_type, i.is_hidden AS hidden,
       i.confirmation_type NOT IN ('auto','info') AS writable, p.label AS parent_label,
-      i.parent_id, i.sort_order, i.item_type, i.confirmation_type, NULL::boolean AS system_source_eligible,
+      i.parent_id, i.sort_order, i.item_type, i.confirmation_type,
+      (i.confirmation_type<>'auto' AND i.question_selection_mode IS DISTINCT FROM 'single'
+        AND NOT EXISTS(SELECT 1 FROM campaign_status_list_questions sibling WHERE sibling.item_id=i.id AND sibling.logic_operator='ONE')) AS system_source_eligible,
       (i.item_type='option' AND p.id IS NOT NULL AND p.question_selection_mode IS DISTINCT FROM 'single') AS multi_selectable
     FROM campaign_status_list_items i LEFT JOIN campaign_status_list_items p ON p.id=i.parent_id
     WHERE i.campaign_id=$1
@@ -75,6 +80,11 @@ export async function validateWorkflow(campaignId: string, raw: unknown, client:
     throw new StatusListWorkflowError("derived_source_requires_background");
   if (rule.sourceValue !== undefined) validateWorkflowValue({ ...source, writable: true }, rule.sourceValue);
   for (const condition of rule.conditions) if (condition.ref) find(condition.ref);
+  if (rule.conditions.some(condition => isHealthcareConditionField(condition.field))) {
+    const sources = (await client.query(`SELECT group_id FROM mission_status_list_option_sources
+      WHERE campaign_id=$1 AND config->>'source'='healthcare_reachability' LIMIT 2`, [campaignId])).rows;
+    if (sources.length !== 1) throw new StatusListWorkflowError("healthcare_source_unresolved");
+  }
   for (const branch of [rule.thenActions, rule.elseActions]) {
     const targets = new Set<string>();
     for (const action of branch) {
@@ -94,7 +104,12 @@ export async function workflowTransaction<T>(campaignContactId: string, fn: (cli
   const client = await connections.connect();
   try {
     await client.query("BEGIN");
+    const mission = (await client.query("SELECT campaign_id FROM campaign_contacts WHERE id=$1", [campaignContactId])).rows[0];
+    if (mission && !hasCallbackAdmission(mission.campaign_id))
+      await client.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", [callbackBarrier(mission.campaign_id)]);
+    await client.query("SELECT set_config('indexus.callback_context',$1,true)", [JSON.stringify({ suppress: true, admitted: true })]);
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow:${campaignContactId}`]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-callback-contact:${campaignContactId}`]);
     const contact = await client.query("SELECT id,campaign_id FROM campaign_contacts WHERE id=$1 FOR UPDATE", [campaignContactId]);
     if (contact.rows[0]) await client.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",
       [`mission-workflow-config:${contact.rows[0].campaign_id}`]);
@@ -202,6 +217,14 @@ export async function executeEvent(client: PoolClient, event: WorkflowEvent) {
   }
 }
 async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, context: ChainContext) {
+  // Only events that actually survive chain/cycle/supersession checks enter the
+  // service dispatcher. Mere answer writes and source baselines remain inert.
+  if (event.source.kind === "item") {
+    await client.query("SELECT set_config('indexus.callback_context',$1,true)", [JSON.stringify({ suppress: false, admitted: true })]);
+    await client.query(`SELECT mission_callback_enqueue(id) FROM campaign_contact_status_list_state
+      WHERE campaign_contact_id=$1 AND status_list_item_id=$2`, [event.campaignContactId, event.source.id]);
+    await client.query("SELECT set_config('indexus.callback_context',$1,true)", [JSON.stringify({ suppress: true, admitted: true })]);
+  }
   const { rows: contacts } = await client.query(`SELECT cc.*,
     CASE WHEN cc.contact_type='customer' THEN NULLIF(c.hospital_name,'') ELSE cc.hospital_id END AS condition_hospital_id,
     CASE WHEN cc.contact_type='customer' THEN c.clinic_id ELSE cc.clinic_id END AS condition_clinic_id
@@ -252,8 +275,13 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
     context.lastRunId = claimed.rows[0].id;
     let branch: "then" | "else" | "invalid" = "then";
     const results: any[] = [];
+    let healthcare: Awaited<ReturnType<typeof loadHealthcareConditionFacts>> = null;
     try {
       await validateWorkflow(event.campaignId, stored.definition, client);
+      if (rule.conditions.some(condition => isHealthcareConditionField(condition.field))) {
+        healthcare = await loadHealthcareConditionFacts(client, event.campaignId, event.campaignContactId);
+        if (!healthcare) throw new StatusListWorkflowError("healthcare_source_unresolved");
+      }
       if (!history && rule.conditions.some(condition => isStatusListHistoryField(condition.field)))
         throw new StatusListWorkflowError("communication_history_unresolved");
     }
@@ -263,7 +291,7 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
     }
     if (branch !== "invalid") {
       const matches = rule.conditions.map(condition => {
-        const value = isStatusListHistoryField(condition.field) ? history?.[condition.field] : condition.field === "answer"
+        const value = isHealthcareConditionField(condition.field) ? healthcare : isStatusListHistoryField(condition.field) ? history?.[condition.field] : condition.field === "answer"
           ? snapshot.get(`${condition.ref!.kind}:${condition.ref!.id}`)
           : condition.field === "hospital_id" ? contact.condition_hospital_id
           : condition.field === "clinic_id" ? contact.condition_clinic_id
@@ -315,7 +343,9 @@ async function executeSingleEvent(client: PoolClient, event: WorkflowEvent, cont
             await client.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1 AND status_list_item_id=$2", [event.campaignContactId, action.target.id]);
           } else await client.query(`UPDATE mission_status_list_answers SET value='null'::jsonb,revision=$3,updated_by=$4,updated_at=now()
             WHERE campaign_contact_id=$1 AND question_id=$2`, [event.campaignContactId, action.target.id, randomUUID(), event.actorId]);
-        } else cleared = await setAnswer(client, { ...event, target: action.target, value });
+        } else {
+          cleared = await setAnswer(client, { ...event, target: action.target, value });
+        }
         if (guarded && cleared.some(entry => context.writes.has(`${entry.kind}:${entry.id}`))) {
           await client.query("ROLLBACK TO SAVEPOINT status_list_chain_write");
           await client.query("RELEASE SAVEPOINT status_list_chain_write");

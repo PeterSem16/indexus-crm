@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { PulseCommunicationCenter } from "@/components/tasks/pulse-communication-center";
 import { RequestRecipientPicker } from "@/components/tasks/request-recipient-picker";
 import { emptyRecipients, defaultRecipients, recipientsAreAvailable, requestTypeLabel, type RequestRecipients, type TaskRequestType } from "@/components/tasks/request-routing-model";
@@ -15,17 +15,23 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
 import { createStatusListExecutionClient } from "@/lib/status-list-execution-client";
+import { createSingleSelectTransition, executeSingleSelectTransition } from "@/lib/status-list-single-select-transition";
+import { prepareStatusListCallbackReview } from "@/lib/status-list-callback-review";
 import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/status-list-execution-policy";
 import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
 import { useStatusListActionRecap } from "@/components/use-status-list-action-recap";
+import { StatusListRepresentativeInformationPanel } from "@/components/status-list-representative-information";
+import { StatusListAgentBackground } from "@/components/status-list-agent-background";
+import { useStatusListRepresentativeChecks } from "@/hooks/use-status-list-representative-checks";
 import { useStatusListAutomaticOpen } from "@/components/use-status-list-automatic-open";
 import { StatusListExecutionHelp } from "@/components/status-list-execution-help";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
 import { getStatusListWorkflowCopy } from "@/components/status-list-workflow-copy";
 import { actionCopy } from "@/components/status-list-service-action-copy";
-import { StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
+import { getStatusListQuestionColorValue, StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
 import { statusListReportingLabel } from "@/components/status-list-reporting-label";
+import { resolveStatusListDestination } from "@/lib/status-list-navigation";
 import { STATUS_LIST_DIALOG_FRAME_CLASS } from "@/components/status-list-dialog-frame";
 import "@/components/status-list-dialog-frame.css";
 import { StatusListAgentActionRow, StatusListAgentItemFrame, StatusListAgentItemHeading, StatusListAgentQuestionChoices, StatusListBatchBanner, StatusListBatchSaveButton, StatusListPhasePipeline, StatusListQuickOptionsPanel } from "@/components/status-list-agent-preview";
@@ -61,6 +67,8 @@ import "@/components/tasks/task-modern-task-surfaces.css";
 import { AgentTaskRequestContext, AgentTaskRequestEditor } from "@/components/tasks/agent-task-request-editor";
 import { TaskCategoryPicker, TaskCreateDatePicker, TaskPriorityPicker, type TaskPriority } from "@/components/tasks/task-create-controls";
 import { applyTaskRequestCategory, composeTaskRequestDescription } from "@/components/tasks/task-request-description";
+import { PhoneIssueTaskFields, composePhoneIssueDetails, phoneIssueErrorText, phoneIssueTaskCanSubmit, usePhoneIssueContext, type PhoneIssueField, type PhoneIssueReason } from "@/components/tasks/phone-issue-workflow";
+import { PhoneIssueContactArea } from "@/components/tasks/phone-issue-contact-area";
 import "@/components/nexus/pulse-communications.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -490,12 +498,13 @@ function SlActionButtons({ automations, onRun, running, locale, dispositions }: 
 // "Set status" button. For a plain disposition it just runs the action; for a
 // callback-type disposition it opens a reschedule picker (prefilled from the rule's
 // term) so the agent can override the callback time before scheduling.
-function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName, icon }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string; icon?: string | null;
+function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, label, statusName, icon, color }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; isCallback: boolean; label?: string; statusName?: string; icon?: string | null; color?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
   const [note, setNote] = useState("");
+  const iconColor = getStatusListQuestionColorValue(color);
   useEffect(() => {
     if (open) { setDt(slPrefillDt(automation)); setNote(""); }
   }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
@@ -503,8 +512,9 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
   if (!isCallback) {
     return (
       <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+        style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
         disabled={isRunning} onClick={() => onRun(automation)} data-testid={`btn-sl-status-${automation.id}`}>
-        {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
+        {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
         {label ?? slt("runStatus", locale)}
       </Button>
     );
@@ -513,8 +523,9 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+          style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
           disabled={isRunning} data-testid={`btn-sl-status-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-purple-600" /> : <Tag className="h-3 w-3 text-purple-600" />}
           {label ?? slt("runStatus", locale)}
         </Button>
       </PopoverTrigger>
@@ -548,12 +559,13 @@ function SlStatusButton({ automation, isRunning, onRun, locale, isCallback, labe
   );
 }
 
-function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon }: {
-  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string; icon?: string | null;
+function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon, color }: {
+  automation: any; isRunning: boolean; onRun: (automation: any, opts?: { callbackDate?: string; callbackNote?: string }) => void; locale: string; label?: string; icon?: string | null; color?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [dt, setDt] = useState("");
   const [note, setNote] = useState("");
+  const iconColor = getStatusListQuestionColorValue(color);
   useEffect(() => {
     if (open) { setDt(slPrefillDt(automation)); setNote(""); }
   }, [open, automation.callbackOffsetDays, automation.callbackTime, automation.callbackBusinessDaysOnly]);
@@ -561,8 +573,9 @@ function SlCallbackButton({ automation, isRunning, onRun, locale, label, icon }:
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px] gap-1"
+          style={iconColor ? { borderColor: iconColor, color: iconColor } : undefined}
           disabled={isRunning} data-testid={`btn-sl-callback-${automation.id}`}>
-          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} className="h-3 w-3 text-cyan-600" /> : <Phone className="h-3 w-3 text-cyan-600" />}
+          {isRunning ? <Loader2 className="h-3 w-3 animate-spin" /> : icon ? <StatusListQuickOptionIcon name={icon} color={color} className="h-3 w-3 text-cyan-600" /> : <Phone className="h-3 w-3 text-cyan-600" />}
           {label ?? slt("runCallback", locale)}
         </Button>
       </PopoverTrigger>
@@ -2722,6 +2735,7 @@ export function CommunicationCanvas({
   onBatchUnsavedCountChange,
   slCallbackDate,
   slCallbackActive,
+  phoneIssueContactArea,
 }: {
   contact: Customer | null;
   campaign: Campaign | null;
@@ -2787,6 +2801,7 @@ export function CommunicationCanvas({
   slCallbackDate?: string | null;
   /** True only when the campaign contact status is callback_scheduled — prevents stale callbackDate from showing after a contact reset */
   slCallbackActive?: boolean;
+  phoneIssueContactArea?: ReactNode;
   unpaidRewardPersonCount?: number;
 }) {
   const personnelDialingEnabled = (() => {
@@ -3016,13 +3031,46 @@ export function CommunicationCanvas({
     queryKey: ["/api/campaigns", campaign?.id, "status-list"],
     enabled: !!campaign?.id,
   });
-  const [automaticBatchPending,setAutomaticBatchPending] = useStatusListAutomaticOpen({
+  const [legacyAutomaticBatchPending,setAutomaticBatchPending] = useStatusListAutomaticOpen({
     campaignId:campaign?.id,contactId:campaignContactId,items:dbStatusList,
     mode:statusListMode,pulseActive:activeChannel==="checklist",locale,
   });
+  const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
+  const [slNavigationTarget, setSlNavigationTarget] = useState<string | null>(null);
+  const scrollToSlStep = useCallback((targetStepId: string) => {
+    const destination = resolveStatusListDestination(dbStatusList as any[], targetStepId);
+    if (!destination) return;
+    if (destination.tab === "acquisition" || destination.tab === "contract" || destination.tab === "retention") {
+      setSlActiveTab(destination.tab);
+    }
+    setSlNavigationTarget(targetStepId);
+  }, [dbStatusList]);
+  useEffect(() => {
+    if (!slNavigationTarget) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(`sl-step-${slNavigationTarget}`);
+      if (el) {
+        el.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+        setSlHighlightedStep(slNavigationTarget);
+      }
+      setSlNavigationTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [slNavigationTarget, slActiveTab]);
+  useEffect(() => {
+    if (!slHighlightedStep) return;
+    const timer = setTimeout(() => setSlHighlightedStep(null), 3000);
+    return () => clearTimeout(timer);
+  }, [slHighlightedStep]);
   const slActionRecap = useStatusListActionRecap({
     campaignId:campaign?.id,contactId:campaignContactId,items:dbStatusList,mode:statusListMode,locale,
+    onNavigate:scrollToSlStep,
   });
+  const coordinatorChecks=useStatusListRepresentativeChecks({
+    campaignId:campaign?.id,contactId:campaignContactId,data:workflowContact.data,
+    pulseActive:activeChannel==="checklist",locale,review:slActionRecap.confirmPrepared,
+  });
+  const automaticBatchPending=legacyAutomaticBatchPending+coordinatorChecks.batchPending;
   // Count of automations deferred across all staged batch steps (fires on Save).
   const pendingAutomationCount = useMemo(() => {
     let total = automaticBatchPending;
@@ -3084,9 +3132,18 @@ export function CommunicationCanvas({
     let isDefinitive = false;
     let keptExistingCallback = false;
     try {
+      const { callbackDraft, callbackDetails, callbackEditor } = prepareStatusListCallbackReview(option, slDispositions);
+      if (!await slActionRecap.confirm(
+        [{ kind: "item", id: String(option.id), value: true }],
+        (option.automations || []).length > 0 || !!callbackEditor,
+        [], callbackDetails, callbackEditor,
+      ) || slExecutionRef.current.client !== sender) return;
       const data = await sender.send(
         `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${option.id}`,
-        { confirm: true }, "immediate");
+        {
+          confirm: true,
+          ...(callbackDraft ? { overrideCallbackDate: callbackDraft.callbackDate, overrideCallbackNote: callbackDraft.callbackNote || null } : {}),
+        }, "immediate");
       if (slExecutionRef.current.client !== sender) return;
       if (data.ok === false) {
         toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
@@ -3100,7 +3157,8 @@ export function CommunicationCanvas({
       queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
       toast({ title: option.label, description: keptExistingCallback ? actionCopy(locale, "callbackKeptNotice") : getStatusListExecutionCopy(locale).saved });
-      if (isDefinitive) {
+      const navigated = slActionRecap.complete();
+      if (isDefinitive && !navigated) {
         onCloseCallAfterStatusList?.();
       }
     } catch {
@@ -3109,7 +3167,7 @@ export function CommunicationCanvas({
     } finally {
       if (slExecutionRef.current.client === sender) { setSlRunningOption(null); setSlBusy(false); }
     }
-  }, [campaign?.id, campaignContactId, contact?.country, locale, onCloseCallAfterStatusList, statusListMode, toast]);
+  }, [campaign?.id, campaignContactId, contact?.country, locale, onCloseCallAfterStatusList, statusListMode, toast, slDispositions, slActionRecap.confirm, slActionRecap.complete]);
 
   // Fast lookup: statusListItemId → full state row (for confirmedAt, itemNote, noteUpdatedAt)
   const slStateMap = useMemo(() => {
@@ -3307,8 +3365,18 @@ export function CommunicationCanvas({
     if (slMutationBusyRef.current) return;
     const sender = slExecutionRef.current.client;
     if ((dbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
+    const selectedItem = (dbStatusList as any[]).find(item=>String(item.id)===itemId);
+    if (selectedItem?.sourceManaged) return;
+    const itemActions = (selectedItem?.automations || []).filter((action:any)=>
+      ["set_callback","send_email_group","set_contact_status","assign_task","notify_email","send_contact_email","send_sms"].includes(action.actionType));
+    const callbackAction = itemActions.find((action:any)=>action.actionType==="set_callback");
+    const callbackDraft = callbackAction && newChecked && statusListMode==="immediate"
+      ? {callbackDate:slPrefillDt(callbackAction),callbackNote:""} : undefined;
     if (newChecked && statusListMode==="immediate" &&
-        !await slActionRecap.confirm([{kind:"item",id:itemId,value:true}]))return;
+        !await slActionRecap.confirm([{kind:"item",id:itemId,value:true}],(selectedItem?.automations || []).length>0,[],
+          callbackAction ? Object.fromEntries(itemActions.filter((action:any)=>action.actionType==="set_callback")
+            .map((action:any)=>[String(action.id),callbackDraft!])) : {},
+          callbackAction ? {actionId:String(callbackAction.id),onChange:detail=>Object.assign(callbackDraft!,detail)} : undefined))return;
     if(slExecutionRef.current.client!==sender)return;
     if ((dbStatusList as any[]).some(item => String(item.id) === itemId && item.sourceManaged)) return;
     // In batch mode: just toggle visual state and stage in batchSlSelections (no API, no automations)
@@ -3350,18 +3418,8 @@ export function CommunicationCanvas({
       return;
     }
 
-    // Intercept: when confirming a step that has a set_callback automation, show picker first
-    if (newChecked) {
-      const item = (dbStatusList as any[]).find((i: any) => String(i.id) === itemId);
-      const itemAutos = (item?.automations || []).filter((a: any) =>
-        ["set_callback", "send_email_group", "set_contact_status", "assign_task", "notify_email", "send_contact_email", "send_sms"].includes(a.actionType)
-      );
-      if (itemAutos.length > 0) {
-        const cbAuto = itemAutos.find((a: any) => a.actionType === "set_callback") ?? null;
-        setSlPendingCallback({ itemId, itemLabel: item?.label || "", allAutomations: itemAutos, cbAuto, dt: cbAuto ? slPrefillDt(cbAuto) : "", note: "" });
-        return;
-      }
-    }
+    // The first recap is also the callback editor. Do not open the legacy
+    // second confirmation after the reviewed date/recipient summary.
     setDbSlChecked(prev => {
       const next = new Set(prev);
       if (newChecked) next.add(itemId); else next.delete(itemId);
@@ -3384,10 +3442,19 @@ export function CommunicationCanvas({
       const result = await sender.send(`/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${itemId}`, {
         confirm: newChecked,
         contactCountry: contactCountry ?? null,
+        ...(newChecked && callbackDraft ? {overrideCallbackDate:callbackDraft.callbackDate,overrideCallbackNote:callbackDraft.callbackNote || null} : {}),
       }, "immediate");
       if (slExecutionRef.current.client !== sender) return;
-      if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+      if (result.ok === false) {
+        toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+      } else if (newChecked) {
+        slActionRecap.complete();
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      if(newChecked && callbackDraft) {
+        queryClient.invalidateQueries({queryKey:["/api/agent/callbacks"]});
+        queryClient.invalidateQueries({queryKey:["/api/agent/scheduled-queue"]});
+      }
     } catch {
       if (slExecutionRef.current.client !== sender) return;
       setDbSlChecked(prev => {
@@ -3397,7 +3464,78 @@ export function CommunicationCanvas({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
     } finally { if (slExecutionRef.current.client === sender) setSlBusy(false); }
-  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, slStateMap, locale, toast, slActionRecap.confirm]);
+  }, [campaign?.id, campaignContactId, contactCountry, dbStatusList, statusListMode, slStateMap, locale, toast, slActionRecap.confirm, slActionRecap.complete]);
+
+  // A single-select child replacement is one agent action. Do not route it
+  // through two handleSlToggle calls: the first starts a mutation and the
+  // second is then dropped by slMutationBusyRef.
+  const handleSlSingleChildTransition = useCallback(async (child: any, checkedSiblingIds: string[]) => {
+    if (!campaign?.id || !campaignContactId || slMutationBusyRef.current ||
+        child.sourceManaged || child.confirmationType === "info") return;
+    const sender = slExecutionRef.current.client;
+    const scopeToken = statusListScopeToken;
+    const transition = createSingleSelectTransition(
+      String(child.id),
+      checkedSiblingIds.filter(id => dbSlChecked.has(id) &&
+        !(dbStatusList as any[]).find(item => String(item.id) === id)?.sourceManaged),
+    );
+    const siblings = transition.filter(step => !step.confirm).map(step => step.id);
+    if (!siblings.length) {
+      await handleSlToggle(String(child.id), true);
+      return;
+    }
+    const itemActions = (child?.automations || []).filter((action: any) =>
+      ["set_callback","send_email_group","set_contact_status","assign_task","notify_email","send_contact_email","send_sms"].includes(action.actionType));
+    const callbackAction = itemActions.find((action: any) => action.actionType === "set_callback");
+    const callbackDraft = callbackAction ? { callbackDate: slPrefillDt(callbackAction), callbackNote: "" } : undefined;
+    const changes = transition.map(step => ({ kind: "item" as const, id: step.id, value: step.confirm }));
+    setSlBusy(true);
+    try {
+      if (!await slActionRecap.confirm(
+        changes,
+        (child?.automations || []).length > 0,
+        [],
+        callbackAction ? Object.fromEntries(itemActions
+          .filter((action: any) => action.actionType === "set_callback")
+          .map((action: any) => [String(action.id), callbackDraft!])) : {},
+        callbackAction ? { actionId: String(callbackAction.id), onChange: (detail: any) => Object.assign(callbackDraft!, detail) } : undefined,
+      ) || slExecutionRef.current.client !== sender) return;
+      setDbSlChecked(previous => {
+        const next = new Set(previous);
+        siblings.forEach(id => next.delete(id));
+        next.add(String(child.id));
+        return next;
+      });
+      await executeSingleSelectTransition(transition, async step => {
+        if (statusListScopeRef.current.key + ":" + statusListScopeRef.current.generation !== scopeToken ||
+            slExecutionRef.current.client !== sender) throw new Error("status_list_scope_changed");
+        const result = await sender.send(
+          `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-state/${step.id}`,
+          {
+            confirm: step.confirm,
+            contactCountry: contactCountry ?? null,
+            ...(step.confirm && callbackDraft ? { overrideCallbackDate: callbackDraft.callbackDate, overrideCallbackNote: callbackDraft.callbackNote || null } : {}),
+          }, "immediate",
+        );
+        if (result.ok === false) throw new Error("single_child_transition_failed");
+        return result;
+      });
+      if (slExecutionRef.current.client !== sender) return;
+      slActionRecap.complete();
+      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+      if (hasStatusListCallbackAction(child, slDispositions)) {
+        void queryClient.invalidateQueries({ queryKey: ["/api/agent/callbacks"] });
+        void queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
+      }
+    } catch {
+      if (slExecutionRef.current.client !== sender) return;
+      toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
+      void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-state"] });
+    } finally {
+      if (slExecutionRef.current.client === sender) setSlBusy(false);
+    }
+  }, [campaign?.id,campaignContactId,contactCountry,statusListScopeToken,dbSlChecked,dbStatusList,handleSlToggle,
+    slActionRecap.confirm,slActionRecap.complete,slDispositions,queryClient,toast,locale,setSlBusy]);
 
   const handleSlConfirmWithCallback = useCallback(async () => {
     if (!slPendingCallback || !campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
@@ -3459,7 +3597,19 @@ export function CommunicationCanvas({
       if(!recapChanges.some(change=>change.kind===kind && change.id===id))
         recapChanges.push({kind,id,value:kind==="question" ? slQuestionAnswersRef.current[id]??true : true});
     }
-    if(recapChanges.length && !await slActionRecap.confirm(recapChanges,false,manualActionIds))return;
+    const manualActionDetails = Object.fromEntries(Object.values(batchSlActions).map(({ automation, opts }) => [
+      String(automation.id), { callbackDate: opts?.callbackDate, callbackNote: opts?.callbackNote },
+    ]));
+    if(slBatchAction==="reschedule") {
+      for(const id of Array.from(batchSlSelections)) {
+        const item=(dbStatusList as any[]).find(row=>String(row.id)===id);
+        for(const action of item?.automations || []) {
+          if(action.actionType==="set_callback" || action.actionType==="set_contact_status")
+            manualActionDetails[String(action.id)]={callbackDate:slBatchCallbackDt,callbackNote:slBatchCallbackNote};
+        }
+      }
+    }
+    if(recapChanges.length && !await slActionRecap.confirm(recapChanges,false,manualActionIds,manualActionDetails))return;
     if(!scopeIsCurrent())return;
     const sender = slExecutionRef.current.client;
     setSlBusy(true);
@@ -3537,7 +3687,7 @@ export function CommunicationCanvas({
         try {
           await apiRequest("POST", `/api/campaigns/${campaign.id}/contacts/${campaignContactId}/status-list-workflows/automatic-open`,
             {executionMode:"batch",commit:true});
-          if(scopeIsCurrent())setAutomaticBatchPending(0);
+          if(scopeIsCurrent()){setAutomaticBatchPending(0);coordinatorChecks.markBatchCommitted();}
         } catch { actionProblems = true; }
       }
 
@@ -3547,6 +3697,7 @@ export function CommunicationCanvas({
         const copy = getStatusListExecutionCopy(locale);
         toast({ title: actionProblems ? copy.failed : copy.saved,
           description: actionProblems ? copy.failedDetail : undefined, variant: actionProblems ? "destructive" : undefined });
+        if (!actionProblems) slActionRecap.complete();
         setBatchSlSelections(new Set());
         setBatchSlDeletions(new Set());
         setBatchSlAnswers({});
@@ -3611,7 +3762,8 @@ export function CommunicationCanvas({
           }
           return !effectiveChecked.has(String(i.id));
         });
-        if (scopeIsCurrent() && requiredMissing.length === 0) {
+        const navigated = slActionRecap.complete();
+        if (scopeIsCurrent() && requiredMissing.length === 0 && !navigated) {
           onCloseCallAfterStatusList?.();
         }
       } else {
@@ -3622,7 +3774,7 @@ export function CommunicationCanvas({
         if (!scopeIsCurrent()) return;
         queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts"] });
         toast({ title: slt("batchSaved", locale) });
-        onCloseCallAfterStatusList?.();
+        if (!slActionRecap.complete()) onCloseCallAfterStatusList?.();
       }
 
       setBatchSlSelections(new Set());
@@ -3642,7 +3794,7 @@ export function CommunicationCanvas({
     } finally {
       if (scopeIsCurrent()) { setSlBatchSaving(false); setSlBusy(false); }
     }
-  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, batchUnsavedIds.size, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache,automaticBatchPending,slActionRecap.confirm]);
+  }, [campaign?.id, campaignContactId, statusListScopeToken, batchSlSelections, batchSlDeletions, batchSlAnswers, batchSlActions, batchSlNotes, batchDirtyNoteIds, batchUnsavedIds, batchUnsavedIds.size, slBatchAction, slBatchCallbackDt, slBatchCallbackNote, contactCountry, locale, onCloseCallAfterStatusList, toast, dbStatusList, slDispositions, dbSlChecked, user?.id, contact?.id, updateSlNoteCache,automaticBatchPending,slActionRecap.confirm,slActionRecap.complete]);
 
   const handleSlNoteChange = useCallback((itemId: string, value: string) => {
     if (statusListMode === "batch") {
@@ -3711,16 +3863,6 @@ export function CommunicationCanvas({
       void queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "contacts", campaignContactId, "status-list-workflows"] });
     }
   }, [campaign?.id, campaignContactId, dbSlState]);
-  const [slHighlightedStep, setSlHighlightedStep] = useState<string | null>(null);
-
-  const scrollToSlStep = useCallback((targetStepId: string) => {
-    const el = document.getElementById(`sl-step-${targetStepId}`);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setSlHighlightedStep(targetStepId);
-      setTimeout(() => setSlHighlightedStep(s => s === targetStepId ? null : s), 1800);
-    }
-  }, []);
   const handleSlRunAction = useCallback(async (automation: any, opts?: { callbackDate?: string; callbackNote?: string; recapReviewed?:boolean }) => {
     if (!campaign?.id || !campaignContactId || slMutationBusyRef.current) return;
     const sender = slExecutionRef.current.client;
@@ -3742,7 +3884,9 @@ export function CommunicationCanvas({
     if(!opts?.recapReviewed && (question?.previewActions || !question && parent?.previewActions)) {
       const change=question ? {kind:"question" as const,id:String(question.id),value:slQuestionAnswersRef.current[question.id]??true}
         : {kind:"item" as const,id:String(parent.id),value:true};
-      if(!await slActionRecap.confirm([change],true,[autoId]) || slExecutionRef.current.client!==sender)return;
+      if(!await slActionRecap.confirm([change],true,[autoId], {
+        [autoId]: { callbackDate: opts?.callbackDate, callbackNote: opts?.callbackNote },
+      }) || slExecutionRef.current.client!==sender)return;
     }
     setSlBusy(true);
     setSlRunningAuto(prev => new Set(prev).add(autoId));
@@ -3753,6 +3897,7 @@ export function CommunicationCanvas({
       );
       if (slExecutionRef.current.client !== sender) return;
       const okFlag = data?.ok !== false;
+      if (okFlag) slActionRecap.complete();
       let msg = okFlag ? slt("statusSet", locale) : getStatusListExecutionCopy(locale).failed;
       if (automation.actionType === "send_email_group") msg = okFlag ? slt("emailSent", locale) : slt("emailFailed", locale);
       else if (okFlag && automation.actionType === "set_callback") msg = slt("callbackSet", locale);
@@ -3780,7 +3925,7 @@ export function CommunicationCanvas({
         setSlBusy(false);
       }
     }
-  }, [campaign?.id, campaignContactId, contactCountry, locale, toast, statusListMode,dbStatusList,slActionRecap.confirm]);
+  }, [campaign?.id, campaignContactId, contactCountry, locale, toast, statusListMode,dbStatusList,slActionRecap.confirm,slActionRecap.complete]);
 
   // Toggle a status-list question answer locally. For radio fields, clears all
   // other radio answers in the same group first (exclusive-select semantics).
@@ -4923,6 +5068,7 @@ export function CommunicationCanvas({
           })()}
         </div>
       </div>
+      {phoneIssueContactArea}
 
       <div className="border-b bg-card shrink-0">
         <div className="flex">
@@ -6668,6 +6814,8 @@ export function CommunicationCanvas({
               {/* ── Batch mode active banner ────────────────────────── */}
               <StatusListExecutionHelp locale={locale} mode={statusListMode} issues={workflowContact.data?.executionIssues}
                 onOpen={() => { void workflowContact.refetch(); }} />
+              <StatusListRepresentativeInformationPanel scopeKey={`${campaign?.id}:${campaignContactId}`} locale={locale} information={coordinatorChecks.information} onReview={coordinatorChecks.onReview} busy={coordinatorChecks.busy}/>
+              <StatusListAgentBackground campaignId={campaign?.id} contactId={campaignContactId} locale={locale}/>
               {statusListMode === "batch" && !slBatchBannerDismissed && (
                 <StatusListBatchBanner title={slu("batchBannerTitle", locale)} message={getStatusListExecutionCopy(locale).batch} onDismiss={() => {
                   if (campaignContactId) localStorage.setItem(`sl-batch-banner-${campaignContactId}`, "1");
@@ -6677,9 +6825,11 @@ export function CommunicationCanvas({
 
               {/* ── Options panel ──────────────────────────────────── */}
               <StatusListQuickOptionsPanel
+                locale={locale}
                 options={(dbStatusList as any[]).filter((item: any) => item.itemType === "option" && !item.isHidden)}
                 label={slu("options", locale)}
                 runningId={slRunningOption}
+                selectedIds={statusListMode === "batch" ? batchSlSelections : undefined}
                 onSelect={optionId => {
                   const option = (dbStatusList as any[]).find((item: any) => String(item.id) === optionId);
                   if (option) handleSlOptionSelect(option);
@@ -6900,7 +7050,7 @@ export function CommunicationCanvas({
                           const selectedNames = Array.from(batchSlSelections).flatMap((id: string) => {
                             const item = (dbStatusList as any[]).find((entry: any) => String(entry.id) === id);
                             return (item?.automations || []).filter((automation: any) => automation.actionType === "set_contact_status").map((automation: any) => {
-                              const disposition = (campaignDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
+                              const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(automation.dispositionId));
                               return disposition ? (DISPOSITION_NAME_TRANSLATIONS[disposition.code]?.[locale] || disposition.name || disposition.code) : "";
                             });
                           });
@@ -7006,7 +7156,7 @@ export function CommunicationCanvas({
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <StatusListAgentItemHeading label={item.label} icon={item.icon} selected={isChecked} required={!isInfo && item.required} />
+                        <StatusListAgentItemHeading label={item.label} icon={item.icon} color={item.color} selected={isChecked} required={!isInfo && item.required} />
                         {item.canonicalClinicStatusKey && (() => {
                           const ck = item.canonicalClinicStatusKey as string;
                           const cPhase = ck.startsWith("acquisition_") ? "acq" : ck.startsWith("contract_") || ck.startsWith("flyers_") ? "con" : ck.startsWith("retention_") || ck.startsWith("services_") ? "ret" : "oth";
@@ -7113,7 +7263,7 @@ export function CommunicationCanvas({
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, {...options,recapReviewed:true}); autoConfirmParent();
                             }}
-                            locale={locale} label={q.questionText} icon={q.icon} />;
+                            locale={locale} label={q.questionText} icon={q.icon} color={q.color} />;
                           const statusAutomation = (q.automations || []).find((automation: any) => automation.actionType === "set_contact_status");
                           if (!statusAutomation) return null;
                           const disposition = (slDispositions as any[]).find((entry: any) => String(entry.id) === String(statusAutomation.dispositionId));
@@ -7124,7 +7274,7 @@ export function CommunicationCanvas({
                               if (!await handleSlQuestionAnswer(q, true, exclusiveQuestions, groupMode, true)) return;
                               await handleSlRunAction(automation, options); autoConfirmParent();
                             }}
-                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} icon={q.icon} />;
+                            locale={locale} isCallback={isCallback} label={q.questionText} statusName={statusName} icon={q.icon} color={q.color} />;
                         }}
                       />
                         {(() => {
@@ -7180,25 +7330,6 @@ export function CommunicationCanvas({
                         );
                       })()}
                       {!isInfo && <SlActionButtons automations={item.automations} onRun={handleSlRunAction} running={slRunningAuto} locale={locale} dispositions={slDispositions} />}
-                      {item.nextStepId && item.nextStepId !== "—" && (() => {
-                        const targetItem = (dbStatusList as any[]).find((i: any) => i.stepId === item.nextStepId);
-                        const targetExists = !!targetItem;
-                        return (
-                          <button
-                            type="button"
-                            onClick={() => scrollToSlStep(item.nextStepId)}
-                            disabled={!targetExists}
-                            className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-primary/70 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-default group"
-                            data-testid={`sl-nextstep-btn-${item.id}`}
-                          >
-                            <div className="flex items-center justify-center h-4 w-4 rounded bg-primary/10 group-hover:bg-primary/20 transition-colors shrink-0">
-                              <ArrowRight className="h-2.5 w-2.5" />
-                            </div>
-                            <span className="font-mono text-muted-foreground/70 group-hover:text-primary/70 transition-colors">{item.nextStepId}</span>
-                            {targetItem && <span className="truncate max-w-[160px] text-muted-foreground/60 group-hover:text-muted-foreground transition-colors">{targetItem.label}</span>}
-                          </button>
-                        );
-                      })()}
                     </div>
                     <span className="text-[9px] font-mono text-muted-foreground/30 shrink-0 pt-0.5">{item.stepId}</span>
                   </div>
@@ -7214,6 +7345,13 @@ export function CommunicationCanvas({
                       const childChecked = dbSlChecked.has(String(child.id));
                       const isSingleChild = item.questionSelectionMode === "single";
                       const handleChildToggle = () => {
+                        if (isSingleChild && !childChecked && statusListMode === "immediate") {
+                          const checkedSiblingIds = childItems
+                            .filter((sibling: any) => dbSlChecked.has(String(sibling.id)))
+                            .map((sibling: any) => String(sibling.id));
+                          void handleSlSingleChildTransition(child, checkedSiblingIds);
+                          return;
+                        }
                         if (isSingleChild && !childChecked) {
                           childItems.forEach((sib: any) => {
                             if (String(sib.id) !== String(child.id) && dbSlChecked.has(String(sib.id))) {
@@ -7251,7 +7389,7 @@ export function CommunicationCanvas({
                               : <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                             )}
                           </button>
-                          <div className="flex-1 min-w-0">
+                          <div id={`sl-step-${child.stepId}`} className={`flex-1 min-w-0 rounded-md transition-shadow ${slHighlightedStep === child.stepId ? "ring-2 ring-blue-400 ring-offset-4 ring-offset-background" : ""}`}>
                             <span className={`text-xs leading-snug ${childChecked ? "font-semibold text-emerald-700 dark:text-emerald-300" : "text-foreground/90"}`}>
                               {child.label}
                               {child.required && <span className="ml-1 text-rose-500">*</span>}
@@ -9777,7 +9915,7 @@ const scheduleWallTimeToUtc = (dateKey: string, time: string) => {
   return new Date(guess);
 };
 
-function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; onInvalid?: () => void; t: any; locale: string }) {
+export function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item: ScheduledItem; onReschedule: (id: string, campaignId: string, newDate: string) => void; onInvalid?: () => void; t: any; locale: string }) {
   const [popOpen, setPopOpen] = useState(false);
   const [dateVal, setDateVal] = useState("");
   const [timeVal, setTimeVal] = useState("09:00");
@@ -9818,9 +9956,16 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
     return { weekday: parts.weekday || "", date: `${parts.day || ""} ${parts.month || ""}`.trim() };
   };
   const currentText = popOpen
-    ? new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long" }).format(new Date(item.scheduledAt))
+    ? new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(item.scheduledAt))
     : "";
-  const newText = popOpen ? dateParts(dateVal) : { weekday: "", date: "" };
+  const currentTimeText = popOpen
+    ? new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(item.scheduledAt))
+    : "";
+  const newAppointmentText = popOpen && dateVal
+    ? new Intl.DateTimeFormat(locale, {
+        timeZone: SCHEDULE_TIME_ZONE, weekday: "long", day: "numeric", month: "long", year: "numeric",
+      }).format(scheduleWallTimeToUtc(dateVal, timeVal))
+    : "";
   const hour = timeVal.slice(0, 2);
   const minute = timeVal.slice(3, 5);
   const setHour = (value: string) => setTimeVal(`${value}:${minute}`);
@@ -9884,13 +10029,16 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
           <CalendarClock className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
-      {popOpen && <PopoverContent className="w-[min(420px,calc(100vw-24px))] rounded-2xl border-[#c7dbe9] bg-[#fffffe] p-4 shadow-[0_18px_45px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
+      {popOpen && <PopoverContent className="max-h-[min(680px,calc(100dvh-24px))] w-[min(420px,calc(100vw-24px))] overflow-y-auto overscroll-contain rounded-2xl border-[#c7dbe9] bg-[#fffffe] p-4 shadow-[0_18px_45px_rgba(28,67,103,0.18)] dark:border-sky-900 dark:bg-slate-950" align="end">
         <div className="space-y-3">
-          <div className="flex items-start justify-between">
-            <div><p className="text-[9px] font-extrabold tracking-[.12em] text-[#7891a5]">{t.agentWorkspace.reschedule}</p><p className="mt-1 text-sm font-bold text-[#1d3d5a]">{item.contactName || t.agentWorkspace.unknownContact}</p></div>
-            <CalendarClock className="h-4 w-4 text-[#2d6fba]" />
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0"><p className="text-[9px] font-extrabold tracking-[.12em] text-[#7891a5]">{t.agentWorkspace.reschedule}</p><p className="mt-1 break-words text-sm font-bold leading-snug text-[#1d3d5a]">{item.contactName || t.agentWorkspace.unknownContact}</p></div>
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#c7dbe9] bg-[#eaf3fb] text-[#2d6fba]"><CalendarClock className="h-5 w-5" /></div>
           </div>
-          <div className="flex items-center gap-2 rounded-lg bg-[#f0f6fa] px-3 py-2 text-[10px] text-[#7089a0]"><CalendarClock className="h-4 w-4 text-[#2d6fba]" /><span>{t.agentWorkspace.rescheduleCurrent} <strong className="text-[#45667f]">{currentText}</strong><br /><strong className="text-[#45667f]">{new Intl.DateTimeFormat(locale, { timeZone: SCHEDULE_TIME_ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(item.scheduledAt))}</strong></span></div>
+          <div className="flex items-start gap-3 rounded-xl border border-[#dce8f1] bg-[#f3f8fb] px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#2d6fba] shadow-sm dark:bg-slate-800"><CalendarClock className="h-4 w-4" /></div>
+            <div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleCurrent}</p><p className="mt-0.5 text-xs font-bold leading-snug text-[#1d3d5a]">{currentText}</p><p className="mt-0.5 text-xs font-semibold tabular-nums text-[#567188]">{currentTimeText}</p></div>
+          </div>
           <div>
             <p className="mb-1.5 text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleNewDate}</p>
             <div className="flex items-center gap-1">
@@ -9956,7 +10104,10 @@ function ReschedulePopover({ item, onReschedule, onInvalid, t, locale }: { item:
               <span className="line-clamp-3">{item.notes}</span>
             </div>
           )}
-          <div className="rounded-md bg-[#eaf3fb] px-2.5 py-2 text-[10px] text-[#567188]"><span>{t.agentWorkspace.rescheduleNewAppointment}</span><strong className="ml-2 text-[#1d3d5a]">{newText?.weekday} {newText?.date} · {timeVal}</strong></div>
+          <div className="flex items-start gap-3 rounded-xl border border-[#c7dbe9] bg-gradient-to-r from-[#eaf3fb] to-[#f3f8fc] px-3 py-2.5 dark:border-sky-900 dark:from-slate-900 dark:to-slate-900">
+            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-[#2d6fba] shadow-sm dark:bg-slate-800"><CalendarCheck className="h-4 w-4" /></div>
+            <div className="min-w-0"><p className="text-[9px] font-extrabold uppercase tracking-[.1em] text-[#7891a5]">{t.agentWorkspace.rescheduleNewAppointment}</p><p className="mt-0.5 text-xs font-bold leading-snug text-[#1d3d5a]">{newAppointmentText} · {timeVal}</p></div>
+          </div>
           <div className="flex justify-end gap-1.5 border-t border-slate-100 pt-2 dark:border-slate-800">
             <Button size="sm" variant="ghost" className="h-7 px-2.5 text-[10px]" onClick={() => setPopOpen(false)}>
               {t.common.cancel}
@@ -10789,6 +10940,8 @@ function AgentWorkspacePageContent() {
   const [taskRecipients, setTaskRecipients] = useState<RequestRecipients>(emptyRecipients);
   const [taskRecipientsManual, setTaskRecipientsManual] = useState(false);
   const [pendingTaskCategory, setPendingTaskCategory] = useState<string | null>(null);
+  const [taskPhoneIssueReason, setTaskPhoneIssueReason] = useState<PhoneIssueReason | "">("");
+  const [taskPhoneIssueField, setTaskPhoneIssueField] = useState<PhoneIssueField | "">("");
   const [createTaskForm, setCreateTaskForm] = useState({ title: "", description: "", priority: "medium", assignedUserIds: [] as string[], dueDate: "", groupId: "", category: "" });
   const [taskAssignmentMode, setTaskAssignmentMode] = useState<"group" | "people">("group");
   const [createTaskAttachments, setCreateTaskAttachments] = useState<TaskAttachment[]>([]);
@@ -11375,6 +11528,51 @@ function AgentWorkspacePageContent() {
     return null;
   };
 
+  const taskEntityForPhoneIssue = resolveTaskEntity();
+  const selectedPhoneIssueArea = taskEntityForPhoneIssue?.type === "clinic" || taskEntityForPhoneIssue?.type === "hospital"
+    ? <PhoneIssueContactArea
+        key={`${selectedCampaignId || ""}:${agentSession.session?.id || ""}:${taskEntityForPhoneIssue.type}:${taskEntityForPhoneIssue.id}`}
+        missionId={selectedCampaignId}
+        sessionId={agentSession.isSessionActive ? agentSession.session?.id : null}
+        entityType={taskEntityForPhoneIssue.type}
+        entityId={taskEntityForPhoneIssue.id}
+        locale={locale}
+      />
+    : null;
+  const taskPhoneIssueContext = usePhoneIssueContext({
+    missionId: selectedCampaignId,
+    sessionId: agentSession.isSessionActive ? agentSession.session?.id : null,
+    entityType: taskEntityForPhoneIssue?.type,
+    entityId: taskEntityForPhoneIssue?.id,
+    enabled: createTaskDialogOpen && createTaskForm.category === "wrong_phone",
+  });
+  const phoneIssueIdentity = `${selectedCampaignId || ""}:${agentSession.session?.id || ""}:${taskEntityForPhoneIssue?.type || ""}:${taskEntityForPhoneIssue?.id || ""}`;
+  const phoneIssueIdentityRef = useRef(phoneIssueIdentity);
+  useEffect(() => {
+    if (phoneIssueIdentityRef.current === phoneIssueIdentity) return;
+    phoneIssueIdentityRef.current = phoneIssueIdentity;
+    setTaskPhoneIssueReason("");
+    setTaskPhoneIssueField("");
+  }, [phoneIssueIdentity]);
+  const taskPhoneIssueNumber = taskPhoneIssueContext.data?.phones.find(phone => phone.field === taskPhoneIssueField);
+  const requiresPhoneIssue = createTaskForm.category === "wrong_phone"
+    && (taskEntityForPhoneIssue?.type === "clinic" || taskEntityForPhoneIssue?.type === "hospital");
+  const phoneIssueTaskReady = !requiresPhoneIssue || phoneIssueTaskCanSubmit({
+    eligible: taskPhoneIssueContext.eligible,
+    loading: taskPhoneIssueContext.isLoading,
+    fetching: taskPhoneIssueContext.isFetching,
+    error: taskPhoneIssueContext.isError,
+    data: taskPhoneIssueContext.data,
+    reason: taskPhoneIssueReason,
+    phoneField: taskPhoneIssueField,
+  });
+  useEffect(() => {
+    if (taskPhoneIssueField && taskPhoneIssueContext.data
+      && !taskPhoneIssueContext.data.phones.some(phone => phone.field === taskPhoneIssueField)) {
+      setTaskPhoneIssueField("");
+    }
+  }, [taskPhoneIssueContext.data, taskPhoneIssueField]);
+
   const taskEntityTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       customer: t.customers.title,
@@ -11415,6 +11613,10 @@ function AgentWorkspacePageContent() {
     const ent = resolveTaskEntity();
     const entLabel = ent?.name.trim() || "";
     const newTitle = entLabel ? `${cat.label} — ${entLabel}` : cat.label;
+    if (catId !== createTaskForm.category) {
+      setTaskPhoneIssueReason("");
+      setTaskPhoneIssueField("");
+    }
     setCreateTaskForm(prev => ({ ...prev, category: catId, title: prev.title.trim() ? prev.title : newTitle }));
     if (!keepRecipients) {
       setTaskRecipients(defaultRecipients(taskRoutingTypes.data?.find(type => type.id === catId)));
@@ -11448,11 +11650,16 @@ function AgentWorkspacePageContent() {
       setCreateTaskAttachments([]);
       setCreateTaskAttachmentsBusy(false);
       setCreateTaskForm({ title: "", description: "", priority: "medium", assignedUserIds: [], dueDate: "", groupId: "", category: "" });
+      setTaskPhoneIssueReason("");
+      setTaskPhoneIssueField("");
       setTaskAssignmentMode("group");
     },
     onError: (e: any) => {
       console.error("[CreateTask] Error:", e);
-      toast({ title: t.quickCreate.createFailed, description: e?.message || String(e), variant: "destructive" });
+      const message = typeof e?.message === "string" ? e.message : "";
+      const code = typeof e?.code === "string" ? e.code : message;
+      const phoneIssueCode = ["phone_issue_already_reported", "phone_issue_stale", "phone_issue_invalid", "phone_issue_no_source"].includes(code);
+      toast({ title: t.quickCreate.createFailed, description: phoneIssueCode ? phoneIssueErrorText(code, locale) : (message || String(e)), variant: "destructive" });
     },
   });
 
@@ -12432,7 +12639,7 @@ function AgentWorkspacePageContent() {
     }
     return answers;
   },[mobileWorkflowContact.data?.answers,mobileBatchSlAnswers]);
-  const [mobileAutomaticBatchPending,setMobileAutomaticBatchPending] = useStatusListAutomaticOpen({
+  const [legacyMobileAutomaticBatchPending,setMobileAutomaticBatchPending] = useStatusListAutomaticOpen({
     campaignId:selectedCampaignId,contactId:effectiveCampaignContactId,items:mobileDbStatusList,
     mode:mobileStatusListMode,pulseActive:isMobile && mainWorkspaceTab==="pulse" && mobileStatusListVisible,
     enabled:isMobile,locale,
@@ -12440,6 +12647,12 @@ function AgentWorkspacePageContent() {
   const mobileSlActionRecap=useStatusListActionRecap({
     campaignId:selectedCampaignId,contactId:effectiveCampaignContactId,items:mobileDbStatusList,mode:mobileStatusListMode,locale,
   });
+  const mobileCoordinatorChecks=useStatusListRepresentativeChecks({
+    campaignId:selectedCampaignId,contactId:effectiveCampaignContactId,data:mobileWorkflowContact.data,
+    pulseActive:isMobile && mainWorkspaceTab==="pulse" && mobileStatusListVisible,
+    enabled:isMobile,locale,review:mobileSlActionRecap.confirmPrepared,
+  });
+  const mobileAutomaticBatchPending=legacyMobileAutomaticBatchPending+mobileCoordinatorChecks.batchPending;
   // Unified unsaved-batch count used by the navigation guard — covers both desktop
   // (reported back from CustomerInfoPanel) and mobile (tracked locally).
   const batchUnsavedCount = isMobile ? mobileBatchSlSelections.size + Object.keys(mobileBatchSlAnswers).length + (mobileAutomaticBatchPending>0 ? 1 : 0) : desktopBatchUnsavedCount;
@@ -12523,57 +12736,92 @@ function AgentWorkspacePageContent() {
     };
   }, [batchUnsavedCount]);
 
-  const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
+  const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean, checkedSiblingIds: string[] = []) => {
     if (!selectedCampaignId || !effectiveCampaignContactId || mobileSlBusy.current) return;
     if((mobileDbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
     const recapScope=mobileSlExecution.current.client;
-    if(newChecked && mobileStatusListMode==="immediate" &&
-       !await mobileSlActionRecap.confirm([{kind:"item",id:itemId,value:true}]))return;
-    if(mobileSlExecution.current.client!==recapScope)return;
-    // Batch mode: stage locally — no API call, no automations
-    if (mobileStatusListMode === "batch") {
+    const replacingSiblings = newChecked && mobileStatusListMode === "immediate"
+      ? Array.from(new Set(checkedSiblingIds.filter(id => id !== itemId)))
+      : [];
+    const transition = newChecked
+      ? createSingleSelectTransition(itemId, replacingSiblings)
+      : [{ id: itemId, confirm: false }];
+    const transitionSiblings = transition.filter(step => !step.confirm).map(step => step.id);
+    const isSingleChildTransition = transitionSiblings.length > 0;
+    if (isSingleChildTransition) mobileSlBusy.current = true;
+    const selectedItem=(mobileDbStatusList as any[]).find(item=>String(item.id)===itemId);
+    const callbackReview = prepareStatusListCallbackReview(selectedItem, campaignDispositions);
+    const callbackDraft = newChecked && mobileStatusListMode === "immediate" ? callbackReview.callbackDraft : undefined;
+    const interactive=selectedItem?.confirmationType!=="auto";
+    try {
+      if(newChecked && mobileStatusListMode==="immediate") {
+        const recapChanges = [
+          ...transition.map(step=>({kind:"item" as const,id:step.id,value:step.confirm})),
+        ];
+        if(!await mobileSlActionRecap.confirm(recapChanges,
+          interactive && (selectedItem?.automations || []).length>0,[],
+          callbackReview.callbackDetails,
+          interactive ? callbackReview.callbackEditor : undefined))return;
+      }
+      if(mobileSlExecution.current.client!==recapScope)return;
+      // Batch mode: stage locally — no API call, no automations.
+      if (mobileStatusListMode === "batch") {
+        setMobileDbSlChecked(prev => {
+          const next = new Set(prev);
+          if (newChecked) next.add(itemId); else next.delete(itemId);
+          return next;
+        });
+        setMobileBatchSlSelections(prev => {
+          const next = new Set(prev);
+          const persisted = (mobileDbSlState as any[]).some(row => String(row.statusListItemId) === itemId);
+          if (newChecked !== persisted) next.add(itemId); else next.delete(itemId);
+          return next;
+        });
+        return;
+      }
       setMobileDbSlChecked(prev => {
         const next = new Set(prev);
+        transitionSiblings.forEach(id=>next.delete(id));
         if (newChecked) next.add(itemId); else next.delete(itemId);
         return next;
       });
-      setMobileBatchSlSelections(prev => {
-        const next = new Set(prev);
-        const persisted = (mobileDbSlState as any[]).some(row => String(row.statusListItemId) === itemId);
-        if (newChecked !== persisted) next.add(itemId); else next.delete(itemId);
-        return next;
+      const sender = mobileSlExecution.current.client;
+      const task = mobileSlQueue.current.catch(() => {}).then(async () => {
+        try {
+          await executeSingleSelectTransition(transition, async step => {
+            if (mobileSlExecution.current.client !== sender) throw new Error("status_list_scope_changed");
+            const result = await sender.send(`/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${step.id}`, {
+              confirm: step.confirm,
+              ...(step.confirm && interactive && callbackDraft ? {overrideCallbackDate:callbackDraft.callbackDate,overrideCallbackNote:callbackDraft.callbackNote || null} : {}),
+            }, "immediate");
+            if (result.ok === false) throw new Error("single_child_transition_failed");
+            return result;
+          });
+          if (mobileSlExecution.current.client !== sender) return;
+          queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
+          if(newChecked && callbackDraft) {
+            queryClient.invalidateQueries({queryKey:["/api/agent/callbacks"]});
+            queryClient.invalidateQueries({queryKey:["/api/agent/scheduled-queue"]});
+          }
+        } catch {
+          if (mobileSlExecution.current.client !== sender) return;
+          setMobileDbSlChecked(prev => {
+            const next = new Set(prev);
+            if (newChecked) next.delete(itemId); else next.add(itemId);
+            transitionSiblings.forEach(id=>next.add(id));
+            return next;
+          });
+          queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
+          toast({ title: slt("actionFailed", locale), variant: "destructive" });
+        }
       });
-      return;
+      mobileSlQueue.current = task;
+      await task;
+    } finally {
+      if (isSingleChildTransition && mobileSlExecution.current.client === recapScope) mobileSlBusy.current = false;
     }
-    setMobileDbSlChecked(prev => {
-      const next = new Set(prev);
-      if (newChecked) next.add(itemId); else next.delete(itemId);
-      return next;
-    });
-    const sender = mobileSlExecution.current.client;
-    const scope = mobileSlScope;
-    const task = mobileSlQueue.current.catch(() => {}).then(async () => {
-    try {
-      const result = await sender.send(`/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-state/${itemId}`, {
-        confirm: newChecked,
-      }, "immediate");
-      if (mobileSlExecution.current.client !== sender) return;
-      if (result.ok === false) toast({ title: getStatusListExecutionCopy(locale).failed, description: getStatusListExecutionCopy(locale).failedDetail, variant: "destructive" });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-state"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaignId, "contacts", effectiveCampaignContactId, "status-list-workflows"] });
-    } catch {
-      if (mobileSlExecution.current.client !== sender) return;
-      setMobileDbSlChecked(prev => {
-        const next = new Set(prev);
-        if (newChecked) next.delete(itemId); else next.add(itemId);
-        return next;
-      });
-      toast({ title: slt("actionFailed", locale), variant: "destructive" });
-    }
-    });
-    mobileSlQueue.current = task;
-    await task;
-  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode, mobileDbSlState, mobileSlScope, locale, toast,mobileSlActionRecap.confirm,mobileDbStatusList]);
+  }, [selectedCampaignId, effectiveCampaignContactId, mobileStatusListMode, mobileDbSlState, mobileSlScope, locale, toast,mobileSlActionRecap.confirm,mobileDbStatusList,campaignDispositions]);
 
   useEffect(() => {
     if (!isMobile || !selectedCampaignId || !effectiveCampaignContactId || !mobileDbStatusList.length) return;
@@ -12595,7 +12843,17 @@ function AgentWorkspacePageContent() {
       ...[...mobileBatchSlSelections].map(id=>({kind:"item" as const,id,value:mobileDbSlChecked.has(id)})),
       ...Object.entries(mobileBatchSlAnswers).map(([id,change])=>({kind:"question" as const,id,value:change.value})),
     ];
-    if(recapChanges.length && !await mobileSlActionRecap.confirm(recapChanges))return;
+    const callbackDetails:Record<string,{callbackDate?:string;callbackNote?:string}>={};
+    if(mobileSlBatchAction==="reschedule") {
+      for(const id of Array.from(mobileBatchSlSelections)) {
+        const item=(mobileDbStatusList as any[]).find(row=>String(row.id)===id);
+        for(const action of item?.automations || []) {
+          if(action.actionType==="set_callback" || action.actionType==="set_contact_status")
+            callbackDetails[String(action.id)]={callbackDate:mobileSlBatchCallbackDt,callbackNote:mobileSlBatchCallbackNote};
+        }
+      }
+    }
+    if(recapChanges.length && !await mobileSlActionRecap.confirm(recapChanges,false,[],callbackDetails))return;
     if(mobileSlExecution.current.client!==recapScope)return;
     mobileSlBusy.current = true;
     const sender = mobileSlExecution.current.client;
@@ -12630,7 +12888,7 @@ function AgentWorkspacePageContent() {
         try {
           await apiRequest("POST", `/api/campaigns/${selectedCampaignId}/contacts/${effectiveCampaignContactId}/status-list-workflows/automatic-open`,
             {executionMode:"batch",commit:true});
-          if(currentScope())setMobileAutomaticBatchPending(0);
+          if(currentScope()){setMobileAutomaticBatchPending(0);mobileCoordinatorChecks.markBatchCommitted();}
         } catch { actionProblems = true; }
       }
       if (actionProblems || mobileSlBatchAction === "rules") {
@@ -16199,7 +16457,11 @@ function AgentWorkspacePageContent() {
               onRejectIncoming={rejectIncomingCall}
               onOpenDisposition={() => { setDispositionChannelFilter("phone"); setMandatoryDisposition(true); setDispositionModalOpen(true); }}
               isStatusListMode={isStatusListMode}
+              phoneIssueContactArea={isMobile ? selectedPhoneIssueArea : null}
               dbStatusList={mobileDbStatusList}
+              representativeInformation={mobileCoordinatorChecks.information}
+              onRepresentativeReview={mobileCoordinatorChecks.onReview}
+              representativeReviewBusy={mobileCoordinatorChecks.busy}
               dbSlChecked={mobileDbSlChecked}
               onSlToggle={handleMobileSlToggle}
                dbSlState={mobileDbSlState}
@@ -16583,6 +16845,7 @@ function AgentWorkspacePageContent() {
               onPendingEmailTemplateHandled={() => setPendingEmailTemplateId(null)}
               backOfficeModeActive={backOfficeModeActive}
               contactCountry={currentContact?.country || null}
+              phoneIssueContactArea={isMobile ? null : selectedPhoneIssueArea}
               ccCallbackNote={currentCampaignContact?.callbackNote ?? null}
               ccCallbackStatusListItemId={currentCampaignContact?.callbackStatusListItemId ?? null}
               onCloseCallAfterStatusList={handleCloseCallAfterStatusList}
@@ -18133,6 +18396,8 @@ function AgentWorkspacePageContent() {
           setCreateTaskAttachments([]);
           setCreateTaskAttachmentsBusy(false);
           setCreateTaskForm(prev => ({ ...prev, description: "" }));
+          setTaskPhoneIssueReason("");
+          setTaskPhoneIssueField("");
         }
       }}>
         <SheetContent side="right" drawerWidth="wide" className="task-create-sheet w-full sm:max-w-[860px] p-0 flex flex-col gap-0">
@@ -18177,6 +18442,19 @@ function AgentWorkspacePageContent() {
                 agentHint={t.tasks.taskAgentRequestHint}
               />
             </div>
+
+            {requiresPhoneIssue && <PhoneIssueTaskFields
+              locale={locale}
+              loading={taskPhoneIssueContext.isLoading || taskPhoneIssueContext.isFetching}
+              error={taskPhoneIssueContext.isError || !taskPhoneIssueContext.eligible}
+              retryable={taskPhoneIssueContext.eligible}
+              data={taskPhoneIssueContext.data}
+              reason={taskPhoneIssueReason}
+              phoneField={taskPhoneIssueField}
+              onReasonChange={setTaskPhoneIssueReason}
+              onPhoneFieldChange={setTaskPhoneIssueField}
+              onRetry={() => { void taskPhoneIssueContext.refetch(); }}
+            />}
 
             {/* Generated details stay compact and secondary to the request. */}
             <div className="md:col-span-2">
@@ -18282,10 +18560,12 @@ function AgentWorkspacePageContent() {
                 const selectedCategory = taskCategoryOptions.find(category => category.id === createTaskForm.category);
                 createTaskMutation.mutate({
                   title: createTaskForm.title.trim(),
-                  description: composeTaskRequestDescription(
+                   description: composeTaskRequestDescription(
                     ent?.name,
                     selectedCategory?.phrase,
-                    createTaskForm.description,
+                     requiresPhoneIssue && taskPhoneIssueNumber && taskPhoneIssueReason
+                       ? composePhoneIssueDetails(createTaskForm.description, taskPhoneIssueReason, taskPhoneIssueNumber.number, locale)
+                       : createTaskForm.description,
                   ),
                   priority: createTaskForm.priority,
                   assignedUserIds: [],
@@ -18297,9 +18577,16 @@ function AgentWorkspacePageContent() {
                   dueDate: createTaskForm.dueDate || undefined,
                   country: selectedCampaign?.country || undefined,
                   attachments: createTaskAttachments,
+                  ...(requiresPhoneIssue && taskPhoneIssueNumber && taskPhoneIssueReason ? {
+                    phoneIssue: {
+                      reason: taskPhoneIssueReason,
+                      phoneField: taskPhoneIssueField as PhoneIssueField,
+                      expectedNumber: taskPhoneIssueNumber.number,
+                    },
+                  } : {}),
                 });
               }}
-              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !createTaskForm.title.trim() || taskRecipientOptions.isError || taskRecipientOptions.isLoading || taskRoutingTypes.isError || taskRoutingTypes.isLoading || taskRecipients.groupIds.length + taskRecipients.userIds.length === 0 || !recipientsAreAvailable(taskRecipients, taskRecipientOptions.data?.groups || [], taskRecipientOptions.data?.users || [])}
+              disabled={createTaskMutation.isPending || createTaskAttachmentsBusy || !phoneIssueTaskReady || !createTaskForm.title.trim() || taskRecipientOptions.isError || taskRecipientOptions.isLoading || taskRoutingTypes.isError || taskRoutingTypes.isLoading || taskRecipients.groupIds.length + taskRecipients.userIds.length === 0 || !recipientsAreAvailable(taskRecipients, taskRecipientOptions.data?.groups || [], taskRecipientOptions.data?.users || [])}
                 className="task-create-submit rounded-xl px-5 font-semibold text-white border-0 disabled:opacity-40 transition-all"
               data-testid="btn-submit-create-task"
             >

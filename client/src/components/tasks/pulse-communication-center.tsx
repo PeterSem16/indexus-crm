@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, MessageSquareText, Send, Clock3, Users, UserRound, LockKeyhole } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogPortal } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n";
+import { taskDisplayText } from "@/lib/task-display";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
 import { useToast } from "@/hooks/use-toast";
@@ -170,7 +171,7 @@ export function PulseCommunicationCenter({ open, onOpenChange, onNewRequest, onT
                  <div className="center-meta"><span className="status-pill" data-status={stateKey(task)}>{statusLabel(task)}</span><span><Users size={13}/>{t.quickCreate.assignedTo}: {handler(task)}</span>{task.dueDate && <span><Clock3 size={13}/>{stamp(task.dueDate)}</span>}</div>
               </div></header>
               <div className="center-detail-scroll">
-                <div className="center-section-title">{t.tasks.originalRequest}</div><div className="authored-request">{task.description || task.title}</div>
+                <div className="center-section-title">{t.tasks.originalRequest}</div><div className="authored-request">{taskDisplayText(task.description || task.title, locale)}</div>
                 <TaskAttachmentList attachments={task.attachments || []}/>
                 <div className="center-section-title mt-4">{c.history}</div><div className="history-list">
                    <div className="history-event history-created"><Clock3 size={14} className="history-icon"/><div><b>{c.created}</b><small>{stamp(task.createdAt)}</small></div></div>

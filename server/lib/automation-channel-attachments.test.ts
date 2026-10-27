@@ -164,6 +164,7 @@ test("production resolver and analyzer read actual invoice bytes from chat, task
       assert.equal(result.attachmentCount, 1, channel);
       assert.equal(result.invoiceCount, 1, channel);
       assert.equal(result.failedAttachmentCount, 0, channel);
+      assert.deepEqual(result.attachmentOutcomes, [{ position: 1, result: "invoice" }]);
       assert.equal(analyzer.selectedAnalysisAttachments("invoice", result).length, 1);
       assert.equal(result.attachments[0].name, "trusted-invoice.pdf", "registry metadata beats persisted client claims");
     }
@@ -188,15 +189,20 @@ test("production resolver and analyzer read actual invoice bytes from chat, task
     assert.equal(await run("task"), null, "group membership never bypasses country scope");
     allowedCountry = "SK"; creatorId = "owner"; memberships = [];
     missingUpload = true;
-    await assert.rejects(run("chat"), /analysis_attachment_unavailable/);
+    const absent = await run("chat");
+    assert.equal(absent.hasInvoice, null);
+    assert.equal(absent.failedAttachmentCount, 1);
+    assert.deepEqual(absent.attachmentOutcomes, [{ position: 1, result: "unprocessed", reason: "missing" }]);
     missingUpload = false; missingFile = true;
     let failed = await run("chat");
     assert.equal(failed.hasInvoice, null, "a missing file is unknown, not a negative classification");
     assert.equal(failed.failedAttachmentCount, 1);
+    assert.deepEqual(failed.attachmentOutcomes, [{ position: 1, result: "unprocessed", reason: "missing" }]);
     missingFile = false; unsupported = true;
     failed = await run("comment");
     assert.equal(failed.hasInvoice, null);
     assert.equal(failed.failedAttachmentCount, 1);
+    assert.deepEqual(failed.attachmentOutcomes, [{ position: 1, result: "unprocessed", reason: "unsupported" }]);
     assert.equal(aiDocuments, snapshots, "every successfully classified original has a private snapshot");
     const saved = (await import("node:fs/promises")).readdir;
     const files = await saved(privateRoot);

@@ -42,6 +42,13 @@ import { registerRecordEntryRoutes } from "./automation-record-entry";
 import { registerConditionOptionsRoute } from "./automation-condition-options";
 import { registerLeadSearchAutomationRoutes, validateLeadCampaignSelection } from "./automation-lead-search";
 import { LEAD_SEARCH_EVENTS, leadSearchEventLabel } from "../../shared/automation-lead-search";
+import { eligibilityInput, eligibilitySourceListInput } from "../../shared/automation-eligibility";
+import { listEligibilitySources } from "./automation-eligibility-sources";
+import { isAnalysisServiceEvent } from "../../shared/automation-analysis-triggers";
+import { diagnoseAnalysisEligibility } from "./automation-eligibility";
+import { runActivity, safeRunSummary } from "./automation-run-activity";
+import { canReadRunSource } from "./automation-run-source";
+import { registerAnalysisRetryRoutes } from "./automation-analysis-retry";
 
 function getSessionUser(req: Request): { id: string; role?: string; assignedCountries?: string[] } | null {
   // @ts-ignore — session shape from existing middleware
@@ -71,6 +78,37 @@ function requireAutomationDesigner(req: Request, res: Response, next: NextFuncti
 }
 
 export function registerAutomationRoutes(app: Express) {
+  registerAnalysisRetryRoutes(app, requireAutomationAdmin, req => getSessionUser(req)!.id);
+  app.get("/api/automation/rules/:id/eligibility-sources", requireAutomationAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const input = eligibilitySourceListInput(req.query);
+    if (!input) return res.status(400).json({ error: "Invalid source period" });
+    try {
+      const [rule] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id)).limit(1);
+      const trigger: any = rule?.trigger;
+      if (!rule || rule.module !== "communication" || trigger?.type !== "event" ||
+          !isAnalysisServiceEvent(trigger.eventType) || !trigger.analysis)
+        return res.status(404).json({ error: "Analysis rule not found" });
+      res.json(await listEligibilitySources(rule, getSessionUser(req)!.id, input));
+    } catch {
+      res.status(500).json({ error: "Source list unavailable" });
+    }
+  });
+  app.get("/api/automation/rules/:id/eligibility", requireAutomationAdmin, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const input = eligibilityInput(req.query);
+    if (!input) return res.status(400).json({ error: "Invalid source" });
+    try {
+      const [rule] = await db.select().from(workflowRules).where(eq(workflowRules.id, req.params.id)).limit(1);
+      const trigger: any = rule?.trigger;
+      if (!rule || rule.module !== "communication" || trigger?.type !== "event" ||
+          !isAnalysisServiceEvent(trigger.eventType) || !trigger.analysis)
+        return res.status(404).json({ error: "Analysis rule not found" });
+      res.json(await diagnoseAnalysisEligibility(rule, getSessionUser(req)!.id, input.sourceId, input.sourceEvent));
+    } catch {
+      res.status(500).json({ error: "Eligibility diagnostic unavailable" });
+    }
+  });
   registerLeadSearchAutomationRoutes(app, requireAutomationDesigner);
   registerReviewedTransitionRoutes(app, requireAutomationAdmin);
   app.get("/api/automation/analysis-mailboxes", requireAutomationAdmin, async (_req, res) => {
@@ -490,28 +528,32 @@ export function registerAutomationRoutes(app: Express) {
 
   /* -------- RUNS HISTORY -------- */
   app.get("/api/automation/runs", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const ruleId = req.query.ruleId as string | undefined;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
     let q = db.select().from(workflowRuns).$dynamic();
     if (ruleId) q = q.where(eq(workflowRuns.ruleId, ruleId));
     const rows = await q.orderBy(desc(workflowRuns.startedAt)).limit(limit);
-    res.json(rows);
+    res.json(rows.map(safeRunSummary));
   });
 
   app.get("/api/automation/runs/:id", requireAuth, async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const [run] = await db.select().from(workflowRuns).where(eq(workflowRuns.id, req.params.id));
     if (!run) return res.status(404).json({ error: "Not found" });
-    const actions = await db
-      .select()
-      .from(workflowActionLog)
-      .where(eq(workflowActionLog.runId, run.id))
-      .orderBy(workflowActionLog.actionIndex);
-    let event = null as any;
-    if (run.eventId) {
-      const [ev] = await db.select().from(workflowEvents).where(eq(workflowEvents.id, run.eventId));
-      event = ev || null;
-    }
-    res.json({ run, actions, event });
+    const detail = await runActivity(run, getSessionUser(req)!.id, {
+      rule: async id => (await db.select().from(workflowRules).where(eq(workflowRules.id, id)).limit(1))[0],
+      event: async id => (await db.select().from(workflowEvents).where(eq(workflowEvents.id, id)).limit(1))[0],
+      canRead: canReadRunSource,
+      actions: async id => db.select({
+        id: workflowActionLog.id, runId: workflowActionLog.runId,
+        actionIndex: workflowActionLog.actionIndex, actionType: workflowActionLog.actionType,
+        status: workflowActionLog.status, executedAt: workflowActionLog.executedAt,
+        retryCount: workflowActionLog.retryCount,
+      }).from(workflowActionLog).where(eq(workflowActionLog.runId, id))
+        .orderBy(workflowActionLog.actionIndex),
+    });
+    res.json(detail);
   });
 
   /* -------- TRIGGER / ACTION CATALOGUE (for UI dropdowns) -------- */

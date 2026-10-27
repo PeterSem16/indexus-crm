@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, Check, CheckCircle2, ChevronLeft, Loader2, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { taskDisplayText } from "@/lib/task-display";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -181,7 +182,7 @@ export function TaskResolutionDialog({
           <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
         <div className="task-modern-modal-body space-y-4">
-          {task && <div className="task-resolution-dialog__task"><h3 className="font-semibold leading-snug">{task.title}</h3>{task.description && <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">{task.description}</p>}</div>}
+          {task && <div className="task-resolution-dialog__task"><h3 className="font-semibold leading-snug">{task.title}</h3>{task.description && <p className="mt-1.5 whitespace-pre-wrap text-sm text-muted-foreground">{taskDisplayText(task.description, locale)}</p>}</div>}
           {pulse && <section id="resolution-checklist-gate" data-testid="resolution-checklist-gate" className="task-resolution-dialog__gate" aria-live="polite">
             <div className="mb-2 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">{copy.checklist}</h3>

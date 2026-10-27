@@ -5,7 +5,7 @@ import { getStatusListQuestionStudioCopy } from "./status-list-question-studio-c
 import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
 
 export function StatusListQuestionGroupPicker({locale, questions, questionId, value, onChange}: {
-  locale: string; questions: {id: string; groupName?: string | null; logicOperator?: string}[];
+  locale: string; questions: {id: string; groupName?: string | null; logicOperator?: string | null}[];
   questionId?: string | null; value: string; onChange: (name: string, logic?: string) => void;
 }) {
   const c = getStatusListRefinementCopy(locale);
@@ -16,7 +16,7 @@ export function StatusListQuestionGroupPicker({locale, questions, questionId, va
   const peers = questions.filter(q => q.id !== questionId);
   const groups = Array.from(new Set([...peers.map(q => q.groupName?.trim()), value.trim()].filter(Boolean))) as string[];
   const select = (group: string) => {
-    onChange(group, peers.find(q => q.groupName?.trim() === group)?.logicOperator);
+    onChange(group, peers.find(q => q.groupName?.trim() === group)?.logicOperator || undefined);
     setCreating(false); setName("");
   };
   return <div className="slqs-field slqs-wide" data-testid="status-list-group-picker">

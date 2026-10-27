@@ -9,6 +9,7 @@ export type ActionConditionMode = "always" | "country" | "answer" | "compound" |
 export type ActionRule = { field: string; op: string; value: string };
 export const statusListServiceActions = ["assign_task", "send_email", "update_record", "send_sms", "set_contact_status", "set_callback", "notify_role", "sys_webhook"] as const;
 export type StatusListActionDraft = {
+  executionPolicy: "inherit" | "automatic" | "review";
   actionType: string; targetRole: string; taskGroupId: string; taskDescription: string;
   taskDeadlineOffset: string; taskPriority: string; assignNotify: boolean; assignNotifyChannels: string[];
   emailTemplateId: string; emailRecipients: string; smsTemplateId: string; smsProvider: string;
@@ -66,15 +67,16 @@ const jsonCondition = (action?: SavedStatusListAction) => {
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
   } catch { return null; }
 };
-export function statusListActionDraft(action?: SavedStatusListAction, initialActionType = "assign_task"): StatusListActionDraft {
+export function statusListActionDraft(action?: SavedStatusListAction, initialActionType = "assign_task", initialConditionAnswer?: string): StatusListActionDraft {
   const parsed = jsonCondition(action);
   const mode: ActionConditionMode = action?.conditionJson
     ? parsed?.__type === "field_changed_to" && typeof parsed.field === "string" && typeof parsed.value === "string" && (!parsed.op || parsed.op === "eq") ? "field_changed_to"
       : parsed && ["AND", "OR"].includes(parsed.logic) && Array.isArray(parsed.rules)
         && parsed.rules.every((rule: any) => rule && typeof rule.field === "string" && typeof rule.op === "string" && typeof rule.value === "string") ? "compound" : "stored"
-    : !action?.conditionField ? "always" : action.conditionField === "country" && (!action.conditionOperator || action.conditionOperator === "eq") ? "country"
+    : !action?.conditionField ? initialConditionAnswer !== undefined ? "answer" : "always" : action.conditionField === "country" && (!action.conditionOperator || action.conditionOperator === "eq") ? "country"
       : action.conditionField === "answer" && (!action.conditionOperator || action.conditionOperator === "eq") ? "answer" : "stored";
   return {
+    executionPolicy: action?.executionPolicy as "inherit" | "automatic" | "review" || (action ? "inherit" : "automatic"),
     actionType: action?.actionType || initialActionType, targetRole: action ? action.targetRole || "" : "role:back_office",
     taskGroupId: action?.taskGroupId || "", taskDescription: action?.taskDescription || "",
     taskDeadlineOffset: action ? action.taskDeadlineOffset || "" : "+24h", taskPriority: action?.taskPriority || "medium",
@@ -85,7 +87,7 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
     callbackTime: action?.callbackTime || "09:00", callbackBusinessDaysOnly: action?.callbackBusinessDaysOnly ?? true, notifyAgentPulse: action?.notifyAgentPulse ?? false,
     callbackExistingPolicy: action?.callbackExistingPolicy ?? "replace",
     webhookTarget: action?.webhookTarget || "", conditionMode: mode, conditionCountry: action?.conditionField === "country" ? action.conditionValue || "SK" : "SK",
-    conditionAnswer: action?.conditionField === "answer" ? action.conditionValue || "" : "", conditionLogic: typeof parsed?.logic === "string" ? parsed.logic : "AND",
+    conditionAnswer: action?.conditionField === "answer" ? action.conditionValue || "" : initialConditionAnswer || "", conditionLogic: typeof parsed?.logic === "string" ? parsed.logic : "AND",
     conditionRules: mode === "compound" ? parsed.rules.map((rule: ActionRule) => ({ ...rule })) : [],
     fieldChangedKey: mode === "field_changed_to" ? parsed.field || "" : "contact.status_code",
     fieldChangedValue: mode === "field_changed_to" ? parsed.value || "" : "",
@@ -97,13 +99,13 @@ export function statusListActionDraft(action?: SavedStatusListAction, initialAct
   };
 }
 
-const writable = ["sortOrder", "actionType", "targetRole", "emailTemplateId", "emailRecipients", "smsTemplateId", "smsProvider",
+const writable = ["executionPolicy", "sortOrder", "actionType", "targetRole", "emailTemplateId", "emailRecipients", "smsTemplateId", "smsProvider",
   "callbackOffsetDays", "callbackTime", "callbackBusinessDaysOnly", "callbackExistingPolicy", "notifyAgentPulse", "taskDescription", "taskDeadlineOffset", "taskPriority",
   "conditionField", "conditionOperator", "conditionValue", "conditionJson", "dispositionId", "webhookTarget", "taskGroupId",
   "assignNotify", "assignNotifyChannels"] as const;
 const conditionKeys = ["conditionMode", "conditionCountry", "conditionAnswer", "conditionLogic", "conditionRules", "fieldChangedKey", "fieldChangedValue"] as const;
-export const statusListActionDirty = (draft: StatusListActionDraft, original?: SavedStatusListAction, initialActionType?: string) =>
-  JSON.stringify(draft) !== JSON.stringify(statusListActionDraft(original, initialActionType));
+export const statusListActionDirty = (draft: StatusListActionDraft, original?: SavedStatusListAction, initialActionType?: string, initialConditionAnswer?: string) =>
+  JSON.stringify(draft) !== JSON.stringify(statusListActionDraft(original, initialActionType, initialConditionAnswer));
 export const statusListConditionDirty = (draft: StatusListActionDraft, original?: SavedStatusListAction) => {
   const base = statusListActionDraft(original);
   return conditionKeys.some(key => JSON.stringify(draft[key]) !== JSON.stringify(base[key]));
@@ -118,6 +120,7 @@ export function statusListActionPayload(draft: StatusListActionDraft, original?:
   for (const key of writable) if (original && key in original) payload[key] = original[key];
   const base = statusListActionDraft(original);
   payload.actionType = draft.actionType;
+  if (!original || draft.executionPolicy !== (original.executionPolicy || "inherit")) payload.executionPolicy = draft.executionPolicy;
   if (isNativeType(draft.actionType) && (!original || draft.serviceActionExplicit || original.serviceActionConfig != null)) {
     payload.serviceActionConfig = draft.serviceActionConfig || {};
   } else if (original?.serviceActionConfig != null && draft.actionType !== original.actionType) {

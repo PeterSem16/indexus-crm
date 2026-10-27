@@ -21,7 +21,7 @@ export type AnalysisSource = {
   mailboxEmail?: string;
   privateAttachments?: unknown;
 };
-export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string; privateStorageKey?: string };
+export type SourceAttachment = { id: string; name: string; contentType: string; size: number; contentBytes?: string; privateStorageKey?: string; missing?: boolean };
 
 async function canReadTask(creator: any, task: typeof tasks.$inferSelect) {
   const memberships = ["admin", "manager"].includes(creator.role) ? [] :
@@ -35,9 +35,43 @@ async function sourcePerson(id: string | null | undefined) {
     .from(users).where(eq(users.id, id)))[0];
 }
 
+/** Inspection uses the same source policy, but never opens Graph or refreshes tokens. */
+export async function inspectAnalysisSource(rule: WorkflowRule, event: WorkflowEvent, principalUserId?: string) {
+  return resolveAnalysisSource(rule, event, { inspection: true, principalUserId });
+}
+
+/** Explicit retries recheck BOTH principals and filters, without opening Graph.
+ * Selecting a source or a mailbox is never a permission grant.
+ */
+export async function authorizeAnalysisRetrySource(rule: WorkflowRule, event: WorkflowEvent, viewerId: string) {
+  const [viewer, author, viewerSource, source] = await Promise.all([
+    storage.getUser(viewerId), storage.getUser(rule.createdByUserId!),
+    inspectAnalysisSource(rule, event, viewerId), inspectAnalysisSource(rule, event),
+  ]);
+  if (!viewer?.isActive || !["admin", "superadmin", "owner"].includes(viewer.role) ||
+      !author?.isActive || !viewerSource || !source ||
+      !analysisSourceMatches((rule.trigger as any).analysis, source)) throw new Error("retry_source_unavailable");
+  const country = typeof source.communication.countryCode === "string" ? source.communication.countryCode : event.countryCode;
+  if (!["admin", "superadmin", "owner"].includes(author.role) &&
+      country && !author.assignedCountries?.includes(country)) throw new Error("retry_source_unavailable");
+  if (source.channel === "email") {
+    const connection = source.systemMailboxCountry
+      ? await storage.getSystemMs365Connection(source.systemMailboxCountry)
+      : await storage.getUserMs365Connection(source.ownerUserId);
+    if (!connection?.isConnected || !connection.accessToken ||
+        (source.systemMailboxCountry && source.mailboxEmail?.toLowerCase() !== connection.email?.toLowerCase()))
+      throw new Error("retry_source_unavailable");
+  }
+  return source;
+}
 export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEvent): Promise<AnalysisSource | null> {
+  return resolveAnalysisSource(rule, event);
+}
+
+async function resolveAnalysisSource(rule: WorkflowRule, event: WorkflowEvent,
+  options: { inspection?: boolean; principalUserId?: string } = {}): Promise<AnalysisSource | null> {
   if (!event.entityId || !rule.createdByUserId) return null;
-  const creator = await storage.getUser(rule.createdByUserId);
+  const creator = await storage.getUser(options.principalUserId || rule.createdByUserId);
   if (!creator?.isActive) return null;
   const config = (rule.trigger as any).analysis as CommunicationAnalysisConfig;
   let source: AnalysisSource | null = null;
@@ -51,8 +85,7 @@ export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEven
     const owner = systemMailbox ? `system:${systemMailbox.countryCode}` : metadata.mailboxSource?.ownerUserId || message.userId || "";
     // Selecting a mailbox never grants a manager access to another person's private mail.
     if (message.type === "email" && owner !== creator.id &&
-        !(["admin", "superadmin", "owner"].includes(creator.role) && owner &&
-          (!config.mailboxUserIds?.length || config.mailboxUserIds.includes(owner)))) return null;
+        !(["admin", "superadmin", "owner"].includes(creator.role) && owner)) return null;
     if (message.type === "sms") {
       const { getOmniSmsNotificationAudience } = await import("../omni-sms-service");
       const audience = await getOmniSmsNotificationAudience(message.id);
@@ -95,6 +128,7 @@ export async function loadAnalysisSource(rule: WorkflowRule, event: WorkflowEven
     source = { channel: "voice", ownerUserId: recording.userId, text: recording.transcriptionText,
       communication: communicationSourceContext("voice", recording, recording.userId, { call, sender }) };
   }
+  if (options.inspection) return source;
   if (!source || !analysisSourceMatches(config, source)) return null;
   // Legacy ingestion omitted envelope fields. Read only the authorized original;
   // never guess its recipient from the responsible agent's CRM login address.
@@ -134,7 +168,8 @@ export async function mailboxRequest(source: AnalysisSource, suffix: string) {
   const mailboxPath = source.systemMailboxCountry ? `/users/${encodeURIComponent(source.mailboxEmail!)}` : "/me";
   const response = await fetch(`https://graph.microsoft.com/v1.0${mailboxPath}/messages/${encodeURIComponent(source.message.externalId)}${suffix}`,
     { headers: { Authorization: `Bearer ${source.mailboxToken}` }, signal: AbortSignal.timeout(30000) });
-  if (!response.ok) throw new Error("analysis_mailbox_request_failed");
+  if (!response.ok) throw new Error(response.status === 404 && suffix.startsWith("/attachments/")
+    ? "analysis_attachment_missing" : "analysis_mailbox_request_failed");
   return response.json();
 }
 
@@ -145,7 +180,7 @@ export async function listSourceAttachments(source: AnalysisSource): Promise<Sou
     const uploads = await db.select().from(taskAttachmentUploads).where(inArray(taskAttachmentUploads.id, ids));
     return ids.map(id => {
       const upload = uploads.find(row => row.id === id);
-      if (!upload) throw new Error("analysis_attachment_unavailable");
+      if (!upload) return { id, name: "", contentType: "", size: 0, missing: true };
       return { id, name: upload.name, contentType: upload.type, size: upload.size, privateStorageKey: upload.storageKey };
     });
   }
@@ -159,6 +194,7 @@ export async function listSourceAttachments(source: AnalysisSource): Promise<Sou
 }
 
 export async function readSourceAttachment(source: AnalysisSource, attachment: SourceAttachment): Promise<Buffer> {
+  if (attachment.missing) throw new Error("analysis_attachment_missing");
   if (source.channel === "chat" || source.channel === "task") {
     if (!attachment.privateStorageKey) throw new Error("analysis_attachment_unavailable");
     return readPrivateAnalysisAttachment(join(dirname(DATA_ROOT), "private-task-attachments"),

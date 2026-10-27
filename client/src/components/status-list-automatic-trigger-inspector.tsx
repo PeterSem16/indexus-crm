@@ -9,7 +9,7 @@ import "./status-list-automatic-trigger-inspector.css";
 type Trigger = "agent_confirmation" | "card_open" | "pulse_open" | "background_change";
 type BackgroundExecution = "mission" | "unattended";
 type AutomaticItem = {
-  item: { id: string; label: string; isHidden: boolean; confirmationType: string };
+  item: { id: string; label: string; isHidden: boolean; confirmationType: string; systemSourceAnswer?: boolean };
   config: { trigger: Trigger; enabled: boolean; revision: string | null; backgroundExecution?: BackgroundExecution };
   mode: "immediate" | "batch";
   actions: { id: string; actionType: string; questionLabel: string | null; issues: string[] }[];
@@ -201,7 +201,7 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
   const loadIdentity = useRef(0);
   const previewIdentity = useRef(0);
   const endpoint = `/api/campaigns/${campaignId}/status-list-workflows/automatic-items/${itemId}`;
-  const isHeadingOnly = record?.item.confirmationType === "info";
+  const isHeadingOnly = record?.item.confirmationType === "info" && !record.item.systemSourceAnswer;
   const hasActivationBlock = !!record?.actions.some(action => action.issues.some(issue => {
     const normalized = normalizeCode(issue);
     const key = issueAliases[normalized] || normalized;
@@ -262,7 +262,7 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
   }, [contactId, itemId]);
 
   const save = async () => {
-    if (!record || !isDirty || saving || disabled || isHeadingOnly || (enabled && hasActivationBlock) || (enabled && !acknowledged)) return;
+    if (!record || saving || disabled || isHeadingOnly || (enabled && hasActivationBlock) || (enabled && !acknowledged)) return;
     setSaving(true); setSaveMessage(""); setSaveError(false);
     try {
       const response = await fetch(endpoint, {
@@ -342,7 +342,7 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
           {trigger === "background_change" && <p>{scopeCopy.backgroundStart}</p>}
         </div></div>}
       <div className="slati-controls">
-        <label className="slati-field"><span>{t.trigger}</span><select value={trigger} disabled={disabled || saving || isHeadingOnly} onChange={event => { setTrigger(event.target.value as Trigger); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}>{triggerKeys.map(value => <option value={value} key={value} disabled={isHeadingOnly && value === "agent_confirmation"}>{triggerLabel(value)}</option>)}</select></label>
+        <label className="slati-field"><span>{t.trigger}</span><select value={trigger} disabled={disabled || saving || isHeadingOnly} onChange={event => { setTrigger(event.target.value as Trigger); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}>{triggerKeys.map(value => <option value={value} key={value} disabled={!!record.item.systemSourceAnswer && value !== "background_change"}>{triggerLabel(value)}</option>)}</select></label>
         <label className="slati-switch"><span><strong>{t.enabled}</strong><small>{enabled ? t.on : t.off}</small></span><input type="checkbox" checked={enabled} disabled={disabled || saving || isHeadingOnly || (!enabled && hasActivationBlock)} onChange={event => { setEnabled(event.target.checked); setAcknowledged(false); setSaveMessage(""); setSaveError(false); }}/><i aria-hidden="true"/></label>
       </div>
       {trigger === "background_change" && !isHeadingOnly && <div className="slati-controls">
@@ -351,10 +351,12 @@ export function StatusListAutomaticTriggerInspector({ campaignId, itemId, locale
         </select><small>{backgroundExecution === "unattended" ? scopeCopy.unattendedExecutionHelp : scopeCopy.missionExecutionHelp}</small></label>
       </div>}
       {!isHeadingOnly && <div className="slati-explain"><ShieldCheck size={15}/><div><p>{scopeCopy.visibilitySeparate} {t.noReplay}{record.mode === "batch" && backgroundExecution === "mission" ? ` ${t.batchNote}` : ""}</p></div></div>}
-      {enabled && !isHeadingOnly && <label className="slati-ack"><input type="checkbox" checked={acknowledged} onChange={event => setAcknowledged(event.target.checked)}/><span>{trigger === "background_change" && backgroundExecution === "unattended" ? scopeCopy.unattendedAcknowledgement : t.acknowledge}</span></label>}
+      {enabled && !isHeadingOnly && <label className="slati-ack"><input type="checkbox" checked={acknowledged} disabled={disabled || saving} onChange={event => setAcknowledged(event.target.checked)}/><span>{trigger === "background_change" && backgroundExecution === "unattended" ? scopeCopy.unattendedAcknowledgement : t.acknowledge}</span></label>}
       <div className="slati-save-row">
-        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || disabled || isHeadingOnly || !isDirty || (enabled && hasActivationBlock) || (enabled && !acknowledged)}>{saving && <Loader2 size={14} className="mr-1.5 animate-spin"/>}{saving ? t.saving : t.save}</Button>
+        <Button type="button" size="sm" onClick={() => void save()} disabled={saving || disabled || isHeadingOnly || (enabled && hasActivationBlock) || (enabled && !acknowledged)}>{saving && <Loader2 size={14} className="mr-1.5 animate-spin"/>}{saving ? t.saving : t.save}</Button>
         {isDirty && <small role="status">{scopeCopy.dirty}</small>}
+        {!isDirty && record.config.revision !== null && !saveMessage && <small role="status">{t.saved}</small>}
+        {disabled && <small role="status">{scopeCopy.editorBlocked}</small>}
         {saveMessage && <span role={saveError ? "alert" : "status"} className={saveError ? "is-error" : ""}>{saveMessage}</span>}
         {enabled && !acknowledged && <small>{t.acknowledgementRequired}</small>}
       </div>

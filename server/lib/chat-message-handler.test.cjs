@@ -10,10 +10,10 @@ const body = compiled.slice(compiled.indexOf("{") + 1, compiled.lastIndexOf("}")
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const handler = new AsyncFunction("message", "userId", "user", "ws", "storage", "chatPartnerAllowed",
   "loadChatPolicy", "resolveTaskAttachments", "db", "chatMessages", "notifications",
-  "taskAttachmentUploads", "inArray", "notificationService", "sendChatToUser", "publishChatSource", body);
+  "taskAttachmentUploads", "inArray", "notificationService", "sendChatToUser", "publishChatSource", "enqueueChatAnalysis", body);
 
 async function run(allowed = true, analysisFails = false) {
-  const confirmations = [], delivered = [], writes = [], validated = [], sources = [];
+  const confirmations = [], delivered = [], writes = [], validated = [], sources = [], pending = [];
   const actor = { id: "sender", fullName: "Sender", isActive: true };
   const target = { id: "recipient", isActive: true };
   const tx = { insert: table => ({ values: value => ({ returning: async () => {
@@ -29,9 +29,12 @@ async function run(allowed = true, analysisFails = false) {
     async (channel, id) => {
       sources.push({ channel, id, committedWrites: writes.length });
       if (analysisFails) throw new Error("synthetic source publisher failure");
+    }, async (executor, message) => {
+      assert.equal(executor, tx, "handoff must use the message transaction");
+      pending.push(message.id);
     });
   await new Promise(resolve => setImmediate(resolve));
-  return { confirmations, delivered, writes, validated, sources };
+  return { confirmations, delivered, writes, validated, sources, pending };
 }
 
 test("first private message persists, confirms the draft ID and reaches only its recipient", async () => {
@@ -47,6 +50,7 @@ test("first private message persists, confirms the draft ID and reaches only its
   assert.equal(result.delivered[0].id, "recipient");
   assert.equal(result.writes[1].value.userId, "recipient");
   assert.deepEqual(result.sources, [{ channel: "chat", id: "messages-saved", committedWrites: 2 }]);
+  assert.deepEqual(result.pending, ["messages-saved"]);
 });
 
 test("a forbidden colleague cannot receive or persist a message", async () => {
@@ -56,6 +60,7 @@ test("a forbidden colleague cannot receive or persist a message", async () => {
   assert.equal(result.confirmations[0].type, "error");
   assert.equal(result.confirmations[0].clientMessageId, "client-one");
   assert.deepEqual(result.sources, []);
+  assert.deepEqual(result.pending, []);
 });
 
 test("analysis publication failure never discards a committed message or its delivery", async () => {
@@ -64,4 +69,5 @@ test("analysis publication failure never discards a committed message or its del
   assert.equal(result.confirmations[0].type, "message_sent");
   assert.equal(result.delivered[0].id, "recipient");
   assert.equal(result.sources.length, 1);
+  assert.deepEqual(result.pending, ["messages-saved"]);
 });

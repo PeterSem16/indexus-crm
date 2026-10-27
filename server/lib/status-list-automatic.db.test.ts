@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { pool } from "../db";
 import { STATUS_LIST_WORKFLOW_SCHEMA } from "./status-list-workflow-schema";
-import { inspectAutomaticContact, queueAutomaticSourceEvent, automaticOverview, automaticActionIssues, runAutomaticEvents } from "./status-list-automatic";
+import { inspectAutomaticContact, queueAutomaticSourceEvent, automaticOverview, automaticActionIssues, runAutomaticEvents, saveAutomaticConfig } from "./status-list-automatic";
 import { previewAutomaticInitial, confirmAutomaticInitial, initialScopeSchema } from "./status-list-automatic-initial";
 
 if(process.env.NODE_ENV==="production" || process.env.REPLIT_DEPLOYMENT)throw Error("Development test only");
@@ -44,7 +44,7 @@ try {
   await client.query(`INSERT INTO mission_status_list_automatic_configs(item_id,campaign_id,trigger,enabled)
     VALUES($1,$2,'card_open',true)`,[item,mission]);
   assert.equal((await automaticOverview(client,mission,item))?.item.isHidden,true);
-  assert.ok(automaticActionIssues({actionType:"set_callback",serviceActionOwnerId:"owner"}).includes("unsupported_action"));
+  assert.ok(automaticActionIssues({actionType:"set_callback",serviceActionOwnerId:"owner"}).includes("invalid_callback"));
   const inspect=()=>inspectAutomaticContact(client,mission,contact,item);
   await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
   assert.equal((await inspect()).actions[0].status,"ready");
@@ -83,9 +83,12 @@ try {
   const event={campaignId:mission,campaignContactId:contact,actorId:"system:mission-status-list",
     source:{kind:"question" as const,id:question},value:"yes" as const,eventId:"transition:test",occurredAt:new Date(),
     trigger:"background_transition" as const};
+  await client.query("UPDATE campaign_status_list_items SET confirmation_type='info' WHERE id=$1",[item]);
+  assert.equal((await background()).actions[0].status,"disabled","Informational containers still cannot run actions from generic polling");
   await queueAutomaticSourceEvent(client,event);
   await queueAutomaticSourceEvent(client,event);
   const sourceRows=(await client.query("SELECT * FROM mission_status_list_automatic_events WHERE trigger_key='source:transition:test'")).rows;
+  await client.query("UPDATE campaign_status_list_items SET confirmation_type='checkbox' WHERE id=$1",[item]);
   assert.equal(sourceRows.length,1,"source transition retries deduplicate");
   assert.equal(sourceRows[0].state,"awaiting_batch");
   assert.equal(sourceRows[0].event_context.questionRevision,"revision");
@@ -218,6 +221,41 @@ try {
   assert.equal((await inspectAutomaticContact(client,mission,contact,item,{enqueue:true,trigger:"background_change"})).actions[0].status,"pending","repeat does not create another reservation");
   assert.equal(Number((await client.query("SELECT count(*) FROM mission_status_list_automatic_events")).rows[0].count),1);
   console.log("Status List automatic DB: Pulse-open scope, unattended Batch override, safe baseline and durable deduplication passed.");
+  // The editor must distinguish a derived information answer from a plain heading.
+  const derivedItem=randomUUID(),derivedQuestion=randomUUID(),heading=randomUUID(),option=randomUUID();
+  await client.query(`INSERT INTO campaign_status_list_items(id,campaign_id,label,is_hidden,confirmation_type,parent_id)
+    VALUES($1,$4,'Derived info',true,'info',null),($2,$4,'Plain heading',false,'info',null),
+      ($3,$4,'Derived option',true,'info',$2)`,[derivedItem,heading,option,mission]);
+  await client.query("INSERT INTO campaign_status_list_questions VALUES($1,$2,'System source')",[derivedQuestion,derivedItem]);
+  await client.query(`INSERT INTO mission_status_list_sources(question_id,campaign_id)
+    VALUES($1,$2)`,[derivedQuestion,mission]);
+  await client.query(`INSERT INTO mission_status_list_option_sources(group_id,campaign_id)
+    VALUES($1,$2)`,[heading,mission]);
+  for(const sourceItem of [derivedItem,option]) await client.query(`INSERT INTO campaign_status_list_automations
+    (id,status_list_item_id,action_type,service_action_config,service_action_owner_id)
+    VALUES($1,$2,'notify_role',$3::jsonb,'owner')`,[randomUUID(),sourceItem,JSON.stringify(config)]);
+  assert.equal((await automaticOverview(client,mission,derivedItem))?.item.systemSourceAnswer,true);
+  assert.equal((await automaticOverview(client,mission,option))?.item.systemSourceAnswer,true);
+  assert.equal((await automaticOverview(client,mission,heading))?.item.systemSourceAnswer,false);
+  assert.equal((await automaticOverview(client,mission,derivedItem))?.config.trigger,"background_change");
+  const pendingBefore=(await client.query("SELECT count(*)::int n FROM mission_status_list_automatic_events")).rows[0].n;
+  const originalConnect=pool.connect;
+  try {
+    pool.connect=(async()=>Object.assign(Object.create(client),{query:client.query.bind(client),release:()=>{}})) as any;
+    const payload={trigger:"background_change",enabled:true,backgroundExecution:"mission",expectedRevision:null,acknowledged:true};
+    await saveAutomaticConfig(mission,derivedItem,payload);
+    const saved=(await automaticOverview(client,mission,derivedItem))!.config;
+    assert.equal(saved.enabled,true,"derived info can activate its background trigger");
+    await saveAutomaticConfig(mission,derivedItem,{...payload,expectedRevision:saved.revision});
+    assert.equal((await automaticOverview(client,mission,derivedItem))?.config.revision,saved.revision,
+      "saving an unchanged trigger is idempotent and preserves its revision");
+    await saveAutomaticConfig(mission,option,payload);
+    await assert.rejects(()=>saveAutomaticConfig(mission,heading,payload),/agent_cannot_confirm/);
+    await assert.rejects(()=>saveAutomaticConfig(mission,derivedItem,{...payload,trigger:"card_open",expectedRevision:saved.revision}),/agent_cannot_confirm/);
+    assert.equal((await client.query("SELECT count(*)::int n FROM mission_status_list_automatic_events")).rows[0].n,pendingBefore,
+      "activation and repeated saving never enqueue communication");
+  }finally{pool.connect=originalConnect;}
+  console.log("Automatic trigger saving: derived answers activate, headings stay blocked, unchanged saves preserve revision and enqueue no actions.");
 } finally {
   await client.query("ROLLBACK").catch(()=>{});
   await client.query("SET search_path TO public");

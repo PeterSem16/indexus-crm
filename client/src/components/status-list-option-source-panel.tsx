@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Plus, RefreshCw, Trash2, Pencil, Info } from "lucide-react";
+import { StatusListHelp } from "./status-list-help";
+import { StatusListHealthcareSetup } from "./status-list-healthcare-setup";
+import { getStatusListSetupGuide } from "./status-list-setup-guide-copy";
+import { getSourceValidationCopy } from "./status-list-source-validation-copy";
+import { AlertCircle, Plus, RefreshCw, Trash2, Pencil, Info, X } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { Locale } from "@/i18n";
 import type { WorkflowCatalogItem } from "@shared/status-list-workflow";
@@ -15,11 +19,14 @@ import { getSourceEditorCopy } from "./status-list-source-editor-copy";
 import { StatusListSourceEditor, type SourceEditorStage } from "./status-list-source-editor";
 import { useStatusListConfirm } from "./status-list-confirm";
 import { StatusListSourceTargetButton } from "./status-list-source-target-button";
+import { StatusListBackgroundActions } from "./status-list-background-actions";
 import { getStatusListRefinementCopy } from "@/i18n/status-list-refinement-translations";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type Coordinator = { id: string; name: string };
 type SourceResponse = { sources: OptionSource[]; catalog: WorkflowCatalogItem[]; coordinators: Coordinator[] };
-type SourceKind = OptionSourceConfig["source"];
+type SourceKind = Exclude<OptionSourceConfig["source"],"healthcare_reachability">;
+type LegacyOptionSource = Exclude<OptionSourceConfig,{source:"healthcare_reachability"}> & {groupId:string};
 type UserMapping = { userId: string; optionId: string };
 
 const reachabilityKeys = ["not_defined", "waiting", "unreachable", "reachable"] as const;
@@ -71,8 +78,10 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   const [users, setUsers] = useState<UserMapping[]>([]);
   const [stage, setStage] = useState<SourceEditorStage>("source");
   const [baseline, setBaseline] = useState("");
+  const [healthcareDirty, setHealthcareDirty] = useState(false);
 
-  const sources = (query.data?.sources || []).filter(entry => !targetGroupId || entry.groupId === targetGroupId);
+  const sources = (query.data?.sources || []).filter((entry):entry is LegacyOptionSource=>entry.source!=="healthcare_reachability")
+    .filter(entry => !targetGroupId || entry.groupId === targetGroupId);
   const catalog = query.data?.catalog || [];
   const coordinators = query.data?.coordinators || [];
   const groups = useMemo(() => catalog.filter(item => (!targetGroupId || item.id === targetGroupId) && isOptionGroup(item, catalog)), [catalog, targetGroupId]);
@@ -82,7 +91,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   const requiredCount = sourceKind === "reachability" ? 4 : 2;
   const eligibleGroups = groups.filter(group =>
     childrenFor(group.id).length >= 2 &&
-    (!sources.some(item => item.groupId === group.id) || editing === group.id)
+    (!(query.data?.sources||[]).some(item => item.groupId === group.id) || editing === group.id)
   );
   const mappedValues = sourceKeys[sourceKind].map(key => mapping[key] || "");
   const hasDistinctCompleteMapping = mappedValues.every(Boolean) && new Set(mappedValues).size === mappedValues.length &&
@@ -90,11 +99,13 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   const duplicateUsers = new Set(users.map(user => user.userId).filter(Boolean)).size !== users.filter(user => user.userId).length;
   const validUsers = users.every(user => user.userId && user.optionId && childrenFor(groupId).some(option => option.id === user.optionId));
   const channelSelected = policy.calls || policy.email || policy.sms;
+  const validationCopy = getSourceValidationCopy(locale);
+  const missingStates = sourceKeys[sourceKind].filter(key => !mapping[key] || !childrenFor(groupId).some(option => option.id === mapping[key]));
   const canSave = !!groupId && hasDistinctCompleteMapping && !duplicateUsers && validUsers &&
     (sourceKind === "coordinator" || channelSelected);
   const draft = JSON.stringify({ groupId, sourceKind, hidden, mapping, policy, users });
   const dirty = formOpen && !!baseline && draft !== baseline;
-  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
+  useEffect(() => { onDirtyChange?.(dirty || healthcareDirty); }, [dirty, healthcareDirty, onDirtyChange]);
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   async function reset(force = false) {
@@ -109,7 +120,6 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
     setUsers([]);
     setStage("source");
     setBaseline("");
-    onDirtyChange?.(false);
   }
 
   function startCreate() {
@@ -127,7 +137,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
     setFormOpen(true);
   }
 
-  async function beginEdit(entry: OptionSource) {
+  async function beginEdit(entry: LegacyOptionSource) {
     if (dirty && !await confirm(editorCopy.changed)) return;
     setFormOpen(true);
     setEditing(entry.groupId);
@@ -163,15 +173,6 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   }
 
   const loadedContext = useRef("");
-  useEffect(() => {
-    if (!targetGroupId || !query.data) return;
-    const entry = query.data.sources.find(source => source.groupId === targetGroupId);
-    const identity = `${targetGroupId}:${JSON.stringify(entry || null)}`;
-    if (loadedContext.current === identity) return;
-    loadedContext.current = identity;
-    if (entry) beginEdit(entry);
-    else reset(true);
-  }, [targetGroupId, query.data]);
 
   const saveMutation = useMutation({
     mutationFn: async ({ id, config }: { id: string; config: OptionSourceConfig }) => {
@@ -228,6 +229,23 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
     onError: () => toast({ title: copy.saveError, variant: "destructive" }),
   });
   const isBusy = saveMutation.isPending || deleteMutation.isPending || waitingMutation.isPending;
+  useEffect(() => {
+    if (!targetGroupId || !query.data) return;
+    const entry = query.data.sources.find(source => source.groupId === targetGroupId);
+    const identity = `${targetGroupId}:${JSON.stringify(entry || null)}`;
+    if (loadedContext.current === identity) return;
+    loadedContext.current = identity;
+    // This refresh acknowledges our own mutation, not a request to replace
+    // the dirty draft or reopen its editor during the save success callback.
+    if (isBusy) return;
+    if (entry && entry.source!=="healthcare_reachability") void beginEdit(entry);
+    else if(entry?.source==="healthcare_reachability") {setFormOpen(false);setEditing(null);setHealthcareDirty(false);}
+    else void reset(true);
+  }, [targetGroupId, query.data, isBusy]);
+  const requestClose = () => {
+    if (!formOpen || isBusy) return;
+    void reset();
+  };
 
   function submit() {
     if (!canSave) return;
@@ -255,6 +273,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
   };
 
   return <section className="slse-panel mt-4 rounded-xl border border-border/70 bg-background/65 p-3" data-testid="status-list-option-source-panel">
+    <StatusListHealthcareSetup campaignId={campaignId} locale={locale} targetGroupId={targetGroupId} onDirtyChange={setHealthcareDirty}/>
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-sm font-semibold">{copy.title}</h3><p className="mt-1 max-w-3xl text-xs text-muted-foreground">{copy.subtitle}</p></div>
       {!formOpen && !editing && <Button type="button" size="sm" variant="outline" onClick={startCreate}
@@ -262,7 +281,10 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
         <Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.add}
       </Button>}
     </header>
-
+    <div className="mt-3 space-y-2" data-testid="option-source-explanation">
+      <p className="text-xs leading-relaxed text-muted-foreground">{getStatusListSetupGuide(locale).answerSources.paragraphs[0]}</p>
+      <StatusListHelp locale={locale} section="answerSources" contextual/>
+    </div>
     {query.isLoading && <div className="mt-3 flex items-center gap-3 rounded-lg bg-muted/45 p-3" data-testid="option-source-loading">
       <div className="h-8 w-8 animate-pulse rounded-md bg-muted"/><div className="flex-1 space-y-2"><div className="h-3 w-2/5 animate-pulse rounded bg-muted"/><div className="h-3 w-3/5 animate-pulse rounded bg-muted"/></div>
       <span className="sr-only">{copy.loading}</span>
@@ -280,26 +302,52 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
           <span className="text-xs text-muted-foreground">{entry.source === "reachability" ? copy.configuredReachability : copy.configuredCoordinator}{entry.hidden ? ` · ${copy.hidden}` : ""}</span>
         </div>
         <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">{copy.readonly}</span>
+        <StatusListBackgroundActions campaignId={campaignId} locale={locale} targets={Object.values(entry.mapping).filter((id):id is string=>typeof id==="string").map(id=>({kind:"item" as const,id,label:catalog.find(item=>item.id===id)?.label || id}))}/>
         <Button type="button" size="icon" variant="ghost" aria-label={copy.edit} onClick={() => beginEdit(entry)} disabled={isBusy}><Pencil className="h-4 w-4"/></Button>
         <Button type="button" size="icon" variant="ghost" aria-label={copy.remove} disabled={isBusy}
           onClick={async () => { if (await confirm(copy.confirmRemove, { destructive: true })) deleteMutation.mutate(entry.groupId); }}><Trash2 className="h-4 w-4"/></Button>
       </div>;
     })}</div>}
-    {formOpen && !eligibleGroups.length && !editing && <div className="my-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20" data-testid="option-source-prerequisites">
-      <p className="text-xs leading-relaxed">{getStatusListRefinementCopy(locale).optionsHelp}</p>
-      {!targetGroupId && <StatusListSourceTargetButton campaignId={campaignId} locale={locale} source={sourceKind} onCreated={target => {
-        setGroupId(target.groupId || ""); setMapping(target.mapping || {}); setHidden(true);
-        setBaseline(JSON.stringify({groupId:target.groupId || "",sourceKind,hidden:true,mapping:target.mapping || {},policy,users}));
-      }}/>}
-    </div>}
-
-    {formOpen && <div className="mt-3">
+    <Dialog open={formOpen} onOpenChange={open => { if (!open) requestClose(); }}>
+      <DialogContent hideCloseButton overlayClassName="bg-foreground/35 backdrop-blur-sm"
+        onEscapeKeyDown={event => { event.preventDefault(); event.stopPropagation(); requestClose(); }}
+        onInteractOutside={event => { event.preventDefault(); requestClose(); }}
+        className="slse-source-dialog flex h-[min(92dvh,900px)] w-[calc(100%-1rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-2xl border-border bg-card p-0 shadow-2xl sm:w-[calc(100%-2rem)]">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/70 bg-background/90 px-4 py-3 sm:px-6">
+          <DialogTitle className="text-sm font-semibold">{copy.title}</DialogTitle>
+          <Button type="button" size="icon" variant="ghost" aria-label={editorCopy.cancel} onClick={requestClose} disabled={isBusy}>
+            <X className="h-4 w-4"/>
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-5">
+      {formOpen && <>
+      {!eligibleGroups.length && !editing && <div className="my-3 space-y-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20" data-testid="option-source-prerequisites">
+        <p className="text-xs leading-relaxed">{getStatusListRefinementCopy(locale).optionsHelp}</p>
+        {!targetGroupId && <StatusListSourceTargetButton campaignId={campaignId} locale={locale} source={sourceKind} onCreated={target => {
+          setGroupId(target.groupId || ""); setMapping(target.mapping || {}); setHidden(true);
+          setBaseline(JSON.stringify({groupId:target.groupId || "",sourceKind,hidden:true,mapping:target.mapping || {},policy,users}));
+        }}/>}
+      </div>}
       <StatusListSourceEditor copy={editorCopy} context={`${copy.source}: ${sourceKind === "reachability" ? copy.reachability : copy.coordinator} · ${copy.group}: ${catalog.find(item => item.id === groupId)?.label || copy.chooseGroup}`} editing={editing !== null} stage={stage}
         onStage={setStage} onBack={() => setStage((["source", "mapping", "evaluation", "review"] as SourceEditorStage[])[Math.max(0, ["source", "mapping", "evaluation", "review"].indexOf(stage) - 1)])}
         onNext={() => setStage((["source", "mapping", "evaluation", "review"] as SourceEditorStage[])[Math.min(3, ["source", "mapping", "evaluation", "review"].indexOf(stage) + 1)])}
-        onSave={submit} onCancel={() => reset()} saving={isBusy} canSave={canSave}>
+        onSave={submit} onCancel={() => reset()} saving={isBusy} canSave={canSave}
+        saveDisabledReason={missingStates.length ? `${validationCopy.title}: ${missingStates.map(key => copy[key as keyof typeof copy]).join(", ")}. ${validationCopy.repair}.` : validationCopy.title}>
         <div className="slse-intro"><h4>{stage === "review" ? editorCopy.reviewTitle : stage === "source" ? editorCopy.stageSource : stage === "mapping" ? editorCopy.stageMapping : editorCopy.stageEvaluation}</h4>
           <p>{stage === "source" ? editorCopy.stageSource : stage === "mapping" ? editorCopy.stageMapping : stage === "evaluation" ? editorCopy.stageEvaluation : editorCopy.stageReview}</p></div>
+        {!canSave && stage !== "source" && <section role="alert" data-testid="option-source-validation" className="mb-4 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+          <h4 className="font-semibold">{validationCopy.title}</h4>
+          {!groupId && <p>{copy.chooseGroup}</p>}
+          {groupId && childrenFor(groupId).length < requiredCount && <p>{validationCopy.count.replace("{actual}", String(childrenFor(groupId).length)).replace("{required}", String(requiredCount))}</p>}
+          {missingStates.map(key => <p key={key}>{validationCopy.missing.replace("{state}", copy[key as keyof typeof copy])}</p>)}
+          {!hasDistinctCompleteMapping && !missingStates.length && <p>{validationCopy.mapping}</p>}
+          {(duplicateUsers || !validUsers) && <p>{validationCopy.users}</p>}
+          {sourceKind === "reachability" && !channelSelected && <p>{copy.channelRequired}</p>}
+          <div className="flex flex-wrap gap-2">
+            {!hasDistinctCompleteMapping && stage !== "mapping" && <Button type="button" size="sm" variant="outline" data-testid="option-source-repair-mapping" onClick={() => setStage("mapping")}>{validationCopy.repair}</Button>}
+            {groupId && childrenFor(groupId).length < requiredCount && <Button type="button" size="sm" variant="outline" disabled={query.isFetching || isBusy} onClick={() => void query.refetch()}>{validationCopy.refresh}</Button>}
+          </div>
+        </section>}
         {stage === "source" && <div className="grid gap-3 sm:grid-cols-2">
           <label className="grid gap-1 text-xs font-medium text-muted-foreground"><span>{copy.group}</span>
             <select data-testid="option-source-group" className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground" value={groupId} disabled={editing !== null || isBusy} onChange={event => selectGroup(event.target.value)}>
@@ -315,6 +363,7 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
           {groupId && childrenFor(groupId).length < requiredCount && <p className="sm:col-span-2 text-xs text-destructive">{copy.wrongGroup.replace("{count}", String(requiredCount))}</p>}
         </div>}
         {stage === "mapping" && <div className="grid gap-3">
+          {sourceKind === "reachability" && <p className="rounded-lg border border-border bg-muted/30 p-3 text-xs leading-relaxed">{validationCopy.meaning}</p>}
           {sourceKind === "reachability" && groupId && childrenFor(groupId).length === 3 && editing === null && <Button type="button" size="sm" variant="outline" className="w-fit" data-testid="option-source-add-waiting" disabled={waitingMutation.isPending} onClick={async () => { if (await confirm(copy.addWaiting)) waitingMutation.mutate(); }}><Plus className="mr-1.5 h-3.5 w-3.5"/>{copy.addWaiting}</Button>}
           <div className="grid gap-3 sm:grid-cols-2">{sourceKeys[sourceKind].map(key => optionSelect(key, copy[key as keyof typeof copy]))}</div>
           {!hasDistinctCompleteMapping && groupId && <p className="text-xs text-destructive">{copy.mappingRequired}</p>}
@@ -342,11 +391,14 @@ export function StatusListOptionSourcePanel({ campaignId, locale, targetGroupId,
         </div>}
         {stage === "review" && <div className="slse-review">
           <section><h5>{editorCopy.sourceContext}</h5><p>{copy.group}: {catalog.find(item => item.id === groupId)?.label || copy.chooseGroup}</p><p>{copy.source}: {sourceKind === "reachability" ? copy.reachability : copy.coordinator}</p></section>
-          <section><h5>{copy.option}</h5>{sourceKeys[sourceKind].map(key => <p key={key}>{copy[key as keyof typeof copy]} → {childrenFor(groupId).find(option => option.id === mapping[key])?.label || "—"}</p>)}{sourceKind === "coordinator" && users.map((user, index) => <p key={`${user.userId}-${index}`}>{coordinators.find(entry => entry.id === user.userId)?.name || copy.chooseCoordinator} → {childrenFor(groupId).find(option => option.id === user.optionId)?.label || "—"}</p>)}</section>
+          <section><h5>{copy.option}</h5><div className="grid gap-3 sm:grid-cols-2">{sourceKeys[sourceKind].map(key => optionSelect(key, copy[key as keyof typeof copy]))}</div>{sourceKind === "coordinator" && users.map((user, index) => <p key={`${user.userId}-${index}`}>{coordinators.find(entry => entry.id === user.userId)?.name || copy.chooseCoordinator} → {childrenFor(groupId).find(option => option.id === user.optionId)?.label || "—"}</p>)}</section>
           <section><h5>{editorCopy.evaluation}</h5><p>{hidden ? editorCopy.enabledHidden : editorCopy.enabledVisible}</p>{sourceKind === "reachability" && <><p>{copy.channels}: {(["calls", "email", "sms"] as const).filter(channel => policy[channel]).map(channel => copy[channel]).join(", ") || "—"}</p><dl className="slse-policy-review">{(["failedAttempts", "replyWaitHours", "minimumTalkSeconds", "successValidDays"] as const).map(field => <div key={field}><dt>{copy[field]}</dt><dd>{policy[field]}</dd></div>)}</dl></>}</section>
           <section><h5>{editorCopy.reviewTitle}</h5><p>{copy.baseline}</p><p>{copy.communication}</p></section>
         </div>}
       </StatusListSourceEditor>
-    </div>}
+      </>}
+        </div>
+      </DialogContent>
+    </Dialog>
   </section>;
 }

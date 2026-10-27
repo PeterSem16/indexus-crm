@@ -1,12 +1,17 @@
 import { getStatusListCallbackTransitionCopy } from "./status-list-callback-transition-copy";
 import { getStatusListHistoryCopy } from "./status-list-history-copy";
+import { getStatusListSetupGuide, setupGuideSectionIds } from "./status-list-setup-guide-copy";
+import { getStatusListRelationshipsHelpCopy } from "./status-list-relationships-help-copy";
+import { exampleChapterIds, getStatusListHelpExamples } from "./status-list-help-examples";
+import type { HelpExample } from "./status-list-help-examples/types";
 
-export const statusListHelpSectionIds = ["start", "glossary", "structure", "templates", "edit", "automation", "verify", "example"] as const;
+const coreSectionIds = ["start", "glossary", "structure", "templates", "edit", "automation", "verify", "example"] as const;
+export const statusListHelpSectionIds = [...coreSectionIds, ...setupGuideSectionIds, "relationships", ...exampleChapterIds] as const;
 export type HelpSectionId = typeof statusListHelpSectionIds[number];
-type Section = { title: string; paragraphs: string[] };
+type Section = { title: string; paragraphs: string[]; examples?: HelpExample[] };
 export type StatusListHelpCopy = {
   help: string; title: string; intro: string; search: string; empty: string; close: string;
-  sections: Record<HelpSectionId, Section>;
+  sections: Record<typeof coreSectionIds[number], Section>;
 };
 
 const sk: StatusListHelpCopy = {
@@ -189,11 +194,11 @@ const de: StatusListHelpCopy = {
 };
 
 export const statusListHelpCopies: Record<string, StatusListHelpCopy> = { sk, en, cs, hu, ro, it, de };
-export function getStatusListHelpCopy(locale: string): StatusListHelpCopy {
+export function getStatusListHelpCopy(locale: string): Omit<StatusListHelpCopy, "sections"> & { sections: Record<HelpSectionId, Section> } {
   const copy = statusListHelpCopies[locale] ?? en;
   const transition = getStatusListCallbackTransitionCopy(locale);
   const history = getStatusListHistoryCopy(locale);
-  return { ...copy, sections: { ...copy.sections, automation: { ...copy.sections.automation,
+  return { ...copy, sections: { ...copy.sections, ...getStatusListSetupGuide(locale), ...getStatusListHelpExamples(locale), relationships: getStatusListRelationshipsHelpCopy(locale), automation: { ...copy.sections.automation,
     paragraphs: [...copy.sections.automation.paragraphs, history.title, history.scope, history.timing,
       ...history.fields.map(field => `${field.label}: ${field.description}`), history.examples] }, verify: { ...copy.sections.verify,
     paragraphs: [...copy.sections.verify.paragraphs, transition.intro, transition.help] } } };

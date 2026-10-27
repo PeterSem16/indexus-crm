@@ -23,6 +23,7 @@ import { useTaskAssignmentOptions } from "@/hooks/use-task-assignment-options";
 import { TaskModalArtwork } from "@/components/tasks/task-modal-artwork";
 import { TaskTimingStatus } from "@/components/tasks/task-timing";
 import { TaskRequestBrief } from "@/components/tasks/task-request-brief";
+import { taskDisplayText } from "@/lib/task-display";
 import "@/components/tasks/checklist-notes.css";
 import "@/components/nexus/nexus-signal-tasks.css";
 
@@ -468,7 +469,7 @@ export default function TasksPage() {
               </h3>
               {task.description && (
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                  {task.description}
+                  {taskDisplayText(task.description, locale)}
                 </p>
               )}
               <ChecklistSection taskId={task.id} canEdit={isActive} />

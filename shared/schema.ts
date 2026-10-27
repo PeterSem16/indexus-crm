@@ -1,6 +1,6 @@
 import { sql, relations } from "drizzle-orm";
 export * from "./healthcare-legal-entity-schema";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, bigserial, bigint, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { WallboardAlarmSettings } from "./wallboard-alarms";
@@ -1277,6 +1277,7 @@ export const taskAttachmentUploads = pgTable("task_attachment_uploads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   uploaderUserId: varchar("uploader_user_id").notNull(),
   storageKey: text("storage_key").notNull().unique(),
+  analysisCacheKey: text("analysis_cache_key"), // Internal lineage; only analysis snapshots are eligible for retention.
   name: text("name").notNull(),
   type: text("type").notNull(),
   size: integer("size").notNull(),
@@ -4156,6 +4157,17 @@ export const chatMessages = pgTable("chat_messages", {
 export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({ id: true, createdAt: true });
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+// Identity-only handoff, committed atomically with each new chat message.
+export const chatAnalysisOutbox = pgTable("chat_analysis_outbox", {
+  messageId: varchar("message_id").primaryKey().references(() => chatMessages.id, { onDelete: "cascade" }),
+  countryCode: text("country_code"),
+  occurredAt: timestamp("occurred_at").notNull(),
+  eventId: varchar("event_id"),
+  attempts: integer("attempts").notNull().default(0),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().default(sql`now()`),
+  completedAt: timestamp("completed_at"),
+});
 
 // Exchange Rates - daily ECB exchange rates from NBS
 export const exchangeRates = pgTable("exchange_rates", {
@@ -7942,6 +7954,21 @@ export const workflowEvents = pgTable("workflow_events", {
 export type WorkflowEvent = typeof workflowEvents.$inferSelect;
 export type InsertWorkflowEvent = typeof workflowEvents.$inferInsert;
 
+// Sanitized input definitions only, never source messages or addresses.
+export const workflowRuleInputVersions = pgTable("workflow_rule_input_versions", {
+  id: bigserial("id", { mode: "bigint" }).primaryKey(),
+  ruleId: varchar("rule_id").notNull().references(() => workflowRules.id, { onDelete: "cascade" }),
+  effectiveAt: timestamp("effective_at").notNull().default(sql`clock_timestamp() AT TIME ZONE 'UTC'`),
+  settings: jsonb("settings").notNull(),
+}, table => [
+  index("workflow_rule_input_versions_lookup").on(table.ruleId, table.effectiveAt.desc(), table.id.desc()),
+]);
+export const workflowEventInputVersions = pgTable("workflow_event_input_versions", {
+  eventId: varchar("event_id").notNull().references(() => workflowEvents.id, { onDelete: "cascade" }),
+  ruleId: varchar("rule_id").notNull().references(() => workflowRules.id, { onDelete: "cascade" }),
+  versionId: bigint("version_id", { mode: "bigint" }).notNull().references(() => workflowRuleInputVersions.id, { onDelete: "cascade" }),
+}, table => [primaryKey({ columns: [table.eventId, table.ruleId] })]);
+
 export const workflowRuns = pgTable("workflow_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   ruleId: varchar("rule_id").notNull(),
@@ -8218,6 +8245,7 @@ export const campaignStatusListItems = pgTable("campaign_status_list_items", {
   campaignId: varchar("campaign_id").notNull(),
   stepId: text("step_id").notNull(),
   label: text("label").notNull(),
+  labelTranslations: jsonb("label_translations").$type<Partial<Record<"en" | "sk" | "cs" | "hu" | "ro" | "it" | "de", string>>>(),
   description: text("description"),
   sortOrder: integer("sort_order").notNull().default(0),
   required: boolean("required").notNull().default(false),
@@ -8276,6 +8304,7 @@ export const campaignStatusListAutomations = pgTable("campaign_status_list_autom
   targetRole: text("target_role"),
   serviceActionConfig: jsonb("service_action_config").$type<Record<string, unknown>>(),
   serviceActionOwnerId: varchar("service_action_owner_id"),
+  executionPolicy: text("execution_policy").notNull().default("inherit"),
   emailTemplateId: varchar("email_template_id"),
   emailRecipients: text("email_recipients").array().notNull().default(sql`ARRAY[]::text[]`),
   smsTemplateId: varchar("sms_template_id"),
@@ -8309,6 +8338,7 @@ export const insertCampaignStatusListAutomationSchema = createInsertSchema(campa
   questionId: z.string().optional().nullable(),
   serviceActionConfig: z.record(z.unknown()).optional().nullable(),
   serviceActionOwnerId: z.string().optional().nullable(),
+  executionPolicy: z.enum(["inherit", "automatic", "review"]).optional(),
   targetRole: z.string().optional().nullable(),
   emailTemplateId: z.string().optional().nullable(),
   emailRecipients: z.array(z.string()).optional().default([]),

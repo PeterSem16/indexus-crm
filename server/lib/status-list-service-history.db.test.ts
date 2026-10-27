@@ -19,6 +19,8 @@ try {
     CREATE TABLE campaign_status_list_automations(id text,status_list_item_id text,question_id text);
     CREATE TABLE mission_callback_events(id int,created_at timestamptz,actor_id text,
       campaign_id text,automation_id text,payload jsonb,status text,result jsonb);
+    CREATE TABLE mission_callback_service_events(id int,occurred_at timestamptz,actor_id text,
+      campaign_id text,action_id text,payload jsonb,state text,result jsonb);
     CREATE TABLE status_list_service_executions(id text,created_at timestamptz,actor_id text,
       campaign_id text,automation_id text,action_type text,status text);
     INSERT INTO users VALUES('agent','Agent');
@@ -61,6 +63,18 @@ try {
   assert.equal(native.events[0].id, "native:native-email");
   assert.equal(native.events[0].state, "done");
   assert.equal(native.events[0].outcome, null, "executing is not verified delivery");
+  await client.query(`INSERT INTO mission_callback_service_events VALUES
+    (1,'2026-10-26T10:00:00Z','agent','mission','callback',
+      '{"action":{"type":"set_callback"},"note":"private callback note"}','done',
+      '{"status":"changed","callbackDate":"2026-11-01T08:00:00.000Z"}'),
+    (2,'2026-10-26T10:01:00Z','agent','other-mission','callback','{}','blocked',null);
+    INSERT INTO campaign_contact_history VALUES('new-service-log','2026-10-26T10:00:00Z','agent','contact',
+      'status_list_action','{"automationId":"callback","eventId":"confirmation:new","generation":1,"executor":"service"}')`);
+  const service = await readStatusListServiceHistory(client, "mission", "callback");
+  assert.equal(service.events.filter(e => e.id === "callback-service:1").length, 1);
+  assert.ok(!service.events.some(e => e.id === "service:new-service-log" || e.id === "callback-service:2"));
+  assert.equal(service.events[0].outcome, "callback");
+  assert.ok(!JSON.stringify(service).includes("private callback note"));
   console.log("Service history: Mission/action scope, privacy projection, callback deduplication, honest legacy state and limit passed.");
 } finally {
   await client.query("ROLLBACK");

@@ -47,15 +47,23 @@ export function analysisConfigIssues(value: unknown): string[] {
 }
 
 /** Exact addresses, never substring or display-name matching. */
+export type AnalysisSourceExclusion = "channel_unselected" | "mailbox_filtered" | "sender_filtered";
+export function analysisSourceExclusion(config: CommunicationAnalysisConfig, source: {
+  channel: AnalysisChannel; ownerUserId?: string | null; senderEmail?: string | null;
+}): AnalysisSourceExclusion | null {
+  if (!config.channels.includes(source.channel)) return "channel_unselected";
+  if (source.channel !== "email") return null;
+  if (config.mailboxMode === "selected" && !config.mailboxUserIds?.length) return "mailbox_filtered";
+  if (config.mailboxUserIds?.length && (!source.ownerUserId || !config.mailboxUserIds.includes(source.ownerUserId))) return "mailbox_filtered";
+  if (config.senderEmails?.length && (!source.senderEmail ||
+      !config.senderEmails.some(email => email.trim().toLowerCase() === source.senderEmail!.trim().toLowerCase()))) return "sender_filtered";
+  return null;
+}
+
 export function analysisSourceMatches(config: CommunicationAnalysisConfig, source: {
   channel: AnalysisChannel; ownerUserId?: string | null; senderEmail?: string | null;
 }): boolean {
-  if (!config.channels.includes(source.channel)) return false;
-  if (source.channel !== "email") return true;
-  if (config.mailboxMode === "selected" && !config.mailboxUserIds?.length) return false;
-  if (config.mailboxUserIds?.length && (!source.ownerUserId || !config.mailboxUserIds.includes(source.ownerUserId))) return false;
-  return !config.senderEmails?.length || (!!source.senderEmail &&
-    config.senderEmails.some(email => email.trim().toLowerCase() === source.senderEmail!.trim().toLowerCase()));
+  return analysisSourceExclusion(config, source) === null;
 }
 
 export const ANALYSIS_FIELDS = [

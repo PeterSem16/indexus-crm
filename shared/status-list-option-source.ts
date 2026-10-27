@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { healthcareSourceSchema } from "./status-list-healthcare";
 
 export const reachabilityStates = ["not_defined", "waiting", "unreachable", "reachable"] as const;
 export const reachabilityPolicySchema = z.object({
@@ -16,6 +17,7 @@ export const defaultReachabilityPolicy = {
 };
 const id = z.string().min(1).max(100);
 export const optionSourceConfigSchema = z.discriminatedUnion("source", [
+  healthcareSourceSchema,
   z.object({
     source: z.literal("reachability"), hidden: z.boolean(),
     mapping: z.object({ not_defined: id, waiting: id, unreachable: id, reachable: id }).strict(),

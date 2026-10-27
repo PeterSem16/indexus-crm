@@ -51,6 +51,10 @@ export async function configureOptionSource(campaignId: string, groupId: string,
       await client.query("DELETE FROM mission_status_list_option_sources WHERE campaign_id=$1 AND group_id=$2", [campaignId, groupId]);
     } else {
       const config = await validateOptionSource(client, campaignId, groupId, raw);
+      if (config.source === "healthcare_reachability" && (await client.query(`SELECT 1
+        FROM mission_status_list_option_sources WHERE campaign_id=$1 AND group_id<>$2
+        AND config->>'source'='healthcare_reachability' LIMIT 1`, [campaignId, groupId])).rowCount)
+        throw new StatusListWorkflowError("healthcare_source_already_exists", 409);
       // Visibility is presentation-only and does not reset the transition baseline.
       const { hidden, ...definition } = config;
       await client.query(`INSERT INTO mission_status_list_option_sources(campaign_id,group_id,config)
@@ -146,13 +150,19 @@ export async function evaluateOptionSources(client: PoolClient, contactId: strin
   await client.query("SELECT set_config('indexus.status_list_source_writer','on',true)");
   for (const source of sources) {
     const config = await validateOptionSource(client, contact.campaign_id, source.group_id, source.config, false);
+    if(config.source==="healthcare_reachability" && !["clinic","hospital"].includes(contact.contact_type)) continue;
     const at = (await client.query("SELECT clock_timestamp() AS at")).rows[0].at;
+    const healthcare = config.source==="healthcare_reachability"
+      ? await (await import("./status-list-healthcare")).evaluateHealthcareFacts(client,contact.campaign_id,contactId,source.group_id) : null;
+    // Disabled answers neither transition nor emit repeated-attempt actions.
+    if (healthcare && (!healthcare.active || healthcare.held)) continue;
     const value = config.source === "coordinator"
       ? contact.assigned_to || "unassigned"
+      : config.source==="healthcare_reachability" ? healthcare!.state==="unreached" ? `unreached:${healthcare!.lastAttempt?.key}` : healthcare!.state
       : evaluateReachability(await communicationEvidence(client, contact, config), config.policy, new Date(at).getTime());
     const selected = config.source === "coordinator"
       ? (contact.assigned_to ? config.users.find(user => user.userId === contact.assigned_to)?.optionId || config.mapping.assigned : config.mapping.unassigned)
-      : config.mapping[value as keyof typeof config.mapping];
+      : config.mapping[(healthcare?.state || value) as keyof typeof config.mapping];
     const old = (await client.query(`SELECT * FROM mission_status_list_option_source_state
       WHERE campaign_contact_id=$1 AND group_id=$2`, [contactId, source.group_id])).rows[0];
     const baseline = !old || old.config_revision !== source.revision;
@@ -189,10 +199,10 @@ export async function evaluateOptionSources(client: PoolClient, contactId: strin
       campaignId: contact.campaign_id, source: config.source, groupId: source.group_id,
       previous: old?.value ?? null, value, optionId: selected, baseline, actorKind: "system",
     })]);
-    if (!baseline && old.option_id !== selected) events.push({
+    if (!baseline && (old.option_id !== selected || healthcare && old.value !== value)) events.push({
       campaignId: contact.campaign_id, campaignContactId: contactId, actorId: SYSTEM,
       source: { kind: "item", id: selected }, value: true, eventId: `transition:${transition.id}`,
-      occurredAt: transition.created_at, trigger: "background_transition",
+      occurredAt: healthcare?.state==="unreached" ? new Date(healthcare.lastAttempt!.at).toISOString() : transition.created_at, trigger: "background_transition",
     });
   }
   await client.query("SELECT set_config('indexus.status_list_source_writer','off',true)");

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { getHealthcareCopy } from "./status-list-healthcare-copy";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   statusListActionDraft, statusListActionError, statusListActionPayload, statusListActionDirty,
@@ -124,6 +125,7 @@ export type StatusListServiceActionEditorProps = {
   questionId?: string;
   automation?: SavedStatusListAction;
   initialActionType?: string;
+  initialConditionAnswer?: string;
   initialStage?: "type" | "details";
   presentation?: "dialog" | "inline";
   locale: string;
@@ -263,7 +265,7 @@ function reviewDetails(draft: StatusListActionDraft, copy: (key: string) => stri
 export type { ConditionFieldMetadata };
 export function StatusListServiceActionEditor(props: StatusListServiceActionEditorProps) {
   const {
-    campaignId, itemId, questionId, automation, initialActionType, initialStage = "type", presentation = "dialog", locale, sourceLabel, translate,
+    campaignId, itemId, questionId, automation, initialActionType, initialConditionAnswer, initialStage = "type", presentation = "dialog", locale, sourceLabel, translate,
     actions, roleFallbacks, countries, deadlines, priorities, taskTemplates, variables, conditionFields,
     onSaved, onCancel, onDirtyChange, onPendingChange,
   } = props;
@@ -272,7 +274,7 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   const copy = (key: string) => actionCopy(locale, key);
   const migration = migrationCopy[locale.split("-")[0]] || migrationCopy.en;
   const initialType = initialActionType || "assign_task";
-  const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType));
+  const [draft, setDraft] = useState<StatusListActionDraft>(() => statusListActionDraft(automation, initialType, initialConditionAnswer));
   const [stage, setStage] = useState<Stage>(initialStage);
   const [attemptedSave, setAttemptedSave] = useState(false);
   const [nativeActionError, setNativeActionError] = useState<string | null>(null);
@@ -290,11 +292,11 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     if (initializedRef.current === recordKey) return;
     initializedRef.current = recordKey;
     originalRef.current = automation;
-    setDraft(statusListActionDraft(automation, initialType));
+    setDraft(statusListActionDraft(automation, initialType, initialConditionAnswer));
     setStage(initialStage);
     setOriginalConditionJson(automation?.conditionJson || null);
     setAttemptedSave(false);
-  }, [automation?.id, campaignId, itemId, questionId, initialType, initialStage]);
+  }, [automation?.id, campaignId, itemId, questionId, initialType, initialConditionAnswer, initialStage]);
 
   const needsRole = ["assign_task", "send_email_group", "notify_role"].includes(draft.actionType);
   const needsTaskGroups = draft.actionType === "assign_task";
@@ -399,7 +401,7 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
   ];
   const lookupLoading = dataQueries.some(query => query.isLoading);
   const failedQueries = dataQueries.filter(query => query.isError);
-  const dirty = statusListActionDirty(draft, originalRef.current, initialType);
+  const dirty = statusListActionDirty(draft, originalRef.current, initialType, initialConditionAnswer);
   const invalidDispositionCount = draft.conditionMode === "compound" && draft.conditionRules.some(rule => {
     const meta = conditionFields.find(field => field.key === rule.field);
     if (meta?.valueType !== "disp_count") return false;
@@ -550,6 +552,14 @@ export function StatusListServiceActionEditor(props: StatusListServiceActionEdit
     </nav>
     <div className="slsae-content" key={stage}>
       <div className="slsae-intro"><span>{String(STAGES.indexOf(stage) + 1).padStart(2, "0")} / 04</span><h3>{stepHeading[stage]}</h3><p>{stepHelp[stage]}</p></div>
+      {stage==="type" && <label className="slsae-field mb-4"><span>{getHealthcareCopy(locale).execution}</span>
+        <select data-testid="action-execution-policy" value={draft.executionPolicy} onChange={e=>setDraft(previous=>({...previous,executionPolicy:e.target.value as StatusListActionDraft["executionPolicy"]}))}>
+          {draft.executionPolicy==="inherit" && <option value="inherit">{getHealthcareCopy(locale).inherit}</option>}
+          <option value="automatic">{getHealthcareCopy(locale).automatic}</option>
+          <option value="review">{getHealthcareCopy(locale).review}</option>
+        </select><span className="text-xs text-muted-foreground">{getHealthcareCopy(locale).executionHelp}</span>
+      </label>}
+      {stage==="review" && <p className="slsae-callout">{getHealthcareCopy(locale).execution}: {getHealthcareCopy(locale)[draft.executionPolicy==="inherit" ? "inherit" : draft.executionPolicy]}</p>}
       {stage === "type" && <div className="slsae-field-grid">
         <label className="slsae-field wide"><span>{copy("actionLabel")}</span>
           <select data-testid="service-action-type" value={draft.actionType} onChange={event => {

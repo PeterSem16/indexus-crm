@@ -1,0 +1,215 @@
+.sl-recap-navigation {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid #c9dfef;
+  border-radius: 15px;
+  color: #263b50;
+  background: linear-gradient(118deg, #edf6fc 0%, #f5f9fc 100%);
+}
+
+.sl-recap-navigation::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  border-radius: 15px 0 0 15px;
+  background: #4a91bd;
+  content: "";
+}
+
+.sl-recap-navigation-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.sl-recap-navigation-mark {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  flex: none;
+  place-items: center;
+  border: 1px solid #c9dfef;
+  border-radius: 10px;
+  color: #347caf;
+  background: #e3f0f8;
+}
+
+.sl-recap-navigation-heading-copy {
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.sl-recap-navigation-title {
+  margin: 0;
+  color: #263b50;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: -.015em;
+  line-height: 1.35;
+}
+
+.sl-recap-navigation-note {
+  margin: 2px 0 0;
+  color: #6d8294;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.sl-recap-navigation-list {
+  display: grid;
+  gap: 6px;
+}
+
+.sl-recap-navigation-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid #d8e6ef;
+  border-radius: 11px;
+  background: rgb(255 255 255 / 78%);
+}
+
+.sl-recap-navigation-place {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.sl-recap-navigation-label {
+  color: #7891a5;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.sl-recap-navigation-value {
+  overflow-wrap: anywhere;
+  color: #263b50;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.sl-recap-navigation-arrow {
+  width: 14px;
+  height: 14px;
+  color: #4b8bb4;
+}
+
+.sl-recap-navigation-route[data-available="false"] {
+  border-style: dashed;
+  border-color: #d1dce4;
+  background: #f0f5f8;
+}
+
+.sl-recap-navigation-route[data-available="false"] .sl-recap-navigation-value {
+  color: #6d8294;
+}
+
+.sl-recap-navigation-route[data-available="false"] .sl-recap-navigation-arrow {
+  color: #98aab6;
+}
+
+.sl-recap-navigation-unavailable {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 5px;
+  padding-top: 5px;
+  border-top: 1px solid #dce5eb;
+  color: #718392;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.dark .sl-recap-navigation {
+  border-color: #34576f;
+  color: #e5edf3;
+  background: linear-gradient(118deg, #203a4d 0%, #1c3040 100%);
+}
+
+.dark .sl-recap-navigation::before {
+  background: #72acd0;
+}
+
+.dark .sl-recap-navigation-mark {
+  border-color: #34576f;
+  color: #9bcce9;
+  background: #27465b;
+}
+
+.dark .sl-recap-navigation-title,
+.dark .sl-recap-navigation-value {
+  color: #e5edf3;
+}
+
+.dark .sl-recap-navigation-note {
+  color: #a4b7c5;
+}
+
+.dark .sl-recap-navigation-route {
+  border-color: #344b5d;
+  background: rgb(23 38 52 / 68%);
+}
+
+.dark .sl-recap-navigation-label {
+  color: #9bb2c2;
+}
+
+.dark .sl-recap-navigation-arrow {
+  color: #8fc6e9;
+}
+
+.dark .sl-recap-navigation-route[data-available="false"] {
+  border-color: #3b4d5a;
+  background: #1b2a36;
+}
+
+.dark .sl-recap-navigation-route[data-available="false"] .sl-recap-navigation-value,
+.dark .sl-recap-navigation-route[data-available="false"] .sl-recap-navigation-arrow,
+.dark .sl-recap-navigation-unavailable {
+  color: #a4b7c5;
+}
+
+.dark .sl-recap-navigation-unavailable {
+  border-color: #344b5d;
+}
+
+@media (max-width: 520px) {
+  .sl-recap-navigation {
+    gap: 8px;
+    margin-top: 11px;
+    padding: 10px;
+    border-radius: 13px;
+  }
+
+  .sl-recap-navigation-route {
+    grid-template-columns: minmax(0, 1fr) 14px minmax(0, 1fr);
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .sl-recap-navigation-value {
+    font-size: 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-recap-navigation,
+  .sl-recap-navigation * {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}

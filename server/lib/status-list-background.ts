@@ -6,16 +6,18 @@ import { executeEvent, StatusListWorkflowError, workflowTransaction } from "./st
 import { evaluateOptionSources } from "./status-list-option-source";
 import { inspectAutomaticContact, queueAutomaticSourceEvent } from "./status-list-automatic";
 import { lockCallbackTransition, assertCallbackConfigurationIndependent } from "./status-list-callback-transition";
+import { z } from "zod";
+import { createStatusListSourceTarget } from "./status-list-source-targets";
 
 // Explicit non-human principal; never borrow the configurator/representative's
 // user identity. Legacy history/confirmation columns require a non-null string.
 export const STATUS_LIST_SYSTEM_ACTOR = "system:mission-status-list";
 
-export async function configureBackgroundSource(campaignId: string, questionId: string, raw: unknown | null) {
+export async function configureBackgroundSource(campaignId: string, questionId: string, raw: unknown | null, transaction?: PoolClient) {
   const config = raw === null ? null : workflowSourceConfigSchema.parse(raw);
-  const client = await pool.connect();
+  const client = transaction || await pool.connect();
   try {
-    await client.query("BEGIN");
+    if (!transaction) await client.query("BEGIN");
     await lockCallbackTransition(client, campaignId, true);
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`mission-workflow-config:${campaignId}`]);
     const { rows } = await client.query(`SELECT q.*,i.confirmation_type,i.question_selection_mode
@@ -28,18 +30,52 @@ export async function configureBackgroundSource(campaignId: string, questionId: 
       if (q.confirmation_type === "auto" || q.question_selection_mode === "single" || siblings.rowCount ||
         !(config.source === "representative_assigned" ? ["yesno", "yes_no"] : ["text", "string"]).includes(q.field_type))
         throw new StatusListWorkflowError("invalid_source_question");
-      await client.query(`INSERT INTO mission_status_list_sources(campaign_id,question_id,source)
-        VALUES($1,$2,$3) ON CONFLICT(question_id) DO UPDATE SET
+      await client.query(`INSERT INTO mission_status_list_sources(campaign_id,question_id,source,show_information)
+        VALUES($1,$2,$3,COALESCE($4,false)) ON CONFLICT(question_id) DO UPDATE SET
         revision=CASE WHEN mission_status_list_sources.source<>EXCLUDED.source THEN gen_random_uuid()::text ELSE mission_status_list_sources.revision END,
-        source=EXCLUDED.source`, [campaignId, questionId, config.source]);
+        source=EXCLUDED.source,
+        show_information=CASE WHEN EXCLUDED.source='representative_assigned'
+          THEN COALESCE($4,mission_status_list_sources.show_information) ELSE false END`,
+      [campaignId, questionId, config.source, config.showInformation ?? null]);
       await client.query("UPDATE campaign_status_list_questions SET is_hidden=$2,updated_at=now() WHERE id=$1", [questionId, config.hidden]);
+      if (config.check !== undefined || config.source !== "representative_assigned" || config.showInformation === false) {
+        const check = config.source === "representative_assigned" && config.showInformation !== false ? config.check ?? null : null;
+        if (check?.enabled && check.behavior !== "information") {
+          const { loadAutomaticActions, automaticActionIssues } = await import("./status-list-automatic");
+          const actions = (await loadAutomaticActions(client, campaignId, q.item_id)).filter(action => action.questionId === questionId);
+          if (actions.some(action => automaticActionIssues(action).length))
+            throw new StatusListWorkflowError("unsupported_action", 409);
+        }
+        await client.query(`UPDATE mission_status_list_sources SET
+          check_revision=CASE WHEN check_config IS DISTINCT FROM $3::jsonb THEN gen_random_uuid()::text ELSE check_revision END,
+          check_config=$3::jsonb WHERE campaign_id=$1 AND question_id=$2`,
+        [campaignId, questionId, check == null ? null : JSON.stringify(check)]);
+      }
     } else {
       await client.query("DELETE FROM mission_status_list_sources WHERE campaign_id=$1 AND question_id=$2", [campaignId, questionId]);
     }
     await assertCallbackConfigurationIndependent(client, campaignId);
-    await client.query("COMMIT");
-  } catch (error) { await client.query("ROLLBACK"); throw error; }
-  finally { client.release(); }
+    if (!transaction) await client.query("COMMIT");
+  } catch (error) { if (!transaction) await client.query("ROLLBACK"); throw error; }
+  finally { if (!transaction) client.release(); }
+}
+
+/** Definition + configuration share the caller's transaction. No partial hidden
+ * question is left behind when validation or persistence fails.
+ */
+export async function createConfiguredBackgroundSource(client: PoolClient, campaignId: string, raw: unknown) {
+  const body = z.object({
+    parentId: z.string().uuid().optional(),
+    label: z.string().trim().min(1).max(180),
+    config: workflowSourceConfigSchema,
+  }).strict().parse(raw);
+  await lockCallbackTransition(client, campaignId, true);
+  const target = await createStatusListSourceTarget(client, campaignId, {
+    source: body.config.source, label: body.label, ...(body.parentId ? {parentId:body.parentId} : {}),
+  });
+  if (!target.questionId) throw new StatusListWorkflowError("invalid_source_question");
+  await configureBackgroundSource(campaignId, target.questionId, body.config, client);
+  return target;
 }
 
 export async function evaluateBackgroundContact(contactId: string) {
@@ -113,6 +149,8 @@ export async function evaluateBackgroundContact(contactId: string) {
       await executeEvent(client,event);
       await queueAutomaticSourceEvent(client,event);
     }
+    await (await import("./status-list-representative-check")).evaluateRepresentativeChecks(
+      client,contact.campaign_id,contactId,{trigger:"background_change"});
     const autoItems=(await client.query(`SELECT item_id FROM mission_status_list_automatic_configs
       WHERE campaign_id=$1 AND trigger='background_change' AND enabled=true ORDER BY item_id`,[contact.campaign_id])).rows;
     for (const row of autoItems) await inspectAutomaticContact(client,contact.campaign_id,

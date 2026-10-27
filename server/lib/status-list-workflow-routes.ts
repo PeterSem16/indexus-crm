@@ -1,5 +1,7 @@
 import type { Express, Request, RequestHandler } from "express";
 import { z } from "zod";
+import { readStatusListRepresentativeInformation } from "./status-list-representative-information";
+import { evaluateRepresentativeChecks } from "./status-list-representative-check";
 import { pool } from "../db";
 import { storage } from "../storage";
 import { canAgentReadCampaignByWorkspaceCountry } from "./agent-workspace-country-access";
@@ -8,12 +10,7 @@ import { saveWorkflowQuestion, saveWorkflowQuestions, StatusListWorkflowError, v
 import { checkStatusListExecution } from "../../shared/status-list-execution-policy";
 import { readWorkflowNotes } from "./status-list-workflow-notes";
 import { readQuestionAudit, writeQuestionNote, questionNoteSchema } from "./status-list-question-audit";
-import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
-import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
-import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from "./status-list-automatic";
-import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
-import { initialScopeSchema, previewAutomaticInitial, confirmAutomaticInitial } from "./status-list-automatic-initial";
-import { configureBackgroundSource } from "./status-list-background";
+import { configureBackgroundSource, createConfiguredBackgroundSource } from "./status-list-background";
 import { createStatusListSourceTarget } from "./status-list-source-targets";
 import { addWaitingOption, configureOptionSource } from "./status-list-option-source";
 import { registerStatusListOrganizationRoutes } from "./status-list-organization-routes";
@@ -21,7 +18,19 @@ import { readTransitionInventory } from "./status-list-transition-inventory";
 import { medicalPartnerAudit } from "../../shared/status-list-transition-audit";
 import { CallbackTransitionError, readCallbackReadiness, switchCallbackOwner, withCallbackRuleChange } from "./status-list-callback-transition";
 import { readStatusListServiceHistory } from "./status-list-service-history";
+import { readTransitionExport } from "./status-list-transition-export";
+import { readCallbackServiceStatus } from "./status-list-service-status";
+import { readWorkflowConditionOptions } from "./status-list-workflow-condition-options";
+import { readBackgroundDiagnostics } from "./status-list-background-diagnostics";
+import { automaticOverview, inspectAutomaticContact, saveAutomaticConfig } from "./status-list-automatic";
 import { previewStatusListConfirmation } from "./status-list-confirmation-preview";
+import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
+import { initialScopeSchema, previewAutomaticInitial, confirmAutomaticInitial } from "./status-list-automatic-initial";
+import { healthcareFacts, saveHealthcareReview, createHealthcareSource, resetHealthcareCounter } from "./status-list-healthcare";
+import { readActionReviews, confirmActionReview } from "./status-list-action-review";
+import { evaluateOptionSources } from "./status-list-option-source";
+import { workflowTransaction, executeEvent } from "./status-list-workflow";
+import { queueAutomaticSourceEvent } from "./status-list-automatic";
 
 const admin = (user: any) => ["admin", "superadmin", "owner"].includes(user.role);
 export async function authorize(req: Request, manage: boolean, contactId?: string) {
@@ -78,12 +87,96 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     }
   };
   registerStatusListOrganizationRoutes(app, requireAuth, authorize, route);
+  app.post(`${root}/healthcare`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,true);
+    z.object({}).strict().parse(req.body);
+    const client=await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const source=await createHealthcareSource(client,req.params.campaignId,actor.id);
+      await client.query("COMMIT");
+      res.status(201).json(source);
+    }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  }));
+  app.get(`${contactRoot}/healthcare`,requireAuth,route(async(req,res)=>{
+    await authorize(req,false,req.params.campaignContactId);
+    const sources=(await pool.query(`SELECT group_id FROM mission_status_list_option_sources WHERE campaign_id=$1
+      AND config->>'source'='healthcare_reachability' ORDER BY group_id`,[req.params.campaignId])).rows;
+    const contact=(await pool.query("SELECT contact_type FROM campaign_contacts WHERE id=$1 AND campaign_id=$2",
+      [req.params.campaignContactId,req.params.campaignId])).rows[0];
+    if(!["clinic","hospital"].includes(contact?.contact_type)) {res.json([]);return;}
+    res.json(await Promise.all(sources.map(s=>healthcareFacts(pool,req.params.campaignId,req.params.campaignContactId,s.group_id))));
+  }));
+  app.post(`${contactRoot}/healthcare/:groupId`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    await workflowTransaction(req.params.campaignContactId,async client=>{
+      await saveHealthcareReview(client,req.params.campaignId,req.params.campaignContactId,req.params.groupId,actor.id,req.body);
+      for(const event of await evaluateOptionSources(client,req.params.campaignContactId)) {
+        await executeEvent(client,event);await queueAutomaticSourceEvent(client,event);
+      }
+    });
+    res.json({ok:true});
+  }));
+  app.post(`${contactRoot}/healthcare/:groupId/reset-counter`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    await workflowTransaction(req.params.campaignContactId,async client=>{
+      await resetHealthcareCounter(client,req.params.campaignId,req.params.campaignContactId,req.params.groupId,actor.id,req.body);
+      // Establish a fresh baseline, never send effects solely because of reset.
+      await client.query(`UPDATE mission_status_list_option_source_state SET config_revision='counter-reset'
+        WHERE campaign_contact_id=$1 AND group_id=$2`,
+        [req.params.campaignContactId,req.params.groupId]);
+      for(const event of await evaluateOptionSources(client,req.params.campaignContactId)) {
+        await executeEvent(client,event);await queueAutomaticSourceEvent(client,event);
+      }
+    });
+    res.json({ok:true});
+  }));
+  app.get(`${contactRoot}/action-reviews`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    res.json(await readActionReviews(pool,req.params.campaignId,req.params.campaignContactId,actor.id));
+  }));
+  app.post(`${contactRoot}/action-reviews/:eventId`,requireAuth,route(async(req,res)=>{
+    const actor=await authorize(req,false,req.params.campaignContactId);
+    const body=z.object({fingerprint:z.string().regex(/^[a-f0-9]{64}$/)}).strict().parse(req.body);
+    await workflowTransaction(req.params.campaignContactId,client=>confirmActionReview(client,req.params.campaignId,
+      req.params.campaignContactId,actor.id,req.params.eventId,body.fingerprint));
+    res.json({ok:true});
+  }));
+  app.post(`${contactRoot}/representative-check`, requireAuth, route(async (req, res) => {
+    const actor = await authorize(req, false, req.params.campaignContactId);
+    const payload = z.object({
+      trigger: z.enum(["card_open", "pulse_open", "background_change"]),
+      statusOnly: z.boolean().optional(),
+      confirm: z.object({ questionId: z.string().min(1).max(100), fingerprint: z.string().regex(/^[a-f0-9]{64}$/) }).strict().optional(),
+    }).strict().parse(req.body);
+    if (payload.confirm && payload.statusOnly) throw new StatusListWorkflowError("invalid_rule", 400);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await evaluateRepresentativeChecks(client, req.params.campaignId, req.params.campaignContactId,
+        { ...payload, actorId: actor.id });
+      await client.query("COMMIT");
+      res.json(result);
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+  }));
   app.post(`${root}/source-targets`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const target = await createStatusListSourceTarget(client, req.params.campaignId, req.body);
+      await client.query("COMMIT");
+      res.status(201).json(target);
+    } catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
+  }));
+  app.post(`${root}/sources`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const target = await createConfiguredBackgroundSource(client, req.params.campaignId, req.body);
       await client.query("COMMIT");
       res.status(201).json(target);
     } catch (error) { await client.query("ROLLBACK"); throw error; }
@@ -208,7 +301,8 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
         SET state='pending' WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,
       [campaignId,contactId]);
       const deferredRows=(await client.query(`SELECT automation_id FROM mission_status_list_automatic_events
-        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'`,[campaignId,contactId])).rows;
+        WHERE campaign_id=$1 AND campaign_contact_id=$2 AND state='awaiting_batch'
+        AND NOT (event_context ? 'representativeCheck')`,[campaignId,contactId])).rows;
       const deferredIds=new Set(deferredRows.map((row:any)=>row.automation_id));
       const candidateCount=results.reduce((n,result)=>n+result.actions.filter(action=>
         action.status==="batch_deferred" && !deferredIds.has(action.id)).length,0);
@@ -241,6 +335,19 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
       FROM campaign_contacts WHERE campaign_id=$1 ORDER BY type`, [req.params.campaignId])).rows;
     res.json({ contactTypes: rows.map(row => row.type).filter(type =>
       ["clinic", "hospital", "customer", "collaborator"].includes(type)) });
+  }));
+  app.get(`${root}/transition-runtime`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    res.json(await readCallbackServiceStatus(pool, req.params.campaignId));
+  }));
+  app.get(`${root}/transition-export`, requireAuth, route(async (req, res) => {
+    await authorize(req, true);
+    const client = await pool.connect();
+    try {
+      const evidence = await readTransitionExport(client, req.params.campaignId);
+      res.setHeader("Content-Disposition", 'attachment; filename="status-list-inventory.json"');
+      res.json(evidence);
+    } finally { client.release(); }
   }));
   app.get(`${root}/transition-readiness`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
@@ -346,7 +453,7 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
   }));
   app.get(`${root}/sources`, requireAuth, route(async (req, res) => {
     await authorize(req, true);
-    const { rows } = await pool.query(`SELECT s.question_id AS "questionId",s.source,q.is_hidden AS hidden
+    const { rows } = await pool.query(`SELECT s.question_id AS "questionId",s.source,q.is_hidden AS hidden,s.show_information AS "showInformation",s.check_config AS "check"
       FROM mission_status_list_sources s JOIN campaign_status_list_questions q ON q.id=s.question_id
       WHERE s.campaign_id=$1 ORDER BY s.question_id`, [req.params.campaignId]);
     res.json({ sources: rows, catalog: await workflowCatalog(req.params.campaignId) });
@@ -433,7 +540,11 @@ export function registerStatusListWorkflowRoutes(app: Express, requireAuth: Requ
     res.json({ ...await readQuestionAudit(pool, req.params.campaignId, req.params.campaignContactId),
       answers: Object.fromEntries(answers.rows.map(row => [row.question_id, row.value])), transitions: transitions.rows, executionIssues,
       notes: await readWorkflowNotes(pool, req.params.campaignContactId),
-      runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId) });
+      runs: runs.rows, catalog: await workflowCatalog(req.params.campaignId),
+      representativeInformation: await readStatusListRepresentativeInformation(pool, req.params.campaignId, req.params.campaignContactId),
+      representativeChecks: (await pool.query(`SELECT question_id AS "questionId",check_config AS config
+        FROM mission_status_list_sources WHERE campaign_id=$1 AND jsonb_typeof(check_config)='object'`,
+      [req.params.campaignId])).rows });
   }));
   app.patch(`${contactRoot}/answers/:questionId/note`, requireAuth, route(async (req, res) => {
     const user = await authorize(req, false, req.params.campaignContactId);

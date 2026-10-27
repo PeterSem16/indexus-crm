@@ -68,7 +68,11 @@ export async function prepareAnalysisAttachment(
     return { bytes, mime: officeMimes[result.kind], text: result.text };
   }
   if ((mime === "application/pdf" || (generic && extension === "pdf")) &&
-      bytes.subarray(0, 5).toString("ascii") === "%PDF-") return { bytes, mime: "application/pdf" };
+      bytes.subarray(0, 5).toString("ascii") === "%PDF-") {
+    // PDF encryption dictionaries are ASCII, even for encrypted streams.
+    if (/\/Encrypt\b/.test(bytes.toString("latin1"))) throw new Error("analysis_document_encrypted");
+    return { bytes, mime: "application/pdf" };
+  }
   if (mime === "text/plain" || mime === "text/csv") {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     if (!text.trim() || text.includes("\0")) throw new Error("analysis_document_unreadable");

@@ -7,6 +7,7 @@ import type { CallbackOwner, CallbackTransitionReadiness } from "../../shared/st
 import { readTransitionInventory } from "./status-list-transition-inventory";
 import { callbackDecision, type CallbackEnvelope } from "./status-list-callback-compatible";
 import { callbackDependencyBlockers } from "./status-list-callback-boundary";
+import { callbackBarrier, hasCallbackAdmission } from "./status-list-service";
 
 type Client = Pick<PoolClient, "query">;
 type Connections = Pick<typeof pool, "connect">;
@@ -14,6 +15,11 @@ export class CallbackTransitionError extends Error {
   constructor(public code: string, public status = 409) { super(code); }
 }
 const lockKey = (campaignId: string) => `mission-callback-owner:${campaignId}`;
+async function serviceReservation(client: Client, campaignId: string, enrolledOnly = false) {
+  if (!(await client.query("SELECT to_regclass(current_schema()||'.mission_callback_groups') AS t")).rows[0]?.t) return false;
+  return !!(await client.query(`SELECT 1 FROM mission_callback_groups WHERE campaign_id=$1
+    AND (NOT $2::boolean OR enrolled)`, [campaignId, enrolledOnly])).rowCount;
+}
 export async function lockCallbackTransition(client: Client, campaignId: string, exclusive = false) {
   await client.query(`SELECT pg_advisory_xact_lock${exclusive ? "" : "_shared"}(hashtextextended($1,0))`, [lockKey(campaignId)]);
 }
@@ -39,6 +45,7 @@ export async function callbackReadiness(client: Client, campaignId: string): Pro
   const compatible = ownership?.owner === "compatible";
   const reviewedItems = new Set(expectedCallbacks.map(action => action.itemId));
   const blockers = new Set<string>();
+  if (await serviceReservation(client, campaignId)) blockers.add("service_transition_reserved");
   if (!callbacks.length) blockers.add("no_callbacks");
   if ((!compatible && rows.length !== expected.length) || rows.some(a => !expected.some(e => e.id === a.id) &&
     (!compatible || !!a.callback || reviewedItems.has(a.itemId))))
@@ -279,6 +286,12 @@ export async function persistCallbackConfirmation(input: {
   try {
     await client.query("BEGIN");
     await client.query("SET LOCAL statement_timeout='15s'");
+    if (!hasCallbackAdmission(input.campaignId))
+      await client.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", [callbackBarrier(input.campaignId)]);
+    await client.query("SELECT set_config('indexus.callback_context',$1,true)", [JSON.stringify({
+      admitted: true, skip: input.skipAutomations, suppress: input.skipAutomations,
+      manualDate: input.manualDate, note: input.note,
+    })]);
     await lockCallbackTransition(client, input.campaignId);
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
       [`mission-confirmation:${input.campaignContactId}:${input.itemId}`]);
@@ -310,7 +323,7 @@ export async function persistCallbackConfirmation(input: {
       confirmed_at AS "confirmedAt",created_at AS "createdAt",item_note AS "itemNote",note_updated_at AS "noteUpdatedAt",
       execution_request_id AS "executionRequestId"`,
     [input.campaignContactId, input.itemId, input.actorId, input.itemNote, input.requestId ?? null])).rows[0];
-    if (input.campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN && !input.skipAutomations)
+    if (input.campaignId === MEDICAL_PARTNER_AUDIT_CAMPAIGN && !input.skipAutomations && !await serviceReservation(client, input.campaignId, true))
       await enqueueCallbackConfirmation(client, { ...input, confirmationId: inserted.id });
     await client.query("COMMIT");
     return inserted;

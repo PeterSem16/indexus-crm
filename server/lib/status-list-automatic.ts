@@ -7,6 +7,8 @@ import { loadStatusListHistoryFacts } from "./status-list-history";
 import { executeStatusListNativeService } from "./status-list-native-service";
 import { statusListExecutionMode } from "../../shared/status-list-execution-policy";
 import type { WorkflowEvent } from "./status-list-workflow";
+import { loadHealthcareConditionFacts } from "./status-list-healthcare";
+import { healthcareConditionFields, isHealthcareConditionField, validHealthcareCondition } from "../../shared/status-list-healthcare-conditions";
 
 type Reader = Pick<PoolClient, "query">;
 const system = "system:mission-status-list";
@@ -21,9 +23,21 @@ const loadItem = async (client: Reader, campaignId: string, itemId: string) => (
 const loadConfig = async (client: Reader, campaignId: string, itemId: string) => (await client.query(`
   SELECT trigger,enabled,revision,background_execution AS "backgroundExecution" FROM mission_status_list_automatic_configs WHERE campaign_id=$1 AND item_id=$2`,
   [campaignId,itemId])).rows[0] || { trigger: "agent_confirmation",enabled: false,revision: null,backgroundExecution:"mission" };
-const loadActions = async (client: Reader, campaignId: string, itemId: string) => (await client.query(`
+const isSystemSourceAnswer = async (client: Reader, campaignId: string, itemId: string) =>
+  !!(await client.query(`SELECT 1 FROM mission_status_list_sources s
+    JOIN campaign_status_list_questions q ON q.id=s.question_id
+    WHERE s.campaign_id=$1 AND q.item_id=$2
+    UNION ALL SELECT 1 FROM mission_status_list_option_sources s
+    JOIN campaign_status_list_items i ON i.parent_id=s.group_id
+    WHERE s.campaign_id=$1 AND i.id=$2 AND i.campaign_id=$1 LIMIT 1`,[campaignId,itemId])).rows.length;
+export const loadAutomaticActions = async (client: Reader, campaignId: string, itemId: string) => (await client.query(`
   SELECT a.id,a.action_type AS "actionType",a.status_list_item_id AS "itemId",a.question_id AS "questionId",
+    coalesce(to_jsonb(a)->>'execution_policy','inherit') AS "executionPolicy",
     q.question_text AS "questionLabel",a.service_action_config AS "serviceActionConfig",
+    (to_jsonb(a)->>'callback_offset_days')::int AS "callbackOffsetDays",
+    to_jsonb(a)->>'callback_time' AS "callbackTime",
+    (to_jsonb(a)->>'callback_business_days_only')::boolean AS "callbackBusinessDaysOnly",
+    to_jsonb(a)->>'callback_existing_policy' AS "callbackExistingPolicy",
     a.service_action_owner_id AS "serviceActionOwnerId",a.condition_field AS "conditionField",
     a.condition_operator AS "conditionOperator",a.condition_value AS "conditionValue",a.condition_json AS "conditionJson",
     (u.id IS NOT NULL AND u.is_active IS NOT FALSE AND (u.role IN ('admin','superadmin','owner') OR
@@ -34,11 +48,17 @@ const loadActions = async (client: Reader, campaignId: string, itemId: string) =
   LEFT JOIN users u ON u.id=a.service_action_owner_id
   LEFT JOIN campaign_status_list_questions q ON q.id=a.question_id AND q.item_id=i.id
   WHERE i.id=$2 ORDER BY a.sort_order,a.id`, [campaignId,itemId])).rows;
+const loadActions = loadAutomaticActions;
 
 /** Reject definitions that the unattended evaluator would otherwise guess. */
 export function automaticActionIssues(action: any) {
   const issues = statusListNativeActionIssues(action.actionType, action.serviceActionConfig);
-  if(!statusListNativeActionType(action.actionType) || !action.serviceActionConfig) issues.push("unsupported_action");
+  if(!statusListNativeActionType(action.actionType) || !action.serviceActionConfig && action.actionType!=="set_callback") issues.push("unsupported_action");
+  if(action.actionType==="set_callback" && (!Number.isInteger(action.callbackOffsetDays) ||
+    action.callbackOffsetDays<0 || action.callbackOffsetDays>3650 ||
+    action.callbackTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(action.callbackTime) ||
+    action.callbackExistingPolicy && !["keep_existing","replace"].includes(action.callbackExistingPolicy)))
+    issues.push("invalid_callback");
   if (!action.serviceActionOwnerId) issues.push("owner_required");
   else if(action.ownerAuthorized===false || action.ownerAuthorized===null)issues.push("owner_not_authorized");
   const definition = action.conditionJson;
@@ -49,16 +69,19 @@ export function automaticActionIssues(action: any) {
     if (!parsed || Object.keys(parsed).some(key => !["logic","rules"].includes(key)) ||
         !["AND","OR"].includes(parsed.logic) || !Array.isArray(parsed.rules) || !parsed.rules.length ||
         parsed.rules.some((rule: any) => !rule || !automaticField(rule.field) ||
-          !["eq","neq","equals","not_equals"].includes(rule.op)))
+          !(isHealthcareConditionField(rule.field) ? validHealthcareCondition(rule.field,rule.op,rule.value) :
+            ["eq","neq","equals","not_equals"].includes(rule.op))))
       issues.push("invalid_condition");
   } else if (action.conditionField && action.conditionField !== "always" && !automaticField(action.conditionField))
     issues.push("invalid_condition");
   else if (action.conditionField && action.conditionField !== "always" &&
-    !["eq","neq","equals","not_equals"].includes(action.conditionOperator || "eq"))
+    !(isHealthcareConditionField(action.conditionField)
+      ? validHealthcareCondition(action.conditionField,action.conditionOperator || "eq",action.conditionValue)
+      : ["eq","neq","equals","not_equals"].includes(action.conditionOperator || "eq")))
     issues.push("invalid_condition");
   return issues;
 }
-const automaticField = (field: string) => field === "answer" || field === "country" || field === "contact_country" ||
+const automaticField = (field: string) => isHealthcareConditionField(field) || field === "answer" || field === "country" || field === "contact_country" ||
   (typeof field === "string" && field.startsWith("history.") &&
     (["history.outreach_attempted","history.call_attempted","history.call_answered","history.call_failed",
       "history.email_sent","history.sms_sent","history.email_reply","history.sms_reply",
@@ -68,13 +91,15 @@ export async function automaticOverview(client: Reader, campaignId: string, item
   const item = await loadItem(client,campaignId,itemId);
   if (!item) return null;
   const config = await loadConfig(client,campaignId,itemId);
+  const systemSourceAnswer = await isSystemSourceAnswer(client,campaignId,itemId);
   const actions = (await loadActions(client,campaignId,itemId)).map(action => ({
     id: action.id,actionType: action.actionType,questionLabel: action.questionLabel || null,
     issues: automaticActionIssues(action),
   }));
-  return { item: { id:item.id,label:item.label,isHidden:item.isHidden,confirmationType:item.confirmationType },
-    config,mode:statusListExecutionMode(item.settings),actions,
-    supportedConditionFields: ["country","answer","history.outreach_attempted","history.call_attempted",
+  return { item: { id:item.id,label:item.label,isHidden:item.isHidden,confirmationType:item.confirmationType,systemSourceAnswer },
+    config: systemSourceAnswer && config.revision === null ? { ...config, trigger: "background_change" } : config,
+    mode:statusListExecutionMode(item.settings),actions,
+    supportedConditionFields: [...healthcareConditionFields,"country","answer","history.outreach_attempted","history.call_attempted",
       "history.call_answered","history.call_failed","history.email_sent","history.sms_sent",
       "history.email_reply","history.sms_reply","history.message_delivered","history.reached"] };
 }
@@ -86,7 +111,10 @@ export async function saveAutomaticConfig(campaignId: string,itemId: string,raw:
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`automatic:${campaignId}:${itemId}`]);
     const item = await loadItem(client,campaignId,itemId);
     if (!item) throw Error("item_not_found");
-    if (item.confirmationType === "info" && payload.enabled) throw Error("agent_cannot_confirm");
+    if (item.confirmationType === "info" && payload.enabled) {
+      if (payload.trigger !== "background_change" || !await isSystemSourceAnswer(client,campaignId,itemId))
+        throw Error("agent_cannot_confirm");
+    }
     if (payload.trigger !== "background_change" && payload.backgroundExecution === "unattended")
       throw Error("unsupported_action");
     const current = await loadConfig(client,campaignId,itemId);
@@ -146,6 +174,8 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
   const config = await loadConfig(client,campaignId,itemId);
   const mode = statusListExecutionMode(item.settings);
   const actions = await loadActions(client,campaignId,itemId);
+  const healthcare = actions.some(action => JSON.stringify([action.conditionField,action.conditionJson]).includes("healthcare."))
+    ? await loadHealthcareConditionFacts(client,campaignId,contactId) : null;
   const facts = actions.some(action => JSON.stringify([action.conditionField,action.conditionJson]).includes("history."))
     ? await loadStatusListHistoryFacts(client,campaignId,contactId) : null;
   const answers = (await client.query(`SELECT question_id,value,revision FROM mission_status_list_answers
@@ -154,9 +184,9 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
   const states = (await client.query(`SELECT automation_id,matched,generation,definition_fingerprint FROM mission_status_list_automatic_states
     WHERE campaign_contact_id=$1 AND automation_id=ANY($2::varchar[])`,
   [contactId,actions.map(action=>action.id)])).rows;
-  const managed = (await client.query(`SELECT 'question' AS kind,s.question_id AS id FROM mission_status_list_sources s
+  const managed = (await client.query(`SELECT 'question' AS kind,s.question_id AS id,to_jsonb(s)->'check_config' AS check_config FROM mission_status_list_sources s
     JOIN campaign_status_list_questions q ON q.id=s.question_id WHERE s.campaign_id=$1 AND q.item_id=$2
-    UNION ALL SELECT 'item',i.id FROM mission_status_list_option_sources s
+    UNION ALL SELECT 'item',i.id,NULL::jsonb FROM mission_status_list_option_sources s
     JOIN campaign_status_list_items i ON i.parent_id=s.group_id OR i.id=s.group_id
     WHERE s.campaign_id=$1 AND i.id=$2`,[campaignId,itemId])).rows;
   const executions = (await client.query(`SELECT automation_id,trigger_key,state FROM mission_status_list_automatic_events
@@ -170,6 +200,8 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
   [campaignId,contactId,actions.map(action=>action.id)])).rows : [];
   const output: any[] = [];
   for (const action of actions) {
+    // The explicit coordinator control owns these effects, including its off state.
+    if (managed.some(row => row.kind === "question" && row.id === action.questionId && row.check_config != null)) continue;
     const derived=managed.some(row=>row.kind==="question" ? row.id===action.questionId : !action.questionId);
     const sourceEvent=options.sourceEvent;
     const eventMatches=sourceEvent && (sourceEvent.source.kind==="question"
@@ -178,7 +210,9 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
     const issues = automaticActionIssues(action);
     if(!country || (countries.length && !countries.includes(country)))issues.push("country_unresolved");
     const answer = action.questionId ? answers.find(row=>row.question_id===action.questionId)?.value : undefined;
-    const evaluation = automaticCondition(action,facts,country,answer);
+    const evaluation = automaticCondition(action,facts,country,answer,healthcare);
+    if(evaluation.value===true && !await (await import("./status-list-healthcare")).healthcareActionValid(client,
+      {campaign_id:campaignId,campaign_contact_id:contactId,item_id:itemId,event_context:{sourceEventId:options.sourceEvent?.eventId}},action)) evaluation.value=false;
     const fingerprint=createHash("sha256").update(canonical([action,config.revision])).digest("hex");
     const old = states.find(row=>row.automation_id===action.id && row.definition_fingerprint===fingerprint);
     const nextGeneration = old ? Number(old.generation) + (!old.matched && evaluation.value === true ? 1 : 0) : 0;
@@ -186,7 +220,7 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
       ["card_open", "pulse_open"].includes(config.trigger) ? `open:${action.id}` : `change:${fingerprint}:${nextGeneration}`;
     const prior = executions.find(row=>row.automation_id===action.id && (derived && !sourceEvent || row.trigger_key===key));
     let status = automaticAdmission({
-      trigger:config.trigger,enabled:config.enabled && item.confirmationType!=="info",supported:issues.length===0,
+      trigger:config.trigger,enabled:config.enabled && (item.confirmationType!=="info" || !!sourceEvent && derived && !!eventMatches),supported:issues.length===0,
       condition:evaluation.value,issue:evaluation.issue,previous:sourceEvent ? false : old?.matched,
       priorStatus: prior?.state==="awaiting_batch" ? "batch_deferred" : prior?.state==="running" ? "pending" : prior?.state,
       batch:mode==="batch" && !options.batchCommit &&
@@ -217,10 +251,11 @@ export async function inspectAutomaticContact(client: Reader, campaignId: string
           ON CONFLICT(campaign_contact_id,automation_id,trigger_key) DO NOTHING RETURNING id`,
         [campaignId,contactId,action.id,itemId,key,JSON.stringify(action),config.revision,
           options.actorId || system,JSON.stringify({
+            afterReviewState:status==="batch_deferred" ? "awaiting_batch" : "pending",
             sourceEventId:sourceEvent?.eventId,occurredAt:sourceEvent?.occurredAt,
             ...(options.initialState ? {initialState:true,approvalFingerprint:options.initialApproval} : {}),
             questionRevision:action.questionId ? answers.find(row=>row.question_id===action.questionId)?.revision ?? null : undefined,
-          }),status==="batch_deferred" ? "awaiting_batch" : "pending"]);
+          }),action.executionPolicy==="review" ? "awaiting_review" : status==="batch_deferred" ? "awaiting_batch" : "pending"]);
         status = inserted.rowCount ? (status==="batch_deferred" ? "batch_deferred" : "pending") : "already_executed";
       }
     }
@@ -273,8 +308,11 @@ export async function runAutomaticEvents(deps: {
     const config=await loadConfig(client,row.campaign_id,row.item_id);
     const snapshot=row.action_snapshot;
     const live=(await loadActions(client,row.campaign_id,row.item_id)).find(action=>action.id===row.automation_id);
-    if (!config.enabled || config.revision!==row.config_revision || !live ||
-      canonical(live)!==canonical(snapshot) || automaticActionIssues(live).length) {
+    const representativeValid = row.event_context?.representativeCheck
+      ? await (await import("./status-list-representative-check")).representativeEventValid(client, row) : null;
+    if ((representativeValid === null ? !config.enabled || config.revision!==row.config_revision : !representativeValid) || !live ||
+      canonical(live)!==canonical(snapshot) || automaticActionIssues(live).length ||
+      representativeValid === null && !await (await import("./status-list-healthcare")).healthcareActionValid(client,row,live)) {
       await client.query(`UPDATE mission_status_list_automatic_events SET state='superseded',finished_at=now(),
         result='{"reason":"config_or_action_changed"}'::jsonb WHERE id=$1`,[row.id]); return;
     }
@@ -285,7 +323,8 @@ export async function runAutomaticEvents(deps: {
         campaignId:row.campaign_id,campaignContactId:row.campaign_contact_id,
         itemId:row.item_id,userId:row.actor_id,confirmationId:`automatic:${row.id}`,
         automaticEvent:{id:row.id,occurredAt:row.event_context?.occurredAt || row.created_at,
-          questionRevision:row.event_context?.questionRevision},
+          ...(row.event_context?.representativeCheck ? { representativeCheck: row.event_context.representativeCheck }
+            : { questionRevision:row.event_context?.questionRevision })},
       });
     } catch { result={ok:false,error:"execution_indeterminate",indeterminate:true}; }
     const status=result?.skipped ? "superseded" : result?.ok===true ? "succeeded" :

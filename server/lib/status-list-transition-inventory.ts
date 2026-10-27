@@ -57,15 +57,16 @@ export function normalizeTransitionAction(campaignId: string, row: TransitionInv
  * Contact tables, answers, messages and execution histories are deliberately not read.
  */
 export async function readTransitionInventory(client: Pick<PoolClient, "query">, campaignId: string,
-  options: { withinTransaction?: boolean } = {}): Promise<TransitionInventory> {
-  if (!options.withinTransaction) await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+  options: { withinTransaction?: boolean } | boolean = {}): Promise<TransitionInventory> {
+  const ownTransaction = typeof options === "boolean" ? options : !options.withinTransaction;
+  if (ownTransaction) await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
   try {
     await client.query("SET LOCAL statement_timeout = '10s'");
     await client.query("SET LOCAL lock_timeout = '2s'");
     const { rows } = await client.query<TransitionInventoryRow>(`
       SELECT native.config AS config, md5(native.config::text) AS fingerprint,
         i.id AS item_id,i.step_id AS step_code,
-        d.action_type AS disposition_type,d.campaign_id AS disposition_campaign_id,
+        d.action_type AS disposition_type,d.campaign_id AS disposition_campaign_id,to_jsonb(d) AS disposition_config,
         (a.question_id IS NULL OR EXISTS(
           SELECT 1 FROM campaign_status_list_questions q
           WHERE q.id=a.question_id AND q.item_id=i.id
@@ -90,10 +91,21 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
           FROM campaign_status_list_items i WHERE i.campaign_id=$1) AS item_config,
         (SELECT coalesce(jsonb_agg(to_jsonb(q) ORDER BY q.id),'[]'::jsonb)
           FROM campaign_status_list_questions q JOIN campaign_status_list_items i
-          ON i.id=q.item_id WHERE i.campaign_id=$1) AS question_config`, [campaignId]);
+          ON i.id=q.item_id WHERE i.campaign_id=$1) AS question_config,
+        (SELECT country_codes FROM campaigns WHERE id=$1) AS countries`, [campaignId]);
     const meta = metadata[0];
+    const dependencies = meta.schema_available ? (await client.query(`
+      SELECT jsonb_build_object(
+        'rules',(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]'::jsonb)
+          FROM mission_status_list_rules r WHERE campaign_id=$1),
+        'sources',(SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.question_id),'[]'::jsonb)
+          FROM mission_status_list_sources s WHERE campaign_id=$1),
+        'options',(SELECT coalesce(jsonb_agg(to_jsonb(o) ORDER BY o.group_id),'[]'::jsonb)
+          FROM mission_status_list_option_sources o WHERE campaign_id=$1)
+      ) AS config`, [campaignId])).rows[0]?.config : null;
     const fingerprint = createHash("sha256").update(JSON.stringify({
       campaignId, rows, items: meta.item_config, questions: meta.question_config, schema: meta.schema_available,
+      countries: meta.countries, dependencies,
     })).digest("hex");
     return {
       campaignId, source: "current_configuration",
@@ -106,6 +118,6 @@ export async function readTransitionInventory(client: Pick<PoolClient, "query">,
       activationAllowed: false,
     };
   } finally {
-    if (!options.withinTransaction) await client.query("ROLLBACK");
+    if (ownTransaction) await client.query("ROLLBACK");
   }
 }

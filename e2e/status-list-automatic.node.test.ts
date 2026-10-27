@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {mkdir} from "node:fs/promises";
 import {chromium} from "@playwright/test";
 import {createServer} from "vite";
-const server=await createServer({configFile:"vite.config.ts",logLevel:"error",
+const server=await createServer({configFile:"vite.config.ts",logLevel:"error",cacheDir:"/tmp/indexus-automatic-browser-cache",
   server:{host:"127.0.0.1",port:4181,strictPort:true}});
 await server.listen();
 const origin="http://127.0.0.1:4181";

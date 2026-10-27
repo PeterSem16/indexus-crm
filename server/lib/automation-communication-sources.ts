@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db";
-import { callRecordings, callLogs, chatMessages, taskComments, tasks, users } from "../../shared/schema";
+import { callRecordings, taskComments, tasks } from "../../shared/schema";
 import { emitEventOnceForIdentity } from "./event-bus";
 export async function publishTaskBodySource(taskId: string, eventId: string) {
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
@@ -12,17 +12,17 @@ export async function publishTaskBodySource(taskId: string, eventId: string) {
 
 /** Event payloads carry an identity only; analysis re-reads the authorized source. */
 export async function publishCommunicationServiceSource(channel: "chat" | "task" | "voice", id: string) {
+  if (channel === "chat") {
+    // Only transactionally enrolled new sources are eligible. Calling this
+    // with an old message identity must never replay chat history.
+    const { recoverChatAnalysis } = await import("./chat-analysis-outbox");
+    await recoverChatAnalysis();
+    return;
+  }
   let countryCode: string | null = null;
   let actorUserId: string | null = null;
   let eventType: string;
-  if (channel === "chat") {
-    const [message] = await db.select().from(chatMessages).where(eq(chatMessages.id, id));
-    if (!message) return;
-    const [receiver] = await db.select().from(users).where(eq(users.id, message.receiverId));
-    countryCode = receiver?.assignedCountries?.length === 1 ? receiver.assignedCountries[0] : null;
-    actorUserId = message.senderId;
-    eventType = "chat.received";
-  } else if (channel === "task") {
+  if (channel === "task") {
     const [comment] = await db.select().from(taskComments).where(eq(taskComments.id, id));
     if (!comment || (comment as any).kind === "state_change") return;
     const [task] = await db.select().from(tasks).where(eq(tasks.id, comment.taskId));

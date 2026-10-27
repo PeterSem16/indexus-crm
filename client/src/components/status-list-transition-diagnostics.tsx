@@ -11,9 +11,11 @@ import {
   type TransitionInventories,
   type TransitionInventory,
   type TransitionScenario,
+  type CallbackServiceStatus,
 } from "@shared/status-list-transition";
 import { getStatusListTransitionCopy } from "./status-list-transition-copy";
 import { StatusListCallbackTransitionControl } from "./status-list-callback-transition-control";
+import { StatusListTransitionEvidence } from "./status-list-transition-evidence";
 import "./status-list-transition-diagnostics.css";
 
 type Preset = "weekday" | "friday" | "weekend" | "springDst" | "manual" | "existing";
@@ -35,7 +37,7 @@ const issueKeys = {
   exclusion_changed: "exclusionChanged",
 } as const;
 const gates: Record<(typeof TRANSITION_GATES)[number], keyof ReturnType<typeof getStatusListTransitionCopy>> = {
-  executor_missing: "gateExecutor",
+  executor_unverified: "gateExecutor",
   ownership_unverified: "gateOwnership",
   inflight_unverified: "gateInflight",
   dependencies_unverified: "gateDependencies",
@@ -105,6 +107,17 @@ function ResultRows({ inventory, comparisons, copy, locale }: { inventory: Trans
 export function StatusListTransitionDiagnostics({ campaignId, locale }: { campaignId: string; locale: string }) {
   const copy = getStatusListTransitionCopy(locale);
   const query = useInventory(campaignId);
+  const runtime = useQuery<CallbackServiceStatus>({
+    queryKey: ["/api/campaigns", campaignId, "status-list-workflows", "transition-runtime"],
+    queryFn: async () => {
+      const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/status-list-workflows/transition-runtime`, {
+        credentials: "include", cache: "no-store",
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    },
+    enabled: Boolean(campaignId), staleTime: 0, refetchOnMount: "always",
+  });
   const [source, setSource] = useState<"current_configuration" | "audited_production">("current_configuration");
   const [itemId, setItemId] = useState("");
   const [callCount, setCallCount] = useState(0);
@@ -160,8 +173,20 @@ export function StatusListTransitionDiagnostics({ campaignId, locale }: { campai
     <header className="slt-head"><div><span className="slt-kicker">{copy.eyebrow}</span><h3>{copy.title}</h3><p>{copy.intro}</p></div></header>
     <div className="slt-body">
       <StatusListCallbackTransitionControl campaignId={campaignId} locale={locale}/>
+      <StatusListTransitionEvidence key={campaignId} campaignId={campaignId} locale={locale}
+        refreshKey={query.dataUpdatedAt} disabled={query.isFetching || query.isError || !query.data}/>
       {query.isFetching && !query.isError && <div className="slt-skeleton" role="status" aria-label={copy.loading} data-testid="transition-inventory-loading"/>}
       {query.isError && <div className="slt-warning" role="alert"><AlertTriangle size={15}/><span>{copy.error}</span><Button variant="outline" size="sm" data-testid="transition-inventory-retry" onClick={() => void query.refetch()}><RefreshCw size={13} className="mr-1"/>{copy.retry}</Button></div>}
+      <section className="slt-gates" data-testid="transition-runtime-status">
+        <header><strong>{copy.serviceStatus}</strong><Button variant="ghost" size="sm" aria-label={copy.retry} onClick={() => void runtime.refetch()}><RefreshCw size={13}/></Button></header>
+        {runtime.isFetching ? <p role="status">{copy.loading}</p> : runtime.isError || !runtime.data?.counts ? <p role="alert">{copy.serviceUnavailable}</p> : <>
+          <p>{!runtime.data.group?.enrolled ? copy.notEnrolled : runtime.data.group.owner === "service" ? copy.ownerService : copy.ownerLegacy}</p>
+          <ul><li>{copy.pendingEvents}: {runtime.data.counts.pending}</li><li>{copy.blockedEvents}: {runtime.data.counts.blocked}</li><li>{copy.deferredWork}: {runtime.data.counts.deferred}</li><li>{copy.doneEvents}: {runtime.data.counts.done}</li></ul>
+          {!!runtime.data.cutovers.length && <details className="slt-details"><summary>{copy.cutoverAudit}</summary>
+            {runtime.data.cutovers.map(row => <p key={row.id}>{new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Bratislava" }).format(new Date(row.createdAt))} · {row.actorId} · {row.fromOwner} → {row.toOwner} · #{row.generation}</p>)}
+          </details>}
+        </>}
+      </section>
       {!query.isFetching && !query.isError && inventories && <><div className="slt-warning" data-testid="transition-not-live-warning"><AlertTriangle size={15}/><span>{source === "audited_production" ? interpolate(copy.auditedWarning, { date: snapshotDate }) : copy.currentWarning}</span></div>{selectedInventory && !selectedInventory.evidence.schemaAvailable && <div className="slt-warning"><AlertTriangle size={15}/><span>{copy.schemaWarning}</span></div>}</>}
       {inventories && <div className="slt-controls">
         <label className="slt-field">{copy.source}<select data-testid="transition-source" value={source} onChange={event => { setSource(event.target.value as typeof source); setResultState(null); }}>

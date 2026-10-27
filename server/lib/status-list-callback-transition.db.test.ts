@@ -247,6 +247,13 @@ try {
   await root.query(`INSERT INTO campaign_status_list_automations
     SELECT * FROM jsonb_populate_record(NULL::campaign_status_list_automations,$1::jsonb)`, [JSON.stringify(removedAction)]);
   await root.query("UPDATE campaign_status_list_automations SET callback_offset_days=100 WHERE id=$1", [action.id]);
+  await root.query("CREATE TABLE mission_callback_groups(campaign_id varchar PRIMARY KEY,enrolled boolean)");
+  await root.query("INSERT INTO mission_callback_groups VALUES($1,false)", [mission]);
+  const reserved = await callbackReadiness(root, mission);
+  assert.ok(reserved.blockers.includes("service_transition_reserved"));
+  await assert.rejects(() => switchCallbackOwner(mission, "agent", {
+    ...input, fingerprint: reserved.fingerprint, expectedOwner: reserved.owner,
+  }, connections), /readiness_changed/);
   console.log("Isolated PostgreSQL checks passed: atomic capture, concurrent confirmations/workers/reviewers, rollback recovery, live provenance/dependencies, no replay and safe ownership rollback.");
 } finally {
   await root.query("RESET search_path");

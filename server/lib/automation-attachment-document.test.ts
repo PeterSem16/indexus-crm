@@ -83,6 +83,10 @@ async function main() {
   assert.equal((await prepareAnalysisAttachment(jpg, "image/pjpeg", "scan.jpg")).mime, "image/jpeg");
   assert.equal((await prepareAnalysisAttachment(png, "image/img", "scan.img")).mime, "image/png");
   assert.equal((await prepareAnalysisAttachment(Buffer.from("%PDF-1.7\nexample"), "application/pdf", "a.pdf")).mime, "application/pdf");
+  await assert.rejects(prepareAnalysisAttachment(Buffer.from("%PDF-1.7\ntrailer << /Encrypt 5 0 R >>"), "application/pdf", "a.pdf"),
+    /analysis_document_encrypted/);
+  await assert.rejects(prepareAnalysisAttachment(legacyWord("Invoice", false, true), "application/msword", "a.doc"),
+    /analysis_document_encrypted/);
   assert.equal((await prepareAnalysisAttachment(Buffer.from("Faktúra,120 EUR"), "text/csv; charset=utf-8", "a.csv")).text, "Faktúra,120 EUR");
 
   for (const [bytes, mime, name] of [

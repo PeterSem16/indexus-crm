@@ -37,7 +37,7 @@ export function getTaskRequestBrief(
   description: string | null | undefined,
   locale: Locale,
 ): TaskRequestBriefText {
-  const original = taskDisplayText(description);
+  const original = taskDisplayText(description, locale);
   if (!original.trim()) {
     return { original, request: original, category: null, isFeatured: false };
   }

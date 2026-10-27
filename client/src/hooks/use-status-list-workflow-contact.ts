@@ -2,8 +2,12 @@ import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WorkflowAnswer, WorkflowCatalogItem } from "@shared/status-list-workflow";
+import type { StatusListRepresentativeInformation } from "@shared/status-list-representative-information";
+import type { RepresentativeCheckConfig } from "@shared/status-list-representative-check";
 
 export type WorkflowContactData = {
+  representativeInformation?: StatusListRepresentativeInformation[];
+  representativeChecks?: Array<{ questionId: string; config: RepresentativeCheckConfig }>;
   executionIssues?: Array<{ automationId: string; eventKey: string; status: string; createdAt: string; itemLabel?: string }>;
   answers: Record<string, WorkflowAnswer>;
   answerMetadata?: Record<string, { answeredAt: string | null; answeredByName: string | null; actorKind: string | null }>;

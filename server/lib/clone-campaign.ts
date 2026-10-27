@@ -241,6 +241,7 @@ export async function cloneCampaignWithConfiguration(
         campaignId: newCampaignId,
         stepId: row.stepId,
         label: row.label,
+        labelTranslations: row.labelTranslations,
         description: row.description,
         sortOrder: row.sortOrder,
         required: row.required,
