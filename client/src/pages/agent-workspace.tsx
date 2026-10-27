@@ -37,6 +37,7 @@ import { statusListReportingLabel } from "@/components/status-list-reporting-lab
 import { resolveStatusListDestination } from "@/lib/status-list-navigation";
 import { STATUS_LIST_DIALOG_FRAME_CLASS } from "@/components/status-list-dialog-frame";
 import "@/components/status-list-dialog-frame.css";
+import "@/components/nexus-call-result-sheet.css";
 import { StatusListAgentActionRow, StatusListAgentItemFrame, StatusListAgentItemHeading, StatusListAgentQuestionChoices, StatusListBatchBanner, StatusListBatchSaveButton, StatusListPhasePipeline, StatusListQuickOptionsPanel } from "@/components/status-list-agent-preview";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -17348,22 +17349,21 @@ function AgentWorkspacePageContent() {
         <SheetContent
           side="right"
           drawerWidth="wide"
-          className={`w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
-          style={STONE_TERRACOTTA_VARS}
+          className={`nexus-call-result w-full sm:max-w-[720px] p-0 flex flex-col gap-0 ${mandatoryDisposition ? "[&>button]:hidden" : ""}`}
+          data-testid="call-result-sheet"
           onPointerDownOutside={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
           onEscapeKeyDown={mandatoryDisposition ? (e) => e.preventDefault() : undefined}
         >
-          {/* Sticky header — Stone & Terracotta */}
+          {/* Compact Pulse header */}
           {(() => {
-            const dispAc = dispositionChannelFilter === "phone" ? "#B5622E"
-              : dispositionChannelFilter === "email" ? "#5B4FCF"
-              : dispositionChannelFilter === "sms" ? "#2E75B6"
-              : "#7A6858";
+            const dispAc = dispositionChannelFilter === "email" ? "#4b82ad"
+              : dispositionChannelFilter === "sms" ? "#318b91"
+              : "#347caf";
             const DispIcon = dispositionChannelFilter === "email" ? Mail
               : dispositionChannelFilter === "sms" ? MessageSquare
               : Phone;
             return (
-              <SheetHeader className="px-5 py-4 border-b space-y-0" style={{ background: "#FFFFFF", borderBottomColor: `${dispAc}35` }}>
+              <SheetHeader className="nexus-call-result-header px-5 py-4 border-b space-y-0" style={{ borderBottomColor: `${dispAc}35` }}>
                 <div className="flex items-center gap-3">
                   <div className="shrink-0 h-10 w-10 rounded-xl flex items-center justify-center" style={{ background: dispAc, boxShadow: `0 2px 8px ${dispAc}45` }}>
                     <DispIcon className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
@@ -17401,13 +17401,13 @@ function AgentWorkspacePageContent() {
           })()}
 
           {/* Body */}
-          <ScrollArea className="flex-1 min-h-0 bg-background">
+          <ScrollArea className="nexus-call-result-body flex-1 min-h-0 bg-background">
             <div className="px-4 py-4 space-y-4">
               {campaignDispositions.length === 0 ? (
                 <div className="text-center py-16">
                   <Target className="h-12 w-12 mx-auto text-muted-foreground/20 mb-3" />
-                  <p className="text-sm font-medium">{t.agentWorkspace.dispNoResults}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{t.agentWorkspace.dispNoResultsHint}</p>
+                  <p className="text-sm font-medium">{t.nexusPulse.dispNoResults}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t.nexusPulse.dispNoResultsHint}</p>
                 </div>
               ) : checklistParentId ? (() => {
                 /* ---- Step 2: Dvojkrokový výber (Checklist) ---- */
@@ -17756,7 +17756,7 @@ function AgentWorkspacePageContent() {
                   <div className="space-y-3">
                     {multiSelectMode && (
                       <div className="rounded-md border border-dashed p-2 text-xs text-muted-foreground bg-muted/20">
-                        {t.agentWorkspace.dispMultiHint}
+                        {t.nexusPulse.dispMultiHint}
                       </div>
                     )}
                     <NexusPulseView
@@ -17765,7 +17765,7 @@ function AgentWorkspacePageContent() {
                       getStatusName={(s) => getDispName(s as any)}
                       multiSelectMode={multiSelectMode}
                       selectedIds={selectedSet}
-                      emptyMessage={t.agentWorkspace.dispNoResults}
+                      emptyMessage={t.nexusPulse.dispNoResults}
                       onSelectStatus={(disp: any) => {
                         // Detect children WITHOUT channel filter so we never miss them
                         const hasChildren = campaignDispositions.some((d: any) => d.parentId === disp.id && d.isActive);
@@ -17814,10 +17814,10 @@ function AgentWorkspacePageContent() {
               {isNonMissionInboundDisposition && !modalSelectedParent && !checklistParentId && (
                 <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: "hsl(var(--primary) / 0.3)", background: "hsl(var(--primary) / 0.06)" }}>
                   <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#B5622E" }}>
+                    <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#347caf" }}>
                       <CalendarPlus className="h-3.5 w-3.5 text-white" />
                     </div>
-                    <p className="text-sm font-semibold">{t.agentWorkspace.dispScheduleInboundCb}</p>
+                    <p className="text-sm font-semibold">{t.nexusPulse.dispScheduleInboundCb}</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -17852,7 +17852,7 @@ function AgentWorkspacePageContent() {
                   <Textarea
                     value={modalCallbackNote}
                     onChange={(e) => setModalCallbackNote(e.target.value)}
-                    placeholder={t.agentWorkspace.dispCallNotePlaceholderOptional}
+                    placeholder={t.nexusPulse.dispCallNotePlaceholderOptional}
                     className="min-h-[50px] max-h-[100px] text-sm"
                     data-testid="input-inbound-cb-note"
                   />
@@ -17878,9 +17878,9 @@ function AgentWorkspacePageContent() {
                         });
                         queryClient.invalidateQueries({ queryKey: ["/api/agent/scheduled-queue"] });
                         queryClient.invalidateQueries({ queryKey: ["/api/agent/inbound-callbacks"] });
-                        toast({ title: t.agentWorkspace.dispCbScheduledTitle, description: `${modalCallbackDate} ${modalCallbackTime}` });
+                        toast({ title: t.nexusPulse.dispCbScheduledTitle, description: `${modalCallbackDate} ${modalCallbackTime}` });
                       } catch (e) {
-                        toast({ title: t.agentWorkspace.dispErrorTitle, description: t.agentWorkspace.dispCbScheduleFailed, variant: "destructive" });
+                        toast({ title: t.nexusPulse.dispErrorTitle, description: t.nexusPulse.dispCbScheduleFailed, variant: "destructive" });
                         return;
                       }
                       setIsNonMissionInboundDisposition(false);
@@ -17892,7 +17892,7 @@ function AgentWorkspacePageContent() {
                     }}
                     data-testid="btn-inbound-cb-confirm"
                   >
-                    <CalendarPlus className="h-4 w-4 mr-1" /> {t.agentWorkspace.dispScheduleCbBtn}
+                    <CalendarPlus className="h-4 w-4 mr-1" /> {t.nexusPulse.dispScheduleCbBtn}
                   </Button>
                   <Button
                     variant="outline"
@@ -17924,21 +17924,21 @@ function AgentWorkspacePageContent() {
                 return (
                   <div className="pt-2 border-t">
                     <Label htmlFor="disp-notes" className={`text-xs font-medium flex items-center gap-1 ${noteRequired ? "text-amber-700" : "text-muted-foreground"}`}>
-                      {t.agentWorkspace.dispCallNoteLabel}
+                      {t.nexusPulse.dispCallNoteLabel}
                       {noteRequired
-                        ? <span className="text-amber-600 font-semibold">*&nbsp;{t.agentWorkspace.dispRequired}</span>
-                        : <span className="text-muted-foreground font-normal">{t.agentWorkspace.dispOptional}</span>}
+                        ? <span className="text-amber-600 font-semibold">*&nbsp;{t.nexusPulse.dispRequired}</span>
+                        : <span className="text-muted-foreground font-normal">{t.nexusPulse.dispOptional}</span>}
                     </Label>
                     <Textarea
                       id="disp-notes"
                       value={callNotes}
                       onChange={(e) => setCallNotes(e.target.value)}
-                      placeholder={noteRequired ? t.agentWorkspace.dispNoteRequiredPlaceholder : t.agentWorkspace.dispNoteShortPlaceholder}
+                      placeholder={noteRequired ? t.nexusPulse.dispNoteRequiredPlaceholder : t.nexusPulse.dispNoteShortPlaceholder}
                       className={`mt-1 min-h-[60px] max-h-[120px] text-sm ${noteRequired && !callNotes.trim() ? "border-amber-400 focus:ring-amber-400" : ""}`}
                       data-testid="input-disp-notes"
                     />
                     {noteRequired && !callNotes.trim() && (
-                      <p className="text-[11px] text-amber-600 mt-1">{t.agentWorkspace.dispNoteRequiredWarn}</p>
+                      <p className="text-[11px] text-amber-600 mt-1">{t.nexusPulse.dispNoteRequiredWarn}</p>
                     )}
                   </div>
                 );
@@ -17961,14 +17961,14 @@ function AgentWorkspacePageContent() {
             const effectiveChild = sortedByPriority[0];
             const aw = t.agentWorkspace as any;
             const actionLabels: Record<string, string> = {
-              callback: `⏰ ${aw.actionWillScheduleCall ?? "Schedule call"}`,
-              schedule_email: `📧 ${aw.actionWillScheduleEmail ?? "Schedule email"}`,
-              schedule_sms: `💬 ${aw.actionWillScheduleSms ?? "Schedule SMS"}`,
-              dnd: `🚫 ${aw.actionWillDnd ?? t.statusEngine.dnd}`,
-              complete: `✓ ${aw.actionWillComplete ?? t.statusEngine.complete}`,
-              convert: `★ ${aw.actionWillConvert ?? t.statusEngine.convert}`,
-              send_email: `📤 ${aw.actionWillSendEmail ?? "Send email"}`,
-              send_sms: `📱 ${aw.actionWillSendSms ?? "Send SMS"}`,
+              callback: aw.actionWillScheduleCall ?? "Schedule call",
+              schedule_email: aw.actionWillScheduleEmail ?? "Schedule email",
+              schedule_sms: aw.actionWillScheduleSms ?? "Schedule SMS",
+              dnd: aw.actionWillDnd ?? t.statusEngine.dnd,
+              complete: aw.actionWillComplete ?? t.statusEngine.complete,
+              convert: aw.actionWillConvert ?? t.statusEngine.convert,
+              send_email: aw.actionWillSendEmail ?? "Send email",
+              send_sms: aw.actionWillSendSms ?? "Send SMS",
             };
             const effectiveActionLabel = effectiveChild
               ? actionLabels[effectiveChild.actionType]
@@ -18016,7 +18016,7 @@ function AgentWorkspacePageContent() {
                     data-testid="btn-checklist-confirm"
                   >
                     <Target className="h-4 w-4 mr-1" />
-                    {needsCallbackDate ? t.agentWorkspace.dispScheduleAndSave : t.agentWorkspace.dispSaveResult}
+                    {needsCallbackDate ? t.nexusPulse.dispScheduleAndSave : t.nexusPulse.dispSaveResult}
                   </Button>
                 </div>
               </div>
@@ -18028,11 +18028,11 @@ function AgentWorkspacePageContent() {
             <div className="border-t bg-background px-6 py-3 flex items-center gap-2">
               <div className="text-xs text-muted-foreground flex-1">
                 {multiSelectedCodes.length === 0
-                  ? t.agentWorkspace.dispNoSelection
-                  : `${t.agentWorkspace.dispSelectedPrefix}: ${multiSelectedCodes.length} (${t.agentWorkspace.dispFirstIsPrimary})`}
+                  ? t.nexusPulse.dispNoSelection
+                  : `${t.nexusPulse.dispSelectedPrefix}: ${multiSelectedCodes.length} (${t.nexusPulse.dispFirstIsPrimary})`}
               </div>
               <Button variant="outline" size="sm" onClick={() => setMultiSelectedCodes([])} disabled={multiSelectedCodes.length === 0} data-testid="btn-multi-clear">
-                {t.agentWorkspace.dispClearSelection}
+                {t.nexusPulse.dispClearSelection}
               </Button>
               <Button
                 size="sm"
@@ -18046,7 +18046,7 @@ function AgentWorkspacePageContent() {
                       const d = campaignDispositions.find((x: any) => x.code === c);
                       return d ? getDispName(d) : c;
                     });
-                    const tag = `${t.agentWorkspace.dispMoreResults}: ${labels.join(", ")}`;
+                    const tag = `${t.nexusPulse.dispMoreResults}: ${labels.join(", ")}`;
                     finalNotes = callNotes ? `${callNotes}\n${tag}` : tag;
                     setCallNotes(finalNotes);
                   }
@@ -18055,7 +18055,7 @@ function AgentWorkspacePageContent() {
                 data-testid="btn-multi-confirm"
               >
                 <Target className="h-4 w-4 mr-1" />
-                {t.agentWorkspace.dispConfirm} ({multiSelectedCodes.length})
+                {t.nexusPulse.dispConfirm} ({multiSelectedCodes.length})
               </Button>
             </div>
           )}
