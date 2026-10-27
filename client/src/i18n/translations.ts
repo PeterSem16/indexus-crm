@@ -1,4 +1,5 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
+import { hospitalAgreementTranslations, type HospitalAgreementCopy } from "../components/hospital-agreement-copy";
 import { getStatusListNavigationCopy } from "./status-list-navigation-copy";
 import { statusListRepresentativeInformationTranslations, type StatusListRepresentativeInformationCopy } from "./status-list-representative-information-copy";
 import { representativeCheckCopy, type RepresentativeCheckCopy } from "./status-list-representative-check-copy";
@@ -2118,6 +2119,7 @@ export interface Translations {
     };
   };
   hospitals: {
+    agreements: HospitalAgreementCopy;
     title: string;
     description: string;
     addHospital: string;
@@ -64179,4 +64181,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
   translations[locale].forwardReview = forwardReviewTranslations[locale];
   translations[locale].automationBlockEditor = automationBlockEditorCopy[locale];
+  translations[locale].hospitals.agreements = hospitalAgreementTranslations[locale];
 }
