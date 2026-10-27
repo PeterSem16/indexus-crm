@@ -453,6 +453,26 @@ export const clinicAgreements = pgTable("clinic_agreements", {
 }, table => ({ clinicIndex: index("idx_clinic_agreements_clinic").on(table.clinicId) }));
 export type ClinicAgreement = typeof clinicAgreements.$inferSelect;
 
+// Hospital-owned contracts are independent of clinic and Person agreements.
+export const hospitalAgreements = pgTable("hospital_agreements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  contractNumber: text("contract_number"),
+  validFrom: date("valid_from"),
+  validTo: date("valid_to"),
+  active: boolean("active").notNull().default(true),
+  endedAt: timestamp("ended_at"),
+  fileName: text("file_name").notNull(),
+  storageKey: text("storage_key").notNull().unique(),
+  contentType: text("content_type").notNull(),
+  fileSize: integer("file_size").notNull(),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+}, table => ({ hospitalIndex: index("idx_hospital_agreements_hospital").on(table.hospitalId) }));
+export type HospitalAgreement = typeof hospitalAgreements.$inferSelect;
+
 // ── Clinic Representative Assignments (s históriou platnosti) ──────────────
 // Každé priradenie má validFrom–validTo; NULL validTo = aktuálne platné.
 // Pri zmene reprezentanta sa staré priradenie uzavrie (validTo = now())

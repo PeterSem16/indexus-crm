@@ -47,7 +47,20 @@ export async function publicFinderContext(slug: string) {
 }
 export async function finderProviders(company: string, country: string, readPeople: boolean, publicView = false): Promise<FinderProvider[]> {
   const { rows } = await pool.query(`
-    WITH sites AS (
+    WITH hospital_contracts AS (
+      SELECT hospital_id,
+        bool_or(active AND ended_at IS NULL
+          AND (valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
+          AND (valid_to IS NULL OR valid_to >= (now() AT TIME ZONE 'Europe/Bratislava')::date)) AS current_agreement,
+        bool_or(active AND ended_at IS NULL AND storage_key<>''
+          AND (valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
+          AND (valid_to IS NULL OR valid_to >= (now() AT TIME ZONE 'Europe/Bratislava')::date)) AS uploaded_contract,
+        bool_or((valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
+          AND storage_key<>'' AND (ended_at IS NULL OR valid_from IS NULL OR ended_at::date>=valid_from)
+          AND ((valid_to IS NOT NULL AND valid_to < (now() AT TIME ZONE 'Europe/Bratislava')::date)
+            OR ended_at<=now())) AS previous_agreement
+      FROM hospital_agreements GROUP BY hospital_id
+    ), sites AS (
       SELECT c.id,'clinic' AS type,c.name,COALESCE(c.address,'') AS address,COALESCE(c.city,'') AS city,
         c.latitude,c.longitude,c.is_active,
         (EXISTS(SELECT 1 FROM clinic_agreements a WHERE a.clinic_id=c.id AND a.active=true AND a.ended_at IS NULL
@@ -78,11 +91,12 @@ export async function finderProviders(company: string, country: string, readPeop
             AND target.id<>c.id AND r.referral_type IN ('doctor_referral','doctor_suggests')) AS referral_given
       FROM clinics c WHERE c.country_code=$1
       UNION ALL
-      SELECT h.id,'hospital',h.name,COALESCE(h.street_number,''),COALESCE(h.city,''),h.latitude,h.longitude,h.is_active,false,false,NULL::timestamp,
-        false,false,EXISTS(SELECT 1 FROM hospital_representative_assignments a JOIN users u ON u.id=a.user_id AND u.is_active=true
+      SELECT h.id,'hospital',h.name,COALESCE(h.street_number,''),COALESCE(h.city,''),h.latitude,h.longitude,h.is_active,
+        COALESCE(hc.current_agreement,false),false,NULL::timestamp,
+        false,COALESCE(hc.uploaded_contract,false),EXISTS(SELECT 1 FROM hospital_representative_assignments a JOIN users u ON u.id=a.user_id AND u.is_active=true
           WHERE a.hospital_id=h.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now())),
-        NULL::boolean,NULL::boolean,NULL::boolean,NULL::boolean
-      FROM hospitals h WHERE h.country_code=$1
+        COALESCE(hc.current_agreement,false),COALESCE(hc.previous_agreement,false),NULL::boolean,NULL::boolean
+      FROM hospitals h LEFT JOIN hospital_contracts hc ON hc.hospital_id=h.id WHERE h.country_code=$1
     )
     SELECT s.*,CASE WHEN $2::boolean THEN COALESCE((
       SELECT jsonb_agg(jsonb_build_object('id',q.id,'name',q.name) ORDER BY q.name,q.id) FROM (
@@ -139,7 +153,7 @@ export async function finderProviders(company: string, country: string, readPeop
         currentAgreement: r.current_agreement == null ? undefined : r.current_agreement === true,
         previousAgreement: r.previous_agreement == null ? undefined : r.previous_agreement === true,
         cooperation: r.type === "clinic" && r.cooperating != null ? r.cooperating === true : undefined,
-        uploadedContract: r.type === "clinic" ? r.uploaded_contract === true : undefined,
+        uploadedContract: r.uploaded_contract === true,
         representative: r.has_representative === true,
         referralReceived: r.referral_received == null ? undefined : r.referral_received === true,
         referralGiven: r.referral_given == null ? undefined : r.referral_given === true,

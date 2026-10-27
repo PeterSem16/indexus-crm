@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { RepresentativePanel } from "@/components/clinic-representative-panel";
 import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
+import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
 
 interface HospitalFormData {
   legacyId: string;
@@ -63,7 +64,8 @@ interface HospitalFormWizardProps {
   onCancel?: () => void;
   mode?: "inline";
   readOnly?: boolean;
-  readOnlyExceptions?: { personnel?: boolean };
+  readOnlyExceptions?: { personnel?: boolean; agreements?: boolean };
+  campaignId?: string;
   onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void;
   headerBadge?: ReactNode;
 }
@@ -76,14 +78,14 @@ const WIZARD_STEPS = [
   { id: "review", icon: Check },
 ];
 
-export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, onCallPhone, headerBadge }: HospitalFormWizardProps) {
+export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCancel, mode, readOnly = false, readOnlyExceptions, campaignId, onCallPhone, headerBadge }: HospitalFormWizardProps) {
   const roEx = readOnlyExceptions || {};
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const { isHidden, isReadonly } = useModuleFieldPermissions("hospitals");
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings" | "representative" | "history">("basic");
+  const [inlineTab, setInlineTab] = useState<"basic" | "address" | "contacts" | "settings" | "representative" | "history" | "agreements">("basic");
 
   const emptyForm: HospitalFormData = {
     legacyId: "",
@@ -723,6 +725,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
     { id: "contacts" as const, label: t.hospitals?.contactPerson || "Kontakty", icon: Users, step: 2 },
     { id: "settings" as const, label: t.settings?.title || "Nastavenia", icon: Settings, step: 3 },
     { id: "representative" as const, label: t.representantPanel.tabLabel, icon: UserCheck, step: -1 },
+    { id: "agreements" as const, label: t.hospitals.agreements.tab, icon: FileText, step: -3 },
     ...(initialData?.id ? [{ id: "history" as const, label: getRecordEntryCopy(locale).entries, icon: FileText, step: -2 }] : []),
   ];
 
@@ -762,9 +765,11 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
               <h3 className="font-semibold text-foreground">{formData.name || t.hospitals?.title || "Nemocnica"}</h3>
               {headerBadge}
             </div>
-            <fieldset disabled={readOnly && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
+            <fieldset disabled={readOnly && inlineTab !== "agreements" && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {inlineTab === "representative" && initialData?.id ? (
                 <RepresentativePanel entityType="hospital" entityId={initialData.id} />
+              ) : inlineTab === "agreements" ? (
+                <ClinicAgreementsPanel entityType="hospital" clinicId={initialData?.id || null} countryCode={formData.countryCode || "SK"} readOnly={readOnly} allowReadOnlyEdit={!!roEx.agreements} campaignId={campaignId} />
               ) : inlineTab === "history" && initialData?.id ? (
                 <div className="space-y-4"><AutomationRecordEntriesPanel entityType="hospital" entityId={String(initialData.id)} /><AutomationRecordEntriesPanel entityType="hospital" entityId={String(initialData.id)} documentsOnly /></div>
               ) : inlineTab === "representative" ? (

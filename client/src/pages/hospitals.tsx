@@ -66,6 +66,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity-panel";
+import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
 
 interface HospitalFormData {
   isActive: boolean;
@@ -304,6 +305,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
     { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
+    { id: "agreements", label: t.hospitals.agreements.tab, icon: FileText },
     { id: "representative", label: t.representantPanel?.tabLabel || "Reprezentant", icon: UserCheck },
   ];
 
@@ -378,7 +380,7 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
                   <Label htmlFor="ed-hospital-ico">{t.healthcareLegalEntity.ico}</Label>
                   <Input id="ed-hospital-ico" value={formData.ico} onChange={(e) => setFormData({ ...formData, ico: e.target.value })} data-testid="input-ed-hospital-ico" />
                 </div>
-                {["SK", "CZ", "RO"].includes(hospital.countryCode || "") && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
+                {["SK", "CZ", "RO"].includes(hospital.countryCode || "") && <HealthcareLegalEntityPanel facilityType="hospital" facilityId={String(hospital.id)} ico={formData.ico} countryCode={hospital.countryCode || "SK"} siteName={formData.fullName || formData.name} address={formData.streetNumber} city={formData.city} postalCode={formData.postalCode} />}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="ed-country">{t.common.country} *</Label>
@@ -523,6 +525,10 @@ export function HospitalEditDrawer({ hospital, onClose, onSuccess, portalToBody 
               <EntityCampaignTimeline entityType="hospital" entityId={hospital.id} entityName={hospital.fullName || hospital.name} />
             )}
 
+            {activeSection === "agreements" && (
+              <ClinicAgreementsPanel entityType="hospital" clinicId={String(hospital.id)} countryCode={hospital.countryCode || "SK"} />
+            )}
+
             {activeSection === "representative" && (
               <RepresentativePanel entityType="hospital" entityId={hospital.id} />
             )}
@@ -631,6 +637,7 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
     { id: "basic", label: t.clinics.steps.basic, icon: Building2 },
     { id: "personnel", label: mpnT.personnel || "Personnel", icon: Users },
     { id: "campaigns", label: (t as any).campaigns?.title || "Campaigns", icon: Target },
+    { id: "agreements", label: t.hospitals.agreements.tab, icon: FileText },
     { id: "representative", label: t.representantPanel?.tabLabel || "Reprezentant", icon: UserCheck },
   ];
 
@@ -851,6 +858,10 @@ function HospitalAddDrawer({ onClose, onSuccess }: { onClose: () => void; onSucc
                 <Target className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">{(t as any).campaigns?.noCampaigns || "Campaigns can be added after saving."}</p>
               </div>
+            )}
+
+            {activeSection === "agreements" && (
+              <ClinicAgreementsPanel entityType="hospital" clinicId={savedHospitalId} countryCode={formData.countryCode || "SK"} />
             )}
 
             {activeSection === "representative" && (

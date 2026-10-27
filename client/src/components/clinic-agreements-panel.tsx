@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Download, Plus, Pencil, X, Check, Loader2, ShieldAlert } from "lucide-react";
+import { FileText, Download, Plus, Pencil, X, Check, Loader2, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,10 @@ import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/contexts/auth-context";
 import { canEditClinicAgreements } from "@shared/clinic-agreement-permissions";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ClinicAgreement = {
   id: string; clinicId: string; title: string; contractNumber: string | null;
@@ -18,8 +22,8 @@ type ClinicAgreement = {
 };
 type AgreementResponse = { agreements: ClinicAgreement[]; canManage: boolean };
 type AgreementDraft = { title: string; contractNumber: string; validFrom: string; validTo: string; active: boolean };
-const queryKey = (id: string, userId: string, campaignId?: string, readOnly = false, allowReadOnlyEdit = false) =>
-  ["/api/clinics", id, "agreements", userId, campaignId || null, readOnly, allowReadOnlyEdit] as const;
+const queryKey = (entityType: "clinic" | "hospital", id: string, userId: string, campaignId?: string, readOnly = false, allowReadOnlyEdit = false) =>
+  [`/api/${entityType === "clinic" ? "clinics" : "hospitals"}`, id, "agreements", userId, campaignId || null, readOnly, allowReadOnlyEdit] as const;
 
 async function checkedJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -44,10 +48,12 @@ function bratislavaDateKey() {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
-export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnlyEdit = false, campaignId, countryCode = "SK" }: { clinicId?: string | null; readOnly?: boolean; allowReadOnlyEdit?: boolean; campaignId?: string; countryCode?: string }) {
+export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnlyEdit = false, campaignId, countryCode = "SK", entityType = "clinic" }: { clinicId?: string | null; readOnly?: boolean; allowReadOnlyEdit?: boolean; campaignId?: string; countryCode?: string; entityType?: "clinic" | "hospital" }) {
   const { t } = useI18n();
   const { user } = useAuth();
-  const tx = { ...t.clinics.agreements, noTimeLimit: t.datePicker.noTimeLimit };
+  const tx = entityType === "hospital"
+    ? { ...t.hospitals.agreements, noTimeLimit: t.datePicker.noTimeLimit }
+    : { ...t.clinics.agreements, delete: t.common.delete, deleteConfirmTitle: t.common.confirm, deleteConfirmDescription: t.common.confirm, deleteCancel: t.common.cancel, deleteConfirm: t.common.delete, deleteError: t.errors.saveFailed, noTimeLimit: t.datePicker.noTimeLimit };
   const userId = String(user?.id ?? "anonymous");
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
@@ -62,9 +68,11 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
   const busyRef = useRef(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AgreementDraft | null>(null);
-  const scopedKey = queryKey(clinicId || "unsaved", userId, campaignId, readOnly, allowReadOnlyEdit);
+  const [deleteTarget, setDeleteTarget] = useState<ClinicAgreement | null>(null);
+  const entityPath = entityType === "clinic" ? "clinics" : "hospitals";
+  const scopedKey = queryKey(entityType, clinicId || "unsaved", userId, campaignId, readOnly, allowReadOnlyEdit);
   const agreementUrl = (agreementId?: string) =>
-    `/api/clinics/${encodeURIComponent(clinicId!)}/agreements${agreementId ? `/${encodeURIComponent(agreementId)}` : ""}${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}`;
+    `/api/${entityPath}/${encodeURIComponent(clinicId!)}/agreements${agreementId ? `/${encodeURIComponent(agreementId)}` : ""}${campaignId ? `?campaignId=${encodeURIComponent(campaignId)}` : ""}`;
   const { data, isLoading, isError, refetch } = useQuery<AgreementResponse>({
     queryKey: scopedKey,
     enabled: !!clinicId,
@@ -72,8 +80,10 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
     refetchOnMount: "always",
     queryFn: async () => checkedJson<AgreementResponse>(await fetch(agreementUrl(), { credentials: "include" })),
   });
-  const canManage = canEditClinicAgreements(data?.canManage, readOnly, allowReadOnlyEdit);
-  const invalidate = async () => { if (clinicId) await queryClient.invalidateQueries({ queryKey: ["/api/clinics", clinicId, "agreements", userId] }); };
+  const canManage = entityType === "clinic"
+    ? canEditClinicAgreements(data?.canManage, readOnly, allowReadOnlyEdit)
+    : !!data?.canManage && (!readOnly || allowReadOnlyEdit);
+  const invalidate = async () => { if (clinicId) await queryClient.invalidateQueries({ queryKey: [`/api/${entityPath}`, clinicId, "agreements", userId] }); };
   const startEdit = (row: ClinicAgreement) => {
     if (!canManage) return;
     setError(""); setEditingId(row.id);
@@ -125,6 +135,19 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
     } catch { setError(tx.uploadError); }
     finally { busyRef.current = false; setBusyId(null); }
   };
+  const removeAgreement = async () => {
+    if (!clinicId || !deleteTarget || !canManage || entityType !== "hospital" || busyRef.current) return;
+    const target = deleteTarget;
+    busyRef.current = true;
+    setBusyId(target.id);
+    setError("");
+    try {
+      await checkedJson(await fetch(agreementUrl(target.id), { method: "DELETE", credentials: "include" }));
+      await invalidate();
+      setDeleteTarget(null);
+    } catch { setError(tx.deleteError); }
+    finally { busyRef.current = false; setBusyId(null); }
+  };
 
   if (!clinicId) return (
     <div className="mx-auto my-8 max-w-lg rounded-xl border border-dashed bg-muted/20 px-6 py-10 text-center">
@@ -137,7 +160,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
   const today = bratislavaDateKey();
   const isBusy = !!busyId;
   return (
-    <section className="space-y-5" aria-label={tx.title} data-testid="clinic-agreements-panel">
+    <section className="space-y-5" aria-label={tx.title} data-testid={`${entityType}-agreements-panel`}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="flex items-center gap-2 text-base font-semibold"><FileText className="h-4 w-4 text-primary" />{tx.title}</h3>
@@ -187,10 +210,11 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
               </div>
             </div>
             <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">
-              <a aria-label={`${tx.download}: ${row.fileName}`} className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted" href={`/api/clinics/${encodeURIComponent(clinicId)}/agreements/${encodeURIComponent(row.id)}/download`} download>
+              <a aria-label={`${tx.download}: ${row.fileName}`} className="inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm hover:bg-muted" href={`/api/${entityPath}/${encodeURIComponent(clinicId)}/agreements/${encodeURIComponent(row.id)}/download`} download>
                 <Download className="h-4 w-4" /><span>{tx.download}</span>
               </a>
               {canManage && editingId !== row.id && <Button type="button" variant="ghost" size="sm" aria-label={tx.edit} disabled={isBusy} onClick={() => startEdit(row)}><Pencil className="mr-2 h-4 w-4" />{tx.edit}</Button>}
+              {entityType === "hospital" && canManage && editingId !== row.id && <Button type="button" variant="ghost" size="sm" aria-label={tx.delete} disabled={isBusy} onClick={() => setDeleteTarget(row)} className="text-destructive hover:text-destructive"><Trash2 className="mr-2 h-4 w-4" />{tx.delete}</Button>}
               {canManage && editingId === row.id && draft && <>
                 <Button type="button" variant="ghost" size="sm" aria-label={tx.cancel} disabled={isBusy} onClick={() => { setEditingId(null); setDraft(null); }}><X className="mr-2 h-4 w-4" />{tx.cancel}</Button>
                 <Button type="button" size="sm" aria-label={tx.save} disabled={!draft.title.trim() || (!editUnlimited && !draft.validTo) || isBusy} onClick={() => void patch(row, draft)}>{busyId === row.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}{tx.save}</Button>
@@ -217,6 +241,20 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
         </div>
         <div className="mt-4 flex justify-end"><Button type="submit" disabled={!file || !newTitle.trim() || (!newUnlimited && !newTo) || isBusy}>{busyId === "upload" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{busyId === "upload" ? tx.uploading : tx.upload}</Button></div>
       </form>}
+      <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open && !isBusy) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tx.deleteConfirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{tx.deleteConfirmDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBusy}>{tx.deleteCancel}</AlertDialogCancel>
+            <AlertDialogAction disabled={isBusy} onClick={event => { event.preventDefault(); void removeAgreement(); }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {busyId === deleteTarget?.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{tx.deleteConfirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

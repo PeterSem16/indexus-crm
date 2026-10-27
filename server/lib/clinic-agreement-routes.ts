@@ -12,14 +12,30 @@ import {
   agreementDatesValid, agreementFileExtension, agreementFilename,
 } from "./clinic-agreement-contract";
 
-const PRIVATE_DIR = path.join(path.dirname(DATA_ROOT), "private-clinic-agreements");
-const projection = `id, clinic_id AS "clinicId", title, contract_number AS "contractNumber",
+type AgreementEntity = "clinic" | "hospital";
+function agreementConfig(entity: AgreementEntity) {
+  return {
+    entityTable: entity === "clinic" ? "clinics" : "hospitals",
+    table: entity === "clinic" ? "clinic_agreements" : "hospital_agreements",
+    foreignKey: entity === "clinic" ? "clinic_id" : "hospital_id",
+    ownerKey: entity === "clinic" ? "clinicId" : "hospitalId",
+    privateDir: path.join(path.dirname(DATA_ROOT), `private-${entity}-agreements`),
+  };
+}
+const projectionFor = (entity: AgreementEntity) => {
+  const { foreignKey, ownerKey } = agreementConfig(entity);
+  return `id, ${foreignKey} AS "${ownerKey}", title, contract_number AS "contractNumber",
   to_char(valid_from,'YYYY-MM-DD') AS "validFrom", to_char(valid_to,'YYYY-MM-DD') AS "validTo",
   active, ended_at AS "endedAt", file_name AS "fileName", content_type AS "contentType",
   file_size AS "fileSize", created_at AS "createdAt", updated_at AS "updatedAt"`;
+};
 
 /** Private documents: country + module/assigned Mission authorization, before parsing files. */
 export async function clinicAgreementAccess(userId: string, clinicId: string, campaignId?: string) {
+  return entityAgreementAccess("clinic", userId, clinicId, campaignId);
+}
+export async function entityAgreementAccess(entity: AgreementEntity, userId: string, entityId: string, campaignId?: string) {
+  const { entityTable, foreignKey } = agreementConfig(entity);
   const { rows } = await pool.query(`
     SELECT u.role, u.role_id, u.assigned_countries, c.country_code,
       EXISTS (SELECT 1 FROM role_module_permissions p WHERE p.role_id=u.role_id
@@ -27,14 +43,14 @@ export async function clinicAgreementAccess(userId: string, clinicId: string, ca
       EXISTS (SELECT 1 FROM role_module_permissions p WHERE p.role_id=u.role_id
         AND p.module_key='hospitals' AND p.access='visible' AND p.can_edit) AS module_edit,
       EXISTS (SELECT 1 FROM campaign_contacts cc JOIN campaign_agents ca ON ca.campaign_id=cc.campaign_id
-         WHERE cc.clinic_id=c.id AND ca.user_id=u.id) AS mission_read,
+         WHERE cc.${foreignKey}=c.id AND ca.user_id=u.id) AS mission_read,
       (SELECT m.settings FROM campaigns m
         JOIN campaign_agents ca ON ca.campaign_id=m.id AND ca.user_id=u.id
         WHERE m.id=$3 AND EXISTS (SELECT 1 FROM campaign_contacts cc
-          WHERE cc.campaign_id=m.id AND cc.clinic_id=c.id)
+          WHERE cc.campaign_id=m.id AND cc.${foreignKey}=c.id)
         LIMIT 1) AS mission_settings
-    FROM users u CROSS JOIN clinics c WHERE u.id=$1 AND u.is_active AND c.id=$2
-  `, [userId, clinicId, campaignId || null]);
+    FROM users u CROSS JOIN ${entityTable} c WHERE u.id=$1 AND u.is_active AND c.id=$2
+  `, [userId, entityId, campaignId || null]);
   if (!rows.length) return { canRead: false, canManage: false };
   const row = rows[0];
   const admin = row.role === "admin";
@@ -48,13 +64,22 @@ export async function clinicAgreementAccess(userId: string, clinicId: string, ca
 }
 
 export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
-  const collection = "/api/clinics/:id/agreements";
+  registerEntityAgreementRoutes(app, requireAuth, "clinic");
+}
+export function registerHospitalAgreementRoutes(app: Express, requireAuth: any) {
+  registerEntityAgreementRoutes(app, requireAuth, "hospital");
+}
+function registerEntityAgreementRoutes(app: Express, requireAuth: any, entity: AgreementEntity) {
+  // All SQL identifiers come from this closed server-owned configuration, never request data.
+  const { entityTable, table, foreignKey, privateDir: PRIVATE_DIR } = agreementConfig(entity);
+  const projection = projectionFor(entity);
+  const collection = `/api/${entityTable}/:id/agreements`;
   const access = (manage: boolean) => async (req: Request, res: Response, next: NextFunction) => {
     try {
       const campaignId = req.query.campaignId;
       if (campaignId !== undefined && (typeof campaignId !== "string" || !campaignId.trim() || campaignId.length > 128))
         return res.status(400).json({ error: "Invalid Mission context" });
-      const permission = await clinicAgreementAccess(req.session.user!.id, req.params.id, campaignId as string | undefined);
+      const permission = await entityAgreementAccess(entity, req.session.user!.id, req.params.id, campaignId as string | undefined);
       if (!(manage ? permission.canManage : permission.canRead))
         return res.status(403).json({ error: "Forbidden" });
       res.locals.clinicAgreementPermission = permission;
@@ -68,7 +93,7 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
   app.get(collection, requireAuth, access(false), async (req, res) => {
     try {
       res.setHeader("Cache-Control", "private, no-store");
-      const { rows } = await pool.query(`SELECT ${projection} FROM clinic_agreements WHERE clinic_id=$1 ORDER BY created_at DESC,id`, [req.params.id]);
+      const { rows } = await pool.query(`SELECT ${projection} FROM ${table} WHERE ${foreignKey}=$1 ORDER BY created_at DESC,id`, [req.params.id]);
       res.json({ agreements: rows, canManage: res.locals.clinicAgreementPermission.canManage });
     } catch { res.status(500).json({ error: "Agreement list failed" }); }
   });
@@ -92,8 +117,8 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
         await fs.writeFile(target, file.buffer, { flag: "wx", mode: 0o600 });
         written = true;
         const value = parsed.data;
-        const { rows } = await pool.query(`INSERT INTO clinic_agreements
-          (clinic_id,title,contract_number,valid_from,valid_to,active,ended_at,file_name,storage_key,content_type,file_size,created_by)
+        const { rows } = await pool.query(`INSERT INTO ${table}
+          (${foreignKey},title,contract_number,valid_from,valid_to,active,ended_at,file_name,storage_key,content_type,file_size,created_by)
           VALUES ($1,$2,$3,$4,$5,$6,CASE WHEN $6 THEN NULL ELSE now() END,$7,$8,$9,$10,$11) RETURNING ${projection}`,
           [req.params.id, value.title, value.contractNumber ?? null, value.validFrom ?? null, value.validTo ?? null,
             value.active ?? true, agreementFilename(file.originalname), key, file.mimetype, file.size, req.session.user!.id]);
@@ -112,14 +137,14 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
     try {
       client = await pool.connect();
       await client.query("BEGIN");
-      const { rows } = await client.query(`SELECT * FROM clinic_agreements WHERE id=$1 AND clinic_id=$2 FOR UPDATE`, [req.params.agreementId, req.params.id]);
+      const { rows } = await client.query(`SELECT * FROM ${table} WHERE id=$1 AND ${foreignKey}=$2 FOR UPDATE`, [req.params.agreementId, req.params.id]);
       if (!rows.length) {
         await client.query("ROLLBACK");
         return res.status(404).json({ error: "Agreement not found" });
       }
       const current = rows[0], value = parsed.data;
       // DATE columns are formatted explicitly; node-postgres may otherwise turn them into local Dates.
-      const dates = await client.query(`SELECT to_char(valid_from,'YYYY-MM-DD') AS f,to_char(valid_to,'YYYY-MM-DD') AS t FROM clinic_agreements WHERE id=$1`, [current.id]);
+      const dates = await client.query(`SELECT to_char(valid_from,'YYYY-MM-DD') AS f,to_char(valid_to,'YYYY-MM-DD') AS t FROM ${table} WHERE id=$1`, [current.id]);
       const from = value.validFrom !== undefined ? value.validFrom : dates.rows[0].f;
       const to = value.validTo !== undefined ? value.validTo : dates.rows[0].t;
       if (!agreementDatesValid(from, to)) {
@@ -127,9 +152,9 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
         return res.status(400).json({ error: "Invalid agreement dates" });
       }
       const active = value.active ?? current.active;
-      const updated = await client.query(`UPDATE clinic_agreements SET title=$3,contract_number=$4,valid_from=$5,valid_to=$6,
+      const updated = await client.query(`UPDATE ${table} SET title=$3,contract_number=$4,valid_from=$5,valid_to=$6,
         active=$7,ended_at=CASE WHEN $7 THEN NULL ELSE COALESCE(ended_at,now()) END,updated_at=now()
-        WHERE id=$1 AND clinic_id=$2 RETURNING ${projection}`, [
+        WHERE id=$1 AND ${foreignKey}=$2 RETURNING ${projection}`, [
         current.id, req.params.id, value.title ?? current.title,
         value.contractNumber !== undefined ? value.contractNumber : current.contract_number, from, to, active,
       ]);
@@ -142,7 +167,7 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
   });
   app.get(collection + "/:agreementId/download", requireAuth, access(false), async (req, res) => {
     try {
-      const { rows } = await pool.query(`SELECT storage_key,file_name,content_type FROM clinic_agreements WHERE clinic_id=$1 AND id=$2`, [req.params.id, req.params.agreementId]);
+      const { rows } = await pool.query(`SELECT storage_key,file_name,content_type FROM ${table} WHERE ${foreignKey}=$1 AND id=$2`, [req.params.id, req.params.agreementId]);
       if (!rows.length) return res.status(404).json({ error: "Agreement not found" });
       const row = rows[0];
       if (!/^[a-f0-9-]{36}\.(pdf|doc|docx|png|jpg)$/.test(row.storage_key))
@@ -156,5 +181,19 @@ export function registerClinicAgreementRoutes(app: Express, requireAuth: any) {
         if (error && !res.headersSent) res.status(404).json({ error: "Agreement file unavailable" });
       });
     } catch { if (!res.headersSent) res.status(404).json({ error: "Agreement file unavailable" }); }
+  });
+  if (entity === "hospital") app.delete(collection + "/:agreementId", requireAuth, access(true), async (req, res) => {
+    try {
+      const { rows } = await pool.query(`DELETE FROM ${table} WHERE ${foreignKey}=$1 AND id=$2 RETURNING storage_key`, [req.params.id, req.params.agreementId]);
+      if (!rows.length) return res.status(404).json({ error: "Agreement not found" });
+      // Remove only server-generated keys. A failed cleanup never restores document access.
+      const key = rows[0].storage_key;
+      if (/^[a-f0-9-]{36}\.(pdf|doc|docx|png|jpg)$/.test(key)) {
+        await fs.unlink(path.join(PRIVATE_DIR, key)).catch(error => {
+          if (error.code !== "ENOENT") console.error("[Hospital agreements] orphan cleanup failed");
+        });
+      }
+      res.status(204).end();
+    } catch { res.status(500).json({ error: "Agreement delete failed" }); }
   });
 }
