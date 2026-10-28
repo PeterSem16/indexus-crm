@@ -33,6 +33,19 @@ const TESTS = [
   "server/lib/forwarded-call-reconciliation.test.ts",
   "client/src/lib/call-analysis-view-state.test.ts",
 ].join(" ");
+// Import-only fixture for unit tests. Never load production credentials and
+// fail immediately if a test reaches either pg entry point.
+const UNIT_TEST_DATABASE_GUARD = String.raw`
+const pg = require("pg");
+process.env.DATABASE_URL = "postgresql://127.0.0.1:1/indexus_unit_test";
+function forbiddenDatabaseAccess() {
+  throw new Error("Operator unit tests must not access a database");
+}
+for (const Constructor of [pg.Pool, pg.Client]) {
+  Constructor.prototype.connect = forbiddenDatabaseAccess;
+  Constructor.prototype.query = forbiddenDatabaseAccess;
+}
+`;
 function once(text, before, after) {
   if (text.split(before).length !== 2) throw Error("Reviewed promotion anchor changed");
   return text.replace(before, () => after);
@@ -48,6 +61,12 @@ function renderStanding(template, target, renderer) {
   body = once(body,
     "tsx --test shared/status-list-history-display.test.ts server/lib/status-list-history-display.test.ts client/src/components/hospital-agreement-copy.test.ts",
     `tsx --test ${TESTS}`);
+  body = once(body, '(cd "$VIEW" && npx --no-install tsx --test',
+    `cat > "$VIEW/.operator-unit-test-db-guard.cjs" <<'UNIT_TEST_DATABASE_GUARD'
+${UNIT_TEST_DATABASE_GUARD}
+UNIT_TEST_DATABASE_GUARD
+(cd "$VIEW" && NODE_OPTIONS="--require=$VIEW/.operator-unit-test-db-guard.cjs" npx --no-install tsx --test`);
+  body = once(body, 'tail -30 "$VIEW/tests.log"', 'cat "$VIEW/tests.log"');
   body = once(body, ".complete-replit-", ".standing-analysis-");
   body = once(body, "  trap - EXIT ERR\n  set +e",
     `  trap - EXIT ERR
@@ -68,7 +87,7 @@ fi`);
 function validateRelease(git, target) {
   if (!/^[a-f0-9]{40}$/.test(target)) throw Error("Invalid release commit");
   if (git(["rev-parse", "HEAD"]) !== BASE) throw Error("Production HEAD changed; do not overwrite");
-  if (git(["rev-parse", `${target}^`]) !== FIX || git(["rev-parse", `${FIX}^`]) !== BASE)
+  if (git(["merge-base", FIX, target]) !== FIX || git(["rev-parse", `${FIX}^`]) !== BASE)
     throw Error("Unexpected release history");
   const paths = (from, to) => git(["diff", "--name-only", from, to]).split("\n").filter(Boolean).sort();
   for (const [from, to, expected] of [[BASE, FIX, APP_FILES], [FIX, target, OPERATOR_FILES], [BASE, target, FILES]]) {
@@ -105,4 +124,4 @@ if (require.main === module) {
   try { main(process.argv.slice(2)); }
   catch (error) { console.error(`STOP: ${error.message.split("\n")[0]}`); process.exitCode = 1; }
 }
-module.exports = { renderStanding, validateRelease, BASE, FIX, FILES, APP_FILES, OPERATOR_FILES, OLD_BACKEND, OLD_INDEX };
+module.exports = { renderStanding, validateRelease, BASE, FIX, FILES, APP_FILES, OPERATOR_FILES, OLD_BACKEND, OLD_INDEX, TESTS, UNIT_TEST_DATABASE_GUARD };
