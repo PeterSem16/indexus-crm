@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { StatusListBatchSaveDialog } from "@/components/status-list-batch-save-dialog";
 import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
 import "@/index.css";
+import { StatusListUnsavedDialog } from "@/components/status-list-unsaved-dialog";
 
 if (!import.meta.env.DEV) throw new Error("Development-only test fixture");
 const params = new URLSearchParams(location.search);
@@ -16,6 +17,13 @@ function Fixture() {
   const [value, setValue] = useState(params.has("empty") ? "" : (params.get("date") || "2027-06-18T12:30:00.000Z"));
   const [note, setNote] = useState("Overiť dostupnosť termínu.");
   const [result, setResult] = useState({ commits: 0, cancelled: false, action: "", date: "", note: "" });
+  if (params.has("guard")) return <main>
+    <output data-testid="batch-result">{JSON.stringify(result)}</output>
+    <StatusListUnsavedDialog open={open} onOpenChange={next => { setOpen(next); if (!next) setResult(current => ({ ...current, cancelled: true })); }}
+      title="Neuložené kroky" description="Máte 1 neuložený krok. Ak odídete, bude stratený."
+      cancelLabel="Zostať" confirmLabel="Zahodiť a pokračovať"
+      onConfirm={() => { setResult(current => ({ ...current, commits: current.commits + 1 })); setOpen(false); }} />
+  </main>;
   return <main className="min-h-screen bg-slate-100 p-8 dark:bg-slate-950">
     <h1 className="text-xl font-semibold">Nexus Pulse · Status list</h1>
     <button data-testid="reopen-batch" onClick={() => setOpen(true)}>Otvoriť</button>
@@ -29,6 +37,10 @@ function Fixture() {
       noItems="Nie sú zaškrtnuté žiadne kroky." selectedCount={1}
       items={[{ id: "option", label: "Preplánovať hovor", itemType: "option", color: "#3985b7" }]}
       action={action} onActionChange={setAction} actionHeading={execution.batch} rulesLabel={execution.rulesOnly}
+      rulesPreview={params.has("preview") ? {
+        campaignId: "fixture-mission", contactId: params.get("contact") || "contact-a",
+        changes: [{ kind: "item", id: "option", value: true }],
+      } : undefined}
       rescheduleLabel="Preplánovať hovor" doNotCallLabel="Nevolať"
       rescheduleDescription="Naplánuj nový hovor na konkrétny termín."
       doNotCallDescription="Kontakt sa v tejto kampani nebude ďalej volať."

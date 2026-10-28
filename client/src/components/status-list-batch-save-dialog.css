@@ -43,6 +43,23 @@
 }
 .sl-batch-left { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
 .sl-batch-right { min-width: 0; }
+.sl-batch-rules { display: grid; gap: 12px; min-width: 0; color: #60798d; font-size: 11px; line-height: 1.5; }
+.sl-batch-rules h3, .sl-batch-rules > p[role="status"] { display: flex; align-items: center; gap: 8px; }
+.sl-batch-rules h3 { color: #286998; font-size: 12px; font-weight: 750; }
+.sl-batch-rule-list { display: grid; gap: 9px; }
+.sl-batch-rule-list article { display: grid; gap: 5px; overflow-wrap: anywhere; padding: 12px; border: 1px solid #c9dfef; border-radius: 13px; background: #edf6fc; }
+.sl-batch-rule-list article > strong { color: #263b50; font-size: 12px; }
+.sl-batch-rule-list article[data-condition="not_matched"] { background: #f3f6f8; }
+.sl-batch-rule-source { font-size: 10px; }
+.sl-batch-rule-date { display: flex; align-items: flex-start; gap: 6px; color: #286998; }
+.sl-batch-rule-caution { border-top: 1px solid #dce8f0; padding-top: 10px; font-size: 10px; }
+.sl-batch-rules button { margin-top: 7px; border: 1px solid #a9c8dd; border-radius: 8px; padding: 5px 10px; color: #286998; }
+.dark .sl-batch-rules { color: #a4b7c5; }
+.dark .sl-batch-rules h3, .dark .sl-batch-rule-date, .dark .sl-batch-rules button { color: #8fc6e9; }
+.dark .sl-batch-rule-list article { border-color: #34576f; background: #203a4d; }
+.dark .sl-batch-rule-list article > strong { color: #e5edf3; }
+.dark .sl-batch-rule-list article[data-condition="not_matched"] { background: #1c3040; }
+.dark .sl-batch-rule-caution { border-color: #30485a; }
 .sl-batch-staged { padding: 11px 12px; border: 1px solid #d6e4ed; border-radius: 15px; background: linear-gradient(110deg,#edf5fa,#f7fafc); }
 .sl-batch-section-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; color: #7891a5; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .sl-batch-count { display: grid; min-width: 22px; height: 22px; place-items: center; border-radius: 8px; color: #286998; background: #dceefa; font-size: 11px; letter-spacing: 0; }

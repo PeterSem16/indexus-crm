@@ -6,6 +6,7 @@ import { representativeCheckCopy, type RepresentativeCheckCopy } from "./status-
 import { statusListRefinementTranslations, type StatusListRefinementCopy } from "./status-list-refinement-translations";
 import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
 import { automationAttachmentTranslations, type AutomationAttachmentCopy } from "./automation-attachment-translations";
+import { automationEligibilityTranslations, type AutomationEligibilityCopy } from "./automation-eligibility-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 import { getStatusListWorkflowCopy } from "../components/status-list-workflow-copy";
@@ -143,6 +144,7 @@ export interface Translations {
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationOverview: AutomationOverviewCopy;
   automationAttachments: AutomationAttachmentCopy;
+  automationEligibility: AutomationEligibilityCopy;
   healthcareLegalEntity: HealthcareLegalEntityCopy;
   providerFinder: ProviderFinderCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
@@ -64182,6 +64184,7 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
   translations[locale].automationAttachments = automationAttachmentTranslations[locale];
+  translations[locale].automationEligibility = automationEligibilityTranslations[locale];
   translations[locale].forwardReview = forwardReviewTranslations[locale];
   translations[locale].automationBlockEditor = automationBlockEditorCopy[locale];
   translations[locale].hospitals.agreements = hospitalAgreementTranslations[locale];

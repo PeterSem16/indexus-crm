@@ -6,6 +6,7 @@ import { STATUS_LIST_DIALOG_FRAME_CLASS } from "@/components/status-list-dialog-
 import { StatusListCallbackRescheduleFields } from "@/components/status-list-callback-reschedule-fields";
 import { getStatusListRecapCopy } from "@/components/status-list-recap-copy";
 import { statusListCallbackPrefill } from "@shared/status-list-callback-calendar";
+import { StatusListBatchRulesPreview, type BatchRulesPreviewRequest } from "./status-list-batch-rules-preview";
 import "@/components/status-list-batch-save-dialog.css";
 
 type BatchAction = "rules" | "reschedule" | "do_not_call";
@@ -67,7 +68,7 @@ export function StatusListBatchSaveDialog({
   items, action, onActionChange, actionHeading, rulesLabel, rescheduleLabel, doNotCallLabel,
   rescheduleDescription, doNotCallDescription, statusPrefix, dispositionNames, value, onValueChange,
   note, onNoteChange, notePlaceholder, presetLabels, saving, savingLabel, confirmLabel,
-  cancelLabel, onConfirm, confirmTestId, cancelTestId, rescheduleStatusTestId,
+  cancelLabel, onConfirm, confirmTestId, cancelTestId, rescheduleStatusTestId, rulesPreview,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -101,6 +102,7 @@ export function StatusListBatchSaveDialog({
   confirmTestId: string;
   cancelTestId: string;
   rescheduleStatusTestId: string;
+  rulesPreview?: BatchRulesPreviewRequest;
 }) {
   const recap = useMemo(() => getStatusListRecapCopy(locale), [locale]);
   const editorValue = useMemo(() => value || presetDate("d1", new Date(), ""), [value]);
@@ -160,6 +162,7 @@ export function StatusListBatchSaveDialog({
           </div>
 
           <div className="sl-batch-right">
+          {action === "rules" && <StatusListBatchRulesPreview request={rulesPreview} locale={locale} />}
           {action === "reschedule" && (
             <section className="sl-batch-edit">
               <p className="sl-batch-help">{rescheduleDescription}</p>

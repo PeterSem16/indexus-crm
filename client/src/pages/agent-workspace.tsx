@@ -23,6 +23,7 @@ import { getStatusListExecutionCopy } from "@/i18n/status-list-execution-copy";
 import { useStatusListActionRecap } from "@/components/use-status-list-action-recap";
 import { StatusListRepresentativeInformationPanel } from "@/components/status-list-representative-information";
 import { StatusListBatchSaveDialog } from "@/components/status-list-batch-save-dialog";
+import { StatusListUnsavedDialog } from "@/components/status-list-unsaved-dialog";
 import { StatusListManualCallbackButton } from "@/components/status-list-manual-callback-button";
 import { formatStatusListHistory } from "@shared/status-list-history-display";
 import { StatusListAgentBackground } from "@/components/status-list-agent-background";
@@ -6930,6 +6931,30 @@ export function CommunicationCanvas({
                   return item ? [{ id, label: item.label, itemType: item.itemType, color: item.color }] : [];
                 })}
                 action={slBatchAction}
+                rulesPreview={{
+                  campaignId: String(campaign?.id || ""),
+                  contactId: String(campaignContactId || ""),
+                  changes: (() => {
+                    const changes = [
+                      ...Array.from(batchSlSelections).map(id => ({ kind: "item" as const, id, value: true })),
+                      ...Object.entries(batchSlAnswers).map(([id, change]) => ({ kind: "question" as const, id, value: change.value })),
+                    ];
+                    for (const { automation } of Object.values(batchSlActions)) {
+                      const parent = (dbStatusList as any[]).find(item => (item.automations || []).some((a: any) => String(a.id) === String(automation.id)) ||
+                        (item.questions || []).some((q: any) => (q.automations || []).some((a: any) => String(a.id) === String(automation.id))));
+                      if (!parent) continue;
+                      const kind = automation.questionId ? "question" as const : "item" as const;
+                      const id = String(automation.questionId || parent.id);
+                      if (!changes.some(change => change.kind === kind && change.id === id))
+                        changes.push({ kind, id, value: kind === "question" ? slQuestionAnswersRef.current[id] ?? true : true });
+                    }
+                    return changes;
+                  })(),
+                  manualActionIds: Object.values(batchSlActions).map(({ automation }) => String(automation.id)),
+                  manualActionDetails: Object.fromEntries(Object.values(batchSlActions).map(({ automation, opts }) => [
+                    String(automation.id), { callbackDate: opts?.callbackDate, callbackNote: opts?.callbackNote },
+                  ])),
+                }}
                 onActionChange={setSlBatchAction}
                 actionHeading={getStatusListExecutionCopy(locale).batch}
                 rulesLabel={getStatusListExecutionCopy(locale).rulesOnly}
@@ -16420,6 +16445,14 @@ function AgentWorkspacePageContent() {
             return item ? [{ id, label: item.label, itemType: item.itemType, color: item.color }] : [];
           })}
           action={mobileSlBatchAction}
+          rulesPreview={{
+            campaignId: String(selectedCampaignId || ""),
+            contactId: String(effectiveCampaignContactId || ""),
+            changes: [
+              ...Array.from(mobileBatchSlSelections).map(id => ({ kind: "item" as const, id, value: mobileDbSlChecked.has(id) })),
+              ...Object.entries(mobileBatchSlAnswers).map(([id, change]) => ({ kind: "question" as const, id, value: change.value })),
+            ],
+          }}
           onActionChange={setMobileSlBatchAction}
           actionHeading={getStatusListExecutionCopy(locale).batch}
           rulesLabel={getStatusListExecutionCopy(locale).rulesOnly}
@@ -19260,31 +19293,19 @@ function AgentWorkspacePageContent() {
       </Dialog>
 
       {/* ── Batch-mode unsaved-steps navigation guard ──────────────────────── */}
-      <Dialog open={!!pendingNavAction} onOpenChange={(open) => { if (!open) setPendingNavAction(null); }}>
-        <DialogContent className="max-w-sm" data-testid="batch-nav-guard-dialog">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
-              {slt("batchNavGuardTitle", locale)}
-            </DialogTitle>
-            <DialogDescription>
-              {slt("batchNavGuardMsg", locale).replace("{n}", String(batchUnsavedCount))}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2 flex-col-reverse sm:flex-row">
-            <Button variant="outline" onClick={() => setPendingNavAction(null)} data-testid="batch-nav-guard-cancel">
-              {slt("batchNavGuardCancel", locale)}
-            </Button>
-            <Button variant="destructive" onClick={() => {
-              const action = pendingNavAction?.action;
-              setPendingNavAction(null);
-              action?.();
-            }} data-testid="batch-nav-guard-confirm">
-              {slt("batchNavGuardConfirm", locale)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <StatusListUnsavedDialog
+        open={!!pendingNavAction}
+        onOpenChange={open => { if (!open) setPendingNavAction(null); }}
+        title={slt("batchNavGuardTitle", locale)}
+        description={slt("batchNavGuardMsg", locale).replace("{n}", String(batchUnsavedCount))}
+        cancelLabel={slt("batchNavGuardCancel", locale)}
+        confirmLabel={slt("batchNavGuardConfirm", locale)}
+        onConfirm={() => {
+          const action = pendingNavAction?.action;
+          setPendingNavAction(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }

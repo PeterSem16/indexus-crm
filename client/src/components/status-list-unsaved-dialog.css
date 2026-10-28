@@ -1,0 +1,191 @@
+.sl-unsaved-dialog.sl-agent-dialog-frame {
+  --primary: 205 57% 45%;
+  --primary-border: 205 57% 40%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 205 57% 45%;
+  display: flex !important;
+  width: min(92vw, 29rem) !important;
+  max-width: min(92vw, 29rem) !important;
+  max-height: min(90dvh, 34rem) !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  border: 1px solid #cbdce8 !important;
+  border-radius: 20px !important;
+  color: #263b50 !important;
+  background: #f7fafc !important;
+  box-shadow: 0 28px 90px rgb(29 55 76 / 26%), 0 4px 14px rgb(29 55 76 / 8%) !important;
+}
+
+.sl-unsaved-dialog[data-state="open"] {
+  animation: sl-unsaved-enter 200ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.sl-unsaved-header {
+  position: relative;
+  flex: none;
+  gap: 0 !important;
+  overflow: hidden;
+  padding: 22px 54px 21px 24px;
+  border-bottom: 1px solid #dce8f0;
+  background: linear-gradient(112deg, #edf6fb 0%, #fbfdff 67%, #f0f7fb 100%);
+}
+
+.sl-unsaved-header::after {
+  position: absolute;
+  top: -65px;
+  right: -25px;
+  width: 185px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(75 145 200 / 14%), transparent 68%);
+  content: "";
+  pointer-events: none;
+}
+
+.sl-unsaved-heading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sl-unsaved-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  place-items: center;
+  border: 1px solid #c9dfef;
+  border-radius: 15px;
+  color: #347caf;
+  background: #e6f1f9;
+  box-shadow: 0 3px 8px rgb(52 124 175 / 9%);
+}
+
+.sl-unsaved-title {
+  color: #263b50 !important;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -.035em !important;
+  line-height: 1.25 !important;
+}
+
+.sl-unsaved-description {
+  margin-top: 6px !important;
+  color: #6d8294 !important;
+  font-size: .8rem !important;
+  line-height: 1.5 !important;
+}
+
+.sl-unsaved-footer {
+  flex: none;
+  gap: 9px;
+  padding: 13px 20px max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid #dce8f0;
+  background: #f2f7fa;
+}
+
+.sl-unsaved-footer button {
+  min-height: 39px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sl-unsaved-confirm {
+  color: white !important;
+  background: #347caf !important;
+  box-shadow: 0 3px 8px rgb(52 124 175 / 19%);
+}
+
+.sl-unsaved-confirm:hover {
+  background: #286998 !important;
+}
+
+.dark .sl-unsaved-dialog.sl-agent-dialog-frame {
+  border-color: #344c5f !important;
+  color: #e5edf3 !important;
+  background: #172634 !important;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 58%), 0 4px 14px rgb(0 0 0 / 22%) !important;
+}
+
+.dark .sl-unsaved-header {
+  border-color: #30485a;
+  background: linear-gradient(112deg, #1b3040, #1a2b39 68%, #192a38);
+}
+
+.dark .sl-unsaved-title {
+  color: #e5edf3 !important;
+}
+
+.dark .sl-unsaved-description {
+  color: #a4b7c5 !important;
+}
+
+.dark .sl-unsaved-mark {
+  border-color: #34576f;
+  color: #8fc6e9;
+  background: #223e52;
+}
+
+.dark .sl-unsaved-footer {
+  border-color: #30485a;
+  background: #192b39;
+}
+
+.dark .sl-unsaved-confirm {
+  color: #102334 !important;
+  background: #8fc6e9 !important;
+}
+
+.dark .sl-unsaved-confirm:hover {
+  background: #a5d4ef !important;
+}
+
+@keyframes sl-unsaved-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 520px) {
+  .sl-unsaved-dialog.sl-agent-dialog-frame {
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    max-height: min(90dvh, 34rem) !important;
+    border-radius: 18px !important;
+  }
+
+  .sl-unsaved-header {
+    padding: 18px 48px 17px 17px;
+  }
+
+  .sl-unsaved-heading {
+    gap: 11px;
+  }
+
+  .sl-unsaved-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+  }
+
+  .sl-unsaved-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 10px 14px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .sl-unsaved-footer > button {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-unsaved-dialog.sl-agent-dialog-frame {
+    animation: none !important;
+    transition: none !important;
+  }
+}

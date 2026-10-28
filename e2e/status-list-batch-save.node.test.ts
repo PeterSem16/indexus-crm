@@ -17,7 +17,8 @@ test("real batch dialog: callback editing, safe cancellation, DST, themes, local
     const errors: string[] = [], writes: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     page.on("request", request => {
-      if (!["GET", "HEAD"].includes(request.method())) writes.push(`${request.method()} ${request.url()}`);
+      if (!["GET", "HEAD"].includes(request.method()) && !request.url().endsWith("/confirmation-preview"))
+        writes.push(`${request.method()} ${request.url()}`);
     });
     await page.clock.install({ time: new Date("2026-10-23T07:00:00.000Z") });
     const base = "http://127.0.0.1:4189/test-fixtures/status-list-batch-save.html";
@@ -85,6 +86,48 @@ test("real batch dialog: callback editing, safe cancellation, DST, themes, local
         assert.ok(summary && footer && summary.y + summary.height <= footer.y + 1, "date/time summary stays above actions");
       }
     }
+    await page.setViewportSize({ width: 1100, height: 720 });
+    let previewRequests = 0;
+    await page.route("**/status-list-workflows/confirmation-preview", async route => {
+      previewRequests++;
+      assert.equal(route.request().method(), "POST");
+      assert.deepEqual(route.request().postDataJSON(), { changes: [{ kind: "item", id: "option", value: true }], manualActionIds: [] });
+      await route.fulfill({ json: { readOnly: true, mode: "batch", actions: [
+        { id: "callback", sourceLabel: "Pravidlo: Ozvať sa o 3 dni", actionType: "set_callback", condition: "matched",
+          callbackDate: "2027-06-18T14:30", callbackNote: "Podľa pravidla" },
+        { id: "task", sourceLabel: "Overenie zmluvy", actionType: "create_task", condition: "unknown", targetLabel: "Back Office SK" },
+      ] } });
+    });
+    for (const locale of ["sk", "en", "cs", "hu", "ro", "it", "de"]) {
+      await page.goto(`${base}?preview&locale=${locale}`, { waitUntil: "networkidle" });
+      await page.locator(".sl-batch-action").nth(0).click();
+      const preview = page.getByTestId("status-list-batch-rules-preview");
+      await expect(preview).toContainText("14:30");
+      await expect(preview).toContainText("2027");
+      await expect(preview).toContainText("Pravidlo: Ozvať sa o 3 dni");
+      await expect(preview).toContainText("Back Office SK");
+      await expect(preview).toContainText(getStatusListRecapCopy(locale).unknown);
+      assert.equal((await result()).commits, 0, "preview is not confirmation");
+      if (locale === "sk") await page.screenshot({ path: "/tmp/status-list-rules-preview-desktop.jpg" });
+      await page.getByTestId("btn-sl-batch-save-cancel").click();
+      assert.equal((await result()).commits, 0);
+    }
+    assert.equal(previewRequests, 7);
+    for (const [width, dark] of [[1100, false], [360, true]] as const) {
+      await page.setViewportSize({ width, height: 600 });
+      await page.goto(`${base}?guard${dark ? "&dark" : ""}`, { waitUntil: "networkidle" });
+      await expect(page.getByTestId("batch-nav-guard-confirm")).toBeInViewport();
+      assert.equal(await page.getByTestId("batch-nav-guard-dialog").evaluate(el => el.scrollWidth > el.clientWidth + 1), false);
+      await page.screenshot({ path: `/tmp/status-list-unsaved-${width}.jpg` });
+      await page.getByTestId("batch-nav-guard-cancel").click();
+      assert.equal((await result()).commits, 0);
+      await page.goto(`${base}?guard`, { waitUntil: "networkidle" });
+      await page.keyboard.press("Escape");
+      assert.equal((await result()).commits, 0);
+      await page.goto(`${base}?guard`, { waitUntil: "networkidle" });
+      await page.getByTestId("batch-nav-guard-confirm").click();
+      assert.equal((await result()).commits, 1, "only explicit discard continues navigation");
+    }
     assert.deepEqual(writes, [], "no network mutations while opening, editing or cancelling the dialog");
     assert.deepEqual(errors, []);
   } finally {
@@ -98,4 +141,27 @@ test("desktop and mobile both use the shared dialog without changing their save 
   assert.equal((source.match(/<StatusListBatchSaveDialog\b/g) || []).length, 2);
   assert.ok(source.includes("onConfirm={handleSlBatchSaveConfirm}"), "desktop keeps its existing save handler");
   assert.ok(source.includes("onConfirm={handleMobileBatchSaveConfirm}"), "mobile keeps its existing save handler");
+  assert.equal((source.match(/rulesPreview=\{/g) || []).length, 2, "desktop and mobile pass real server preview context");
+  assert.ok(source.includes("<StatusListUnsavedDialog"), "real navigation guard uses the Pulse component");
+});
+
+test("the exact production-crashing Runs diagnostic mounts in all seven real dictionaries", async () => {
+  const server = await createServer({ configFile: "vite.config.ts", logLevel: "error",
+    cacheDir: "/tmp/indexus-batch-save-vite-cache",
+    server: { host: "127.0.0.1", port: 4189, strictPort: true } });
+  await server.listen();
+  const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", args: ["--no-sandbox"] });
+  try {
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.route("**/api/**", route => route.fulfill({ json: { user: { id: "fixture-admin", role: "admin" } } }));
+    for (const country of ["SK", "GB", "CZ", "HU", "RO", "IT", "DE"]) {
+      await page.goto(`http://127.0.0.1:4189/test-fixtures/automation-eligibility.html?country=${country}`, { waitUntil: "networkidle" });
+      await expect(page.getByTestId("automation-eligibility").locator("summary")).not.toBeEmpty();
+      await page.getByTestId("automation-eligibility").locator("summary").click();
+      await expect(page.getByTestId("automation-eligibility").locator("button").first()).toBeVisible();
+    }
+    assert.deepEqual(errors, [], "the exact production component must not throw reading title");
+  } finally { await browser.close(); await server.close(); }
 });
