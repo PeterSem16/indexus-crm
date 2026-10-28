@@ -4,9 +4,9 @@
   --primary-foreground: 0 0% 100%;
   --ring: 205 57% 45%;
   display: flex !important;
-  width: min(94vw, 38rem) !important;
-  max-width: min(94vw, 38rem) !important;
-  max-height: min(88dvh, 54rem) !important;
+  width: min(94vw, 62rem) !important;
+  max-width: min(94vw, 62rem) !important;
+  max-height: min(91dvh, 48rem) !important;
   flex-direction: column !important;
   gap: 0 !important;
   overflow: hidden !important;
@@ -37,20 +37,23 @@
 .sl-batch-title { color: #263b50 !important; font-size: 1.1rem; font-weight: 750; letter-spacing: -.035em !important; }
 .sl-batch-description { margin-top: 4px !important; color: #6d8294 !important; font-size: .8rem !important; line-height: 1.45 !important; }
 .sl-batch-content {
+  display: grid; grid-template-columns: minmax(230px, .78fr) minmax(0, 1.22fr); gap: 18px;
   min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain;
   padding: 17px 23px 15px; scrollbar-color: #b9ccd9 transparent; scrollbar-width: thin;
 }
+.sl-batch-left { display: flex; min-width: 0; flex-direction: column; gap: 14px; }
+.sl-batch-right { min-width: 0; }
 .sl-batch-staged { padding: 11px 12px; border: 1px solid #d6e4ed; border-radius: 15px; background: linear-gradient(110deg,#edf5fa,#f7fafc); }
 .sl-batch-section-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; color: #7891a5; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .sl-batch-count { display: grid; min-width: 22px; height: 22px; place-items: center; border-radius: 8px; color: #286998; background: #dceefa; font-size: 11px; letter-spacing: 0; }
-.sl-batch-items { display: grid; max-height: 112px; gap: 2px; overflow-y: auto; }
+.sl-batch-items { display: grid; max-height: 148px; gap: 2px; overflow-y: auto; }
 .sl-batch-item { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 4px 2px; color: #38556b; font-size: 11px; }
 .sl-batch-item > svg { color: #347caf; }
 .sl-batch-opt { flex: none; border-radius: 999px; padding: 2px 7px; color: white; font-size: 8px; font-weight: 800; letter-spacing: .04em; }
 .sl-batch-empty { color: #788d9d; font-size: 11px; }
-.sl-batch-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 13px; }
+.sl-batch-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }
 .sl-batch-action {
-  display: flex; min-height: 48px; align-items: center; justify-content: center; gap: 7px;
+  display: flex; min-height: 41px; align-items: center; justify-content: flex-start; gap: 9px;
   border: 1px solid #d5e1e9; border-radius: 13px; padding: 8px 9px;
   color: #60798d; background: #fbfdff; font-size: 11px; font-weight: 700; line-height: 1.3;
   transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
@@ -58,23 +61,23 @@
 .sl-batch-action:hover { transform: translateY(-1px); border-color: #a9c8dd; }
 .sl-batch-action.is-selected { border-color: #8dbbda; color: #1c568f; background: #eaf3fb; box-shadow: inset 0 0 0 1px rgb(52 124 175 / 12%); }
 .sl-batch-action:focus-visible, .sl-batch-presets button:focus-visible { outline: 2px solid #347caf; outline-offset: 2px; }
-.sl-batch-edit { display: grid; gap: 11px; margin-top: 13px; animation: sl-batch-enter 180ms ease-out both; }
+.sl-batch-edit { display: grid; gap: 9px; animation: sl-batch-enter 180ms ease-out both; }
 .sl-batch-help { color: #657f93; font-size: 11px; line-height: 1.5; }
 .sl-batch-status { padding: 9px 11px; border: 1px solid #c9dfef; border-radius: 11px; color: #49657c; background: #edf6fc; font-size: 11px; line-height: 1.45; }
 .sl-batch-status strong { color: #1c568f; }
 .sl-batch-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .sl-batch-presets button { border: 1px solid #c7dbe9; border-radius: 9px; padding: 6px 10px; color: #286998; background: #edf6fc; font-size: 10px; font-weight: 700; transition: background-color 140ms ease; }
 .sl-batch-presets button:hover { background: #dceefa; }
-.sl-batch-callback-summary { display: flex; gap: 9px; padding: 9px 11px; border: 1px solid #c9dfef; border-radius: 11px; color: #347caf; background: #edf6fc; }
-.sl-batch-callback-summary > div { display: grid; gap: 2px; }
-.sl-batch-callback-summary span, .sl-batch-note > span { color: #7891a5; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.sl-batch-callback-summary strong { color: #263b50; font-size: 12px; line-height: 1.4; }
-.sl-batch-callback-summary small { margin-top: 3px; color: #60798d; font-size: 10px; line-height: 1.4; overflow-wrap: anywhere; }
+.sl-batch-bottom { flex: none; border-top: 1px solid #dce8f0; background: #f2f7fa; }
+.sl-batch-callback-summary { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 8px 23px 0; color: #347caf; }
+.sl-batch-callback-summary strong { flex: none; color: #263b50; font-size: 11px; }
+.sl-batch-callback-summary small { min-width: 0; overflow: hidden; color: #60798d; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.sl-batch-note > span { color: #7891a5; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .sl-batch-note { display: grid; gap: 5px; }
 .sl-batch-note textarea { width: 100%; resize: vertical; border: 1px solid #cfdee8; border-radius: 11px; padding: 9px 11px; color: #263b50; background: #fff; font-size: 12px; line-height: 1.45; outline: none; }
 .sl-batch-note textarea:focus { border-color: #78add0; box-shadow: 0 0 0 3px rgb(52 124 175 / 13%); }
 .sl-batch-note textarea::placeholder { color: #91a3b1; }
-.sl-batch-footer { position: sticky; bottom: 0; z-index: 2; flex: none; gap: 9px; padding: 12px 23px max(16px,env(safe-area-inset-bottom)); border-top: 1px solid #dce8f0; background: #f2f7fa; }
+.sl-batch-footer { flex: none; gap: 9px; padding: 9px 23px max(12px,env(safe-area-inset-bottom)); }
 .sl-batch-footer button { min-height: 38px; border-radius: 11px; font-size: 12px; font-weight: 700; }
 .sl-batch-confirm { color: white !important; background: #347caf !important; box-shadow: 0 3px 8px rgb(52 124 175 / 19%); }
 .sl-batch-confirm:hover:not(:disabled) { background: #286998 !important; }
@@ -89,13 +92,31 @@
 .dark .sl-batch-action { border-color: #344b5d; color: #b5c7d2; background: #1c3040; }
 .dark .sl-batch-action.is-selected { border-color: #4f7893; color: #a5d4ef; background: #203a4d; }
 .dark .sl-batch-help, .dark .sl-batch-empty { color: #a4b7c5; }
-.dark .sl-batch-status, .dark .sl-batch-callback-summary { border-color: #34576f; color: #b5c7d2; background: #203a4d; }
+.dark .sl-batch-status { border-color: #34576f; color: #b5c7d2; background: #203a4d; }
 .dark .sl-batch-callback-summary small { color: #a4b7c5; }
 .dark .sl-batch-status strong, .dark .sl-batch-callback-summary { color: #8fc6e9; }
 .dark .sl-batch-presets button { border-color: #34576f; color: #a5d4ef; background: #203a4d; }
 .dark .sl-batch-presets button:hover { background: #294a60; }
 .dark .sl-batch-note textarea { border-color: #344b5d; color: #e5edf3; background: #1c3040; }
 .dark .sl-batch-footer { border-color: #30485a; background: #192b39; }
+.dark .sl-batch-bottom { border-color: #30485a; background: #192b39; }
+.dark .sl-batch-callback-summary strong { color: #e5edf3; }
+@media (max-height: 700px) and (min-width: 701px) {
+  .sl-batch-header { padding-block: 12px; }
+  .sl-batch-content { padding-block: 11px; gap: 14px; }
+  .sl-batch-items { max-height: 112px; }
+  .sl-batch-left { gap: 10px; }
+  .sl-batch-edit { gap: 7px; }
+}
+@media (max-width: 700px) {
+  .sl-batch-dialog.sl-agent-dialog-frame { width: calc(100vw - 1rem) !important; max-width: calc(100vw - 1rem) !important; max-height: min(91dvh, 58rem) !important; }
+  .sl-batch-content { display: flex; flex-direction: column; gap: 13px; padding: 12px 14px; }
+  .sl-batch-left { gap: 12px; }
+  .sl-batch-items { max-height: 100px; }
+  .sl-batch-callback-summary { padding-inline: 14px; }
+  .sl-batch-footer { flex-direction: column-reverse; align-items: stretch; padding: 8px 14px max(12px,env(safe-area-inset-bottom)); }
+  .sl-batch-footer > button { width: 100%; }
+}
 .dark .sl-batch-confirm { color: #102334 !important; background: #8fc6e9 !important; }
 .dark .sl-batch-confirm:hover:not(:disabled) { background: #a5d4ef !important; }
 @keyframes sl-batch-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }

@@ -70,6 +70,20 @@ test("real batch dialog: callback editing, safe cancellation, DST, themes, local
       assert.ok(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= width + 1 &&
         bounds.y + bounds.height <= height + 1, `${width}×${height}: dialog and footer must fit`);
       assert.equal(await dialog.evaluate(el => el.scrollWidth > el.clientWidth + 1), false);
+      const columns = await page.locator(".sl-batch-content").evaluate(el => getComputedStyle(el).gridTemplateColumns);
+      if (width >= 701) {
+        assert.equal(columns.trim().split(/\s+/).length, 2, "desktop has two columns");
+        const left = await page.locator(".sl-batch-left").boundingBox();
+        const right = await page.locator(".sl-batch-right").boundingBox();
+        assert.ok(left && right && left.x + left.width <= right.x, "selection stays left of editor");
+      } else {
+        assert.equal(await page.locator(".sl-batch-content").evaluate(el => getComputedStyle(el).display), "flex");
+      }
+      if (await page.locator(".sl-batch-callback-summary").count()) {
+        const summary = await page.locator(".sl-batch-callback-summary").boundingBox();
+        const footer = await page.locator(".sl-batch-footer").boundingBox();
+        assert.ok(summary && footer && summary.y + summary.height <= footer.y + 1, "date/time summary stays above actions");
+      }
     }
     assert.deepEqual(writes, [], "no network mutations while opening, editing or cancelling the dialog");
     assert.deepEqual(errors, []);

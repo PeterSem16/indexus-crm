@@ -124,6 +124,7 @@ export function StatusListBatchSaveDialog({
           </div>
         </DialogHeader>
         <div className="sl-batch-content" data-testid="status-list-batch-save-dialog" aria-busy={saving}>
+          <div className="sl-batch-left">
           <section className="sl-batch-staged" aria-label={description}>
             <div className="sl-batch-section-label">
               <span>{actionHeading}</span>
@@ -156,7 +157,9 @@ export function StatusListBatchSaveDialog({
               </button>
             ))}
           </section>
+          </div>
 
+          <div className="sl-batch-right">
           {action === "reschedule" && (
             <section className="sl-batch-edit">
               <p className="sl-batch-help">{rescheduleDescription}</p>
@@ -174,12 +177,6 @@ export function StatusListBatchSaveDialog({
                 copy={{ newDate: recap.rescheduleNewDate, time: recap.rescheduleTime, time24Hour: recap.reschedule24Hour,
                   previousWeekday: recap.reschedulePreviousWeekday, nextWeekday: recap.rescheduleNextWeekday }}
                 testId="status-list-batch-callback" />
-              {callbackSummary && <div className="sl-batch-callback-summary" aria-live="polite">
-                <CalendarClock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <div><span>{recap.callbackWhen}</span><strong>{callbackSummary}</strong>
-                  {note.trim() && <small><b>{recap.callbackNote}:</b> {note.trim()}</small>}
-                </div>
-              </div>}
               <label className="sl-batch-note">
                 <span>{recap.callbackNote}</span>
                 <textarea placeholder={notePlaceholder} value={note} rows={2} onChange={event => onNoteChange(event.target.value)} />
@@ -195,13 +192,21 @@ export function StatusListBatchSaveDialog({
               </label>
             </section>
           )}
+          </div>
         </div>
+        <div className="sl-batch-bottom">
+          {action === "reschedule" && callbackSummary && <div className="sl-batch-callback-summary" aria-live="polite">
+            <CalendarClock className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <strong>{recap.callbackWhen}: {callbackSummary}</strong>
+            {note.trim() && <small title={note.trim()}>{recap.callbackNote}: {note.trim()}</small>}
+          </div>}
         <DialogFooter className="sl-batch-footer">
           <Button variant="outline" onClick={() => onOpenChange(false)} data-testid={cancelTestId}>{cancelLabel}</Button>
           <Button className="sl-batch-confirm" disabled={saving || (action === "reschedule" && !value)} onClick={onConfirm} data-testid={confirmTestId}>
             {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{savingLabel}</> : <>{confirmLabel}<Check className="ml-2 h-4 w-4" /></>}
           </Button>
         </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
