@@ -107,8 +107,8 @@ function once(text, before, after) {
   if (text.split(before).length !== 2) throw Error("Promotion template anchor changed");
   return text.replace(before, () => after);
 }
-function render(template, { base, target, paths }) {
-  if (!BASES.includes(base) || !/^[a-f0-9]{40}$/.test(target)) throw Error("Unreviewed base/target");
+function render(template, { base, target, paths }, approvedBases = BASES) {
+  if (!approvedBases.includes(base) || !/^[a-f0-9]{40}$/.test(base) || !/^[a-f0-9]{40}$/.test(target)) throw Error("Unreviewed base/target");
   if (!paths.length || paths.some(p => !/^[a-zA-Z0-9_./-]+$/.test(p))) throw Error("Invalid release paths");
   if (crypto.createHash("sha256").update(template).digest("hex") !== TEMPLATE_HASH)
     throw Error("Reviewed promotion template changed");
