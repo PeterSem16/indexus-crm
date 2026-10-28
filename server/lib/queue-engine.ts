@@ -34,6 +34,7 @@ import { storage } from "../storage";
 import { getValidAccessToken, sendEmail as ms365SendEmail } from "./ms365";
 import { decryptTokenSafe } from "./token-crypto";
 import { STORAGE_PATHS } from "../config/storage-paths";
+import { dispatchPendingStandingAnalyses } from "./standing-recording-analysis";
 import { AriClient, type AriEvent, type AriChannel } from "./ari-client";
 import { inboundCallWs } from "./inbound-call-ws";
 import { inboundDidCandidates, resolveInboundCallerNumber, resolveInboundDid } from "./inbound-did";
@@ -1102,6 +1103,7 @@ export class QueueEngine extends EventEmitter {
           }, claimToken);
         }
         await this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
+        if (standing) void dispatchPendingStandingAnalyses(callLogId);
         return;
       }
 
@@ -1173,6 +1175,7 @@ export class QueueEngine extends EventEmitter {
 
       // Clean up from Asterisk
       await this.ariClient.deleteStoredRecording(recordingName).catch(() => {});
+      if (standing) void dispatchPendingStandingAnalyses(callLogId);
     } catch (err) {
       if (standing && inboundCallLogId && claimToken) {
         const retryAt = new Date(Date.now() + standingRecordingRecoveryDelayMs(recoveryAttempts)).toISOString();

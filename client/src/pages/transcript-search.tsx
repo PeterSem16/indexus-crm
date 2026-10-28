@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Search, FileText, AlertTriangle, Download, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Phone, Megaphone, Filter, X, PhoneIncoming, PhoneOutgoing, PhoneMissed, Mic, MicOff, Brain, Calendar, UserCircle, Tag, BarChart3, SlidersHorizontal, ListChecks, ClipboardList, CheckCircle2, ShieldAlert, ClipboardCheck, Sparkles, Star, StarOff, Smartphone, XCircle, MessageSquare, Circle, CheckSquare, PackageOpen } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useI18n } from "@/i18n";
+import { callAnalysisViewState } from "@/lib/call-analysis-view-state";
 import { CallRecordingPlayer, type PlaybackState } from "@/components/call-recording-player";
 import { CallContactReviewPanel, fetchCallReviewContact, type ReviewContact } from "@/components/call-contact-review-drawer";
 import { EntityDetailDrawer, type EntityRef } from "@/components/entity-detail-drawer";
@@ -287,6 +288,7 @@ const SENTIMENT_COLOR: Record<string, string> = { positive: "#10b981", neutral: 
 
 function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { log: CallLogEntry; ca: Record<string, any>; locale: string; searchText?: string; onImportantToggle?: (id: string, val: boolean) => void }) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [reviewOpen, setReviewOpen] = useState(false);
   const [detailEntity, setDetailEntity] = useState<EntityRef | null>(null);
@@ -328,6 +330,7 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
     } finally { setTogglingImportant(false); }
   };
   const rec = log.recording;
+  const analysisState = callAnalysisViewState(log.hasRecording || !!rec, rec?.analysisStatus);
   const dateStr = new Date(log.startedAt || log.createdAt).toLocaleString(LOCALE_MAP[locale] || "en-US", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   const sc = rec?.sentiment ? SENTIMENT_CFG[rec.sentiment] : null;
   const sentimentLabels: Record<string, string> = { positive: ca.positive, neutral: ca.neutral, negative: ca.negative, angry: ca.angry };
@@ -737,9 +740,19 @@ function AnalysisDetail({ log, ca, locale, searchText, onImportantToggle }: { lo
             </div>
           </div>
         </>
-      ) : rec?.analysisStatus === "processing" ? (
+      ) : analysisState === "processing" ? (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin mr-2" /><span className="text-sm">{ca.processing}</span>
+        </div>
+      ) : analysisState !== "missing" ? (
+        <div className="flex-1 flex flex-col items-center justify-center py-12 text-muted-foreground"
+          data-testid={`analysis-state-${log.id}`} role="status">
+          {analysisState === "failed"
+            ? <AlertTriangle className="h-10 w-10 mb-3 opacity-40" />
+            : <Brain className="h-10 w-10 mb-3 opacity-30" />}
+          <p className="text-sm font-medium">
+            {analysisState === "failed" ? t.commReview.analysisFailed : t.commReview.analysisPending}
+          </p>
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center py-12 text-muted-foreground">

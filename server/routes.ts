@@ -29,6 +29,7 @@ import {
   userMayAccessTaskCountry,
 } from "./lib/task-contract";
 import { setForwardedRecordingAnalyzer } from "./lib/forwarded-call-reconciliation";
+import { setStandingRecordingAnalyzer } from "./lib/standing-recording-analysis";
 import {
   isAuthorizedManualPulseTaskOrigin,
   MANUAL_PULSE_TASK_TAG,
@@ -39303,6 +39304,7 @@ Respond ONLY with valid JSON in this exact format:
 
   const activeRecordingAnalyses = new Set<string>();
   setForwardedRecordingAnalyzer(processCallRecordingAnalysis);
+  setStandingRecordingAnalyzer(processCallRecordingAnalysis);
 
   async function processCallRecordingAnalysis(recordingId: string, filePath: string) {
     // Publication callbacks and UI auto-analysis can arrive together. Share the

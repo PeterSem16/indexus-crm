@@ -94,6 +94,7 @@ async function runForward(mode: "both" | "agent_only", recordCalls: boolean, fai
   }; Harness;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
     db, and, eq, inArray, or, callLogs, callRecordings, inboundCallLogs, randomUUID, Buffer,
     fs, path, STORAGE_PATHS: { callRecordings: folder }, isTrustedStandingRecording,
+    dispatchPendingStandingAnalyses: async (id: string) => { order.push(`analysis-requested:${id}`); },
     inboundQueueForwardedRecordingAllowed, standingRecordingRecoveryDelayMs,
     console: { log() {}, warn() {}, error() {} },
     setTimeout, inboundCallWs: { notifyCallHangup() {} },
@@ -154,6 +155,7 @@ test("real forward handlers authorize → record before joining → finish → d
   assert.equal(result.authorization.state, "saved", "late stop must not downgrade an already-saved recording");
   assert.equal(result.downloads, 1, "duplicate finish event must not save twice");
   assert.equal(result.canonical.status, "completed");
+  assert.ok(result.order.includes("analysis-requested:canonical"), "published standing audio must reach the analysis dispatcher");
 });
 
 test("queue opt-out and agent-only policy never produce an unauthorized mixed file", async () => {
