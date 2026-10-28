@@ -8,7 +8,7 @@ const base = {
   actions: [{ type: "notify_user", config: { userId: "anna", title: "Task event" } }],
   rateLimitPerHour: null, updatedAt: "2026-10-14T09:00:00Z",
 };
-async function fixture(page: Page, tab = "rules") {
+async function fixture(page: Page, tab = "rules", detailOverrides: Record<string, unknown> = {}) {
   const mutations: { path: string; method: string; data: any }[] = [];
   const errors: string[] = [];
   let rules: any[] = [
@@ -55,7 +55,7 @@ async function fixture(page: Page, tab = "rules") {
       if (failDetail) return route.fulfill({ status: 500, json: { error: "Fixture detail failure" } });
       const run = runs.find(run => run.id === path.split("/").pop());
       data = { run, event: { module: "task", entityType: "task", eventType: "created", entityId: "historic-entity" },
-        actions: run?.status === "success" ? [{ id: "historic-action", actionIndex: 0, actionType: "create_task", status: "success", output: { reference: "HISTORICAL-ONLY" } }] : [] };
+        actions: run?.status === "success" ? [{ id: "historic-action", actionIndex: 0, actionType: "create_task", status: "success", output: { reference: "HISTORICAL-ONLY" } }] : [], ...detailOverrides };
     } else if (path.includes("/count") || path.includes("/unread-count")) data = { count: 0 };
     else if (path.includes("/preferences") || path.includes("/settings") || path.includes("/configuration")) data = {};
     return route.fulfill({ json: data });
@@ -64,6 +64,35 @@ async function fixture(page: Page, tab = "rules") {
   await expect(page.locator(".automation-production-overview")).toBeVisible({ timeout: 60_000 });
   return { mutations, errors, setListError: (value: boolean) => { failList = value; },
     setDetailError: (value: boolean) => { failDetail = value; }, setEmpty: () => { noRuns = true; } };
+}
+
+for (const scenario of [
+  { name: "legacy unavailable source", detail: { sourceAccess: "unavailable" },
+    text: "The source is unavailable or you do not have access." },
+  { name: "unavailable attachments", detail: { sourceAccess: "unavailable",
+    attachmentAnalysis: { status: "unavailable", outcomes: [] } },
+    text: "The source is unavailable or you do not have access." },
+  { name: "older run without recorded attachments", detail: { sourceAccess: "available",
+    attachmentAnalysis: { status: "not_recorded", outcomes: [] } },
+    text: "No attachment results were recorded for this run." },
+  { name: "recorded attachment outcomes", detail: { sourceAccess: "available",
+    attachmentAnalysis: { status: "available", outcomes: [
+      { position: 1, result: "invoice" }, { position: 2, result: "other" },
+      { position: 3, result: "unprocessed", reason: "unknown" },
+    ] } }, text: "The reason was not recorded in this older run." },
+]) {
+  test(`Runs attachment localization: ${scenario.name} in global history and rule dialog`, async ({ page }) => {
+    const state = await fixture(page, "runs", scenario.detail);
+    await page.getByTestId("row-globalrun-run-ok").click();
+    await expect(page.getByTestId("run-inspector")).toContainText(scenario.text);
+    await page.getByTestId("tab-rules").click();
+    await page.getByTestId("card-rule-regular").locator(".el-expand").click();
+    await page.getByTestId("button-history-regular").click();
+    const dialog = page.locator(".automation-history-dialog");
+    await expect(dialog.getByTestId("run-inspector")).toContainText(scenario.text);
+    expect(state.errors).toEqual([]);
+    expect(state.mutations).toEqual([]);
+  });
 }
 
 test("Rules: native requests, filters, toggle, guarded review/reset/delete, editor and history", async ({ page }) => {

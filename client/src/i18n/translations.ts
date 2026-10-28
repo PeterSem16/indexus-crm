@@ -5,6 +5,7 @@ import { statusListRepresentativeInformationTranslations, type StatusListReprese
 import { representativeCheckCopy, type RepresentativeCheckCopy } from "./status-list-representative-check-copy";
 import { statusListRefinementTranslations, type StatusListRefinementCopy } from "./status-list-refinement-translations";
 import { automationOverviewTranslations, type AutomationOverviewCopy } from "./automation-overview-translations";
+import { automationAttachmentTranslations, type AutomationAttachmentCopy } from "./automation-attachment-translations";
 import { callPeriodSummaryTranslations, type CallPeriodSummaryCopy } from "./call-period-summary-translations";
 import { getTaskActionCopy, type TaskActionCopy } from "./automation-task-action-copy";
 import { getStatusListWorkflowCopy } from "../components/status-list-workflow-copy";
@@ -141,6 +142,7 @@ export interface Translations {
   datePicker: { selectDate: string; now: string; noTimeLimit: string };
   automationServices: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationServices>;
   automationOverview: AutomationOverviewCopy;
+  automationAttachments: AutomationAttachmentCopy;
   healthcareLegalEntity: HealthcareLegalEntityCopy;
   providerFinder: ProviderFinderCopy;
   automationCatalog: LocalizedAutomationShape<typeof automationNamespaceTranslations.en.automationCatalog>;
@@ -64179,6 +64181,7 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].automationUpdateRecord = getUpdateRecordCopy(locale);
   translations[locale].automationExecutionSettings = automationExecutionSettingsTranslations[locale];
   translations[locale].automationEditorHelp = automationEditorHelpTranslations[locale];
+  translations[locale].automationAttachments = automationAttachmentTranslations[locale];
   translations[locale].forwardReview = forwardReviewTranslations[locale];
   translations[locale].automationBlockEditor = automationBlockEditorCopy[locale];
   translations[locale].hospitals.agreements = hospitalAgreementTranslations[locale];
