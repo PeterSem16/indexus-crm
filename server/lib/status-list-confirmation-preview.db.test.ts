@@ -3,11 +3,14 @@ import { randomUUID } from "node:crypto";
 import { pool } from "../db";
 import { STATUS_LIST_WORKFLOW_SCHEMA } from "./status-list-workflow-schema";
 import { previewStatusListConfirmation } from "./status-list-confirmation-preview";
+import { workflowCatalog } from "./status-list-workflow";
+import { isPersistedStatusListInfoHeading } from "./status-list-confirmation-kind";
 
 if(process.env.NODE_ENV==="production" || process.env.REPLIT_DEPLOYMENT)throw Error("Development test only");
 const client=await pool.connect();
 const schema=`sl_recap_test_${randomUUID().replaceAll("-","")}`;
 const campaign=randomUUID(),contact=randomUUID(),step=randomUUID(),heading=randomUUID(),question=randomUUID(),target=randomUUID();
+const received=randomUUID(),validatedGroup=randomUUID(),validated=randomUUID(),contractGroup=randomUUID(),contractPending=randomUUID();
 try {
   await client.query(`CREATE SCHEMA ${schema}; SET search_path TO ${schema},public;`);
   await client.query(`
@@ -35,6 +38,14 @@ try {
   await client.query("INSERT INTO campaign_contacts(id,campaign_id,contact_type) VALUES($1,$2,'customer')",[contact,campaign]);
   for(const [id,label,type] of [[step,"Question","checkbox"],[heading,"Heading","info"],[target,"Target","checkbox"]])
     await client.query("INSERT INTO campaign_status_list_items(id,campaign_id,label,confirmation_type) VALUES($1,$2,$3,$4)",[id,campaign,label,type]);
+   for (const [id,parent,label] of [
+     [received,heading,"Yes — signed contract received"],
+     [validatedGroup,null,"Signed Contract Validated"],
+     [validated,validatedGroup,"Contract validated"],
+     [contractGroup,null,"Contract proposal"],
+     [contractPending,contractGroup,"Contract proposal offered — unaccepted"],
+   ]) await client.query(`INSERT INTO campaign_status_list_items(id,campaign_id,parent_id,label,confirmation_type)
+     VALUES($1,$2,$3,$4,'info')`,[id,campaign,parent,label]);
   await client.query("INSERT INTO campaign_status_list_questions(id,item_id,question_text,field_type) VALUES($1,$2,'Choice','yes_no')",[question,step]);
   const yesAction=randomUUID(),noAction=randomUUID(),rootAction=randomUUID();
   for(const [id,qId,field,value] of [[yesAction,question,"answer","yes"],[noAction,question,"answer","no"],[rootAction,null,"always",null]])
@@ -60,6 +71,22 @@ try {
   assert.equal(no.actions.find(action=>action.branch==="else")?.condition,"matched");
   assert.equal(no.actions.find(action=>action.id===noAction)?.condition,"matched");
   await assert.rejects(()=>previewStatusListConfirmation(client,campaign,contact,"agent",{changes:[{kind:"item",id:heading,value:true}]}),/invalid_source/);
+   const catalog = await workflowCatalog(campaign, client);
+   for (const id of [received,validated,contractPending]) {
+     assert.equal(catalog.find(item=>item.kind==="item" && item.id===id)?.writable,true);
+     const row=(await client.query(`SELECT id,parent_id AS "parentId",item_type AS "itemType",
+       confirmation_type AS "confirmationType" FROM campaign_status_list_items WHERE id=$1`,[id])).rows[0];
+     assert.equal(await isPersistedStatusListInfoHeading(client,campaign,row),false);
+   }
+   assert.equal(await isPersistedStatusListInfoHeading(client,campaign,{
+     id:heading,itemType:"step",confirmationType:"info",
+   }),true);
+   const legacyPlan=await previewStatusListConfirmation(client,campaign,contact,"agent",{
+     changes:[received,validated,contractPending].map(id=>({kind:"item",id,value:true})),
+   });
+   assert.equal(legacyPlan.readOnly,true);
+   assert.equal(legacyPlan.mode,"batch");
+   assert.deepEqual(legacyPlan.actions,[],"rules-only Batch may save legacy answers without inventing actions");
   await assert.rejects(()=>previewStatusListConfirmation(client,randomUUID(),contact,"agent",{changes:[{kind:"item",id:step,value:true}]}),/contact_not_found/);
   for(const table of ["mission_status_list_answers","mission_status_list_rule_runs","campaign_contact_status_list_state","mission_status_list_automatic_events"])
     assert.equal(Number((await client.query(`SELECT count(*) FROM ${table}`)).rows[0].count),0,`preview must not write ${table}`);
@@ -70,10 +97,17 @@ try {
   const callback=randomUUID(),taskAction=randomUUID();
   await client.query(`INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type,callback_offset_days,callback_time,target_role)
     VALUES($1,$3,'set_callback',4,'14:30',NULL),($2,$3,'assign_task',NULL,NULL,'role:Back Office')`,[callback,taskAction,step]);
+   const legacyCallback=randomUUID();
+   await client.query(`INSERT INTO campaign_status_list_automations(id,status_list_item_id,action_type,callback_offset_days,callback_time)
+     VALUES($1,$2,'set_callback',6,'09:00')`,[legacyCallback,contractPending]);
   await client.query("BEGIN READ ONLY");
   const summary=await previewStatusListConfirmation(client,campaign,contact,"agent",{changes:[{kind:"item",id:step,value:true}]});
   assert.match(summary.actions.find(action=>action.id===callback)!.callbackDate!,/T14:30$/);
   assert.equal(summary.actions.find(action=>action.id===taskAction)!.targetLabel,"Back Office");
+   const legacySummary=await previewStatusListConfirmation(client,campaign,contact,"agent",{
+     changes:[{kind:"item",id:contractPending,value:true}],
+   });
+   assert.match(legacySummary.actions.find(action=>action.id===legacyCallback)!.callbackDate!,/T09:00$/);
   for(const table of ["mission_status_list_answers","mission_status_list_rule_runs","campaign_contact_status_list_state","mission_status_list_automatic_events"])
     assert.equal(Number((await client.query(`SELECT count(*) FROM ${table}`)).rows[0].count),0);
   await client.query("COMMIT");

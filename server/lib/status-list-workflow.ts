@@ -12,6 +12,7 @@ import { preserveWorkflowNote, readWorkflowNotes, writeWorkflowNote } from "./st
 import { callbackBarrier, hasCallbackAdmission } from "./status-list-service";
 import { isHealthcareConditionField } from "../../shared/status-list-healthcare-conditions";
 import { loadHealthcareConditionFacts } from "./status-list-healthcare";
+import { isStatusListInfoHeading } from "../../shared/status-list-confirmation-kind";
 
 export class StatusListWorkflowError extends Error {
   constructor(public code: string, public status = 400) { super(code); }
@@ -41,10 +42,16 @@ export async function workflowCatalog(campaignId: string, client: Queryable = po
   const sources = await client.query("SELECT question_id,source FROM mission_status_list_sources WHERE campaign_id=$1", [campaignId]);
   const optionSources = (await client.query(`SELECT s.group_id,s.config,i.is_hidden AS hidden
     FROM mission_status_list_option_sources s JOIN campaign_status_list_items i ON i.id=s.group_id WHERE s.campaign_id=$1`, [campaignId])).rows;
+  const hierarchy = rows.map(row => ({ id: row.id, parentId: row.parent_id,
+    itemType: row.item_type, confirmationType: row.confirmation_type }));
   return rows.map(row => {
     const owner = row.kind === "item" ? optionSources.find(s => s.group_id === row.id || s.group_id === row.parent_id) : undefined;
+    const writable = row.kind === "item" && row.confirmation_type === "info"
+      ? !isStatusListInfoHeading({ id: row.id, parentId: row.parent_id,
+        itemType: row.item_type, confirmationType: row.confirmation_type }, hierarchy)
+      : row.writable;
     return { kind: row.kind, id: row.id, label: row.label, fieldType: row.field_type,
-    hidden: row.hidden, writable: row.writable, parentLabel: row.parent_label,
+    hidden: row.hidden, writable, parentLabel: row.parent_label,
     parentId: row.parent_id || undefined, sortOrder: row.sort_order, itemType: row.item_type, confirmationType: row.confirmation_type, systemSourceEligible: row.system_source_eligible, multiSelectable: row.multi_selectable,
     ...(owner ? { writable: false, hidden: row.hidden || owner.hidden,
       ...(owner.group_id !== row.id ? { backgroundSource: owner.config.source } : {}) } : {}),

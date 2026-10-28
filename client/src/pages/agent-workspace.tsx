@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
 import { createStatusListExecutionClient } from "@/lib/status-list-execution-client";
+import { isStatusListInfoHeading } from "@shared/status-list-confirmation-kind";
 import { createSingleSelectTransition, executeSingleSelectTransition } from "@/lib/status-list-single-select-transition";
 import { prepareStatusListCallbackReview } from "@/lib/status-list-callback-review";
 import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/status-list-execution-policy";
@@ -3287,7 +3288,7 @@ export function CommunicationCanvas({
   const handleSlToggle = useCallback(async (itemId: string, newChecked: boolean) => {
     if (slMutationBusyRef.current) return;
     const sender = slExecutionRef.current.client;
-    if ((dbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
+    if ((dbStatusList as any[]).some(item=>String(item.id)===itemId && isStatusListInfoHeading(item, dbStatusList as any[])))return;
     const selectedItem = (dbStatusList as any[]).find(item=>String(item.id)===itemId);
     if (selectedItem?.sourceManaged) return;
     const itemActions = (selectedItem?.automations || []).filter((action:any)=>
@@ -3394,7 +3395,7 @@ export function CommunicationCanvas({
   // second is then dropped by slMutationBusyRef.
   const handleSlSingleChildTransition = useCallback(async (child: any, checkedSiblingIds: string[]) => {
     if (!campaign?.id || !campaignContactId || slMutationBusyRef.current ||
-        child.sourceManaged || child.confirmationType === "info") return;
+        child.sourceManaged || isStatusListInfoHeading(child, dbStatusList as any[])) return;
     const sender = slExecutionRef.current.client;
     const scopeToken = statusListScopeToken;
     const transition = createSingleSelectTransition(
@@ -12583,7 +12584,7 @@ function AgentWorkspacePageContent() {
 
   const handleMobileSlToggle = useCallback(async (itemId: string, newChecked: boolean, checkedSiblingIds: string[] = []) => {
     if (!selectedCampaignId || !effectiveCampaignContactId || mobileSlBusy.current) return;
-    if((mobileDbStatusList as any[]).some(item=>String(item.id)===itemId && item.confirmationType==="info"))return;
+    if((mobileDbStatusList as any[]).some(item=>String(item.id)===itemId && isStatusListInfoHeading(item, mobileDbStatusList as any[])))return;
     const recapScope=mobileSlExecution.current.client;
     const replacingSiblings = newChecked && mobileStatusListMode === "immediate"
       ? Array.from(new Set(checkedSiblingIds.filter(id => id !== itemId)))

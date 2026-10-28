@@ -163,6 +163,7 @@ import { eventsForCallOutcome, selectCallOutcomeBadges } from "./call-outcome";
 import { normalizeMissionFaqCategoryOrder, normalizeMissionFaqItems } from "@shared/mission-faq";
 import Handlebars from "handlebars";
 import { writeStatusListCallback } from "./lib/status-list-callback-write";
+import { isPersistedStatusListInfoHeading } from "./lib/status-list-confirmation-kind";
 import { MEDICAL_PARTNER_AUDIT_CAMPAIGN } from "../shared/status-list-transition-audit";
 import { CallbackTransitionError, drainCallbackEvents, persistCallbackConfirmation,
   recordedCallbackActions, runDurableManualCallback, startCallbackRecovery } from "./lib/status-list-callback-transition";
@@ -35114,6 +35115,8 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(404).json({ error: "Contact not found in campaign" });
       }
       const [itemRouteItem] = await db.select({
+        id: campaignStatusListItems.id,
+        parentId: campaignStatusListItems.parentId,
         campaignId: campaignStatusListItems.campaignId,
         label: campaignStatusListItems.label,
         description: campaignStatusListItems.description,
@@ -35126,7 +35129,7 @@ Respond ONLY with valid JSON in this exact format:
       if (!itemRouteItem || itemRouteItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Status-list item not found in campaign" });
       }
-      if (confirm && itemRouteItem.confirmationType === "info")
+      if (confirm && await isPersistedStatusListInfoHeading(pool, campaignId, itemRouteItem))
         return res.status(409).json({ error: "heading_cannot_confirm" });
       const executionSettings = (await pool.query("SELECT settings FROM campaigns WHERE id=$1", [campaignId])).rows[0]?.settings;
       try { checkStatusListExecution(executionSettings, req.body); }
@@ -35456,7 +35459,7 @@ Respond ONLY with valid JSON in this exact format:
       if (!slItem || slItem.campaignId !== campaignId) {
         return res.status(404).json({ error: "Automation not found in campaign" });
       }
-      if (slItem.confirmationType==="info" && !automation.questionId)
+      if (!automation.questionId && await isPersistedStatusListInfoHeading(pool, campaignId, slItem))
         return res.status(409).json({error:"heading_cannot_confirm"});
 
       // Authorization + country derivation (server-side; never trust client input).
