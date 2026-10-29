@@ -81,6 +81,9 @@ test("private version chains, retained audit and administrative file purge for b
       const history=await(await api(entity,"/record-activity",agent)).json();
       assert.ok(Array.isArray(history.events),JSON.stringify(history));
       assert.ok(history.events.some((r:any)=>r.module==="Nexus Pulse"&&r.details.itemLabel==="Allowed"));
+      const allowedMission = (await pool.query("SELECT name FROM campaigns WHERE id=$1",[mission])).rows[0].name;
+      assert.ok(history.events.some((r:any)=>r.module==="Nexus Pulse"&&r.details.campaignName===allowedMission),"authorized Mission name replaces its opaque ID");
+      assert.ok(history.events.some((r:any)=>r.details.statusListItemLabel==="Allowed"),"historical step labels are preserved");
       assert.ok(!JSON.stringify(history).includes("Hidden"));assert.ok(!JSON.stringify(history).includes("NEVER EXPOSE"));
       const all=await(await api(entity,"/record-activity")).json();
       assert.ok(all.events.some((r:any)=>r.action==="agreement_file_deleted"));

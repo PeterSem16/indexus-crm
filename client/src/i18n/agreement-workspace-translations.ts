@@ -21,6 +21,7 @@ export interface AgreementWorkspaceCopy {
   eventAgreementAdded?: string; eventVersionAdded?: string; eventAgreementUpdated?: string; eventAgreementArchived?: string;
   eventFileDeletionRequested?: string; eventFileDeleted?: string;
   dateRangeError?: string;
+  requiredField?: string;
 }
 
 export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCopy> = {
@@ -197,6 +198,15 @@ const lifecycleCopy: Record<Locale, Pick<AgreementWorkspaceCopy, "purgePending" 
   de:{purgePending:"Dateientfernung angefordert; die physische Löschung ist noch nicht bestätigt.",purgeRetry:"Dateilöschung erneut versuchen",purgeConfirmed:"Datei endgültig gelöscht",purgeRetryError:"Die Dateilöschung steht noch aus. Versuchen Sie es erneut oder wenden Sie sich an den Support.",previewRetry:"Vorschau erneut versuchen",eventAgreementAdded:"Vereinbarung hinzugefügt",eventVersionAdded:"Vereinbarungsversion hinzugefügt",eventAgreementUpdated:"Vereinbarung aktualisiert",eventAgreementArchived:"Vereinbarung archiviert",eventFileDeletionRequested:"Dateilöschung angefordert",eventFileDeleted:"Datei gelöscht",dateRangeError:"Das Gültigkeitsdatum ab darf nicht nach dem Gültigkeitsdatum bis liegen."}
 };
 
+const requiredFields: Record<Locale, string> = {
+  en: "Complete the required field: {field}.",
+  sk: "Vyplňte povinné pole: {field}.",
+  cs: "Vyplňte povinné pole: {field}.",
+  hu: "Töltse ki a kötelező mezőt: {field}.",
+  ro: "Completați câmpul obligatoriu: {field}.",
+  it: "Compila il campo obbligatorio: {field}.",
+  de: "Füllen Sie das Pflichtfeld aus: {field}.",
+};
 for (const locale of Object.keys(agreementWorkspaceTranslations) as Locale[]) {
-  Object.assign(agreementWorkspaceTranslations[locale], lifecycleCopy[locale]);
+  Object.assign(agreementWorkspaceTranslations[locale], lifecycleCopy[locale], { requiredField: requiredFields[locale] });
 }

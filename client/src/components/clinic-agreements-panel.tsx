@@ -191,7 +191,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
       const current = group.latest;
       setTitle(current.title); setNumber(current.contractNumber || "");
       setValidFrom(current.validTo ? (() => { const date = new Date(`${current.validTo.slice(0, 10)}T12:00:00`); date.setDate(date.getDate() + 1); return date.toISOString().slice(0, 10); })() : dateKey());
-      setValidTo(""); setUnlimited(false);
+      setValidTo(""); setUnlimited(!current.validTo);
     } else { setTitle(""); setNumber(""); setValidFrom(dateKey()); setValidTo(""); setUnlimited(false); setArchiveOpen(false); }
   };
   const patch = async (row: ClinicAgreement, values: Partial<AgreementDraft>) => {
@@ -214,7 +214,19 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
   };
   const submitForm = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!clinicId || !canManage || !file || !title.trim() || (!unlimited && !validTo) || (formMode === "version" && !changeReason.trim())) return;
+    if (!clinicId || !canManage) return;
+    if (formMode === "version" && !changeReason.trim()) {
+      setFormError(wx.reasonRequired);
+      document.getElementById("agreement-reason")?.focus();
+      return;
+    }
+    const missing = !title.trim() ? tx.agreementTitle : !file ? tx.file : !unlimited && !validTo ? tx.validTo : null;
+    if (missing) {
+      setFormError(wx.requiredField.replace("{field}", missing));
+      document.getElementById(!title.trim() ? "agreement-title" : !file ? "agreement-upload" : "agreement-valid-to")?.focus();
+      return;
+    }
+    if (!file) return;
     if (validFrom && validTo && !unlimited && validFrom > validTo) { setFormError(wx.dateRangeError || tx.saveError); return; }
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setFormError(""); setError("");
@@ -357,13 +369,13 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
           <DialogTitle className="flex items-center gap-2 text-base"><FileText className="h-4 w-4 text-primary" />{formMode === "version" ? wx.versionTitle : wx.newAgreement}</DialogTitle>
           <DialogDescription>{formMode === "version" ? wx.versionDescription : wx.newDescription}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submitForm}>
+        <form onSubmit={submitForm} noValidate>
           <div className="grid gap-4 p-5 sm:grid-cols-2">
             {formMode === "version" && <div className="sm:col-span-2 rounded-md border border-primary/15 bg-primary/[.035] px-3 py-2 text-xs text-muted-foreground">{wx.reasonRequired}</div>}
             <div className="sm:col-span-2"><Label htmlFor="agreement-title">{tx.agreementTitle} *</Label><Input id="agreement-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={200} required disabled={busy} /></div>
             <div><Label htmlFor="agreement-number">{tx.contractNumber}</Label><Input id="agreement-number" value={number} onChange={event => setNumber(event.target.value)} disabled={busy} /></div>
             <div><Label>{tx.validFrom}</Label><DateTimePicker disabled={busy} includeTime={false} countryCode={countryCode} placeholder={tx.validFrom} value={validFrom} onChange={setValidFrom} /></div>
-            <div><Label>{tx.validTo}</Label><DateTimePicker disabled={busy || unlimited} includeTime={false} countryCode={countryCode} placeholder={tx.validTo} value={validTo} onChange={setValidTo} /></div>
+            <div id="agreement-valid-to" tabIndex={-1}><Label>{tx.validTo}</Label><DateTimePicker disabled={busy || unlimited} includeTime={false} countryCode={countryCode} placeholder={tx.validTo} value={validTo} onChange={setValidTo} /></div>
             <div className="flex items-end gap-2 pb-2"><Checkbox id="agreement-unlimited" checked={unlimited} disabled={busy} onCheckedChange={checked => { setUnlimited(checked === true); if (checked) setValidTo(""); }} /><Label htmlFor="agreement-unlimited" className="text-xs">{t.datePicker.noTimeLimit}</Label></div>
             {formMode === "version" && <div className="sm:col-span-2"><Label htmlFor="agreement-reason">{wx.reason} *</Label><Textarea id="agreement-reason" value={changeReason} onChange={event => setChangeReason(event.target.value)} placeholder={wx.reasonPlaceholder} maxLength={1000} required disabled={busy} className="min-h-20" /></div>}
             <div className="sm:col-span-2">
@@ -378,7 +390,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
           </div>
           <DialogFooter className="border-t bg-muted/15 px-5 py-3">
             <Button type="button" variant="ghost" disabled={busy} onClick={() => setFormOpen(false)}>{wx.cancel}</Button>
-            <Button type="submit" disabled={busy || !file || !title.trim() || (!unlimited && !validTo) || (formMode === "version" && !changeReason.trim())}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{formMode === "version" ? wx.saveVersion : wx.saveNew}</Button>
+            <Button type="submit" disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{formMode === "version" ? wx.saveVersion : wx.saveNew}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -396,7 +408,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
     </Dialog>
 
     <Dialog open={!!previewTarget} onOpenChange={open => { if (!open) { previewRequest.current?.abort(); setPreviewTarget(null); setPreviewScale(1); } }}>
-      <DialogContent hideCloseButton className="z-[10051] flex h-[min(91dvh,870px)] w-[min(1060px,calc(100vw-20px))] max-w-none flex-col gap-0 overflow-hidden p-0" overlayClassName="z-[10050]">
+      <DialogContent hideCloseButton style={{ width: "min(1440px, calc(100vw - 24px))", maxWidth: "calc(100vw - 24px)" }} className="z-[10051] flex h-[94dvh] max-w-none flex-col gap-0 overflow-hidden p-0" overlayClassName="z-[10050]">
         <DialogHeader className="flex shrink-0 flex-row items-center gap-3 border-b bg-background px-4 py-3 pr-12">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border bg-primary/5 text-primary"><FileText className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1"><DialogTitle className="truncate text-sm">{wx.previewTitle}</DialogTitle><DialogDescription className="truncate text-xs">{previewTarget?.fileName} · v{previewTarget?.version} · {previewTarget ? fileSize(previewTarget.fileSize) : ""}</DialogDescription></div>
@@ -410,7 +422,7 @@ export function ClinicAgreementsPanel({ clinicId, readOnly = false, allowReadOnl
           {previewLoading && <div className="flex h-full min-h-40 items-center justify-center gap-3 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />{wx.loadingPreview}</div>}
           {previewError && <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center"><AlertTriangle className="h-8 w-8 text-destructive" /><b>{wx.previewFailed}</b><p className="text-sm text-muted-foreground">{wx.unsupportedPreview} {wx.downloadFallback}</p><div className="mt-2 flex gap-2"><Button type="button" variant="outline" onClick={() => setPreviewAttempt(attempt => attempt + 1)}>{wx.previewRetry}</Button>{previewTarget && <a className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm" href={downloadHref(previewTarget)} download><Download className="h-4 w-4" />{tx.download}</a>}</div></div>}
           {!previewLoading && !previewError && previewUrl && previewType.startsWith("image/") && <div className="flex min-h-full min-w-full items-start justify-center"><img src={previewUrl} alt={previewTarget?.fileName || wx.previewTitle} className="max-h-full max-w-full origin-top object-contain shadow-md" style={{ transform: `scale(${previewScale})` }} /></div>}
-          {!previewLoading && !previewError && previewUrl && (previewType === "application/pdf" || previewType.endsWith("+pdf")) && <iframe title={`${wx.previewTitle}: ${previewTarget?.fileName || ""}`} src={`${previewUrl}#zoom=${Math.round(previewScale * 100)}`} className="mx-auto h-full min-h-[300px] w-full max-w-[900px] border-0 bg-background shadow-md" />}
+          {!previewLoading && !previewError && previewUrl && (previewType === "application/pdf" || previewType.endsWith("+pdf")) && <iframe title={`${wx.previewTitle}: ${previewTarget?.fileName || ""}`} src={`${previewUrl}#zoom=${previewScale === 1 ? "page-fit" : Math.round(previewScale * 100)}&navpanes=0`} className="mx-auto h-full min-h-[300px] w-full border-0 bg-background shadow-md" />}
           {!previewLoading && !previewError && previewUrl && !previewType.startsWith("image/") && previewType !== "application/pdf" && !previewType.endsWith("+pdf") && <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 text-center"><AlertTriangle className="h-8 w-8 text-amber-600" /><b>{wx.unsupportedPreview}</b><p className="text-sm text-muted-foreground">{wx.downloadFallback}</p>{previewTarget && <a className="inline-flex h-9 items-center gap-2 rounded-md border bg-background px-3 text-sm" href={downloadHref(previewTarget)} download><Download className="h-4 w-4" />{tx.download}</a>}</div>}
         </div>
       </DialogContent>

@@ -98,7 +98,8 @@ function safeDetails(raw: unknown) {
   // Do not expose arbitrary historical payloads (credentials, external message bodies, storage keys).
   for (const key of ["title","fileName","version","reason","previousStatus","newStatus",
     "statusListItemLabel","itemLabel","questionLabel","optionLabel","callbackDate","previousCallbackDate",
-    "callbackNote","taskTitle","assignedToName","campaignId","campaignName","outcome"]) {
+    "callbackNote","taskTitle","assignedToName","campaignId","campaignName","outcome",
+    "actionType","dispositionCode","recipientCount"]) {
     const value = input[key];
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null)
       result[key] = typeof value === "string" ? value.slice(0, 4000) : value;
@@ -133,8 +134,23 @@ export async function loadRecordActivity(entity: "clinic" | "hospital", entityId
       WHERE c.${fk}=$1 AND c.campaign_id IN (SELECT id FROM authorized_missions)
     )
     SELECT s.id,s.action,COALESCE(u.full_name,u.username) AS actor,s.created_at AS "createdAt",s.created_at::text AS "_cursorTime",
-      s.details,CASE WHEN s.details->>'module'='Nexus Pulse' THEN 'Nexus Pulse' ELSE s.module END AS module
+      s.details || jsonb_strip_nulls(jsonb_build_object(
+        'campaignName',mission.name,
+        'statusListItemLabel',COALESCE(NULLIF(s.details->>'statusListItemLabel',''),NULLIF(s.details->>'itemLabel',''),item.label),
+        'questionLabel',COALESCE(NULLIF(s.details->>'questionLabel',''),question.question_text)
+      )) AS details,
+      CASE WHEN s.details->>'module'='Nexus Pulse' THEN 'Nexus Pulse' ELSE s.module END AS module
     FROM source_events s LEFT JOIN users u ON u.id=s.user_id
+    LEFT JOIN campaigns mission ON mission.id=s.details->>'campaignId'
+      AND mission.id IN (SELECT id FROM authorized_missions)
+    LEFT JOIN campaign_status_list_items item
+      ON item.id=COALESCE(s.details->>'itemId',s.details->>'statusListItemId')
+      AND item.campaign_id=mission.id
+    LEFT JOIN LATERAL (
+      SELECT q.question_text FROM campaign_status_list_questions q
+      JOIN campaign_status_list_items qi ON qi.id=q.item_id
+      WHERE q.id=s.details->>'questionId' AND qi.campaign_id=mission.id
+    ) question ON true
     WHERE (NOT (s.details ? 'campaignId') OR s.details->>'campaignId' IN (SELECT id FROM authorized_missions))
       AND ($3::varchar IS NULL OR NOT (s.details ? 'campaignId') OR s.details->>'campaignId'=$3)
       AND ($6::timestamp IS NULL OR (s.created_at,s.id)<($6::timestamp,$7::text))

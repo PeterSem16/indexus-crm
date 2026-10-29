@@ -47,7 +47,9 @@ test("native clinic drawer: timelines, metadata save and genuine modal preview",
   await state.panel.getByRole("button",{name:"Preview",exact:true}).first().click();
   const dialog=page.getByRole("dialog");
   await expect(dialog.locator("iframe")).toBeVisible();
-  expect(await dialog.locator("iframe").getAttribute("src")).toMatch(/^blob:.*#zoom=100/);
+  expect(await dialog.locator("iframe").getAttribute("src")).toMatch(/^blob:.*#zoom=page-fit/);
+  const width=await dialog.evaluate(el=>el.getBoundingClientRect().width);
+  expect(width).toBeGreaterThan(page.viewportSize()!.width * .9);
   await page.keyboard.press("Escape");await expect(dialog).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
@@ -72,6 +74,26 @@ test("reason-required purge retains audit; archive is a separate action",async({
   await expect.poll(()=>state.writes.length).toBe(2);
   await state.panel.getByRole("button",{name:/^Archive/}).click();
   await expect(state.panel.getByText("agreement.pdf",{exact:true}).first()).toBeVisible();
+  expect(state.errors).toEqual([]);
+});
+test("version form explains missing reason and successfully submits after correction",async({page})=>{
+  const state=await fixture(page,"?sheet");
+  await state.panel.getByRole("button",{name:"New version",exact:true}).click();
+  const dialog=page.getByRole("dialog").last();
+  await dialog.getByRole("checkbox").check();
+  await dialog.locator('input[type="file"]').setInputFiles({name:"signed.docx",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",buffer:Buffer.from("document fixture")});
+  const save=dialog.getByRole("button",{name:"Save version",exact:true});
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(dialog.getByRole("alert")).toHaveText(wx.reasonRequired!);
+  await expect(dialog.locator("textarea")).toBeFocused();
+  expect(state.writes).toHaveLength(0);
+  await dialog.locator("textarea").fill("New signed version");
+  await save.click();
+  await expect(page.getByRole("dialog",{name:wx.versionTitle})).toHaveCount(0);
+  expect(state.writes).toHaveLength(1);
+  expect(state.writes[0].body).toContain('name="parentId"');
+  expect(state.writes[0].body).toContain('New signed version');
   expect(state.errors).toEqual([]);
 });
 test("upload failure preserves version draft and never submits parent record",async({page})=>{
@@ -105,6 +127,25 @@ test("hospital Agreements loads real workspace and exposes record activity",asyn
   await expect(state.panel.getByText("Cooperation agreement",{exact:true}).first()).toBeVisible();
   await page.getByRole("button",{name:"Record activity",exact:true}).click();
   await expect(page.getByRole("dialog").last().getByText("Test administrator",{exact:false})).toBeVisible();
+  expect(state.errors).toEqual([]);
+});
+test("activity uses colored readable actions, resolved Mission names and translated changes",async({page})=>{
+  const state=await fixture(page,"?readonly");
+  await page.route("**/record-activity**",route=>route.fulfill({json:{events:[
+    {id:"event-1",action:"status_list_action",module:"Nexus Pulse",actor:"Test administrator",createdAt:"2026-10-29T08:45:00Z",details:{actionType:"set_callback",campaignId:"301a0f6d-2eea-475b-811f-a59bc90bb83d",campaignName:"Patient support",callbackDate:"2026-10-30T08:00:00Z"}},
+    {id:"event-2",action:"agreement_updated",module:"Nexus Pulse",actor:"Test administrator",createdAt:"2026-10-29T08:30:00Z",details:{before:{title:"Original contract",active:true},after:{title:"Signed contract",active:false},version:2}},
+    {id:"event-3",action:"status_list_background",module:"Nexus Pulse",actor:null,createdAt:"2026-10-29T08:00:00Z",details:{campaignName:"Patient support"}}
+  ],nextCursor:null}}));
+  await page.getByRole("button",{name:"Record activity",exact:true}).click();
+  const dialog=page.getByRole("dialog").last();
+  await expect(dialog.getByRole("button",{name:/Background automation ran/})).toBeVisible();
+  for(const button of await dialog.locator("button[aria-expanded]").all())await button.click();
+  await expect(dialog.getByText("Patient support",{exact:true}).first()).toBeVisible();
+  await expect(dialog.getByText("Before: Yes · After: No",{exact:true})).toBeVisible();
+  expect(await dialog.innerText()).not.toMatch(/campaignId|301a0f6d|status_list_|validFrom/);
+  await page.screenshot({path:"generated-artifacts/agreement-history-light.png"});
+  await page.evaluate(()=>document.documentElement.classList.add("dark"));
+  await page.screenshot({path:"generated-artifacts/agreement-history-dark.png"});
   expect(state.errors).toEqual([]);
 });
 test("mobile dark drawer fits the screen and keeps upload modal reachable",async({page})=>{
