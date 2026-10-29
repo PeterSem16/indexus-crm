@@ -1,144 +1,118 @@
 import { test, expect } from "@playwright/test";
+import { agreementWorkspaceTranslations } from "../client/src/i18n/agreement-workspace-translations";
+const wx=agreementWorkspaceTranslations.en;
 
-const rows = [
-  { id: "a1", clinicId: "fixture-clinic", title: "Cooperation agreement", contractNumber: "SK-1", validFrom: "2020-01-01", validTo: "2099-12-31", active: true, endedAt: null, fileName: "agreement.pdf", contentType: "application/pdf", fileSize: 1024, createdAt: "2026-10-04T00:00:00Z", updatedAt: "2026-10-04T00:00:00Z" },
-  { id: "a2", clinicId: "fixture-clinic", title: "Expired agreement", contractNumber: null, validFrom: "2020-01-01", validTo: "2021-01-01", active: true, endedAt: null, fileName: "old.pdf", contentType: "application/pdf", fileSize: 1024, createdAt: "2026-10-04T00:00:00Z", updatedAt: "2026-10-04T00:00:00Z" },
+const original = [
+  { id:"a1",groupId:"a1",version:2,title:"Cooperation agreement",contractNumber:"SK-1",validFrom:"2020-01-01",validTo:"2099-12-31",active:true,endedAt:null,fileName:"agreement.pdf",contentType:"application/pdf",fileSize:1024,createdAt:"2026-10-04T10:00:00Z",updatedAt:"2026-10-04T10:00:00Z",reason:"Renewal",createdByName:"Test administrator",archivedAt:null,fileDeletedAt:null,filePurgedAt:null},
+  { id:"a0",groupId:"a1",version:1,title:"Cooperation agreement",contractNumber:"SK-1",validFrom:"2019-01-01",validTo:"2019-12-31",active:false,endedAt:null,fileName:"original.docx",contentType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",fileSize:2048,createdAt:"2026-10-01T10:00:00Z",updatedAt:"2026-10-01T10:00:00Z",reason:null,createdByName:"Test administrator",archivedAt:null,fileDeletedAt:null,filePurgedAt:null},
 ];
-async function fixture(page: any, params = "", uploadFails = false) {
-  const errors: string[] = [];
-  const mutations: Array<{ method: string; body: string }> = [];
-  let data = structuredClone(rows);
-  page.on("pageerror", (e: Error) => errors.push(e.message));
-  await page.route("**/api/**", async (route: any) => {
-    const request = route.request(), url = new URL(request.url());
-    if (request.method() !== "GET" && !url.pathname.includes("/agreements"))
-      errors.push(`Unexpected parent mutation: ${request.method()} ${url.pathname}`);
-    if (url.pathname === "/api/auth/me") return route.fulfill({ json: { user: { id: "fixture-agent", role: "admin", assignedCountries: ["SK"] } } });
-    if (url.pathname.endsWith("/agreements")) {
-      if (request.method() === "POST") {
-        mutations.push({ method: "POST", body: request.postData() || "" });
-        if (uploadFails) return route.fulfill({ status: 400, json: { error: "Unsupported agreement file" } });
-        return route.fulfill({ status: 201, json: rows[0] });
-      }
-      return route.fulfill({ json: { agreements: data, canManage: true } });
+async function fixture(page:any,params="",rejectUpload=false) {
+  const errors:string[]=[],writes:any[]=[];
+  let rows:any[]=structuredClone(original);
+  page.on("pageerror",(e:Error)=>errors.push(e.message));
+  await page.route("**/api/**",async(route:any)=>{
+    const req=route.request(),url=new URL(req.url()),p=url.pathname;
+    if(p==="/api/auth/me")return route.fulfill({json:{user:{id:"fixture-agent",role:"admin",assignedCountries:["SK"]}}});
+    if(p.endsWith("/record-activity"))return route.fulfill({json:{events:[{id:"evt",action:"agreement_version_added",module:"Healthcare Network",actor:"Test administrator",createdAt:"2026-10-04T10:00:00Z",details:{title:"Cooperation agreement",reason:"Renewal",version:2}}],nextCursor:null}});
+    if(p.endsWith("/preview"))return route.fulfill({body:"%PDF-1.4\nfixture",contentType:"application/pdf"});
+    if(p.endsWith("/download"))return route.fulfill({body:"%PDF-1.4\nfixture",headers:{"content-type":"application/pdf","content-disposition":'attachment; filename="agreement.pdf"'}});
+    if(p.includes("/agreements")){
+      if(req.method()==="GET")return route.fulfill({json:{agreements:rows,canManage:!params.includes("readonly"),canDelete:!params.includes("readonly")}});
+      writes.push({method:req.method(),path:p,body:req.postData()});
+      if(req.method()==="POST"&&p.endsWith("/agreements"))return route.fulfill({status:rejectUpload?400:201,json:rejectUpload?{error:"Rejected"}:original[0]});
+      const id=p.split("/agreements/")[1]?.split("/")[0],row=rows.find(r=>r.id===id);
+      if(req.method()==="PATCH"){Object.assign(row,req.postDataJSON());return route.fulfill({json:row});}
+      if(p.endsWith("/file")){Object.assign(row,{fileDeletedAt:new Date().toISOString(),filePurgedAt:new Date().toISOString(),fileDeleteReason:req.postDataJSON().reason});return route.fulfill({status:204});}
+      if(p.endsWith("/archive")){rows=rows.map(r=>({...r,archivedAt:new Date().toISOString(),active:false}));return route.fulfill({status:204});}
     }
-    if (/\/agreements\/a1$/.test(url.pathname) && request.method() === "PATCH") {
-      const value = request.postDataJSON();
-      mutations.push({ method: "PATCH", body: JSON.stringify(value) });
-      data[0] = { ...data[0], ...value };
-      return route.fulfill({ json: data[0] });
-    }
-    if (url.pathname.endsWith("/download")) return route.fulfill({ body: "%PDF-1.4", headers: { "content-type": "application/pdf", "content-disposition": 'attachment; filename="agreement.pdf"' } });
-    if (url.pathname.includes("/settings")) return route.fulfill({ json: {} });
-    return route.fulfill({ json: [] });
+    if(p.includes("settings"))return route.fulfill({json:{}});
+    return route.fulfill({json:[]});
   });
-  await page.goto("/test-fixtures/clinic-agreements.html" + params);
-  await page.getByRole("button", { name: "Agreements", exact: true }).click();
-  return { errors, mutations };
+  await page.goto("/test-fixtures/clinic-agreements.html"+params);
+  await page.getByRole("button",{name:"Agreements",exact:true}).click();
+  const panel=page.getByTestId(params.includes("hospital")?"hospital-agreements-panel":"clinic-agreements-panel");
+  await expect(panel.getByText("agreement.pdf",{exact:true}).first()).toBeVisible();
+  return {errors,writes,panel};
 }
-test("actual inline clinic card manages multiple agreements without submitting parent form", async ({ page }) => {
-  const state = await fixture(page);
-  await expect(page.getByText("Cooperation agreement", { exact: true })).toBeVisible();
-  await expect(page.getByText("Expired agreement", { exact: true })).toBeVisible();
-  await page.screenshot({ path: "/tmp/clinic-agreements-native-desktop.png", animations: "disabled" });
-  await page.getByLabel("End validity").first().click();
-  await expect.poll(() => state.mutations.length).toBe(1);
-  expect(JSON.parse(state.mutations[0].body)).toEqual({ active: false });
-  await expect(page.getByLabel("Edit details").first()).toHaveText("Edit details");
-  await page.getByLabel("Edit details").first().click();
-  await expect(page.getByLabel("Cancel edit")).toHaveText("Cancel edit");
-  await expect(page.getByLabel("Save changes", { exact: true })).toHaveText("Save changes");
-  await page.getByLabel("Agreement title", { exact: true }).first().fill("Updated agreement");
-  await page.getByLabel("Save changes", { exact: true }).click();
-  await expect(page.getByText("Updated agreement", { exact: true })).toBeVisible();
-  expect(state.mutations.every(x => x.method === "PATCH")).toBeTruthy();
+test("native clinic drawer: timelines, metadata save and genuine modal preview",async({page})=>{
+  const state=await fixture(page);
+  await expect(state.panel.getByText("v2",{exact:true}).first()).toBeVisible();
+  await state.panel.getByRole("button",{name:/v1.*original.docx/}).click();
+  await expect(state.panel.getByText("original.docx",{exact:true}).last()).toBeVisible();
+  await state.panel.getByRole("button",{name:"Edit details",exact:true}).click();
+  await state.panel.getByLabel("Agreement title",{exact:true}).fill("Updated agreement");
+  await state.panel.getByRole("button",{name:"Save changes",exact:true}).click();
+  await expect.poll(()=>state.writes.length).toBe(1);
+  expect(JSON.parse(state.writes[0].body).title).toBe("Updated agreement");
+  await state.panel.getByRole("button",{name:"Preview",exact:true}).first().click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog.locator("iframe")).toBeVisible();
+  expect(await dialog.locator("iframe").getAttribute("src")).toMatch(/^blob:.*#zoom=100/);
+  await page.keyboard.press("Escape");await expect(dialog).toHaveCount(0);
   expect(state.errors).toEqual([]);
 });
-test("read-only Nexus Pulse clinic keeps download usable, no mutation controls", async ({ page }) => {
-  const state = await fixture(page, "?readonly");
-  const link = page.getByRole("link", { name: "Download" }).first();
-  await expect(link).toBeVisible();
-  expect(await link.evaluate((e: HTMLElement) => e.closest("fieldset")?.disabled)).toBe(false);
-  await expect(page.getByLabel("End validity")).toHaveCount(0);
-  await expect(page.getByText("Add agreement", { exact: true })).toHaveCount(0);
-  const download = page.waitForEvent("download");
-  await link.click(); await download;
-  expect(state.mutations).toEqual([]);
+test("reason-required purge retains audit; archive is a separate action",async({page})=>{
+  const state=await fixture(page,"?sheet");
+  await state.panel.getByRole("button",{name:wx.fileDelete,exact:true}).first().click();
+  let dialog=page.getByRole("dialog").last();
+  const submit=dialog.getByRole("button",{name:wx.fileDeleteConfirm,exact:true});
+  await expect(submit).toBeDisabled();
+  await dialog.getByRole("button",{name:"Cancel",exact:true}).click();
+  expect(state.writes).toEqual([]);
+  await state.panel.getByRole("button",{name:wx.fileDelete,exact:true}).first().click();
+  dialog=page.getByRole("dialog").last();
+  await dialog.locator("textarea").fill("Duplicate scan");
+  await dialog.getByRole("button",{name:wx.fileDeleteConfirm,exact:true}).click();
+  await expect.poll(()=>state.writes.length).toBe(1);
+  await expect(state.panel.getByRole("button",{name:"Preview",exact:true})).toHaveCount(0);
+  await expect(state.panel.getByText("agreement.pdf",{exact:true}).first()).toBeVisible();
+  await state.panel.getByRole("button",{name:"Archive agreement",exact:true}).click();
+  dialog=page.getByRole("dialog").last();await dialog.locator("textarea").fill("Superseded contract");
+  await dialog.getByRole("button",{name:"Archive agreement",exact:true}).click();
+  await expect.poll(()=>state.writes.length).toBe(2);
+  await state.panel.getByRole("button",{name:/^Archive/}).click();
+  await expect(state.panel.getByText("agreement.pdf",{exact:true}).first()).toBeVisible();
   expect(state.errors).toEqual([]);
 });
-test("sheet has agreements and rejected upload preserves draft with localized error", async ({ page }) => {
-  const state = await fixture(page, "?sheet", true);
-  const title = page.getByLabel("Agreement title *", { exact: true });
-  await title.fill("Draft agreement");
-  await page.getByRole("checkbox", { name: "The agreement has no time limit" }).check();
-  await page.locator('input[type="file"]').setInputFiles({ name: "example.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
-  await page.getByRole("button", { name: "Upload agreement" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(title).toHaveValue("Draft agreement");
-  expect(state.mutations.length).toBe(1);
+test("upload failure preserves version draft and never submits parent record",async({page})=>{
+  const state=await fixture(page,"?sheet",true);
+  await state.panel.getByRole("button",{name:"New version",exact:true}).click();
+  const dialog=page.getByRole("dialog").last();
+  await dialog.getByLabel("Agreement title *",{exact:true}).fill("Version draft");
+  await dialog.getByRole("checkbox").check();
+  await dialog.locator("textarea").fill("New signed version");
+  await dialog.locator('input[type="file"]').setInputFiles({name:"new.pdf",mimeType:"application/pdf",buffer:Buffer.from("%PDF-1.4")});
+  await dialog.getByRole("button",{name:"Save version",exact:true}).click();
+  await expect(dialog.getByRole("alert")).toBeVisible();
+  await expect(dialog.getByLabel("Agreement title *",{exact:true})).toHaveValue("Version draft");
+  expect(state.writes).toHaveLength(1);expect(state.writes[0].path).toMatch(/\/agreements$/);
+  expect(state.writes[0].body).toContain('name="parentId"');expect(state.errors).toEqual([]);
+});
+test("read-only Pulse card retains preview/download and shared activity without writes",async({page})=>{
+  const state=await fixture(page,"?readonly");
+  await expect(state.panel.getByRole("button",{name:"Add agreement",exact:true})).toHaveCount(0);
+  await expect(state.panel.getByRole("button",{name:wx.fileDelete,exact:true})).toHaveCount(0);
+  await expect(state.panel.getByRole("link",{name:"Download",exact:true}).first()).toBeVisible();
+  await page.getByRole("button",{name:"Record activity",exact:true}).click();
+  const dialog=page.getByRole("dialog").last();
+  await expect(dialog.getByText("Test administrator",{exact:false})).toBeVisible();
+  await dialog.getByRole("button",{name:/Test administrator/}).click();
+  await expect(dialog.getByText("Renewal",{exact:true})).toBeVisible();
+  expect(state.writes).toEqual([]);expect(state.errors).toEqual([]);
+});
+test("hospital Agreements loads real workspace and exposes record activity",async({page})=>{
+  const state=await fixture(page,"?hospital");
+  await expect(state.panel.getByText("Cooperation agreement",{exact:true}).first()).toBeVisible();
+  await page.getByRole("button",{name:"Record activity",exact:true}).click();
+  await expect(page.getByRole("dialog").last().getByText("Test administrator",{exact:false})).toBeVisible();
   expect(state.errors).toEqual([]);
 });
-test("unsaved clinic cannot upload agreements", async ({ page }) => {
-  const state = await fixture(page, "?unsaved");
-  await expect(page.getByText("Save clinic first", { exact: true })).toBeVisible();
-  await expect(page.locator('input[type="file"]')).toHaveCount(0);
-  expect(state.mutations).toEqual([]);
-});
-test("new agreement defaults to today's app date and explicit unlimited validity is saved", async ({ page }) => {
-  await page.clock.install({ time: new Date("2026-10-04T23:30:00Z") });
-  const state = await fixture(page);
-  await expect(page.getByTestId("agreement-valid-from")).toHaveText("05.10.2026");
-  await page.getByTestId("agreement-valid-to").click();
-  await expect(page.locator('[role="grid"]')).toBeVisible();
-  await page.keyboard.press("Escape");
-  await page.getByLabel("Agreement title *", { exact: true }).fill("Unlimited agreement");
-  await page.locator('input[type="file"]').setInputFiles({ name: "example.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") });
-  await expect(page.getByRole("button", { name: "Upload agreement" })).toBeDisabled();
-  await page.getByRole("checkbox", { name: "The agreement has no time limit" }).check();
-  await expect(page.getByTestId("agreement-valid-to")).toBeDisabled();
-  await page.getByRole("button", { name: "Upload agreement" }).click();
-  await expect.poll(() => state.mutations.length).toBe(1);
-  expect(state.mutations[0].body).toContain('name="validFrom"\r\n\r\n2026-10-05');
-  expect(state.mutations[0].body).not.toContain('name="validTo"');
-  expect(state.errors).toEqual([]);
-});
-test("editing agreement to unlimited clears persisted end date, cancelling keeps original", async ({ page }) => {
-  const state = await fixture(page);
-  await page.getByLabel("Edit details").first().click();
-  await page.getByRole("checkbox", { name: "The agreement has no time limit" }).first().check();
-  await page.getByLabel("Cancel edit").click();
-  expect(state.mutations).toEqual([]);
-  await page.getByLabel("Edit details").first().click();
-  await expect(page.getByRole("checkbox", { name: "The agreement has no time limit" }).first()).not.toBeChecked();
-  await page.getByRole("checkbox", { name: "The agreement has no time limit" }).first().check();
-  await page.getByLabel("Save changes", { exact: true }).click();
-  await expect.poll(() => state.mutations.length).toBe(1);
-  expect(JSON.parse(state.mutations[0].body)).toEqual({ validTo: "" });
-  expect(state.errors).toEqual([]);
-});
-test("phone layout keeps agreement content and downloads within horizontal viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 402, height: 874 });
-  await fixture(page, "?readonly");
-  await expect(page.getByRole("link", { name: "Download" }).first()).toBeVisible();
-  const panel = await page.getByTestId("clinic-agreements-panel").boundingBox();
-  expect(panel!.x + panel!.width).toBeLessThanOrEqual(403);
-  await page.screenshot({ path: "/tmp/clinic-agreements-native-phone.png", animations: "disabled" });
-});
-test("phone agreement actions retain visible text and wrap within viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 402, height: 874 });
-  const state = await fixture(page);
-  await expect(page.getByRole("link", { name: "Download" }).first()).toHaveText("Download");
-  await expect(page.getByLabel("Edit details").first()).toHaveText("Edit details");
-  await page.getByLabel("Edit details").first().click();
-  for (const label of ["Cancel edit", "Save changes"]) {
-    const button = page.getByLabel(label, { exact: true });
-    await expect(button).toHaveText(label);
-    const bounds = await button.boundingBox();
-    expect(bounds!.x).toBeGreaterThanOrEqual(0);
-    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(402);
-  }
-  await page.getByLabel("Cancel edit").click();
-  await expect(page.getByText("Cooperation agreement", { exact: true })).toBeVisible();
-  expect(state.mutations).toEqual([]);
+test("mobile dark drawer fits the screen and keeps upload modal reachable",async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.addInitScript(()=>localStorage.setItem("theme","dark"));
+  const state=await fixture(page);
+  await state.panel.getByRole("button",{name:"Add agreement",exact:true}).click();
+  const bounds=await page.getByRole("dialog").last().boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);expect(bounds!.x+bounds!.width).toBeLessThanOrEqual(391);
   expect(state.errors).toEqual([]);
 });

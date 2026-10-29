@@ -68,6 +68,7 @@ import { PhoneNumberField } from "@/components/phone-number-field";
 import { Wand2 } from "lucide-react";
 import { PulseClinicDialButton } from "@/components/pulse-dial-button";
 import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
+import { RecordActivityButton } from "@/components/record-activity-button";
 import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity-panel";
 import { clinicSaveAddress } from "@/lib/clinic-save-address";
 
@@ -2117,6 +2118,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   const editorBody = (
     <>
+      {mode === "inline" && initialData?.id && (
+        <div className="flex shrink-0 justify-end border-b px-5 py-2">
+          <RecordActivityButton recordType="clinic" recordId={initialData.id} campaignId={campaignId} />
+        </div>
+      )}
       <div className="shrink-0 mx-5 my-2 px-2 py-2.5 rounded-lg bg-muted/40 border" data-testid="clinic-status-bar-drawer">
         <ProgressBar />
         {currentPipelineOption && (
@@ -2987,6 +2993,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   {initialData.phone && (
                     <CallCustomerButton phoneNumber={initialData.phone} customerName={doctorFullName || initialData.name} variant="icon" />
                   )}
+                  <RecordActivityButton recordType="clinic" recordId={initialData.id} campaignId={campaignId} />
                 </div>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => onOpenChange(false)} data-testid="button-close-clinic-drawer">

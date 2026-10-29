@@ -29,6 +29,7 @@ import { statusListButtonTranslationCopy, type StatusListButtonTranslationCopy }
 import { getStatusListSetupGuide } from "../components/status-list-setup-guide-copy";
 import { getStatusListRelationshipsHelpCopy } from "../components/status-list-relationships-help-copy";
 import { getSourceValidationCopy } from "../components/status-list-source-validation-copy";
+import { agreementWorkspaceTranslations, type AgreementWorkspaceCopy } from "./agreement-workspace-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -87,6 +88,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
+  agreementWorkspace: AgreementWorkspaceCopy;
   statusListRepresentativeInformation: StatusListRepresentativeInformationCopy;
   statusListRepresentativeCheck: RepresentativeCheckCopy;
   statusListSetupGuide: ReturnType<typeof getStatusListSetupGuide>;
@@ -64188,4 +64190,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].forwardReview = forwardReviewTranslations[locale];
   translations[locale].automationBlockEditor = automationBlockEditorCopy[locale];
   translations[locale].hospitals.agreements = hospitalAgreementTranslations[locale];
+  translations[locale].agreementWorkspace = agreementWorkspaceTranslations[locale];
 }

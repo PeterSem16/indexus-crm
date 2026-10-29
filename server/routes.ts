@@ -3055,8 +3055,9 @@ export async function registerRoutes(
   const { listOmniSms, findOmniSmsMessage, filterOmniSmsFromMixedHistory, OmniSmsError } = await import("./omni-sms-service");
   const { authoritativeOmniSmsReply } = await import("./lib/omni-sms-reply");
   registerOmniSmsRoutes(app, requireAuth);
-  const { registerClinicAgreementRoutes } = await import("./lib/clinic-agreement-routes");
+  const { registerClinicAgreementRoutes, registerHospitalAgreementRoutes } = await import("./lib/clinic-agreement-routes");
   registerClinicAgreementRoutes(app, requireAuth);
+  registerHospitalAgreementRoutes(app, requireAuth);
   const { registerHealthcareLegalEntityRoutes } = await import("./lib/healthcare-legal-entity-routes");
   registerHealthcareLegalEntityRoutes(app, requireAuth);
   const { registerProviderFinderRoutes } = await import("./lib/provider-finder-routes");

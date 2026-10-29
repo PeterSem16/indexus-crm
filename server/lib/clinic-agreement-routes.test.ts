@@ -9,9 +9,13 @@ import { pool } from "../db";
 import { DATA_ROOT } from "../config/storage-paths";
 import { registerClinicAgreementRoutes } from "./clinic-agreement-routes";
 import { CLINIC_AGREEMENTS_MIGRATION, AGREEMENT_MAX_BYTES } from "./clinic-agreement-contract";
+import { AGREEMENT_WORKSPACE_MIGRATION } from "./agreement-workspace";
+import { HOSPITAL_AGREEMENTS_MIGRATION } from "./hospital-agreement-contract";
 
 test("real clinic agreement APIs preserve clinic workflows and enforce private document access", async t => {
   await pool.query(CLINIC_AGREEMENTS_MIGRATION);
+  await pool.query(HOSPITAL_AGREEMENTS_MIGRATION);
+  await pool.query(AGREEMENT_WORKSPACE_MIGRATION);
   const ids = { admin: randomUUID(), manager: randomUUID(), agent: randomUUID(), other: randomUUID(), clinic: randomUUID(), second: randomUUID(), campaign: randomUUID(), role: randomUUID(), custom: randomUUID() };
   const files: string[] = [];
   const app = express();

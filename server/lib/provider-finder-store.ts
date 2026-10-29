@@ -52,7 +52,7 @@ export async function finderProviders(company: string, country: string, readPeop
         bool_or(active AND ended_at IS NULL
           AND (valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
           AND (valid_to IS NULL OR valid_to >= (now() AT TIME ZONE 'Europe/Bratislava')::date)) AS current_agreement,
-        bool_or(active AND ended_at IS NULL AND storage_key<>''
+        bool_or(active AND ended_at IS NULL AND storage_key<>'' AND file_deleted_at IS NULL
           AND (valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
           AND (valid_to IS NULL OR valid_to >= (now() AT TIME ZONE 'Europe/Bratislava')::date)) AS uploaded_contract,
         bool_or((valid_from IS NULL OR valid_from <= (now() AT TIME ZONE 'Europe/Bratislava')::date)
@@ -73,7 +73,7 @@ export async function finderProviders(company: string, country: string, readPeop
         (SELECT s.status_key='retention_active' FROM clinic_cooperation_statuses s WHERE s.clinic_id=c.id
           AND s.phase='retention' ORDER BY s.confirmed_at DESC,s.id DESC LIMIT 1) AS cooperating,
         EXISTS(SELECT 1 FROM clinic_agreements a WHERE a.clinic_id=c.id AND a.active=true AND a.ended_at IS NULL
-          AND a.storage_key<>'' AND (a.valid_from IS NULL OR a.valid_from<=CURRENT_DATE)
+          AND a.storage_key<>'' AND a.file_deleted_at IS NULL AND (a.valid_from IS NULL OR a.valid_from<=CURRENT_DATE)
           AND (a.valid_to IS NULL OR a.valid_to>=CURRENT_DATE)) AS uploaded_contract,
         EXISTS(SELECT 1 FROM clinic_representative_assignments a JOIN users u ON u.id=a.user_id AND u.is_active=true
           WHERE a.clinic_id=c.id AND a.valid_from<=now() AND (a.valid_to IS NULL OR a.valid_to>now())) AS has_representative,

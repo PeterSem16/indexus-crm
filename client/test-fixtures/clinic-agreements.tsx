@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "../src/i18n/I18nProvider";
 import { AuthProvider } from "../src/contexts/auth-context";
 import { ClinicFormSheet } from "../src/components/clinic-form-wizard";
+import { HospitalFormWizard } from "../src/components/hospital-form-wizard";
+import { PermissionsProvider } from "../src/contexts/permissions-context";
 import { TooltipProvider } from "../src/components/ui/tooltip";
 import "../src/index.css";
 
@@ -18,11 +20,14 @@ const user = { id: "fixture-agent", role: "admin", assignedCountries: ["SK"] };
 client.setQueryData(["/api/auth/me"], { user });
 const clinic = { id: "fixture-clinic", name: "Agreement test clinic", countryCode: "SK", isActive: true };
 createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={client}><AuthProvider><I18nProvider><TooltipProvider>
+  <QueryClientProvider client={client}><AuthProvider><PermissionsProvider><I18nProvider><TooltipProvider>
     <div data-pulse-fullscreen={params.has("readonly") ? "true" : undefined} style={{ height: "100vh" }}>
-      <ClinicFormSheet open onOpenChange={() => {}} onSuccess={() => {}}
+      {params.has("hospital") ? <HospitalFormWizard
+        initialData={{ id:"fixture-hospital",name:"Agreement test hospital",countryCode:"SK" } as any}
+        mode={params.has("sheet") ? undefined : "inline"} readOnly={params.has("readonly")}
+        onSuccess={()=>{}} onCancel={()=>{}} /> : <ClinicFormSheet open onOpenChange={() => {}} onSuccess={() => {}}
         initialData={params.has("unsaved") ? null : clinic as any}
-        readOnly={params.has("readonly")} mode={params.has("sheet") || params.has("unsaved") ? "sheet" : "inline"} />
+        readOnly={params.has("readonly")} mode={params.has("sheet") || params.has("unsaved") ? "sheet" : "inline"} />}
     </div>
-  </TooltipProvider></I18nProvider></AuthProvider></QueryClientProvider>,
+  </TooltipProvider></I18nProvider></PermissionsProvider></AuthProvider></QueryClientProvider>,
 );

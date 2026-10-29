@@ -8,6 +8,8 @@ import { pool } from "../db";
 import { DATA_ROOT } from "../config/storage-paths";
 import { registerHospitalAgreementRoutes } from "./clinic-agreement-routes";
 import { HOSPITAL_AGREEMENTS_MIGRATION } from "./hospital-agreement-contract";
+import { CLINIC_AGREEMENTS_MIGRATION } from "./clinic-agreement-contract";
+import { AGREEMENT_WORKSPACE_MIGRATION } from "./agreement-workspace";
 import { finderProviders, validateFinderSelection } from "./provider-finder-store";
 import { ensureProviderFinderSchema } from "./provider-finder-schema";
 import { DEFAULT_FINDER_POLICY, finderQualitySchema, finderQualityCandidates } from "../../shared/provider-finder";
@@ -15,6 +17,8 @@ import { AGREEMENT_MAX_BYTES } from "./clinic-agreement-contract";
 
 test("hospital-owned agreements: real CRUD, country/document authorization and independent finder evidence", async t => {
   await pool.query(HOSPITAL_AGREEMENTS_MIGRATION);
+  await pool.query(CLINIC_AGREEMENTS_MIGRATION);
+  await pool.query(AGREEMENT_WORKSPACE_MIGRATION);
   await pool.query(HOSPITAL_AGREEMENTS_MIGRATION); // Startup is repeatable.
   await ensureProviderFinderSchema(pool);
   const ids = Object.fromEntries(["admin", "manager", "agent", "foreign", "custom", "role", "hospital", "second", "foreignHospital", "person", "personAgreement", "campaign"].map(k => [k, randomUUID()]));
@@ -142,7 +146,7 @@ test("hospital-owned agreements: real CRUD, country/document authorization and i
       assert.equal((await (await request("", ids.agent)).json()).canManage, false);
       assert.equal((await request(`/${agreement.id}/download`, ids.agent)).status, 200);
       assert.equal((await patch(agreement.id, { active: false }, ids.agent)).status, 403);
-      assert.equal((await request(`/${agreement.id}`, ids.agent, { method: "DELETE" })).status, 403);
+      assert.equal((await request(`/${agreement.id}/file`, ids.agent, { method: "DELETE", headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:"Denied"}) })).status, 403);
       await pool.query("UPDATE campaigns SET settings=$2 WHERE id=$1", [ids.campaign, JSON.stringify({ readOnlyContactCards: true, readOnlyExceptions: { agreements: true } })]);
       const query = `?campaignId=${ids.campaign}`;
       assert.equal((await patch(agreement.id, { title: "Mission edit" }, ids.agent, query)).status, 200);
@@ -185,11 +189,14 @@ test("hospital-owned agreements: real CRUD, country/document authorization and i
       assert.equal(finderQualityCandidates(p, policy, 1, 25)[0]?.person?.id, ids.person);
       assert.equal((await finderProviders("country", country, true)).find(x => x.id === ids.second)!.evidence?.currentAgreement, false);
     });
-    await t.test("delete removes record/document, never changes hospital or Person agreement", async () => {
-      assert.equal((await request(`/${agreement.id}`, ids.admin, { method: "DELETE" })).status, 204);
-      assert.equal((await request(`/${agreement.id}/download`)).status, 404);
-      assert.equal((await request(`/${agreement.id}`, ids.admin, { method: "DELETE" })).status, 404);
-      assert.equal((await (await request()).json()).agreements.length, 0);
+    await t.test("purge removes document but retains its record, hospital and Person agreement", async () => {
+      const deletion={method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:"Duplicate fixture"})};
+      assert.equal((await request(`/${agreement.id}/file`, ids.admin, deletion)).status, 204);
+      assert.equal((await request(`/${agreement.id}/download`)).status, 410);
+      assert.equal((await request(`/${agreement.id}/file`, ids.admin, deletion)).status, 204);
+      const retained=(await (await request()).json()).agreements;
+      assert.equal(retained.length, 1);
+      assert.ok(retained[0].fileDeletedAt);
       for (const key of files) await assert.rejects(() => fs.stat(path.join(privateDir, key)));
       assert.deepEqual((await pool.query("SELECT * FROM hospitals WHERE id=$1", [ids.hospital])).rows[0], original);
       assert.equal((await pool.query("SELECT count(*)::int n FROM collaborator_agreements WHERE id=$1", [ids.personAgreement])).rows[0].n, 1);
@@ -197,6 +204,7 @@ test("hospital-owned agreements: real CRUD, country/document authorization and i
   } finally {
     const stored = await pool.query("SELECT storage_key FROM hospital_agreements WHERE hospital_id=ANY($1)", [[ids.hospital, ids.second, ids.foreignHospital]]);
     stored.rows.forEach(r => files.add(r.storage_key));
+    await pool.query("DELETE FROM activity_logs WHERE entity_type='hospital' AND entity_id=ANY($1)",[[ids.hospital,ids.second,ids.foreignHospital]]);
     await pool.query("DELETE FROM provider_finder_country_policies WHERE country=$1", [country]);
     await pool.query("DELETE FROM collaborator_agreements WHERE id=$1", [ids.personAgreement]);
     await pool.query("DELETE FROM contact_assignments WHERE person_id=$1", [ids.person]);

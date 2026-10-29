@@ -36,6 +36,7 @@ import { useModuleFieldPermissions } from "@/components/ui/permission-field";
 import { RepresentativePanel } from "@/components/clinic-representative-panel";
 import { InstitutionPersonnelManager } from "@/components/institution-personnel-panel";
 import { ClinicAgreementsPanel } from "@/components/clinic-agreements-panel";
+import { RecordActivityButton } from "@/components/record-activity-button";
 
 interface HospitalFormData {
   legacyId: string;
@@ -764,6 +765,7 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b px-5 py-3">
               <h3 className="font-semibold text-foreground">{formData.name || t.hospitals?.title || "Nemocnica"}</h3>
               {headerBadge}
+              {initialData?.id && <RecordActivityButton recordType="hospital" recordId={initialData.id} campaignId={campaignId} />}
             </div>
             <fieldset disabled={readOnly && inlineTab !== "agreements" && !(inlineTab === "contacts" && roEx.personnel)} className="flex-1 overflow-y-auto px-5 py-4 min-w-0" style={{ minInlineSize: 0 }}>
               {inlineTab === "representative" && initialData?.id ? (
@@ -855,7 +857,10 @@ export function HospitalFormWizard({ initialData, prefillData, onSuccess, onCanc
               <p className="text-xs text-muted-foreground">{getStepTitle(currentStepInfo.id)}</p>
             </div>
           </div>
-          <span className="text-[11px] text-muted-foreground">{Math.round(progress)}%</span>
+          <div className="flex items-center gap-3">
+            {initialData?.id && <RecordActivityButton recordType="hospital" recordId={initialData.id} campaignId={campaignId} />}
+            <span className="text-[11px] text-muted-foreground">{Math.round(progress)}%</span>
+          </div>
         </div>
         <Progress value={progress} className="h-1 mb-2" />
         <div className="flex flex-wrap gap-1.5">

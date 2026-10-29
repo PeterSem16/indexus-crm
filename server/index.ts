@@ -12,6 +12,7 @@ import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
 import { CLINIC_AGREEMENTS_MIGRATION } from "./lib/clinic-agreement-contract";
 import { HOSPITAL_AGREEMENTS_MIGRATION } from "./lib/hospital-agreement-contract";
+import { AGREEMENT_WORKSPACE_MIGRATION } from "./lib/agreement-workspace";
 import { OMNI_SMS_MIGRATION } from "./lib/omni-sms-migration";
 import {
   JMHZ_EDUCATION_TO_CARD_VALUE,
@@ -809,6 +810,7 @@ app.use((req, res, next) => {
   console.log('[migration] private task attachment storage ensured');
   await pool.query(CLINIC_AGREEMENTS_MIGRATION);
   await pool.query(HOSPITAL_AGREEMENTS_MIGRATION);
+  await pool.query(AGREEMENT_WORKSPACE_MIGRATION);
   console.log('[migration] private clinic agreements ensured');
 
   // Agent-only recordings must be unique per call log across every writer.
