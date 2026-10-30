@@ -2254,6 +2254,13 @@ export function SipPhone({
           },
         },
       });
+      // A created call log is not proof of a dispatched INVITE. Keep analytics
+      // evidence separate and session-bound; telemetry failure must not end a call.
+      if (callLogData?.id) {
+        void apiRequest("POST", `/api/call-logs/${encodeURIComponent(callLogData.id)}/funnel-attempt`, {
+          sentAt: new Date().toISOString(),
+        }).catch(() => { /* the report keeps missing evidence explicitly provisional */ });
+      }
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error("[SIP] Call error:", errMsg, error);

@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
 import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
 import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
@@ -3048,6 +3049,7 @@ export async function registerRoutes(
   // Wallboard is manager/admin (or an explicit custom-role campaigns reader)
   // only; the route itself applies workspace-country filtering.
   registerWallboardRoutes(app, requireAuth);
+  registerMissionFunnelRoutes(app, requireAuth);
   registerWallboardPresenceRoutes(app, requireAuth);
   const { registerSystemMailboxCheckRoutes, startSystemMailboxCheckAfterReconnect } = await import("./system-mailbox-check-routes");
   registerSystemMailboxCheckRoutes(app, requireAuth);

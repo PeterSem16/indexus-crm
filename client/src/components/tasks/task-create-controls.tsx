@@ -116,12 +116,14 @@ export function TaskCreateDatePicker({
   locale,
   label,
   clearLabel,
+  pastYears = 0,
 }: {
   value: string;
   onChange: (value: string) => void;
   locale: string;
   label: string;
   clearLabel: string;
+  pastYears?: number;
 }) {
   const now = new Date();
   const hasDate = Boolean(value);
@@ -129,7 +131,7 @@ export function TaskCreateDatePicker({
   const year = valueYear || now.getFullYear();
   const month = valueMonth || now.getMonth() + 1;
   const day = valueDay || now.getDate();
-  const years = Array.from(new Set([...Array.from({ length: 6 }, (_, offset) => now.getFullYear() + offset), year])).sort((a, b) => a - b);
+  const years = Array.from(new Set([...Array.from({ length: 6 + pastYears }, (_, offset) => now.getFullYear() - pastYears + offset), year])).sort((a, b) => a - b);
   const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const monthName = (monthNumber: number) => new Intl.DateTimeFormat(locale, {
     timeZone: "UTC",

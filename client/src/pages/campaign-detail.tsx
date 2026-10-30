@@ -1,4 +1,5 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
+import MissionFunnelReport from "@/components/campaigns/MissionFunnelReport";
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -7664,6 +7665,10 @@ export default function CampaignDetailPage() {
                 <ListChecks className="w-4 h-4 mr-2" />
                 Status List
               </TabsTrigger>
+              <TabsTrigger value="report-mission-funnel" data-testid="tab-report-mission-funnel">
+                <TrendingUp className="w-4 h-4 mr-2" />
+                {t.missionFunnel.title}
+              </TabsTrigger>
               <TabsTrigger value="report-productivity" data-testid="tab-report-productivity">
                 <Gauge className="w-4 h-4 mr-2" />
                 {t.agentProductivity.title}
@@ -7689,6 +7694,9 @@ export default function CampaignDetailPage() {
                 {t.kpiSnapshots?.navLabel ?? "Trendy"}
               </TabsTrigger>
             </TabsList>
+            <TabsContent value="report-mission-funnel" className="space-y-6">
+              <MissionFunnelReport campaignId={campaignId!} />
+            </TabsContent>
             <TabsContent value="report-overview" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
