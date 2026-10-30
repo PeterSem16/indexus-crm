@@ -5,12 +5,14 @@ import { useI18n } from "@/i18n";
 import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingPeriod } from "./reporting-period";
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
+import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
+import { funnelExportTranslations } from "@/i18n/mission-funnel-export-translations";
 import {
   funnelExceptions, funnelSources, funnelSteps,
   type FunnelConfig, type FunnelMember, type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
-import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Download, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
 
 interface Props { campaignId: string }
 const PAGE_SIZE = 10;
@@ -134,6 +136,9 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
   const [config, setConfig] = useState<FunnelConfig | null>(null);
   const [itemSearch, setItemSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
+  const exportCopy = funnelExportTranslations[locale];
   const [saveMessage, setSaveMessage] = useState<"saved" | "error" | "">("");
   const activeCampaign = useRef(campaignId);
 
@@ -153,6 +158,29 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     },
   });
   const report = reportQuery.data;
+  const exportReport = async (format: "csv" | "xlsx") => {
+    if (!report || !valid || reportQuery.isFetching || reportQuery.isError || exporting) return;
+    setExporting(true);
+    setExportError(false);
+    try {
+      const tables = buildFunnelExport(report, copy, exportCopy, { from, to, referral });
+      const blob = format === "csv"
+        ? new Blob([funnelExportCsv(tables)], { type: "text/csv;charset=utf-8" })
+        : new Blob([await funnelExportXlsx(tables)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${funnelExportFilename(campaignId, { from, to, referral })}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      setExportError(true);
+    } finally {
+      setExporting(false);
+    }
+  };
   const configSignature = report ? JSON.stringify(report.config) : "";
   const initialConfig = useMemo(() => configSignature ? JSON.parse(configSignature) as FunnelConfig : null, [configSignature]);
   const initializedCampaign = useRef("");
@@ -245,6 +273,17 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
           </div>}
         </div>
       </header>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {(["xlsx", "csv"] as const).map(format => <button key={format} type="button"
+          data-testid={`mission-funnel-export-${format}`}
+          disabled={!report || !valid || reportQuery.isFetching || reportQuery.isError || exporting}
+          onClick={() => void exportReport(format)}
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
+          <Download aria-hidden="true" className="h-4 w-4" />
+          {exporting ? exportCopy.exporting : format === "xlsx" ? exportCopy.excel : exportCopy.csv}
+        </button>)}
+        {exportError && <p role="alert" className="w-full text-right text-sm text-destructive">{exportCopy.error}</p>}
+      </div>
 
       {showPeriodControls && <ReportingPeriodControls />}
       <section aria-label={copy.referral} className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">

@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { computeMissionFunnel } from "../server/lib/mission-funnel";
 import { emptyFunnelConfig, funnelSources } from "../shared/mission-funnel";
+import { readFile } from "node:fs/promises";
+import * as XLSX from "xlsx";
 
 const config = emptyFunnelConfig();
 for (const key of funnelSources) config.sources[key] = [key];
@@ -26,6 +28,28 @@ async function fixture(page:Page, {readonly=false,error=false,dark=false,data=re
   await page.goto(`/test-fixtures/mission-funnel.html${dark?"?dark":""}`);
   return {calls,errors};
 }
+test("read-only users download filtered funnel CSV and a real Excel workbook", async ({ page }) => {
+  await page.clock.install({ time: new Date("2026-10-30T12:00:00Z") });
+  const { calls, errors } = await fixture(page, { readonly: true });
+  await page.getByTestId("reporting-preset-lastMonth").click();
+  await page.getByTestId("mission-funnel-referral").selectOption("yes");
+  await expect(page.getByTestId("mission-funnel-export-csv")).toBeEnabled();
+  const csvDownload = page.waitForEvent("download");
+  await page.getByTestId("mission-funnel-export-csv").click();
+  const csv = await csvDownload;
+  expect(csv.suggestedFilename()).toContain("2026-09-01_2026-09-30_yes.csv");
+  const content = await readFile((await csv.path())!, "utf8");
+  expect(content).toContain("Clinic Aurora");
+  expect(content).toContain("Europe/Bratislava");
+  const xlsxDownload = page.waitForEvent("download");
+  await page.getByTestId("mission-funnel-export-xlsx").click();
+  const excel = await xlsxDownload;
+  expect(excel.suggestedFilename()).toContain("2026-09-01_2026-09-30_yes.xlsx");
+  const workbook = XLSX.read(await readFile((await excel.path())!));
+  expect(workbook.SheetNames).toHaveLength(5);
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+  expect(errors).toEqual([]);
+});
 test("real report renders all milestones and separates inferred evidence in clinic details",async({page})=>{
   const {errors}=await fixture(page);
   await expect(page.getByRole("heading",{name:"Mission funnel",exact:true})).toBeVisible();
