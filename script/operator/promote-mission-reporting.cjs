@@ -79,7 +79,9 @@ function render(template, renderer) {
   let body = renderer(template, { base: BASE, target: TARGET, paths: FILES }, [BASE]);
   const before = "npx --no-install tsx --test shared/status-list-history-display.test.ts server/lib/status-list-history-display.test.ts client/src/components/hospital-agreement-copy.test.ts";
   if (body.split(before).length !== 2) throw Error("Reviewed test anchor changed");
-  body = body.replace(before, () => `npx --no-install tsx --test ${TESTS.join(" ")}`);
+  // Route fixtures inject their own database, but importing db.ts still needs
+  // a URL. Never inherit the production connection for this test-only command.
+  body = body.replace(before, () => `DATABASE_URL=postgresql://127.0.0.1:1/mission_funnel_unit npx --no-install tsx --test ${TESTS.join(" ")}`);
   if (body.split(".complete-replit-").length !== 2) throw Error("Reviewed storage anchor changed");
   return body.replace(".complete-replit-", ".mission-reporting-");
 }

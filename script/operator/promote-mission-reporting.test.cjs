@@ -48,6 +48,20 @@ test("reuses staged production build, private data-disk backup, health checks an
   for (const file of release.TESTS) assert.ok(tests.includes(file));
   assert.doesNotMatch(tests, /\.db\.test|hospital-agreement-routes/);
 });
+test("test-only database URL overrides missing or inherited configuration without changing the parent", () => {
+  const body = release.render(template, renderer.render);
+  const assignment = body.match(/(DATABASE_URL=\S+) npx --no-install tsx --test /)?.[1];
+  assert.equal(assignment, "DATABASE_URL=postgresql://127.0.0.1:1/mission_funnel_unit");
+  assert.equal(body.split(assignment).length, 2);
+  const probe = `${assignment} node -e 'process.stdout.write(process.env.DATABASE_URL)'`;
+  for (const inherited of ["", "postgresql://inherited.invalid/never_use"]) {
+    const result = cp.spawnSync("bash", ["-c", probe + '; printf "\\n%s" "$DATABASE_URL"'], {
+      env: { ...process.env, DATABASE_URL: inherited }, encoding: "utf8",
+    });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, "postgresql://127.0.0.1:1/mission_funnel_unit\n" + inherited);
+  }
+});
 test("stdin entry point is self-contained and refuses accidental execution", () => {
   const bytes = fs.readFileSync("script/operator/promote-mission-reporting.cjs", "utf8");
   const result = cp.spawnSync(process.execPath, ["-"], { input: bytes, encoding: "utf8" });
