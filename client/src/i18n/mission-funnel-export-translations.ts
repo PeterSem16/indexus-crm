@@ -1,5 +1,10 @@
 import type { Locale } from "./translations";
 
+export const funnelDownloadLabels: Record<Locale, string> = {
+  en: "Download", sk: "Stiahnuť", cs: "Stáhnout", hu: "Letöltés",
+  ro: "Descarcă", it: "Scarica", de: "Herunterladen",
+};
+
 export interface FunnelExportCopy {
   excel: string; csv: string; exporting: string; error: string;
   metadata: string; summary: string; evidence: string; exceptions: string; quality: string;

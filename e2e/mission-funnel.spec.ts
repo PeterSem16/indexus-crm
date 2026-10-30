@@ -33,7 +33,9 @@ test("read-only users download filtered funnel CSV and a real Excel workbook", a
   const { calls, errors } = await fixture(page, { readonly: true });
   await page.getByTestId("reporting-preset-lastMonth").click();
   await page.getByTestId("mission-funnel-referral").selectOption("yes");
-  await expect(page.getByTestId("mission-funnel-export-csv")).toBeEnabled();
+  await expect(page.getByTestId("mission-funnel-export")).toBeEnabled();
+  await expect(page.getByTestId("mission-funnel-export-csv")).toHaveCount(0);
+  await page.getByTestId("mission-funnel-export").click();
   const csvDownload = page.waitForEvent("download");
   await page.getByTestId("mission-funnel-export-csv").click();
   const csv = await csvDownload;
@@ -41,6 +43,8 @@ test("read-only users download filtered funnel CSV and a real Excel workbook", a
   const content = await readFile((await csv.path())!, "utf8");
   expect(content).toContain("Clinic Aurora");
   expect(content).toContain("Europe/Bratislava");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByTestId("mission-funnel-export").click();
   const xlsxDownload = page.waitForEvent("download");
   await page.getByTestId("mission-funnel-export-xlsx").click();
   const excel = await xlsxDownload;
@@ -48,6 +52,24 @@ test("read-only users download filtered funnel CSV and a real Excel workbook", a
   const workbook = XLSX.read(await readFile((await excel.path())!));
   expect(workbook.SheetNames).toHaveLength(5);
   expect(calls.every(call => call.method === "GET")).toBe(true);
+  expect(errors).toEqual([]);
+});
+test("compact export menu supports keyboard dismissal and small-screen selection", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { errors } = await fixture(page, { dark: true });
+  const trigger = page.getByTestId("mission-funnel-export");
+  await expect(trigger).toBeEnabled();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  const menu = await page.getByRole("menu").boundingBox();
+  expect(menu!.x).toBeGreaterThanOrEqual(0);
+  expect(menu!.x + menu!.width).toBeLessThanOrEqual(390);
+  await page.screenshot({ path: "generated-artifacts/mission-funnel/export-menu-mobile.jpg" });
   expect(errors).toEqual([]);
 });
 test("real report renders all milestones and separates inferred evidence in clinic details",async({page})=>{

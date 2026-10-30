@@ -6,13 +6,14 @@ import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingP
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
 import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
-import { funnelExportTranslations } from "@/i18n/mission-funnel-export-translations";
+import { funnelExportTranslations, funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   funnelExceptions, funnelSources, funnelSteps,
   type FunnelConfig, type FunnelMember, type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
-import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Download, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Download, FileSpreadsheet, FileText, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
 
 interface Props { campaignId: string }
 const PAGE_SIZE = 10;
@@ -274,14 +275,27 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
         </div>
       </header>
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {(["xlsx", "csv"] as const).map(format => <button key={format} type="button"
-          data-testid={`mission-funnel-export-${format}`}
-          disabled={!report || !valid || reportQuery.isFetching || reportQuery.isError || exporting}
-          onClick={() => void exportReport(format)}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">
-          <Download aria-hidden="true" className="h-4 w-4" />
-          {exporting ? exportCopy.exporting : format === "xlsx" ? exportCopy.excel : exportCopy.csv}
-        </button>)}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" data-testid="mission-funnel-export"
+              disabled={!report || !valid || reportQuery.isFetching || reportQuery.isError || exporting}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-teal-700/25 bg-teal-700/10 px-3 text-sm font-semibold text-teal-900 transition-colors hover:bg-teal-700/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-teal-300/25 dark:bg-teal-300/10 dark:text-teal-200 dark:hover:bg-teal-300/15">
+              <Download aria-hidden="true" className="h-4 w-4" />
+              {exporting ? exportCopy.exporting : funnelDownloadLabels[locale]}
+              <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 opacity-70" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={6} className="w-48 rounded-xl p-1.5">
+            <DropdownMenuItem data-testid="mission-funnel-export-xlsx" className="min-h-10 cursor-pointer rounded-lg px-3"
+              onSelect={() => void exportReport("xlsx")}>
+              <FileSpreadsheet aria-hidden="true" className="text-teal-700 dark:text-teal-300" />{exportCopy.excel}
+            </DropdownMenuItem>
+            <DropdownMenuItem data-testid="mission-funnel-export-csv" className="min-h-10 cursor-pointer rounded-lg px-3"
+              onSelect={() => void exportReport("csv")}>
+              <FileText aria-hidden="true" className="text-muted-foreground" />{exportCopy.csv}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {exportError && <p role="alert" className="w-full text-right text-sm text-destructive">{exportCopy.error}</p>}
       </div>
 
