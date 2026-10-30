@@ -4,9 +4,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
 import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
 import "./mission-funnel-report.css";
+import MissionFunnelChart from "./MissionFunnelChart";
 import {
   funnelExceptions, funnelSources, funnelSteps,
-  type FunnelConfig, type FunnelMember, type FunnelSource, type MissionFunnelReport,
+  type FunnelConfig, type FunnelMember, type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
@@ -193,6 +194,15 @@ export default function MissionFunnelReport({ campaignId }: Props) {
     setSaveMessage("");
   };
 
+  const openStepDetails = (step: FunnelStep) => {
+    setOpenDetail(`step:${step}`);
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => {
+        document.querySelector(`[data-testid="mission-funnel-step-${step}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+  };
+
   const hasMissingMapping = Boolean(report && funnelSources.some(source => report.config.sources[source].length === 0));
   const displayedRows = useMemo(() => funnelSteps.map(step => report?.rows.find(row => row.key === step) ?? {
     key: step, total: null, direct: null, inferred: null, previousPercent: null, qualifiedPercent: null, members: [],
@@ -275,6 +285,13 @@ export default function MissionFunnelReport({ campaignId }: Props) {
             {hasMissingMapping && <div role="status" className="m-4 flex items-start gap-2 rounded-lg border border-amber-600/30 bg-amber-500/10 p-3 text-sm text-amber-950 dark:text-amber-100 sm:m-5">
               <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" /><p>{funnelSources.every(source => report.config.sources[source].length === 0) ? copy.mappingMissing : copy.mappingIncomplete}</p>
             </div>}
+            <MissionFunnelChart
+              rows={displayedRows}
+              copy={copy}
+              locale={locale}
+              selectedStep={openDetail.startsWith("step:") ? openDetail.slice("step:".length) as FunnelStep : null}
+              onSelectStep={openStepDetails}
+            />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left">
                 <thead className="bg-muted/55 text-[10px] uppercase tracking-[0.12em] text-muted-foreground">

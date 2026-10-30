@@ -12,7 +12,7 @@ const computed = computeMissionFunnel({
   events:["qualified","agreed","proposalAccepted","validated"].map((itemId,index)=>({id:`event-${index}`,contactId:"contact",itemId,confirmed:true,at:`2026-09-0${index+2}T10:00:00Z`})),
 });
 const report={...computed,missionName:"Medical Partner Cooperation",canConfigure:true,dateQuestions:[{id:"return-date",label:"Return date"}]};
-async function fixture(page:Page, {readonly=false,error=false,dark=false}={}) {
+async function fixture(page:Page, {readonly=false,error=false,dark=false,data=report}={}) {
   const calls: {url:string;method:string;body:any}[]=[];
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
@@ -20,7 +20,7 @@ async function fixture(page:Page, {readonly=false,error=false,dark=false}={}) {
     const request=route.request(),url=new URL(request.url());
     calls.push({url:url.pathname+url.search,method:request.method(),body:request.postDataJSON()});
     if(url.pathname.endsWith("/config")) return route.fulfill({json:{success:true}});
-    if(url.pathname.endsWith("/mission-funnel")) return route.fulfill(error ? {status:500,json:{error:"Unavailable"}} : {json:{...report,canConfigure:!readonly}});
+    if(url.pathname.endsWith("/mission-funnel")) return route.fulfill(error ? {status:500,json:{error:"Unavailable"}} : {json:{...data,canConfigure:!readonly}});
     return route.fulfill({json:{}});
   });
   await page.goto(`/test-fixtures/mission-funnel.html${dark?"?dark":""}`);
@@ -76,4 +76,51 @@ test("period picker permits past years and sends the full date; missing sources 
   await expect.poll(()=>calls.some(c=>c.url.includes("from=2025-"))).toBe(true);
   await from.getByRole("button").click();
   await expect.poll(()=>calls.at(-1)!.url.includes("from=")).toBe(false);
+});
+test("graphical funnel matches all 15 table counts and opens evidence using the keyboard without writes",async({page})=>{
+  const {calls,errors}=await fixture(page);
+  const chart=page.getByTestId("mission-funnel-chart");
+  await expect(chart).toBeVisible();
+  for(const row of report.rows) {
+    await expect(chart.getByTestId(`mission-funnel-chart-step-${row.key}`))
+      .toHaveAttribute("data-value",row.total===null?"unmeasured":String(row.total));
+  }
+  const email=chart.getByTestId("mission-funnel-chart-step-email");
+  await expect(email).toHaveAttribute("aria-label",/Inferred: 1/);
+  await email.focus();
+  await email.press("Enter");
+  await expect(email).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByText("Clinic Aurora",{exact:true})).toBeVisible();
+  expect(calls.every(call=>call.method==="GET")).toBe(true);
+  expect(errors).toEqual([]);
+});
+test("graph preserves varying and increasing counts, separates current and branch counts, and keeps zero distinct from unknown",async({page})=>{
+  const counts: Record<string,number|null> = {
+    assigned:500,dialed:100,connected:70,qualified:50,agreed:45,wantsContract:30,
+    withoutContract:15,email:20,wantsToSign:24,sent:12,received:0,returned:null,
+    validated:null,cooperating:34,materials:null,
+  };
+  const data={...report,rows:report.rows.map(row=>({...row,total:counts[row.key],direct:counts[row.key],inferred:counts[row.key]===null?null:0}))};
+  const {errors}=await fixture(page,{data});
+  const chart=page.getByTestId("mission-funnel-chart");
+  await expect(chart).toBeVisible();
+  for(const row of data.rows){
+    await expect(chart.getByTestId(`mission-funnel-chart-step-${row.key}`))
+      .toHaveAttribute("data-value",row.total===null?"unmeasured":String(row.total));
+  }
+  await expect(chart.getByTestId("mission-funnel-chart-step-received")).toContainText("0");
+  await expect(chart.getByTestId("mission-funnel-chart-step-returned")).toContainText("Unmeasured");
+  await chart.scrollIntoViewIfNeeded();
+  await page.screenshot({path:"generated-artifacts/mission-funnel/chart-desktop.jpg",fullPage:false});
+  expect(errors).toEqual([]);
+});
+test("all-zero and all-unmeasured charts render without invalid SVG geometry",async({page})=>{
+  for(const value of [0,null]){
+    const data={...report,rows:report.rows.map(row=>({...row,total:value,direct:value,inferred:value}))};
+    const {errors}=await fixture(page,{data,dark:true});
+    const chart=page.getByTestId("mission-funnel-chart");
+    await expect(chart).toBeVisible();
+    expect(await chart.locator("svg").evaluateAll(svgs=>svgs.every(svg=>!/(NaN|Infinity)/.test(svg.outerHTML)))).toBe(true);
+    expect(errors).toEqual([]);
+  }
 });
