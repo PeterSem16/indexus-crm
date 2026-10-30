@@ -1,5 +1,6 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
 import { missionFunnelTranslations, type MissionFunnelCopy } from "./mission-funnel-translations";
+import { reportingTranslations, type MissionReportingCopy } from "./reporting-translations";
 import { hospitalAgreementTranslations, type HospitalAgreementCopy } from "../components/hospital-agreement-copy";
 import { getStatusListNavigationCopy } from "./status-list-navigation-copy";
 import { statusListRepresentativeInformationTranslations, type StatusListRepresentativeInformationCopy } from "./status-list-representative-information-copy";
@@ -91,6 +92,7 @@ import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
   missionFunnel: MissionFunnelCopy;
+  missionReporting: MissionReportingCopy;
   agreementWorkspace: AgreementWorkspaceCopy;
   recordActivity: RecordActivityCopy;
   statusListRepresentativeInformation: StatusListRepresentativeInformationCopy;
@@ -64197,4 +64199,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].agreementWorkspace = agreementWorkspaceTranslations[locale];
   translations[locale].recordActivity = recordActivityTranslations[locale];
   translations[locale].missionFunnel = missionFunnelTranslations[locale];
+  translations[locale].missionReporting = reportingTranslations[locale];
 }

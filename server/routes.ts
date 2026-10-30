@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
+import { parseReportingQuery } from "../shared/reporting-period";
 import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
 import { bulkGateDeliveryStatus, verifyWebhookToken } from "./lib/bulkgate";
@@ -27360,6 +27361,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/campaigns/:id/status-list-analytics", requireAuth, async (req, res) => {
     try {
       const { id: campaignId } = req.params;
+      let period: ReturnType<typeof parseReportingQuery>;
+      try { period = parseReportingQuery(req.query); }
+      catch { return res.status(400).json({ error: "Invalid reporting period" }); }
 
       // 1. Items — raw SQL, safe columns only
       const itemsRes = await pool.query(
@@ -27409,8 +27413,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         const statesRes = await pool.query(
           `SELECT campaign_contact_id, status_list_item_id, confirmed_at, confirmed_by_user_id
            FROM campaign_contact_status_list_state
-           WHERE campaign_contact_id = ANY($1::text[])`,
-          [ccIds]
+            WHERE campaign_contact_id = ANY($1::text[])
+              AND ($2::timestamptz IS NULL OR confirmed_at >= $2::timestamptz)
+              AND ($3::timestamptz IS NULL OR confirmed_at <= $3::timestamptz)`,
+           [ccIds, period.from, period.to]
         );
         states = statesRes.rows;
       } catch (_e) { states = []; }
@@ -27423,8 +27429,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
            FROM campaign_contact_history
            WHERE campaign_contact_id = ANY($1::text[])
              AND action IN ('call_started','call_ended','disposition_saved')
+              AND ($2::timestamptz IS NULL OR created_at >= $2::timestamptz)
+              AND ($3::timestamptz IS NULL OR created_at <= $3::timestamptz)
            GROUP BY campaign_contact_id`,
-          [ccIds]
+           [ccIds, period.from, period.to]
         );
         for (const r of callRes.rows) callCountMap.set(r.campaign_contact_id, parseInt(r.cnt, 10));
       } catch (_e) {}
@@ -27436,8 +27444,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
           `SELECT status_list_item_id, campaign_contact_id
            FROM task_back_office_confirmations
            WHERE campaign_contact_id = ANY($1::text[])
-             AND status_list_item_id IS NOT NULL`,
-          [ccIds]
+              AND status_list_item_id IS NOT NULL
+              AND ($2::timestamptz IS NULL OR confirmed_at >= $2::timestamptz)
+              AND ($3::timestamptz IS NULL OR confirmed_at <= $3::timestamptz)`,
+           [ccIds, period.from, period.to]
         );
         boConfirmations = boRes.rows;
       } catch (_e) {}
@@ -27678,6 +27688,12 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.get("/api/campaigns/:id/status-list-analytics/export", requireAuth, async (req, res) => {
     try {
       const { id: campaignId } = req.params;
+      let period: ReturnType<typeof parseReportingQuery>;
+      try { period = parseReportingQuery(req.query); }
+      catch { return res.status(400).json({ error: "Invalid reporting period" }); }
+      const periodParams = new URLSearchParams();
+      if (period.from) periodParams.set("from", period.from);
+      if (period.to) periodParams.set("to", period.to);
 
       let campaignName = campaignId;
       try {
@@ -27685,7 +27701,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         if (campRow.rows[0]?.name) campaignName = campRow.rows[0].name;
       } catch (_) {}
 
-      const analyticsRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/campaigns/${campaignId}/status-list-analytics`, {
+      const analyticsRes = await fetch(`http://localhost:${process.env.PORT || 5000}/api/campaigns/${campaignId}/status-list-analytics?${periodParams}`, {
         headers: { cookie: req.headers.cookie || "" },
       });
       if (!analyticsRes.ok) return res.status(500).json({ error: "Failed to load analytics" });

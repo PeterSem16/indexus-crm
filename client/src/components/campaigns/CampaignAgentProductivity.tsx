@@ -2,6 +2,7 @@ import { Fragment, useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { useI18n } from "@/i18n";
+import { useOptionalReportingPeriod } from "@/components/campaigns/reporting-period";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -293,6 +294,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 export default function CampaignAgentProductivity({ campaignId, campaignName }: { campaignId: string; campaignName?: string }) {
   const { t } = useI18n();
   const ap = t.agentProductivity;
+  const sharedPeriod = useOptionalReportingPeriod();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const today = format(new Date(), "yyyy-MM-dd");
@@ -301,10 +303,11 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
-  const validRange =
-    !!from && !!to && !isNaN(parseISO(from).getTime()) && !isNaN(parseISO(to).getTime());
-  const fromISO = validRange ? startOfDay(parseISO(from)).toISOString() : "";
-  const toISO = validRange ? endOfDay(parseISO(to)).toISOString() : "";
+  const validRange = sharedPeriod
+    ? sharedPeriod.valid
+    : !!from && !!to && !isNaN(parseISO(from).getTime()) && !isNaN(parseISO(to).getTime());
+  const fromISO = sharedPeriod?.fromISO ?? (validRange ? startOfDay(parseISO(from)).toISOString() : "");
+  const toISO = sharedPeriod?.toISO ?? (validRange ? endOfDay(parseISO(to)).toISOString() : "");
 
   const { data: rows = [], isLoading } = useQuery<AgentProductivityRow[]>({
     queryKey: ["/api/campaigns", campaignId, "agent-productivity", fromISO, toISO],
@@ -502,7 +505,7 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
   };
 
   return (
-    <Card data-testid="card-campaign-agent-productivity">
+    <Card className="reporting-report mission-funnel-report" data-testid="card-campaign-agent-productivity">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -535,7 +538,7 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex flex-wrap items-end gap-3 pt-3">
+        {!sharedPeriod && <div className="flex flex-wrap items-end gap-3 pt-3">
           <div className="flex flex-col gap-1">
             <label className="text-xs text-muted-foreground">{ap.from}</label>
             <Input
@@ -563,7 +566,7 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
             <Button variant="outline" size="sm" onClick={() => setRange("week")} data-testid="button-range-week">{ap.thisWeek}</Button>
             <Button variant="outline" size="sm" onClick={() => setRange("month")} data-testid="button-range-month">{ap.thisMonth}</Button>
           </div>
-        </div>
+        </div>}
       </CardHeader>
       <CardContent>
         {isLoading ? (

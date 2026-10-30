@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useI18n } from "@/i18n";
+import { reportingTranslations } from "@/i18n/reporting-translations";
+import { useOptionalReportingPeriod } from "@/components/campaigns/reporting-period";
 import { useAuth } from "@/contexts/auth-context";
 import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -81,8 +83,10 @@ interface Props {
 }
 
 export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, campaignEndDate }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const ks = t.kpiSnapshots;
+  const reportingCopy = reportingTranslations[locale];
+  const sharedPeriod = useOptionalReportingPeriod();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -157,9 +161,19 @@ export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, ca
   // ── Chart data ────────────────────────────────────────────────────────────
   const monthOptions = useMemo(() => buildMonthOptions(campaignStartDate, campaignEndDate), [campaignStartDate, campaignEndDate]);
 
+  const visibleSnapshots = useMemo(() => {
+    if (sharedPeriod && !sharedPeriod.valid) return [];
+    const fromMonth = sharedPeriod?.from ? sharedPeriod.from.slice(0, 7) : "";
+    const toMonth = sharedPeriod?.to ? sharedPeriod.to.slice(0, 7) : "";
+    return (snapshots as any[]).filter((snap) => {
+      const month = `${snap.year}-${String(snap.month).padStart(2, "0")}`;
+      return (!fromMonth || month >= fromMonth) && (!toMonth || month <= toMonth);
+    });
+  }, [snapshots, sharedPeriod?.from, sharedPeriod?.to, sharedPeriod?.valid]);
+
   const chartData = useMemo(() => {
-    if (!snapshots.length) return [];
-    return (snapshots as any[]).map(snap => {
+    if (!visibleSnapshots.length) return [];
+    return visibleSnapshots.map(snap => {
       const label = (() => {
         try { return format(new Date(snap.year, snap.month - 1, 1), "MM/yyyy"); }
         catch { return `${snap.month}/${snap.year}`; }
@@ -179,12 +193,12 @@ export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, ca
       row._meta = meta;
       return row;
     });
-  }, [snapshots, ks]);
+  }, [visibleSnapshots, ks]);
 
   const currentMonthOption = monthOptions[0]; // first = newest (current month)
 
   return (
-    <div className="space-y-5">
+    <div className="reporting-report mission-funnel-report space-y-5">
       {/* ── Controls ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -293,14 +307,19 @@ export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, ca
                 <TrendingUp className="h-4 w-4 text-primary" />
                 {ks.chartTitle}
               </CardTitle>
-              {!isFetching && snapshots.length > 0 && (
+              {!isFetching && visibleSnapshots.length > 0 && (
                 <Badge variant="outline" className="text-xs">
-                  {snapshots.length} {ks.monthLabel.toLowerCase()}
+                  {visibleSnapshots.length} {ks.monthLabel.toLowerCase()}
                 </Badge>
               )}
             </div>
           </CardHeader>
           <CardContent>
+            {sharedPeriod && (
+              <p className="mb-3 rounded-lg border border-border/70 bg-muted/35 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                {reportingCopy.monthlySnapshotNote}
+              </p>
+            )}
             {isFetching ? (
               <Skeleton className="h-64 w-full rounded-lg" />
             ) : chartData.length === 0 ? (
@@ -353,7 +372,7 @@ export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, ca
       )}
 
       {/* ── Snapshot list ────────────────────────────────────────────────── */}
-      {repId && !isFetching && snapshots.length > 0 && (
+      {repId && !isFetching && visibleSnapshots.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
@@ -362,7 +381,7 @@ export default function CampaignKpiSnapshots({ campaignId, campaignStartDate, ca
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {(snapshots as any[]).map(snap => {
+              {visibleSnapshots.map(snap => {
                 const monthLabel = (() => {
                   try { return format(new Date(snap.year, snap.month - 1, 1), "MMMM yyyy"); }
                   catch { return `${snap.month}/${snap.year}`; }

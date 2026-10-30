@@ -1,0 +1,87 @@
+.reporting-root-switch {
+  display: flex;
+  gap: .55rem;
+  padding: .3rem;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / .55);
+  border-radius: 1rem;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.reporting-root-button {
+  display: inline-flex;
+  align-items: center;
+  gap: .55rem;
+  min-height: 2.65rem;
+  padding: .55rem .9rem;
+  border: 1px solid transparent;
+  border-radius: .75rem;
+  color: hsl(var(--muted-foreground));
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.reporting-root-button[aria-pressed="true"] {
+  color: hsl(var(--foreground));
+  background: hsl(var(--card));
+  border-color: hsl(var(--border));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / .06);
+}
+
+.reporting-child-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));
+  gap: .55rem;
+}
+
+.reporting-child-button {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  min-width: 0;
+  min-height: 2.8rem;
+  padding: .6rem .75rem;
+  text-align: left;
+  border: 1px solid hsl(var(--border));
+  border-radius: .75rem;
+  background: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+
+.reporting-child-button:hover {
+  color: hsl(var(--foreground));
+  background: hsl(var(--muted) / .45);
+}
+
+.reporting-child-button[aria-current="page"] {
+  border-color: hsl(var(--primary) / .42);
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / .07);
+  font-weight: 600;
+}
+
+.reporting-root-button:focus-visible,
+.reporting-child-button:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.reporting-report {
+  color: hsl(var(--foreground));
+}
+
+.reporting-report .shadcn-card {
+  border-color: hsl(var(--border));
+  border-radius: .9rem;
+  box-shadow: 0 1px 2px hsl(var(--foreground) / .035);
+}
+
+.reporting-report .shadcn-card > .border-b {
+  border-color: hsl(var(--border) / .8);
+}
+
+@media (max-width: 480px) {
+  .reporting-root-switch { width: 100%; }
+  .reporting-root-button { flex: 1; justify-content: center; padding-inline: .5rem; font-size: .78rem; }
+}

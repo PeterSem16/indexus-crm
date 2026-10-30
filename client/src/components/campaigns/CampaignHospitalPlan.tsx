@@ -15,6 +15,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, Phone, MapPin,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { useReportingDateRange } from "@/components/campaigns/reporting-period";
 
 // ── Traffic light helpers ─────────────────────────────────────────────────────
 type Light = "green" | "yellow" | "red";
@@ -97,7 +98,7 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
   const defaultTo   = campaignEndDate   ? new Date(campaignEndDate)   : endOfMonth(new Date());
 
   const [repId, setRepId]     = useState("");
-  const [range, setRange]     = useState<DateRange>({ from: defaultFrom, to: defaultTo });
+  const { range, setRange, fromISO, toISO, valid, isShared } = useReportingDateRange(defaultFrom, defaultTo);
   const [calOpen, setCalOpen] = useState(false);
 
   // ── Rep selector ─────────────────────────────────────────────────────────
@@ -151,8 +152,8 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
   };
 
   // ── Data query ────────────────────────────────────────────────────────────
-  const fromIso = range?.from?.toISOString() ?? "";
-  const toIso   = range?.to?.toISOString()   ?? "";
+  const fromIso = fromISO;
+  const toIso   = toISO;
 
   const { data, isFetching } = useQuery<any>({
     queryKey: ["/api/representative-performance/hospital-plan", repId, fromIso, toIso],
@@ -161,7 +162,7 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
         `/api/representative-performance/hospital-plan?representativeId=${repId}&from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
         { credentials: "include" }
       ).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-    enabled: !!repId && !!range?.from && !!range?.to,
+    enabled: !!repId && valid,
     staleTime: 60_000,
   });
 
@@ -175,7 +176,7 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
   };
 
   return (
-    <div className="space-y-5">
+    <div className="reporting-report mission-funnel-report space-y-5">
       {/* ── Controls ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Rep selector */}
@@ -212,7 +213,7 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
         </Card>
 
         {/* Date range */}
-        <Card>
+        {!isShared && <Card>
           <CardContent className="pt-4 pb-4">
             <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" /> {hp.selectPeriod}
@@ -240,7 +241,7 @@ export default function CampaignHospitalPlan({ campaignId, campaignStartDate, ca
               </PopoverContent>
             </Popover>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* ── Empty state ──────────────────────────────────────────────────── */}

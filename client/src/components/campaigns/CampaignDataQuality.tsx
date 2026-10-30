@@ -14,6 +14,7 @@ import {
   Zap, AlertCircle, AlertTriangle, CheckCircle, ListChecks, UserCircle2, Stethoscope
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { useReportingDateRange } from "@/components/campaigns/reporting-period";
 
 // ── Traffic-light ──────────────────────────────────────────────────────────────
 type Light = "green" | "amber" | "red" | "gray";
@@ -94,7 +95,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
   const defaultTo   = campaignEndDate   ? new Date(campaignEndDate)   : endOfMonth(new Date());
 
   const [repId, setRepId]   = useState("");
-  const [range, setRange]   = useState<DateRange>({ from: defaultFrom, to: defaultTo });
+  const { range, setRange, fromISO, toISO, valid, isShared } = useReportingDateRange(defaultFrom, defaultTo);
   const [calOpen, setCalOpen] = useState(false);
 
   // ── Fetch campaign agents + system representatives, merged & deduped ──────
@@ -161,8 +162,8 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
   };
 
   // ── Query ──────────────────────────────────────────────────────────────────
-  const fromIso = range?.from?.toISOString() ?? "";
-  const toIso   = range?.to?.toISOString()   ?? "";
+  const fromIso = fromISO;
+  const toIso   = toISO;
 
   const { data: dq, isFetching } = useQuery<any>({
     queryKey: ["/api/representative-performance/data-quality", repId, fromIso, toIso],
@@ -171,7 +172,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
         `/api/representative-performance/data-quality?representativeId=${repId}&from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
         { credentials: "include" }
       ).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-    enabled: !!repId && !!range?.from && !!range?.to,
+    enabled: !!repId && valid,
     staleTime: 60_000,
   });
 
@@ -184,7 +185,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
   const dataReady = !!repId && !!dq && !isFetching;
 
   return (
-    <div className="space-y-5">
+    <div className="reporting-report mission-funnel-report space-y-5">
       {/* ── Controls ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
@@ -227,7 +228,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
         </Card>
 
         {/* Date range */}
-        <Card>
+        {!isShared && <Card>
           <CardContent className="pt-4 pb-4">
             <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" /> {rq.selectPeriod}
@@ -271,7 +272,7 @@ export default function CampaignDataQuality({ campaignId, campaignStartDate, cam
               </PopoverContent>
             </Popover>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* ── Empty state ────────────────────────────────────────────────────── */}

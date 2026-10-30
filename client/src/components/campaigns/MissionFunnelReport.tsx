@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
-import { TaskCreateDatePicker } from "@/components/tasks/task-create-controls";
+import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingPeriod } from "./reporting-period";
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
 import {
@@ -115,12 +115,20 @@ function DetailsToggle({ open, onClick, copy, count, testId }: {
   );
 }
 
-export default function MissionFunnelReport({ campaignId }: Props) {
+export default function MissionFunnelReport(props: Props) {
+  const sharedPeriod = useOptionalReportingPeriod();
+  return sharedPeriod ? <MissionFunnelContent {...props} /> : (
+    <ReportingPeriodProvider campaignId={props.campaignId}>
+      <MissionFunnelContent {...props} showPeriodControls />
+    </ReportingPeriodProvider>
+  );
+}
+
+function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props & { showPeriodControls?: boolean }) {
   const { locale, t } = useI18n();
   const copy = t.missionFunnel;
   const queryClient = useQueryClient();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const { from, to, valid } = useOptionalReportingPeriod()!;
   const [referral, setReferral] = useState<"all" | "yes" | "no">("all");
   const [openDetail, setOpenDetail] = useState("");
   const [config, setConfig] = useState<FunnelConfig | null>(null);
@@ -137,7 +145,7 @@ export default function MissionFunnelReport({ campaignId }: Props) {
 
   const reportQuery = useQuery<MissionFunnelReport>({
     queryKey: ["/api/campaigns", campaignId, "mission-funnel", from, to, referral],
-    enabled: Boolean(campaignId),
+    enabled: Boolean(campaignId) && valid,
     queryFn: async () => {
       const response = await fetch(`/api/campaigns/${encodeURIComponent(campaignId)}/mission-funnel?${queryString}`, { credentials: "include" });
       if (!response.ok) throw new Error(`Mission funnel request failed (${response.status})`);
@@ -238,19 +246,12 @@ export default function MissionFunnelReport({ campaignId }: Props) {
         </div>
       </header>
 
-      <section aria-label={copy.period} className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      {showPeriodControls && <ReportingPeriodControls />}
+      <section aria-label={copy.referral} className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Filter aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-300" /> {copy.period}
+          <Filter aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-300" /> {copy.referral}
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_1.2fr]">
-          <div data-testid="mission-funnel-from-wrapper" className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            <span className="block">{copy.from}</span>
-            <TaskCreateDatePicker value={from} onChange={setFrom} locale={locale} label={copy.from} clearLabel={copy.noDate} pastYears={30} />
-          </div>
-          <div data-testid="mission-funnel-to-wrapper" className="space-y-1.5 text-xs font-medium text-muted-foreground">
-            <span className="block">{copy.to}</span>
-            <TaskCreateDatePicker value={to} onChange={setTo} locale={locale} label={copy.to} clearLabel={copy.noDate} pastYears={30} />
-          </div>
+        <div className="max-w-md">
           <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
             {copy.referral}
             <select data-testid="mission-funnel-referral" value={referral} onChange={event => setReferral(event.target.value as "all" | "yes" | "no")}

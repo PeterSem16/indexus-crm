@@ -45,6 +45,10 @@ import CampaignClinicKPIs from "@/components/campaigns/CampaignClinicKPIs";
 import CampaignHospitalPlan from "@/components/campaigns/CampaignHospitalPlan";
 import CampaignCommunicationReview from "@/components/campaigns/CampaignCommunicationReview";
 import CampaignKpiSnapshots from "@/components/campaigns/CampaignKpiSnapshots";
+import { ReportingNavigation, type ReportingReport, type ReportingRoot } from "@/components/campaigns/ReportingNavigation";
+import { ReportingPeriodControls, ReportingPeriodProvider } from "@/components/campaigns/reporting-period";
+import { useStatusListReport } from "@/components/campaigns/use-status-list-report";
+import { reportingTranslations } from "@/i18n/reporting-translations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -193,7 +197,7 @@ import { ScriptBuilder } from "@/components/script-builder";
 import { ScriptRunner } from "@/components/script-runner";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { format, addBusinessDays } from "date-fns";
-import { sk, cs, hu, ro, it, de, enUS, type Locale } from "date-fns/locale";
+import { sk, cs, hu, ro, it, de, enUS, type Locale, id } from "date-fns/locale";
 
 const DATE_LOCALE_MAP: Record<string, Locale> = {
   SK: sk, CZ: cs, HU: hu, RO: ro, IT: it, DE: de, US: enUS
@@ -2671,6 +2675,7 @@ const RECOMMENDED_OPERATOR_TARGETS = {
 
 function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
   const { t } = useI18n();
+  const reportingCopy = t.missionReporting;
   const { toast } = useToast();
   const [targets, setTargets] = useState({
     campaignTotalContactsTarget: 0,
@@ -2736,7 +2741,7 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="reporting-report mission-funnel-report space-y-6">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div>
           <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -2745,6 +2750,9 @@ function KpiTargetsCard({ campaign }: { campaign: Campaign }) {
           </h3>
           <p className="text-sm text-muted-foreground">
             {t.campaigns.detail.kpiTotalContactsDesc}
+          </p>
+          <p className="mt-2 max-w-3xl rounded-lg border border-border/70 bg-muted/35 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+            {reportingCopy.currentStateNote}
           </p>
         </div>
         {hasChanges && (
@@ -5163,6 +5171,24 @@ export default function CampaignDetailPage() {
     new URLSearchParams(window.location.search).get("section") === "status_list";
   const [activeTab, setActiveTab] = useState(fromStatusListCatalog ? "settings" : "overview");
   const [settingsSubTab, setSettingsSubTab] = useState(fromStatusListCatalog ? "status_list" : "general");
+  const [activeReport, setActiveReport] = useState<ReportingReport>("report-overview");
+  const [reportSelectionByGroup, setReportSelectionByGroup] = useState<Record<ReportingRoot, ReportingReport>>({
+    overview: "report-overview",
+    "mission-funnel": "report-mission-funnel",
+  });
+  const reportRoot: ReportingRoot = activeReport === "report-overview" || activeReport === "report-kpi" || activeReport === "report-status-list"
+    ? "overview"
+    : "mission-funnel";
+  const selectReport = (report: ReportingReport) => {
+    setActiveReport(report);
+    const group: ReportingRoot = report === "report-overview" || report === "report-kpi" || report === "report-status-list"
+      ? "overview"
+      : "mission-funnel";
+    setReportSelectionByGroup((current) => ({ ...current, [group]: report }));
+  };
+  const selectReportRoot = (root: ReportingRoot) => {
+    setActiveReport(reportSelectionByGroup[root]);
+  };
   
   const [contactFilters, setContactFilters] = useState<CampaignContactFilters>({});
   const [selectedContact, setSelectedContact] = useState<EnrichedContact | null>(null);
@@ -7651,53 +7677,23 @@ export default function CampaignDetailPage() {
         
 
         <TabsContent value="reporting" className="space-y-6">
-          <Tabs defaultValue="report-overview" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="report-overview" data-testid="tab-report-overview">
-                <BarChart3 className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.overview}
-              </TabsTrigger>
-              <TabsTrigger value="report-kpi" data-testid="tab-report-kpi">
-                <Target className="w-4 h-4 mr-2" />
-                {t.campaigns.detail.kpiTargets}
-              </TabsTrigger>
-              <TabsTrigger value="report-status-list" data-testid="tab-report-status-list">
-                <ListChecks className="w-4 h-4 mr-2" />
-                Status List
-              </TabsTrigger>
-              <TabsTrigger value="report-mission-funnel" data-testid="tab-report-mission-funnel">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                {t.missionFunnel.title}
-              </TabsTrigger>
-              <TabsTrigger value="report-productivity" data-testid="tab-report-productivity">
-                <Gauge className="w-4 h-4 mr-2" />
-                {t.agentProductivity.title}
-              </TabsTrigger>
-              <TabsTrigger value="report-data-quality" data-testid="tab-report-data-quality">
-                <ListChecks className="w-4 h-4 mr-2" />
-                {t.repQuality?.navLabel ?? "Data Quality"}
-              </TabsTrigger>
-              <TabsTrigger value="report-clinic-kpis" data-testid="tab-report-clinic-kpis">
-                <Building2 className="w-4 h-4 mr-2" />
-                {t.clinicKpi?.navLabel ?? "Kliniky"}
-              </TabsTrigger>
-              <TabsTrigger value="report-hospital-plan" data-testid="tab-report-hospital-plan">
-                <Hospital className="w-4 h-4 mr-2" />
-                {t.hospitalPlan?.navLabel ?? "Nemocnice"}
-              </TabsTrigger>
-              <TabsTrigger value="report-comm-review" data-testid="tab-report-comm-review">
-                <MessageCircle className="w-4 h-4 mr-2" />
-                {t.commReview?.navLabel ?? "Komunikácia"}
-              </TabsTrigger>
-              <TabsTrigger value="report-kpi-snapshots" data-testid="tab-report-kpi-snapshots">
-                <TrendingUp className="w-4 h-4 mr-2" />
-                {t.kpiSnapshots?.navLabel ?? "Trendy"}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="report-mission-funnel" className="space-y-6">
+          <ReportingPeriodProvider campaignId={campaignId}>
+            <div className="space-y-5">
+              <ReportingPeriodControls />
+              <ReportingNavigation
+                rootValue={reportRoot}
+                activeReport={activeReport}
+                onRootChange={selectReportRoot}
+                onReportChange={selectReport}
+                copy={reportingTranslations[locale]}
+              />
+            {activeReport === "report-mission-funnel" && (
               <MissionFunnelReport campaignId={campaignId!} />
-            </TabsContent>
-            <TabsContent value="report-overview" className="space-y-6">
+            )}
+            {activeReport === "report-overview" && <div className="reporting-report mission-funnel-report space-y-6">
+          <p className="rounded-lg border border-border/70 bg-muted/35 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+            {t.missionReporting.currentStateNote}
+          </p>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <StatsCard
               title={t.campaigns.detail.contactRate}
@@ -8229,54 +8225,55 @@ export default function CampaignDetailPage() {
               </Button>
             </Link>
           </div>
-            </TabsContent>
-            <TabsContent value="report-kpi" className="space-y-6">
+            </div>}
+            {activeReport === "report-kpi" && (
               <KpiTargetsCard campaign={campaign} />
-            </TabsContent>
-            <TabsContent value="report-status-list" className="space-y-4">
+            )}
+            {activeReport === "report-status-list" && (
               <SLAnalyticsErrorBoundary>
                 <StatusListAnalyticsTab campaignId={campaignId} totalContacts={stats?.totalContacts || 0} />
               </SLAnalyticsErrorBoundary>
-            </TabsContent>
-            <TabsContent value="report-productivity" className="space-y-4">
+            )}
+            {activeReport === "report-productivity" && (
               <CampaignAgentProductivity campaignId={campaignId} campaignName={campaign?.name} />
-            </TabsContent>
-            <TabsContent value="report-data-quality" className="space-y-4">
+            )}
+            {activeReport === "report-data-quality" && (
               <CampaignDataQuality
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
-            </TabsContent>
-            <TabsContent value="report-clinic-kpis" className="space-y-4">
+            )}
+            {activeReport === "report-clinic-kpis" && (
               <CampaignClinicKPIs
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
-            </TabsContent>
-            <TabsContent value="report-hospital-plan" className="space-y-4">
+            )}
+            {activeReport === "report-hospital-plan" && (
               <CampaignHospitalPlan
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
-            </TabsContent>
-            <TabsContent value="report-comm-review" className="space-y-4">
+            )}
+            {activeReport === "report-comm-review" && (
               <CampaignCommunicationReview
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
-            </TabsContent>
-            <TabsContent value="report-kpi-snapshots" className="space-y-4">
+            )}
+            {activeReport === "report-kpi-snapshots" && (
               <CampaignKpiSnapshots
                 campaignId={campaignId}
                 campaignStartDate={campaign?.startDate}
                 campaignEndDate={campaign?.endDate}
               />
-            </TabsContent>
-          </Tabs>
+            )}
+            </div>
+          </ReportingPeriodProvider>
         </TabsContent>
 
 
@@ -10811,6 +10808,7 @@ const ACTION_ICON: Record<string, { icon: LucideIcon; label: string; color: stri
 function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }: { campaignId: string; totalContacts: number }) {
   const { t } = useI18n();
   const aw = t.agentWorkspace;
+  const reportingCopy = t.missionReporting;
   const [view, setView] = useState<"funnel" | "contacts" | "agents">("funnel");
   const [search, setSearch] = useState("");
   const [contactSort, setContactSort] = useState<"calls" | "steps" | "name">("steps");
@@ -10821,28 +10819,18 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
     console.log("[SL-Analytics] Tab mounted, campaignId=", campaignId);
   }, [campaignId]);
 
-  const { data, isLoading, isError, error } = useQuery<SLAnalytics>({
-    queryKey: ["/api/campaigns", campaignId, "status-list-analytics"],
-    enabled: !!campaignId,
-    queryFn: async () => {
-      console.log("[SL-Analytics] Fetching for campaignId=", campaignId);
-      const res = await fetch(`/api/campaigns/${campaignId}/status-list-analytics`, { credentials: "include" });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(`HTTP ${res.status}${body.detail ? ': ' + body.detail : ''}${body.code ? ' [' + body.code + ']' : ''}`);
-      }
-      return res.json();
-    },
-  });
+  const { query: { data, isLoading, isError, error }, exportUrl, from, to } = useStatusListReport<SLAnalytics>(campaignId);
+  useEffect(() => { setPage(0); }, [from, to]);
 
   const totalContacts = data?.totalContacts || totalContactsProp || 1;
 
   const handleExport = () => {
-    window.open(`/api/campaigns/${campaignId}/status-list-analytics/export`, "_blank");
+    window.open(exportUrl, "_blank");
   };
 
   const toolbar = (
-    <div className="flex items-center justify-between">
+    <div className="space-y-2">
+    <div className="flex items-center justify-between gap-3 flex-wrap rounded-xl border border-border bg-card p-3">
       <div className="flex gap-1 bg-muted rounded-lg p-1">
         {([["funnel", aw.slaFunnel, TrendingUp], ["contacts", aw.slaContacts, Users], ["agents", aw.slaAgents, UserCheck]] as const).map(([v, label, Icon]) => (
           <button key={v} onClick={() => setView(v)}
@@ -10856,10 +10844,14 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
         <Download className="h-4 w-4" />{aw.slaExportCsv}
       </Button>
     </div>
+    <p className="rounded-lg border border-border/70 bg-muted/35 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+      {reportingCopy.currentStateNote}
+    </p>
+    </div>
   );
 
   if (isLoading) return (
-    <div className="space-y-4">
+    <div className="reporting-report mission-funnel-report space-y-4">
       {toolbar}
       <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
         <Loader2 className="h-5 w-5 animate-spin" /> {aw.slaLoading}
@@ -10868,7 +10860,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   );
 
   if (isError) return (
-    <div className="space-y-4">
+    <div className="reporting-report mission-funnel-report space-y-4">
       {toolbar}
       <Card><CardContent className="py-12 text-center text-muted-foreground">
         <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-70" />
@@ -10880,7 +10872,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   );
 
   if (!data || data.items.length === 0) return (
-    <div className="space-y-4">
+    <div className="reporting-report mission-funnel-report space-y-4">
       {toolbar}
       <Card><CardContent className="py-12 text-center text-muted-foreground">
         <ListChecks className="w-10 h-10 mx-auto mb-3 opacity-40" />
@@ -10906,7 +10898,7 @@ function StatusListAnalyticsTab({ campaignId, totalContacts: totalContactsProp }
   });
 
   return (
-    <div className="space-y-4">
+    <div className="reporting-report mission-funnel-report space-y-4">
       {toolbar}
 
       {/* ── FUNNEL VIEW ── */}

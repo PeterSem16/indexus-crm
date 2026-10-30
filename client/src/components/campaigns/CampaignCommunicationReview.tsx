@@ -19,6 +19,7 @@ import {
   MessageSquare, Maximize2, X,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
+import { useReportingDateRange } from "@/components/campaigns/reporting-period";
 
 // ── HTML helpers ─────────────────────────────────────────────────────────────
 /** Strip HTML tags and collapse whitespace for a plain-text preview */
@@ -183,7 +184,7 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
   const defaultTo   = campaignEndDate   ? new Date(campaignEndDate)   : endOfMonth(new Date());
 
   const [repId, setRepId]               = useState("");
-  const [range, setRange]               = useState<DateRange>({ from: defaultFrom, to: defaultTo });
+  const { range, setRange, fromISO, toISO, valid, isShared } = useReportingDateRange(defaultFrom, defaultTo);
   const [calOpen, setCalOpen]           = useState(false);
   const [filter, setFilter]             = useState<FilterType>("all");
   const [sampleMode, setSample]         = useState(false);
@@ -239,8 +240,8 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
   };
 
   // ── Data query ────────────────────────────────────────────────────────────
-  const fromIso = range?.from?.toISOString() ?? "";
-  const toIso   = range?.to?.toISOString()   ?? "";
+  const fromIso = fromISO;
+  const toIso   = toISO;
 
   const { data, isFetching } = useQuery<any>({
     queryKey: ["/api/representative-performance/communication-review", repId, fromIso, toIso],
@@ -249,7 +250,7 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
         `/api/representative-performance/communication-review?representativeId=${repId}&from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`,
         { credentials: "include" }
       ).then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); }),
-    enabled: !!repId && !!range?.from && !!range?.to,
+    enabled: !!repId && valid,
     staleTime: 60_000,
   });
 
@@ -273,7 +274,7 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
   const showSms    = filter === "all" || filter === "sms";
 
   return (
-    <div className="space-y-5">
+    <div className="reporting-report mission-funnel-report space-y-5">
       {/* ── Full-email viewer dialog ─────────────────────────────────────── */}
       {viewingEmail && (
         <EmailViewer
@@ -316,7 +317,7 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
         </Card>
 
         {/* Date range */}
-        <Card>
+        {!isShared && <Card>
           <CardContent className="pt-4 pb-4">
             <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
               <CalendarDays className="h-3.5 w-3.5" /> {cr.selectPeriod}
@@ -344,7 +345,7 @@ export default function CampaignCommunicationReview({ campaignId, campaignStartD
               </PopoverContent>
             </Popover>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* ── Empty state ───────────────────────────────────────────────────── */}
