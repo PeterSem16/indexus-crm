@@ -8,6 +8,7 @@ import {
 import { computeMissionFunnel, type FunnelInput } from "./mission-funnel";
 import { computeMissionAgentFunnel } from "./mission-agent-funnel";
 import { registerMissionReportGet, missionReportUsesAttainments } from "./mission-report-sources";
+import { loadFunnelEmailEvidence } from "./mission-funnel-email-evidence";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s =>
   Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0,10) === s);
@@ -156,6 +157,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
         const iso = (v: unknown) => v instanceof Date ? v.toISOString() : String(v);
         const input: FunnelInput = {
           clinics: clinicRows.rows, enrollments: enrollmentRows.rows, items, config: validConfig, absenceReturns,
+          emailEvidence: await loadFunnelEmailEvidence(client, req.params.id, contactIds, validConfig.sources.email),
           events: eventRows.rows.map(e => ({ ...e, at: iso(e.at) })),
           states: stateRows.rows.map(s => ({ ...s, at: iso(s.at) })),
           calls: callRows.rows.map(c => {

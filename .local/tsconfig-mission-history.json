@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "target": "ES2022", "incremental": false },
+  "include": [
+    "../server/lib/contact-history-scope.ts",
+    "../server/lib/contact-history-scope.test.ts",
+    "../server/lib/mission-email-context.ts",
+    "../server/lib/mission-email-context.test.ts",
+    "../server/lib/mission-funnel-email-evidence.ts",
+    "../server/lib/mission-funnel-email-evidence.test.ts",
+    "../shared/status-list-history-display.ts"
+  ],
+  "exclude": ["../node_modules", "../dist"]
+}

@@ -45,6 +45,12 @@ const text = (value: unknown): string => typeof value === "string" ? value.trim(
 const object = (value: unknown): Record<string, any> =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
 
+const backgroundCopy: Record<string, string> = {
+  en: "Automatic Status List check", sk: "Automatická kontrola Status Listu",
+  cs: "Automatická kontrola Status Listu", hu: "Automatikus Status List ellenőrzés",
+  ro: "Verificare automată a Status List", it: "Controllo automatico della Status List",
+  de: "Automatische Status-List-Prüfung",
+};
 /** Human text only: never fall back to event codes, UUIDs, or JSON serialization. */
 export function formatStatusListHistory(event: { action?: string; metadata?: unknown }, locale = "en") {
   if (!event.action?.startsWith("status_list_")) return null;
@@ -77,6 +83,9 @@ export function formatStatusListHistory(event: { action?: string; metadata?: unk
   } else if (event.action === "status_list_note_update") {
     title = withLabel(c.note, item || c.step);
     if (text(m.itemNote)) detail.push(m.itemNote);
+  } else if (event.action === "status_list_background") {
+    title = withLabel(backgroundCopy[locale] || backgroundCopy.en, question || item);
+    if (text(m.sourceLabel)) detail.push(m.sourceLabel);
   } else if (event.action === "status_list_workflow") {
     title = withLabel(c.workflow, text(m.ruleName));
     if (text(m.sourceLabel) || question || item) detail.push(text(m.sourceLabel) || question || item);

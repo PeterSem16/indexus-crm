@@ -700,6 +700,28 @@ interface ContactHistory {
   metadata?: any;
 }
 
+const historyCopy = (key: string, locale: string) => {
+  const languageIndex = ["en", "sk", "cs", "hu", "ro", "it", "de"].indexOf(locale);
+  const copy: Record<string, string[]> = {
+    thisMission: ["This Mission", "Táto Mission", "Tato Mission", "Ez a Mission", "Această Mission", "Questa Mission", "Diese Mission"],
+    allMissions: ["All Missions", "Všetky Missions", "Všechny Missions", "Minden Mission", "Toate Mission", "Tutte le Mission", "Alle Missions"],
+    unassigned: ["Unassigned history", "Nepriradená história", "Nepřiřazená historie", "Hozzárendelés nélküli előzmény", "Istoric nealocat", "Cronologia non assegnata", "Nicht zugeordneter Verlauf"],
+    unknownEvent: ["Historical action — no saved detail", "Historická akcia — bez uložených podrobností", "Historická akce — bez uložených podrobností", "Korábbi művelet — nincs mentett részlet", "Acțiune istorică — fără detalii salvate", "Azione storica — nessun dettaglio salvato", "Historische Aktion — keine gespeicherten Details"],
+    callbackChanged: ["Callback updated", "Termín spätného volania upravený", "Termín zpětného volání upraven", "Visszahívás frissítve", "Reapel actualizat", "Richiamata aggiornata", "Rückruf aktualisiert"],
+    callbackRemoved: ["Callback removed", "Spätné volanie odstránené", "Zpětné volání odstraněno", "Visszahívás törölve", "Reapel eliminat", "Richiamata rimossa", "Rückruf entfernt"],
+    callbackNoteOnly: ["Callback note updated", "Poznámka k spätnému volaniu upravená", "Poznámka ke zpětnému volání upravena", "Visszahívási megjegyzés frissítve", "Notă de reapel actualizată", "Nota della richiamata aggiornata", "Rückrufnotiz aktualisiert"],
+    previous: ["Previous", "Predtým", "Předtím", "Előző", "Anterior", "Precedente", "Vorher"],
+    scheduled: ["Scheduled", "Naplánované", "Naplánováno", "Ütemezve", "Programat", "Programmato", "Geplant"],
+    noDate: ["No callback date", "Bez termínu spätného volania", "Bez termínu zpětného volání", "Nincs visszahívási időpont", "Fără dată de reapel", "Nessuna data di richiamata", "Kein Rückruftermin"],
+    statusNotRecorded: ["Status not saved", "Stav nie je uložený", "Stav není uložen", "Az állapot nincs mentve", "Starea nu a fost salvată", "Stato non salvato", "Status nicht gespeichert"],
+    noDetail: ["No additional detail was saved for this event.", "K tejto udalosti neboli uložené ďalšie podrobnosti.", "K této události nebyly uloženy další podrobnosti.", "Ehhez az eseményhez nem mentettek további részleteket.", "Nu au fost salvate detalii suplimentare pentru acest eveniment.", "Non sono stati salvati ulteriori dettagli per questo evento.", "Für dieses Ereignis wurden keine weiteren Details gespeichert."],
+    callDetails: ["Call diagnostics", "Diagnostika hovoru", "Diagnostika hovoru", "Hívásdiagnosztika", "Diagnostic apel", "Diagnostica chiamata", "Anrufdiagnose"],
+    proposalAttributed: ["Historical proposal email assigned", "Historický e-mail s ponukou priradený", "Historický e-mail s nabídkou přiřazen", "Korábbi ajánlati e-mail hozzárendelve", "E-mailul istoric cu oferta a fost atribuit", "Email storica con proposta assegnata", "Frühere Angebots-E-Mail zugeordnet"],
+    stepConfirmationRemoved: ["Confirmation removed", "Potvrdenie zrušené", "Potvrzení zrušeno", "Megerősítés visszavonva", "Confirmare retrasă", "Conferma rimossa", "Bestätigung aufgehoben"],
+  };
+  return copy[key]?.[Math.max(languageIndex, 0)] ?? key;
+};
+
 interface TimelineEntry {
   id: string;
   type: "call" | "email" | "sms" | "note" | "system";
@@ -8211,6 +8233,7 @@ export function CustomerInfoPanel({
   const [showVolume, setShowVolume] = useState(false);
   const [historySearchQuery, setHistorySearchQuery] = useState("");
   const [historyTypeFilter, setHistoryTypeFilter] = useState("all");
+  const [historyScope, setHistoryScope] = useState<"mission" | "all">("mission");
   const [faqExpandedId, setFaqExpandedId] = useState<string | null>(null);
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const [historyMaximized, setHistoryMaximized] = useState(false);
@@ -8218,6 +8241,12 @@ export function CustomerInfoPanel({
   const [faqMaximized, setFaqMaximized] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [matchesExpanded, setMatchesExpanded] = useState(false);
+  useEffect(() => {
+    setHistoryScope("mission");
+    setHistorySearchQuery("");
+    setHistoryTypeFilter("all");
+    setExpandedSlItems(new Set<string>());
+  }, [contact?.id, campaign?.id]);
   const fmtTime = (sec: number) => `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, "0")}`;
   const dialPadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"];
   const hasCall = callState === "connecting" || callState === "ringing" || callState === "active" || callState === "on_hold" || (callState === "ended" && hungUpBy);
@@ -8768,12 +8797,15 @@ export function CustomerInfoPanel({
           const [histTypeFilter, setHistTypeFilter] = [historyTypeFilter, setHistoryTypeFilter];
 
           const typeLabels: Record<string, string> = { all: t.agentWorkspace.historyAll, call: t.agentWorkspace.historyCalls, email: t.agentWorkspace.historyEmailsFilter, sms: t.agentWorkspace.historySmsFilter, disposition: t.agentWorkspace.historyDispositionsFilter };
-          const typeCounts = contactHistory.reduce((acc, item) => {
+          const inScopeHistory = historyScope === "mission"
+            ? contactHistory.filter((item) => campaign?.id != null && item.campaignId != null && String(item.campaignId) === String(campaign.id))
+            : contactHistory;
+          const typeCounts = inScopeHistory.reduce((acc, item) => {
             acc[item.type] = (acc[item.type] || 0) + 1;
             return acc;
           }, {} as Record<string, number>);
 
-          const filteredHistory = contactHistory.filter((item) => {
+          const filteredHistory = inScopeHistory.filter((item) => {
             if (histTypeFilter !== "all" && item.type !== histTypeFilter) return false;
             if (histSearchQuery.trim()) {
               const q = histSearchQuery.toLowerCase();
@@ -8787,6 +8819,12 @@ export function CustomerInfoPanel({
                 (item as any).recipientPhone,
                 (item as any).fullContent,
                 item.status,
+                (item as any).metadata?.previousCallbackDate,
+                (item as any).metadata?.newCallbackDate,
+                (item as any).metadata?.callbackDate,
+                (item as any).metadata?.previousNote,
+                (item as any).metadata?.note,
+                (item as any).metadata?.callbackNote,
                 (item as any).metadata?.itemLabel,
                 (item as any).metadata?.itemDescription,
                 (item as any).metadata?.itemNote,
@@ -8794,7 +8832,72 @@ export function CustomerInfoPanel({
               if (!searchable.includes(q)) return false;
             }
             return true;
+          }).sort((a, b) => {
+            const aTime = new Date(a.date).getTime(), bTime = new Date(b.date).getTime();
+            if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : 0;
+            if (!Number.isFinite(bTime)) return -1;
+            return bTime - aTime;
           });
+
+          const localeTag: Record<string, string> = { en: "en-GB", sk: "sk-SK", cs: "cs-CZ", hu: "hu-HU", ro: "ro-RO", it: "it-IT", de: "de-DE" };
+          const dateParts = (value: string, includeYear = false) => {
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return { day: "—", time: "—" };
+            return {
+              day: new Intl.DateTimeFormat(localeTag[locale] || "en-GB", { timeZone: "Europe/Bratislava", weekday: "long", day: "numeric", month: "long", ...(includeYear ? { year: "numeric" } : {}) }).format(date),
+              time: new Intl.DateTimeFormat(localeTag[locale] || "en-GB", { timeZone: "Europe/Bratislava", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date),
+            };
+          };
+          const eventTitle = (item: ContactHistory) => {
+            const action = String(item.action || "").toLowerCase();
+            if (action === "callback_change") {
+              const meta = item.metadata || {};
+              const previous = meta.previousCallbackDate ?? null;
+              const next = meta.newCallbackDate ?? meta.callbackDate ?? null;
+              if (("newCallbackDate" in meta && meta.newCallbackDate === null) ||
+                  (!("newCallbackDate" in meta) && "callbackDate" in meta && meta.callbackDate === null))
+                return historyCopy("callbackRemoved", locale);
+              if (previous && next === previous && (meta.note != null || meta.callbackNote != null))
+                return historyCopy("callbackNoteOnly", locale);
+              if (!previous && !next && (meta.note != null || meta.callbackNote != null)) return historyCopy("callbackNoteOnly", locale);
+              return historyCopy("callbackChanged", locale);
+            }
+            if (action === "mission_email_attribution") {
+              const sent = new Date(item.metadata?.originalSentAt || "");
+              return `${historyCopy("proposalAttributed", locale)}${Number.isFinite(sent.getTime()) ? ` · ${new Intl.DateTimeFormat(locale, { timeZone: "Europe/Bratislava", dateStyle: "medium", timeStyle: "short" }).format(sent)}` : ""}`;
+            }
+            const mapped = formatStatusListHistory(item, locale)?.title;
+            const content = String(mapped || item.content || item.notes || "").trim();
+            const isRawAction = content.toLowerCase() === action || /^[a-z][a-z0-9_]+$/.test(content) && content.includes("_");
+            if (isRawAction || !content) {
+              const knownActions = ["status_list_confirmation", "status_list_note_update", "status_list_question_note_update", "checklist_response"];
+              if (!knownActions.includes(action)) return historyCopy("unknownEvent", locale);
+            }
+            if (action === "status_list_confirmation") {
+              const label = item.metadata?.itemLabel;
+              if (label) return String(label);
+            }
+            if (action === "status_list_note_update" && item.metadata?.itemLabel) return String(item.metadata.itemLabel);
+            return isRawAction || !content ? historyCopy("unknownEvent", locale) : content;
+          };
+          const historySections = (() => {
+            const sections = new Map<string, { title: string; items: ContactHistory[] }>();
+            for (const item of filteredHistory) {
+              const key = item.campaignId == null || item.campaignId === "" ? "__unassigned__" : String(item.campaignId);
+              const title = key === "__unassigned__" ? historyCopy("unassigned", locale) : item.campaignName || `${historyCopy("allMissions", locale)} · ${key}`;
+              if (!sections.has(key)) sections.set(key, { title, items: [] });
+              sections.get(key)!.items.push(item);
+            }
+            return Array.from(sections.values()).map((section) => {
+              const days = new Map<string, { title: string; items: ContactHistory[] }>();
+              for (const item of section.items) {
+                const day = dateParts(item.date, true).day;
+                if (!days.has(day)) days.set(day, { title: day, items: [] });
+                days.get(day)!.items.push(item);
+              }
+              return { ...section, days: Array.from(days.values()) };
+            });
+          })();
 
           const highlightMatch = (text: string | undefined | null) => {
             if (!text || !histSearchQuery.trim()) return text || "";
@@ -8809,6 +8912,25 @@ export function CustomerInfoPanel({
           const renderHistoryContent = (isModal: boolean) => (
             <>
               <div className={`${isModal ? "p-4" : "p-2"} space-y-2 border-b`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="inline-flex rounded-lg border bg-muted/35 p-0.5" role="group" aria-label={historyCopy("allMissions", locale)}>
+                    {(["mission", "all"] as const).map((scope) => (
+                      <button
+                        key={scope}
+                        type="button"
+                        aria-pressed={historyScope === scope}
+                        onClick={() => setHistoryScope(scope)}
+                        className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${historyScope === scope ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                        data-testid={`btn-history-scope-${scope}`}
+                      >
+                        {historyCopy(scope === "mission" ? "thisMission" : "allMissions", locale)}
+                      </button>
+                    ))}
+                  </div>
+                  <span className={`${isModal ? "text-xs" : "text-[10px]"} shrink-0 text-muted-foreground`} data-testid="text-history-scope-count">
+                    {inScopeHistory.length}
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
                   {!isModal && (
                     <Button
@@ -8843,7 +8965,7 @@ export function CustomerInfoPanel({
                 </div>
                 <div className="flex gap-1 flex-wrap">
                 {["all", "call", "email", "sms", "disposition"].map((t) => {
-                  const count = t === "all" ? contactHistory.length : (typeCounts[t] || 0);
+                  const count = t === "all" ? inScopeHistory.length : (typeCounts[t] || 0);
                   if (t !== "all" && count === 0) return null;
                   const isActive = histTypeFilter === t;
                   return (
@@ -8872,7 +8994,7 @@ export function CustomerInfoPanel({
             <div className={`flex-1 overflow-auto ${isModal ? "max-h-[65vh]" : ""}`}>
               {filteredHistory.length === 0 && (
                 <div className="text-center py-8">
-                  {contactHistory.length === 0 ? (
+                  {inScopeHistory.length === 0 ? (
                     <>
                       <History className="h-8 w-8 mx-auto mb-2 text-muted-foreground/20" />
                       <p className={`${isModal ? "text-sm" : "text-xs"} text-muted-foreground`}>{t.agentWorkspace.historyNoComm}</p>
@@ -8888,12 +9010,34 @@ export function CustomerInfoPanel({
 
               {filteredHistory.length > 0 && (
                 <div className={`${isModal ? "p-4 space-y-2" : "p-2 space-y-2"}`}>
-                  {filteredHistory.map((item) => {
+                  {historySections.map((section, sectionIndex) => (
+                    <section key={`${section.title}-${sectionIndex}`} className={historyScope === "all" ? "pt-1" : ""}>
+                      {historyScope === "all" && (
+                        <div className="mb-2 flex items-center gap-2 border-b border-border/70 pb-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">{section.title}</span>
+                          <span className="h-px flex-1 bg-border/60" />
+                        </div>
+                      )}
+                      {section.days.map((day) => (
+                        <div key={`${section.title}-${day.title}`} className="mb-3">
+                          <h3 className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{day.title}</h3>
+                          <div className="space-y-1.5">
+                  {day.items.map((item) => {
                     const statusListDisplay = formatStatusListHistory(item, locale);
                     const isClickable = item.type === "email" || item.type === "sms";
-                    const plainDetails = htmlToPlainPreview(statusListDisplay ? statusListDisplay.details : item.details);
                     const isCall = item.type === "call";
-                    const contentText = decodeHtmlEntities(statusListDisplay?.title || item.content || item.notes || "");
+                    const contentText = decodeHtmlEntities(eventTitle(item));
+                    const callbackMeta = item.metadata || {};
+                    const callbackPrevious = callbackMeta.previousCallbackDate ?? null;
+                    const callbackNew = callbackMeta.newCallbackDate ?? callbackMeta.callbackDate ?? null;
+                    const isCallbackChange = String(item.action || "").toLowerCase() === "callback_change";
+                    const plainDetails = isCallbackChange ? "" : htmlToPlainPreview(statusListDisplay ? statusListDisplay.details : item.details);
+                    const callbackFormat = (value: unknown) => {
+                      if (!value) return null;
+                      const parsed = new Date(String(value));
+                      return Number.isNaN(parsed.getTime()) ? String(value) : `${dateParts(parsed.toISOString(), true).day} · ${dateParts(parsed.toISOString()).time}`;
+                    };
+                    const isUnknownEvent = contentText === historyCopy("unknownEvent", locale);
 
                     const itemAc = item.type === "call" ? "#B5622E" : item.type === "email" ? "#5B4FCF" : item.type === "sms" ? "#2E75B6" : "#7A6858";
                     return (
@@ -8940,7 +9084,7 @@ export function CustomerInfoPanel({
                               {item.type === "disposition" && (
                                 <span className={`${isModal ? "text-xs" : "text-[9px]"} font-semibold`} style={{ color: itemAc }}
                                   data-testid={statusListDisplay ? `status-list-history-source-${item.id}` : undefined}>
-                                  {statusListDisplay?.source || t.agentWorkspace.historyDispositionType}
+                                  {isCallbackChange ? eventTitle(item) : statusListDisplay?.source || t.agentWorkspace.historyDispositionType}
                                 </span>
                               )}
                               {!isCall && (item as any).dispositionName && (() => {
@@ -9028,10 +9172,24 @@ export function CustomerInfoPanel({
                                 <SentimentBadge sentiment={item.sentiment} size={isModal ? "md" : "sm"} />
                               )}
                               <span className={`${isModal ? "text-xs" : "text-[9px]"} ml-auto text-muted-foreground`}>
-                                {format(new Date(item.date), isModal ? "d. MMMM yyyy, HH:mm" : "d.M. HH:mm", { locale: sk })}
+                                {dateParts(item.date).time}
                               </span>
                             </div>
-                            {(item as any).action === "checklist_response" ? (() => {
+                            {isCallbackChange ? (
+                              <div className="mt-1.5 rounded-lg border border-sky-200 bg-sky-50/70 dark:border-sky-900/70 dark:bg-sky-950/25 px-2.5 py-2" data-testid={`history-callback-date-${item.id}`}>
+                                {callbackPrevious && (
+                                  <p className="text-[10px] leading-relaxed text-muted-foreground">
+                                    <span className="font-semibold">{historyCopy("previous", locale)}:</span> {callbackFormat(callbackPrevious)}
+                                  </p>
+                                )}
+                                <p className={`${isModal ? "text-xs" : "text-[10px]"} leading-relaxed text-foreground`}>
+                                  <span className="font-semibold">{historyCopy("scheduled", locale)}:</span> {callbackNew ? callbackFormat(callbackNew) : historyCopy("noDate", locale)}
+                                </p>
+                                {(callbackMeta.note ?? callbackMeta.callbackNote) && (
+                                  <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-muted-foreground">{String(callbackMeta.note ?? callbackMeta.callbackNote)}</p>
+                                )}
+                              </div>
+                            ) : (item as any).action === "checklist_response" ? (() => {
                               const chkSections: any[] = (item as any).metadata?.sections || [];
                               const answeredItems = chkSections.flatMap((s: any) => [
                                 ...(s.items || []).map((i: any) => ({ ...i, _sColor: s.color || "" })),
@@ -9086,9 +9244,13 @@ export function CustomerInfoPanel({
                               const meta = (item as any).metadata || {};
                               const labelPart = meta.itemLabel || "—";
                               const noteWasIncluded = Object.prototype.hasOwnProperty.call(meta, "itemNote");
+                              const previousNoteWasIncluded = Object.prototype.hasOwnProperty.call(meta, "previousNote");
                               const notePart = meta.itemNote == null
                                 ? slt("noteCleared", locale)
                                 : String(meta.itemNote);
+                              const previousNotePart = meta.previousNote == null
+                                ? slt("noteCleared", locale)
+                                : String(meta.previousNote);
                               return (
                                 <div className="mt-1.5 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800/50 dark:bg-amber-950/25 overflow-hidden">
                                   <div className={`${isModal ? "p-2.5" : "p-2"}`}>
@@ -9102,16 +9264,18 @@ export function CustomerInfoPanel({
                                       {highlightMatch(labelPart)}
                                     </p>
                                     {noteWasIncluded && (
-                                      <p className={`${isModal ? "text-sm" : "text-[11px]"} mt-1 leading-relaxed whitespace-pre-wrap text-foreground/90`}>
-                                        {notePart}
-                                      </p>
+                                      <div className={`${isModal ? "text-sm" : "text-[11px]"} mt-1 grid gap-0.5 leading-relaxed whitespace-pre-wrap text-foreground/90`}>
+                                        {previousNoteWasIncluded && <p><span className="font-semibold">{t.statusListWorkflow.previous}:</span> {previousNotePart}</p>}
+                                        <p>{previousNoteWasIncluded && <span className="font-semibold">{t.statusListWorkflow.newValue}: </span>}{notePart}</p>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
                               );
                             })() : (item as any).action === "status_list_confirmation" ? (() => {
                               const meta = (item as any).metadata || {};
-                              const confirmed = meta.confirmed !== false;
+                              const confirmed = meta.confirmed === true;
+                              const statusRecorded = meta.confirmed === true || meta.confirmed === false;
                               const labelPart = meta.itemLabel || contentText?.replace(/^Krok (potvrdený|odpotvrdený):\s*/i, "").trim() || "—";
                               const descPart = (meta.itemDescription as string | null) || null;
                               const notePart = Object.prototype.hasOwnProperty.call(meta, "itemNote")
@@ -9141,7 +9305,9 @@ export function CustomerInfoPanel({
                                       }`}>
                                         {confirmed
                                           ? <Check className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-emerald-600 dark:text-emerald-400`} />
-                                          : <X className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-stone-500 dark:text-stone-400`} />
+                                          : statusRecorded
+                                            ? <X className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-stone-500 dark:text-stone-400`} />
+                                            : <ListChecks className={`${isModal ? "h-4 w-4" : "h-3.5 w-3.5"} text-muted-foreground`} />
                                         }
                                       </div>
                                       <div className="flex-1 min-w-0">
@@ -9149,7 +9315,7 @@ export function CustomerInfoPanel({
                                           <span className={`${isModal ? "text-[10px]" : "text-[9px]"} font-bold uppercase tracking-wide ${
                                             confirmed ? "text-emerald-600 dark:text-emerald-400" : "text-stone-400 dark:text-stone-500"
                                           }`}>
-                                            {confirmed ? t.agentWorkspace.historyConfirmedStep : t.agentWorkspace.historyUnconfirmedStep}
+                                            {statusRecorded ? (confirmed ? t.agentWorkspace.historyConfirmedStep : historyCopy("stepConfirmationRemoved", locale)) : historyCopy("statusNotRecorded", locale)}
                                           </span>
                                           {descPart && (
                                             <ChevronDown className={`h-3 w-3 text-muted-foreground/60 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
@@ -9186,7 +9352,10 @@ export function CustomerInfoPanel({
                                     ? (highlightMatch(contentText.replace(/^(Hovor (odchádzajúci|prichádzajúci)|Prichádzajúci hovor): /, "")) || "—")
                                     : (highlightMatch(contentText) || "—")}
                                 </p>
-                                {!isCall && plainDetails && (
+                                {isUnknownEvent && (
+                                  <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} leading-snug text-muted-foreground`}>{historyCopy("noDetail", locale)}</p>
+                                )}
+                                {!isCall && !isUnknownEvent && plainDetails && (
                                   <p className={`${isModal ? "text-xs mt-1" : "text-[10px] mt-0.5"} ${isModal ? "line-clamp-3" : "line-clamp-2"} leading-snug text-muted-foreground`}>
                                     {highlightMatch(plainDetails)}
                                   </p>
@@ -9210,21 +9379,29 @@ export function CustomerInfoPanel({
                               {item.agentName}
                             </span>
                           )}
-                          {item.campaignName && (
+                          {(item.campaignName || (historyScope === "mission" ? campaign?.name : null)) && (
                             <span
                               className={`inline-flex items-center ${isModal ? "text-xs px-2 py-0.5" : "text-[9px] px-1.5 py-0.5"} rounded-full truncate ${isModal ? "max-w-[200px]" : "max-w-[120px]"} bg-muted text-muted-foreground`}
-                              title={item.campaignName}
+                              title={item.campaignName || campaign?.name}
                             >
-                              {item.campaignName}
+                              {item.campaignName || campaign?.name}
                             </span>
                           )}
                           {isCall && !item.callLogId && item.details && (
-                            <span>{item.details}</span>
+                            <details className="basis-full pt-1" onClick={(event) => event.stopPropagation()}>
+                              <summary className="w-fit cursor-pointer text-[9px] font-medium text-muted-foreground hover:text-foreground">{historyCopy("callDetails", locale)}</summary>
+                              <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-muted-foreground">{item.details}</p>
+                            </details>
                           )}
                         </div>
                       </div>
                     );
                   })}
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                  ))}
                 </div>
               )}
             </div>
@@ -13510,6 +13687,7 @@ function AgentWorkspacePageContent() {
         compositionDurationSeconds: data.compositionDurationSeconds,
         useSystemMailbox: data.useSystemMailbox,
         campaignCountryCode: data.campaignCountryCode,
+        campaignId: data.campaignId,
       });
       if (!res.ok) {
         const err = await res.json();

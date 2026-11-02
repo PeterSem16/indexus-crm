@@ -1,5 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
+import { prepareContactHistory } from "./lib/contact-history-scope";
+import { resolveMissionEmailContext } from "./lib/mission-email-context";
 import { registerMissionReportGet } from "./lib/mission-report-sources";
 import { registerMissionEmailScheduleRoutes } from "./lib/mission-email-schedule-routes";
 import { parseReportingQuery } from "../shared/reporting-period";
@@ -5628,6 +5630,9 @@ export async function registerRoutes(
   app.post("/api/ms365/send-email-from-mailbox", requireAuth, async (req, res) => {
     try {
       const userId = req.session.user!.id;
+      let missionEmailContext: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { missionEmailContext = await resolveMissionEmailContext(pool, userId, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
 
       // System mailbox path — use country-level M365 account, bypass user OAuth
       const { useSystemMailbox, campaignCountryCode } = req.body;
@@ -5656,6 +5661,7 @@ export async function registerRoutes(
           if (sCustId) {
             try {
               const sysMsg = await storage.createCommunicationMessage({
+                campaignId: missionEmailContext.campaignId,
                 customerId: sCustId, userId, type: "email", subject: sSub, content: sBody,
                 status: "sent", recipients: sToArr.join(", "),
                 metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system", contactType: sContactType || "customer", conversationId: sysConvId || null }),
@@ -5837,6 +5843,7 @@ export async function registerRoutes(
             customerId,
             userId,
             type: "email",
+            campaignId: missionEmailContext.campaignId,
             subject,
             content: body,
             status: "sent",
@@ -15035,6 +15042,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         historyItems.push({
           id: `msg-${msg.id}`,
           type: msgType,
+          campaignId: (msg as any).campaignId || null,
           direction: (msg as any).direction || "outbound",
           timestamp: (msg as any).createdAt || (msg as any).sentAt,
           status: ({ sent: "Odoslaný", delivered: "Doručený", read: "Prečítaný", failed: "Neúspešný", draft: "Koncept", received: "Prijatý" } as Record<string, string>)[(msg as any).status || "sent"] || (msg as any).status || "Odoslaný",
@@ -15292,7 +15300,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
     async (req: Request, res: Response) => {
       try {
         const id = (req.params as any).customerId || (req.params as any).id;
-        res.json(await buildContactHistory(id, includeAgentLogs));
+        res.json(await prepareContactHistory(pool, req.session.user!.id, await buildContactHistory(id, includeAgentLogs)));
       } catch (error) {
         console.error("Error fetching contact history:", error);
         res.status(500).json({ error: "Failed to fetch contact history" });
@@ -32124,6 +32132,8 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
             action: "callback_change",
             metadata: {
               campaignId: existingContact.campaignId,
+              previousCallbackDate: existingContact.callbackDate?.toISOString() ?? null,
+              newCallbackDate: contact.callbackDate?.toISOString() ?? null,
               callbackDate: contact.callbackDate?.toISOString() ?? null,
               callbackNote: contact.callbackNote ?? null,
             },

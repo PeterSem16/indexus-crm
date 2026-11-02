@@ -4,6 +4,7 @@ import {
   type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../shared/mission-funnel";
 import { uniqueFunnelActor } from "./mission-funnel-actors";
+import type { FunnelEmailEvidence } from "./mission-funnel-email-evidence";
 
 export interface FunnelClinic {
   id: string; name: string; representativeId: string | null; referred: boolean;
@@ -22,6 +23,7 @@ export interface FunnelInput {
   clinics: FunnelClinic[]; enrollments: FunnelEnrollment[]; events: FunnelEvent[];
   states: FunnelState[]; calls: FunnelCall[]; config?: FunnelConfig; items: FunnelItem[];
   absenceReturns?: Record<string, string>;
+  emailEvidence?: FunnelEmailEvidence[];
 }
 interface Milestone { at: string | null; evidenceDate: string | null; basis: FunnelMember["basis"]; inferred: boolean; actorId?: string | null }
 const percentage = (n: number | null, d: number | null) => n !== null && d !== null && d > 0 ? Math.round(n / d * 10000) / 100 : null;
@@ -112,6 +114,12 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     if (states.some(s => !events.some(e => e.itemId === s.itemId))) {
       stateOnly.add(enrollment.get(contactId)!);
       evaluate(saved, milestones, null, "state");
+    }
+    // Sending is an immutable occurrence, not an invented Status List tick.
+    // Keep its real timestamp/actor even after the step is unconfirmed later.
+    if (has("email")) for (const evidence of input.emailEvidence ?? []) {
+      if (evidence.contactId === contactId && validDate(evidence.at))
+        put(milestones, "email", evidence.at, "history", false, evidence.actorId);
     }
     current.set(contactId, saved);
     local.set(contactId, milestones);
