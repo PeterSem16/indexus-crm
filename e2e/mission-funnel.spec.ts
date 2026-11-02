@@ -28,6 +28,30 @@ async function fixture(page:Page, {readonly=false,error=false,dark=false,data=re
   await page.goto(`/test-fixtures/mission-funnel.html?locale=${locale}${dark?"&dark":""}`);
   return {calls,errors};
 }
+for (const locale of ["en", "sk", "de"]) {
+  test(`export scope stays inline and toolbar aligns in ${locale}`, async ({ page }) => {
+    await fixture(page, { locale });
+    const toolbar = page.getByTestId("mission-funnel-export-toolbar");
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      const layout = await toolbar.evaluate(element => {
+        const select = element.querySelector("select")!.getBoundingClientRect();
+        const text = element.querySelector("label span")!.getBoundingClientRect();
+        const buttons = Array.from(element.querySelectorAll("button")).map(button => button.getBoundingClientRect());
+        return { select: { y: select.y, height: select.height }, text: { y: text.y, height: text.height },
+          buttons: buttons.map(button => ({ y: button.y, height: button.height })),
+          overflow: document.documentElement.scrollWidth > innerWidth };
+      });
+      expect(Math.abs(layout.text.y + layout.text.height / 2 - layout.select.y - layout.select.height / 2)).toBeLessThan(2);
+      expect(layout.overflow).toBe(false);
+      if (width === 1280)
+        for (const button of layout.buttons) {
+          expect(Math.abs(button.y - layout.select.y)).toBeLessThan(2);
+          expect(button.height).toBe(layout.select.height);
+        }
+    }
+  });
+}
 test("read-only users download filtered funnel CSV and a real Excel workbook", async ({ page }) => {
   await page.clock.install({ time: new Date("2026-10-30T12:00:00Z") });
   const { calls, errors } = await fixture(page, { readonly: true });

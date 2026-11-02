@@ -280,13 +280,13 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
           </div>}
         </div>
       </header>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div data-testid="mission-funnel-export-toolbar" className="flex flex-wrap items-center justify-end gap-2">
         <MissionFunnelHelpButton locale={locale} onClick={() => openHelp("scope")} />
-        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
-          {scopeCopy.scope}
+        <label className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <span className="shrink-0 whitespace-nowrap">{scopeCopy.scope}</span>
           <select data-testid="mission-funnel-export-step" value={exportStep}
             disabled={exporting} onChange={event => setExportStep(event.target.value as FunnelStep | "")}
-            className="h-9 w-full max-w-56 rounded-lg border border-border bg-background px-2 text-sm text-foreground">
+            className="h-9 min-w-0 w-40 rounded-lg border border-border bg-background px-2 text-sm text-foreground sm:w-48">
             <option value="">{scopeCopy.allSteps}</option>
             {funnelSteps.map(step => <option key={step} value={step}>{copy.stepLabels[step]}</option>)}
           </select>
