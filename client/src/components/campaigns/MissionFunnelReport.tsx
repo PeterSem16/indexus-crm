@@ -6,6 +6,7 @@ import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingP
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
 import MissionAgentFunnel from "./MissionAgentFunnel";
+import MissionEmailSchedules from "./MissionEmailSchedules";
 import MissionFunnelMapping from "./MissionFunnelMapping";
 import MissionFunnelHelp, { MissionFunnelHelpButton } from "./MissionFunnelHelp";
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
@@ -317,6 +318,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
       <MissionFunnelHelp locale={locale} copy={copy} open={helpOpen} onOpenChange={setHelpOpen} initialChapter={helpChapter} />
 
       {showPeriodControls && <ReportingPeriodControls />}
+      <MissionEmailSchedules campaignId={campaignId} locale={locale} />
       <section aria-label={copy.referral} className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Filter aria-hidden="true" className="h-4 w-4 text-teal-700 dark:text-teal-300" /> {copy.referral}

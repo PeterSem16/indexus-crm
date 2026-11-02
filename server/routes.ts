@@ -1,5 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
+import { registerMissionReportGet } from "./lib/mission-report-sources";
+import { registerMissionEmailScheduleRoutes } from "./lib/mission-email-schedule-routes";
 import { parseReportingQuery } from "../shared/reporting-period";
 import { registerForwardReviewRoutes } from "./lib/automation-forward-review-routes";
 import { createBulkGateCallback } from "./lib/bulkgate-callback";
@@ -3051,6 +3053,7 @@ export async function registerRoutes(
   // only; the route itself applies workspace-country filtering.
   registerWallboardRoutes(app, requireAuth);
   registerMissionFunnelRoutes(app, requireAuth);
+  registerMissionEmailScheduleRoutes(app, requireAuth);
   registerWallboardPresenceRoutes(app, requireAuth);
   const { registerSystemMailboxCheckRoutes, startSystemMailboxCheckAfterReconnect } = await import("./system-mailbox-check-routes");
   registerSystemMailboxCheckRoutes(app, requireAuth);
@@ -30336,7 +30339,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       const results = await db.select().from(scheduledReports)
         .where(eq(scheduledReports.campaignId, campaignId))
         .orderBy(desc(scheduledReports.createdAt));
-      res.json(results);
+      res.json(results.filter(report => !report.reportTypes.includes("mission_insights")));
     } catch (error) {
       console.error("Failed to get scheduled reports:", error);
       res.status(500).json({ error: "Failed to get scheduled reports" });
@@ -36342,7 +36345,7 @@ Respond ONLY with valid JSON in this exact format:
   // the campaign's contacts, and only the agents assigned to the campaign.
   // "new" = first call to a phone number within this mission; later calls = "repeat".
   // nonstandard task = manually created by the agent (source_run_id IS NULL).
-  app.get("/api/campaigns/:id/agent-productivity", requireAuth, async (req, res) => {
+  registerMissionReportGet(app, "/api/campaigns/:id/agent-productivity", requireAuth, "performance", async (req, res) => {
     try {
       const campaignId = req.params.id;
       const { from, to } = req.query;

@@ -41,7 +41,7 @@ function plusMonths(date: string | null, months: number) {
 }
 
 /** Pure projection. Never writes operational state or synthesizes historical dates. */
-export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters = {}, now = new Date()): Omit<MissionFunnelReport, "missionName" | "canConfigure"> {
+export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters = {}, now = new Date(), options: { allMilestones?: boolean } = {}): Omit<MissionFunnelReport, "missionName" | "canConfigure"> {
   const config = input.config ?? emptyFunnelConfig();
   const sources = config.sources;
   const has = (source: FunnelSource) => sources[source].length > 0;
@@ -209,7 +209,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   quality.orphanCalls = input.calls.filter(c => !c.clinicId).length;
   for (const clinic of eligible) {
     if (clinic.representativeId) rows.get("assigned")!.set(clinic.id, { at: null, evidenceDate: null, basis: "current", inferred: false });
-    if (!cohort.has(clinic.id)) continue;
+    if (!cohort.has(clinic.id) && !options.allMilestones) continue;
     for (const [key, value] of clinicMilestones.get(clinic.id)!) rows.get(key)!.set(clinic.id, value);
   }
   const cooperationMeasurable =
@@ -247,7 +247,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     }),
     exceptions: funnelExceptions.map(key => ({
       key, measurable: key === "unreachable" || has(key),
-      members: members(new Map([...exceptions.get(key)!].filter(([id]) => cohort.has(id)))).map(m => ({
+      members: members(new Map([...exceptions.get(key)!].filter(([id]) => cohort.has(id) || options.allMilestones))).map(m => ({
         ...m, returnDate: key === "refused" ? plusMonths(m.firstDate, 6) : key === "absent" ? absenceReturns.get(m.id) ?? null : null,
       })),
     })),

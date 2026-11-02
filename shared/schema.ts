@@ -6350,6 +6350,7 @@ export const scheduledReports = pgTable("scheduled_reports", {
   externalEmails: text("external_emails").array().default(sql`'{}'::text[]`),
   sendTime: varchar("send_time", { length: 5 }).notNull(),
   dateRangeType: text("date_range_type").notNull().default("yesterday"),
+  deliveryOptions: jsonb("delivery_options"),
   enabled: boolean("enabled").notNull().default(true),
   createdBy: varchar("created_by").references(() => users.id),
   lastRunAt: timestamp("last_run_at"),

@@ -2,6 +2,7 @@ import { db } from "./db";
 import { scheduledReports, users, campaigns } from "@shared/schema";
 import { eq, lte, and, inArray } from "drizzle-orm";
 import { log } from "./index";
+import { MISSION_EMAIL_REPORT } from "../shared/mission-email-schedule";
 
 const countryTimezoneMap: Record<string, string> = {
   SK: 'Europe/Bratislava',
@@ -104,6 +105,11 @@ async function runDueReports() {
 
     for (const report of dueReports) {
       try {
+        if (report.reportTypes.includes(MISSION_EMAIL_REPORT)) {
+          const { processMissionEmailSchedule } = await import("./lib/mission-email-scheduler");
+          await processMissionEmailSchedule(report.id);
+          continue;
+        }
         log(`Processing scheduled report ${report.id} for campaign ${report.campaignId} (sendTime: ${report.sendTime})`, "scheduler");
 
         const hasUsers = report.recipientUserIds && report.recipientUserIds.length > 0;

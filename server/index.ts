@@ -7,6 +7,7 @@ import { createServer } from "http";
 import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
+import { ensureMissionEmailSchema } from "./lib/mission-email-schema";
 import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
@@ -277,6 +278,12 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  try {
+    await ensureMissionEmailSchema(pool);
+  } catch {
+    console.error("[migration] Mission email schema unavailable");
+    process.exit(1);
+  }
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS voice_network_incidents (

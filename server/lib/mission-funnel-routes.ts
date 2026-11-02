@@ -7,6 +7,7 @@ import {
 } from "../../shared/mission-funnel";
 import { computeMissionFunnel, type FunnelInput } from "./mission-funnel";
 import { computeMissionAgentFunnel } from "./mission-agent-funnel";
+import { registerMissionReportGet, missionReportUsesAttainments } from "./mission-report-sources";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s =>
   Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0,10) === s);
@@ -18,14 +19,14 @@ export function parseFunnelSettings(raw: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid Mission settings");
   return value as Record<string, unknown>;
 }
-function authenticatedUserId(req: unknown): string {
+export function authenticatedUserId(req: unknown): string {
   const id = (req as { session?: { user?: { id?: string } } }).session?.user?.id;
   if (!id) throw new Error("Authenticated identity required");
   return id;
 }
 
 /** Read permissions are evaluated using fresh DB identity, never a caller-supplied country. */
-async function access(userId: string, missionId: string, database: Pick<Pool, "query" | "connect">) {
+export async function access(userId: string, missionId: string, database: Pick<Pool, "query" | "connect">) {
   const { rows } = await database.query(`
     SELECT u.role,u.role_id,u.assigned_countries,m.name,m.country_codes,m.settings,
       EXISTS(SELECT 1 FROM campaign_agents a WHERE a.campaign_id=m.id AND a.user_id=u.id) AS assigned,
@@ -89,7 +90,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
     } finally { client?.release(); }
   });
 
-  app.get("/api/campaigns/:id/mission-funnel", requireAuth, async (req, res) => {
+  registerMissionReportGet(app, "/api/campaigns/:id/mission-funnel", requireAuth, "funnel", async (req, res) => {
     const filters = filtersSchema.safeParse(req.query);
     if (!filters.success) return res.status(400).json({ error: "Invalid funnel filters" });
     try {
@@ -165,7 +166,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
               attemptAt: typeof metadata.funnelAttemptSentAt === "string" ? metadata.funnelAttemptSentAt : null };
           }),
         };
-        const report = computeMissionFunnel(input, filters.data);
+        const report = computeMissionFunnel(input, filters.data, new Date(), { allMilestones: missionReportUsesAttainments(req) });
         const actorIds = [...new Set(report.rows.flatMap(row => row.members.map(member => member.actorId)).filter((id): id is string => Boolean(id)))];
         // Historical authors need not still be assigned/active. Zero-activity
         // agents come only from this Mission and the reader's country scope.
