@@ -1,5 +1,7 @@
 import type { FunnelRow, FunnelStep } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
+import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
+import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
 
 interface Props {
   rows: FunnelRow[];
@@ -7,6 +9,7 @@ interface Props {
   locale: string;
   selectedStep: FunnelStep | null;
   onSelectStep: (step: FunnelStep) => void;
+  onHelp?: (chapter: MissionFunnelHelpChapter) => void;
 }
 
 const PRIMARY_PATH: FunnelStep[] = [
@@ -181,7 +184,7 @@ function FunnelSilhouetteStage({
   );
 }
 
-export default function MissionFunnelChart({ rows, copy, locale, selectedStep, onSelectStep }: Props) {
+export default function MissionFunnelChart({ rows, copy, locale, selectedStep, onSelectStep, onHelp }: Props) {
   const rowsByStep = new Map<FunnelStep, FunnelRow>(rows.map(row => [row.key, row] as const));
   const assigned = rowsByStep.get("assigned");
   const primaryRows = PRIMARY_PATH.map(step => rowsByStep.get(step)).filter((row): row is FunnelRow => Boolean(row));
@@ -225,7 +228,9 @@ export default function MissionFunnelChart({ rows, copy, locale, selectedStep, o
       )}
 
       <section className="rounded-lg border border-border/80 bg-background/45 p-2 sm:p-3" aria-label={copy.chartPrimaryPath}>
-        <h4 className="mb-2 px-3 pt-1 text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartPrimaryPath}</h4>
+        <div className="mb-2 flex items-center gap-2 px-3 pt-1"><h4 className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartPrimaryPath}</h4>
+          {onHelp && <MissionFunnelHelpLink locale={locale} chapter="contact-contract" onSelect={onHelp} />}
+        </div>
         <div className="space-y-0">
           {primaryRows.map((row, index) => (
             <FunnelSilhouetteStage key={row.key} row={row} nextRow={primaryRows[index + 1]} copy={copy} locale={locale} maxCount={maxCount}
@@ -237,7 +242,9 @@ export default function MissionFunnelChart({ rows, copy, locale, selectedStep, o
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <section className="rounded-lg border border-border/80 bg-muted/15 p-2 sm:p-3" aria-label={copy.chartContractBranch}>
-          <h4 className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartContractBranch}</h4>
+          <div className="flex items-center gap-2 px-3 pb-1 pt-2"><h4 className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartContractBranch}</h4>
+            {onHelp && <MissionFunnelHelpLink locale={locale} chapter="without-contract" onSelect={onHelp} />}
+          </div>
           <div className="space-y-0.5">
             {branchRows.map(row => (
               <FunnelStepButton key={row.key} row={row} copy={copy} locale={locale} maxCount={maxCount} color="#61A9BD"
@@ -246,7 +253,9 @@ export default function MissionFunnelChart({ rows, copy, locale, selectedStep, o
           </div>
         </section>
         <section className="rounded-lg border border-border/80 bg-muted/15 p-2 sm:p-3" aria-label={copy.chartCombinedOutcomes}>
-          <h4 className="px-3 pb-1 pt-2 text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartCombinedOutcomes}</h4>
+          <div className="flex items-center gap-2 px-3 pb-1 pt-2"><h4 className="text-[10px] font-bold uppercase tracking-[.16em] text-muted-foreground">{copy.chartCombinedOutcomes}</h4>
+            {onHelp && <MissionFunnelHelpLink locale={locale} chapter="combined" onSelect={onHelp} />}
+          </div>
           <p className="px-3 pb-1 text-[11px] leading-relaxed text-muted-foreground">{copy.chartCombinedHelp}</p>
           <div className="space-y-0.5">
             {combinedRows.map(row => (

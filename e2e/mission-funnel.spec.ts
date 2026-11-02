@@ -14,7 +14,7 @@ const computed = computeMissionFunnel({
   events:["qualified","agreed","proposalAccepted","validated"].map((itemId,index)=>({id:`event-${index}`,contactId:"contact",itemId,confirmed:true,at:`2026-09-0${index+2}T10:00:00Z`})),
 });
 const report={...computed,missionName:"Medical Partner Cooperation",canConfigure:true,dateQuestions:[{id:"return-date",label:"Return date"}]};
-async function fixture(page:Page, {readonly=false,error=false,dark=false,data=report}={}) {
+async function fixture(page:Page, {readonly=false,error=false,dark=false,data=report,locale="en"}={}) {
   const calls: {url:string;method:string;body:any}[]=[];
   const errors:string[]=[];
   page.on("pageerror",error=>errors.push(error.message));
@@ -25,7 +25,7 @@ async function fixture(page:Page, {readonly=false,error=false,dark=false,data=re
     if(url.pathname.endsWith("/mission-funnel")) return route.fulfill(error ? {status:500,json:{error:"Unavailable"}} : {json:{...data,canConfigure:!readonly}});
     return route.fulfill({json:{}});
   });
-  await page.goto(`/test-fixtures/mission-funnel.html${dark?"?dark":""}`);
+  await page.goto(`/test-fixtures/mission-funnel.html?locale=${locale}${dark?"&dark":""}`);
   return {calls,errors};
 }
 test("read-only users download filtered funnel CSV and a real Excel workbook", async ({ page }) => {
@@ -228,4 +228,82 @@ test("mapping tabs support keyboard navigation and mobile dark layout", async ({
   await mapping.scrollIntoViewIfNeeded();
   await page.screenshot({ path: "generated-artifacts/mission-funnel/mapping-mobile-dark.jpg" });
   expect(errors).toEqual([]);
+});
+
+test("read-only funnel manual explains every stage, source and quality measure without writes", async ({ page }) => {
+  const { calls, errors } = await fixture(page, { readonly: true });
+  const trigger = page.getByTestId("mission-funnel-help");
+  await trigger.click();
+  const dialog = page.getByTestId("mission-funnel-help-dialog");
+  const content = page.getByTestId("mission-funnel-help-content");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("[data-help-chapter-nav] button")).toHaveCount(9);
+  await dialog.getByTestId("mission-funnel-help-chapter-contact-contract").click();
+  await expect(content.locator("dl > div")).toHaveCount(15);
+  await dialog.getByTestId("mission-funnel-help-chapter-sources").click();
+  await expect(content.locator("dl > div")).toHaveCount(19);
+  await dialog.getByTestId("mission-funnel-help-chapter-exceptions-quality").click();
+  await expect(content.locator("[data-quality-key]")).toHaveCount(8);
+  await dialog.getByTestId("mission-funnel-help-chapter-combined").click();
+  await expect(content).toContainText("poster");
+  await page.screenshot({ path: "generated-artifacts/mission-funnel/manual-desktop.jpg" });
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("context help opens exact chapter and supports keyboard chapter changes", async ({ page }) => {
+  const { calls, errors } = await fixture(page);
+  const dialog = page.getByTestId("mission-funnel-help-dialog");
+  for (const chapter of ["contact-contract", "without-contract", "combined"]) {
+    await page.getByTestId(`mission-funnel-help-context-${chapter}`).click();
+    await expect(dialog.getByTestId(`mission-funnel-help-chapter-${chapter}`)).toHaveAttribute("aria-current", "page");
+    await page.keyboard.press("Escape");
+  }
+  await page.getByTestId("mission-funnel-config-expand").click();
+  await page.getByTestId("mission-funnel-help-context-configuration").click();
+  const current = dialog.getByTestId("mission-funnel-help-chapter-configuration");
+  await expect(current).toHaveAttribute("aria-current", "page");
+  await current.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(dialog.getByTestId("mission-funnel-help-chapter-sources")).toBeFocused();
+  expect(calls.every(call => call.method === "GET")).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("manual works during report failure and on a short dark mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 667 });
+  const { errors } = await fixture(page, { error: true, dark: true, locale: "sk" });
+  await page.getByTestId("mission-funnel-help").click();
+  const dialog = page.getByTestId("mission-funnel-help-dialog");
+  await expect(dialog).toBeVisible();
+  const select = dialog.getByTestId("mission-funnel-help-mobile-chapter");
+  await select.selectOption("combined");
+  const content = dialog.getByTestId("mission-funnel-help-content");
+  await expect(content).toContainText(/plagát/i);
+  await expect(content.locator("h3")).toBeVisible();
+  const bounds = await dialog.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(391);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(668);
+  expect(await content.evaluate(element => element.clientHeight)).toBeGreaterThan(150);
+  await page.screenshot({ path: "generated-artifacts/mission-funnel/manual-mobile-dark.jpg" });
+  await page.keyboard.press("Escape");
+  expect(errors).toEqual([]);
+});
+
+test("manual reads in every supported language", async ({ page }) => {
+  for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"]) {
+    const { errors } = await fixture(page, { locale, readonly: true });
+    await page.getByTestId("mission-funnel-help").click();
+    const dialog = page.getByTestId("mission-funnel-help-dialog");
+    await dialog.getByTestId("mission-funnel-help-chapter-evidence").click();
+    await expect(page.getByTestId("mission-funnel-help-content").locator("p").nth(1)).not.toBeEmpty();
+    if (locale !== "en") await expect(dialog).not.toContainText("First date is the earliest direct attainment");
+    await page.keyboard.press("Escape");
+    expect(errors).toEqual([]);
+  }
 });

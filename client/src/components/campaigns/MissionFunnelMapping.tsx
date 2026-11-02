@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Check, ChevronDown, Search, ShieldCheck } from "lucide-react";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
+import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
 import {
   configurableFunnelSources,
   type FunnelConfig,
@@ -10,6 +12,8 @@ import {
 } from "../../../../shared/mission-funnel";
 
 interface Props {
+  locale: string;
+  onHelp?: (chapter: MissionFunnelHelpChapter) => void;
   report: MissionFunnelReport;
   config: FunnelConfig;
   copy: MissionFunnelCopy;
@@ -28,7 +32,7 @@ const TABS = [
 ] as const;
 
 export default function MissionFunnelMapping({
-  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave,
+  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave, locale, onHelp,
 }: Props) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("contact");
   const [activeSource, setActiveSource] = useState<FunnelSource>("qualified");
@@ -66,7 +70,10 @@ export default function MissionFunnelMapping({
           <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
         </summary>
         <div className="border-t border-border">
-          <p className="px-4 pt-4 text-sm leading-relaxed text-muted-foreground sm:px-5">{copy.mappingRuleNote}</p>
+          <div className="flex items-start gap-2 px-4 pt-4 sm:px-5">
+            <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{copy.mappingRuleNote}</p>
+            {onHelp && <MissionFunnelHelpLink locale={locale} chapter="configuration" onSelect={onHelp} />}
+          </div>
           <Tabs value={activeTab} onValueChange={value => {
             const tab = TABS.find(entry => entry.id === value);
             if (!tab) return;

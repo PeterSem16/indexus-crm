@@ -6,6 +6,8 @@ import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingP
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
 import MissionFunnelMapping from "./MissionFunnelMapping";
+import MissionFunnelHelp, { MissionFunnelHelpButton } from "./MissionFunnelHelp";
+import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
 import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
 import { funnelExportTranslations, funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -139,6 +141,12 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpChapter, setHelpChapter] = useState<MissionFunnelHelpChapter>("scope");
+  const openHelp = (chapter: MissionFunnelHelpChapter) => {
+    setHelpChapter(chapter);
+    setHelpOpen(true);
+  };
   const exportCopy = funnelExportTranslations[locale];
   const [saveMessage, setSaveMessage] = useState<"saved" | "error" | "">("");
   const activeCampaign = useRef(campaignId);
@@ -268,6 +276,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
         </div>
       </header>
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <MissionFunnelHelpButton locale={locale} onClick={() => openHelp("scope")} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" data-testid="mission-funnel-export"
@@ -291,6 +300,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
         </DropdownMenu>
         {exportError && <p role="alert" className="w-full text-right text-sm text-destructive">{exportCopy.error}</p>}
       </div>
+      <MissionFunnelHelp locale={locale} copy={copy} open={helpOpen} onOpenChange={setHelpOpen} initialChapter={helpChapter} />
 
       {showPeriodControls && <ReportingPeriodControls />}
       <section aria-label={copy.referral} className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -338,6 +348,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
               locale={locale}
               selectedStep={openDetail.startsWith("step:") ? openDetail.slice("step:".length) as FunnelStep : null}
               onSelectStep={openStepDetails}
+              onHelp={openHelp}
             />
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left">
@@ -426,6 +437,8 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
 
           {report.canConfigure && config && (
             <MissionFunnelMapping
+              locale={locale}
+              onHelp={openHelp}
               report={report}
               config={config}
               copy={copy}
