@@ -2,7 +2,13 @@
 
 ## Stav a schválenie
 
-Tento nástroj je **pripravený, nie vykonaný proti produkcii alebo MS365**.
+Nástroj bol po osobitnom súhlase používateľa spustený oprávneným operátorom
+priamo na CORPCRM01. Posledná kontrola prešla celú pôvodnú dávku, ale
+nepreukázala žiadny konkrétny čas: pri všetkých 38 záznamoch sa telo
+odoslanej položky líšilo od aplikačného záznamu. Úplný anonymizovaný
+[výsledok kontroly](verify-mission-proposal-times-results.md) rozlišuje
+nájdených kandidátov od preukázaných odoslaní. Nebol vykonaný backfill.
+
 Záznam aplikácie, `sentVia: ms365`, predmet a `conversationId` nedokazujú
 konkrétnu odoslanú správu ani jej čas. `created_at` sa nikdy nepoužíva ako
 čas odoslania alebo ako vyhľadávacie časové okno.
@@ -225,4 +231,6 @@ odtlačkom tohto plánu a samostatným súhlasom na zápis. Budúci backfill mus
    nikdy nie `COALESCE` s `created_at`. Neznáme záznamy musia zostať označené
    ako neznámy čas vo všetkých siedmich jazykoch.
 
-V tejto príprave nebol preukázaný žiadny produkčný čas ani vykonaný backfill.
+Pri vykonanej read-only kontrole nebol preukázaný žiadny konkrétny produkčný
+čas ani vykonaný backfill. Podmienka na navrhnutie zapisovateľného
+backfillu preto zatiaľ nie je splnená; neznáme časy zostávajú neznáme.
