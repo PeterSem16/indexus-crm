@@ -26,6 +26,11 @@ export interface MissionFunnelCopy {
   exceptionLabels: Record<FunnelException, string>; basisLabels: Record<string, string>;
   yes: string; no: string; cancel: string; unmeasured: string; generated: string; timezone: string;
   mappingMissing: string; mappingIncomplete: string; configurationSavedNote: string; noClinics: string;
+  cohortNotConversion: string; mappingContactTab: string; mappingContractTab: string; mappingMaterialsTab: string;
+  mappingExceptionsTab: string; mappingRuleNote: string; mappingCoverage: string; mappingCoverageHelp: string;
+  mappingSourceHelp: string; mappingMissingChoice: string; mappingSelectedChoices: string; mappingRemoveChoice: string;
+  mappingNoSelection: string; mappingAvailableChoices: string; clearSearch: string; addChoice: string; mappingAllSelected: string;
+  mappingChooseSource: string;
 }
 
 const sourceEn: Record<FunnelSource, string> = {
@@ -94,6 +99,17 @@ const en: MissionFunnelCopy = {
   mappingIncomplete:"One or more source mappings are empty. A zero in an unmapped branch may mean evidence is not configured, not that no clinics qualify. Configure and review mappings before drawing conclusions.",
   configurationSavedNote:"Current mapping is shown as received from the server; no statuses are written automatically.",
   noClinics:"No clinics match the current search.",
+  cohortNotConversion:"Mission-wide cohort, independent of the activity period. This is not a conversion step.",
+  mappingContactTab:"Contact & agreement", mappingContractTab:"Contract", mappingMaterialsTab:"Cooperation & materials",
+  mappingExceptionsTab:"Exceptions",
+  mappingRuleNote:"Select the Mission items that count as evidence for the focused source. Multiple choices within a source are treated as OR.",
+  mappingCoverage:"Mapping coverage", mappingCoverageHelp:"Counts configured sources, not clinics or conversion. Legacy cooperation evidence remains saved but is not configurable here.",
+  mappingSourceHelp:"Choose the Mission item records that provide evidence for this source. Existing choices stay visible above.",
+  mappingMissingChoice:"No evidence selected", mappingSelectedChoices:"Selected evidence choices",
+  mappingRemoveChoice:"Remove evidence choice", mappingNoSelection:"Nothing is mapped to this source yet.",
+  mappingAvailableChoices:"available choices", clearSearch:"Clear", addChoice:"Add",
+  mappingAllSelected:"All matching items are already selected.",
+  mappingChooseSource:"Choose one evidence source",
 };
 
 const translations: Record<Locale, MissionFunnelCopy> = {
@@ -155,6 +171,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Zatiaľ nie sú priradené žiadne zdrojové položky. Pred interpretáciou krokov ako nuly nastavte mapovanie dôkazov.",
     mappingIncomplete:"Jeden alebo viac zdrojov nemá mapovanie. Nula v nenamapovanej vetve môže znamenať, že dôkaz nie je nastavený, nie že kliniky nespĺňajú podmienky. Pred závermi mapovanie nastavte a skontrolujte.",
     configurationSavedNote:"Aktuálne mapovanie je zobrazené podľa servera; žiadne stavy sa automaticky nezapisujú.", noClinics:"Vyhľadávaniu nevyhovujú žiadne kliniky.",
+     cohortNotConversion:"Celá kohorta misie nezávislá od obdobia aktivity. Nejde o konverzný krok.",
+     mappingContactTab:"Kontakt a súhlas", mappingContractTab:"Zmluva", mappingMaterialsTab:"Spolupráca a materiály",
+     mappingExceptionsTab:"Výnimky",
+     mappingRuleNote:"Vyberte položky misie, ktoré predstavujú dôkaz pre zvolený zdroj. Viaceré výbery v zdroji sa vyhodnocujú ako ALEBO.",
+     mappingCoverage:"Pokrytie mapovaním", mappingCoverageHelp:"Počet nastavených zdrojov, nie kliník ani konverzií. Staršie dôkazy spolupráce zostávajú uložené, ale tu sa nenastavujú.",
+     mappingSourceHelp:"Vyberte záznamy položiek misie, ktoré dokazujú tento zdroj. Existujúce výbery zostávajú zobrazené vyššie.",
+     mappingMissingChoice:"Nie je vybraný dôkaz", mappingSelectedChoices:"Vybrané dôkazy",
+     mappingRemoveChoice:"Odstrániť dôkaz", mappingNoSelection:"Pre tento zdroj zatiaľ nie je nič namapované.",
+     mappingAvailableChoices:"dostupných možností", clearSearch:"Vymazať", addChoice:"Pridať",
+     mappingAllSelected:"Všetky zodpovedajúce položky sú už vybrané.",
+     mappingChooseSource:"Vyberte jeden zdroj dôkazu",
   },
   cs: {
     ...en, title:"Trychtýř mise", subtitle:"Konverze na úrovni klinik · v04", period:"Období aktivity", from:"Od", to:"Do",
@@ -205,6 +232,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Zatím nejsou namapované žádné zdrojové položky. Před interpretací kroků jako nuly nastavte mapování důkazů.",
     mappingIncomplete:"Jeden nebo více zdrojů nemá mapování. Nula v nenamapované větvi může znamenat, že důkaz není nastaven, nikoli že kliniky nesplňují podmínky. Před závěry mapování nastavte a zkontrolujte.",
     configurationSavedNote:"Aktuální mapování je zobrazeno podle serveru; žádné stavy se automaticky nezapisují.", noClinics:"Vyhledávání neodpovídají žádné kliniky.",
+     cohortNotConversion:"Celá kohorta mise nezávislá na období aktivity. Nejde o konverzní krok.",
+     mappingContactTab:"Kontakt a souhlas", mappingContractTab:"Smlouva", mappingMaterialsTab:"Spolupráce a materiály",
+     mappingExceptionsTab:"Výjimky",
+     mappingRuleNote:"Vyberte položky mise, které představují důkaz pro zvolený zdroj. Více výběrů v jednom zdroji se vyhodnocuje jako NEBO.",
+     mappingCoverage:"Pokrytí mapováním", mappingCoverageHelp:"Počet nastavených zdrojů, nikoli klinik nebo konverzí. Starší důkazy spolupráce zůstávají uložené, ale zde se nenastavují.",
+     mappingSourceHelp:"Vyberte záznamy položek mise, které dokládají tento zdroj. Stávající výběry zůstávají zobrazené výše.",
+     mappingMissingChoice:"Není vybraný žádný důkaz", mappingSelectedChoices:"Vybrané důkazy",
+     mappingRemoveChoice:"Odebrat důkaz", mappingNoSelection:"Pro tento zdroj zatím není nic namapováno.",
+     mappingAvailableChoices:"dostupných možností", clearSearch:"Vymazat", addChoice:"Přidat",
+     mappingAllSelected:"Všechny odpovídající položky jsou již vybrané.",
+     mappingChooseSource:"Vyberte jeden zdroj důkazu",
   },
   hu: {
     ...en, title:"Missziós tölcsér", subtitle:"Klinikánkénti konverzió · v04", period:"Aktivitási időszak", from:"Ettől", to:"Eddig",
@@ -255,6 +293,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Még nincs forráselem hozzárendelve. A lépések nullaként értelmezése előtt állítsa be a bizonyítékle képezést.",
     mappingIncomplete:"Egy vagy több forráshoz nincs leképezés. A nem leképezett ág nullája jelentheti azt is, hogy nincs bizonyíték beállítva, nem feltétlenül azt, hogy egyetlen klinika sem jogosult. Következtetés előtt állítsa be és ellenőrizze a leképezést.",
     configurationSavedNote:"A jelenlegi leképezés a szerver adata; automatikus állapotírás nem történik.", noClinics:"Nincs a keresésnek megfelelő klinika.",
+     cohortNotConversion:"A teljes missziós kohorsz, az aktivitási időszaktól függetlenül. Ez nem konverziós lépés.",
+     mappingContactTab:"Kapcsolat és megállapodás", mappingContractTab:"Szerződés", mappingMaterialsTab:"Együttműködés és anyagok",
+     mappingExceptionsTab:"Kivételek",
+     mappingRuleNote:"Válassza ki azokat a missziós elemeket, amelyek bizonyítékként szolgálnak a kijelölt forráshoz. Egy forráson belül több választás VAGY kapcsolatban áll.",
+     mappingCoverage:"Leképezés lefedettsége", mappingCoverageHelp:"A beállított források száma, nem klinikáké vagy konverzióké. A régi együttműködési bizonyíték mentve marad, de itt nem szerkeszthető.",
+     mappingSourceHelp:"Válassza ki a forrást igazoló missziós rekordokat. A meglévő választások fent továbbra is láthatók.",
+     mappingMissingChoice:"Nincs kiválasztott bizonyíték", mappingSelectedChoices:"Kiválasztott bizonyítékok",
+     mappingRemoveChoice:"Bizonyíték eltávolítása", mappingNoSelection:"Ehhez a forráshoz még nincs leképezés.",
+     mappingAvailableChoices:"elérhető lehetőség", clearSearch:"Törlés", addChoice:"Hozzáadás",
+     mappingAllSelected:"Minden találat már ki van választva.",
+     mappingChooseSource:"Válasszon egy bizonyítékforrást",
   },
   ro: {
     ...en, title:"Pâlnia misiunii", subtitle:"Conversie la nivel de clinică · v04", period:"Perioada activității", from:"De la", to:"Până la",
@@ -305,6 +354,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Nu sunt mapate încă elemente sursă. Configurați dovezile înainte de a interpreta etapele ca zero.",
     mappingIncomplete:"Una sau mai multe surse nu au mapare. Un zero într-o ramură nemapată poate însemna că dovezile nu sunt configurate, nu că nu există clinici eligibile. Configurați și verificați mapările înainte de concluzii.",
     configurationSavedNote:"Maparea curentă este afișată conform serverului; nu se scriu automat stări.", noClinics:"Nicio clinică nu corespunde căutării.",
+     cohortNotConversion:"Întreaga cohortă a misiunii, independentă de perioada activității. Nu este o etapă de conversie.",
+     mappingContactTab:"Contact și acord", mappingContractTab:"Contract", mappingMaterialsTab:"Colaborare și materiale",
+     mappingExceptionsTab:"Excepții",
+     mappingRuleNote:"Selectați elementele misiunii care constituie dovezi pentru sursa activă. Mai multe alegeri din aceeași sursă se combină cu SAU.",
+     mappingCoverage:"Acoperirea mapării", mappingCoverageHelp:"Numărul surselor configurate, nu al clinicilor sau conversiilor. Dovezile vechi de colaborare rămân salvate, dar nu se configurează aici.",
+     mappingSourceHelp:"Alegeți înregistrările misiunii care dovedesc această sursă. Alegerile existente rămân vizibile mai sus.",
+     mappingMissingChoice:"Nicio dovadă selectată", mappingSelectedChoices:"Dovezi selectate",
+     mappingRemoveChoice:"Elimină dovada", mappingNoSelection:"Nu există încă nimic mapat pentru această sursă.",
+     mappingAvailableChoices:"alegeri disponibile", clearSearch:"Șterge", addChoice:"Adaugă",
+     mappingAllSelected:"Toate elementele găsite sunt deja selectate.",
+     mappingChooseSource:"Alegeți o singură sursă de dovezi",
   },
   it: {
     ...en, title:"Funnel della missione", subtitle:"Conversione per clinica · v04", period:"Periodo di attività", from:"Da", to:"A",
@@ -355,6 +415,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Nessun record origine è ancora mappato. Configura le evidenze prima di interpretare queste fasi come zero.",
     mappingIncomplete:"Una o più origini non sono mappate. Uno zero in un ramo non mappato può indicare evidenze non configurate, non l’assenza di cliniche idonee. Configura e verifica le mappature prima di trarre conclusioni.",
     configurationSavedNote:"La mappatura corrente proviene dal server; non vengono scritti stati automaticamente.", noClinics:"Nessuna clinica corrisponde alla ricerca.",
+     cohortNotConversion:"L’intera coorte della missione, indipendente dal periodo di attività. Non è una fase di conversione.",
+     mappingContactTab:"Contatto e accordo", mappingContractTab:"Contratto", mappingMaterialsTab:"Collaborazione e materiali",
+     mappingExceptionsTab:"Eccezioni",
+     mappingRuleNote:"Seleziona gli elementi della missione che costituiscono evidenza per la fonte attiva. Più scelte nella stessa fonte si combinano con OR.",
+     mappingCoverage:"Copertura della mappatura", mappingCoverageHelp:"Numero di fonti configurate, non di cliniche o conversioni. Le vecchie evidenze di collaborazione restano salvate, ma non si configurano qui.",
+     mappingSourceHelp:"Scegli i record della missione che forniscono evidenza per questa fonte. Le scelte esistenti restano visibili sopra.",
+     mappingMissingChoice:"Nessuna evidenza selezionata", mappingSelectedChoices:"Evidenze selezionate",
+     mappingRemoveChoice:"Rimuovi evidenza", mappingNoSelection:"Nessuna mappatura per questa fonte.",
+     mappingAvailableChoices:"scelte disponibili", clearSearch:"Cancella", addChoice:"Aggiungi",
+     mappingAllSelected:"Tutti gli elementi corrispondenti sono già selezionati.",
+     mappingChooseSource:"Scegli una fonte di evidenza",
   },
   de: {
     ...en, title:"Missions-Trichter", subtitle:"Konversion je Klinik · v04", period:"Aktivitätszeitraum", from:"Von", to:"Bis",
@@ -405,6 +476,17 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     mappingMissing:"Noch sind keine Quelleinträge zugeordnet. Konfigurieren Sie Nachweise, bevor Sie diese Schritte als null interpretieren.",
     mappingIncomplete:"Mindestens eine Quelle ist nicht zugeordnet. Eine Null in einem nicht zugeordneten Zweig kann fehlende Konfiguration bedeuten, nicht dass keine Klinik qualifiziert ist. Prüfen und konfigurieren Sie Zuordnungen vor Schlussfolgerungen.",
     configurationSavedNote:"Die aktuelle Zuordnung stammt vom Server; Statuswerte werden nicht automatisch geschrieben.", noClinics:"Keine Klinik entspricht der Suche.",
+     cohortNotConversion:"Die gesamte Missionskohorte, unabhängig vom Aktivitätszeitraum. Dies ist kein Konversionsschritt.",
+     mappingContactTab:"Kontakt und Zustimmung", mappingContractTab:"Vertrag", mappingMaterialsTab:"Zusammenarbeit und Materialien",
+     mappingExceptionsTab:"Ausnahmen",
+     mappingRuleNote:"Wählen Sie die Missionseinträge aus, die als Nachweis für die aktive Quelle gelten. Mehrere Auswahlen innerhalb einer Quelle werden mit ODER verknüpft.",
+     mappingCoverage:"Abdeckung der Zuordnung", mappingCoverageHelp:"Anzahl konfigurierter Quellen, nicht Kliniken oder Konversionen. Ältere Kooperationsnachweise bleiben gespeichert, sind hier aber nicht konfigurierbar.",
+     mappingSourceHelp:"Wählen Sie Missionseinträge als Nachweis für diese Quelle. Vorhandene Auswahlen bleiben oben sichtbar.",
+     mappingMissingChoice:"Kein Nachweis ausgewählt", mappingSelectedChoices:"Ausgewählte Nachweise",
+     mappingRemoveChoice:"Nachweis entfernen", mappingNoSelection:"Für diese Quelle ist noch nichts zugeordnet.",
+     mappingAvailableChoices:"verfügbare Einträge", clearSearch:"Leeren", addChoice:"Hinzufügen",
+     mappingAllSelected:"Alle passenden Einträge sind bereits ausgewählt.",
+     mappingChooseSource:"Wählen Sie eine Nachweisquelle",
   },
 };
 

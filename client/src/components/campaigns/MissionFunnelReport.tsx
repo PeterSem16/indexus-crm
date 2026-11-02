@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n";
 import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingPeriod } from "./reporting-period";
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
+import MissionFunnelMapping from "./MissionFunnelMapping";
 import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
 import { funnelExportTranslations, funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -13,7 +14,7 @@ import {
   type FunnelConfig, type FunnelMember, type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
-import { AlertCircle, Check, ChevronDown, ChevronUp, CircleHelp, Download, FileSpreadsheet, FileText, Filter, RefreshCw, Search, Settings2 } from "lucide-react";
+import { AlertCircle, ChevronDown, ChevronUp, CircleHelp, Download, FileSpreadsheet, FileText, Filter, RefreshCw, Search } from "lucide-react";
 
 interface Props { campaignId: string }
 const PAGE_SIZE = 10;
@@ -135,7 +136,6 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
   const [referral, setReferral] = useState<"all" | "yes" | "no">("all");
   const [openDetail, setOpenDetail] = useState("");
   const [config, setConfig] = useState<FunnelConfig | null>(null);
-  const [itemSearch, setItemSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(false);
@@ -192,7 +192,6 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     setConfig(null);
     setSaving(false);
     setSaveMessage("");
-    setItemSearch("");
   }, [campaignId]);
 
   useEffect(() => {
@@ -250,12 +249,6 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     [copy.orphanCalls, quality.orphanCalls], [copy.duplicateEnrollments, quality.duplicateEnrollments],
     [copy.stateOnly, quality.stateOnly], [copy.unknownProposal, quality.unknownProposal],
   ] as const : [];
-  const filteredItems = useMemo(() => {
-    const term = itemSearch.trim().toLocaleLowerCase();
-    if (!term) return report?.items ?? [];
-    return (report?.items ?? []).filter(item => `${item.label} ${item.stepId}`.toLocaleLowerCase().includes(term));
-  }, [report?.items, itemSearch]);
-
   return (
     <main data-testid="mission-funnel-report" className="mission-funnel-report space-y-5 text-foreground">
       <header className="relative overflow-hidden rounded-xl border border-border bg-card px-5 py-5 shadow-sm sm:px-7 sm:py-6">
@@ -432,76 +425,19 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
           </section>
 
           {report.canConfigure && config && (
-            <section className="rounded-xl border border-border bg-card shadow-sm">
-              <details>
-                <summary data-testid="mission-funnel-config-expand" className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 marker:hidden sm:px-5">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-700/10 text-teal-800 dark:bg-teal-300/10 dark:text-teal-300"><Settings2 aria-hidden="true" className="h-4 w-4" /></span>
-                  <span className="flex-1"><span className="block font-semibold">{copy.configuration}</span><span className="mt-0.5 block text-xs text-muted-foreground">{copy.configurationSavedNote}</span></span>
-                  <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                </summary>
-                <div className="border-t border-border px-4 py-4 sm:px-5">
-                  <p className="mb-4 max-w-4xl text-sm leading-relaxed text-muted-foreground">{copy.configurationHelp}</p>
-                  <label className="mb-4 flex max-w-lg items-center gap-2 rounded-md border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
-                    <Search aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-                    <input value={itemSearch} onChange={event => setItemSearch(event.target.value)} placeholder={copy.searchItems}
-                      aria-label={copy.searchItems} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground" />
-                  </label>
-                  <div className="mb-5 max-w-2xl space-y-2">
-                    <label htmlFor="mission-funnel-absence-return-question" className="block text-sm font-semibold">{copy.absenceReturnQuestion}</label>
-                    <select
-                      id="mission-funnel-absence-return-question"
-                      value={config.absenceReturnQuestionId ?? ""}
-                      onChange={event => {
-                        const selectedQuestionId = event.target.value || null;
-                        setConfig(current => current ? { ...current, absenceReturnQuestionId: selectedQuestionId } : current);
-                        setSaveMessage("");
-                      }}
-                      className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="">{copy.noDate}</option>
-                      {config.absenceReturnQuestionId && !(report.dateQuestions ?? []).some(question => question.id === config.absenceReturnQuestionId) && (
-                        <option value={config.absenceReturnQuestionId}>{config.absenceReturnQuestionId}</option>
-                      )}
-                      {(report.dateQuestions ?? []).map(question => <option key={question.id} value={question.id}>{question.label}</option>)}
-                    </select>
-                    <p className="text-xs leading-relaxed text-muted-foreground">{copy.absenceReturnQuestionHelp}</p>
-                  </div>
-                  {filteredItems.length === 0 && <p className="mb-4 text-sm text-muted-foreground">{copy.noMatchingItems}</p>}
-                  <div className="space-y-3">
-                    {configurableFunnelSources.map(source => {
-                      const visibleItems = filteredItems;
-                      const selectedCount = config.sources[source].length;
-                      return (
-                        <fieldset key={source} className="rounded-lg border border-border/80 p-3 sm:p-4">
-                          <legend className="px-1 text-sm font-semibold">{copy.sourceLabels[source]}</legend>
-                          <div className="mb-2 text-[11px] text-muted-foreground">{selectedCount} {copy.selected}</div>
-                          <div className="grid max-h-44 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                            {visibleItems.map(item => {
-                              const checked = config.sources[source].includes(item.id);
-                              return (
-                                <label key={item.id} className="flex min-w-0 cursor-pointer items-start gap-2 rounded px-2 py-2 hover:bg-muted/60">
-                                  <input type="checkbox" checked={checked} onChange={event => updateSource(source, item.id, event.target.checked)}
-                                    className="mt-0.5 h-4 w-4 shrink-0 accent-teal-700" />
-                                  <span className="min-w-0 text-xs leading-snug"><span className="block truncate font-medium text-foreground">{item.label}</span><span className="font-mono text-[10px] text-muted-foreground">{item.stepId}</span></span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </fieldset>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-5 flex flex-wrap items-center gap-3">
-                    <button type="button" data-testid="mission-funnel-config-save" disabled={saving} onClick={saveConfig}
-                      className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-300 dark:text-teal-950 dark:hover:bg-teal-200">
-                      {saveMessage === "saved" ? <Check aria-hidden="true" className="h-4 w-4" /> : null}
-                      {saving ? copy.saving : copy.saveConfiguration}
-                    </button>
-                    {saveMessage && <p role={saveMessage === "error" ? "alert" : "status"} className={`text-sm ${saveMessage === "error" ? "text-destructive" : "text-teal-800 dark:text-teal-300"}`}>{saveMessage === "saved" ? copy.saved : copy.saveError}</p>}
-                  </div>
-                </div>
-              </details>
-            </section>
+            <MissionFunnelMapping
+              report={report}
+              config={config}
+              copy={copy}
+              saving={saving}
+              saveMessage={saveMessage}
+              onUpdateSource={updateSource}
+              onAbsenceQuestionChange={value => {
+                setConfig(current => current ? { ...current, absenceReturnQuestionId: value } : current);
+                setSaveMessage("");
+              }}
+              onSave={saveConfig}
+            />
           )}
         </>
       ) : <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{copy.noData}</p>}

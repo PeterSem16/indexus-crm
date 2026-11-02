@@ -207,14 +207,21 @@ export default function MissionFunnelChart({ rows, copy, locale, selectedStep, o
       </div>
 
       {assigned && (
-        <div className="mb-4 rounded-lg border-2 border-dashed border-teal-700/35 bg-teal-700/[0.035] p-2 dark:border-teal-300/35 dark:bg-teal-300/[0.04]">
-          <div className="mb-1 flex flex-wrap items-center justify-between gap-2 px-2 pt-1">
-            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-teal-900 dark:text-teal-200">{copy.chartAssignedCurrent}</p>
-            <p className="text-[10px] text-muted-foreground">{copy.assignedNote}</p>
-          </div>
-          <FunnelStepButton row={assigned} copy={copy} locale={locale} maxCount={Math.max(1, assigned.total ?? 0)} color="#3C7686"
-            selected={selectedStep === "assigned"} onSelect={() => onSelectStep("assigned")} />
-        </div>
+        <button type="button" data-testid="mission-funnel-chart-step-assigned" data-value={assigned.total == null ? "unmeasured" : String(assigned.total)}
+          aria-label={`${copy.chartAssignedCurrent}. ${copy.total}: ${formatCount(assigned.total, locale, copy.unmeasured)}. ${copy.cohortNotConversion}. ${copy.clickToDrilldown}`}
+          aria-pressed={selectedStep === "assigned"} onClick={() => onSelectStep("assigned")}
+          className={`mb-4 flex w-full flex-col gap-2 rounded-lg border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between sm:px-4 ${
+            selectedStep === "assigned" ? "border-teal-700/40 bg-teal-700/[0.08] dark:border-teal-300/35 dark:bg-teal-300/[0.07]" : "border-teal-700/20 bg-teal-700/[0.045] hover:border-teal-700/35 dark:border-teal-300/20 dark:bg-teal-300/[0.045]"
+          }`}>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-bold uppercase tracking-[.16em] text-teal-900 dark:text-teal-200">{copy.chartAssignedCurrent}</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">{copy.cohortNotConversion}</span>
+          </span>
+          <span className="flex shrink-0 items-baseline gap-2 sm:pl-4">
+            <span className="font-mono text-2xl font-semibold tabular-nums tracking-tight text-foreground">{formatCount(assigned.total, locale, copy.unmeasured)}</span>
+            <span className="text-[11px] text-muted-foreground">{copy.clinics}</span>
+          </span>
+        </button>
       )}
 
       <section className="rounded-lg border border-border/80 bg-background/45 p-2 sm:p-3" aria-label={copy.chartPrimaryPath}>

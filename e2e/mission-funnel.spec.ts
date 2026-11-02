@@ -170,3 +170,62 @@ test("all-zero and all-unmeasured charts render without invalid SVG geometry",as
     expect(errors).toEqual([]);
   }
 });
+
+test("assigned cohort is a count card rather than a full conversion bar", async ({ page }) => {
+  const { errors } = await fixture(page);
+  const assigned = page.getByTestId("mission-funnel-chart-step-assigned");
+  await expect(assigned).toBeVisible();
+  await expect(assigned).toHaveAttribute("data-value", "1");
+  await expect(assigned.locator("svg rect, svg path, svg line")).toHaveCount(0);
+  await expect(assigned).not.toContainText("100%");
+  await assigned.click();
+  await expect(page.getByText("Clinic Aurora", { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("focused mapping retains choices across tabs, search, removal and save", async ({ page }) => {
+  const { calls, errors } = await fixture(page);
+  await page.getByTestId("mission-funnel-config-expand").click();
+  const mapping = page.getByTestId("mission-funnel-mapping");
+  await expect(mapping.getByRole("tab")).toHaveCount(4);
+  await expect(mapping.locator('[data-testid^="mapping-source-"]')).toHaveCount(1);
+  await mapping.getByRole("textbox").fill("Source sent");
+  await mapping.getByTestId("mapping-item-sent").click();
+  await expect(mapping.getByTestId("mapping-remove-sent")).toBeVisible();
+  await mapping.getByTestId("mapping-tab-contract").click();
+  await mapping.getByTestId("mission-funnel-source-select-validated").click();
+  await expect(mapping.getByTestId("mapping-remove-validated")).toBeVisible();
+  await mapping.getByTestId("mapping-tab-contact").click();
+  await expect(mapping.getByTestId("mapping-remove-sent")).toBeVisible();
+  await mapping.getByTestId("mapping-remove-qualified").click();
+  await mapping.getByTestId("mapping-tab-exceptions").click();
+  await mapping.locator("#mission-funnel-absence-return-question").selectOption("return-date");
+  await mapping.getByTestId("mission-funnel-config-save").click();
+  await expect.poll(() => calls.filter(call => call.method === "PUT").length).toBe(1);
+  const body = calls.find(call => call.method === "PUT")!.body;
+  expect(body.sources.qualified).toEqual(["sent"]);
+  expect(body.sources.validated).toEqual(["validated"]);
+  expect(body.sources.activeWith).toEqual(["activeWith"]);
+  expect(body.absenceReturnQuestionId).toBe("return-date");
+  expect(calls.filter(call => call.method !== "GET").map(call => call.url))
+    .toEqual(["/api/campaigns/fixture-mission/mission-funnel/config"]);
+  await mapping.getByRole("textbox").fill("");
+  await mapping.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "generated-artifacts/mission-funnel/mapping-desktop.jpg" });
+  expect(errors).toEqual([]);
+});
+
+test("mapping tabs support keyboard navigation and mobile dark layout", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { errors } = await fixture(page, { dark: true });
+  await page.getByTestId("mission-funnel-config-expand").click();
+  const mapping = page.getByTestId("mission-funnel-mapping");
+  await mapping.getByTestId("mapping-tab-contact").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(mapping.getByTestId("mapping-tab-contract")).toHaveAttribute("aria-selected", "true");
+  await expect(mapping.getByTestId("mapping-source-proposalAccepted")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await mapping.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: "generated-artifacts/mission-funnel/mapping-mobile-dark.jpg" });
+  expect(errors).toEqual([]);
+});
