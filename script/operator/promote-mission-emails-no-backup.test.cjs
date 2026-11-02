@@ -24,8 +24,8 @@ test("every approved production baseline has exact scope, ancestry, dependencies
   for (const plan of release.PLANS) {
     const verified = lib.validate(fromBase(plan.base), release.TARGET);
     assert.equal(verified.fileCount, plan.fileCount);
-    assert.ok(verified.files.includes("shared/schema.ts"));
-    assert.ok(verified.files.includes("server/lib/mission-email-schema.ts"));
+    assert.ok(verified.files.includes("server/lib/mission-email-scheduler.ts"));
+    assert.ok(verified.files.includes("server/lib/mission-email-schedule-routes.ts"));
     assert.throws(() => lib.validate((args, raw) => args[0] === "diff" && args.includes("--binary")
       ? "corrupt patch" : fromBase(plan.base)(args, raw), release.TARGET), /patch differs/);
     assert.throws(() => lib.validate((args, raw) => args.includes(`${release.TARGET}:package.json`)

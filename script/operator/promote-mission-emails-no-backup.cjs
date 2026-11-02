@@ -4,22 +4,29 @@ const cp = require("node:child_process");
 const crypto = require("node:crypto");
 const Module = require("node:module");
 const APP = "/var/www/indexus-crm";
-const TARGET = "d1ca44bd1ddcf9996029c8b88cdc7a19938b6561";
+const TARGET = "3e6529b6e63fa7c1e20870072de2562a54af5ba2";
 const LEGACY_PATH = "script/operator/promote-mission-exports-no-backup.cjs";
 const LEGACY_HASH = "28e5a7158e96a8cadcd874c45afe67e91767b845950f2c489eb192488841e980";
 const PLANS = [
-  { base: "82e76f45fbae8482f4c047787859b6f963e14c80", commits: 12, fileCount: 57, patchHash: "6c9bf90db3105841d7a462fa03f101d06d1478f07f0cefe24e2db95b7fe3e571" },
-  { base: "0c6aed47d54c763159d3beaf1974d65212500119", commits: 7, fileCount: 50, patchHash: "256027b247e140f6635d484c2ad579e6e7c3b1f7e583ae1308e77314d4819219" },
-  { base: "35d3a76cafd5e4dab9fae917267ce0d9d5ab7cec", commits: 6, fileCount: 48, patchHash: "f9ccff16710e9382b6e84c7989b848a4773bafd40db29542c953f4aeb7b2bc75" },
-  { base: "ead18c105547d26f4ec1a0c389811311f6e8903b", commits: 5, fileCount: 46, patchHash: "f3f6a039c37e3bcbf22cfc210e59364231213484224586272c2c2aab0c7f4361" },
-  { base: "eaa97de0b0b5c7a4791af62ef98c711f258020b8", commits: 4, fileCount: 38, patchHash: "8a0a52dc1c0209ba56a042f3ccda9b69c57ec861fa06772c54bd7bd6803c9a86" },
-  { base: "2725b550929240b7c1449e681184c8dde0b954b7", commits: 3, fileCount: 36, patchHash: "2ad9bf9e62683ddb2e152ab122d8de2cd5e8c05e1ebaeaa3aabd6e28f2dc5f04" },
-  { base: "c0e76a677dc3e497f358c2573b4ff09b0adca200", commits: 2, fileCount: 23, patchHash: "9fe4833d8fdec928cb5aa86c0cb5b733705045a57ae80ad1ec851cfa14610936" },
-  { base: "6d88da124cd318f2c22ad6b342b3f5d6f47de7ff", commits: 1, fileCount: 21, patchHash: "78fd205c7be2a5c4650e79048fba19fc166efdfc85a0531f69f45ff6775713fe" },
+  { base: "82e76f45fbae8482f4c047787859b6f963e14c80", commits: 16, fileCount: 65, patchHash: "fbdee5a2d851b7ccc10d4aa61f8596f551718403b1970c6b4ebb475890d567d1" },
+  { base: "0c6aed47d54c763159d3beaf1974d65212500119", commits: 11, fileCount: 58, patchHash: "66b037c8a9d0af85c06951bcc82493ae7e51930230148bf69b2f6c10103b5051" },
+  { base: "35d3a76cafd5e4dab9fae917267ce0d9d5ab7cec", commits: 10, fileCount: 56, patchHash: "65ba8ffa41fdaed496132ef08c98242f4ee040bd3ef3951a3f5e07b65121b5a2" },
+  { base: "ead18c105547d26f4ec1a0c389811311f6e8903b", commits: 9, fileCount: 54, patchHash: "def689c09293909d3e1123a918699c676e75721b16ba546c574e3d451b09a338" },
+  { base: "eaa97de0b0b5c7a4791af62ef98c711f258020b8", commits: 8, fileCount: 46, patchHash: "aa6ee1dcb866c0ded04ab3c00f403d768bddf8601403aafd6cd2bbdf05ebae29" },
+  { base: "2725b550929240b7c1449e681184c8dde0b954b7", commits: 7, fileCount: 44, patchHash: "3cb0bd01963d279244d6605c867049587eb22df00542bbdec5bd34bfb96105d7" },
+  { base: "c0e76a677dc3e497f358c2573b4ff09b0adca200", commits: 6, fileCount: 32, patchHash: "c9826b33ce349cfa860ebd594389c48e52a784e68a336c674eb7eacaff76f160" },
+  { base: "6d88da124cd318f2c22ad6b342b3f5d6f47de7ff", commits: 5, fileCount: 30, patchHash: "74e05e2e465b7104b96b8f30984c4f21bbfd7d598deffdde5b50af8886d06a9c" },
+  { base: "d1ca44bd1ddcf9996029c8b88cdc7a19938b6561", commits: 4, fileCount: 20, patchHash: "0eb59c8eea48aee7705341fbedfa6427dad89a21e20dfcda456c6f82f37965fa" },
+  { base: "79e0f6d0ba29ce9df4e77f165edb51d3242fd6f5", commits: 3, fileCount: 18, patchHash: "aa3eea1772ff26871252370aa2be8577723af64295c80a4a18f8ce475c3c7de6" },
+  { base: "5859699c052cdfcf62d2686190cfc15b7e3096a1", commits: 2, fileCount: 13, patchHash: "23adcd7feb86890911584e27695cba253a423d8d2983aaf1efb282a8b5259957" },
+  { base: "73a896ab60077c1d8afa8bfe4bb7c61d86bad5a0", commits: 1, fileCount: 11, patchHash: "63c2ee4cf80e06271bd608c41a293c252f508261032d1e412576ff78bc739a0e" },
 ];
 const EXTRA_PATHS = [
   ".local/tsconfig-mission-email.json",
   "client/src/components/campaigns/MissionEmailSchedules.tsx",
+  "client/src/components/campaigns/MissionEmailRecipientPicker.tsx",
+  "client/src/components/campaigns/mission-email-extras-translations.ts",
+  "client/src/components/campaigns/mission-email-panel-translations.ts",
   "client/src/components/campaigns/mission-email-schedule-translations.ts",
   "e2e/mission-email-schedules.spec.ts",
   "server/index.ts",
@@ -28,6 +35,9 @@ const EXTRA_PATHS = [
   "shared/schema.ts",
   "server/lib/mission-email-content.test.ts",
   "server/lib/mission-email-content.ts",
+  "server/lib/mission-email-excel.ts",
+  "server/lib/mission-email-excel.test.ts",
+  "server/lib/mission-email-sender.test.ts",
   "server/lib/mission-email-schedule-routes.test.ts",
   "server/lib/mission-email-schedule-routes.ts",
   "server/lib/mission-email-scheduler.test.ts",
@@ -38,10 +48,14 @@ const EXTRA_PATHS = [
   "shared/mission-email-schedule.ts",
   LEGACY_PATH,
   "script/operator/promote-mission-exports-no-backup.test.cjs",
+  "script/operator/promote-mission-emails-no-backup.cjs",
+  "script/operator/promote-mission-emails-no-backup.test.cjs",
 ];
 const EXTRA_TESTS = [
   "shared/mission-email-schedule.test.ts",
   "server/lib/mission-email-content.test.ts",
+  "server/lib/mission-email-excel.test.ts",
+  "server/lib/mission-email-sender.test.ts",
   "server/lib/mission-email-scheduler.test.ts",
   "server/lib/mission-email-schedule-routes.test.ts",
 ];
