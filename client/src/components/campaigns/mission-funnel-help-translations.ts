@@ -1,5 +1,6 @@
 import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shared/mission-funnel";
 import type { Locale } from "@/i18n/translations";
+import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
 
 export const missionFunnelHelpChapterIds = [
@@ -995,7 +996,10 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
         corrections.qualityScope,
         corrections.qualityDetails,
       ],
-      "interpret-export": base.content["interpret-export"].map((paragraph, index) => index === 4 ? mappingRuleNotes[locale] : paragraph),
+      "interpret-export": [
+        ...base.content["interpret-export"].map((paragraph, index) => index === 4 ? mappingRuleNotes[locale] : paragraph),
+        exportScopeTranslations[locale].help,
+      ],
     };
     return [locale, {
       ...base,

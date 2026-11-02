@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import * as XLSX from "xlsx";
 import { emptyFunnelConfig, funnelSources } from "../shared/mission-funnel";
 import { computeMissionFunnel, type FunnelInput } from "../server/lib/mission-funnel";
 import { computeMissionAgentFunnel } from "../server/lib/mission-agent-funnel";
@@ -123,7 +124,9 @@ test("one download menu exports cohort/contribution metadata, counts and actual 
   expect(text).toContain("Clinic 00");
   expect(text).toContain("Europe/Bratislava");
   await page.getByTestId("mission-agent-funnel-tab-contribution").click();
-  await page.getByTestId("mission-agent-funnel-download").click();
+  await expect(page.getByTestId("mission-agent-funnel-matrix")).toContainText("Gamma");
+  await page.getByTestId("mission-agent-funnel-download").focus();
+  await page.keyboard.press("Enter");
   const xlsxDownload = page.waitForEvent("download");
   await page.getByTestId("mission-agent-funnel-export-xlsx").click();
   const xlsx = await xlsxDownload;
@@ -167,4 +170,29 @@ test("agent comparison supports every configured report language", async ({ page
     if (locale !== "en") await expect(page.getByTestId("mission-agent-funnel")).not.toContainText("Clinic cohort");
     expect(errors).toEqual([]);
   }
+});
+
+test("explicit step and agent exports ignore matrix search and exclude clinic IDs", async ({ page }) => {
+  const { errors, report } = await fixture(page);
+  await page.getByTestId("mission-agent-funnel-export-step").selectOption("cooperating");
+  await page.getByTestId("mission-agent-funnel-export-agent").selectOption("a");
+  await page.getByTestId("mission-agent-funnel-agent-search").fill("no-such-agent");
+  await page.getByTestId("mission-agent-funnel-download").click();
+  const waiting = page.waitForEvent("download");
+  await page.getByTestId("mission-agent-funnel-export-xlsx").click();
+  const file = await waiting;
+  expect(file.suggestedFilename()).toContain("_cohort_cooperating_agent.xlsx");
+  const stream = (await file.createReadStream())!;
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const workbook = XLSX.read(Buffer.concat(chunks), { cellNF: true });
+  expect(workbook.SheetNames).toHaveLength(3);
+  const evidence = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[1]], { header: 1 }) as unknown[][];
+  const expected = report.agentComparison!.cohort.find(agent => agent.agentId === "a")!.rows.find(row => row.key === "cooperating")!.members;
+  expect(evidence).toHaveLength(expected.length + 1);
+  expect(expected.length).toBeGreaterThan(10);
+  expect(evidence.slice(1).every(row => row[0] === "Alpha")).toBe(true);
+  expect(JSON.stringify(evidence)).not.toContain("Clinic ID");
+  expect(JSON.stringify(evidence)).not.toContain('"clinic-');
+  expect(errors).toEqual([]);
 });

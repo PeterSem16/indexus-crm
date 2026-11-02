@@ -7,6 +7,7 @@ import { funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations"
 import { funnelExportCsv, funnelExportXlsx } from "./mission-funnel-export";
 import { makeAgentFunnelExport } from "./mission-agent-funnel-export";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
+import { exportScopeTranslations } from "./export-scope-translations";
 import MissionFunnelChart from "./MissionFunnelChart";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -55,6 +56,9 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
   const [sortDescending, setSortDescending] = useState(true);
   const [exporting, setExporting] = useState<"" | "csv" | "xlsx">("");
   const [exportError, setExportError] = useState(false);
+  const [exportStep, setExportStep] = useState<FunnelStep | "">("");
+  const [exportAgent, setExportAgent] = useState("");
+  const scopeCopy = exportScopeTranslations[locale as Locale] ?? exportScopeTranslations.en;
   const comparison = report.agentComparison;
   const data = comparison?.[mode] ?? [];
   const available = data.length > 0;
@@ -92,14 +96,18 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
     setExporting(format);
     setExportError(false);
     try {
-      const tables = makeAgentFunnelExport(report, mode, filters, copy, labels);
+      const chosenAgent = data.find(agent => agentKey(agent) === exportAgent);
+      if (exportAgent && !chosenAgent) throw new Error("Export agent is no longer available");
+      const tables = makeAgentFunnelExport(report, mode, filters, copy, labels, {
+        step: exportStep || undefined, ...(chosenAgent ? { agentId: chosenAgent.agentId } : {}),
+      });
       const blob = format === "csv"
         ? new Blob([funnelExportCsv(tables)], { type: "text/csv;charset=utf-8" })
         : new Blob([await funnelExportXlsx(tables)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `mission-agent-funnel_${safeFilename(campaignId)}_${filters.from || "all"}_${filters.to || "all"}_${filters.referral}_${mode}.${format}`;
+      link.download = `mission-agent-funnel_${safeFilename(campaignId)}_${filters.from || "all"}_${filters.to || "all"}_${filters.referral}_${mode}${exportStep ? `_${exportStep}` : ""}${exportAgent ? "_agent" : ""}.${format}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -112,6 +120,7 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
   };
   const selectMode = (next: Mode) => {
     setMode(next);
+    setExportAgent("");
     setSelectedAgent("");
     setSelectedStep("");
     setClinicSearch("");
@@ -138,6 +147,25 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
             <p className="mt-1 text-xs text-muted-foreground">{labels.assignedExcluded}</p>
             <p className="mt-1.5 max-w-4xl text-xs font-medium leading-relaxed text-teal-900 dark:text-teal-200">{labels.periodNote}</p>
           </div>
+          <div className="flex min-w-0 flex-wrap items-end gap-2">
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+            {scopeCopy.scope}
+            <select data-testid="mission-agent-funnel-export-step" value={exportStep} disabled={Boolean(exporting)}
+              onChange={event => setExportStep(event.target.value as FunnelStep | "")}
+              className="h-9 w-full max-w-48 rounded-lg border border-border bg-background px-2 text-xs text-foreground">
+              <option value="">{scopeCopy.allSteps}</option>
+              {STEPS.map(step => <option key={step} value={step}>{copy.stepLabels[step]}</option>)}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+            {labels.agent}
+            <select data-testid="mission-agent-funnel-export-agent" value={exportAgent} disabled={Boolean(exporting)}
+              onChange={event => setExportAgent(event.target.value)}
+              className="h-9 w-full max-w-40 rounded-lg border border-border bg-background px-2 text-xs text-foreground">
+              <option value="">{scopeCopy.allAgents}</option>
+              {data.map(agent => <option key={agentKey(agent)} value={agentKey(agent)}>{agentLabel(agent, labels.unknownAgent)}</option>)}
+            </select>
+          </label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" data-testid="mission-agent-funnel-download" disabled={!hasExportRows || Boolean(exporting)}
@@ -154,6 +182,7 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
         {exportError && <p role="alert" className="mt-2 text-xs font-medium text-destructive">{labels.exportFailed}</p>}
         <details className="mt-3 rounded-lg border border-teal-700/15 bg-background/70 px-3 py-2.5 dark:border-teal-300/15">

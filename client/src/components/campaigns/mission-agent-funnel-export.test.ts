@@ -7,7 +7,9 @@ import { computeMissionAgentFunnel } from "../../../../server/lib/mission-agent-
 import { missionFunnelTranslations } from "../../i18n/mission-funnel-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
 import { makeAgentFunnelExport } from "./mission-agent-funnel-export";
-import { funnelExportCsv, funnelExportXlsx } from "./mission-funnel-export";
+import { buildFunnelExport, funnelExportCsv, funnelExportXlsx } from "./mission-funnel-export";
+import { funnelExportTranslations } from "../../i18n/mission-funnel-export-translations";
+import { exportCellText } from "./mission-export-value";
 
 function fixture(): MissionFunnelReport {
   const config = emptyFunnelConfig();
@@ -44,7 +46,7 @@ test("agent export preserves counts, direct/inferred split, exact proof authors 
   const report = fixture();
   const copy = missionFunnelTranslations.en, labels = agentFunnelTranslations.en;
   const tables = makeAgentFunnelExport(report, "cohort", filters, copy, labels);
-  assert.equal(tables.length, 3);
+  assert.equal(tables.length, 17);
   const cooperative = tables[0].rows.find(row => row[0] === "+FIRST" && row[2] === copy.stepLabels.cooperating)!;
   assert.equal(cooperative[3], 1);
   assert.equal(cooperative[4], 1);
@@ -52,11 +54,11 @@ test("agent export preserves counts, direct/inferred split, exact proof authors 
   assert.equal(cooperative[9], 100);
   const proof = tables[1].rows.find(row => row[1] === copy.stepLabels.cooperating)!;
   assert.equal(proof[0], "+FIRST");
-  assert.equal(proof[7], "Closer");
+  assert.equal(proof[6], "Closer");
   const inferredProof = tables[1].rows.find(row => row[1] === copy.stepLabels.email)!;
-  assert.equal(inferredProof[4], "");
-  assert.equal(inferredProof[7], labels.unknownProofAuthor);
-  assert.ok(tables[2].rows.some(row => row[0] === labels.from && row[1] === filters.from));
+  assert.equal(inferredProof[3], "");
+  assert.equal(inferredProof[6], labels.unknownProofAuthor);
+  assert.ok(tables[2].rows.some(row => row[0] === labels.from && exportCellText(row[1]) === "01.09.2026"));
   assert.ok(tables[2].rows.some(row => row[0] === labels.timezone && row[1] === "Europe/Bratislava"));
   assert.equal(tables[1].rows.some(row => row[1] === copy.stepLabels.assigned), false);
 });
@@ -74,11 +76,35 @@ test("CSV escapes spreadsheet formulas and XLSX keeps text as text, with no acti
   assert.ok(csv.includes("'+FIRST"));
   assert.ok(csv.includes("'=CLINIC()"));
   const workbook = XLSX.read(await funnelExportXlsx(tables), { type: "array" });
-  assert.equal(workbook.SheetNames.length, 3);
+  assert.equal(workbook.SheetNames.length, 17);
   for (const sheet of Object.values(workbook.Sheets)) for (const [address, cell] of Object.entries(sheet)) {
     if (address.startsWith("!")) continue;
     assert.equal(cell.f, undefined);
   }
   const evidence = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[1]], { header: 1 }) as unknown[][];
   assert.ok(evidence.some(row => row.includes("=CLINIC()")));
+  assert.ok(evidence.every(row => !row.includes("clinic") && !row.includes(agentFunnelTranslations.en.clinicId)));
+});
+test("individual steps and agents are explicit, including unknown; names never fall back to IDs", () => {
+  const report = fixture(), copy = missionFunnelTranslations.en, labels = agentFunnelTranslations.en;
+  const tables = makeAgentFunnelExport(report, "contribution", filters, copy, labels, { step: "cooperating", agentId: "closer" });
+  assert.equal(tables.length, 3);
+  assert.equal(tables[0].rows.filter(row => row.length === 10).length, 2);
+  assert.equal(tables[1].rows.length, 2);
+  assert.equal(tables[1].rows[1][0], "Closer");
+  assert.equal(tables[1].rows[1][1], copy.stepLabels.cooperating);
+  assert.equal(makeAgentFunnelExport(report, "cohort", filters, copy, labels, { step: "cooperating", agentId: null })[1].rows.length, 1);
+  const nameless = structuredClone(report);
+  for (const mode of ["cohort", "contribution"] as const) for (const agent of nameless.agentComparison![mode]) agent.agentName = null;
+  const text = funnelExportCsv(makeAgentFunnelExport(nameless, "cohort", filters, copy, labels));
+  assert.ok(!text.includes('"first"') && !text.includes('"closer"') && !text.includes('"clinic"'));
+});
+test("complete Mission workbook includes both agent performance views and true proof authors", () => {
+  const tables = buildFunnelExport(fixture(), missionFunnelTranslations.en, funnelExportTranslations.en, filters);
+  assert.equal(tables.length, 26);
+  const text = funnelExportCsv(tables);
+  assert.ok(text.includes(agentFunnelTranslations.en.cohortLabel));
+  assert.ok(text.includes(agentFunnelTranslations.en.contributionLabel));
+  assert.ok(text.includes("Closer"));
+  assert.ok(!text.includes('"clinic"'));
 });

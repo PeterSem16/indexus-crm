@@ -11,6 +11,7 @@ import MissionFunnelHelp, { MissionFunnelHelpButton } from "./MissionFunnelHelp"
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
 import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
 import { funnelExportTranslations, funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations";
+import { exportScopeTranslations } from "./export-scope-translations";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
   configurableFunnelSources, funnelExceptions, funnelSources, funnelSteps,
@@ -149,6 +150,8 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     setHelpOpen(true);
   };
   const exportCopy = funnelExportTranslations[locale];
+  const scopeCopy = exportScopeTranslations[locale];
+  const [exportStep, setExportStep] = useState<FunnelStep | "">("");
   const [saveMessage, setSaveMessage] = useState<"saved" | "error" | "">("");
   const activeCampaign = useRef(campaignId);
 
@@ -173,14 +176,14 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     setExporting(true);
     setExportError(false);
     try {
-      const tables = buildFunnelExport(report, copy, exportCopy, { from, to, referral });
+      const tables = buildFunnelExport(report, copy, exportCopy, { from, to, referral }, { step: exportStep || undefined, locale });
       const blob = format === "csv"
         ? new Blob([funnelExportCsv(tables)], { type: "text/csv;charset=utf-8" })
         : new Blob([await funnelExportXlsx(tables)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${funnelExportFilename(campaignId, { from, to, referral })}.${format}`;
+      link.download = `${funnelExportFilename(campaignId, { from, to, referral })}${exportStep ? `_${exportStep}` : ""}.${format}`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -278,6 +281,15 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
       </header>
       <div className="flex flex-wrap items-center justify-end gap-2">
         <MissionFunnelHelpButton locale={locale} onClick={() => openHelp("scope")} />
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+          {scopeCopy.scope}
+          <select data-testid="mission-funnel-export-step" value={exportStep}
+            disabled={exporting} onChange={event => setExportStep(event.target.value as FunnelStep | "")}
+            className="h-9 w-full max-w-56 rounded-lg border border-border bg-background px-2 text-sm text-foreground">
+            <option value="">{scopeCopy.allSteps}</option>
+            {funnelSteps.map(step => <option key={step} value={step}>{copy.stepLabels[step]}</option>)}
+          </select>
+        </label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" data-testid="mission-funnel-export"
@@ -301,6 +313,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
         </DropdownMenu>
         {exportError && <p role="alert" className="w-full text-right text-sm text-destructive">{exportCopy.error}</p>}
       </div>
+      <p className="text-xs leading-relaxed text-muted-foreground" data-testid="mission-funnel-export-help">{scopeCopy.help}</p>
       <MissionFunnelHelp locale={locale} copy={copy} open={helpOpen} onOpenChange={setHelpOpen} initialChapter={helpChapter} />
 
       {showPeriodControls && <ReportingPeriodControls />}

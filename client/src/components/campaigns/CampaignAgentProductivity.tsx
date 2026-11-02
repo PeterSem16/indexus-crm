@@ -2,6 +2,9 @@ import { Fragment, useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, parseISO } from "date-fns";
 import { useI18n } from "@/i18n";
+import { funnelExportCsv, funnelExportXlsx } from "./mission-funnel-export";
+import { exportDate, exportDuration } from "./mission-export-value";
+import { exportScopeTranslations } from "./export-scope-translations";
 import { useOptionalReportingPeriod } from "@/components/campaigns/reporting-period";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -292,7 +295,7 @@ function downloadBlob(blob: Blob, fileName: string) {
 }
 
 export default function CampaignAgentProductivity({ campaignId, campaignName }: { campaignId: string; campaignName?: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const ap = t.agentProductivity;
   const sharedPeriod = useOptionalReportingPeriod();
   const { toast } = useToast();
@@ -447,12 +450,12 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
       const summaryRows = rows.map((r) => [
         r.agentName, r.newCalls, r.repeatCalls, r.emails, r.sms, r.nonstandardTasks,
         r.scheduledOverdue > 0 ? `${r.scheduledPending} (${r.scheduledOverdue} ${ap.overdueLabel})` : String(r.scheduledPending),
-        fmtDur(r.twSeconds), fmtDur(r.talkSeconds), fmtDur(r.ringSeconds), fmtDur(r.totalSeconds),
+        exportDuration(r.twSeconds), exportDuration(r.talkSeconds), exportDuration(r.ringSeconds), exportDuration(r.totalSeconds),
       ]);
       const totalsRow = [
         ap.totals, detailTotals.newCalls, detailTotals.repeatCalls, summary.totals.emails, summary.totals.sms,
         detailTotals.nonstandardTasks, summary.totals.scheduled,
-        fmtDur(detailTotals.twSeconds), fmtDur(detailTotals.talkSeconds), fmtDur(detailTotals.ringSeconds), fmtDur(detailTotals.totalSeconds),
+        exportDuration(detailTotals.twSeconds), exportDuration(detailTotals.talkSeconds), exportDuration(detailTotals.ringSeconds), exportDuration(detailTotals.totalSeconds),
       ];
       const dailyHeader = [
         ap.agent, ap.dayLabel, ap.newCalls, ap.repeatCalls, ap.emailsLabel, ap.smsLabel, ap.nonstandardTasks,
@@ -464,33 +467,20 @@ export default function CampaignAgentProductivity({ campaignId, campaignName }: 
         return an.localeCompare(bn) || a.day.localeCompare(b.day);
       });
       const dailyOut = sortedDaily.map((d) => [
-        nameOf.get(d.agentId) || d.agentId, d.day, d.newCalls, d.repeatCalls, d.emails, d.sms, d.nonstandardTasks,
-        fmtDur(d.twSeconds), fmtDur(d.talkSeconds), fmtDur(d.ringSeconds), fmtDur(d.totalSeconds),
+        nameOf.get(d.agentId) || exportScopeTranslations[locale].unknownAgent, exportDate(d.day), d.newCalls, d.repeatCalls, d.emails, d.sms, d.nonstandardTasks,
+        exportDuration(d.twSeconds), exportDuration(d.talkSeconds), exportDuration(d.ringSeconds), exportDuration(d.totalSeconds),
       ]);
       const base = `${sanitizeFileName(ap.detailedStats)}_${sanitizeFileName(campaignName || campaignId)}_${from}_${to}`;
 
+      const tables = [
+        { name: ap.summaryLabel, rows: [summaryHeader, ...summaryRows, totalsRow] },
+        { name: ap.dailyBreakdown, rows: [dailyHeader, ...dailyOut] },
+      ];
       if (kind === "csv") {
-        const lines: string[] = [];
-        lines.push(csvEscape(`${ap.detailedStats} — ${campaignName || campaignId} (${from} – ${to})`));
-        lines.push("");
-        lines.push(csvEscape(ap.summaryLabel));
-        lines.push(summaryHeader.map(csvEscape).join(";"));
-        for (const r of summaryRows) lines.push(r.map(csvEscape).join(";"));
-        lines.push(totalsRow.map(csvEscape).join(";"));
-        lines.push("");
-        lines.push(csvEscape(ap.dailyBreakdown));
-        lines.push(dailyHeader.map(csvEscape).join(";"));
-        for (const r of dailyOut) lines.push(r.map(csvEscape).join(";"));
-        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([funnelExportCsv(tables)], { type: "text/csv;charset=utf-8;" });
         downloadBlob(blob, `${base}.csv`);
       } else {
-        const XLSX = await import("xlsx");
-        const wb = XLSX.utils.book_new();
-        const sheetName = (s: string, fallback: string) =>
-          (s.replace(/[\\/?*[\]:]/g, " ").trim().slice(0, 31)) || fallback;
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([summaryHeader, ...summaryRows, totalsRow]), sheetName(ap.summaryLabel, "Summary"));
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([dailyHeader, ...dailyOut]), sheetName(ap.dailyBreakdown, "Daily"));
-        const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const out = await funnelExportXlsx(tables);
         downloadBlob(
           new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
           `${base}.xlsx`,

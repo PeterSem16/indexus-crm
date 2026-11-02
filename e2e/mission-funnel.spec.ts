@@ -50,7 +50,7 @@ test("read-only users download filtered funnel CSV and a real Excel workbook", a
   const excel = await xlsxDownload;
   expect(excel.suggestedFilename()).toContain("2026-09-01_2026-09-30_yes.xlsx");
   const workbook = XLSX.read(await readFile((await excel.path())!));
-  expect(workbook.SheetNames).toHaveLength(5);
+  expect(workbook.SheetNames).toHaveLength(20);
   expect(calls.every(call => call.method === "GET")).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -70,6 +70,25 @@ test("compact export menu supports keyboard dismissal and small-screen selection
   expect(menu!.x).toBeGreaterThanOrEqual(0);
   expect(menu!.x + menu!.width).toBeLessThanOrEqual(390);
   await page.screenshot({ path: "generated-artifacts/mission-funnel/export-menu-mobile.jpg" });
+  expect(errors).toEqual([]);
+});
+
+test("a selected step downloads every clinic with typed readable dates and no clinic IDs", async ({ page }) => {
+  const { errors } = await fixture(page);
+  await page.getByTestId("mission-funnel-export-step").selectOption("cooperating");
+  await page.getByTestId("mission-funnel-export").click();
+  const waiting = page.waitForEvent("download");
+  await page.getByTestId("mission-funnel-export-xlsx").click();
+  const file = await waiting;
+  expect(file.suggestedFilename()).toContain("_cooperating.xlsx");
+  const workbook = XLSX.read(await readFile((await file.path())!), { cellNF: true });
+  expect(workbook.SheetNames).toHaveLength(3);
+  const evidence = workbook.Sheets[workbook.SheetNames[2]];
+  const rows = XLSX.utils.sheet_to_json(evidence, { header: 1 }) as unknown[][];
+  expect(JSON.stringify(rows)).not.toContain("Clinic ID");
+  expect(rows.length).toBeGreaterThan(1);
+  expect(evidence.C2.t).toBe("n");
+  expect(evidence.C2.z).toBe("dd.mm.yyyy hh:mm:ss");
   expect(errors).toEqual([]);
 });
 test("real report renders all milestones and separates inferred evidence in clinic details",async({page})=>{
