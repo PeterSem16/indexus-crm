@@ -45,7 +45,7 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
             EXISTS(SELECT 1 FROM role_module_permissions p WHERE p.role_id=u.role_id AND p.module_key='campaigns' AND p.access='visible') OR
             EXISTS(SELECT 1 FROM campaign_agents a WHERE a.user_id=u.id AND a.campaign_id=$1))))
         ORDER BY name,u.id`, [req.params.id, user.country_codes ?? []]);
-      const { rows } = await database.query(`SELECT id,enabled,recipient_user_ids AS "recipientUserIds",send_time AS "sendTime",
+      const { rows } = await database.query(`SELECT id,enabled,recipient_user_ids AS "recipientUserIds",external_emails AS "externalEmails",send_time AS "sendTime",
         delivery_options AS "deliveryOptions",next_run_at AS "nextRunAt",last_run_at AS "lastRunAt",
         delivery_options->>'lastStatus' AS "lastStatus"
         FROM scheduled_reports WHERE campaign_id=$1 AND report_types @> ARRAY[$2]::text[] ORDER BY created_at,id`,
@@ -75,17 +75,17 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
         row = await withMissionScheduleLock(req.params.scheduleId, async client => {
           await getRow(req.params.id, req.params.scheduleId, client);
           return (await client.query(`UPDATE scheduled_reports SET recipient_user_ids=$3,send_time=$4,enabled=$5,
-            delivery_options=$6::jsonb,next_run_at=$7,created_by=$8,updated_at=now()
+            delivery_options=$6::jsonb,next_run_at=$7,created_by=$8,external_emails=$9,updated_at=now()
             WHERE id=$1 AND campaign_id=$2 RETURNING id`, [
-            req.params.scheduleId, req.params.id, data.recipientUserIds, data.sendTime, data.enabled, JSON.stringify(delivery), nextRun, userId,
+            req.params.scheduleId, req.params.id, data.recipientUserIds, data.sendTime, data.enabled, JSON.stringify(delivery), nextRun, userId, data.externalEmails,
           ])).rows[0];
         }, database as Pool);
         if (!row) throw new ScheduleError(409, "schedule_busy");
       } else {
         row = (await database.query(`INSERT INTO scheduled_reports(campaign_id,report_types,recipient_user_ids,
           send_time,enabled,delivery_options,next_run_at,created_by,date_range_type,external_emails)
-          VALUES($1,ARRAY[$2],$3,$4,$5,$6::jsonb,$7,$8,'mission_period','{}') RETURNING id`,
-        [req.params.id, MISSION_EMAIL_REPORT, data.recipientUserIds, data.sendTime, data.enabled, JSON.stringify(delivery), nextRun, userId])).rows[0];
+          VALUES($1,ARRAY[$2],$3,$4,$5,$6::jsonb,$7,$8,'mission_period',$9) RETURNING id`,
+        [req.params.id, MISSION_EMAIL_REPORT, data.recipientUserIds, data.sendTime, data.enabled, JSON.stringify(delivery), nextRun, userId, data.externalEmails])).rows[0];
       }
       res.status(req.params.scheduleId ? 200 : 201).json(row);
     } catch (value) { error(res, value); }

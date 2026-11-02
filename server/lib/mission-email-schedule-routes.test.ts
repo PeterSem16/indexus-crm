@@ -143,13 +143,29 @@ test("preview renders without invoking delivery or modifying the delivery ledger
     assert.equal(f.sends.length, 0); assert.equal(f.ledger.size, 0);
   } finally { await f.close(); }
 });
-test("invalid schedule, external addresses, revoked recipients and wrong country are rejected", async () => {
+test("invalid schedule, revoked recipients and wrong country are rejected", async () => {
   const f = await setup({ unauthorized: "recipient" });
   try {
     assert.equal((await f.request(base, "POST", { ...input, sendTime: "24:00" })).status, 400);
     assert.equal((await f.request(base, "POST", { ...input, externalEmails: ["external@example.test"] })).status, 400);
     assert.equal((await f.request(base, "POST", { ...input, country: "CZ" })).status, 400);
     assert.equal((await f.request(base, "POST", input)).status, 400);
+  } finally { await f.close(); }
+});
+test("external-only plans normalize and preserve recipients on create/edit/pause and still test only to self", async () => {
+  const f = await setup();
+  try {
+    const data = { ...input, recipientUserIds: [], externalEmails: [" Outside@Example.test ", "outside@example.test"] };
+    assert.equal((await f.request(base, "POST", data)).status, 201);
+    assert.deepEqual(f.schedule.external_emails, ["outside@example.test"]);
+    assert.deepEqual(f.schedule.recipient_user_ids, []);
+    assert.equal((await f.request(`${base}/schedule`, "PATCH", { ...data, includeExcel: true })).status, 200);
+    assert.deepEqual(f.schedule.external_emails, ["outside@example.test"]);
+    const test = await f.request(`${base}/schedule/test-email`, "POST", { requestId: testId });
+    assert.equal(test.status, 200);
+    assert.equal(f.sends[0][1], "recipient@example.test", "test never sends to external recipients");
+    assert.equal((await f.request(base, "POST", { ...data, externalEmails: ["bad-address"] })).status, 400);
+    assert.equal((await f.request(base, "POST", { ...data, externalEmails: [] })).status, 400);
   } finally { await f.close(); }
 });
 test("a disconnected sender cannot be enabled; legacy APIs cannot modify or send new reports", async () => {

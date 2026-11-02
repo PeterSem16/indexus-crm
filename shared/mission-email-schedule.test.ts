@@ -5,9 +5,19 @@ const input = { recipientUserIds: ["user"], sendTime: "08:00", frequency: "daily
 test("schedule validates recipients, real clock values, recurrence and language", () => {
   assert.equal(missionEmailScheduleSchema.parse(input).enabled, false);
   for (const patch of [{ recipientUserIds: [] }, { recipientUserIds: ["u", "u"] }, { sendTime: "25:00" }, { sendTime: "12:60" },
-    { weekday: 0 }, { monthDay: 32 }, { frequency: "hourly" }, { locale: "xx" }, { externalEmails: ["external@example.test"] }]) {
+    { weekday: 0 }, { monthDay: 32 }, { frequency: "hourly" }, { locale: "xx" }, { externalEmails: ["invalid"] }]) {
     assert.equal(missionEmailScheduleSchema.safeParse({ ...input, ...patch }).success, false);
   }
+});
+test("external-only recipients are validated, normalized and bounded with internal recipients", () => {
+  const parsed = missionEmailScheduleSchema.parse({ ...input, recipientUserIds: [],
+    externalEmails: [" External@Example.test ", "external@example.test"] });
+  assert.deepEqual(parsed.externalEmails, ["external@example.test"]);
+  assert.deepEqual(parsed.recipientUserIds, []);
+  assert.equal(missionEmailScheduleSchema.safeParse({ ...input, recipientUserIds: [], externalEmails: [] }).success, false);
+  assert.equal(missionEmailScheduleSchema.safeParse({ ...input, externalEmails: ["user@example.test\r\nBcc:other@example.test"] }).success, false);
+  assert.equal(missionEmailScheduleSchema.safeParse({ ...input, recipientUserIds: Array.from({ length: 100 }, (_, i) => `user-${i}`),
+    externalEmails: ["external@example.test"] }).success, false);
 });
 for (const [now, expected] of [["2026-11-02T06:00:00Z", "2026-11-02T07:00:00.000Z"],
   ["2026-07-02T05:00:00Z", "2026-07-02T06:00:00.000Z"],

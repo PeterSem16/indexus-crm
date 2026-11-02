@@ -62,7 +62,7 @@ test("real build attaches Excel only when enabled and shares the native report p
     assert.equal(req.query.to, "2026-11-01T22:59:59.999Z");
     res.json([]);
   });
-  const options = { recipientUserIds: ["self"], frequency: "daily" as const, weekday: 1, monthDay: 1, country: "SK",
+  const options = { recipientUserIds: ["self"], externalEmails: [], frequency: "daily" as const, weekday: 1, monthDay: 1, country: "SK",
     locale: "sk" as const, enabled: false, sendTime: "08:00", includeExcel: false };
   const now = new Date("2026-11-02T07:00:00Z");
   assert.deepEqual((await buildMissionEmail("self", "mission", options, now)).attachments, []);

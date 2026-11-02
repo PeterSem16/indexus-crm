@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { createHash } from "node:crypto";
 import { pool } from "../db";
 import { access } from "./mission-funnel-routes";
 import { readMissionReport, type MissionPerformanceRow } from "./mission-report-sources";
@@ -21,7 +22,7 @@ export async function missionRecipient(userId: string, missionId: string, databa
 export function parseStoredMissionSchedule(row: any): MissionEmailScheduleInput {
   const options = row.delivery_options;
   return missionEmailScheduleSchema.parse({
-    recipientUserIds: row.recipient_user_ids, sendTime: row.send_time, enabled: row.enabled,
+    recipientUserIds: row.recipient_user_ids, externalEmails: row.external_emails ?? [], sendTime: row.send_time, enabled: row.enabled,
     frequency: options?.frequency, weekday: options?.weekday, monthDay: options?.monthDay,
     country: options?.country, locale: options?.locale, includeExcel: options?.includeExcel,
   });
@@ -109,9 +110,11 @@ export async function processMissionEmailSchedule(id: string, dependencies = def
       const key = `${content.period.from}:${content.period.to}`;
       state = "sent";
       const addressed = new Set<string>();
-      for (const userId of options.recipientUserIds) {
+      const targets = [...options.recipientUserIds.map(userId => ({ userId, email: null as string | null })),
+        ...options.externalEmails.map(email => ({ userId: null as string | null, email }))];
+      for (const target of targets) {
         const owner = await access(row.created_by, row.campaign_id, database);
-        const recipient = await missionRecipient(userId, row.campaign_id, database);
+        const recipient = target.userId ? await missionRecipient(target.userId, row.campaign_id, database) : { email: target.email! };
         if (!owner?.canConfigure || !owner.country_codes?.includes(options.country) || !recipient) {
           if (state !== "unknown") state = "blocked";
           continue;
@@ -119,19 +122,30 @@ export async function processMissionEmailSchedule(id: string, dependencies = def
         const address = recipient.email.trim().toLowerCase();
         if (addressed.has(address)) continue;
         addressed.add(address);
+        // Address-based identity also deduplicates internal/external selection
+        // changes. Recognize old user-ID entries before reserving a new delivery.
+        const recipientId = `email:${createHash("sha256").update(address).digest("hex")}`;
+        const prior = (await client.query(`SELECT status FROM mission_report_deliveries
+          WHERE schedule_id=$1 AND period_key=$2 AND (recipient_id=$3 OR
+            recipient_id IN (SELECT id FROM users WHERE lower(btrim(email))=$4))
+          ORDER BY CASE WHEN status='sent' THEN 1 ELSE 0 END LIMIT 1`, [id, key, recipientId, address])).rows[0];
+        if (prior) {
+          if (prior.status !== "sent") state = "unknown";
+          continue;
+        }
         const claimed = await client.query(`INSERT INTO mission_report_deliveries(schedule_id,period_key,recipient_id,status)
-          VALUES($1,$2,$3,'sending') ON CONFLICT DO NOTHING RETURNING recipient_id`, [id, key, userId]);
+          VALUES($1,$2,$3,'sending') ON CONFLICT DO NOTHING RETURNING recipient_id`, [id, key, recipientId]);
         if (!claimed.rowCount) {
-          const previous = (await client.query(`SELECT status FROM mission_report_deliveries WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, userId])).rows[0];
+          const previous = (await client.query(`SELECT status FROM mission_report_deliveries WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, recipientId])).rows[0];
           if (previous?.status !== "sent") state = "unknown";
           continue;
         }
         try {
           await dependencies.send(options.country, recipient.email, content.subject, content.html, content.attachments);
-          await client.query(`UPDATE mission_report_deliveries SET status='sent',updated_at=now() WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, userId]);
+          await client.query(`UPDATE mission_report_deliveries SET status='sent',updated_at=now() WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, recipientId]);
         } catch {
           state = "unknown";
-          await client.query(`UPDATE mission_report_deliveries SET status='unknown',updated_at=now() WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, userId]);
+          await client.query(`UPDATE mission_report_deliveries SET status='unknown',updated_at=now() WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, recipientId]);
         }
       }
       return true;

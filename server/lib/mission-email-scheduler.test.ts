@@ -29,7 +29,8 @@ export function scheduleFixture(options: { unauthorized?: string; unknown?: bool
       ledger.set(key, "sending"); return result([{ recipient_id: args[2] }]);
     }
     if (sql.includes("SELECT status FROM mission_report_deliveries")) {
-      const status = ledger.get(`${args[1]}:${args[2]}`);
+      const status = ledger.get(`${args[1]}:${args[2]}`) ??
+        (args[3] === "recipient@example.test" ? ledger.get(`${args[1]}:recipient`) : undefined);
       return result(status ? [{ status }] : []);
     }
     if (sql.includes("SELECT count(*)::int AS count FROM mission_report_deliveries"))
@@ -44,12 +45,12 @@ export function scheduleFixture(options: { unauthorized?: string; unknown?: bool
     if (sql.includes('AS "recipientUserIds"')) return result([]);
     if (sql.includes("INSERT INTO scheduled_reports")) {
       Object.assign(schedule, { campaign_id: args[0], report_types: [args[1]], recipient_user_ids: args[2],
-        send_time: args[3], enabled: args[4], delivery_options: JSON.parse(args[5]), next_run_at: args[6], created_by: args[7] });
+        send_time: args[3], enabled: args[4], delivery_options: JSON.parse(args[5]), next_run_at: args[6], created_by: args[7], external_emails: args[8] });
       return result([{ id: "schedule" }]);
     }
     if (sql.includes("UPDATE scheduled_reports SET recipient_user_ids")) {
       Object.assign(schedule, { recipient_user_ids: args[2], send_time: args[3], enabled: args[4],
-        delivery_options: JSON.parse(args[5]), next_run_at: args[6], created_by: args[7] });
+        delivery_options: JSON.parse(args[5]), next_run_at: args[6], created_by: args[7], external_emails: args[8] });
       return result([{ id: "schedule" }]);
     }
     if (sql.includes("DELETE FROM scheduled_reports")) { deleted = true; return result(); }
@@ -64,6 +65,36 @@ export function scheduleFixture(options: { unauthorized?: string; unknown?: bool
   };
   return { schedule, ledger, queries, sends, dependencies, database, builds: () => builds, released: () => released };
 }
+test("external-only schedules deliver individually from country mailbox and suppress replay", async () => {
+  const f = scheduleFixture();
+  f.schedule.recipient_user_ids = [];
+  f.schedule.external_emails = [" External@Example.test ", "external@example.test"];
+  await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);
+  assert.equal(f.sends.length, 1); assert.equal(f.sends[0][1], "external@example.test");
+  f.schedule.next_run_at = new Date("2026-11-02T07:00:00Z");
+  await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);
+  assert.equal(f.sends.length, 1);
+  assert.ok(![...f.ledger.keys()].some(key => key.includes("external@example.test")));
+});
+test("mixed recipients are deduplicated by address even after switching internal/external selection", async () => {
+  const f = scheduleFixture();
+  f.schedule.external_emails = ["RECIPIENT@example.test", "other@example.test"];
+  await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);
+  assert.deepEqual(f.sends.map(args => args[1]).sort(), ["other@example.test", "recipient@example.test"]);
+  f.schedule.recipient_user_ids = [];
+  f.schedule.next_run_at = new Date("2026-11-02T07:00:00Z");
+  await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);
+  assert.equal(f.sends.length, 2);
+});
+test("external recipients do not bypass creator authority or sender-country restrictions", async () => {
+  for (const options of [{ unauthorized: "owner" }, {}]) {
+    const f = scheduleFixture(options);
+    f.schedule.recipient_user_ids = []; f.schedule.external_emails = ["outside@example.test"];
+    if (!options.unauthorized) f.schedule.delivery_options.country = "IT";
+    await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);
+    assert.equal(f.sends.length, 0);
+  }
+});
 test("due schedule sends both reports once and advances the recurring slot", async () => {
   const f = scheduleFixture();
   await processMissionEmailSchedule("schedule", f.dependencies as any, f.database);

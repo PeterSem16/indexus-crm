@@ -2,9 +2,12 @@ import { z } from "zod";
 
 export const MISSION_EMAIL_REPORT = "mission_insights";
 export const MISSION_EMAIL_TIMEZONE = "Europe/Bratislava";
+export const missionEmailExternalAddressSchema = z.string().trim().max(254).email();
 export const missionEmailScheduleSchema = z.object({
-  recipientUserIds: z.array(z.string().min(1).max(100)).min(1).max(100)
-    .refine(values => new Set(values).size === values.length),
+  recipientUserIds: z.array(z.string().min(1).max(100)).max(100)
+    .refine(values => new Set(values).size === values.length).default([]),
+  externalEmails: z.array(missionEmailExternalAddressSchema).max(100).default([])
+    .transform(values => [...new Set(values.map(value => value.toLowerCase()))]),
   sendTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/),
   frequency: z.enum(["daily", "weekly", "monthly"]),
   weekday: z.number().int().min(1).max(7).default(1),
@@ -13,7 +16,8 @@ export const missionEmailScheduleSchema = z.object({
   locale: z.enum(["en", "sk", "cs", "hu", "ro", "it", "de"]),
   enabled: z.boolean().default(false),
   includeExcel: z.boolean().default(false),
-}).strict();
+}).strict().refine(value => value.recipientUserIds.length + value.externalEmails.length > 0 &&
+  value.recipientUserIds.length + value.externalEmails.length <= 100, { path: ["recipientUserIds"], message: "Select 1–100 recipients" });
 export type MissionEmailScheduleInput = z.infer<typeof missionEmailScheduleSchema>;
 export type MissionEmailOptions = Pick<MissionEmailScheduleInput, "frequency" | "weekday" | "monthDay" | "country" | "locale">;
 const dateFormat = new Intl.DateTimeFormat("en-CA", {

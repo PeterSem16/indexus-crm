@@ -91,6 +91,32 @@ test("disconnected system sender cannot run a test", async ({ page }) => {
   }
   expect(f.testRequests).toHaveLength(0);
 });
+test("recipient picker adds external-only plans, keeps invalid addresses visible and clearly resumes/pauses", async ({ page }) => {
+  const f = await fixture(page);
+  await page.getByTestId("mission-email-schedule-new").click();
+  const input = page.getByTestId("mission-email-external-input");
+  await input.fill(" Outside@Example.test; outside@example.test ");
+  await page.getByTestId("mission-email-external-add").click();
+  await expect(input).toHaveValue("");
+  await input.fill("not-an-email");
+  await page.getByTestId("mission-email-external-add").click();
+  await expect(page.getByTestId("mission-email-schedule-save")).toBeDisabled();
+  await input.fill("");
+  await input.press("Enter");
+  await f.section.getByLabel("Source country").selectOption("SK");
+  await page.getByTestId("mission-email-schedule-save").click();
+  expect(f.writes[0].body.recipientUserIds).toEqual([]);
+  expect(f.writes[0].body.externalEmails).toEqual(["outside@example.test"]);
+  await expect(page.getByTestId("mission-email-status-schedule")).toContainText(/paused/i);
+  await expect(page.getByTestId("mission-email-toggle-schedule")).toHaveAccessibleName("Resume");
+  await page.getByTestId("mission-email-toggle-schedule").click();
+  await expect(page.getByTestId("mission-email-toggle-schedule")).toHaveAccessibleName("Pause");
+  expect(f.writes.at(-1).body.externalEmails).toEqual(["outside@example.test"]);
+  await f.section.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(f.section.getByText("outside@example.test", { exact: true }).first()).toBeVisible();
+  expect(f.errors).toEqual([]);
+  await page.screenshot({ path: "/tmp/mission-email-recipient-panel.png", fullPage: true });
+});
 test("create weekly schedule, preview without sending, edit monthly, pause and delete", async ({ page }) => {
   const f = await fixture(page);
   await page.getByTestId("mission-email-schedule-new").click();
