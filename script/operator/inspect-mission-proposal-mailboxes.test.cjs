@@ -78,3 +78,44 @@ test("invalid batch is rejected before any mailbox reads", async () => {
   batch.rows.pop();
   await assert.rejects(inspectMailboxes(batch, async () => assert.fail("must not read Graph")), /ORIGINAL_UNASSIGNED_SCOPE_CHANGED/);
 });
+test("diagnostics distinguish empty Sent Items, identity mismatch and body differences without accepting them", async () => {
+  for (const [mutate, reason, expectedIdentity] of [
+    [messages => messages.splice(0), "NO_SENT_ITEMS_IN_ALLOWED_MAILBOXES", 0],
+    [messages => messages[0].toRecipients = [addr("different@example.test")], "SENT_ITEM_IDENTITY_OR_RECIPIENT_DIFFERENCE", 0],
+    [messages => messages[0].body.content = "<html>Provider transformed HTML</html>", "EXACT_BODY_DIFFERENCE_REQUIRES_REVIEW", 38],
+  ]) {
+    const { batch, readerFor } = fixture();
+    const result = await inspectMailboxes(batch, async row => {
+      const reader = await readerFor(row), read = reader.sentConversation;
+      return { ...reader, sentConversation: async conversationId => {
+        const messages = await read(conversationId); mutate(messages); return messages;
+      } };
+    });
+    assert.equal(result.summary.reasons[reason], 38);
+    assert.equal(result.summary.diagnosticRecords.identityRecipientsAndTime, expectedIdentity);
+    assert.equal(result.summary.uniqueCandidates, 0);
+    assert.equal(result.summary.verified, 0);
+    assert.ok(result.report.results.every(row => row.sentAt === null));
+    if (expectedIdentity) {
+      assert.equal(result.summary.bodyReviewRequired, 38);
+      assert.ok(result.report.results.every(row => row.reviewCandidates.length === 1));
+      assert.ok(!JSON.stringify(result.summary).includes("Provider transformed"));
+    }
+  }
+});
+test("shared From may have its sent copy in the original author's personal mailbox because sends used /me", async () => {
+  const { batch, readerFor } = fixture();
+  const inspected = await inspectMailboxes(batch, async row => {
+    const reader = await readerFor(row);
+    return { ...reader, originMailbox: "delegate@example.test", originReader: reader,
+      sentConversation: async () => [] };
+  });
+  assert.equal(inspected.summary.uniqueCandidates, 38);
+  assert.equal(inspected.summary.conversationsRead, 76);
+  assert.ok(inspected.report.results.every(row => row.candidate.mailbox === "delegate@example.test"));
+  assert.equal(inspected.summary.verified, 0);
+  const denied = await inspectMailboxes(batch, async row => ({
+    ...await readerFor(row), originMailbox: "unrelated@example.test", originReader: {},
+  }));
+  assert.equal(denied.summary.reasons.ORIGIN_MAILBOX_NOT_AUTHORIZED, 38);
+});

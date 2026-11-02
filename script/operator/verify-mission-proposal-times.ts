@@ -100,7 +100,11 @@ export async function main(args: string[]) {
       try { token = decryptTokenSafe(connection.access_token); }
       catch { stop("MAILBOX_TOKEN_DECRYPTION_FAILED"); }
       const reader = { ...core.graphReader(token!, entry.mailbox), mailbox: entry.mailbox,
-        allowedSenders: [entry.mailbox, connection.email] };
+        allowedSenders: [entry.mailbox, connection.email],
+        // The original shared-sender implementation drafted/sent via /me.
+        // Its sent copy may live in this original user's personal mailbox.
+        originMailbox: connection.email,
+        originReader: core.graphReader(token!, connection.email) };
       readers.set(key, reader);
       return reader;
     };

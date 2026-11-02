@@ -28,31 +28,72 @@ async function inspectMailboxes(batch, readerFor) {
       if (mailbox !== core.address(meta.from) ||
           !Array.isArray(reader.allowedSenders) || !reader.allowedSenders.length)
         stop("MAILBOX_IDENTITY_MISMATCH");
-      const key = `${row.user_id}:${mailbox}:${meta.conversationId}`;
-      let messages = cache.get(key);
-      if (!messages) {
-        messages = await reader.sentConversation(meta.conversationId);
-        cache.set(key, messages);
-        conversationsRead++;
+      const locations = [{ mailbox, reader }];
+      if (reader.originMailbox && core.address(reader.originMailbox) !== mailbox) {
+        if (!reader.originReader ||
+            !reader.allowedSenders.map(core.address).includes(core.address(reader.originMailbox)))
+          stop("ORIGIN_MAILBOX_NOT_AUTHORIZED");
+        locations.push({ mailbox: core.address(reader.originMailbox), reader: reader.originReader });
       }
-      const matches = messages.filter(message => {
+      const messages = [];
+      for (const location of locations) {
+        const key = `${row.user_id}:${location.mailbox}:${meta.conversationId}`;
+        let found = cache.get(key);
+        if (!found) {
+          found = await location.reader.sentConversation(meta.conversationId);
+          cache.set(key, found);
+          conversationsRead++;
+        }
+        messages.push(...found.map(message => ({ ...message, observedMailbox: location.mailbox })));
+      }
+      let stage = messages;
+      const diagnostics = { sentItems: stage.length };
+      for (const [name, predicate] of [
+        ["conversation", message => message.conversationId === meta.conversationId],
+        ["subject", message => message.subject === row.subject],
+        ["from", message => core.address(message.from?.emailAddress?.address) === core.address(meta.from)],
+        ["allowedSender", message => reader.allowedSenders.map(core.address)
+          .includes(core.address(message.sender?.emailAddress?.address))],
+      ]) {
+        stage = stage.filter(predicate);
+        diagnostics[name] = stage.length;
+      }
+      const identityMatches = stage.filter(message => {
         const sender = core.address(message.sender?.emailAddress?.address);
         // Attachment hashes here describe the observed candidate; they are NOT
         // an independent expectation and do not establish proposal purpose.
-        return reader.allowedSenders.map(core.address).includes(sender) &&
-          core.matchMessage(row, {
-            from: meta.from, sender, bodySha256: core.bodyHash(row.content),
+        return core.matchMessage(row, {
+            from: meta.from, sender,
             attachmentSha256: message.attachmentSha256,
           }, message);
       });
+      diagnostics.identityRecipientsAndTime = identityMatches.length;
+      const matches = identityMatches.filter(message =>
+        typeof message.body?.content === "string" &&
+        core.bodyHash(message.body.content) === core.bodyHash(row.content));
+      diagnostics.exactBody = matches.length;
       if (matches.length !== 1) {
-        results.push({ ...base, reason: matches.length ? "AMBIGUOUS_SENT_ITEMS" : "NO_EXACT_SENT_ITEM" });
+        const reason = matches.length ? "AMBIGUOUS_SENT_ITEMS" : !messages.length
+          ? "NO_SENT_ITEMS_IN_ALLOWED_MAILBOXES" : identityMatches.length
+            ? "EXACT_BODY_DIFFERENCE_REQUIRES_REVIEW" : "SENT_ITEM_IDENTITY_OR_RECIPIENT_DIFFERENCE";
+        results.push({ ...base, diagnostics, reason,
+          ...(identityMatches.length && !matches.length ? {
+            // Candidate times are private review aids, never verified times.
+            sourceBodySha256: core.bodyHash(row.content),
+            reviewCandidates: identityMatches.slice(0, 20).map(message => ({
+              sentAt: message.sentDateTime, externalId: message.id,
+              internetMessageId: message.internetMessageId, mailbox: message.observedMailbox,
+              bodySha256: typeof message.body?.content === "string" ? core.bodyHash(message.body.content) : null,
+              attachmentSha256: message.attachmentSha256,
+            })),
+            reviewCandidatesTruncated: identityMatches.length > 20,
+          } : {}) });
         continue;
       }
       const candidate = matches[0];
-      results.push({ ...base, reason: "HISTORICAL_IDENTITY_AND_PURPOSE_REVIEW_REQUIRED",
+      results.push({ ...base, diagnostics, reason: "HISTORICAL_IDENTITY_AND_PURPOSE_REVIEW_REQUIRED",
         candidate: { sentAt: candidate.sentDateTime, externalId: candidate.id,
-          internetMessageId: candidate.internetMessageId, mailbox,
+          internetMessageId: candidate.internetMessageId, mailbox: candidate.observedMailbox,
           from: core.address(meta.from), sender: core.address(candidate.sender.emailAddress.address),
           bodySha256: core.bodyHash(row.content), attachmentSha256: candidate.attachmentSha256 },
         recipientClinicOwnershipReviewed: false, purposeReviewed: false });
@@ -76,10 +117,16 @@ async function inspectMailboxes(batch, readerFor) {
   const evidenceFingerprint = core.hash(report);
   const reasons = {};
   for (const result of safeResults) reasons[result.reason] = (reasons[result.reason] || 0) + 1;
+  const diagnosticRecords = {};
+  for (const name of ["sentItems", "conversation", "subject", "from", "allowedSender", "identityRecipientsAndTime", "exactBody"]) {
+    diagnosticRecords[name] = safeResults.filter(result => result.diagnostics?.[name] > 0).length;
+  }
   return {
     report: { ...report, evidenceFingerprint },
     summary: { mode: report.mode, records: 38, clinics: 34, conversationsRead,
       uniqueCandidates: safeResults.filter(result => result.candidate).length,
+      bodyReviewRequired: safeResults.filter(result => result.reason === "EXACT_BODY_DIFFERENCE_REQUIRES_REVIEW").length,
+      diagnosticRecords,
       verified: 0, sendingTimeUnknown: 38, reasons, evidenceFingerprint, updates: 0 },
   };
 }

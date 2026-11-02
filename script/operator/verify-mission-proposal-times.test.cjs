@@ -214,6 +214,20 @@ test("Graph follows all pages with GET only, immutable ids and exact attachment 
   assert.ok(mock.calls.every(({ options }) => options.method === "GET" && options.redirect === "error"));
   assert.match(mock.calls[0].options.headers.Prefer, /ImmutableId/);
 });
+test("Graph retries a transport failure once but never retries a permission error", async () => {
+  const transient = graphFixture([new Error("private socket detail"), profile, folder, { value: [] }]);
+  assert.deepEqual(await graphReader("secret", "shared@example.test", transient.fetcher).sentConversation("thread"), []);
+  assert.equal(transient.calls.length, 4);
+  assert.ok(transient.calls.every(call => call.options.method === "GET"));
+  const persistent = graphFixture([new Error("private"), new Error("private")]);
+  await assert.rejects(graphReader("secret", "shared@example.test", persistent.fetcher).sentConversation("thread"),
+    /GRAPH_NETWORK_FAILURE/);
+  assert.equal(persistent.calls.length, 2);
+  const denied = graphFixture([{ status: 403 }]);
+  await assert.rejects(graphReader("secret", "shared@example.test", denied.fetcher).sentConversation("thread"),
+    /MAILBOX_READ_ACCESS_DENIED/);
+  assert.equal(denied.calls.length, 1);
+});
 test("wrong mailbox, wrong folder, hostile pagination, repeated pages and partial failures cannot produce a plan", async () => {
   const { message } = fixture();
   const hostile = [

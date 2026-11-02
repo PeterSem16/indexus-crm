@@ -171,11 +171,16 @@ function graphReader(token, mailbox, fetcher = fetch) {
         parsed.username || parsed.password || parsed.hash)
       fail("UNSAFE_GRAPH_LINK");
     let response;
-    try {
-      response = await fetcher(url, { method: "GET", redirect: "error",
-        headers: { Authorization: `Bearer ${token}`, Prefer: 'IdType="ImmutableId", outlook.body-content-type="html"' },
-        signal: AbortSignal.timeout(30000) });
-    } catch { fail("GRAPH_NETWORK_FAILURE"); }
+    // A single retry for a transport failure only. Never retry sends, refresh
+    // tokens, or interpret an incomplete read as an empty conversation.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        response = await fetcher(url, { method: "GET", redirect: "error",
+          headers: { Authorization: `Bearer ${token}`, Prefer: 'IdType="ImmutableId", outlook.body-content-type="html"' },
+          signal: AbortSignal.timeout(30000) });
+        break;
+      } catch { if (attempt === 1) fail("GRAPH_NETWORK_FAILURE"); }
+    }
     if (!response.ok) {
       if (response.status === 401) fail("MAILBOX_RECONNECT_REQUIRED");
       if (response.status === 403) fail("MAILBOX_READ_ACCESS_DENIED");
@@ -183,7 +188,11 @@ function graphReader(token, mailbox, fetcher = fetch) {
       fail("GRAPH_READ_FAILED");
     }
     // Provider errors and bodies must never reach operator logs.
-    try { return await response.json(); } catch { fail("INVALID_GRAPH_RESPONSE"); }
+    try {
+      const data = await response.json();
+      if (!data || typeof data !== "object" || Array.isArray(data)) fail("INVALID_GRAPH_RESPONSE");
+      return data;
+    } catch { fail("INVALID_GRAPH_RESPONSE"); }
   }
   async function list(path) {
     const values = [], seen = new Set();

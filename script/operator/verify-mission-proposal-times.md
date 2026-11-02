@@ -69,8 +69,12 @@ Po samostatnom súhlase na čítanie môže operátor spustiť:
 node_modules/.bin/tsx script/operator/verify-mission-proposal-times.ts --inspect-unassigned --read-only-approved /PRIVATE_DIRECTORY/candidates.json
 ```
 
-Nástroj zachytí presnú pôvodnú dávku, použije iba zaznamenanú schránku `from`
-a platné pripojenie pôvodného používateľa. Prejde Sent Items podľa každej
+Nástroj zachytí presnú pôvodnú dávku, použije zaznamenanú schránku `from`
+a platné pripojenie pôvodného používateľa. Ak sa líšia, preverí tiež iba
+osobnú schránku tohto pripojeného pôvodného autora: historické shared-sender
+odosielanie vytváralo draft a odosielalo cez `/me`, takže tam môže byť
+skutočná odoslaná kópia. Tieto dve povolené umiestnenia nie sú voľné
+prehľadávanie iných schránok. Prejde Sent Items podľa každej
 uloženej konverzácie a presne porovná telo, To/CC/BCC, from a povolenú
 identitu sender (from alebo pripojený pôvodný autor). Nehľadá v ľubovoľných
 schránkach a nenahrádza `from` dnešnou krajinskou systémovou schránkou.
@@ -84,6 +88,15 @@ Zistený hash prílohy sa nesmie vydávať za nezávisle očakávaný hash návr
 Pri duplicite transmisie sa kandidátsky čas odstráni pri všetkých dotknutých
 záznamoch. Chyby prístupu sa vracajú iba statickými kódmi; čiastkové
 výsledky neznamenajú úplné overenie.
+
+Anonymizované `diagnosticRecords` počítajú, koľko zdrojových záznamov má
+aspoň jednu odoslanú položku, tú istú konverzáciu, následne predmet, from,
+povoleného sendera, úplnú identitu/adresátov/čas a nakoniec presné telo.
+Ide o po sebe idúce filtre nad tými istými položkami, nie skladanie dôkazov
+z rôznych správ. Rozdiel tela nikdy neprejde ako presná zhoda: vytvorí len
+súkromné `reviewCandidates` s hashmi a provider časmi na miestne preskúmanie,
+pričom výsledný `sentAt` zostáva null. Sieťové zlyhanie GET sa skúsi najviac
+raz zopakovať; chyby oprávnení a HTTP odpovede sa automaticky neopakujú.
 
 Konzola obsahuje iba počty, dôvody a odtlačok. Súkromný report navyše
 obsahuje lokálne ID, kandidátske UTC časy a Graph ID, odosielacie identity
