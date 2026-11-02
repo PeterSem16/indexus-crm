@@ -53,6 +53,7 @@ test("real SQL isolates successful configured emails and repairs one reviewed me
     assert.equal(evidence.length, 2);
     const review = evidence.find(e => e.id.startsWith("review:"))!;
     assert.equal(review.actorId, "sender");
+    assert.ok(review.at);
     assert.match(review.at, /^2026-10-01T09:26:59\.018Z$/);
     const saved = (await client.query("SELECT campaign_id,content,sent_at::text FROM communication_messages WHERE id=$1", [messageId])).rows[0];
     assert.deepEqual(saved, { campaign_id: missionId, content: "unchanged body", sent_at: "2026-10-01 09:26:59.018121" });

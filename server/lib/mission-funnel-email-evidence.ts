@@ -1,5 +1,7 @@
 export interface FunnelEmailEvidence {
-  id: string; contactId: string; at: string; actorId?: string | null;
+  id: string; contactId: string; at: string | null; actorId?: string | null;
+  /** Record creation is not a substitute for an unknown sending time. */
+  recordedAt?: string | null;
 }
 type Queryable = { query(sql: string, params?: any[]): Promise<{ rows: any[] }> };
 /** Successful, Mission-bound contact-email actions from the configured email
@@ -17,7 +19,7 @@ export async function loadFunnelEmailEvidence(
         WHERE campaign_id=$1 AND id=ANY($3::text[]) AND parent_id IS NOT NULL
     )
     SELECT 'service:'||e.id AS id,e.campaign_contact_id AS "contactId",
-      e.actor_id AS "actorId",e.finished_at AS at
+      e.actor_id AS "actorId",e.finished_at AS at,NULL::timestamp AS "recordedAt"
     FROM status_list_service_executions e
     JOIN campaign_contacts cc ON cc.id=e.campaign_contact_id AND cc.campaign_id=$1
     JOIN campaign_status_list_automations a ON a.id=e.automation_id
@@ -32,7 +34,7 @@ export async function loadFunnelEmailEvidence(
       AND COALESCE(e.result#>>'{output,sentCount}','0') ~ '^[1-9][0-9]*$'
       AND COALESCE(e.result#>>'{output,failedCount}','0')='0'
     UNION ALL
-    SELECT 'action:'||h.id,h.campaign_contact_id,h.user_id,h.created_at
+    SELECT 'action:'||h.id,h.campaign_contact_id,h.user_id,h.created_at,NULL::timestamp
     FROM campaign_contact_history h
     JOIN campaign_contacts cc ON cc.id=h.campaign_contact_id AND cc.campaign_id=$1
     JOIN campaign_status_list_items i ON i.id=h.metadata->>'statusListItemId' AND i.campaign_id=$1
@@ -45,7 +47,7 @@ export async function loadFunnelEmailEvidence(
       AND COALESCE(h.metadata#>>'{output,sentCount}','0') ~ '^[1-9][0-9]*$'
       AND COALESCE(h.metadata#>>'{output,failedCount}','0')='0'
     UNION ALL
-    SELECT 'review:'||h.id,h.campaign_contact_id,m.user_id,COALESCE(m.sent_at,m.created_at)
+    SELECT 'review:'||h.id,h.campaign_contact_id,m.user_id,m.sent_at,m.created_at
     FROM campaign_contact_history h
     JOIN campaign_contacts cc ON cc.id=h.campaign_contact_id AND cc.campaign_id=$1
     JOIN communication_messages m ON m.id=h.metadata->>'messageId'
@@ -55,5 +57,10 @@ export async function loadFunnelEmailEvidence(
       AND m.type='email' AND m.direction='outbound'
       AND m.status IN ('sent','delivered','read')
   `, [missionId, contactIds, emailItemIds]);
-  return result.rows.map(row => ({ ...row, at: row.at instanceof Date ? row.at.toISOString() : String(row.at) }));
+  const iso = (value: unknown) => value == null ? null : value instanceof Date ? value.toISOString() : String(value);
+  return result.rows.map(row => ({ ...row, at: iso(row.at),
+    ...(row.recordedAt != null ? { recordedAt: iso(row.recordedAt) } : {}),
+  })).sort((a, b) => (a.at ? Date.parse(a.at) : Infinity) - (b.at ? Date.parse(b.at) : Infinity) ||
+    (a.recordedAt ? Date.parse(a.recordedAt) : Infinity) - (b.recordedAt ? Date.parse(b.recordedAt) : Infinity) ||
+    a.id.localeCompare(b.id));
 }

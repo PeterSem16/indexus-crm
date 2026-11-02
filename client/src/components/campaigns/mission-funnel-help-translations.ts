@@ -2,6 +2,7 @@ import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shar
 import type { Locale } from "@/i18n/translations";
 import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
+import { cooperationRuleCopy, optionalPosterCopy } from "./mission-material-package-copy";
 
 export const missionFunnelHelpChapterIds = [
   "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
@@ -969,13 +970,14 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
     const corrections = contentCorrections[locale];
     const chapterContent = {
       ...base.content,
-      "without-contract": withoutContractContent[locale],
+      "without-contract": [cooperationRuleCopy[locale].without, base.content.combined[3]],
       agents: agentFunnelTranslations[locale].helpParagraphs,
-      combined: [correctedCombined[locale], ...base.content.combined.slice(1)],
+      combined: [cooperationRuleCopy[locale].contract, cooperationRuleCopy[locale].without,
+        base.content.combined[1], `${cooperationRuleCopy[locale].materials} ${optionalPosterCopy[locale]}`, base.content.combined[3]],
       configuration: [
         base.content.configuration[0],
         mappingRuleNotes[locale],
-        ...base.content.configuration.slice(2, -1),
+        ...base.content.configuration.slice(2, -1).map((paragraph, index) => index === 0 ? cooperationRuleCopy[locale].materials : paragraph),
         finalConfigNotes[locale],
       ],
       sources: [
@@ -1006,8 +1008,10 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       ...helpLabels[locale],
       chapters: { ...chapterNavigation[locale], "without-contract": corrections.chapterTitle, agents: agentFunnelTranslations[locale].title },
       content: chapterContent,
-      stages: stageMaps[locale],
-      sources: sourceMaps[locale],
+      stages: { ...stageMaps[locale], withoutContract: cooperationRuleCopy[locale].without,
+        cooperating: `${cooperationRuleCopy[locale].contract} ${cooperationRuleCopy[locale].without}`,
+        materials: cooperationRuleCopy[locale].materials },
+      sources: { ...sourceMaps[locale], activeWithout: cooperationRuleCopy[locale].without },
       exceptions: exceptionMaps[locale],
       quality: qualityDetailed[locale],
       basis: basisDetailed[locale],

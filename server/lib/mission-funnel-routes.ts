@@ -114,7 +114,13 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
         const ids = new Set(items.map(item => item.id));
         // Removed source items remain visible as unavailable, never silently remapped.
         const validConfig = { ...config, sources: Object.fromEntries(Object.entries(config.sources)
-          .map(([key, values]) => [key, values.filter(id => ids.has(id))])) } as FunnelConfig;
+          .map(([key, values]) => [key, values.filter(id => ids.has(id))])),
+          ...(config.materials ? { materials: {
+            packageSent: config.materials.packageSent.filter(id => ids.has(id)),
+            excluded: Object.fromEntries(Object.entries(config.materials.excluded)
+              .map(([key, values]) => [key, values.filter(id => ids.has(id))])),
+          } } : {}),
+        } as FunnelConfig;
         const clinicRows = await client.query(`
           SELECT DISTINCT c.id,c.name,c.representative_id AS "representativeId",c.is_referred_by_doctor AS referred
           FROM clinics c JOIN campaign_contacts cc ON cc.clinic_id=c.id
@@ -200,7 +206,11 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
         await client.query("BEGIN");
         const { rows } = await client.query("SELECT settings FROM campaigns WHERE id=$1 FOR UPDATE", [req.params.id]);
         const settings = parseFunnelSettings(rows[0].settings);
-        const mapped = [...new Set(Object.values(parsed.data.sources).flat())];
+        const mapped = [...new Set([
+          ...Object.values(parsed.data.sources).flat(),
+          ...(parsed.data.materials?.packageSent ?? []),
+          ...Object.values(parsed.data.materials?.excluded ?? {}).flat(),
+        ])];
         const { rows: items } = await client.query(`SELECT id FROM campaign_status_list_items
           WHERE campaign_id=$1 AND id=ANY($2::text[])`, [req.params.id, mapped]);
         if (items.length !== mapped.length) {

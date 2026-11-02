@@ -14,6 +14,33 @@ const computed = computeMissionFunnel({
   events:["qualified","agreed","proposalAccepted","validated"].map((itemId,index)=>({id:`event-${index}`,contactId:"contact",itemId,confirmed:true,at:`2026-09-0${index+2}T10:00:00Z`})),
 });
 const report={...computed,missionName:"Medical Partner Cooperation",canConfigure:true,dateQuestions:[{id:"return-date",label:"Return date"}]};
+test("reviewed historical email shows an unknown send time, not Derived", async ({page})=>{
+  const template=report.rows.find(row=>row.key==="dialed")!.members[0];
+  const data={...report,rows:report.rows.map(row=>row.key==="email"?{
+    ...row,total:1,direct:1,inferred:0,members:[{...template,basis:"history" as const,
+      inferred:false,firstDate:null,evidenceDate:"2026-09-23T10:05:03Z",timestampKind:"recorded" as const}],
+  }:row)};
+  const {errors}=await fixture(page,{data});
+  await page.getByTestId("mission-funnel-expand-step-email").click({force:true});
+  await expect(page.getByText("Reviewed email record; sending time unknown",{exact:true})).toBeVisible();
+  expect(errors).toEqual([]);
+});
+test("no-contract rule is computed and one package mapping saves without inventing item sends", async ({ page }) => {
+  const { calls, errors } = await fixture(page);
+  await page.getByTestId("mission-funnel-config-expand").click();
+  await page.getByTestId("mapping-tab-materials").click();
+  await page.getByTestId("mission-funnel-source-select-activeWithout").click();
+  await expect(page.getByTestId("without-contract-computed")).toContainText("Source agreed");
+  await expect(page.getByTestId("without-contract-computed")).toContainText("Source proposalUnaccepted");
+  await expect(page.getByTestId("mapping-source-activeWithout")).toHaveCount(0);
+  await page.getByTestId("material-package-sent").selectOption(["materials17"]);
+  await page.getByTestId("mission-funnel-config-save").click();
+  await expect.poll(() => calls.some(call => call.method === "PUT" &&
+    call.body?.materials?.packageSent?.[0] === "materials17")).toBe(true);
+  const saved = calls.find(call => call.method === "PUT" && call.body?.materials)!;
+  expect(saved.body.materials.excluded).toEqual({ materials17: [], materials18: [], materials19: [] });
+  expect(errors).toEqual([]);
+});
 async function fixture(page:Page, {readonly=false,error=false,dark=false,data=report,locale="en"}={}) {
   const calls: {url:string;method:string;body:any}[]=[];
   const errors:string[]=[];

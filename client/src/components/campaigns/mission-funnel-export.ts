@@ -4,6 +4,8 @@ import type { FunnelExportCopy } from "@/i18n/mission-funnel-export-translations
 import { exportDate, exportCellText, type ExportCell } from "./mission-export-value";
 import { makeAgentFunnelExport } from "./mission-agent-funnel-export";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
+import { materialPackageCopy } from "./mission-material-package-copy";
+import { funnelEvidenceBasisLabel } from "../../../../shared/reviewed-email-evidence";
 
 type Cell = ExportCell;
 export interface FunnelExportTable { name: string; rows: Cell[][] }
@@ -13,13 +15,14 @@ export function buildFunnelExport(report: MissionFunnelReport, copy: MissionFunn
   const count = (value: number | null) => value ?? copy.unmeasured;
   const locale = options.locale as keyof typeof agentFunnelTranslations;
   const agentLabels = agentFunnelTranslations[locale] ?? agentFunnelTranslations.en;
+  const packageCopy = materialPackageCopy[locale as keyof typeof materialPackageCopy] ?? materialPackageCopy.en;
   const authors = new Map<string, string>();
   for (const view of [report.agentComparison?.cohort ?? [], report.agentComparison?.contribution ?? []])
     for (const agent of view) if (agent.agentId && agent.agentName) authors.set(agent.agentId, agent.agentName);
   const memberHeader = [copy.step, copy.clinic, copy.firstDate, copy.evidenceDate, copy.basis, copy.inferredLabel, copy.returnDate, agentLabels.proofAuthor];
   const member = (label: string, item: FunnelMember): Cell[] => [
     label, item.name, exportDate(item.firstDate), exportDate(item.evidenceDate),
-    copy.basisLabels[item.basis] ?? item.basis, item.inferred ? copy.yes : copy.no, exportDate(item.returnDate),
+    funnelEvidenceBasisLabel(item, copy.basisLabels[item.basis] ?? item.basis, locale ?? "en"), item.inferred ? copy.yes : copy.no, exportDate(item.returnDate),
     !item.inferred && (item.basis === "call" || item.basis === "history") && item.actorId
       ? authors.get(item.actorId) ?? agentLabels.unknownProofAuthor : agentLabels.unknownProofAuthor,
   ];
@@ -38,8 +41,16 @@ export function buildFunnelExport(report: MissionFunnelReport, copy: MissionFunn
       [copy.configurationSavedNote],
       ...Object.entries(report.config.sources).map(([source, ids]) => [
         copy.sourceLabels[source as keyof typeof copy.sourceLabels],
-        ids.map(id => report.items.find(item => item.id === id)?.label ?? copy.unmeasured).join("; ") || copy.unmeasured,
+         source === "activeWithout" ? `${copy.sourceLabels.agreed} ${packageCopy.and} ${copy.sourceLabels.proposalUnaccepted}` :
+           ids.map(id => report.items.find(item => item.id === id)?.label ?? copy.unmeasured).join("; ") || copy.unmeasured,
       ]),
+       ...(report.config.materials ? [
+         [packageCopy.sent, report.config.materials.packageSent.map(id => report.items.find(item => item.id === id)?.label ?? copy.unmeasured).join("; ") || copy.unmeasured],
+         ...(["materials17", "materials18", "materials19"] as const).map(key => [
+           `${packageCopy.excluded} · ${copy.sourceLabels[key]}`,
+           report.config.materials!.excluded[key].map(id => report.items.find(item => item.id === id)?.label ?? copy.unmeasured).join("; ") || copy.unmeasured,
+         ]),
+       ] : []),
     ] },
     { name: labels.summary, rows: [
       [copy.step, copy.total, copy.direct, copy.inferred, `${copy.previous} (%)`, `${copy.qualified} (%)`],
@@ -62,7 +73,7 @@ export function buildFunnelExport(report: MissionFunnelReport, copy: MissionFunn
   if (report.agentComparison) {
     for (const mode of ["cohort", "contribution"] as const) {
       const modeLabel = mode === "cohort" ? agentLabels.cohortLabel : agentLabels.contributionLabel;
-      tables.push(...makeAgentFunnelExport(report, mode, filters, copy, agentLabels, { includeStepSheets: false })
+      tables.push(...makeAgentFunnelExport(report, mode, filters, copy, agentLabels, { includeStepSheets: false, locale: locale ?? "en" })
         .map(table => ({ ...table, name: `${modeLabel} · ${table.name}` })));
     }
   }

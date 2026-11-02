@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { funnelEvidenceBasisLabel } from "../../../../shared/reviewed-email-evidence";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
@@ -83,7 +84,7 @@ function ClinicDetails({ members, copy, locale, emptyLabel }: {
                     <td className="px-3 py-2.5 font-medium text-foreground">{member.name || member.id}</td>
                     <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{displayDate(member.firstDate, locale, copy.noDate)}</td>
                     <td className="px-3 py-2.5 tabular-nums text-muted-foreground">{displayDate(member.evidenceDate, locale, copy.noDate)}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{copy.basisLabels[member.basis] ?? member.basis}</td>
+                    <td className="px-3 py-2.5 text-muted-foreground">{funnelEvidenceBasisLabel(member, copy.basisLabels[member.basis] ?? member.basis, locale)}</td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${member.inferred
                         ? "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300"
@@ -470,6 +471,10 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
               saving={saving}
               saveMessage={saveMessage}
               onUpdateSource={updateSource}
+              onMaterialsChange={materials => {
+                setConfig(current => current ? { ...current, materials } : current);
+                setSaveMessage("");
+              }}
               onAbsenceQuestionChange={value => {
                 setConfig(current => current ? { ...current, absenceReturnQuestionId: value } : current);
                 setSaveMessage("");

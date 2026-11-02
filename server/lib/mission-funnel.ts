@@ -27,6 +27,7 @@ export interface FunnelInput {
 }
 interface Milestone { at: string | null; evidenceDate: string | null; basis: FunnelMember["basis"]; inferred: boolean; actorId?: string | null }
 const percentage = (n: number | null, d: number | null) => n !== null && d !== null && d > 0 ? Math.round(n / d * 10000) / 100 : null;
+interface Milestone { timestampKind?: "recorded" }
 export const funnelDay = (value: string) => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit",
 }).format(new Date(value));
@@ -64,19 +65,21 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     const events = historical.get(event.contactId) ?? [];
     events.push(event); historical.set(event.contactId, events);
   }
-  const put = (target: Map<FunnelStep, Milestone>, step: FunnelStep, at: string | null, basis: Milestone["basis"], inferred = false, actorId: string | null = null) => {
+  const put = (target: Map<FunnelStep, Milestone>, step: FunnelStep, at: string | null, basis: Milestone["basis"], inferred = false,
+    actorId: string | null = null, recordedAt: string | null = null) => {
     const old = target.get(step);
     if (old && old.inferred === inferred && at && old.at && Date.parse(old.at) === Date.parse(at)) {
       old.actorId = uniqueFunnelActor([old, { actorId }]);
       return;
     }
     if (old && (!old.inferred && inferred || old.inferred === inferred && (!at || old.at && Date.parse(old.at) <= Date.parse(at)))) return;
-    target.set(step, { at, evidenceDate: at, basis, inferred, actorId });
+    target.set(step, { at, evidenceDate: recordedAt ?? at, basis, inferred, actorId,
+      ...(recordedAt ? { timestampKind: "recorded" as const } : {}) });
   };
   const evaluate = (active: Set<string>, target: Map<FunnelStep, Milestone>, at: string | null, basis: Milestone["basis"], batch: FunnelEvent[] = []) => {
     const yes = (key: FunnelSource) => sources[key].some(id => active.has(id));
-    const credit = (step: FunnelStep, keys: FunnelSource[]) => {
-      const ids = new Set(keys.flatMap(key => sources[key]));
+    const credit = (step: FunnelStep, keys: FunnelSource[], additionalIds: string[] = []) => {
+      const ids = new Set([...keys.flatMap(key => sources[key]), ...additionalIds]);
       put(target, step, at, basis, false, at && basis === "history"
         ? uniqueFunnelActor(batch.filter(event => ids.has(event.itemId))) : null);
     };
@@ -90,8 +93,17 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
       else if (yes("proposalAccepted") || yes("proposalOther")) credit("wantsContract", ["agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"]);
     }
     if (yes("validated") && yes("agreed") && (yes("proposalAccepted") || yes("proposalOther")) ||
-        yes("activeWithout") && yes("agreed") && yes("proposalUnaccepted")) credit("cooperating", ["validated", "agreed", "proposalAccepted", "proposalOther", "activeWithout", "proposalUnaccepted"]);
-    if (target.has("cooperating") && yes("materials17") && yes("materials18") && yes("materials19")) credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalAccepted", "proposalOther", "activeWithout", "proposalUnaccepted"]);
+        yes("agreed") && yes("proposalUnaccepted")) credit("cooperating", ["validated", "agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"]);
+    const materials = input.config?.materials;
+    const parts = ["materials17", "materials18", "materials19"] as const;
+    const packageSent = materials?.packageSent.some(id => active.has(id));
+    // Old per-component records remain usable, but a declined item is an
+    // explicit exclusion, never evidence of sending. All-declined sends nothing.
+    const partsSent = parts.some(key => yes(key)) && parts.every(key =>
+      yes(key) || materials?.excluded[key].some(id => active.has(id)));
+    if (target.has("cooperating") && (packageSent || partsSent))
+      credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"],
+        [...(materials?.packageSent ?? []), ...parts.flatMap(key => materials?.excluded[key] ?? [])]);
   };
   for (const [contactId] of enrollment) {
     const milestones = new Map<FunnelStep, Milestone>();
@@ -118,8 +130,11 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     // Sending is an immutable occurrence, not an invented Status List tick.
     // Keep its real timestamp/actor even after the step is unconfirmed later.
     if (has("email")) for (const evidence of input.emailEvidence ?? []) {
-      if (evidence.contactId === contactId && validDate(evidence.at))
+      if (evidence.contactId !== contactId) continue;
+      if (validDate(evidence.at))
         put(milestones, "email", evidence.at, "history", false, evidence.actorId);
+      else if (evidence.at === null && validDate(evidence.recordedAt))
+        put(milestones, "email", null, "history", false, evidence.actorId, evidence.recordedAt);
     }
     current.set(contactId, saved);
     local.set(contactId, milestones);
@@ -222,14 +237,15 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   }
   const cooperationMeasurable =
     has("validated") && has("agreed") && (has("proposalAccepted") || has("proposalOther")) ||
-    has("activeWithout") && has("agreed") && has("proposalUnaccepted");
+    has("agreed") && has("proposalUnaccepted");
   const measurable: Record<FunnelStep, boolean> = {
     assigned: true, dialed: true, connected: true, qualified: has("qualified"), agreed: has("agreed"),
     wantsContract: has("agreed") && (has("proposalAccepted") || has("proposalOther")),
     withoutContract: has("agreed") && has("proposalUnaccepted"), email: has("email"),
     wantsToSign: has("agreed") && has("proposalAccepted"), sent: has("sent"), received: has("received"),
     returned: has("returned"), validated: has("validated"), cooperating: cooperationMeasurable,
-    materials: cooperationMeasurable && has("materials17") && has("materials18") && has("materials19"),
+    materials: cooperationMeasurable && (Boolean(input.config?.materials?.packageSent.length) ||
+      (["materials17", "materials18", "materials19"] as const).every(key => has(key) || Boolean(input.config?.materials?.excluded[key].length))),
   };
   const previous: Record<FunnelStep, FunnelStep | null> = {
     assigned: null, dialed: "assigned", connected: "dialed", qualified: "connected", agreed: "qualified",
@@ -240,6 +256,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   const members = (map: Map<string, Milestone>): FunnelMember[] => [...map].map(([id, value]) => ({
     id, name: clinics.get(id)!.name, firstDate: value.at, evidenceDate: value.evidenceDate,
     inferred: value.inferred, basis: value.basis, actorId: value.actorId ?? null,
+    ...(value.timestampKind ? { timestampKind: value.timestampKind } : {}),
   })).sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const count = (key: FunnelStep) => measurable[key] || rows.get(key)!.size > 0 ? rows.get(key)!.size : null;
   return {

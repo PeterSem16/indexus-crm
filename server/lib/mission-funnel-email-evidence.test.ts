@@ -50,3 +50,32 @@ test("email loader skips unnecessary work and uses bounded Mission/contact/confi
   assert.match(calls[0].sql, /e\.status='succeeded'/);
   assert.doesNotMatch(calls[0].sql, /subject|ILIKE|notify_email/);
 });
+test("reviewed recorded time never becomes a sending date", () => {
+  const input=fixture();
+  input.emailEvidence=[{id:"review",contactId:"contact",at:null,recordedAt:"2026-09-23T10:05:03Z",actorId:"sender"}];
+  const row=computeMissionFunnel(input).rows.find(row=>row.key==="email")!;
+  assert.equal(row.total,1);assert.equal(row.direct,1);assert.equal(row.inferred,0);
+  assert.equal(row.members[0].firstDate,null);
+  assert.equal(row.members[0].evidenceDate,"2026-09-23T10:05:03Z");
+  assert.equal(row.members[0].timestampKind,"recorded");
+  assert.equal(row.members[0].actorId,"sender");
+  assert.deepEqual(input.events,[]);assert.deepEqual(input.states,[]);
+});
+test("a reviewed unknown date replaces inferred email evidence without borrowing its later timestamp", () => {
+  const input=fixture();
+  input.config!.sources.agreed=["agreed"];input.config!.sources.proposalAccepted=["accepted"];
+  input.config!.sources.sent=["sent"];
+  input.events=["agreed","accepted","sent"].map((itemId,i)=>({
+    id:String(i),contactId:"contact",itemId,confirmed:true,at:"2026-10-05T08:00:00Z",
+  }));
+  input.emailEvidence=[{id:"review",contactId:"contact",at:null,recordedAt:"2026-09-23T10:05:03Z"}];
+  const member=computeMissionFunnel(input).rows.find(row=>row.key==="email")!.members[0];
+  assert.equal(member.inferred,false);assert.equal(member.firstDate,null);
+  assert.equal(member.timestampKind,"recorded");
+});
+test("loader keeps a null sending time and explicitly preserves the separate record date",async()=>{
+  const result=await loadFunnelEmailEvidence({query:async()=>({rows:[{
+    id:"review:x",contactId:"contact",at:null,recordedAt:new Date("2026-09-23T10:05:03Z"),
+  }]})},"mission",["contact"],["proposal-sent"]);
+  assert.equal(result[0].at,null);assert.equal(result[0].recordedAt,"2026-09-23T10:05:03.000Z");
+});

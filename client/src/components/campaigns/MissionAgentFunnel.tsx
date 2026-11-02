@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { funnelEvidenceBasisLabel } from "../../../../shared/reviewed-email-evidence";
 import { Download, Search, ArrowDownWideNarrow, ArrowUpWideNarrow, ChevronDown, FileSpreadsheet, FileText } from "lucide-react";
 import type { AgentFunnelMetric, AgentFunnelResult, FunnelMember, FunnelStep, MissionFunnelReport } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
@@ -99,6 +100,7 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
       const chosenAgent = data.find(agent => agentKey(agent) === exportAgent);
       if (exportAgent && !chosenAgent) throw new Error("Export agent is no longer available");
       const tables = makeAgentFunnelExport(report, mode, filters, copy, labels, {
+        locale,
         step: exportStep || undefined, ...(chosenAgent ? { agentId: chosenAgent.agentId } : {}),
       });
       const blob = format === "csv"
@@ -131,7 +133,7 @@ export default function MissionAgentFunnel({ report, copy, locale, campaignId, f
     setClinicSearch("");
     setPage(0);
   };
-  const basisLabel = (member: FunnelMember) => copy.basisLabels[member.basis] ?? member.basis;
+  const basisLabel = (member: FunnelMember) => funnelEvidenceBasisLabel(member, copy.basisLabels[member.basis] ?? member.basis, locale);
   const memberAuthor = (member: FunnelMember) => {
     if (member.inferred || (member.basis !== "call" && member.basis !== "history") || !member.actorId) return labels.unknownProofAuthor;
     return proofAuthorNames.get(member.actorId) ?? labels.unknownProofAuthor;

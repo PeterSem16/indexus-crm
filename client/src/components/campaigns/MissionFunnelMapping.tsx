@@ -4,6 +4,8 @@ import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
+import MissionMaterialPackageMapping from "./MissionMaterialPackageMapping";
+import { materialPackageCopy, cooperationRuleCopy } from "./mission-material-package-copy";
 import {
   configurableFunnelSources,
   type FunnelConfig,
@@ -22,6 +24,7 @@ interface Props {
   onUpdateSource: (source: FunnelSource, itemId: string, checked: boolean) => void;
   onAbsenceQuestionChange: (value: string | null) => void;
   onSave: () => void;
+  onMaterialsChange?: (value: NonNullable<FunnelConfig["materials"]>) => void;
 }
 
 const TABS = [
@@ -32,12 +35,16 @@ const TABS = [
 ] as const;
 
 export default function MissionFunnelMapping({
-  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave, locale, onHelp,
+  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave, locale, onHelp, onMaterialsChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("contact");
   const [activeSource, setActiveSource] = useState<FunnelSource>("qualified");
   const [search, setSearch] = useState("");
-  const visibleSources = TABS.find(tab => tab.id === activeTab)?.sources ?? TABS[0].sources;
+  const packageCopy = materialPackageCopy[locale as keyof typeof materialPackageCopy] ?? materialPackageCopy.en;
+  const rules = cooperationRuleCopy[locale as keyof typeof cooperationRuleCopy] ?? cooperationRuleCopy.en;
+  const compositeConfigured = config.sources.agreed.length > 0 && config.sources.proposalUnaccepted.length > 0;
+  const visibleSources = (TABS.find(tab => tab.id === activeTab)?.sources ?? TABS[0].sources)
+    .filter(source => activeTab !== "materials" || source === "activeWithout" || !config.materials?.packageSent.length);
   const selectedSource = visibleSources.includes(activeSource as never) ? activeSource : visibleSources[0] as FunnelSource;
   const selectedIds = config.sources[selectedSource];
   const items = report.items ?? [];
@@ -50,8 +57,12 @@ export default function MissionFunnelMapping({
       return matches && !selected.has(item.id);
     });
   }, [items, search, selectedIds]);
-  const configuredCount = configurableFunnelSources.filter(source => config.sources[source].length > 0).length;
-  const editableCount = configurableFunnelSources.length;
+  const legacyMaterials = ["materials17", "materials18", "materials19"] as const;
+  const packageConfigured = Boolean(config.materials?.packageSent.length) ||
+    legacyMaterials.every(key => config.sources[key].length > 0 || Boolean(config.materials?.excluded[key].length));
+  const independentSources = configurableFunnelSources.filter(source => source !== "activeWithout" && !legacyMaterials.includes(source as any));
+  const configuredCount = independentSources.filter(source => config.sources[source].length > 0).length + Number(packageConfigured);
+  const editableCount = independentSources.length + 1;
 
   return (
     <section className="mission-funnel-mapping overflow-hidden rounded-xl border border-border bg-card shadow-sm" data-testid="mission-funnel-mapping">
@@ -71,7 +82,7 @@ export default function MissionFunnelMapping({
         </summary>
         <div className="border-t border-border">
           <div className="flex items-start gap-2 px-4 pt-4 sm:px-5">
-            <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{copy.mappingRuleNote}</p>
+            <p className="flex-1 text-sm leading-relaxed text-muted-foreground">{rules.without}</p>
             {onHelp && <MissionFunnelHelpLink locale={locale} chapter="configuration" onSelect={onHelp} />}
           </div>
           <Tabs value={activeTab} onValueChange={value => {
@@ -84,14 +95,15 @@ export default function MissionFunnelMapping({
               <TabsList aria-label={copy.configuration} className="grid h-auto grid-cols-2 gap-2 rounded-none bg-transparent p-0 lg:grid-cols-1">
                 {TABS.map(tab => {
                   const sources = tab.sources as readonly FunnelSource[];
-                  const configured = sources.filter(source => config.sources[source].length > 0).length;
+                  const configured = tab.id === "materials" ? Number(compositeConfigured) + Number(packageConfigured) :
+                    sources.filter(source => config.sources[source].length > 0).length;
                   return (
                     <TabsTrigger key={tab.id} value={tab.id} data-testid={`mapping-tab-${tab.id}`}
                       className={`flex min-h-12 min-w-0 w-full items-center justify-between gap-2 whitespace-normal rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         activeTab === tab.id ? "border-teal-700/35 bg-teal-700/[0.07] font-semibold text-foreground shadow-none dark:border-teal-300/30 dark:bg-teal-300/[0.07]" : "border-transparent bg-transparent text-muted-foreground shadow-none hover:border-border hover:bg-card"
                       }`}>
                       <span className="min-w-0 break-words">{copy[tab.title]}</span>
-                      <span className={`shrink-0 font-mono text-[11px] tabular-nums ${configured === sources.length ? "text-teal-800 dark:text-teal-300" : ""}`}>{configured}/{sources.length}</span>
+                      <span className={`shrink-0 font-mono text-[11px] tabular-nums ${configured === (tab.id === "materials" ? 2 : sources.length) ? "text-teal-800 dark:text-teal-300" : ""}`}>{configured}/{tab.id === "materials" ? 2 : sources.length}</span>
                     </TabsTrigger>
                   );
                 })}
@@ -104,6 +116,8 @@ export default function MissionFunnelMapping({
             </nav>
 
             <TabsContent value={activeTab} className="m-0 min-w-0 p-4 sm:p-5">
+              {activeTab === "materials" && onMaterialsChange && <MissionMaterialPackageMapping
+                config={config} report={report} locale={locale} copy={copy} onChange={onMaterialsChange} />}
               <div className="mb-5">
                 <p className="mb-2 text-[10px] font-bold uppercase tracking-[.14em] text-muted-foreground">{copy.mappingChooseSource}</p>
                 <div className="flex flex-wrap gap-2">
@@ -114,11 +128,20 @@ export default function MissionFunnelMapping({
                         selectedSource === source ? "border-teal-700/35 bg-teal-700/[0.07] font-semibold text-foreground dark:border-teal-300/30 dark:bg-teal-300/[0.07]" : "border-border bg-background text-muted-foreground hover:bg-muted/50"
                       }`}>
                       <span>{copy.sourceLabels[source]}</span>
-                      <span className="font-mono tabular-nums">{config.sources[source].length}</span>
+                      <span className="font-mono tabular-nums">{source === "activeWithout" ? packageCopy.and : config.sources[source].length}</span>
                     </button>
                   ))}
                 </div>
               </div>
+          {selectedSource === "activeWithout" ? <section className="rounded-lg border border-border bg-muted/20 p-4" data-testid="without-contract-computed">
+            <h3 className="text-sm font-semibold">{copy.sourceLabels.activeWithout}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{packageCopy.computed}</p>
+            {(["agreed", "proposalUnaccepted"] as const).map((key, index) => <div key={key} className="mt-3">
+              {index > 0 && <p className="mb-2 text-xs font-bold">{packageCopy.and}</p>}
+              <p className="text-sm font-medium">{copy.sourceLabels[key]}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{config.sources[key].map(id => items.find(item => item.id === id)?.label ?? id).join(" · ") || packageCopy.none}</p>
+            </div>)}
+          </section> : <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="text-sm font-semibold">{copy.sourceLabels[selectedSource]}</h3>
@@ -169,6 +192,7 @@ export default function MissionFunnelMapping({
             {filteredItems.length === 0 && <p className="p-5 text-center text-sm text-muted-foreground">{search ? copy.noMatchingItems : copy.mappingAllSelected}</p>}
           </div>
 
+          </>}
           {activeTab === "exceptions" && (
             <div className="mt-5 max-w-2xl rounded-lg border border-border/80 bg-muted/20 p-3 sm:p-4">
               <label htmlFor="mission-funnel-absence-return-question" className="block text-sm font-semibold">{copy.absenceReturnQuestion}</label>
@@ -185,7 +209,7 @@ export default function MissionFunnelMapping({
             </div>
           )}
 
-          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{copy.configurationHelp}</p>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{rules.contract} {rules.without} {rules.materials}</p>
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <button type="button" data-testid="mission-funnel-config-save" disabled={saving} onClick={onSave}
               className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-300 dark:text-teal-950 dark:hover:bg-teal-200">

@@ -21,6 +21,14 @@ export type FunnelException = typeof funnelExceptions[number];
 export const funnelConfigSchema = z.object({
   version: z.literal(1),
   absenceReturnQuestionId: z.string().min(1).max(100).nullable().optional(),
+  materials: z.object({
+    packageSent: z.array(z.string().min(1).max(100)).max(100),
+    excluded: z.object({
+      materials17: z.array(z.string().min(1).max(100)).max(100),
+      materials18: z.array(z.string().min(1).max(100)).max(100),
+      materials19: z.array(z.string().min(1).max(100)).max(100),
+    }).strict(),
+  }).strict().optional(),
   sources: z.object(Object.fromEntries(funnelSources.map(key => [key, z.array(z.string().min(1).max(100)).max(100)])) as Record<FunnelSource, z.ZodArray<z.ZodString>>).strict(),
 }).strict();
 export type FunnelConfig = z.infer<typeof funnelConfigSchema>;
@@ -29,6 +37,8 @@ export interface FunnelDateQuestion { id: string; label: string }
 export interface FunnelMember {
   id: string; name: string; firstDate: string | null; inferred: boolean;
   evidenceDate: string | null; basis: "call" | "history" | "state" | "derived" | "current";
+  /** Explicitly distinguishes a reviewed record date from a sending date. */
+  timestampKind?: "recorded";
   returnDate?: string | null;
   /** Author of the actual dated proof. Derived/current/ambiguous proof has no author. */
   actorId?: string | null;
@@ -86,5 +96,11 @@ export function suggestFunnelConfig(items: FunnelItem[]): FunnelConfig {
   for (const source of funnelSources) {
     config.sources[source] = items.filter(item => codes[source]?.includes(item.stepId)).map(item => item.id);
   }
+  const excluded = {
+    materials17: items.filter(item => item.stepId === "MPN-13e").map(item => item.id),
+    materials18: items.filter(item => item.stepId === "MPN-14e").map(item => item.id),
+    materials19: items.filter(item => item.stepId === "MPN-15e").map(item => item.id),
+  };
+  if (Object.values(excluded).some(ids => ids.length)) config.materials = { packageSent: [], excluded };
   return config;
 }

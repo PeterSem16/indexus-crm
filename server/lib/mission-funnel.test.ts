@@ -151,19 +151,59 @@ test("cooperation is unknown when no complete branch is mapped, including materi
   assert.equal(row(input,"cooperating").total,null);
   assert.equal(row(input,"materials").total,null);
 });
-test("contract validation does not bypass the separate no-contract cooperation confirmation", () => {
+test("no-contract cooperation needs exactly agreement AND no contract, with no third confirmation", () => {
   const input=setup();
-  for (const key of ["agreed","proposalUnaccepted","validated"]) confirm(input,key,"2026-09-02");
+  input.config!.sources.activeWithout=[];
+  confirm(input,"proposalUnaccepted","2026-09-02");
   assert.equal(row(input,"cooperating").total,0);
-  confirm(input,"activeWithout","2026-09-03");
+  confirm(input,"agreed","2026-09-03");
   assert.equal(row(input,"cooperating").total,1);
+  assert.equal(row(input,"cooperating").members[0].firstDate,at("2026-09-03"));
+  const agreementOnly=setup(); confirm(agreementOnly,"agreed","2026-09-02");
+  assert.equal(row(agreementOnly,"cooperating").total,0);
 });
 test("materials require cooperation AND all three material choices; poster is not needed", () => {
   const input=setup(); confirm(input,"agreed","2026-09-02"); confirm(input,"proposalUnaccepted","2026-09-03");
   for (const key of ["materials17","materials18","materials19"]) confirm(input,key,"2026-09-04");
-  assert.equal(row(input,"materials").total,0);
+  assert.equal(row(input,"materials").total,1);
   confirm(input,"activeWithout","2026-09-05");
   assert.equal(row(input,"materials").total,1);
+});
+test("one recorded package counts once; exclusions do not fabricate individual item sends", () => {
+  const input=setup();
+  input.config!.materials={packageSent:["package"],excluded:{materials17:[],materials18:["declined18"],materials19:[]}};
+  for(const key of ["materials17","materials18","materials19"] as const) input.config!.sources[key]=[];
+  confirm(input,"agreed","2026-09-02");confirm(input,"proposalUnaccepted","2026-09-03");
+  confirm(input,"declined18","2026-09-04");
+  assert.equal(row(input,"materials").total,0);
+  confirm(input,"package","2026-09-05");
+  confirm(input,"package","2026-09-06");
+  assert.equal(row(input,"materials").total,1);
+  assert.equal(row(input,"materials").members[0].firstDate,at("2026-09-05"));
+  assert.equal(input.states.some(state=>state.itemId==="materials18"),false);
+});
+test("legacy package evidence allows explicit declined components but not unknown or all-declined items", () => {
+  const input=setup();
+  input.config!.materials={packageSent:[],excluded:{materials17:["declined17"],materials18:["declined18"],materials19:["declined19"]}};
+  confirm(input,"agreed","2026-09-02");confirm(input,"proposalUnaccepted","2026-09-03");
+  confirm(input,"materials17","2026-09-04");confirm(input,"materials19","2026-09-04");
+  assert.equal(row(input,"materials").total,0);
+  confirm(input,"declined18","2026-09-05");
+  assert.equal(row(input,"materials").total,1);
+  const excluded=setup();excluded.config!.materials=input.config!.materials;
+  for(const key of ["agreed","proposalUnaccepted","declined17","declined18","declined19"])confirm(excluded,key,"2026-09-02");
+  assert.equal(row(excluded,"materials").total,0);
+});
+test("canonical production refusals are mapped automatically without requiring declined materials sent",()=>{
+  const input=setup();
+  input.items=["MPN-05c","MPN-06e","MPN-13d","MPN-14e","MPN-15d"]
+    .map(stepId=>({id:stepId,stepId,label:stepId,parentId:null}));
+  input.config=suggestFunnelConfig(input.items);
+  assert.deepEqual(input.config.materials!.excluded.materials18,["MPN-14e"]);
+  for(const key of ["MPN-05c","MPN-06e","MPN-13d","MPN-14e","MPN-15d"])
+    confirm(input,key,"2026-09-23");
+  assert.equal(row(input,"materials").total,1);
+  assert.equal(input.states.some(state=>state.itemId==="MPN-14d"),false);
 });
 test("unreachable requires five consecutive unsuccessful attempts and deduplicates SIP sessions", () => {
   const input=setup();

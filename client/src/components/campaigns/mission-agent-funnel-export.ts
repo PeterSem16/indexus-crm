@@ -11,6 +11,7 @@ const steps: FunnelStep[] = [
   "received", "returned", "validated", "withoutContract", "cooperating", "materials",
 ];
 
+import { funnelEvidenceBasisLabel } from "../../../../shared/reviewed-email-evidence";
 const labelAgent = (agent: AgentFunnelResult, unknown: string) => agent.agentName || unknown;
 
 /** Builds the complete, unsearched export for the selected view from the report snapshot. */
@@ -20,7 +21,7 @@ export function makeAgentFunnelExport(
   filters: AgentFunnelExportFilters,
   copy: MissionFunnelCopy,
   labels: MissionAgentFunnelTranslation,
-  options: { step?: FunnelStep; agentId?: string | null; includeStepSheets?: boolean } = {},
+  options: { step?: FunnelStep; agentId?: string | null; includeStepSheets?: boolean; locale?: string } = {},
 ): FunnelExportTable[] {
   const results = (report.agentComparison?.[mode] ?? []).filter(agent =>
     !Object.prototype.hasOwnProperty.call(options, "agentId") || agent.agentId === options.agentId);
@@ -73,7 +74,7 @@ export function makeAgentFunnelExport(
         member.name,
         exportDate(member.firstDate),
         exportDate(member.evidenceDate),
-        copy.basisLabels[member.basis] ?? member.basis,
+        funnelEvidenceBasisLabel(member, copy.basisLabels[member.basis] ?? member.basis, options.locale ?? "en"),
         proofAuthor(member),
         member.inferred ? copy.yes : copy.no,
       ]))),
