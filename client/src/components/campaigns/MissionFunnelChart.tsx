@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { FunnelRow, FunnelStep } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
@@ -185,6 +186,7 @@ function FunnelSilhouetteStage({
 }
 
 export default function MissionFunnelChart({ rows, copy, locale, selectedStep, onSelectStep, onHelp }: Props) {
+  const headingId = useId();
   const rowsByStep = new Map<FunnelStep, FunnelRow>(rows.map(row => [row.key, row] as const));
   const assigned = rowsByStep.get("assigned");
   const primaryRows = PRIMARY_PATH.map(step => rowsByStep.get(step)).filter((row): row is FunnelRow => Boolean(row));
@@ -196,10 +198,10 @@ export default function MissionFunnelChart({ rows, copy, locale, selectedStep, o
     .filter((value): value is number => value != null));
 
   return (
-    <section data-testid="mission-funnel-chart" aria-labelledby="mission-funnel-chart-heading" className="border-b border-border bg-card px-3 py-4 sm:px-5 sm:py-5">
+    <section data-testid="mission-funnel-chart" aria-labelledby={headingId} className="border-b border-border bg-card px-3 py-4 sm:px-5 sm:py-5">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 id="mission-funnel-chart-heading" className="text-sm font-semibold">{copy.chartTitle}</h3>
+          <h3 id={headingId} className="text-sm font-semibold">{copy.chartTitle}</h3>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-muted-foreground">{copy.chartIntro}</p>
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-muted-foreground" aria-label={copy.chartLegend}>

@@ -30,6 +30,8 @@ export interface FunnelMember {
   id: string; name: string; firstDate: string | null; inferred: boolean;
   evidenceDate: string | null; basis: "call" | "history" | "state" | "derived" | "current";
   returnDate?: string | null;
+  /** Author of the actual dated proof. Derived/current/ambiguous proof has no author. */
+  actorId?: string | null;
 }
 export interface FunnelRow {
   key: FunnelStep; total: number | null; direct: number | null; inferred: number | null;
@@ -40,10 +42,26 @@ export interface MissionFunnelReport {
   version: string; generatedAt: string; timezone: string; missionName: string;
   canConfigure: boolean; config: FunnelConfig; items: FunnelItem[];
   dateQuestions?: FunnelDateQuestion[];
+  agentComparison?: AgentFunnelComparison;
   rows: FunnelRow[];
   exceptions: { key: FunnelException; members: FunnelMember[]; measurable: boolean }[];
   quality: { clinics: number; cohort: number; withoutAttempt: number; provisional: number;
     orphanCalls: number; duplicateEnrollments: number; stateOnly: number; unknownProposal: number };
+}
+export interface AgentFunnelMetric extends FunnelRow {
+  missionPercent: number | null;
+}
+export interface AgentFunnelResult {
+  agentId: string | null;
+  agentName: string | null;
+  /** Distinct clinics represented in this view, not a sum of milestone counts. */
+  clinicCount: number;
+  rows: AgentFunnelMetric[];
+}
+export interface AgentFunnelComparison {
+  version: "agent-funnel-v1";
+  cohort: AgentFunnelResult[];
+  contribution: AgentFunnelResult[];
 }
 export interface FunnelFilters { from?: string; to?: string; referral?: "all" | "yes" | "no" }
 

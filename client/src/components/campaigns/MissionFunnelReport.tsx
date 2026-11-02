@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n";
 import { ReportingPeriodProvider, ReportingPeriodControls, useOptionalReportingPeriod } from "./reporting-period";
 import "./mission-funnel-report.css";
 import MissionFunnelChart from "./MissionFunnelChart";
+import MissionAgentFunnel from "./MissionAgentFunnel";
 import MissionFunnelMapping from "./MissionFunnelMapping";
 import MissionFunnelHelp, { MissionFunnelHelpButton } from "./MissionFunnelHelp";
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
@@ -391,6 +392,15 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
               <p>{copy.firstDialCaveat}</p><p>{copy.firstCallHelp}</p><p>{copy.missingDateHelp}</p><p>{copy.inferenceHelp}</p>
             </div>
           </section>
+
+          <MissionAgentFunnel
+            key={`${campaignId}:${from}:${to}:${referral}:${report.generatedAt}`}
+            report={report}
+            copy={copy}
+            locale={locale}
+            campaignId={campaignId}
+            filters={{ from, to, referral }}
+          />
 
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">

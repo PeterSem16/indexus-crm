@@ -1,11 +1,12 @@
 import type { Express, RequestHandler } from "express";
 import { z } from "zod";
 import { pool } from "../db";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 import {
   funnelConfigSchema, suggestFunnelConfig, type FunnelItem, type FunnelConfig,
 } from "../../shared/mission-funnel";
 import { computeMissionFunnel, type FunnelInput } from "./mission-funnel";
+import { computeMissionAgentFunnel } from "./mission-agent-funnel";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s =>
   Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0,10) === s);
@@ -53,7 +54,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
   app.post("/api/call-logs/:id/funnel-attempt", requireAuth, async (req, res) => {
     const sentAt = z.string().datetime({ offset: true }).safeParse(req.body?.sentAt);
     if (!sentAt.success || Date.parse(sentAt.data) > Date.now() + 5000) return res.status(400).json({ error: "Invalid attempt time" });
-    let client: Awaited<ReturnType<typeof database.connect>> | undefined;
+    let client: PoolClient | undefined;
     try {
       client = await database.connect();
       await client.query("BEGIN");
@@ -129,7 +130,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
             if (typeof answer.value === "string" && day.safeParse(answer.value).success) absenceReturns[answer.campaign_contact_id] = answer.value;
           }
         }
-        const eventRows = await client.query(`SELECT h.id,h.campaign_contact_id AS "contactId",
+        const eventRows = await client.query(`SELECT h.id,h.campaign_contact_id AS "contactId",h.user_id AS "actorId",
           h.metadata->>'statusListItemId' AS "itemId",
           (h.metadata->>'confirmed')::boolean AS confirmed,h.created_at AS at
           FROM campaign_contact_history h JOIN campaign_status_list_items i ON i.id=h.metadata->>'statusListItemId'
@@ -145,13 +146,12 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
           CASE WHEN cc.id IS NOT NULL AND cc.campaign_id=$1 AND cc.contact_type='clinic'
             AND cc.clinic_id=ANY($2::text[]) AND (l.customer_id IS NULL OR l.customer_id=cc.clinic_id) THEN cc.clinic_id
             WHEN cc.id IS NULL AND l.customer_id=ANY($2::text[]) THEN l.customer_id ELSE NULL END AS "clinicId",
-          l.direction,l.status,l.started_at AS at,l.answered_at AS "answeredAt",
+          l.user_id AS "actorId",l.direction,l.status,l.started_at AS at,l.answered_at AS "answeredAt",
           l.duration_seconds AS duration,l.sip_call_id AS "sipCallId",l.metadata
           FROM call_logs l LEFT JOIN campaign_contacts cc ON cc.id=l.campaign_contact_id
           WHERE l.campaign_id=$1 AND (
             cc.clinic_id=ANY($2::text[]) OR l.customer_id=ANY($2::text[]) OR
             ($3::boolean AND cc.id IS NULL))`, [req.params.id, clinicIds, user.admin]);
-        await client.query("COMMIT");
         const iso = (v: unknown) => v instanceof Date ? v.toISOString() : String(v);
         const input: FunnelInput = {
           clinics: clinicRows.rows, enrollments: enrollmentRows.rows, items, config: validConfig, absenceReturns,
@@ -165,7 +165,18 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
               attemptAt: typeof metadata.funnelAttemptSentAt === "string" ? metadata.funnelAttemptSentAt : null };
           }),
         };
-        res.json({ ...computeMissionFunnel(input, filters.data), dateQuestions: questions.rows, missionName: user.name, canConfigure: user.canConfigure });
+        const report = computeMissionFunnel(input, filters.data);
+        const actorIds = [...new Set(report.rows.flatMap(row => row.members.map(member => member.actorId)).filter((id): id is string => Boolean(id)))];
+        // Historical authors need not still be assigned/active. Zero-activity
+        // agents come only from this Mission and the reader's country scope.
+        const agents = await client.query(`SELECT u.id,COALESCE(NULLIF(BTRIM(u.full_name),''),u.username) AS name
+          FROM users u WHERE u.id=ANY($1::text[]) OR (
+            u.is_active AND EXISTS(SELECT 1 FROM campaign_agents a WHERE a.user_id=u.id AND a.campaign_id=$2)
+            AND ($3::boolean OR u.assigned_countries && $4::text[]))
+          ORDER BY u.id`, [actorIds, req.params.id, user.admin, user.countries]);
+        await client.query("COMMIT");
+        res.json({ ...report, agentComparison: computeMissionAgentFunnel(report.rows, agents.rows),
+          dateQuestions: questions.rows, missionName: user.name, canConfigure: user.canConfigure });
       } catch (error) {
         await client.query("ROLLBACK"); throw error;
       } finally { client.release(); }

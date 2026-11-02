@@ -3,25 +3,27 @@ import {
   type FunnelConfig, type FunnelFilters, type FunnelItem, type FunnelMember,
   type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../shared/mission-funnel";
+import { uniqueFunnelActor } from "./mission-funnel-actors";
 
 export interface FunnelClinic {
   id: string; name: string; representativeId: string | null; referred: boolean;
 }
 export interface FunnelEnrollment { id: string; clinicId: string }
-export interface FunnelEvent { id: string; contactId: string; itemId: string; confirmed: boolean; at: string }
+export interface FunnelEvent { id: string; contactId: string; itemId: string; confirmed: boolean; at: string; actorId?: string | null }
 export interface FunnelState { contactId: string; itemId: string; at: string }
 export interface FunnelCall {
   id: string; clinicId: string | null; contactId: string | null;
   direction: string; status: string; at: string; answeredAt: string | null; duration: number;
   attemptAt?: string | null;
   sipCallId?: string | null;
+  actorId?: string | null;
 }
 export interface FunnelInput {
   clinics: FunnelClinic[]; enrollments: FunnelEnrollment[]; events: FunnelEvent[];
   states: FunnelState[]; calls: FunnelCall[]; config?: FunnelConfig; items: FunnelItem[];
   absenceReturns?: Record<string, string>;
 }
-interface Milestone { at: string | null; evidenceDate: string | null; basis: FunnelMember["basis"]; inferred: boolean }
+interface Milestone { at: string | null; evidenceDate: string | null; basis: FunnelMember["basis"]; inferred: boolean; actorId?: string | null }
 const percentage = (n: number | null, d: number | null) => n !== null && d !== null && d > 0 ? Math.round(n / d * 10000) / 100 : null;
 export const funnelDay = (value: string) => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Bratislava", year: "numeric", month: "2-digit", day: "2-digit",
@@ -60,25 +62,34 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     const events = historical.get(event.contactId) ?? [];
     events.push(event); historical.set(event.contactId, events);
   }
-  const put = (target: Map<FunnelStep, Milestone>, step: FunnelStep, at: string | null, basis: Milestone["basis"], inferred = false) => {
+  const put = (target: Map<FunnelStep, Milestone>, step: FunnelStep, at: string | null, basis: Milestone["basis"], inferred = false, actorId: string | null = null) => {
     const old = target.get(step);
-    if (old && (!old.inferred && inferred || old.inferred === inferred && (!at || old.at && Date.parse(old.at) <= Date.parse(at)))) return;
-    target.set(step, { at, evidenceDate: at, basis, inferred });
-  };
-  const evaluate = (active: Set<string>, target: Map<FunnelStep, Milestone>, at: string | null, basis: Milestone["basis"]) => {
-    const yes = (key: FunnelSource) => sources[key].some(id => active.has(id));
-    for (const key of ["qualified", "agreed", "email", "sent", "received", "returned", "validated"] as const) {
-      if (yes(key)) put(target, key, at, basis);
+    if (old && old.inferred === inferred && at && old.at && Date.parse(old.at) === Date.parse(at)) {
+      old.actorId = uniqueFunnelActor([old, { actorId }]);
+      return;
     }
-    if (yes("proposalAccepted") && yes("agreed")) put(target, "wantsToSign", at, basis);
+    if (old && (!old.inferred && inferred || old.inferred === inferred && (!at || old.at && Date.parse(old.at) <= Date.parse(at)))) return;
+    target.set(step, { at, evidenceDate: at, basis, inferred, actorId });
+  };
+  const evaluate = (active: Set<string>, target: Map<FunnelStep, Milestone>, at: string | null, basis: Milestone["basis"], batch: FunnelEvent[] = []) => {
+    const yes = (key: FunnelSource) => sources[key].some(id => active.has(id));
+    const credit = (step: FunnelStep, keys: FunnelSource[]) => {
+      const ids = new Set(keys.flatMap(key => sources[key]));
+      put(target, step, at, basis, false, at && basis === "history"
+        ? uniqueFunnelActor(batch.filter(event => ids.has(event.itemId))) : null);
+    };
+    for (const key of ["qualified", "agreed", "email", "sent", "received", "returned", "validated"] as const) {
+      if (yes(key)) credit(key, [key]);
+    }
+    if (yes("proposalAccepted") && yes("agreed")) credit("wantsToSign", ["proposalAccepted", "agreed"]);
     if (yes("agreed")) {
       // SQL-like null semantics: an absent answer never proves != unaccepted.
-      if (yes("proposalUnaccepted")) put(target, "withoutContract", at, basis);
-      else if (yes("proposalAccepted") || yes("proposalOther")) put(target, "wantsContract", at, basis);
+      if (yes("proposalUnaccepted")) credit("withoutContract", ["agreed", "proposalUnaccepted"]);
+      else if (yes("proposalAccepted") || yes("proposalOther")) credit("wantsContract", ["agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"]);
     }
     if (yes("validated") && yes("agreed") && (yes("proposalAccepted") || yes("proposalOther")) ||
-        yes("activeWithout") && yes("agreed") && yes("proposalUnaccepted")) put(target, "cooperating", at, basis);
-    if (target.has("cooperating") && yes("materials17") && yes("materials18") && yes("materials19")) put(target, "materials", at, basis);
+        yes("activeWithout") && yes("agreed") && yes("proposalUnaccepted")) credit("cooperating", ["validated", "agreed", "proposalAccepted", "proposalOther", "activeWithout", "proposalUnaccepted"]);
+    if (target.has("cooperating") && yes("materials17") && yes("materials18") && yes("materials19")) credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalAccepted", "proposalOther", "activeWithout", "proposalUnaccepted"]);
   };
   for (const [contactId] of enrollment) {
     const milestones = new Map<FunnelStep, Milestone>();
@@ -88,10 +99,11 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     // create an artificial transient overlap based on arbitrary UUID ordering.
     for (let i = 0; i < events.length;) {
       const at = events[i].at, time = Date.parse(at);
+      const batch: FunnelEvent[] = [];
       while (i < events.length && Date.parse(events[i].at) === time) {
-        const e = events[i++]; e.confirmed ? active.add(e.itemId) : active.delete(e.itemId);
+        const e = events[i++]; batch.push(e); e.confirmed ? active.add(e.itemId) : active.delete(e.itemId);
       }
-      evaluate(active, milestones, at, "history");
+      evaluate(active, milestones, at, "history", batch);
     }
     // Current state is authoritative for current exceptions, but state rows
     // without a matching history are not backdated into a historical AND.
@@ -127,9 +139,13 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
       if ((!filters.from || day >= filters.from) && (!filters.to || day <= filters.to)) cohort.add(clinic.id);
     }
     const result = new Map<FunnelStep, Milestone>();
-    if (first) put(result, "dialed", first, "call");
+    if (first) {
+      const firstIds = new Set(attempts.filter(call => Date.parse(call.attemptAt || call.at) === Date.parse(first)).map(call => call.sipCallId || call.id));
+      put(result, "dialed", first, "call", false, uniqueFunnelActor(own.filter(call => firstIds.has(call.sipCallId || call.id))));
+    }
     const connected = earliest(input.calls.filter(c => c.clinicId === clinic.id && validDate(c.answeredAt) && c.duration > 0).map(c => c.answeredAt!));
-    if (connected) put(result, "connected", connected, "call");
+    if (connected) put(result, "connected", connected, "call", false, uniqueFunnelActor(input.calls.filter(call =>
+      call.clinicId === clinic.id && call.duration > 0 && validDate(call.answeredAt) && Date.parse(call.answeredAt) === Date.parse(connected))));
     for (const [contactId, clinicId] of enrollment) {
       if (clinicId !== clinic.id) continue;
       const ownMilestones = local.get(contactId)!;
@@ -163,7 +179,10 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
       }
       for (const [key, value] of ownMilestones) {
         const old = result.get(key);
-        if (!old || old.inferred && !value.inferred || old.inferred === value.inferred && value.at && (!old.at || Date.parse(value.at) < Date.parse(old.at))) result.set(key, value);
+        if (!old || old.inferred && !value.inferred || old.inferred === value.inferred && value.at && (!old.at || Date.parse(value.at) < Date.parse(old.at))) result.set(key, { ...value });
+        else if (old.inferred === value.inferred && value.at && old.at && Date.parse(value.at) === Date.parse(old.at)) {
+          old.actorId = uniqueFunnelActor([old, value]);
+        }
       }
       for (const key of ["unqualified","refused","absent","wrongNumber","notWorking"] as const) {
         if (!sources[key].some(id => saved.has(id))) continue;
@@ -212,7 +231,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   };
   const members = (map: Map<string, Milestone>): FunnelMember[] => [...map].map(([id, value]) => ({
     id, name: clinics.get(id)!.name, firstDate: value.at, evidenceDate: value.evidenceDate,
-    inferred: value.inferred, basis: value.basis,
+    inferred: value.inferred, basis: value.basis, actorId: value.actorId ?? null,
   })).sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const count = (key: FunnelStep) => measurable[key] || rows.get(key)!.size > 0 ? rows.get(key)!.size : null;
   return {

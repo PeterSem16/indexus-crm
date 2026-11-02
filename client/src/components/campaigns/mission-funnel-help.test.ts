@@ -8,7 +8,7 @@ import {
 } from "./mission-funnel-help-translations";
 
 test("the complete manual covers every chapter, stage, source, exception and quality metric in seven languages", () => {
-  assert.equal(missionFunnelHelpChapterIds.length, 9);
+  assert.equal(missionFunnelHelpChapterIds.length, 10);
   assert.equal(configurableFunnelSources.length, 19);
   for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {
     const guide = missionFunnelHelpTranslations[locale];

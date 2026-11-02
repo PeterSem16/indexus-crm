@@ -8,6 +8,7 @@ import { emptyFunnelConfig } from "../../shared/mission-funnel";
 async function fixture(run: (url: string, sql: { text: string; args: unknown[] }[]) => Promise<void>, options: {
   role?: string; roleId?: string; assigned?: boolean; moduleRead?: boolean; moduleEdit?: boolean;
   countries?: string[]; missionCountries?: string[]; settings?: unknown; itemIds?: string[];
+  respond?: (text: string, args: unknown[]) => unknown[] | undefined;
 } = {}) {
   const sql: { text: string; args: unknown[] }[] = [];
   const query = async (text: string, args: unknown[] = []) => {
@@ -20,6 +21,8 @@ async function fixture(run: (url: string, sql: { text: string; args: unknown[] }
     }]};
     if (text.startsWith("SELECT settings")) return {rows:[{settings:options.settings ?? "{}"}]};
     if (text.startsWith("SELECT id FROM campaign_status_list_items")) return {rows:(options.itemIds??[]).map(id=>({id}))};
+    const custom = options.respond?.(text, args);
+    if (custom) return { rows: custom };
     return {rows:[]};
   };
   const database={query,connect:async()=>({query,release(){}})};
@@ -60,6 +63,48 @@ test("read-only snapshot binds Mission and authorized countries and does not wri
     assert.deepEqual(clinics.args,["mission",false,["SK"]]);
     assert.equal(sql.some(s=>/^\s*(INSERT|UPDATE|DELETE)\b/.test(s.text)),false);
   },{role:"user",assigned:true});
+});
+test("agent comparison uses scoped original authors and the same read-only snapshot", async () => {
+  const config = emptyFunnelConfig();
+  config.sources.agreed = ["agreement"];
+  config.sources.proposalAccepted = ["accepted"];
+  config.sources.validated = ["validated"];
+  await fixture(async (url, sql) => {
+    const response = await fetch(url + report + "?from=2026-09-01&to=2026-09-01&referral=yes");
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    const cohort = body.agentComparison.cohort;
+    const contribution = body.agentComparison.contribution;
+    assert.equal(cohort.find((row: any) => row.agentId === "caller").rows.find((row: any) => row.key === "cooperating").total, 1);
+    assert.equal(contribution.find((row: any) => row.agentId === "closer").rows.find((row: any) => row.key === "cooperating").total, 1);
+    assert.equal(body.canConfigure, false);
+    const directory = sql.find(query => query.text.includes("COALESCE(NULLIF(BTRIM(u.full_name)"))!;
+    assert.deepEqual(new Set(directory.args[0] as string[]), new Set(["caller", "closer"]));
+    assert.deepEqual(directory.args.slice(1), ["mission", false, ["SK"]]);
+    assert.match(directory.text, /campaign_agents/);
+    assert.match(directory.text, /assigned_countries &&/);
+    assert.ok(sql.findIndex(query => query.text === "COMMIT") > sql.indexOf(directory));
+    assert.ok(sql.some(query => query.text.includes('h.user_id AS "actorId"')));
+    assert.ok(sql.some(query => query.text.includes('l.user_id AS "actorId"')));
+    assert.equal(sql.some(query => /^\s*(INSERT|UPDATE|DELETE)\b/.test(query.text)), false);
+    assert.equal(JSON.stringify(body).includes("password"), false);
+  }, {
+    role: "user", assigned: true, settings: { missionFunnel: config },
+    respond: text => {
+      if (text.includes('step_id AS "stepId"')) return ["agreement", "accepted", "validated"].map(id => ({ id, stepId: id, label: id, parentId: null }));
+      if (text.includes("SELECT DISTINCT c.id")) return [{ id: "clinic", name: "Clinic", representativeId: null, referred: true }];
+      if (text.includes('SELECT id,clinic_id AS "clinicId"')) return [{ id: "contact", clinicId: "clinic" }];
+      if (text.includes("SELECT h.id")) return ["agreement", "accepted", "validated"].map((itemId, i) => ({
+        id: itemId, contactId: "contact", itemId, confirmed: true, at: `2026-09-0${i + 2}T10:00:00Z`, actorId: i === 2 ? "closer" : "caller",
+      }));
+      if (text.includes("SELECT l.id")) return [{
+        id: "call", clinicId: "clinic", contactId: "contact", actorId: "caller", direction: "outbound",
+        status: "completed", at: "2026-09-01T10:00:00Z", answeredAt: "2026-09-01T10:00:05Z", duration: 30, metadata: {},
+      }];
+      if (text.includes("COALESCE(NULLIF(BTRIM(u.full_name)")) return [{ id: "caller", name: "Caller" }, { id: "closer", name: "Closer" }];
+      return undefined;
+    },
+  });
 });
 test("invalid dates and reversed ranges fail before reading sensitive data",async()=>{
   await fixture(async(url,sql)=>{

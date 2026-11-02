@@ -237,7 +237,7 @@ test("read-only funnel manual explains every stage, source and quality measure w
   const dialog = page.getByTestId("mission-funnel-help-dialog");
   const content = page.getByTestId("mission-funnel-help-content");
   await expect(dialog).toBeVisible();
-  await expect(dialog.locator("[data-help-chapter-nav] button")).toHaveCount(9);
+  await expect(dialog.locator("[data-help-chapter-nav] button")).toHaveCount(10);
   await dialog.getByTestId("mission-funnel-help-chapter-contact-contract").click();
   await expect(content.locator("dl > div")).toHaveCount(15);
   await dialog.getByTestId("mission-funnel-help-chapter-sources").click();

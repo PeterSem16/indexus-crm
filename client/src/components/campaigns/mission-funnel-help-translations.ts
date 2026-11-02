@@ -1,8 +1,9 @@
 import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shared/mission-funnel";
 import type { Locale } from "@/i18n/translations";
+import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
 
 export const missionFunnelHelpChapterIds = [
-  "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export",
+  "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
 ] as const;
 export type MissionFunnelHelpChapter = typeof missionFunnelHelpChapterIds[number];
 export const missionFunnelQualityKeys = ["clinics", "cohort", "withoutAttempt", "provisional", "orphanCalls", "duplicateEnrollments", "stateOnly", "unknownProposal"] as const;
@@ -26,7 +27,7 @@ export interface MissionFunnelHelpLocale {
   basis: Record<MissionFunnelEvidenceBasis, string>;
 }
 type HelpDraft = Omit<MissionFunnelHelpLocale, "quality" | "basis" | "button" | "contents" | "previous" | "next" | "chapters" | "content">
-  & { chapters: Omit<MissionFunnelHelpLocale["chapters"], "without-contract">; content: Omit<MissionFunnelHelpLocale["content"], "without-contract"> };
+  & { chapters: Omit<MissionFunnelHelpLocale["chapters"], "without-contract" | "agents">; content: Omit<MissionFunnelHelpLocale["content"], "without-contract" | "agents"> };
 
 const en: HelpDraft = {
   title: "INDEXUS Mission funnel · field guide",
@@ -854,7 +855,7 @@ const contactBranchRefs: Record<Locale, string> = {
   it:"I requisiti espliciti del ramo Senza contratto sono descritti nel capitolo dedicato Senza contratto.",
   de:"Die ausdrücklichen Anforderungen des Zweigs Ohne Vertrag stehen im eigenen Kapitel Ohne Vertrag.",
 };
-const chapterNavigation: Record<Locale, Omit<MissionFunnelHelpLocale["chapters"], "without-contract">> = {
+const chapterNavigation: Record<Locale, Omit<MissionFunnelHelpLocale["chapters"], "without-contract" | "agents">> = {
   en:{scope:"Scope & cohort","contact-contract":"Contact and contract path",combined:"Combined outcomes",evidence:"Clinic evidence","exceptions-quality":"Exceptions & quality",configuration:"Configure evidence",sources:"All mapping sources","interpret-export":"Read & export the funnel"},
   sk:{scope:"Rozsah a kohorta","contact-contract":"Kontakt a zmluva",combined:"Kombinované výsledky",evidence:"Dôkazy kliniky","exceptions-quality":"Výnimky a kvalita",configuration:"Nastavenie dôkazov",sources:"Všetky zdroje mapovania","interpret-export":"Čítanie a export lievika"},
   cs:{scope:"Rozsah a kohorta","contact-contract":"Kontakt a smlouva",combined:"Kombinované výsledky",evidence:"Důkazy kliniky","exceptions-quality":"Výjimky a kvalita",configuration:"Nastavení důkazů",sources:"Všechny zdroje mapování","interpret-export":"Čtení a export trychtýře"},
@@ -968,6 +969,7 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
     const chapterContent = {
       ...base.content,
       "without-contract": withoutContractContent[locale],
+      agents: agentFunnelTranslations[locale].helpParagraphs,
       combined: [correctedCombined[locale], ...base.content.combined.slice(1)],
       configuration: [
         base.content.configuration[0],
@@ -998,7 +1000,7 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
     return [locale, {
       ...base,
       ...helpLabels[locale],
-      chapters: { ...chapterNavigation[locale], "without-contract": corrections.chapterTitle },
+      chapters: { ...chapterNavigation[locale], "without-contract": corrections.chapterTitle, agents: agentFunnelTranslations[locale].title },
       content: chapterContent,
       stages: stageMaps[locale],
       sources: sourceMaps[locale],
