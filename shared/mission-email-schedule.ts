@@ -12,6 +12,7 @@ export const missionEmailScheduleSchema = z.object({
   country: z.string().regex(/^[A-Z]{2}$/),
   locale: z.enum(["en", "sk", "cs", "hu", "ro", "it", "de"]),
   enabled: z.boolean().default(false),
+  includeExcel: z.boolean().default(false),
 }).strict();
 export type MissionEmailScheduleInput = z.infer<typeof missionEmailScheduleSchema>;
 export type MissionEmailOptions = Pick<MissionEmailScheduleInput, "frequency" | "weekday" | "monthDay" | "country" | "locale">;

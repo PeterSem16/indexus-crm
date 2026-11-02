@@ -6,6 +6,8 @@
     "../shared/mission-email-schedule.test.ts",
     "../server/lib/mission-email-content.ts",
     "../server/lib/mission-email-content.test.ts",
+    "../server/lib/mission-email-excel.ts",
+    "../server/lib/mission-email-excel.test.ts",
     "../server/lib/mission-report-sources.ts",
     "../client/src/components/campaigns/MissionEmailSchedules.tsx",
     "../client/src/components/campaigns/mission-email-schedule-translations.ts"

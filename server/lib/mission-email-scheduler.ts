@@ -7,6 +7,7 @@ import { renderMissionEmail } from "./mission-email-content";
 import { storage } from "../storage";
 import { getValidAccessToken } from "./ms365";
 import { decryptTokenSafe, encryptTokenWithMarker } from "./token-crypto";
+import { buildMissionEmailExcel, type MissionEmailAttachment } from "./mission-email-excel";
 
 export function fullMissionAccess(user: Awaited<ReturnType<typeof access>>) {
   return Boolean(user?.canRead && (user.admin || user.country_codes?.length &&
@@ -22,7 +23,7 @@ export function parseStoredMissionSchedule(row: any): MissionEmailScheduleInput 
   return missionEmailScheduleSchema.parse({
     recipientUserIds: row.recipient_user_ids, sendTime: row.send_time, enabled: row.enabled,
     frequency: options?.frequency, weekday: options?.weekday, monthDay: options?.monthDay,
-    country: options?.country, locale: options?.locale,
+    country: options?.country, locale: options?.locale, includeExcel: options?.includeExcel,
   });
 }
 export async function withMissionScheduleLock<T>(id: string, fn: (client: PoolClient) => Promise<T>, database = pool): Promise<T | null> {
@@ -43,14 +44,24 @@ export async function buildMissionEmail(userId: string, missionId: string, optio
   const activity = await readMissionReport<MissionPerformanceRow[]>("performance", userId, missionId, {
     from: period.start.toISOString(), to: new Date(period.end.getTime() - 1).toISOString(),
   });
-  return renderMissionEmail(report, activity, options, now);
+  return { ...renderMissionEmail(report, activity, options, now),
+    attachments: options.includeExcel ? [buildMissionEmailExcel(report, activity, options, now)] : [] };
+}
+export async function missionSystemSender(country: string) {
+  const [settings, connection] = await Promise.all([
+    storage.getCountrySystemSettingsByCountry(country), storage.getSystemMs365Connection(country),
+  ]);
+  const email = settings?.systemEmailAddress?.trim() || null;
+  return { country, email, connected: Boolean(email && connection?.isConnected && connection.accessToken &&
+    connection.email?.trim().toLowerCase() === email.toLowerCase()) };
 }
 /** One direct Graph send, never provider retries or a fallback through a personal mailbox. */
-export async function sendMissionEmail(country: string, to: string, subject: string, html: string) {
+export async function sendMissionEmail(country: string, to: string, subject: string, html: string, attachments: MissionEmailAttachment[] = []) {
   const settings = await storage.getCountrySystemSettingsByCountry(country);
   const sender = settings?.systemEmailAddress?.trim();
   const connection = await storage.getSystemMs365Connection(country);
-  if (!sender || !connection?.accessToken) throw new Error("System mailbox unavailable");
+  if (!sender || !connection?.isConnected || !connection.accessToken ||
+    connection.email?.trim().toLowerCase() !== sender.toLowerCase()) throw new Error("System mailbox unavailable");
   const tokens = await getValidAccessToken(decryptTokenSafe(connection.accessToken), connection.tokenExpiresAt,
     connection.refreshToken ? decryptTokenSafe(connection.refreshToken) : null, { quiet: true });
   if (!tokens?.accessToken) throw new Error("System mailbox unavailable");
@@ -65,7 +76,9 @@ export async function sendMissionEmail(country: string, to: string, subject: str
   const response = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(sender)}/sendMail`, {
     method: "POST", signal: AbortSignal.timeout(30_000),
     headers: { Authorization: `Bearer ${tokens.accessToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ message: { subject, body: { contentType: "HTML", content: html },
+    body: JSON.stringify({ message: { subject, from: { emailAddress: { address: sender } },
+      body: { contentType: "HTML", content: html },
+      attachments: attachments.map(file => ({ "@odata.type": "#microsoft.graph.fileAttachment", ...file })),
       toRecipients: [{ emailAddress: { address: to } }] }, saveToSentItems: true }),
   });
   if (response.status !== 202) throw new Error("System mailbox send not confirmed");
@@ -114,7 +127,7 @@ export async function processMissionEmailSchedule(id: string, dependencies = def
           continue;
         }
         try {
-          await dependencies.send(options.country, recipient.email, content.subject, content.html);
+          await dependencies.send(options.country, recipient.email, content.subject, content.html, content.attachments);
           await client.query(`UPDATE mission_report_deliveries SET status='sent',updated_at=now() WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [id, key, userId]);
         } catch {
           state = "unknown";

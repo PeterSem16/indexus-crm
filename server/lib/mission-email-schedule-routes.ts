@@ -1,23 +1,22 @@
 import type { Express, RequestHandler } from "express";
 import type { Pool, PoolClient } from "pg";
 import { pool } from "../db";
+import { z } from "zod";
 import { access, authenticatedUserId } from "./mission-funnel-routes";
 import { missionEmailScheduleSchema, MISSION_EMAIL_REPORT, nextMissionEmailRun } from "../../shared/mission-email-schedule";
-import { buildMissionEmail, missionRecipient, parseStoredMissionSchedule, withMissionScheduleLock } from "./mission-email-scheduler";
-import { storage } from "../storage";
+import { buildMissionEmail, missionRecipient, missionSystemSender, parseStoredMissionSchedule, sendMissionEmail, withMissionScheduleLock } from "./mission-email-scheduler";
 
 class ScheduleError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
 const runtime = {
   build: buildMissionEmail,
-  mailboxReady: async (country: string) => {
-    const connection = await storage.getSystemMs365Connection(country);
-    const settings = await storage.getCountrySystemSettingsByCountry(country);
-    return Boolean(connection?.accessToken && settings?.systemEmailAddress);
-  },
+  send: sendMissionEmail,
+  sender: missionSystemSender,
+  mailboxReady: async (country: string) => (await missionSystemSender(country)).connected,
 };
-export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHandler, database: Pick<Pool, "query" | "connect"> = pool, dependencies = runtime) {
+export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHandler, database: Pick<Pool, "query" | "connect"> = pool, overrides: Partial<typeof runtime> = {}) {
+  const dependencies = { ...runtime, ...overrides };
   const manager = async (userId: string, missionId: string) => {
     const user = await access(userId, missionId, database);
     if (!user?.canConfigure) throw new ScheduleError(403, "not_authorized");
@@ -36,7 +35,7 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
   };
   app.get("/api/campaigns/:id/mission-report-schedules", auth, async (req, res) => {
     try {
-      const user = await access(authenticatedUserId(req), req.params.id, database);
+      const userId = authenticatedUserId(req), user = await access(userId, req.params.id, database);
       if (!user?.canRead) throw new ScheduleError(403, "not_authorized");
       if (!user.canConfigure) return res.json({ canManage: false, users: [], countries: [], schedules: [] });
       const recipients = await database.query(`SELECT u.id,COALESCE(NULLIF(BTRIM(u.full_name),''),u.username) AS name,u.email
@@ -51,7 +50,10 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
         delivery_options->>'lastStatus' AS "lastStatus"
         FROM scheduled_reports WHERE campaign_id=$1 AND report_types @> ARRAY[$2]::text[] ORDER BY created_at,id`,
       [req.params.id, MISSION_EMAIL_REPORT]);
-      res.json({ canManage: true, users: recipients.rows, countries: user.country_codes ?? [], schedules: rows });
+      const senders = await Promise.all((user.country_codes ?? []).map((country: string) => dependencies.sender(country)));
+      const self = await missionRecipient(userId, req.params.id, database);
+      res.json({ canManage: true, users: recipients.rows, countries: user.country_codes ?? [], schedules: rows,
+        senders, testRecipientEmail: self?.email ?? null });
     } catch (value) { error(res, value); }
   });
   const save: RequestHandler = async (req, res) => {
@@ -66,7 +68,7 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
       if (data.enabled) {
         if (!await dependencies.mailboxReady(data.country)) throw new ScheduleError(409, "system_mailbox_unavailable");
       }
-      const delivery = { frequency: data.frequency, weekday: data.weekday, monthDay: data.monthDay, country: data.country, locale: data.locale };
+      const delivery = { frequency: data.frequency, weekday: data.weekday, monthDay: data.monthDay, country: data.country, locale: data.locale, includeExcel: data.includeExcel };
       const nextRun = data.enabled ? nextMissionEmailRun(data) : null;
       let row;
       if (req.params.scheduleId) {
@@ -109,6 +111,53 @@ export function registerMissionEmailScheduleRoutes(app: Express, auth: RequestHa
       const row = await getRow(req.params.id, req.params.scheduleId);
       const content = await dependencies.build(userId, req.params.id, parseStoredMissionSchedule(row));
       res.json({ subject: content.subject, html: content.html, from: content.from, to: content.to });
+    } catch (value) { error(res, value); }
+  });
+  app.post("/api/campaigns/:id/mission-report-schedules/:scheduleId/test-email", auth, async (req, res) => {
+    try {
+      const userId = authenticatedUserId(req);
+      await manager(userId, req.params.id);
+      const input = z.object({ requestId: z.string().uuid() }).strict().safeParse(req.body);
+      if (!input.success) throw new ScheduleError(400, "invalid_test_request");
+      const result = await withMissionScheduleLock(`mission-email-test:${userId}`, async () =>
+        withMissionScheduleLock(req.params.scheduleId, async client => {
+          const row = await getRow(req.params.id, req.params.scheduleId, client);
+          const options = parseStoredMissionSchedule(row), user = await manager(userId, req.params.id);
+          if (!user.country_codes?.includes(options.country)) throw new ScheduleError(403, "not_authorized");
+          const recipient = await missionRecipient(userId, req.params.id, database);
+          if (!recipient) throw new ScheduleError(409, "test_recipient_unavailable");
+          const sender = await dependencies.sender(options.country);
+          if (!sender.connected || !sender.email) throw new ScheduleError(409, "system_mailbox_unavailable");
+          const key = `test:${userId}:${input.data.requestId}`;
+          const previous = (await client.query(`SELECT status FROM mission_report_deliveries
+            WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [row.id, key, userId])).rows[0];
+          const response = { status: "sent", to: recipient.email, from: sender.email, attachmentIncluded: options.includeExcel };
+          if (previous?.status === "sent") return response;
+          if (previous) throw new ScheduleError(409, "test_delivery_unconfirmed");
+          const count = (await client.query(`SELECT count(*)::int AS count FROM mission_report_deliveries
+            WHERE recipient_id=$1 AND period_key LIKE 'test:%' AND created_at > now()-interval '1 minute'`, [userId])).rows[0]?.count ?? 0;
+          if (count >= 3) throw new ScheduleError(429, "test_rate_limited");
+          const content = await dependencies.build(userId, req.params.id, options);
+          // Reserve once before Graph: a timeout is uncertain, never safe to resend.
+          const claimed = await client.query(`INSERT INTO mission_report_deliveries(schedule_id,period_key,recipient_id,status)
+            VALUES($1,$2,$3,'sending') ON CONFLICT DO NOTHING RETURNING recipient_id`, [row.id, key, userId]);
+          if (!claimed.rowCount) throw new ScheduleError(409, "test_delivery_unconfirmed");
+          try {
+            const label = options.locale === "hu" ? "TESZT" : "TEST";
+            await dependencies.send(options.country, recipient.email, `[${label}] ${content.subject}`,
+              content.html.replace(/(<body[^>]*>)/i, `$1<p style="padding:12px;font-weight:bold">${label} · INDEXUS</p>`),
+              content.attachments);
+            await client.query(`UPDATE mission_report_deliveries SET status='sent',updated_at=now()
+              WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [row.id, key, userId]);
+          } catch {
+            await client.query(`UPDATE mission_report_deliveries SET status='unknown',updated_at=now()
+              WHERE schedule_id=$1 AND period_key=$2 AND recipient_id=$3`, [row.id, key, userId]);
+            throw new ScheduleError(409, "test_delivery_unconfirmed");
+          }
+          return response;
+        }, database as Pool), database as Pool);
+      if (!result) throw new ScheduleError(409, "schedule_busy");
+      res.json(result);
     } catch (value) { error(res, value); }
   });
   // Legacy report APIs must not bypass the new schedule ownership/country checks.

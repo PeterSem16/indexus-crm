@@ -28,7 +28,12 @@ export function scheduleFixture(options: { unauthorized?: string; unknown?: bool
       if (ledger.has(key)) return result();
       ledger.set(key, "sending"); return result([{ recipient_id: args[2] }]);
     }
-    if (sql.includes("SELECT status FROM mission_report_deliveries")) return result([{ status: ledger.get(`${args[1]}:${args[2]}`) }]);
+    if (sql.includes("SELECT status FROM mission_report_deliveries")) {
+      const status = ledger.get(`${args[1]}:${args[2]}`);
+      return result(status ? [{ status }] : []);
+    }
+    if (sql.includes("SELECT count(*)::int AS count FROM mission_report_deliveries"))
+      return result([{ count: [...ledger.keys()].filter(key => key.startsWith("test:")).length }]);
     if (sql.includes("UPDATE mission_report_deliveries")) {
       ledger.set(`${args[1]}:${args[2]}`, sql.includes("status='sent'") ? "sent" : "unknown"); return result();
     }

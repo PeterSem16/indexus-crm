@@ -3,7 +3,7 @@ import { missionEmailPeriod, missionWallClock, type MissionEmailOptions } from "
 import { missionFunnelTranslations } from "../../client/src/i18n/mission-funnel-translations";
 import type { MissionPerformanceRow } from "./mission-report-sources";
 
-const copies = {
+export const copies = {
   en: ["Mission summary", "New funnel milestones", "Agent performance", "Agent", "New calls", "Repeat calls", "Emails", "SMS", "Tasks", "Talk time", "Ring time", "Total time", "Dated attainments", "Without a reliable date", "Funnel counts first direct attainments in this period, not first-call cohorts. Undated or inferred attainments are excluded. Agent performance counts activity performed in the period.", "No activity", "Period"],
   sk: ["Súhrn Mission", "Nové dosiahnutia vo funneli", "Výkon agentov", "Agent", "Nové hovory", "Opakované hovory", "E-maily", "SMS", "Úlohy", "Čas hovoru", "Čas zvonenia", "Celkový čas", "Dosiahnutia s dátumom", "Bez spoľahlivého dátumu", "Funnel počíta prvé priame dosiahnutia v období, nie kohorty podľa prvého hovoru. Nedatované a odvodené dosiahnutia sú vylúčené. Výkon agentov počíta činnosť vykonanú v danom období.", "Bez aktivity", "Obdobie"],
   cs: ["Souhrn Mission", "Nová dosažení ve funnelu", "Výkon agentů", "Agent", "Nové hovory", "Opakované hovory", "E-maily", "SMS", "Úkoly", "Doba hovoru", "Doba vyzvánění", "Celkový čas", "Dosažení s datem", "Bez spolehlivého data", "Funnel počítá první přímá dosažení v období, nikoli kohorty podle prvního hovoru. Nedatovaná a odvozená dosažení jsou vyloučena. Výkon agentů počítá činnost provedenou v daném období.", "Bez aktivity", "Období"],
@@ -19,11 +19,11 @@ const duration = (value: number) => {
   return `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 };
 const displayDay = (day: string) => day.split("-").reverse().join(".");
-export function renderMissionEmail(report: MissionFunnelReport, activity: MissionPerformanceRow[], options: MissionEmailOptions, now = new Date()) {
-  const text = copies[options.locale], copy = missionFunnelTranslations[options.locale];
+/** Shared by HTML and Excel; never count inferred or undated evidence as dated. */
+export function missionEmailFunnel(report: MissionFunnelReport, options: MissionEmailOptions, now = new Date()) {
+  const copy = missionFunnelTranslations[options.locale];
   const period = missionEmailPeriod(options.frequency, now);
-  const table = (headers: readonly string[], rows: unknown[][]) => `<table role="table" style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>${headers.map(header => `<th style="text-align:left;padding:9px;border-bottom:2px solid #d8e1e7">${escapeMissionEmail(header)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td style="padding:8px;border-bottom:1px solid #e9eef2">${escapeMissionEmail(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-  const funnel = report.rows.filter(row => row.key !== "assigned").map(row => {
+  return report.rows.filter(row => row.key !== "assigned").map(row => {
     let dated = 0, undated = 0;
     for (const member of row.members) {
       if (member.inferred) continue;
@@ -37,6 +37,12 @@ export function renderMissionEmail(report: MissionFunnelReport, activity: Missio
     }
     return [copy.stepLabels[row.key], row.total === null ? copy.unmeasured : dated, row.total === null ? copy.unmeasured : undated];
   });
+}
+export function renderMissionEmail(report: MissionFunnelReport, activity: MissionPerformanceRow[], options: MissionEmailOptions, now = new Date()) {
+  const text = copies[options.locale], copy = missionFunnelTranslations[options.locale];
+  const period = missionEmailPeriod(options.frequency, now);
+  const table = (headers: readonly string[], rows: unknown[][]) => `<table role="table" style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>${headers.map(header => `<th style="text-align:left;padding:9px;border-bottom:2px solid #d8e1e7">${escapeMissionEmail(header)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td style="padding:8px;border-bottom:1px solid #e9eef2">${escapeMissionEmail(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  const funnel = missionEmailFunnel(report, options, now);
   const subject = `INDEXUS · ${text[0]} · ${report.missionName} · ${displayDay(period.from)} – ${displayDay(period.to)}`.replace(/[\r\n]/g, " ");
   const performance = activity.map(row => [row.agentName || copy.unmeasured, row.newCalls, row.repeatCalls, row.emails, row.sms,
     row.nonstandardTasks, duration(row.talkSeconds), duration(row.ringSeconds), duration(row.totalSeconds)]);
