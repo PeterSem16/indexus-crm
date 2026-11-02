@@ -41,4 +41,8 @@ test("audit distinguishes stored mappings, state, history and the requested funn
   ]) assert.ok(sql.includes(check), check);
   assert.match(sql, /md5|clinic_id/);
   assert.doesNotMatch(sql, /\b(?:phone|email_address|mobile|clinic_name)\b/i);
+  assert.match(sql, /validated_current AND agreed_current/);
+  assert.match(sql, /validated_ever AND agreed_ever/);
+  assert.doesNotMatch(sql, /active_with_current AND agreed_current/);
+  for (const code of ["MPN-13d","MPN-14d","MPN-15d"]) assert.ok(sql.includes(code),code);
 });

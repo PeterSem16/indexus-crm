@@ -51,3 +51,16 @@ test("English funnel stages use the full requested wording", () => {
     assert.notEqual(missionFunnelTranslations[locale].exceptionLabels.unreachable, "Unreachable", `${locale}.unreachable`);
   }
 });
+
+test("all locales explain validated contract cooperation and name the three sent materials", () => {
+  const terms={en:"validated contract",sk:"overenú zmluvu",cs:"ověřenou smlouvu",
+    hu:"ellenőrzött szerződés",ro:"contract validat",it:"contratto convalidato",de:"geprüften Vertrag"};
+  for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
+    const copy=missionFunnelTranslations[locale];
+    assert.ok(copy.configurationHelp.includes(terms[locale]),`${locale}.contract rule`);
+    for (const source of ["materials17","materials18","materials19"] as const) {
+      assert.doesNotMatch(copy.sourceLabels[source],/\b(?:17|18|19)\b/,`${locale}.${source}`);
+      if (locale!=="en") assert.notEqual(copy.sourceLabels[source],missionFunnelTranslations.en.sourceLabels[source]);
+    }
+  }
+});

@@ -106,9 +106,9 @@ source_defs(source, default_step_ids, sort_order) AS (VALUES
   ('validated', ARRAY['MPN-12e']::text[], 10),
   ('activeWith', ARRAY[]::text[], 11),
   ('activeWithout', ARRAY[]::text[], 12),
-  ('materials17', ARRAY[]::text[], 13),
-  ('materials18', ARRAY[]::text[], 14),
-  ('materials19', ARRAY[]::text[], 15),
+  ('materials17', ARRAY['MPN-13d']::text[], 13),
+  ('materials18', ARRAY['MPN-14d']::text[], 14),
+  ('materials19', ARRAY['MPN-15d']::text[], 15),
   ('unqualified', ARRAY['MPN-04c']::text[], 16),
   ('refused', ARRAY['MPN-05d']::text[], 17),
   ('absent', ARRAY[]::text[], 18),
@@ -211,6 +211,8 @@ contact_flags AS (
     bool_or(currently_selected) FILTER (WHERE source = 'proposalUnaccepted') AS unaccepted_current,
     bool_or(ever_confirmed) FILTER (WHERE source = 'proposalOther') AS other_ever,
     bool_or(currently_selected) FILTER (WHERE source = 'proposalOther') AS other_current,
+    bool_or(ever_confirmed) FILTER (WHERE source = 'validated') AS validated_ever,
+    bool_or(currently_selected) FILTER (WHERE source = 'validated') AS validated_current,
     bool_or(ever_confirmed) FILTER (WHERE source = 'activeWith') AS active_with_ever,
     bool_or(currently_selected) FILTER (WHERE source = 'activeWith') AS active_with_current,
     bool_or(ever_confirmed) FILTER (WHERE source = 'activeWithout') AS active_without_ever,
@@ -236,15 +238,15 @@ flow_checks AS (
     count(DISTINCT f.clinic_id) FILTER (WHERE sent_ever AND email_ever AND sent_first < email_first)
       AS email_first_confirmed_after_contract_sent,
     count(DISTINCT f.clinic_id) FILTER (WHERE
-      (active_with_current AND agreed_current AND (accepted_current OR other_current))
+      (validated_current AND agreed_current AND (accepted_current OR other_current))
       OR (active_without_current AND agreed_current AND unaccepted_current))
       AS current_cooperation_rule_matches_same_contact,
     count(DISTINCT f.clinic_id) FILTER (WHERE
-      (active_with_ever AND agreed_ever AND (accepted_ever OR other_ever))
+      (validated_ever AND agreed_ever AND (accepted_ever OR other_ever))
       OR (active_without_ever AND agreed_ever AND unaccepted_ever))
       AS same_contact_cooperation_ever_sources_upper_bound,
     count(DISTINCT f.clinic_id) FILTER (WHERE
-      active_with_current AND agreed_current AND (accepted_current OR other_current)
+      validated_current AND agreed_current AND (accepted_current OR other_current)
       AND materials17_current AND materials18_current AND materials19_current)
       AS current_materials_rule_matches_same_contact,
     count(DISTINCT f.clinic_id) FILTER (WHERE

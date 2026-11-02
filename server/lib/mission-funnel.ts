@@ -76,7 +76,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
       if (yes("proposalUnaccepted")) put(target, "withoutContract", at, basis);
       else if (yes("proposalAccepted") || yes("proposalOther")) put(target, "wantsContract", at, basis);
     }
-    if (yes("activeWith") && yes("agreed") && (yes("proposalAccepted") || yes("proposalOther")) ||
+    if (yes("validated") && yes("agreed") && (yes("proposalAccepted") || yes("proposalOther")) ||
         yes("activeWithout") && yes("agreed") && yes("proposalUnaccepted")) put(target, "cooperating", at, basis);
     if (target.has("cooperating") && yes("materials17") && yes("materials18") && yes("materials19")) put(target, "materials", at, basis);
   };
@@ -193,13 +193,16 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     if (!cohort.has(clinic.id)) continue;
     for (const [key, value] of clinicMilestones.get(clinic.id)!) rows.get(key)!.set(clinic.id, value);
   }
+  const cooperationMeasurable =
+    has("validated") && has("agreed") && (has("proposalAccepted") || has("proposalOther")) ||
+    has("activeWithout") && has("agreed") && has("proposalUnaccepted");
   const measurable: Record<FunnelStep, boolean> = {
     assigned: true, dialed: true, connected: true, qualified: has("qualified"), agreed: has("agreed"),
     wantsContract: has("agreed") && (has("proposalAccepted") || has("proposalOther")),
     withoutContract: has("agreed") && has("proposalUnaccepted"), email: has("email"),
     wantsToSign: has("agreed") && has("proposalAccepted"), sent: has("sent"), received: has("received"),
-    returned: has("returned"), validated: has("validated"), cooperating: has("activeWith") || has("activeWithout"),
-    materials: (has("activeWith") || has("activeWithout")) && has("materials17") && has("materials18") && has("materials19"),
+    returned: has("returned"), validated: has("validated"), cooperating: cooperationMeasurable,
+    materials: cooperationMeasurable && has("materials17") && has("materials18") && has("materials19"),
   };
   const previous: Record<FunnelStep, FunnelStep | null> = {
     assigned: null, dialed: "assigned", connected: "dialed", qualified: "connected", agreed: "qualified",
@@ -213,7 +216,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   })).sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const count = (key: FunnelStep) => measurable[key] || rows.get(key)!.size > 0 ? rows.get(key)!.size : null;
   return {
-    version: "funnel-v04.1", generatedAt: now.toISOString(), timezone: "Europe/Bratislava", config, items: input.items,
+    version: "funnel-v04.2", generatedAt: now.toISOString(), timezone: "Europe/Bratislava", config, items: input.items,
     quality,
     rows: funnelSteps.map(key => {
       const values = members(rows.get(key)!);

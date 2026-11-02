@@ -9,7 +9,7 @@ import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilen
 import { funnelExportTranslations, funnelDownloadLabels } from "@/i18n/mission-funnel-export-translations";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import {
-  funnelExceptions, funnelSources, funnelSteps,
+  configurableFunnelSources, funnelExceptions, funnelSources, funnelSteps,
   type FunnelConfig, type FunnelMember, type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
@@ -240,7 +240,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
     }
   };
 
-  const hasMissingMapping = Boolean(report && funnelSources.some(source => report.config.sources[source].length === 0));
+  const hasMissingMapping = Boolean(report && configurableFunnelSources.some(source => report.config.sources[source].length === 0));
   const displayedRows = useMemo(() => funnelSteps.map(step => report?.rows.find(row => row.key === step) ?? {
     key: step, total: null, direct: null, inferred: null, previousPercent: null, qualifiedPercent: null, members: [],
   }), [report?.rows]);
@@ -468,7 +468,7 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
                   </div>
                   {filteredItems.length === 0 && <p className="mb-4 text-sm text-muted-foreground">{copy.noMatchingItems}</p>}
                   <div className="space-y-3">
-                    {funnelSources.map(source => {
+                    {configurableFunnelSources.map(source => {
                       const visibleItems = filteredItems;
                       const selectedCount = config.sources[source].length;
                       return (

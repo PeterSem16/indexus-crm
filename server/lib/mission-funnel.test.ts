@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeMissionFunnel, type FunnelInput, type FunnelCall } from "./mission-funnel";
-import { emptyFunnelConfig, suggestFunnelConfig, funnelConfigSchema, funnelSources } from "../../shared/mission-funnel";
+import { configurableFunnelSources, emptyFunnelConfig, suggestFunnelConfig, funnelConfigSchema, funnelSources } from "../../shared/mission-funnel";
 
 const at = (day: string) => `${day}T10:00:00.000Z`;
 function setup(): FunnelInput {
@@ -64,7 +64,7 @@ test("inferred contract predecessors remain separate, with no fabricated date or
   assert.equal(email.total,1); assert.equal(email.direct,0); assert.equal(email.inferred,1);
   assert.equal(email.members[0].firstDate,null);
   assert.equal(email.members[0].evidenceDate,at("2026-09-03"));
-  assert.equal(row(input,"cooperating").total,0);
+  assert.equal(row(input,"cooperating").total,1);
   const other=setup(); confirm(other,"agreed","2026-09-02"); confirm(other,"proposalUnaccepted","2026-09-03");
   confirm(other,"activeWithout","2026-09-04");
   assert.equal(row(other,"cooperating").total,1);
@@ -75,6 +75,88 @@ test("later direct evidence replaces inferred provenance without multiplying cli
   confirm(input,"email","2026-09-06");
   assert.equal(row(input,"email").direct,1); assert.equal(row(input,"email").inferred,0);
   assert.equal(row(input,"email").members[0].firstDate,at("2026-09-06"));
+});
+test("contract cooperation uses validation, agreement and a proven branch without the retired source", () => {
+  const input=setup();
+  input.config!.sources.activeWith=[];
+  confirm(input,"validated","2026-09-02");
+  assert.equal(row(input,"cooperating").total,0);
+  confirm(input,"agreed","2026-09-03");
+  assert.equal(row(input,"cooperating").total,0);
+  confirm(input,"proposalAccepted","2026-09-04");
+  const cooperation=row(input,"cooperating");
+  assert.equal(cooperation.total,1);
+  assert.equal(cooperation.direct,1);
+  assert.equal(cooperation.members[0].firstDate,at("2026-09-04"));
+  assert.equal(cooperation.members[0].basis,"history");
+  const legacy=setup();
+  confirm(legacy,"agreed","2026-09-02");
+  confirm(legacy,"proposalAccepted","2026-09-03");
+  confirm(legacy,"activeWith","2026-09-04");
+  assert.equal(row(legacy,"cooperating").total,0);
+});
+test("contract cooperation never joins withdrawn or separate-enrollment evidence", () => {
+  const input=setup();
+  confirm(input,"agreed","2026-09-02");
+  confirm(input,"agreed","2026-09-03",false);
+  confirm(input,"validated","2026-09-04");
+  confirm(input,"proposalAccepted","2026-09-04");
+  assert.equal(row(input,"cooperating").total,0);
+  input.enrollments.push({id:"other",clinicId:"a"});
+  confirm(input,"agreed","2026-09-05",true,"other");
+  assert.equal(row(input,"cooperating").total,0);
+  confirm(input,"agreed","2026-09-06");
+  assert.equal(row(input,"cooperating").members[0].firstDate,at("2026-09-06"));
+});
+test("state-only contract cooperation retains an unknown date and does not mutate its sources", () => {
+  const input=setup();
+  input.states=["agreed","validated","proposalAccepted"].map(itemId=>({contactId:"c",itemId,at:at("2026-09-03")}));
+  const before=JSON.stringify(input);
+  const cooperation=row(input,"cooperating");
+  assert.equal(cooperation.total,1);
+  assert.equal(cooperation.members[0].firstDate,null);
+  assert.equal(cooperation.members[0].basis,"state");
+  assert.equal(JSON.stringify(input),before);
+});
+test("production-code suggestions measure contract cooperation and all three materials without a poster", () => {
+  const input=setup();
+  input.items=["MPN-05c","MPN-06d","MPN-12e","MPN-13d","MPN-14d","MPN-15d","MPN-16d"]
+    .map(stepId=>({id:stepId,stepId,label:stepId,parentId:null}));
+  input.config=suggestFunnelConfig(input.items);
+  assert.deepEqual(input.config.sources.materials17,["MPN-13d"]);
+  assert.deepEqual(input.config.sources.materials18,["MPN-14d"]);
+  assert.deepEqual(input.config.sources.materials19,["MPN-15d"]);
+  assert.deepEqual(input.config.sources.activeWith,[]);
+  assert.equal(row(input,"cooperating").total,0);
+  assert.equal(row(input,"materials").total,0);
+  for (const id of ["MPN-05c","MPN-06d","MPN-12e"]) confirm(input,id,"2026-09-02");
+  assert.equal(row(input,"cooperating").total,1);
+  confirm(input,"MPN-13d","2026-09-03");
+  confirm(input,"MPN-14d","2026-09-03");
+  assert.equal(row(input,"materials").total,0);
+  confirm(input,"MPN-15d","2026-09-04");
+  assert.equal(row(input,"materials").total,1);
+  assert.equal(row(input,"materials").members[0].firstDate,at("2026-09-04"));
+});
+test("retired source remains save-compatible but is not offered in the configuration editor", () => {
+  assert.equal(new Set<string>(configurableFunnelSources).has("activeWith"),false);
+  assert.equal(configurableFunnelSources.includes("activeWithout"),true);
+  const config=emptyFunnelConfig();
+  config.sources.activeWith=["legacy-id"];
+  assert.equal(funnelConfigSchema.safeParse(config).success,true);
+});
+test("cooperation is unknown when no complete branch is mapped, including materials", () => {
+  const input=setup();
+  input.config!.sources.agreed=[];
+  assert.equal(row(input,"cooperating").total,null);
+  assert.equal(row(input,"materials").total,null);
+});
+test("contract validation does not bypass the separate no-contract cooperation confirmation", () => {
+  const input=setup();
+  for (const key of ["agreed","proposalUnaccepted","validated"]) confirm(input,key,"2026-09-02");
+  assert.equal(row(input,"cooperating").total,0);
+  confirm(input,"activeWithout","2026-09-03");
+  assert.equal(row(input,"cooperating").total,1);
 });
 test("materials require cooperation AND all three material choices; poster is not needed", () => {
   const input=setup(); confirm(input,"agreed","2026-09-02"); confirm(input,"proposalUnaccepted","2026-09-03");

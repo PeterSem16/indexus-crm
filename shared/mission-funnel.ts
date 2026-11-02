@@ -7,6 +7,9 @@ export const funnelSources = [
   "absent", "wrongNumber", "notWorking",
 ] as const;
 export type FunnelSource = typeof funnelSources[number];
+// Keep the retired contract-active source in saved v1 configurations, but it no
+// longer controls cooperation: that branch uses validated + agreed + proposal.
+export const configurableFunnelSources = funnelSources.filter(source => source !== "activeWith");
 export const funnelSteps = [
   "assigned", "dialed", "connected", "qualified", "agreed", "wantsContract",
   "withoutContract", "email", "wantsToSign", "sent", "received", "returned",
@@ -60,6 +63,7 @@ export function suggestFunnelConfig(items: FunnelItem[]): FunnelConfig {
     email: ["MPN-07b"], sent: ["MPN-08b"], received: ["MPN-10c"],
     returned: ["MPN-11a"], validated: ["MPN-12e"], unqualified: ["MPN-04c"],
     refused: ["MPN-05d"],
+    materials17: ["MPN-13d"], materials18: ["MPN-14d"], materials19: ["MPN-15d"],
   };
   for (const source of funnelSources) {
     config.sources[source] = items.filter(item => codes[source]?.includes(item.stepId)).map(item => item.id);
