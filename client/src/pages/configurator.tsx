@@ -11762,7 +11762,7 @@ const rewriteEmailArtworkPreview = (html: string) => html.replace(
   (_match, artwork: string) => `/api/automation/email-artwork/${artwork.toLowerCase()}`,
 );
 
-function MessageTemplatesTab() {
+export function MessageTemplatesTab() {
   const { t, locale } = useI18n();
   const taskCopy = getTaskActionCopy(locale);
   const notificationCopy = getNotificationCopy(locale);
@@ -12987,10 +12987,10 @@ function MessageTemplatesTab() {
 
       {/* Template Drawer — 3-column: settings | editor | variables */}
       <Sheet open={isTemplateDialogOpen} onOpenChange={(open) => { setIsTemplateDialogOpen(open); if (!open) { setVarsSearch(""); setOpenVarGroup(null); } }}>
-        <SheetContent side="right" drawerWidth="wide" className="w-full sm:max-w-[1300px] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <SheetContent side="right" drawerWidth="none" className="w-full sm:w-[96vw] sm:max-w-[1600px] flex flex-col min-w-0 p-0 gap-0 [&>button]:hidden" data-testid="template-drawer">
           {/* Drawer Header */}
-          <div className="flex items-center justify-between px-6 py-3.5 border-b shrink-0 bg-background">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b shrink-0 bg-background">
+            <div className="min-w-0 w-full sm:w-auto sm:flex-1">
               <SheetTitle className="text-base font-semibold">
                 {editingTemplate ? t.konfigurator.editMessageTemplate : t.konfigurator.addMessageTemplate}
               </SheetTitle>
@@ -12998,7 +12998,7 @@ function MessageTemplatesTab() {
                 {t.konfigurator.messageTemplatesDescription}
               </SheetDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {(templateType === "email" || templateType === "notification") && (
                 <Button
                   variant="outline"
@@ -13030,10 +13030,10 @@ function MessageTemplatesTab() {
           </div>
 
           {/* Drawer Body — 3 columns */}
-          <div className="flex flex-1 overflow-hidden min-h-0">
+          <div className="flex flex-1 min-h-0 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden" data-testid="template-drawer-body">
 
-            {/* COLUMN 1 — Settings (260px) */}
-            <div className="w-[260px] shrink-0 border-r overflow-y-auto bg-muted/15">
+            {/* COLUMN 1 — Settings */}
+            <div className="w-full shrink-0 border-b bg-muted/15 lg:w-[360px] lg:border-b-0 lg:border-r lg:overflow-y-auto lg:min-h-0" data-testid="template-settings-panel">
               <div className="p-4 space-y-4">
 
                 {/* Name */}
@@ -13051,36 +13051,36 @@ function MessageTemplatesTab() {
                 {/* Type toggle */}
                 <div className="space-y-1.5">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{t.konfigurator.templateType}</Label>
-                  <div className="flex gap-1 p-0.5 bg-background border rounded-lg">
+                  <div className="grid grid-cols-2 gap-1 p-0.5 bg-background border rounded-lg">
                     <button
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "email" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`min-w-0 flex items-center justify-start gap-1.5 py-1.5 px-2 rounded-md text-left whitespace-normal leading-tight text-xs font-medium transition-all ${templateType === "email" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => setTemplateType("email")}
                       data-testid="toggle-type-email"
                     >
-                      <Mail className="h-3 w-3" /> Email
+                      <Mail className="h-3 w-3 shrink-0" /> Email
                     </button>
                     <button
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "sms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`min-w-0 flex items-center justify-start gap-1.5 py-1.5 px-2 rounded-md text-left whitespace-normal leading-tight text-xs font-medium transition-all ${templateType === "sms" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => setTemplateType("sms")}
                       data-testid="toggle-type-sms"
                     >
-                      <Smartphone className="h-3 w-3" /> SMS
+                      <Smartphone className="h-3 w-3 shrink-0" /> SMS
                     </button>
                     <button
                       type="button"
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all ${templateType === "task" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`min-w-0 flex items-center justify-start gap-1.5 py-1.5 px-2 rounded-md text-left whitespace-normal leading-tight text-xs font-medium transition-all ${templateType === "task" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => { setTemplateType("task"); setTemplateFormat("text"); setTemplateContentHtml(""); }}
                       data-testid="toggle-type-task"
                     >
-                      <ClipboardList className="h-3 w-3" /> {taskCopy.taskType}
+                      <ClipboardList className="h-3 w-3 shrink-0" /> {taskCopy.taskType}
                     </button>
                     <button
                       type="button"
-                      className={`min-w-[calc(50%-0.25rem)] flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md text-xs font-medium transition-all sm:min-w-0 ${templateType === "notification" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      className={`min-w-0 flex items-center justify-start gap-1.5 py-1.5 px-2 rounded-md text-left whitespace-normal leading-tight text-xs font-medium transition-all ${templateType === "notification" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                       onClick={() => { setTemplateType("notification"); setTemplateFormat("text"); setHtmlSourceMode(false); }}
                       data-testid="toggle-type-notification"
                     >
-                      <Bell className="h-3 w-3" /> {notificationCopy.notificationType}
+                      <Bell className="h-3 w-3 shrink-0" /> {notificationCopy.notificationType}
                     </button>
                   </div>
                 </div>
@@ -13329,18 +13329,18 @@ function MessageTemplatesTab() {
             </div>
 
             {/* COLUMN 2 — Editor (flex-1) */}
-            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div className="flex w-full min-w-0 flex-col overflow-visible border-b min-h-0 lg:flex-1 lg:overflow-hidden lg:border-b-0" data-testid="template-editor-panel">
 
               {/* Subject row (email only) */}
               {templateType !== "sms" && (
-                <div className="px-5 py-2.5 border-b shrink-0 bg-background">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-24 shrink-0">{templateType === "task" ? taskCopy.taskTitle : templateType === "notification" ? notificationCopy.notificationTitle : t.konfigurator.templateSubject}</span>
+                <div className="px-4 sm:px-5 py-2.5 border-b shrink-0 bg-background">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="w-full min-w-0 text-[10px] font-bold text-muted-foreground uppercase tracking-wider sm:w-24 sm:shrink-0">{templateType === "task" ? taskCopy.taskTitle : templateType === "notification" ? notificationCopy.notificationTitle : t.konfigurator.templateSubject}</span>
                     <Input
                       value={templateSubject}
                       onChange={(e) => setTemplateSubject(e.target.value)}
                       placeholder={`${templateType === "task" ? taskCopy.taskTitle : templateType === "notification" ? notificationCopy.notificationTitle : t.konfigurator.templateSubject}...`}
-                      className="h-8 text-sm flex-1"
+                      className="h-8 w-full min-w-0 flex-1"
                       data-testid="input-template-subject"
                     />
                   </div>
@@ -13349,7 +13349,7 @@ function MessageTemplatesTab() {
 
               {/* Editor toolbar */}
               {templateFormat === "html" && (
-                <div className="flex items-center gap-2 px-4 py-1.5 border-b bg-muted/20 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 px-4 py-1.5 border-b bg-muted/20 shrink-0">
                   <Button
                     variant={htmlSourceMode ? "default" : "ghost"}
                     size="sm"
@@ -13406,7 +13406,7 @@ function MessageTemplatesTab() {
               )}
 
               {/* Editor area */}
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="w-full min-w-0 p-4 sm:p-5 lg:flex-1 lg:overflow-y-auto lg:min-h-0">
                 {templateFormat === "html" ? (
                   htmlSourceMode ? (
                     <div className="space-y-3 h-full flex flex-col">
@@ -13472,8 +13472,8 @@ function MessageTemplatesTab() {
               </div>
             </div>
 
-            {/* COLUMN 3 — Variables (280px, always visible) */}
-            <div className="w-[280px] shrink-0 border-l flex flex-col overflow-hidden bg-muted/10">
+            {/* COLUMN 3 — Variables */}
+            <div className="flex w-full shrink-0 flex-col overflow-visible bg-muted/10 lg:w-[300px] lg:border-l lg:overflow-hidden lg:min-h-0" data-testid="template-variables-panel">
               {/* Variables header */}
               <div className="px-3 py-3 border-b shrink-0 bg-background/80 backdrop-blur-sm space-y-2">
                 <div className="flex items-center gap-1.5">
@@ -13574,7 +13574,7 @@ function MessageTemplatesTab() {
               </div>
 
               {/* Variables list */}
-              <div className="overflow-y-auto flex-1 py-1.5">
+              <div className="py-1.5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                 {varsSearch ? (
                   // Flat filtered search results
                   <div className="px-2 space-y-0.5">
