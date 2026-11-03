@@ -112,6 +112,10 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     // explicit exclusion, never evidence of sending. All-declined sends nothing.
     const partsSent = parts.some(key => yes(key)) && parts.every(key =>
       yes(key) || materials?.excluded[key].some(id => active.has(id)));
+    // Independent shipping evidence is not proof of cooperation or consent.
+    if (packageSent || partsSent)
+      credit("packageSent", ["materials17", "materials18", "materials19"],
+        [...(materials?.packageSent ?? []), ...parts.flatMap(key => materials?.excluded[key] ?? [])]);
     if (legacyCooperationReached.has(target) && (packageSent || partsSent))
       credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"],
         [...(materials?.packageSent ?? []), ...parts.flatMap(key => materials?.excluded[key] ?? [])]);
@@ -257,6 +261,8 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     withoutContract: has("agreed") && has("proposalUnaccepted"), email: emailMeasurable,
     wantsToSign: has("agreed") && has("proposalAccepted"), sent: has("sent"), received: has("received"),
     returned: has("returned"), validated: has("validated"), cooperating: cooperationMeasurable,
+    packageSent: Boolean(input.config?.materials?.packageSent.length) ||
+      (["materials17", "materials18", "materials19"] as const).every(key => has(key) || Boolean(input.config?.materials?.excluded[key].length)),
     materials: legacyCooperationMeasurable && (Boolean(input.config?.materials?.packageSent.length) ||
       (["materials17", "materials18", "materials19"] as const).every(key => has(key) || Boolean(input.config?.materials?.excluded[key].length))),
   };
@@ -264,7 +270,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     assigned: null, dialed: "assigned", connected: "dialed", qualified: "connected", agreed: "qualified",
     wantsContract: "agreed", withoutContract: "agreed", email: "wantsContract", wantsToSign: "email",
     sent: "wantsToSign", received: "sent", returned: "received", validated: "returned",
-    cooperating: "agreed", materials: "cooperating",
+    cooperating: "agreed", packageSent: null, materials: "cooperating",
   };
   const members = (map: Map<string, Milestone>): FunnelMember[] => [...map].map(([id, value]) => ({
     id, name: clinics.get(id)!.name, firstDate: value.at, evidenceDate: value.evidenceDate,

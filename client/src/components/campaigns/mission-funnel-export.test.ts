@@ -77,6 +77,26 @@ test("individual-step exports keep all evidence and scope summary/metadata witho
   assert.ok(selected[0].rows.some(row => row[0] === copy.step && row[1] === copy.stepLabels.assigned));
   assert.equal(buildFunnelExport(report, copy, labels, filters, { exception: "refused" }).length, 2);
 });
+test("package-sent is labeled in summary, evidence and focused drill-down exports", () => {
+  const materials = report.rows.find(row => row.key === "materials")!;
+  const packageRow = {
+    ...materials,
+    key: "packageSent" as typeof materials.key,
+    total: 7, direct: 6, inferred: 1, previousPercent: null, qualifiedPercent: 53.8,
+    members: [members[0]],
+  };
+  const withPackageSent = { ...report, rows: [...report.rows, packageRow] };
+  const allTables = buildFunnelExport(withPackageSent, copy, labels, filters);
+  assert.ok(allTables[1].rows.some(row => row[0] === copy.stepLabels.packageSent));
+  assert.ok(allTables[2].rows.some(row => row[0] === copy.stepLabels.packageSent));
+
+  const focused = buildFunnelExport(withPackageSent, copy, labels, filters, {
+    step: packageRow.key, locale: "sk",
+  });
+  assert.ok(focused[0].rows.some(row => row[0] === copy.step && row[1] === copy.stepLabels.packageSent));
+  assert.ok(focused[1].rows.some(row => row[0] === copy.stepLabels.packageSent));
+  assert.equal(focused[1].rows[1][4], copy.unmeasured);
+});
 test("Excel dates, clocks and durations are typed, DST-aware, sortable and CSV-readable", async () => {
   assert.equal(exportCellText(exportDate("2026-01-15T23:30:00Z")), "16.01.2026 00:30:00");
   assert.equal(exportCellText(exportDate("2026-07-15T23:30:00Z")), "16.07.2026 01:30:00");

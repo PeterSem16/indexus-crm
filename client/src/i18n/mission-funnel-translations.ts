@@ -2,6 +2,8 @@ import type { Locale } from "./translations";
 import type { FunnelException, FunnelSource, FunnelStep } from "../../../shared/mission-funnel";
 import type { EmailPurpose } from "../../../shared/email-purpose";
 
+type MissionFunnelDisplayStep = FunnelStep | "packageSent";
+
 export interface MissionFunnelCopy {
   title: string; subtitle: string; period: string; from: string; to: string; referral: string;
   referralAll: string; referralYes: string; referralNo: string; assignedNote: string;
@@ -23,7 +25,7 @@ export interface MissionFunnelCopy {
   configuration: string; configurationHelp: string; saveConfiguration: string; saving: string;
   absenceReturnQuestion: string; absenceReturnQuestionHelp: string;
   saved: string; saveError: string; searchItems: string; selected: string; noMatchingItems: string;
-  sourceLabels: Record<FunnelSource, string>; stepLabels: Record<FunnelStep, string>;
+  sourceLabels: Record<FunnelSource, string>; stepLabels: Record<FunnelStep | "packageSent", string>;
   exceptionLabels: Record<FunnelException, string>; basisLabels: Record<string, string>;
   yes: string; no: string; cancel: string; unmeasured: string; generated: string; timezone: string;
   mappingMissing: string; mappingIncomplete: string; configurationSavedNote: string; noClinics: string;
@@ -44,12 +46,12 @@ const sourceEn: Record<FunnelSource, string> = {
   materials17:"Cord blood information materials sent", materials18:"Waiting-room leaflets sent", materials19:"Pregnancy booklets sent",
   unqualified:"Unqualified", refused:"Refused", absent:"Absent", wrongNumber:"Wrong number", notWorking:"Not working",
 };
-const stepEn: Record<FunnelStep, string> = {
+const stepEn: Record<MissionFunnelDisplayStep, string> = {
   assigned:"Assigned to coordinator", dialed:"Called", connected:"Reached", qualified:"Qualified",
   agreed:"Agreed to cooperate", wantsContract:"Wants a contract", withoutContract:"Does not want a contract",
   email:"Email with contract proposal sent", wantsToSign:"Wants to sign a contract", sent:"Contract sent",
   received:"Contract delivered to the doctor", returned:"Contract returned", validated:"Contract validated",
-  cooperating:"Cooperating", materials:"Package of materials sent",
+  cooperating:"Cooperating", packageSent:"Package sent", materials:"Cooperating AND package sent",
 };
 const exceptionEn: Record<FunnelException, string> = {
   unqualified:"Unqualified", refused:"Refused to collaborate", unreachable:"Unavailable",
@@ -67,7 +69,7 @@ const en: MissionFunnelCopy = {
   chartLegend:"Chart legend", chartTotalLegend:"Measured total", chartUnknownLegend:"Unmeasured", chartInferredLegend:"Inferred evidence",
   chartAssignedCurrent:"Assigned · current mission cohort", chartPrimaryPath:"Contact and contract path",
   chartContractBranch:"Without contract · separate branch", chartCombinedOutcomes:"Combined outcomes",
-  chartCombinedHelp:"Cooperation and materials combine branch evidence. They are not sequential drop-offs from validation.",
+  chartCombinedHelp:"Cooperating combines the proven contract and no-contract patterns. Package sent needs proof the whole package was sent or valid existing component/exclusion proof; it does not require cooperation. Materials retains its prior rule: cooperating AND package sent. These are independent outcomes, not sequential drop-offs from validation.",
   clickToDrilldown:"Activate to open clinic details in the report table.",
   previous:"vs previous", qualified:"of qualified", details:"View clinic evidence", hideDetails:"Hide clinic evidence",
   clinic:"Clinic", firstDate:"First date", evidenceDate:"Evidence date", basis:"Evidence basis", returnDate:"Return date",
@@ -134,7 +136,7 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Legenda grafu", chartTotalLegend:"Meraný celok", chartUnknownLegend:"Nemerané", chartInferredLegend:"Odvodené dôkazy",
     chartAssignedCurrent:"Priradené · aktuálna kohorta misie", chartPrimaryPath:"Kontakt a zmluva",
     chartContractBranch:"Bez zmluvy · samostatná vetva", chartCombinedOutcomes:"Kombinované výsledky",
-    chartCombinedHelp:"Spolupráca a materiály spájajú dôkazy z viacerých vetiev. Nejde o postupné straty po overení.",
+     chartCombinedHelp:"Spolupracuje spája preukázané zmluvné a bez-zmluvné vzory. Balík odoslaný vyžaduje dôkaz o odoslaní celého balíka alebo platný existujúci dôkaz o súčastiach/vylúčení; nevyžaduje spoluprácu. Materiály zachovávajú pôvodné pravidlo: spolupracuje A balík odoslaný. Ide o nezávislé výsledky, nie postupné straty po overení.",
     clickToDrilldown:"Aktivujte na otvorenie detailov kliník v tabuľke reportu.",
     previous:"voči predchádzajúcemu", qualified:"z kvalifikovaných", details:"Zobraziť dôkazy kliník", hideDetails:"Skryť dôkazy kliník",
     clinic:"Klinika", firstDate:"Prvý dátum", evidenceDate:"Dátum dôkazu", basis:"Základ dôkazu", returnDate:"Dátum návratu",
@@ -172,7 +174,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Nechce zmluvu", email:"Odoslaný e-mail s návrhom zmluvy",
       wantsToSign:"Chce podpísať zmluvu", sent:"Zmluva odoslaná",
       received:"Zmluva doručená lekárovi", returned:"Zmluva vrátená",
-      validated:"Zmluva overená", cooperating:"Spolupracuje", materials:"Balík materiálov odoslaný"},
+       validated:"Zmluva overená", cooperating:"Spolupracuje", packageSent:"Balík odoslaný",
+       materials:"Spolupracuje A balík odoslaný"},
     exceptionLabels:{...exceptionEn, unqualified:"Nekvalifikované", refused:"Odmieta spoluprácu",
       unreachable:"Nedostupné", absent:"Dlhodobá neprítomnosť",
       wrongNumber:"Nesprávne telefónne číslo", notWorking:"Nefunkčné telefónne číslo"},
@@ -209,7 +212,6 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Legenda grafu", chartTotalLegend:"Měřený celek", chartUnknownLegend:"Neměřeno", chartInferredLegend:"Odvozené důkazy",
     chartAssignedCurrent:"Přiřazeno · aktuální kohorta mise", chartPrimaryPath:"Kontakt a smlouva",
     chartContractBranch:"Bez smlouvy · samostatná větev", chartCombinedOutcomes:"Kombinované výsledky",
-    chartCombinedHelp:"Spolupráce a materiály kombinují důkazy z více větví. Nejde o postupné ztráty po ověření.",
     clickToDrilldown:"Aktivujte pro otevření detailů klinik v tabulce reportu.",
     previous:"vůči předchozímu", qualified:"z kvalifikovaných", details:"Zobrazit důkazy klinik", hideDetails:"Skrýt důkazy klinik",
     clinic:"Klinika", firstDate:"První datum", evidenceDate:"Datum důkazu", basis:"Základ důkazu", returnDate:"Datum návratu",
@@ -239,7 +241,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Nechce smlouvu", email:"E-mail s návrhem smlouvy odeslán",
       wantsToSign:"Chce podepsat smlouvu", sent:"Smlouva odeslána", received:"Smlouva doručena lékaři",
       returned:"Smlouva vrácena", validated:"Smlouva ověřena", cooperating:"Spolupracuje",
-      materials:"Balíček materiálů odeslán"},
+       packageSent:"Balíček odeslán", materials:"Spolupracuje A balíček odeslán"},
+     chartCombinedHelp:"Spolupracuje spojuje prokázané smluvní vzory i vzory bez smlouvy. Balíček odeslán vyžaduje důkaz o odeslání celého balíčku nebo platný existující důkaz o součástech/vyloučení; spolupráci nevyžaduje. Materiály zachovávají původní pravidlo: spolupracuje A balíček odeslán. Jde o nezávislé výsledky, nikoli postupné ztráty po ověření.",
     exceptionLabels:{...exceptionEn, unqualified:"Nekvalifikované", refused:"Odmítá spolupráci",
       unreachable:"Nedostupné", absent:"Dlouhodobá nepřítomnost",
       wrongNumber:"Nesprávné telefonní číslo", notWorking:"Nefunkční telefonní číslo"},
@@ -276,7 +279,7 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Jelmagyarázat", chartTotalLegend:"Mért összesen", chartUnknownLegend:"Nem mért", chartInferredLegend:"Következtetett bizonyíték",
     chartAssignedCurrent:"Hozzárendelve · aktuális missziós kohorsz", chartPrimaryPath:"Kapcsolat és szerződés útvonala",
     chartContractBranch:"Szerződés nélkül · külön ág", chartCombinedOutcomes:"Összevont eredmények",
-    chartCombinedHelp:"Az együttműködés és az anyagok több ág bizonyítékait egyesítik. Nem a validálás utáni egymást követő lemorzsolódások.",
+    chartCombinedHelp:"Az Együttműködik a bizonyított szerződéses és szerződés nélküli mintákat egyesíti. A Csomag elküldve a teljes csomag feladásának bizonyítékát vagy a meglévő, érvényes összetevő-/kizárási bizonyítékot igényli; együttműködést nem. Az Anyagok megőrzi a korábbi szabályt: együttműködik ÉS a csomag elküldve. Ezek független eredmények, nem egymást követő lemorzsolódások az ellenőrzés után.",
     clickToDrilldown:"Aktiválja a klinika részleteinek megnyitásához a jelentéstáblában.",
     previous:"az előzőhöz képest", qualified:"a minősítettekből", details:"Klinikai bizonyítékok", hideDetails:"Bizonyítékok elrejtése",
     clinic:"Klinika", firstDate:"Első dátum", evidenceDate:"Bizonyíték dátuma", basis:"Bizonyíték alapja", returnDate:"Visszatérés dátuma",
@@ -306,7 +309,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Nem szeretne szerződést", email:"Szerződéstervezettel küldött e-mail",
       wantsToSign:"Szerződést szeretne aláírni", sent:"Szerződés elküldve",
       received:"Szerződés kézbesítve az orvosnak", returned:"Szerződés visszaküldve",
-      validated:"Szerződés ellenőrizve", cooperating:"Együttműködik", materials:"Anyagcsomag elküldve"},
+       validated:"Szerződés ellenőrizve", cooperating:"Együttműködik", packageSent:"Csomag elküldve",
+       materials:"Együttműködik ÉS a csomag elküldve"},
     exceptionLabels:{...exceptionEn, unqualified:"Nem minősített", refused:"Elutasítja az együttműködést",
       unreachable:"Nem elérhető", absent:"Hosszú távollét",
       wrongNumber:"Hibás telefonszám", notWorking:"Nem működő telefonszám"},
@@ -343,7 +347,7 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Legendă grafic", chartTotalLegend:"Total măsurat", chartUnknownLegend:"Nemăsurat", chartInferredLegend:"Dovezi deduse",
     chartAssignedCurrent:"Atribuite · cohorta curentă a misiunii", chartPrimaryPath:"Traseul contactului și contractului",
     chartContractBranch:"Fără contract · ramură separată", chartCombinedOutcomes:"Rezultate combinate",
-    chartCombinedHelp:"Colaborarea și materialele combină dovezi din ramuri. Nu reprezintă pierderi succesive după validare.",
+    chartCombinedHelp:"Colaborează reunește tiparele dovedite cu contract și fără contract. Pachet trimis necesită dovada expedierii întregului pachet sau dovada existentă validă privind componentele/excluderea; nu necesită colaborare. Materiale păstrează regula anterioară: colaborează ȘI pachetul este trimis. Acestea sunt rezultate independente, nu pierderi succesive după validare.",
     clickToDrilldown:"Activați pentru a deschide detaliile clinicii în tabelul raportului.",
     previous:"față de etapa anterioară", qualified:"din cele calificate", details:"Vezi dovezile clinicii", hideDetails:"Ascunde dovezile",
     clinic:"Clinică", firstDate:"Prima dată", evidenceDate:"Data dovezii", basis:"Baza dovezii", returnDate:"Data revenirii",
@@ -373,7 +377,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Nu dorește un contract", email:"E-mail cu propunerea de contract trimisă",
       wantsToSign:"Vrea să semneze un contract", sent:"Contract trimis",
       received:"Contract livrat medicului", returned:"Contract returnat", validated:"Contract validat",
-      cooperating:"Colaborează", materials:"Pachetul de materiale trimis"},
+       cooperating:"Colaborează", packageSent:"Pachet trimis",
+       materials:"Colaborează ȘI pachetul este trimis"},
     exceptionLabels:{...exceptionEn, unqualified:"Necalificat", refused:"Refuză colaborarea",
       unreachable:"Indisponibil", absent:"Absență de lungă durată",
       wrongNumber:"Număr incorect", notWorking:"Număr nefuncțional"},
@@ -410,7 +415,7 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Legenda grafico", chartTotalLegend:"Totale misurato", chartUnknownLegend:"Non misurato", chartInferredLegend:"Evidenza dedotta",
     chartAssignedCurrent:"Assegnate · coorte corrente della missione", chartPrimaryPath:"Percorso di contatto e contratto",
     chartContractBranch:"Senza contratto · ramo separato", chartCombinedOutcomes:"Risultati combinati",
-    chartCombinedHelp:"Collaborazione e materiali combinano evidenze di più rami. Non sono abbandoni sequenziali dopo la convalida.",
+    chartCombinedHelp:"Collabora unisce i modelli comprovati con e senza contratto. Pacchetto spedito richiede la prova dell'invio dell'intero pacchetto oppure una prova esistente e valida di componenti/esclusione; non richiede collaborazione. Materiali mantiene la regola precedente: collabora E pacchetto spedito. Sono esiti indipendenti, non abbandoni sequenziali dopo la convalida.",
     clickToDrilldown:"Attiva per aprire i dettagli della clinica nella tabella del report.",
     previous:"rispetto alla fase precedente", qualified:"sui qualificati", details:"Mostra evidenze cliniche", hideDetails:"Nascondi evidenze",
     clinic:"Clinica", firstDate:"Prima data", evidenceDate:"Data evidenza", basis:"Base dell’evidenza", returnDate:"Data di ritorno",
@@ -440,7 +445,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Non vuole un contratto", email:"E-mail con proposta di contratto inviata",
       wantsToSign:"Vuole firmare un contratto", sent:"Contratto inviato",
       received:"Contratto consegnato al medico", returned:"Contratto restituito",
-      validated:"Contratto convalidato", cooperating:"Collabora", materials:"Pacchetto di materiali inviato"},
+       validated:"Contratto convalidato", cooperating:"Collabora", packageSent:"Pacchetto spedito",
+       materials:"Collabora E pacchetto spedito"},
     exceptionLabels:{...exceptionEn, unqualified:"Non qualificata", refused:"Rifiuta la collaborazione",
       unreachable:"Non disponibile", absent:"Assenza prolungata",
       wrongNumber:"Numero errato", notWorking:"Numero non funzionante"},
@@ -477,7 +483,7 @@ const translations: Record<Locale, MissionFunnelCopy> = {
     chartLegend:"Diagrammlegende", chartTotalLegend:"Gemessene Gesamtzahl", chartUnknownLegend:"Nicht gemessen", chartInferredLegend:"Abgeleitete Nachweise",
     chartAssignedCurrent:"Zugewiesen · aktuelle Missionskohorte", chartPrimaryPath:"Kontakt- und Vertragsverlauf",
     chartContractBranch:"Ohne Vertrag · separater Zweig", chartCombinedOutcomes:"Kombinierte Ergebnisse",
-    chartCombinedHelp:"Zusammenarbeit und Materialien verbinden Nachweise aus mehreren Zweigen. Sie sind keine aufeinanderfolgenden Abbrüche nach der Validierung.",
+    chartCombinedHelp:"Kooperiert vereint die belegten Muster mit und ohne Vertrag. Paket versendet erfordert den Nachweis, dass das gesamte Paket versendet wurde, oder einen gültigen bestehenden Komponenten-/Ausschlussnachweis; Kooperation ist keine Voraussetzung. Materialien behält die bisherige Regel: kooperiert UND Paket versendet. Dies sind unabhängige Ergebnisse, keine aufeinanderfolgenden Abbrüche nach der Validierung.",
     clickToDrilldown:"Aktivieren, um Klinikdetails in der Berichtstabelle zu öffnen.",
     previous:"zum vorherigen Schritt", qualified:"der qualifizierten", details:"Kliniknachweise anzeigen", hideDetails:"Nachweise ausblenden",
     clinic:"Klinik", firstDate:"Erstes Datum", evidenceDate:"Nachweisdatum", basis:"Nachweisgrundlage", returnDate:"Rückkehrdatum",
@@ -507,7 +513,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
       withoutContract:"Möchte keinen Vertrag", email:"E-Mail mit Vertragsangebot versendet",
       wantsToSign:"Möchte einen Vertrag unterzeichnen", sent:"Vertrag versendet",
       received:"Vertrag dem Arzt zugestellt", returned:"Vertrag zurückgesendet",
-      validated:"Vertrag geprüft", cooperating:"Kooperiert", materials:"Materialpaket versendet"},
+       validated:"Vertrag geprüft", cooperating:"Kooperiert", packageSent:"Paket versendet",
+       materials:"Kooperiert UND Paket versendet"},
     exceptionLabels:{...exceptionEn, unqualified:"Nicht qualifiziert", refused:"Lehnt die Zusammenarbeit ab",
       unreachable:"Nicht verfügbar", absent:"Langfristig abwesend",
       wrongNumber:"Falsche Nummer", notWorking:"Nicht funktionsfähige Nummer"},

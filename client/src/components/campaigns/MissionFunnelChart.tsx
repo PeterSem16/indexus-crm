@@ -1,4 +1,4 @@
-import { useId } from "react";
+import React, { useId } from "react";
 import type { FunnelRow, FunnelStep } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
@@ -18,7 +18,8 @@ const PRIMARY_PATH: FunnelStep[] = [
   "email", "wantsToSign", "sent", "received", "returned", "validated",
 ];
 const STEPS_WITHOUT_CONTRACT: FunnelStep[] = ["withoutContract"];
-const COMBINED_OUTCOMES: FunnelStep[] = ["cooperating", "materials"];
+type MissionFunnelDisplayStep = FunnelStep | "packageSent";
+const COMBINED_OUTCOMES: MissionFunnelDisplayStep[] = ["cooperating", "packageSent", "materials"];
 const COLORS = ["#3C7686", "#3C7686", "#4A8D9E", "#4A8D9E", "#61A9BD", "#61A9BD", "#71B7C8", "#71B7C8", "#8CCEDE", "#8CCEDE", "#8CCEDE"];
 const SVG_WIDTH = 520;
 const SVG_HEIGHT = 24;
@@ -187,7 +188,7 @@ function FunnelSilhouetteStage({
 
 export default function MissionFunnelChart({ rows, copy, locale, selectedStep, onSelectStep, onHelp }: Props) {
   const headingId = useId();
-  const rowsByStep = new Map<FunnelStep, FunnelRow>(rows.map(row => [row.key, row] as const));
+  const rowsByStep = new Map<MissionFunnelDisplayStep, FunnelRow>(rows.map(row => [row.key, row] as const));
   const assigned = rowsByStep.get("assigned");
   const primaryRows = PRIMARY_PATH.map(step => rowsByStep.get(step)).filter((row): row is FunnelRow => Boolean(row));
   const branchRows = STEPS_WITHOUT_CONTRACT.map(step => rowsByStep.get(step)).filter((row): row is FunnelRow => Boolean(row));

@@ -2,7 +2,7 @@ import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shar
 import type { Locale } from "@/i18n/translations";
 import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
-import { cooperationRuleCopy, optionalPosterCopy, standaloneCooperationCopy } from "./mission-material-package-copy";
+import { cooperationRuleCopy, standaloneCooperationCopy } from "./mission-material-package-copy";
 
 export const missionFunnelHelpChapterIds = [
   "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
@@ -11,6 +11,7 @@ export type MissionFunnelHelpChapter = typeof missionFunnelHelpChapterIds[number
 export const missionFunnelQualityKeys = ["clinics", "cohort", "withoutAttempt", "provisional", "orphanCalls", "duplicateEnrollments", "stateOnly", "unknownProposal"] as const;
 export type MissionFunnelQualityKey = typeof missionFunnelQualityKeys[number];
 export type MissionFunnelEvidenceBasis = "call" | "history" | "state" | "derived" | "current";
+type MissionFunnelHelpStep = FunnelStep | "packageSent";
 
 export interface MissionFunnelHelpLocale {
   title: string;
@@ -22,7 +23,7 @@ export interface MissionFunnelHelpLocale {
   next: string;
   chapters: Record<MissionFunnelHelpChapter, string>;
   content: Record<MissionFunnelHelpChapter, string[]>;
-  stages: Record<FunnelStep, string>;
+  stages: Record<MissionFunnelHelpStep, string>;
   sources: Record<FunnelSource, string>;
   exceptions: Record<FunnelException, string>;
   quality: Record<MissionFunnelQualityKey, string>;
@@ -121,7 +122,8 @@ const en: HelpDraft = {
     returned: "Mapped contract-returned confirmation.",
     validated: "Mapped contract-validated confirmation.",
     cooperating: "Clinic-level union of the proven contract and no-contract cooperation patterns.",
-    materials: "Cooperation plus all three required materials confirmations on the same enrollment.",
+    packageSent: "Proof that the whole package was sent, or valid existing component/exclusion proof; cooperation is not required. It has no previous-stage percentage because it is independent; its Qualified percentage uses the standard Qualified baseline.",
+    materials: "The existing eligibility rule: cooperating AND package sent on the same enrollment. Its existing previous-percent denominator is unchanged.",
   },
   sources: {
     qualified: "Positive qualification choice; not a generic heading.",
@@ -168,7 +170,7 @@ const sk: HelpDraft = {
     sources:["Opisy pomáhajú vybrať správne položky misie. Zobrazené názvy sú presne existujúce lokalizované štítky reportu.","Kontakt a súhlas: Kvalifikované označuje pozitívny výsledok; súhlas znamená výslovný súhlas so spoluprácou.","Odpovede na zmluvu: prijatá je výslovné prijatie; neprijatá je výslovné odmietnutie návrhu; iná je podporená oprávnená odpoveď odlišná od prijatia a odmietnutia.","Postup zmluvy: E-mail, odoslaná, doručená, vrátená a overená zaznamenávajú príslušné potvrdenia Status List, nie skutočné doručenie e-mailu.","Spolupráca: aktívne potvrdenie bez zmluvy patrí do vetvy bez zmluvy a vyžaduje súhlas aj výslovne neprijatý návrh. Staršie výslovné áno je iba historické mapovanie.","Materiály: informačné materiály, letáky do čakárne a tehotenské knižky sú tri povinné potvrdenia. Všetky musia byť v rovnakom zaradení po vzore spolupráce.","Výnimky: Nekvalifikované, odmietnutie, neprítomnosť, nesprávne a nefunkčné číslo sú aktuálne namapované stavy, nie postupné straty."],
     "interpret-export":["Najskôr skontrolujte kohortu: obdobie a filter odporúčania. Obdobie vyberá podľa prvého oprávneného odchádzajúceho pokusu; Priradené je aktuálne priradenie v celej misii.","Čítajte cesty oddelene. Hlavná cesta je kontakt a zmluva; Bez zmluvy je nezávislá vetva s výslovnou odpoveďou. Spolupracuje je deduplikované OR zjednotenie oboch preukázaných vzorov. Materiály pridávajú AND troch potvrdení.","Celkom = Priame + Odvodené. „Voči predchádzajúcemu“ používa bezprostredný predchodca: Priradené nemá predchodcu; Volané/Priradené; Zastihnuté/Volané; Kvalifikované/Zastihnuté; Súhlasí/Kvalifikované; Chce zmluvu a Bez zmluvy/Súhlasí; E-mail/Chce zmluvu; Chce podpísať/E-mail; Odoslané/Chce podpísať; Doručené/Odoslané; Vrátené/Doručené; Overené/Vrátené; Spolupracuje/Súhlasí; Materiály/Spolupracuje. „Z kvalifikovaných“ používa menovateľ Kvalifikované, okrem Priradených.","Chýbajúci alebo nulový menovateľ sa zobrazí pomlčkou. Percentá môžu presiahnuť 100 % a neskorší krok môže mať viac kliník pre historické míľniky a odvodenia naprieč kohortami. Pomer nie je striktne postupná retencia. Vetvy nikdy nesčítavajte ani neodčítavajte na výpočet kombinovaného výsledku.","Šrafované/nemerané znamená nenastavený zdroj alebo nemerateľný krok; meraná nula znamená, že pravidlo nenašlo kliniky. Pred záverom skontrolujte mapovanie, neznámu ponuku, stavové a predbežné dôkazy.","CSV/XLSX exportuje filtrovaný report servera vrátane dôkazov kliník, nie neuložené návrhy konfigurácie. Zmena mapovania prepočíta analytickú interpretáciu, ale neprepisuje históriu.","Ilustračný hypotetický príklad, nie skutočné údaje misie: 8 kliník spĺňa zmluvnú spoluprácu, 5 bez-zmluvnú a 2 sú v oboch. Kombinované Spolupracuje je 11 (8 + 5 − 2), nie 13. Ak 7 z nich má všetky tri potvrdenia materiálov, výsledok balíka je 7.","Pred zdieľaním záveru overte kohortu, vetvu, podmienky spolupráce a materiálov, podiel Priame/odvodené a dátumy, mapovanie a kvalitu. Príručka vysvetľuje report, nepotvrdzuje stav nasadenia."],
   },
-  stages:{assigned:"Aktuálne priradenie v celej oprávnenej misii; nezávislé od obdobia, nie konverzný krok.",dialed:"Najskorší oprávnený odchádzajúci pokus.",connected:"Prepojený hovor s časom odpovede a kladným trvaním; nepotvrdzuje, kto odpovedal.",qualified:"Aspoň jedno namapované pozitívne potvrdenie kvalifikácie.",agreed:"Aspoň jedno namapované potvrdenie súhlasu so spoluprácou.",wantsContract:"Súhlas a preukázaná prijatá alebo iná oprávnená odpoveď.",withoutContract:"Súhlas a výslovne neprijatý návrh v rovnakom zaradení.",email:"Namapované potvrdenie odoslania e-mailu; nie dôkaz SMTP doručenia.",wantsToSign:"Súhlas a prijatý návrh alebo podporený neskorší zmluvný dôkaz; zvažovanie nestačí.",sent:"Namapované potvrdenie odoslania zmluvy.",received:"Namapované potvrdenie doručenia zmluvy lekárovi.",returned:"Namapované potvrdenie vrátenia zmluvy.",validated:"Namapované potvrdenie overenia zmluvy.",cooperating:"Zjednotenie preukázaných zmluvných a bez-zmluvných vzorov na úrovni kliniky.",materials:"Spolupráca a všetky tri potvrdenia materiálov v rovnakom zaradení."},
+  stages:{assigned:"Aktuálne priradenie v celej oprávnenej misii; nezávislé od obdobia, nie konverzný krok.",dialed:"Najskorší oprávnený odchádzajúci pokus.",connected:"Prepojený hovor s časom odpovede a kladným trvaním; nepotvrdzuje, kto odpovedal.",qualified:"Aspoň jedno namapované pozitívne potvrdenie kvalifikácie.",agreed:"Aspoň jedno namapované potvrdenie súhlasu so spoluprácou.",wantsContract:"Súhlas a preukázaná prijatá alebo iná oprávnená odpoveď.",withoutContract:"Súhlas a výslovne neprijatý návrh v rovnakom zaradení.",email:"Namapované potvrdenie odoslania e-mailu; nie dôkaz SMTP doručenia.",wantsToSign:"Súhlas a prijatý návrh alebo podporený neskorší zmluvný dôkaz; zvažovanie nestačí.",sent:"Namapované potvrdenie odoslania zmluvy.",received:"Namapované potvrdenie doručenia zmluvy lekárovi.",returned:"Namapované potvrdenie vrátenia zmluvy.",validated:"Namapované potvrdenie overenia zmluvy.",cooperating:"Zjednotenie preukázaných zmluvných a bez-zmluvných vzorov na úrovni kliniky.",packageSent:"Dôkaz o odoslaní celého balíka alebo platný existujúci dôkaz o súčastiach/vylúčení; spolupráca sa nevyžaduje. Nemá percento voči predchádzajúcemu kroku, pretože ide o nezávislý výsledok; percento z kvalifikovaných používa bežný menovateľ Kvalifikované.",materials:"Pôvodné pravidlo: spolupracuje A balík odoslaný v rovnakom zaradení; existujúci menovateľ percenta voči predchádzajúcemu zostáva nezmenený."},
   sources:{qualified:"Pozitívna kvalifikácia, nie všeobecná hlavička.",agreed:"Výslovný súhlas so spoluprácou.",proposalAccepted:"Výslovne prijatá odpoveď.",proposalUnaccepted:"Výslovne neprijatá odpoveď; so súhlasom umožňuje vetvu Bez zmluvy.",proposalOther:"Iná podporená odpoveď; nie prijatie ani záujem podpísať.",email:"Potvrdenie Status List o odoslaní návrhu, nie SMTP doručenie.",sent:"Potvrdenie Status List o odoslaní zmluvy.",received:"Potvrdenie doručenia zmluvy lekárovi.",returned:"Potvrdenie vrátenia zmluvy.",validated:"Potvrdenie overenia zmluvy.",activeWith:"Iba starší uložený zdroj; aktuálna zmluvná vetva ho nepoužíva.",activeWithout:"Výslovné potvrdenie spolupráce pre vetvu bez zmluvy.",materials17:"Prvé povinné potvrdenie: informačné materiály.",materials18:"Druhé povinné potvrdenie: letáky do čakárne.",materials19:"Tretie povinné potvrdenie: tehotenské knižky.",unqualified:"Aktuálny namapovaný stav nekvalifikovanosti.",refused:"Aktuálny stav odmietnutia; prvý známy dátum určuje šesťmesačný návrat.",absent:"Aktuálna dlhodobá neprítomnosť; môže prispieť k Nedostupným.",wrongNumber:"Aktuálny stav nesprávneho čísla.",notWorking:"Aktuálny stav nefunkčného čísla."},
   exceptions:{unqualified:"Aktuálny stav; môže sa prekrývať s míľnikmi.",refused:"Aktuálny stav; šesťmesačný návrat je iba informačný.",unreachable:"Päť po sebe idúcich busy/no_answer pokusov bez answeredAt alebo aktívna dlhodobá neprítomnosť.",absent:"Aktuálna neprítomnosť; po nastavenom dátume návratu sa odstráni.",wrongNumber:"Aktuálny stav nesprávneho čísla.",notWorking:"Aktuálny stav nefunkčného čísla."},
 };
@@ -371,7 +373,7 @@ const baseTranslationSet = Object.fromEntries(
   ]),
 ) as Record<Locale, HelpDraft & Pick<MissionFunnelHelpLocale, "quality" | "basis">>;
 
-const stageHu: Record<FunnelStep, string> = {
+const stageHu: Record<MissionFunnelHelpStep, string> = {
   assigned:"A jelenleg koordinátorhoz rendelt klinikák száma a teljes jogosult Missionben; az időszaktól független, nem konverziós lépés.",
   dialed:"A klinikához tartozó legkorábbi jogosult kimenő próbálkozás; régi napló alapján ideiglenes lehet.",
   connected:"Közvetlenül összekapcsolt, válaszidővel és pozitív hívásidővel rendelkező hívás; későbbi minősítési bizonyíték ezt inferálhatja.",
@@ -386,7 +388,8 @@ const stageHu: Record<FunnelStep, string> = {
   returned:"A saját, leképezett szerződés-visszaküldési megerősítés; későbbi bizonyíték pótolhatja.",
   validated:"A saját, leképezett szerződés-ellenőrzési megerősítés; ez zárja a szerződéses bizonyítékutat.",
   cooperating:"A szerződéses és a szerződés nélküli, azonos beiratkozáson bizonyított együttműködési minták klinikaszintű uniója.",
-  materials:"Már elért együttműködés és mindhárom kötelező anyagküldési megerősítés ugyanazon beiratkozáson.",
+  packageSent:"A teljes csomag elküldésének vagy a meglévő érvényes összetevő-/kizárási bizonyítéknak az igazolása; együttműködés nem szükséges.",
+  materials:"A korábbi jogosultsági szabály: együttműködik ÉS a csomag elküldve, ugyanazon beiratkozáson; a korábbi százalék nevezője változatlan.",
 };
 const sourceHu: Record<FunnelSource, string> = {
   qualified:"A pozitív minősítési válasz tényleges Status List-elemét válassza.",
@@ -419,7 +422,7 @@ const exceptionHu: Record<FunnelException, string> = {
   notWorking:"Jelenlegi, leképezett nem működő telefonszám állapot.",
 };
 
-const stageRo: Record<FunnelStep, string> = {
+const stageRo: Record<MissionFunnelHelpStep, string> = {
   assigned:"Clinici atribuite în prezent unui coordonator în întreaga Mission eligibilă; independent de perioadă, nu este conversie.",
   dialed:"Cea mai timpurie încercare outbound eligibilă a clinicii; dovezile vechi pot fi provizorii.",
   connected:"Apel asociat direct, cu oră de răspuns și durată pozitivă; dovezile ulterioare de calificare pot susține o inferență.",
@@ -434,7 +437,8 @@ const stageRo: Record<FunnelStep, string> = {
   returned:"Confirmarea mapată proprie că acel contract a fost returnat; poate fi inferată din dovezi ulterioare.",
   validated:"Confirmarea mapată proprie că acel contract a fost validat; încheie traseul dovezilor contractuale.",
   cooperating:"Uniunea la nivel de clinică a modelelor de colaborare cu și fără contract, dovedite pe aceeași înscriere.",
-  materials:"Colaborare deja atinsă și toate cele trei confirmări de trimitere a materialelor pe aceeași înscriere.",
+  packageSent:"Dovada expedierii întregului pachet sau dovada existentă validă privind componentele/excluderea; colaborarea nu este necesară.",
+  materials:"Regula de eligibilitate anterioară: colaborează ȘI pachet trimis, pe aceeași înscriere; numitorul anterior al procentului rămâne neschimbat.",
 };
 const sourceRo: Record<FunnelSource, string> = {
   qualified:"Alegeți elementul Status List care reprezintă calificarea pozitivă.",
@@ -467,7 +471,7 @@ const exceptionRo: Record<FunnelException, string> = {
   notWorking:"Stare curentă mapată de număr nefuncțional.",
 };
 
-const stageIt: Record<FunnelStep, string> = {
+const stageIt: Record<MissionFunnelHelpStep, string> = {
   assigned:"Cliniche assegnate attualmente a un coordinatore nell'intera Mission idonea; indipendente dal periodo, non è conversione.",
   dialed:"Primo tentativo outbound idoneo della clinica; le prove legacy possono essere provvisorie.",
   connected:"Chiamata collegata direttamente, con ora di risposta e durata positiva; prove successive di qualifica possono supportare un'inferenza.",
@@ -482,7 +486,8 @@ const stageIt: Record<FunnelStep, string> = {
   returned:"Conferma mappata specifica della restituzione del contratto; inferibile da prove successive.",
   validated:"Conferma mappata specifica della convalida del contratto; chiude il percorso delle prove contrattuali.",
   cooperating:"Unione a livello di clinica dei modelli di collaborazione con e senza contratto provati sulla stessa iscrizione.",
-  materials:"Collaborazione già raggiunta e tutte e tre le conferme d'invio dei materiali sulla stessa iscrizione.",
+  packageSent:"Prova dell'invio dell'intero pacchetto oppure prova esistente e valida di componenti/esclusione; la collaborazione non è richiesta.",
+  materials:"La regola di idoneità precedente: collabora E pacchetto spedito sulla stessa iscrizione; il denominatore precedente della percentuale resta invariato.",
 };
 const sourceIt: Record<FunnelSource, string> = {
   qualified:"Scegliere l'elemento Status List che indica la qualifica positiva.",
@@ -515,7 +520,7 @@ const exceptionIt: Record<FunnelException, string> = {
   notWorking:"Stato corrente mappato di numero non funzionante.",
 };
 
-const stageDe: Record<FunnelStep, string> = {
+const stageDe: Record<MissionFunnelHelpStep, string> = {
   assigned:"Derzeit einer Koordination zugewiesene Kliniken der gesamten berechtigten Mission; zeitraumunabhängig, kein Konversionsschritt.",
   dialed:"Frühester zulässiger ausgehender Versuch der Klinik; ältere Nachweise können vorläufig sein.",
   connected:"Direkt verknüpfter Anruf mit Antwortzeit und positiver Dauer; spätere Qualifikationsnachweise können diesen Schritt stützen.",
@@ -530,7 +535,8 @@ const stageDe: Record<FunnelStep, string> = {
   returned:"Eigene zugeordnete Bestätigung, dass der Vertrag zurückgesendet wurde; spätere Nachweise können sie ableiten.",
   validated:"Eigene zugeordnete Bestätigung, dass der Vertrag validiert wurde; letzter Schritt des Vertragsnachweises.",
   cooperating:"Klinikbezogene Vereinigung der belegten Kooperationsmuster mit und ohne Vertrag derselben Einschreibung.",
-  materials:"Bereits erreichte Kooperation und alle drei Materialversandbestätigungen derselben Einschreibung.",
+  packageSent:"Nachweis, dass das gesamte Paket versendet wurde, oder ein gültiger bestehender Komponenten-/Ausschlussnachweis; Kooperation ist nicht erforderlich.",
+  materials:"Die bisherige Anspruchsregel: kooperiert UND Paket versendet, in derselben Einschreibung; der bisherige Nenner des Vorher-Prozentsatzes bleibt unverändert.",
 };
 const sourceDe: Record<FunnelSource, string> = {
   qualified:"Wählen Sie den Status-List-Eintrag für eine positive Qualifikation.",
@@ -563,7 +569,7 @@ const exceptionDe: Record<FunnelException, string> = {
   notWorking:"Aktuell zugeordneter Status nicht funktionsfähige Telefonnummer.",
 };
 
-const stageCs: Record<FunnelStep, string> = {
+const stageCs: Record<MissionFunnelHelpStep, string> = {
   assigned:"Kliniky aktuálně přiřazené koordinátorovi v celé oprávněné misi; nezávislé na období, nejde o konverzi.",
   dialed:"Nejčasnější oprávněný odchozí pokus kliniky; starší důkazy mohou být předběžné.",
   connected:"Přímo propojený hovor s časem odpovědi a kladnou délkou; pozdější důkazy kvalifikace mohou krok podpořit odvozením.",
@@ -578,7 +584,8 @@ const stageCs: Record<FunnelStep, string> = {
   returned:"Vlastní namapované potvrzení vrácení smlouvy; lze odvodit z pozdějších důkazů.",
   validated:"Vlastní namapované potvrzení ověření smlouvy; uzavírá důkazní cestu smlouvy.",
   cooperating:"Sjednocení smluvních a bezesmluvních vzorů spolupráce prokázaných na stejném zařazení, deduplikované na kliniku.",
-  materials:"Již dosažená spolupráce a všechna tři potvrzení odeslání materiálů v témže zařazení.",
+  packageSent:"Důkaz o odeslání celého balíčku nebo platný existující důkaz o součástech/vyloučení; spolupráce není nutná.",
+  materials:"Původní pravidlo způsobilosti: spolupracuje A balíček odeslán v témže zařazení; původní jmenovatel předchozího procenta zůstává beze změny.",
 };
 const sourceCs: Record<FunnelSource, string> = {
   qualified:"Vyberte skutečnou položku Status List pro pozitivní kvalifikaci.",
@@ -839,6 +846,24 @@ const combinedRuleNotes: Record<Locale, string> = {
   it:"Collabora è l'unione OR a livello di clinica di due modelli provati sulla stessa iscrizione: contratto convalidato + accordo + risposta accettata/altra, OPPURE conferma esplicita di collaborazione senza contratto + accordo + proposta esplicitamente non accettata. La clinica conta una volta anche se soddisfa entrambi.",
   de:"Kooperiert ist die klinikbezogene ODER-Vereinigung zweier auf derselben Einschreibung belegter Muster: validierter Vertrag + Zustimmung + angenommene/andere Antwort ODER ausdrückliche Kooperation ohne Vertrag + Zustimmung + ausdrücklich nicht angenommenes Angebot. Eine Klinik zählt auch bei beiden Mustern nur einmal.",
 };
+const packageSentRuleNotes: Record<Locale, string> = {
+  en:"Package sent means there is proof that the whole package was sent, or valid existing component/exclusion proof. It has no cooperation prerequisite and is independent of Cooperating. Its previous-stage percentage is intentionally not applicable; its Qualified percentage keeps the standard Qualified baseline.",
+  sk:"Balík odoslaný znamená dôkaz o odoslaní celého balíka alebo platný existujúci dôkaz o súčastiach/vylúčení. Nevyžaduje spoluprácu a je nezávislý od kroku Spolupracuje. Percento voči predchádzajúcemu kroku sa zámerne nepoužíva; percento z kvalifikovaných zachováva bežný menovateľ Kvalifikované.",
+  cs:"Balíček odeslán znamená důkaz o odeslání celého balíčku nebo platný existující důkaz o součástech/vyloučení. Nevyžaduje spolupráci a je nezávislý na kroku Spolupracuje. Procento vůči předchozímu kroku se záměrně nepoužívá; procento z kvalifikovaných zachovává běžný jmenovatel Kvalifikované.",
+  hu:"A Csomag elküldve a teljes csomag elküldésének bizonyítékát vagy meglévő, érvényes összetevő-/kizárási bizonyítékot jelent. Nem feltétele az együttműködés, és független az Együttműködik lépéstől. Az előző lépéshez viszonyított százalék szándékosan nem alkalmazható; a minősítettekhez viszonyított százalék a szokásos Minősített nevezőt használja.",
+  ro:"Pachet trimis înseamnă dovada expedierii întregului pachet sau dovada existentă validă privind componentele/excluderea. Nu necesită colaborare și este independent de etapa Colaborează. Procentul față de etapa anterioară nu se aplică intenționat; procentul din clinicile calificate păstrează numitorul standard Calificat.",
+  it:"Pacchetto spedito indica la prova dell'invio dell'intero pacchetto oppure una prova esistente e valida di componenti/esclusione. Non richiede collaborazione ed è indipendente dalla fase Collabora. La percentuale rispetto alla fase precedente non si applica intenzionalmente; quella sui qualificati mantiene il normale denominatore Qualificata.",
+  de:"Paket versendet bedeutet: Nachweis, dass das gesamte Paket versendet wurde, oder ein gültiger bestehender Komponenten-/Ausschlussnachweis. Kooperation ist keine Voraussetzung; der Schritt ist unabhängig von Kooperiert. Ein Prozentsatz zum vorherigen Schritt ist absichtlich nicht anwendbar; der Prozentsatz der Qualifizierten verwendet weiterhin den üblichen Nenner Qualifiziert.",
+};
+const materialsOutcomeNotes: Record<Locale, string> = {
+  en:"Materials retains its previous eligibility rule: cooperating AND package sent on the same enrollment. Its existing previous-percent denominator is unchanged; it is not recalculated against a newly broadened Cooperating population.",
+  sk:"Materiály zachovávajú pôvodné pravidlo oprávnenosti: spolupracuje A balík odoslaný v rovnakom zaradení. Existujúci menovateľ percenta voči predchádzajúcemu zostáva nezmenený; neprepočítava sa voči novo rozšírenej populácii kroku Spolupracuje.",
+  cs:"Materiály zachovávají původní pravidlo způsobilosti: spolupracuje A balíček odeslán v témže zařazení. Dosavadní jmenovatel předchozího procenta zůstává beze změny; nepřepočítává se vůči nově rozšířené populaci kroku Spolupracuje.",
+  hu:"Az Anyagok megtartja a korábbi jogosultsági szabályt: együttműködik ÉS a csomag elküldve ugyanazon beiratkozáson. A korábbi százalék nevezője változatlan; nem számolódik újra az Együttműködik kibővített populációjára.",
+  ro:"Materiale păstrează regula anterioară de eligibilitate: colaborează ȘI pachet trimis pe aceeași înscriere. Numitorul existent al procentului anterior rămâne neschimbat; nu se recalculează față de populația extinsă recent a etapei Colaborează.",
+  it:"Materiali mantiene la precedente regola di idoneità: collabora E pacchetto spedito sulla stessa iscrizione. Il denominatore esistente della percentuale precedente resta invariato e non viene ricalcolato sulla popolazione ampliata di Collabora.",
+  de:"Materialien behält die bisherige Anspruchsregel bei: kooperiert UND Paket versendet in derselben Einschreibung. Der bisherige Nenner des Vorher-Prozentsatzes bleibt unverändert und wird nicht anhand der neu erweiterten Population von Kooperiert neu berechnet.",
+};
 const legacySourceNotes: Record<Locale, string> = {
   en:"The legacy “Cooperating (explicit yes)” source may remain in saved configuration for reference, but it does not control the current contract cooperation calculation.",
   sk:"Starší zdroj „Spolupracuje (výslovné áno)“ môže zostať uložený na referenciu, ale neriadi aktuálny výpočet zmluvnej spolupráce.",
@@ -875,7 +900,7 @@ const correctedCombined: Record<Locale, string> = {
   it:combinedRuleNotes.it,
   de:combinedRuleNotes.de,
 };
-const stageEn: Record<FunnelStep, string> = {
+const stageEn: Record<MissionFunnelHelpStep, string> = {
   assigned:"Currently assigned clinics across the eligible Mission, independent of period; this is not a conversion step.",
   dialed:"The clinic's earliest eligible outbound attempt; legacy first-attempt evidence may be provisional.",
   connected:"Direct evidence is a linked call with a recorded answer time and positive duration; supported Qualified or Agreed evidence may also infer Reached.",
@@ -890,9 +915,10 @@ const stageEn: Record<FunnelStep, string> = {
   returned:"This step's own mapped contract-returned confirmation; later proven evidence may infer it.",
   validated:"This step's own mapped contract-validated confirmation; it is the final contract-path milestone.",
   cooperating:"Clinic-level union of the two proven cooperation patterns on the same enrollment, counted once.",
-  materials:"Cooperation achieved on the same enrollment plus all three required material confirmations together.",
+  packageSent:"Proof that the whole package was sent, or valid existing component/exclusion proof; cooperation is not required. No previous-stage percentage applies because this is independent; its Qualified percentage uses the standard Qualified baseline.",
+  materials:"The existing eligibility rule: cooperating AND package sent on the same enrollment. Its existing previous-percent denominator is unchanged.",
 };
-const stageMaps: Record<Locale, Record<FunnelStep, string>> = {
+const stageMaps: Record<Locale, Record<MissionFunnelHelpStep, string>> = {
   en:stageEn,
   sk:{
     ...sk.stages,
@@ -974,17 +1000,19 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       agents: agentFunnelTranslations[locale].helpParagraphs,
       combined: [cooperationRuleCopy[locale].contract, cooperationRuleCopy[locale].without,
         standaloneCooperationCopy[locale], base.content.combined[1],
-        `${cooperationRuleCopy[locale].materials} ${optionalPosterCopy[locale]}`, base.content.combined[3]],
+        packageSentRuleNotes[locale], materialsOutcomeNotes[locale], base.content.combined[3]],
       configuration: [
         base.content.configuration[0],
         mappingRuleNotes[locale],
-        ...base.content.configuration.slice(2, -1).map((paragraph, index) => index === 0 ? cooperationRuleCopy[locale].materials : paragraph),
+        ...base.content.configuration.slice(2, -1).map((paragraph, index) => index === 0 ? materialsOutcomeNotes[locale] : paragraph),
         finalConfigNotes[locale],
       ],
       sources: [
         ...base.content.sources.slice(0, 4),
         corrections.legacySource,
-        ...base.content.sources.slice(5),
+        packageSentRuleNotes[locale],
+        materialsOutcomeNotes[locale],
+        ...base.content.sources.slice(6),
       ],
       "contact-contract": [
         ...base.content["contact-contract"].slice(0, 1),
@@ -1000,7 +1028,10 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
         corrections.qualityDetails,
       ],
       "interpret-export": [
-        ...base.content["interpret-export"].map((paragraph, index) => index === 4 ? mappingRuleNotes[locale] : paragraph),
+        ...base.content["interpret-export"].map((paragraph, index) => {
+          if (index === 1) return `${packageSentRuleNotes[locale]} ${materialsOutcomeNotes[locale]}`;
+          return index === 4 ? mappingRuleNotes[locale] : paragraph;
+        }),
         exportScopeTranslations[locale].help,
       ],
     };
@@ -1011,7 +1042,8 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       content: chapterContent,
       stages: { ...stageMaps[locale], withoutContract: cooperationRuleCopy[locale].without,
         cooperating: `${cooperationRuleCopy[locale].contract} ${cooperationRuleCopy[locale].without} ${standaloneCooperationCopy[locale]}`,
-        materials: cooperationRuleCopy[locale].materials },
+        packageSent: packageSentRuleNotes[locale],
+        materials: materialsOutcomeNotes[locale] },
       sources: { ...sourceMaps[locale], activeWithout: cooperationRuleCopy[locale].without },
       exceptions: exceptionMaps[locale],
       quality: qualityDetailed[locale],

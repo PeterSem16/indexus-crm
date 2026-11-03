@@ -34,7 +34,8 @@ test("English funnel stages use the full requested wording", () => {
     returned:"Contract returned",
     validated:"Contract validated",
     cooperating:"Cooperating",
-    materials:"Package of materials sent",
+    packageSent:"Package sent",
+    materials:"Cooperating AND package sent",
   });
   assert.deepEqual(missionFunnelTranslations.en.exceptionLabels, {
     unqualified:"Unqualified",
@@ -47,9 +48,21 @@ test("English funnel stages use the full requested wording", () => {
   for (const locale of ["sk","cs","hu","ro","it","de"] as const) {
     assert.notEqual(missionFunnelTranslations[locale].stepLabels.sent, "Sent", `${locale}.sent`);
     assert.notEqual(missionFunnelTranslations[locale].stepLabels.email, "Email", `${locale}.email`);
+    assert.ok(missionFunnelTranslations[locale].stepLabels.packageSent, `${locale}.packageSent`);
+    assert.ok(missionFunnelTranslations[locale].stepLabels.materials.includes("AND") || locale !== "en", `${locale}.materials is explicit`);
     assert.notEqual(missionFunnelTranslations[locale].stepLabels.materials, "Materials", `${locale}.materials`);
     assert.notEqual(missionFunnelTranslations[locale].exceptionLabels.refused, "Refused", `${locale}.refused`);
     assert.notEqual(missionFunnelTranslations[locale].exceptionLabels.unreachable, "Unreachable", `${locale}.unreachable`);
+  }
+});
+
+test("combined-outcomes copy distinguishes package sent from the cooperating materials outcome in every locale", () => {
+  const conjunctions = { en:" AND ",sk:" A ",cs:" A ",hu:"ÉS",ro:"ȘI",it:" E ",de:"UND" } as const;
+  for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
+    const copy = missionFunnelTranslations[locale];
+    assert.ok(copy.chartCombinedHelp.toLocaleLowerCase().includes(copy.stepLabels.packageSent.toLocaleLowerCase()), `${locale}.packageSent chart explanation`);
+    assert.ok(copy.chartCombinedHelp.toLocaleLowerCase().includes(copy.stepLabels.materials.toLocaleLowerCase()), `${locale}.materials chart explanation`);
+    assert.ok(copy.stepLabels.materials.includes(conjunctions[locale]), `${locale}.materials conjunction`);
   }
 });
 

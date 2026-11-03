@@ -14,7 +14,7 @@ export const configurableFunnelSources = funnelSources.filter(source => source !
 export const funnelSteps = [
   "assigned", "dialed", "connected", "qualified", "agreed", "wantsContract",
   "withoutContract", "email", "wantsToSign", "sent", "received", "returned",
-  "validated", "cooperating", "materials",
+  "validated", "cooperating", "packageSent", "materials",
 ] as const;
 export type FunnelStep = typeof funnelSteps[number];
 export const funnelExceptions = ["unqualified", "refused", "unreachable", "absent", "wrongNumber", "notWorking"] as const;
