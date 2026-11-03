@@ -30,6 +30,33 @@ function fixture(options: { allowed?: boolean; linked?: boolean; country?: strin
   } as any;
 }
 const body = { campaignId: "medical", customerId: "entity", contactType: "clinic" };
+test("Funnel classifications are server-read immutable snapshots, not caller metadata or later template edits", async () => {
+  const steps=["cooperating","materials"];
+  const context=await resolveMissionEmailContext(fixture({template:{email_funnel_steps:steps}}),"agent",
+    {...body,emailTemplateId:"template"});
+  steps.push("agreed");
+  assert.deepEqual(context.emailTemplate!.funnelSteps,["cooperating","materials"]);
+  const rows:any[]=[];
+  await deliverAttributedEmail({
+    async createCommunicationMessage(data:any){rows.push({...data});return{id:"message"};},
+    async updateCommunicationMessage(_id:string,data:any){Object.assign(rows[0],data);},
+  },context,{userId:"agent",subject:"Subject",content:"Body",recipientEmail:"test@example.invalid",
+    metadata:JSON.stringify({missionEmail:{funnelSteps:["dialed"]}})},async()=>{
+      context.emailTemplate!.funnelSteps!.push("validated");
+      return undefined;
+    });
+  assert.deepEqual(JSON.parse(rows[0].metadata).missionEmail.funnelSteps,["cooperating","materials"]);
+});
+test("legacy NULL stays legacy, explicit [] stays empty, and malformed template classifications fail closed", async () => {
+  for(const value of [null,[]]) {
+    const context=await resolveMissionEmailContext(fixture({template:{email_funnel_steps:value}}),"agent",
+      {...body,emailTemplateId:"template"});
+    assert.deepEqual(context.emailTemplate!.funnelSteps,value===null?undefined:[]);
+  }
+  for(const email_funnel_steps of [["email","email"],["postal_sent"],"email"])
+    await assert.rejects(resolveMissionEmailContext(fixture({template:{email_funnel_steps}}),"agent",
+      {...body,emailTemplateId:"template"}),/invalid_mission_email_context/);
+});
 
 test("template purpose is read from the allowed active email template, never from supplied metadata", async () => {
   const resolved = await resolveMissionEmailContext(fixture(), "agent", {

@@ -70,6 +70,10 @@ test("real SQL isolates successful configured emails and repairs one reviewed me
       ["typed-later", {}, "sent", "2026-10-03 08:00:00", missionId],
       ["typed-info", { purpose: "information_materials" }, "sent", "2026-10-02 08:00:00", missionId],
       ["typed-contract", { purpose: "contract_for_signature" }, "sent", "2026-10-02 08:00:00", missionId],
+      ["typed-new-multiple", { purpose: "unspecified", funnelSteps: ["cooperating","materials"] }, "sent", "2026-10-02 08:00:00", missionId],
+      ["typed-new-empty", { funnelSteps: [] }, "sent", "2026-10-02 08:00:00", missionId],
+      ["typed-new-null", { funnelSteps: null }, "sent", "2026-10-02 08:00:00", missionId],
+      ["typed-new-unmatched", { funnelSteps: ["agreed"] }, "sent", "2026-10-02 08:00:00", missionId],
       ["typed-failed", {}, "failed", "2026-10-02 08:00:00", missionId],
       ["typed-no-time", {}, "sent", null, missionId],
       ["typed-unknown", { purpose: "unspecified" }, "sent", "2026-10-02 08:00:00", missionId],
@@ -84,6 +88,9 @@ test("real SQL isolates successful configured emails and repairs one reviewed me
       [id, clinicId, campaign, status, sentAt, JSON.stringify({ missionEmail: { ...snapshot, ...patch } })]);
     }
     const typed = await loadFunnelEmailEvidence(client, missionId, ["contact"], [], ["cooperation_proposal"]);
+    const classified=await loadFunnelEmailEvidence(client,missionId,["contact"],[],[],["materials","cooperating"]);
+    assert.deepEqual(classified.filter(e=>e.id.startsWith("typed:")).map(e=>e.id),["typed:typed-new-multiple"]);
+    assert.equal(typed.some(e=>e.id==="typed:typed-new-empty"||e.id==="typed:typed-new-null"),false);
     // Reviewed evidence remains independent of the new purpose configuration.
     assert.deepEqual(typed.filter(e => e.id.startsWith("typed:")).map(e => e.id), ["typed:typed-good", "typed:typed-later"]);
     const info = await loadFunnelEmailEvidence(client, missionId, ["contact"], [], ["information_materials"]);

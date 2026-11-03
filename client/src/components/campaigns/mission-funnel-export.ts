@@ -1,4 +1,5 @@
 import type { MissionFunnelReport, FunnelMember, FunnelStep, FunnelException } from "../../../../shared/mission-funnel";
+import { effectiveFunnelEmailSteps } from "../../../../shared/mission-funnel";
 import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import type { FunnelExportCopy } from "@/i18n/mission-funnel-export-translations";
 import { exportDate, exportCellText, type ExportCell } from "./mission-export-value";
@@ -52,6 +53,8 @@ export function buildFunnelExport(report: MissionFunnelReport, copy: MissionFunn
            report.config.materials!.excluded[key].map(id => report.items.find(item => item.id === id)?.label ?? copy.unmeasured).join("; ") || copy.unmeasured,
          ]),
        ] : []),
+      [copy.funnelEmailPurposeLabel, effectiveFunnelEmailSteps(report.config).map(step => copy.stepLabels[step]).join("; ") || copy.unmeasured],
+      [copy.funnelEmailNoOtherMilestones],
     ] },
     { name: labels.summary, rows: [
       [copy.step, copy.total, copy.direct, copy.inferred, `${copy.previous} (%)`, `${copy.qualified} (%)`],

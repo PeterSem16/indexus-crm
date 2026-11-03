@@ -42,6 +42,7 @@ function cloneConfig(config: FunnelConfig): FunnelConfig {
     ...config,
     version: 1,
     emailPurposes: config.emailPurposes ? [...config.emailPurposes] : undefined,
+    emailFunnelSteps: config.emailFunnelSteps == null ? config.emailFunnelSteps : [...config.emailFunnelSteps],
     sources: Object.fromEntries(funnelSources.map(source => [source, [...config.sources[source]]])) as FunnelConfig["sources"],
   };
 }
@@ -478,6 +479,10 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
               onUpdateSource={updateSource}
               onEmailPurposesChange={emailPurposes => {
                 setConfig(current => current ? { ...current, emailPurposes } : current);
+                setSaveMessage("");
+              }}
+              onEmailFunnelStepsChange={emailFunnelSteps => {
+                setConfig(current => current ? { ...current, emailFunnelSteps } : current);
                 setSaveMessage("");
               }}
               onMaterialsChange={materials => {

@@ -1,5 +1,5 @@
 import {
-  emptyFunnelConfig, funnelSteps, funnelExceptions, effectiveFunnelEmailPurposes,
+  emptyFunnelConfig, funnelSteps, funnelExceptions, effectiveFunnelEmailPurposes, effectiveFunnelEmailSteps,
   type FunnelConfig, type FunnelFilters, type FunnelItem, type FunnelMember,
   type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../shared/mission-funnel";
@@ -49,7 +49,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   const config = input.config ?? emptyFunnelConfig();
   const sources = config.sources;
   const has = (source: FunnelSource) => sources[source].length > 0;
-  const emailMeasurable = has("email") || effectiveFunnelEmailPurposes(config).length > 0;
+  const emailMeasurable = has("email") || effectiveFunnelEmailPurposes(config).length > 0 || effectiveFunnelEmailSteps(config).length > 0;
   const standaloneCooperationIds = standaloneCooperationItemIds(input.items, sources.proposalOther);
   // Cooperating alone is broadened; keep material eligibility on its old rule.
   const legacyCooperationReached = new WeakSet<Map<FunnelStep, Milestone>>();

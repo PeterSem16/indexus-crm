@@ -3,7 +3,7 @@ import { createCustomerEmailHandler } from "./lib/customer-email-handler";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
 import { prepareContactHistory } from "./lib/contact-history-scope";
 import { resolveMissionEmailContext, deliverAttributedEmail, missionEmailFields } from "./lib/mission-email-context";
-import { emailPurposeSchema } from "../shared/email-purpose";
+import { emailPurposeSchema, validEmailFunnelStepsForType } from "../shared/email-purpose";
 import { registerMissionReportGet } from "./lib/mission-report-sources";
 import { registerMissionEmailScheduleRoutes } from "./lib/mission-email-schedule-routes";
 import { parseReportingQuery } from "../shared/reporting-period";
@@ -54939,6 +54939,8 @@ Return ONLY the JSON object.`
         return res.status(400).json({ error: "Invalid template countries" });
       if (!["email", "sms", "task", "notification"].includes(safeBody.type))
         return res.status(400).json({ error: "Unknown template type" });
+      if (!validEmailFunnelStepsForType(safeBody.emailFunnelSteps, safeBody.type))
+        return res.status(400).json({ error: "Invalid email template funnel classification" });
       if (safeBody.emailPurpose !== undefined && (!emailPurposeSchema.safeParse(safeBody.emailPurpose).success ||
           safeBody.type !== "email" && safeBody.emailPurpose !== "unspecified"))
         return res.status(400).json({ error: "Invalid email template purpose" });
@@ -54968,10 +54970,13 @@ Return ONLY the JSON object.`
       if (!existing) return res.status(404).json({ error: "Message template not found" });
       if (safeBody2.type !== undefined && !["email", "sms", "task", "notification"].includes(safeBody2.type))
         return res.status(400).json({ error: "Unknown template type" });
+      if (!validEmailFunnelStepsForType(safeBody2.emailFunnelSteps, safeBody2.type || existing.type))
+        return res.status(400).json({ error: "Invalid email template funnel classification" });
       if (safeBody2.emailPurpose !== undefined && (!emailPurposeSchema.safeParse(safeBody2.emailPurpose).success ||
           (safeBody2.type || existing.type) !== "email" && safeBody2.emailPurpose !== "unspecified"))
         return res.status(400).json({ error: "Invalid email template purpose" });
       if ((safeBody2.type || existing.type) !== "email") safeBody2.emailPurpose = "unspecified";
+      if ((safeBody2.type || existing.type) !== "email") safeBody2.emailFunnelSteps = [];
       if ((safeBody2.type || existing.type) === "task") {
         if (!validTaskMessageTemplate({ ...existing, ...safeBody2 }))
           return res.status(400).json({ error: "Task templates require a name and plain-text content" });
@@ -55073,6 +55078,7 @@ Return ONLY the JSON object.`
         description: source.description,
         type: source.type,
         emailPurpose: source.emailPurpose,
+        emailFunnelSteps: source.type === "email" ? source.emailFunnelSteps : [],
         format: source.format,
         subject: subject || undefined,
         content: content,

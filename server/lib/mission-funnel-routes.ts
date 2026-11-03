@@ -9,7 +9,7 @@ import { computeMissionFunnel, type FunnelInput } from "./mission-funnel";
 import { computeMissionAgentFunnel } from "./mission-agent-funnel";
 import { registerMissionReportGet, missionReportUsesAttainments } from "./mission-report-sources";
 import { loadFunnelEmailEvidence } from "./mission-funnel-email-evidence";
-import { effectiveFunnelEmailPurposes } from "../../shared/mission-funnel";
+import { effectiveFunnelEmailPurposes, effectiveFunnelEmailSteps } from "../../shared/mission-funnel";
 import { missionClinicReferralSql } from "./mission-funnel-referral";
 import { registerMissionHistoricalEmailRoutes } from "./mission-historical-emails";
 
@@ -168,7 +168,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
         const input: FunnelInput = {
           clinics: clinicRows.rows, enrollments: enrollmentRows.rows, items, config: validConfig, absenceReturns,
           emailEvidence: await loadFunnelEmailEvidence(client, req.params.id, contactIds, validConfig.sources.email,
-            effectiveFunnelEmailPurposes(validConfig)),
+            effectiveFunnelEmailPurposes(validConfig), effectiveFunnelEmailSteps(validConfig)),
           events: eventRows.rows.map(e => ({ ...e, at: iso(e.at) })),
           states: stateRows.rows.map(s => ({ ...s, at: iso(s.at) })),
           calls: callRows.rows.map(c => {

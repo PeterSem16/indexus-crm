@@ -7,7 +7,7 @@ import type { WallboardAlarmSettings } from "./wallboard-alarms";
 import type { StatusListWorkflow } from "./status-list-workflow";
 import { primaryKey } from "drizzle-orm/pg-core";
 import type { TaskAttachment } from "./task-attachments";
-import { emailPurposeSchema } from "./email-purpose";
+import { emailPurposeSchema, emailFunnelStepsSchema } from "./email-purpose";
 
 // Country codes for the CRM system (operating countries)
 export const COUNTRIES = [
@@ -6121,6 +6121,8 @@ export const messageTemplates = pgTable("message_templates", {
   type: varchar("type", { length: 20 }).notNull(), // email, sms, task, notification
   format: varchar("format", { length: 20 }).notNull().default("text"), // text, html
   emailPurpose: varchar("email_purpose", { length: 50 }).notNull().default("unspecified"),
+  // NULL preserves untouched legacy purposes; [] explicitly clears classification.
+  emailFunnelSteps: text("email_funnel_steps").array(),
   
   // Content
   subject: text("subject"), // Email subject, task title or notification title
@@ -6169,7 +6171,8 @@ export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).
   lastAiAnalysis: true,
   createdAt: true, 
   updatedAt: true 
-}).extend({ emailPurpose: emailPurposeSchema.optional() });
+}).extend({ emailPurpose: emailPurposeSchema.optional(),
+  emailFunnelSteps: emailFunnelStepsSchema.nullable().optional() });
 export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;
 

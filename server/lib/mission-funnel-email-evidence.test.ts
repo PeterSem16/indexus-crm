@@ -29,6 +29,16 @@ test("an accepted configured proposal email counts without fabricating a status-
   assert.deepEqual(input.states, []);
   assert.deepEqual(input.events, []);
 });
+test("multi-step email classification is only Email evidence, never proof of the named milestones", () => {
+  const input=fixture();input.config!.sources.email=[];input.config!.emailPurposes=[];
+  input.config!.emailFunnelSteps=["cooperating","materials","validated"];
+  input.emailEvidence=[{id:"typed:classified",contactId:"contact",at:"2026-09-02T08:00:00Z",actorId:"agent"}];
+  const result=computeMissionFunnel(input);
+  assert.equal(result.rows.find(r=>r.key==="email")!.total,1);
+  for(const key of ["cooperating","materials","validated","agreed","sent"] as const)
+    assert.equal(result.rows.find(r=>r.key===key)!.members.length,0);
+  assert.deepEqual(input.events,[]);assert.deepEqual(input.states,[]);
+});
 test("email evidence respects reporting periods and disabled source mapping", () => {
   const input = fixture();
   input.emailEvidence = [{ id: "proof", contactId: "contact", at: "2026-09-03T08:00:00Z", actorId: "agent" }];
@@ -46,7 +56,7 @@ test("email loader skips unnecessary work and uses bounded Mission/contact/confi
   assert.deepEqual(await loadFunnelEmailEvidence(db, "mission", ["contact"], []), []);
   assert.equal(calls.length, 0);
   const result = await loadFunnelEmailEvidence(db, "mission", ["contact"], ["proposal-sent"]);
-  assert.deepEqual(calls[0].params, ["mission", ["contact"], ["proposal-sent"], []]);
+  assert.deepEqual(calls[0].params, ["mission", ["contact"], ["proposal-sent"], [], []]);
   assert.equal(result[0].at, "2026-09-02T08:00:00.000Z");
   assert.match(calls[0].sql, /e\.status='succeeded'/);
   assert.doesNotMatch(calls[0].sql, /subject|ILIKE|notify_email/);
@@ -63,7 +73,7 @@ test("typed proofs can measure email without a legacy checkbox but never a posta
   await loadFunnelEmailEvidence({ query: async (_sql, values) => {
     params = values!; return { rows: [] };
   } }, "mission", ["contact"], [], ["cooperation_proposal"]);
-  assert.deepEqual(params, ["mission", ["contact"], [], ["cooperation_proposal"]]);
+  assert.deepEqual(params, ["mission", ["contact"], [], ["cooperation_proposal"], []]);
 });
 test("reviewed recorded time never becomes a sending date or a dated attainment", () => {
   const input=fixture();

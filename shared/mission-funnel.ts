@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { emailPurposeSchema, type EmailPurpose } from "./email-purpose";
+import { emailPurposeSchema, emailFunnelStepsSchema, type EmailPurpose } from "./email-purpose";
+import { funnelSteps, type FunnelStep } from "./mission-funnel-steps";
+export { funnelSteps, type FunnelStep } from "./mission-funnel-steps";
 
 export const funnelSources = [
   "qualified", "agreed", "proposalAccepted", "proposalUnaccepted", "proposalOther",
@@ -11,18 +13,13 @@ export type FunnelSource = typeof funnelSources[number];
 // Keep the retired contract-active source in saved v1 configurations, but it no
 // longer controls cooperation: that branch uses validated + agreed + proposal.
 export const configurableFunnelSources = funnelSources.filter(source => source !== "activeWith");
-export const funnelSteps = [
-  "assigned", "dialed", "connected", "qualified", "agreed", "wantsContract",
-  "withoutContract", "email", "wantsToSign", "sent", "received", "returned",
-  "validated", "cooperating", "packageSent", "materials",
-] as const;
-export type FunnelStep = typeof funnelSteps[number];
 export const funnelExceptions = ["unqualified", "refused", "unreachable", "absent", "wrongNumber", "notWorking"] as const;
 export type FunnelException = typeof funnelExceptions[number];
 export const funnelConfigSchema = z.object({
   version: z.literal(1),
   emailPurposes: z.array(emailPurposeSchema.refine(p => p !== "unspecified")).max(4)
     .refine(values => new Set(values).size === values.length).optional(),
+  emailFunnelSteps: emailFunnelStepsSchema.optional(),
   absenceReturnQuestionId: z.string().min(1).max(100).nullable().optional(),
   materials: z.object({
     packageSent: z.array(z.string().min(1).max(100)).max(100),
@@ -38,6 +35,10 @@ export type FunnelConfig = z.infer<typeof funnelConfigSchema>;
 /** An explicit [] disables typed-message proofs, not legacy mapped actions. */
 export function effectiveFunnelEmailPurposes(config?: Pick<FunnelConfig, "emailPurposes">): EmailPurpose[] {
   return config?.emailPurposes ?? ["cooperation_proposal"];
+}
+/** Existing explicit opt-outs remain opt-outs; never reinterpret old snapshots. */
+export function effectiveFunnelEmailSteps(config?: Pick<FunnelConfig, "emailFunnelSteps" | "emailPurposes">): FunnelStep[] {
+  return config?.emailFunnelSteps ?? (config?.emailPurposes?.length === 0 ? [] : [...funnelSteps]);
 }
 export interface FunnelItem { id: string; stepId: string; label: string; parentId: string | null }
 export interface FunnelDateQuestion { id: string; label: string }

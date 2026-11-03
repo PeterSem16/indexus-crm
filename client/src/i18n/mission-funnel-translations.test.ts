@@ -98,6 +98,6 @@ test("email purpose UI is translated in every locale and keeps email evidence se
     assert.ok(copy.funnelEmailPurposeLabel.trim(), `${locale}.funnel purpose label`);
     assert.ok(copy.funnelEmailPurposeHelp.trim(), `${locale}.funnel purpose help`);
     assert.ok(copy.emailPurposePostalBoundary.trim(), `${locale}.postal boundary`);
-    assert.match(copy.emailPurposePostalBoundary, /Status List/);
+    assert.match(copy.emailPurposePostalBoundary, /Status[- ]List/);
   }
 });

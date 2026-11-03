@@ -101,7 +101,8 @@ test("individual steps and agents are explicit, including unknown; names never f
 });
 test("complete Mission workbook includes both agent performance views and true proof authors", () => {
   const tables = buildFunnelExport(fixture(), missionFunnelTranslations.en, funnelExportTranslations.en, filters);
-  assert.equal(tables.length, 26);
+  // Five base sheets, one per Funnel stage, and both three-sheet agent views.
+  assert.equal(tables.length, 5 + fixture().rows.length + 6);
   const text = funnelExportCsv(tables);
   assert.ok(text.includes(agentFunnelTranslations.en.cohortLabel));
   assert.ok(text.includes(agentFunnelTranslations.en.contributionLabel));

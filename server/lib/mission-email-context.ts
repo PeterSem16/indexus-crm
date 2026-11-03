@@ -2,7 +2,7 @@ import type { Pool } from "pg";
 import type { CommunicationMessage, InsertCommunicationMessage } from "../../shared/schema";
 import { access } from "./mission-funnel-routes";
 import { isMs365SendEvidence, type Ms365SendEvidence } from "./ms365-send-evidence";
-import { emailPurposeSchema, type EmailTemplateSnapshot } from "../../shared/email-purpose";
+import { emailPurposeSchema, emailFunnelStepsSchema, type EmailTemplateSnapshot } from "../../shared/email-purpose";
 
 const entities = {
   customer: { table: "customers", country: "country" },
@@ -42,7 +42,7 @@ export async function resolveMissionEmailContext(
   let emailTemplate: EmailTemplateSnapshot | undefined;
   if (body.emailTemplateId != null && body.emailTemplateId !== "") {
     if (typeof body.emailTemplateId !== "string") invalid();
-    const { rows } = await db.query(`SELECT id,name,type,is_active,country_codes,email_purpose
+    const { rows } = await db.query(`SELECT id,name,type,is_active,country_codes,email_purpose,email_funnel_steps
       FROM message_templates WHERE id=$1`, [body.emailTemplateId]);
     const template = rows[0];
     const purpose = emailPurposeSchema.safeParse(template?.email_purpose);
@@ -51,6 +51,11 @@ export async function resolveMissionEmailContext(
         template.country_codes.length > 0 && (!countryCode || !template.country_codes.includes(countryCode)))
       invalid();
     emailTemplate = { id: template.id, name: template.name, purpose: purpose.data };
+    if (template.email_funnel_steps != null) {
+      const steps = emailFunnelStepsSchema.safeParse(template.email_funnel_steps);
+      if (!steps.success) invalid();
+      emailTemplate.funnelSteps = [...steps.data];
+    }
   }
 
   if (campaignId === null) {
@@ -107,6 +112,8 @@ export async function deliverAttributedEmail<T>(
     templateId: context.emailTemplate?.id ?? null,
     templateName: context.emailTemplate?.name ?? null,
     purpose: context.emailTemplate?.purpose ?? "unspecified",
+    ...(context.emailTemplate?.funnelSteps !== undefined
+      ? { funnelSteps: [...context.emailTemplate.funnelSteps] } : {}),
   };
   const envelope = {
     ...message, ...missionEmailFields(context), type: "email", status: "pending",

@@ -230,6 +230,8 @@ app.use((req, res, next) => {
   try {
     await pool.query(`ALTER TABLE message_templates
       ADD COLUMN IF NOT EXISTS email_purpose varchar(50) NOT NULL DEFAULT 'unspecified'`);
+    await pool.query(`ALTER TABLE message_templates
+      ADD COLUMN IF NOT EXISTS email_funnel_steps text[]`);
   } catch {
     console.error("[migration] fatal Mission email template purpose schema error");
     process.exit(1);

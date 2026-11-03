@@ -18,7 +18,8 @@ import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
 import { getNotificationCopy } from "@/i18n/automation-notification-copy";
 import type { EmailPurpose } from "@shared/email-purpose";
 import { missionFunnelTranslations } from "@/i18n/mission-funnel-translations";
-import { emailPurposes } from "@shared/email-purpose";
+import { funnelSteps, type FunnelStep } from "../../../shared/mission-funnel";
+import { templateEmailClassification } from "./configurator-email-classification";
 import { taskSalutationFields, templateVariableToken } from "@shared/task-template-variables";
 import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
@@ -11571,6 +11572,7 @@ interface MessageTemplate {
   description?: string;
   type: "email" | "sms" | "task" | "notification";
   emailPurpose?: EmailPurpose;
+  emailFunnelSteps: FunnelStep[] | null;
   format: "text" | "html";
   subject?: string;
   content?: string;
@@ -11797,6 +11799,8 @@ export function MessageTemplatesTab() {
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateType, setTemplateType] = useState<"email" | "sms" | "task" | "notification">("email");
   const [templateEmailPurpose, setTemplateEmailPurpose] = useState<EmailPurpose>("unspecified");
+  const [templateEmailFunnelSteps, setTemplateEmailFunnelSteps] = useState<FunnelStep[]>([]);
+  const [templateEmailFunnelStepsEdited, setTemplateEmailFunnelStepsEdited] = useState(false);
   const { data: taskTemplateCatalog } = useQuery<any>({
     queryKey: ["/api/automation/catalog"],
     enabled: templateType === "task" || templateType === "notification",
@@ -12037,6 +12041,8 @@ export function MessageTemplatesTab() {
     setTemplateDescription("");
     setTemplateType("email");
     setTemplateEmailPurpose("unspecified");
+    setTemplateEmailFunnelSteps([]);
+    setTemplateEmailFunnelStepsEdited(false);
     setTemplateFormat("text");
     setTemplateSubject("");
     setTemplateContent("");
@@ -12108,7 +12114,8 @@ export function MessageTemplatesTab() {
         targetLanguage: copyTargetLanguage,
         translate: copyWithTranslation,
         countryCodes: copySourceTemplate.countryCodes || [],
-        emailPurpose: copySourceTemplate.type === "email" ? (copySourceTemplate.emailPurpose || "unspecified") : "unspecified",
+        emailPurpose: copySourceTemplate.type === "email" ? copySourceTemplate.emailPurpose : "unspecified",
+        emailFunnelSteps: copySourceTemplate.type === "email" ? copySourceTemplate.emailFunnelSteps ?? null : [],
       });
       if (!res.ok) throw new Error("Failed to copy template");
       queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
@@ -12280,6 +12287,8 @@ export function MessageTemplatesTab() {
       setTemplateDescription(template.description || "");
       setTemplateType(template.type);
       setTemplateEmailPurpose(template.type === "email" ? (template.emailPurpose || "unspecified") : "unspecified");
+      setTemplateEmailFunnelSteps(template.type === "email" ? [...(template.emailFunnelSteps || [])] : []);
+      setTemplateEmailFunnelStepsEdited(false);
       setTemplateFormat(template.type === "notification" ? "text" : template.format);
       setTemplateSubject(template.subject || "");
       setTemplateContent(template.content || "");
@@ -12324,7 +12333,13 @@ export function MessageTemplatesTab() {
       name: templateName,
       description: templateDescription || undefined,
       type: templateType,
-      emailPurpose: templateType === "email" ? templateEmailPurpose : "unspecified",
+      ...templateEmailClassification({
+        type: templateType,
+        existing: editingTemplate,
+        purpose: templateEmailPurpose,
+        funnelSteps: templateEmailFunnelSteps,
+        funnelStepsEdited: templateEmailFunnelStepsEdited,
+      }),
       format: templateFormat,
       subject: templateType !== "sms" ? templateSubject : undefined,
       content: contentValue,
@@ -12356,7 +12371,13 @@ export function MessageTemplatesTab() {
         name: templateName,
         description: templateDescription || undefined,
         type: templateType,
-        emailPurpose: templateType === "email" ? templateEmailPurpose : "unspecified",
+        ...templateEmailClassification({
+          type: templateType,
+          existing: null,
+          purpose: templateEmailPurpose,
+          funnelSteps: templateEmailFunnelSteps,
+          funnelStepsEdited: templateEmailFunnelStepsEdited,
+        }),
         format: templateFormat,
         subject: templateType !== "sms" ? templateSubject : undefined,
         content: contentValue,
@@ -13097,21 +13118,40 @@ export function MessageTemplatesTab() {
                 </div>
 
                 {templateType === "email" && (
-                  <div className="space-y-1.5 rounded-md border border-border/70 bg-background/70 p-3" data-testid="template-email-purpose-field">
-                    <Label htmlFor="template-email-purpose" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{purposeCopy.templateEmailPurposeLabel}</Label>
-                    <Select value={templateEmailPurpose} onValueChange={value => setTemplateEmailPurpose(value as EmailPurpose)}>
-                      <SelectTrigger id="template-email-purpose" className="h-8 text-xs" data-testid="select-template-email-purpose">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {emailPurposes.map(value => (
-                          <SelectItem key={value} value={value} data-testid={`template-email-purpose-option-${value}`}>
-                            {purposeCopy.emailPurposeLabels[value]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground">{purposeCopy.templateEmailPurposeHelp}</p>
+                  <div className="space-y-3 rounded-md border border-border/70 bg-background/70 p-3" data-testid="template-email-purpose-field">
+                    <div>
+                      <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{purposeCopy.funnelEmailPurposeLabel}</Label>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{purposeCopy.templateEmailFunnelStepsHelp}</p>
+                    </div>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {funnelSteps.map(step => (
+                        <label key={step} className="flex min-h-8 cursor-pointer items-center gap-2 rounded border border-border/60 px-2 py-1.5 text-xs hover:bg-muted/40">
+                          <input
+                            type="checkbox"
+                            data-testid={`template-email-funnel-step-${step}`}
+                            checked={templateEmailFunnelSteps.includes(step)}
+                            onChange={event => {
+                              setTemplateEmailFunnelSteps(current => event.target.checked
+                                ? current.includes(step) ? current : [...current, step]
+                                : current.filter(selected => selected !== step));
+                              setTemplateEmailFunnelStepsEdited(true);
+                            }}
+                            className="h-3.5 w-3.5 accent-teal-800 dark:accent-teal-300"
+                          />
+                          <span>{purposeCopy.stepLabels[step]}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {purposeCopy.funnelEmailStepsCount
+                        .replace("{selected}", String(templateEmailFunnelSteps.length))
+                        .replace("{total}", String(funnelSteps.length))}
+                    </p>
+                    <div className="border-t border-border/70 pt-2" data-testid="template-legacy-email-purpose">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{purposeCopy.templateEmailPurposeLabel}</p>
+                      <p className="mt-1 text-xs font-medium">{purposeCopy.emailPurposeLabels[editingTemplate?.type === "email" ? editingTemplate.emailPurpose || "unspecified" : "unspecified"]}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{purposeCopy.templateEmailPurposeHelp}</p>
+                    </div>
                   </div>
                 )}
 
