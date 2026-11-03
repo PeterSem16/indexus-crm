@@ -56,6 +56,8 @@ function loadEngines(app, requireApp = createRequire(path.join(app, "package.jso
   }));
 }
 function parseArgs(args) {
+  if (args.length === 2 && args[0] === "--check" && args[1] === "--package-details")
+    return { packageDetails: true };
   if (args.length !== 5 || args[0] !== "--check" || args[1] !== "--from" || args[3] !== "--to")
     stop("USE_CHECK_FROM_TO_ONLY");
   const validDay = day => /^\d{4}-\d{2}-\d{2}$/.test(day) &&
@@ -201,7 +203,8 @@ async function inspect(client, engines, dates) {
       WHERE campaign_id::text=$1 AND contact_type='clinic' AND clinic_id::text=ANY($2::text[]) LIMIT 200001`, [MISSION, clinicIds]);
     const contactIds = enrollments.map(e => e.id);
     const events = await query(`SELECT h.id::text AS id,h.campaign_contact_id::text AS "contactId",
-      h.metadata->>'statusListItemId' AS "itemId",(h.metadata->>'confirmed')::boolean AS confirmed,h.created_at AS at
+      h.metadata->>'statusListItemId' AS "itemId",(h.metadata->>'confirmed')::boolean AS confirmed,h.created_at AS at,
+      to_char(h.created_at,'YYYY-MM-DD"T"HH24:MI:SS.US') AS "atExact"
       FROM campaign_contact_history h JOIN campaign_status_list_items i ON i.id::text=h.metadata->>'statusListItemId'
       WHERE h.campaign_contact_id::text=ANY($1::text[]) AND i.campaign_id::text=$2
       AND h.action='status_list_confirmation' AND h.metadata->>'confirmed' IN ('true','false')
@@ -231,6 +234,10 @@ async function inspect(client, engines, dates) {
           attemptAt: typeof metadata.funnelAttemptSentAt === "string" ? metadata.funnelAttemptSentAt : null };
       }),
     };
+    if (dates.packageDetails) return {
+      ...require("./mission-package-evidence.cjs").packageEvidence(input, engines.baseline, new Date(state.now)),
+      casovePasmoDB: state.databaseTimeZone,
+    };
     return summarize(input, engines, dates, new Date(state.now), { casovePasmoDB: state.databaseTimeZone });
   } finally {
     await client.query("ROLLBACK");
@@ -252,12 +259,12 @@ async function main(args) {
   try {
     await client.connect();
     console.log(JSON.stringify({ produkcnaVerzia: head, ...await inspect(client, engines, dates) }, null, 2));
-    console.log("AUDIT_FUNNEL_OK=READ_ONLY");
+    console.log(dates.packageDetails ? "AUDIT_BALIKY_OK=READ_ONLY" : "AUDIT_FUNNEL_OK=READ_ONLY");
   } finally { await client.end(); }
 }
 if (require.main === module || !module.parent) main(process.argv.slice(2)).catch(error => {
   // Never print raw provider/DB messages, SQL, connection data or row details.
-  const safe = /^(AUDIT_ENGINE_ANCHOR_CHANGED|USE_CHECK_FROM_TO_ONLY|INVALID_COHORT_DATES|DATABASE_READ_ONLY_NOT_CONFIRMED|MISSION_IDENTITY_CHANGED|INVALID_SAVED_MAPPING|DIAGNOSTIC_SCOPE_LIMIT|PRODUCTION_BASELINE_CHANGED|PROCESS_TIMEZONE_NOT_UTC|APPLICATION_DATABASE_CONFIGURATION_MISSING)$/.test(error.message || "")
+  const safe = /^(AUDIT_ENGINE_ANCHOR_CHANGED|USE_CHECK_FROM_TO_ONLY|INVALID_COHORT_DATES|DATABASE_READ_ONLY_NOT_CONFIRMED|MISSION_IDENTITY_CHANGED|INVALID_SAVED_MAPPING|DIAGNOSTIC_SCOPE_LIMIT|PRODUCTION_BASELINE_CHANGED|PROCESS_TIMEZONE_NOT_UTC|APPLICATION_DATABASE_CONFIGURATION_MISSING|DETAIL_PACKAGE_MAPPING_MISSING|DETAIL_CANDIDATE_LIMIT|DETAIL_TIMESTAMP_MISSING|DETAIL_CONFIRMATION_INVALID)$/.test(error.message || "")
     ? error.message : /^[0-9A-Z]{5}$/.test(error.code || "") ? `SQLSTATE_${error.code}` : "DIAGNOSTIC_FAILED";
   console.error(`STOP: ${safe}; audit nevykonáva zápisy.`);
   process.exitCode = 1;

@@ -4,6 +4,7 @@ const path = require("node:path");
 const cp = require("node:child_process");
 const { createRequire } = require("node:module");
 const { MISSION, NAME, BASELINE, loadEngines, policySources, parseArgs, summarize, inspect } = require("./audit-mission-funnel-impact.cjs");
+const { packageEvidence } = require("./mission-package-evidence.cjs");
 const fs = require("node:fs");
 // Reconstruct only the pure pinned production sources in a temporary fixture.
 // Tests must not depend on ignored release artifacts or unfinished app code.
@@ -42,8 +43,82 @@ function clinic(input, id, answers, dialed = "2026-11-01T09:00:00Z", answered = 
 }
 test("only valid read-only CLI and real calendar dates are accepted", () => {
   assert.deepEqual(parseArgs(["--check","--from","2026-11-01","--to","2026-11-03"]), dates);
+  assert.deepEqual(parseArgs(["--check","--package-details"]), { packageDetails: true });
   for (const args of [["--apply"], ["--check"], ["--check","--from","2026-02-30","--to","2026-11-03"],
     ["--check","--from","2026-11-04","--to","2026-11-03"]]) assert.throws(() => parseArgs(args));
+});
+function detail(input) {
+  for (const e of input.events) e.atExact ??= e.at.slice(0,19)+".000000";
+  return packageEvidence(input, engines.baseline, now);
+}
+test("package detail distinguishes missing consent from missing validation", () => {
+  const input = fixture();
+  clinic(input, "private-a", ["MPN-06d","MPN-13d"]);
+  clinic(input, "private-b", ["MPN-05c","MPN-06d","MPN-13d"]);
+  const result = detail(input);
+  assert.equal(result.pocetAmbulanciiSDokazomBalika,2);
+  const [a,b] = result.ambulancie.map(c => c.zapisy[0]);
+  assert.deepEqual(a.aktualne.chybaPreZmluvnuVetvu,["súhlas","overená zmluva"]);
+  assert.deepEqual(b.aktualne.chybaPreZmluvnuVetvu,["overená zmluva"]);
+  assert.equal(a.prveHistorickeSubehyUTCdb.spolupraca,null);
+  assert.equal(b.vysledokNasadenehoVypoctu.cooperating,false);
+  assert.doesNotMatch(JSON.stringify(result), /private-a|private-b|PRIVATE_|contact-/);
+});
+test("historical validation and consent must overlap; withdrawal remains visible", () => {
+  const input = fixture(); clinic(input,"private-a",[]);
+  const contactId="contact-private-a";
+  for (const [i,itemId,confirmed] of [[1,"MPN-05c",true],[2,"MPN-05c",false],
+    [3,"MPN-06d",true],[4,"MPN-12e",true],[5,"MPN-13d",true]]) {
+    input.events.push({id:String(i),contactId,itemId,confirmed,at:`2026-11-02T09:00:0${i}Z`,
+      atExact:`2026-11-02T09:00:0${i}.000001`});
+  }
+  const result=detail(input).ambulancie[0].zapisy[0];
+  assert.equal(result.dokazyPodlaUlozenehoMapovania.agreed.potvrdeneVHistorii,true);
+  assert.equal(result.dokazyPodlaUlozenehoMapovania.agreed.odobrateVHistorii,true);
+  assert.equal(result.prveHistorickeSubehyUTCdb.zmluvnaSpolupraca,null);
+  assert.equal(result.vysledokNasadenehoVypoctu.cooperating,false);
+});
+test("valid historical cooperation survives withdrawal without inventing a state date", () => {
+  const input=fixture();clinic(input,"private-a",["MPN-05c","MPN-06d","MPN-12e","MPN-13d"]);
+  input.events.push({id:"remove",contactId:"contact-private-a",itemId:"MPN-05c",confirmed:false,
+    at:"2026-11-03T09:00:00Z",atExact:"2026-11-03T09:00:00.000000"});
+  input.states=input.states.filter(s=>s.itemId!=="MPN-05c");
+  const result=detail(input).ambulancie[0].zapisy[0];
+  assert.equal(result.aktualne.spolupraca,false);
+  assert.equal(result.vysledokNasadenehoVypoctu.cooperating,true);
+  assert.equal(result.prveHistorickeSubehyUTCdb.zmluvnaSpolupraca,"2026-11-02T09:00:00.000000");
+  assert.equal(result.prveHistorickeSubehyUTCdb.materialyPodlaPovodnehoPravidla,"2026-11-02T09:00:00.000000");
+});
+test("current-only validation reports no historical date and native state fallback", () => {
+  const input=fixture();clinic(input,"private-a",["MPN-05c","MPN-06d","MPN-13d"]);
+  input.states.push({contactId:"contact-private-a",itemId:"MPN-12e",at:"2026-11-03T09:00:00Z"});
+  const result=detail(input).ambulancie[0].zapisy[0];
+  assert.equal(result.dokazyPodlaUlozenehoMapovania.validated.stavBezAkejKolvekHistorie,true);
+  assert.equal(result.prveHistorickeSubehyUTCdb.zmluvnaSpolupraca,null);
+  assert.equal(result.vysledokNasadenehoVypoctu.cooperating,true);
+  assert.equal(result.nativnyVypocetPouzivaAjStavBezHistorie,true);
+});
+test("detail preserves exact microseconds and never joins different enrollments", () => {
+  const input=fixture();clinic(input,"private-a",["MPN-06d","MPN-12e","MPN-13d"]);
+  input.events.push(
+    {id:"x1",contactId:"contact-private-a",itemId:"MPN-05c",confirmed:true,at:"2026-11-02T08:00:00Z",atExact:"2026-11-02T08:00:00.000001"},
+    {id:"x2",contactId:"contact-private-a",itemId:"MPN-05c",confirmed:false,at:"2026-11-02T08:00:00Z",atExact:"2026-11-02T08:00:00.000002"});
+  input.enrollments.push({id:"other-enrollment",clinicId:"private-a"});
+  input.states.push({contactId:"other-enrollment",itemId:"MPN-05c",at:"2026-11-02T08:00:00Z"});
+  const result=detail(input).ambulancie[0];
+  assert.equal(result.pocetZapisov,2);
+  assert.ok(result.zapisy.every(r=>!r.vysledokNasadenehoVypoctu.cooperating));
+  const primary=result.zapisy.find(r=>r.aktualne.balik);
+  assert.equal(primary.suhlasExistujeIbaNaInomZapise,true);
+  assert.equal(primary.prveHistorickeSubehyUTCdb.zmluvnaSpolupraca,null);
+  assert.equal(primary.pocetHistorickychDavok,3);
+});
+test("exact-timestamp contradictory consent is diagnosed, not chosen by event ID", () => {
+  const input=fixture();clinic(input,"private-a",["MPN-05c","MPN-06d","MPN-12e","MPN-13d"]);
+  input.events.push({id:"zzz",contactId:"contact-private-a",itemId:"MPN-05c",confirmed:false,at:"2026-11-02T09:00:00Z"});
+  const result=detail(input).ambulancie[0].zapisy[0];
+  assert.equal(result.rozporVPresnomCase,true);
+  assert.equal(result.prveHistorickeSubehyUTCdb.zmluvnaSpolupraca,null);
 });
 test("policy simulations fail closed when a native anchor changes", () => {
   assert.equal(Object.keys(policySources(native)).length, 3);
@@ -164,5 +239,10 @@ test("real PostgreSQL reads only temporary fixture tables and preserves their by
     assert.doesNotMatch(JSON.stringify(result), /private-clinic|private-contact/);
     assert.equal((await client.query("SELECT md5(row_to_json(c)::text) AS hash FROM campaigns c")).rows[0].hash,before);
     assert.equal((await client.query("SELECT COUNT(*)::int AS n FROM campaign_contact_history")).rows[0].n,2);
+    const packageReport = await inspect(client, engines, {packageDetails:true});
+    assert.equal(packageReport.pocetAmbulanciiSDokazomBalika,1);
+    assert.equal(packageReport.ambulancie[0].zapisy[0].dokazyPodlaUlozenehoMapovania.packageSent.prvePotvrdenieUTCdb,
+      "2026-11-02T11:00:00.000000");
+    assert.equal((await client.query("SELECT md5(row_to_json(c)::text) AS hash FROM campaigns c")).rows[0].hash,before);
   } finally { await client.end(); }
 });
