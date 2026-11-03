@@ -7,7 +7,7 @@ import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translation
 import type { EmailPurpose } from "@shared/email-purpose";
 import { emailPurposes } from "@shared/email-purpose";
 import MissionMaterialPackageMapping from "./MissionMaterialPackageMapping";
-import { materialPackageCopy, cooperationRuleCopy } from "./mission-material-package-copy";
+import { materialPackageCopy, cooperationRuleCopy, standaloneCooperationCopy } from "./mission-material-package-copy";
 import {
   configurableFunnelSources,
   effectiveFunnelEmailPurposes,
@@ -238,6 +238,9 @@ export default function MissionFunnelMapping({
           )}
 
           <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{rules.contract} {rules.without} {rules.materials}</p>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground" data-testid="cooperation-standalone-policy">
+            {standaloneCooperationCopy[locale as keyof typeof standaloneCooperationCopy] ?? standaloneCooperationCopy.en}
+          </p>
           <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-border pt-4">
             <button type="button" data-testid="mission-funnel-config-save" disabled={saving} onClick={onSave}
               className="inline-flex h-10 items-center gap-2 rounded-md bg-teal-800 px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-900 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-teal-300 dark:text-teal-950 dark:hover:bg-teal-200">

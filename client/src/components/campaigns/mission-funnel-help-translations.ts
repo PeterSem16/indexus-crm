@@ -2,7 +2,7 @@ import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shar
 import type { Locale } from "@/i18n/translations";
 import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
-import { cooperationRuleCopy, optionalPosterCopy } from "./mission-material-package-copy";
+import { cooperationRuleCopy, optionalPosterCopy, standaloneCooperationCopy } from "./mission-material-package-copy";
 
 export const missionFunnelHelpChapterIds = [
   "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
@@ -973,7 +973,8 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       "without-contract": [cooperationRuleCopy[locale].without, base.content.combined[3]],
       agents: agentFunnelTranslations[locale].helpParagraphs,
       combined: [cooperationRuleCopy[locale].contract, cooperationRuleCopy[locale].without,
-        base.content.combined[1], `${cooperationRuleCopy[locale].materials} ${optionalPosterCopy[locale]}`, base.content.combined[3]],
+        standaloneCooperationCopy[locale], base.content.combined[1],
+        `${cooperationRuleCopy[locale].materials} ${optionalPosterCopy[locale]}`, base.content.combined[3]],
       configuration: [
         base.content.configuration[0],
         mappingRuleNotes[locale],
@@ -1009,7 +1010,7 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       chapters: { ...chapterNavigation[locale], "without-contract": corrections.chapterTitle, agents: agentFunnelTranslations[locale].title },
       content: chapterContent,
       stages: { ...stageMaps[locale], withoutContract: cooperationRuleCopy[locale].without,
-        cooperating: `${cooperationRuleCopy[locale].contract} ${cooperationRuleCopy[locale].without}`,
+        cooperating: `${cooperationRuleCopy[locale].contract} ${cooperationRuleCopy[locale].without} ${standaloneCooperationCopy[locale]}`,
         materials: cooperationRuleCopy[locale].materials },
       sources: { ...sourceMaps[locale], activeWithout: cooperationRuleCopy[locale].without },
       exceptions: exceptionMaps[locale],
