@@ -3,7 +3,9 @@ import { statusListHistoryFields, type StatusListHistoryFacts } from "../../shar
 type Queryable = { query(text: string, values?: any[]): Promise<{ rows: any[] }> };
 type Contact = { id: string; campaign_id: string; contact_type: string; [key: string]: any };
 
-/** Never use address matching, an agent session, or a mutable current queue. */
+/** Never use address matching, an agent session, a transport metadata marker,
+ * or a mutable current queue. New Mission emails carry the verified typed triple;
+ * unassigned legacy/standalone emails remain outside Mission history. */
 export async function readStatusListCommunicationHistory(client: Queryable, contact: Contact) {
   const entityId = contact[`${contact.contact_type}_id`];
   if (!["customer", "clinic", "hospital", "collaborator"].includes(contact.contact_type) || !entityId) return null;

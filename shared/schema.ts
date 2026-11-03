@@ -7,6 +7,7 @@ import type { WallboardAlarmSettings } from "./wallboard-alarms";
 import type { StatusListWorkflow } from "./status-list-workflow";
 import { primaryKey } from "drizzle-orm/pg-core";
 import type { TaskAttachment } from "./task-attachments";
+import { emailPurposeSchema } from "./email-purpose";
 
 // Country codes for the CRM system (operating countries)
 export const COUNTRIES = [
@@ -1356,7 +1357,9 @@ export const communicationMessages = pgTable("communication_messages", {
   countryCode: varchar("country_code", { length: 10 }),
   customerId: varchar("customer_id"),
   // Mission attribution is intentionally separate from customerId: Mission contacts
-  // can be clinics, hospitals, or collaborators and must not be inferred by phone.
+  // can be clinics, hospitals, or collaborators and must not be inferred by phone
+  // or email. Email sends persist the server-verified triple before transport;
+  // standalone compose explicitly keeps campaignId null (no historical backfill).
   campaignId: varchar("campaign_id"),
   entityType: text("entity_type"), // customer | clinic | hospital | collaborator
   entityId: varchar("entity_id"),
@@ -1369,6 +1372,8 @@ export const communicationMessages = pgTable("communication_messages", {
   recipientPhone: text("recipient_phone"),
   replyToSmsId: varchar("reply_to_sms_id"),
   senderPhone: text("sender_phone"), // for incoming SMS
+  // New email sends must not use "sent" for simulation or missing transport.
+  // This does not reclassify historical rows or prove recipient delivery.
   status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
   externalId: text("external_id"), // BulkGate sms_id or email provider id
   provider: text("provider"), // bulkgate, sendgrid, etc.
@@ -6115,6 +6120,7 @@ export const messageTemplates = pgTable("message_templates", {
   // Type and format
   type: varchar("type", { length: 20 }).notNull(), // email, sms, task, notification
   format: varchar("format", { length: 20 }).notNull().default("text"), // text, html
+  emailPurpose: varchar("email_purpose", { length: 50 }).notNull().default("unspecified"),
   
   // Content
   subject: text("subject"), // Email subject, task title or notification title
@@ -6163,7 +6169,7 @@ export const insertMessageTemplateSchema = createInsertSchema(messageTemplates).
   lastAiAnalysis: true,
   createdAt: true, 
   updatedAt: true 
-});
+}).extend({ emailPurpose: emailPurposeSchema.optional() });
 export type InsertMessageTemplate = z.infer<typeof insertMessageTemplateSchema>;
 export type MessageTemplate = typeof messageTemplates.$inferSelect;
 

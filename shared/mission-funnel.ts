@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { emailPurposeSchema, type EmailPurpose } from "./email-purpose";
 
 export const funnelSources = [
   "qualified", "agreed", "proposalAccepted", "proposalUnaccepted", "proposalOther",
@@ -20,6 +21,8 @@ export const funnelExceptions = ["unqualified", "refused", "unreachable", "absen
 export type FunnelException = typeof funnelExceptions[number];
 export const funnelConfigSchema = z.object({
   version: z.literal(1),
+  emailPurposes: z.array(emailPurposeSchema.refine(p => p !== "unspecified")).max(4)
+    .refine(values => new Set(values).size === values.length).optional(),
   absenceReturnQuestionId: z.string().min(1).max(100).nullable().optional(),
   materials: z.object({
     packageSent: z.array(z.string().min(1).max(100)).max(100),
@@ -32,6 +35,10 @@ export const funnelConfigSchema = z.object({
   sources: z.object(Object.fromEntries(funnelSources.map(key => [key, z.array(z.string().min(1).max(100)).max(100)])) as Record<FunnelSource, z.ZodArray<z.ZodString>>).strict(),
 }).strict();
 export type FunnelConfig = z.infer<typeof funnelConfigSchema>;
+/** An explicit [] disables typed-message proofs, not legacy mapped actions. */
+export function effectiveFunnelEmailPurposes(config?: Pick<FunnelConfig, "emailPurposes">): EmailPurpose[] {
+  return config?.emailPurposes ?? ["cooperation_proposal"];
+}
 export interface FunnelItem { id: string; stepId: string; label: string; parentId: string | null }
 export interface FunnelDateQuestion { id: string; label: string }
 export interface FunnelMember {
@@ -50,7 +57,7 @@ export interface FunnelRow {
 }
 export interface MissionFunnelReport {
   version: string; generatedAt: string; timezone: string; missionName: string;
-  canConfigure: boolean; config: FunnelConfig; items: FunnelItem[];
+  canConfigure: boolean; canReviewHistoricalEmails?: boolean; config: FunnelConfig; items: FunnelItem[];
   dateQuestions?: FunnelDateQuestion[];
   agentComparison?: AgentFunnelComparison;
   rows: FunnelRow[];

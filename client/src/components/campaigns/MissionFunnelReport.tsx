@@ -9,6 +9,7 @@ import MissionFunnelChart from "./MissionFunnelChart";
 import MissionAgentFunnel from "./MissionAgentFunnel";
 import MissionEmailSchedules from "./MissionEmailSchedules";
 import MissionFunnelMapping from "./MissionFunnelMapping";
+import MissionHistoricalEmails from "./MissionHistoricalEmails";
 import MissionFunnelHelp, { MissionFunnelHelpButton } from "./MissionFunnelHelp";
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
 import { buildFunnelExport, funnelExportCsv, funnelExportXlsx, funnelExportFilename } from "./mission-funnel-export";
@@ -40,6 +41,7 @@ function cloneConfig(config: FunnelConfig): FunnelConfig {
   return {
     ...config,
     version: 1,
+    emailPurposes: config.emailPurposes ? [...config.emailPurposes] : undefined,
     sources: Object.fromEntries(funnelSources.map(source => [source, [...config.sources[source]]])) as FunnelConfig["sources"],
   };
 }
@@ -418,6 +420,8 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
             filters={{ from, to, referral }}
           />
 
+          {report.canReviewHistoricalEmails && <MissionHistoricalEmails key={campaignId} campaignId={campaignId} missionName={report.missionName} />}
+
           <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
             <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div><h2 className="text-base font-semibold">{copy.quality}</h2><p className="mt-1 text-xs text-muted-foreground">{copy.qualityHelp}</p></div>
@@ -471,6 +475,10 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
               saving={saving}
               saveMessage={saveMessage}
               onUpdateSource={updateSource}
+              onEmailPurposesChange={emailPurposes => {
+                setConfig(current => current ? { ...current, emailPurposes } : current);
+                setSaveMessage("");
+              }}
               onMaterialsChange={materials => {
                 setConfig(current => current ? { ...current, materials } : current);
                 setSaveMessage("");

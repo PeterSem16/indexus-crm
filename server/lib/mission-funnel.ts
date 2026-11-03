@@ -1,5 +1,5 @@
 import {
-  emptyFunnelConfig, funnelSteps, funnelExceptions,
+  emptyFunnelConfig, funnelSteps, funnelExceptions, effectiveFunnelEmailPurposes,
   type FunnelConfig, type FunnelFilters, type FunnelItem, type FunnelMember,
   type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../shared/mission-funnel";
@@ -48,6 +48,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   const config = input.config ?? emptyFunnelConfig();
   const sources = config.sources;
   const has = (source: FunnelSource) => sources[source].length > 0;
+  const emailMeasurable = has("email") || effectiveFunnelEmailPurposes(config).length > 0;
   const rows = new Map<FunnelStep, Map<string, Milestone>>(funnelSteps.map(key => [key, new Map()]));
   const exceptions = new Map(funnelExceptions.map(key => [key, new Map<string, Milestone>()]));
   const eligible = input.clinics.filter(c => filters.referral === "yes" ? c.referred : filters.referral === "no" ? !c.referred : true);
@@ -129,7 +130,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     }
     // Sending is an immutable occurrence, not an invented Status List tick.
     // Keep its real timestamp/actor even after the step is unconfirmed later.
-    if (has("email")) for (const evidence of input.emailEvidence ?? []) {
+    if (emailMeasurable) for (const evidence of input.emailEvidence ?? []) {
       if (evidence.contactId !== contactId) continue;
       if (validDate(evidence.at))
         put(milestones, "email", evidence.at, "history", false, evidence.actorId);
@@ -241,7 +242,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   const measurable: Record<FunnelStep, boolean> = {
     assigned: true, dialed: true, connected: true, qualified: has("qualified"), agreed: has("agreed"),
     wantsContract: has("agreed") && (has("proposalAccepted") || has("proposalOther")),
-    withoutContract: has("agreed") && has("proposalUnaccepted"), email: has("email"),
+    withoutContract: has("agreed") && has("proposalUnaccepted"), email: emailMeasurable,
     wantsToSign: has("agreed") && has("proposalAccepted"), sent: has("sent"), received: has("received"),
     returned: has("returned"), validated: has("validated"), cooperating: cooperationMeasurable,
     materials: cooperationMeasurable && (Boolean(input.config?.materials?.packageSent.length) ||

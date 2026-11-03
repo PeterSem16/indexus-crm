@@ -1,5 +1,6 @@
 import type { Locale } from "./translations";
 import type { FunnelException, FunnelSource, FunnelStep } from "../../../shared/mission-funnel";
+import type { EmailPurpose } from "../../../shared/email-purpose";
 
 export interface MissionFunnelCopy {
   title: string; subtitle: string; period: string; from: string; to: string; referral: string;
@@ -31,6 +32,9 @@ export interface MissionFunnelCopy {
   mappingSourceHelp: string; mappingMissingChoice: string; mappingSelectedChoices: string; mappingRemoveChoice: string;
   mappingNoSelection: string; mappingAvailableChoices: string; clearSearch: string; addChoice: string; mappingAllSelected: string;
   mappingChooseSource: string;
+  templateEmailPurposeLabel: string; templateEmailPurposeHelp: string;
+  emailPurposeLabels: Record<EmailPurpose, string>;
+  funnelEmailPurposeLabel: string; funnelEmailPurposeHelp: string; emailPurposePostalBoundary: string;
 }
 
 const sourceEn: Record<FunnelSource, string> = {
@@ -110,6 +114,12 @@ const en: MissionFunnelCopy = {
   mappingAvailableChoices:"available choices", clearSearch:"Clear", addChoice:"Add",
   mappingAllSelected:"All matching items are already selected.",
   mappingChooseSource:"Choose one evidence source",
+  templateEmailPurposeLabel:"Email purpose",
+  templateEmailPurposeHelp:"Saved with the template and frozen as a server-owned snapshot when the email is sent.",
+  emailPurposeLabels:{unspecified:"Unspecified",cooperation_proposal:"Cooperation proposal",contract_for_signature:"Contract for signature",information_materials:"Information materials",reminder:"Reminder"},
+  funnelEmailPurposeLabel:"Count these email purposes in the Email step",
+  funnelEmailPurposeHelp:"Only purpose-tagged emails count here. Unspecified emails are excluded.",
+  emailPurposePostalBoundary:"Typed email mapping affects only the Email step. It does not change postal statuses or Status List mappings; an email never confirms contract or materials shipment.",
 };
 
 const translations: Record<Locale, MissionFunnelCopy> = {
@@ -182,6 +192,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"dostupných možností", clearSearch:"Vymazať", addChoice:"Pridať",
      mappingAllSelected:"Všetky zodpovedajúce položky sú už vybrané.",
      mappingChooseSource:"Vyberte jeden zdroj dôkazu",
+     templateEmailPurposeLabel:"Účel e-mailu",
+     templateEmailPurposeHelp:"Uloží sa so šablónou a pri odoslaní sa zaznamená ako nemenná serverová kópia.",
+     emailPurposeLabels:{unspecified:"Neurčený",cooperation_proposal:"Návrh spolupráce",contract_for_signature:"Zmluva na podpis",information_materials:"Informačné materiály",reminder:"Pripomenutie"},
+     funnelEmailPurposeLabel:"Započítať tieto účely e-mailov v kroku E-mail",
+     funnelEmailPurposeHelp:"Započítavajú sa iba e-maily s označeným účelom. E-maily bez určeného účelu sa vylúčia.",
+     emailPurposePostalBoundary:"Mapovanie účelu e-mailu ovplyvňuje iba krok E-mail. Nemení poštové stavy ani mapovanie Status List; e-mail nikdy nepotvrdzuje odoslanie zmluvy alebo materiálov.",
   },
   cs: {
     ...en, title:"Trychtýř mise", subtitle:"Konverze na úrovni klinik · v04", period:"Období aktivity", from:"Od", to:"Do",
@@ -243,6 +259,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"dostupných možností", clearSearch:"Vymazat", addChoice:"Přidat",
      mappingAllSelected:"Všechny odpovídající položky jsou již vybrané.",
      mappingChooseSource:"Vyberte jeden zdroj důkazu",
+     templateEmailPurposeLabel:"Účel e-mailu",
+     templateEmailPurposeHelp:"Uloží se se šablonou a při odeslání se zaznamená jako neměnná serverová kopie.",
+     emailPurposeLabels:{unspecified:"Neurčeno",cooperation_proposal:"Návrh spolupráce",contract_for_signature:"Smlouva k podpisu",information_materials:"Informační materiály",reminder:"Připomenutí"},
+     funnelEmailPurposeLabel:"Započítat tyto účely e-mailů v kroku E-mail",
+     funnelEmailPurposeHelp:"Započítávají se pouze e-maily s označeným účelem. E-maily bez určeného účelu jsou vyloučeny.",
+     emailPurposePostalBoundary:"Mapování účelu e-mailu ovlivňuje pouze krok E-mail. Nemění poštovní stavy ani mapování Status List; e-mail nikdy nepotvrzuje odeslání smlouvy nebo materiálů.",
   },
   hu: {
     ...en, title:"Missziós tölcsér", subtitle:"Klinikánkénti konverzió · v04", period:"Aktivitási időszak", from:"Ettől", to:"Eddig",
@@ -304,6 +326,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"elérhető lehetőség", clearSearch:"Törlés", addChoice:"Hozzáadás",
      mappingAllSelected:"Minden találat már ki van választva.",
      mappingChooseSource:"Válasszon egy bizonyítékforrást",
+     templateEmailPurposeLabel:"E-mail célja",
+     templateEmailPurposeHelp:"A sablonnal együtt mentődik, küldéskor pedig rögzített szerveroldali pillanatkép készül róla.",
+     emailPurposeLabels:{unspecified:"Nincs megadva",cooperation_proposal:"Együttműködési ajánlat",contract_for_signature:"Aláírandó szerződés",information_materials:"Tájékoztató anyagok",reminder:"Emlékeztető"},
+     funnelEmailPurposeLabel:"Ezek az e-mail-célok számítsanak az E-mail lépésbe",
+     funnelEmailPurposeHelp:"Csak a megjelölt célú e-mailek számítanak. A cél nélküli e-mailek kimaradnak.",
+     emailPurposePostalBoundary:"Az e-mail céljának leképezése kizárólag az E-mail lépést érinti. Nem módosít postai állapotot vagy Status List-leképezést; az e-mail nem igazolja a szerződés vagy anyagok postázását.",
   },
   ro: {
     ...en, title:"Pâlnia misiunii", subtitle:"Conversie la nivel de clinică · v04", period:"Perioada activității", from:"De la", to:"Până la",
@@ -365,6 +393,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"alegeri disponibile", clearSearch:"Șterge", addChoice:"Adaugă",
      mappingAllSelected:"Toate elementele găsite sunt deja selectate.",
      mappingChooseSource:"Alegeți o singură sursă de dovezi",
+     templateEmailPurposeLabel:"Scopul e-mailului",
+     templateEmailPurposeHelp:"Se salvează cu șablonul și se păstrează ca instantaneu gestionat de server la trimitere.",
+     emailPurposeLabels:{unspecified:"Nespecificat",cooperation_proposal:"Propunere de colaborare",contract_for_signature:"Contract pentru semnare",information_materials:"Materiale informative",reminder:"Memento"},
+     funnelEmailPurposeLabel:"Include aceste scopuri în pasul E-mail",
+     funnelEmailPurposeHelp:"Se includ doar e-mailurile cu scop specificat. E-mailurile fără scop sunt excluse.",
+     emailPurposePostalBoundary:"Maparea scopului e-mailului afectează doar pasul E-mail. Nu modifică stările poștale sau mapările Status List; un e-mail nu confirmă expedierea contractului sau a materialelor.",
   },
   it: {
     ...en, title:"Funnel della missione", subtitle:"Conversione per clinica · v04", period:"Periodo di attività", from:"Da", to:"A",
@@ -426,6 +460,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"scelte disponibili", clearSearch:"Cancella", addChoice:"Aggiungi",
      mappingAllSelected:"Tutti gli elementi corrispondenti sono già selezionati.",
      mappingChooseSource:"Scegli una fonte di evidenza",
+     templateEmailPurposeLabel:"Scopo dell’e-mail",
+     templateEmailPurposeHelp:"Viene salvato con il modello e registrato come istantanea server al momento dell’invio.",
+     emailPurposeLabels:{unspecified:"Non specificato",cooperation_proposal:"Proposta di collaborazione",contract_for_signature:"Contratto da firmare",information_materials:"Materiali informativi",reminder:"Promemoria"},
+     funnelEmailPurposeLabel:"Includi questi scopi e-mail nel passaggio E-mail",
+     funnelEmailPurposeHelp:"Sono conteggiate solo le e-mail con uno scopo selezionato. Quelle senza scopo sono escluse.",
+     emailPurposePostalBoundary:"La mappatura dello scopo e-mail modifica solo il passaggio E-mail. Non cambia gli stati postali né le mappature Status List; un’e-mail non conferma la spedizione di contratti o materiali.",
   },
   de: {
     ...en, title:"Missions-Trichter", subtitle:"Konversion je Klinik · v04", period:"Aktivitätszeitraum", from:"Von", to:"Bis",
@@ -487,6 +527,12 @@ const translations: Record<Locale, MissionFunnelCopy> = {
      mappingAvailableChoices:"verfügbare Einträge", clearSearch:"Leeren", addChoice:"Hinzufügen",
      mappingAllSelected:"Alle passenden Einträge sind bereits ausgewählt.",
      mappingChooseSource:"Wählen Sie eine Nachweisquelle",
+     templateEmailPurposeLabel:"E-Mail-Zweck",
+     templateEmailPurposeHelp:"Wird mit der Vorlage gespeichert und beim Versand als serverseitiger Snapshot festgehalten.",
+     emailPurposeLabels:{unspecified:"Nicht angegeben",cooperation_proposal:"Kooperationsvorschlag",contract_for_signature:"Vertrag zur Unterschrift",information_materials:"Informationsmaterial",reminder:"Erinnerung"},
+     funnelEmailPurposeLabel:"Diese E-Mail-Zwecke im Schritt E-Mail zählen",
+     funnelEmailPurposeHelp:"Nur E-Mails mit festgelegtem Zweck zählen. E-Mails ohne Zweck werden ausgeschlossen.",
+     emailPurposePostalBoundary:"Die Zuordnung des E-Mail-Zwecks betrifft nur den Schritt E-Mail. Sie ändert weder Poststatus noch Zuordnungen in Status List; eine E-Mail bestätigt keinen Vertrags- oder Materialversand.",
   },
 };
 

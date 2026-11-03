@@ -3624,7 +3624,13 @@ export function CustomerDetailsContent({
       toast({ title: message });
     },
     onError: (error: any) => {
-      const errorMsg = error?.message || "Failed to send email";
+      queryClient.invalidateQueries({ queryKey: ["/api/customers", customer.id, "messages"] });
+      const deliveryErrors: Record<string, string> = {
+        EMAIL_PROVIDER_NOT_CONFIGURED: t.customers.details.emailProviderNotConfigured,
+        EMAIL_PROVIDER_REJECTED: t.customers.details.emailProviderRejected,
+        EMAIL_PROVIDER_NETWORK_ERROR: t.customers.details.emailProviderNetworkError,
+      };
+      const errorMsg = deliveryErrors[error?.code] || error?.message || t.customers.details.emailSendFailed;
       toast({ title: errorMsg, variant: "destructive" });
     },
   });

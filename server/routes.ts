@@ -1,7 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { createCustomerEmailHandler } from "./lib/customer-email-handler";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
 import { prepareContactHistory } from "./lib/contact-history-scope";
-import { resolveMissionEmailContext } from "./lib/mission-email-context";
+import { resolveMissionEmailContext, deliverAttributedEmail, missionEmailFields } from "./lib/mission-email-context";
+import { emailPurposeSchema } from "../shared/email-purpose";
 import { registerMissionReportGet } from "./lib/mission-report-sources";
 import { registerMissionEmailScheduleRoutes } from "./lib/mission-email-schedule-routes";
 import { parseReportingQuery } from "../shared/reporting-period";
@@ -96,7 +98,7 @@ import {
   insertUserSchema, insertCustomerSchema, updateUserSchema, loginSchema, userSessions, communicationMessages,
   invoices, invoiceItems, invoicePayments, scheduledInvoices,
   insertProductSchema, insertCustomerProductSchema, insertBillingDetailsSchema,
-  insertCustomerNoteSchema, insertEntityNoteSchema, insertActivityLogSchema, sendEmailSchema, sendSmsSchema,
+  insertCustomerNoteSchema, insertEntityNoteSchema, insertActivityLogSchema, sendSmsSchema,
   insertComplaintTypeSchema, insertCooperationTypeSchema, insertVipStatusSchema, insertHealthInsuranceSchema,
   insertLaboratorySchema, insertHospitalSchema, insertClinicSchema,
   insertCollaboratorSchema, insertCollaboratorAddressSchema, insertCollaboratorOtherDataSchema, insertCollaboratorAgreementSchema,
@@ -5604,6 +5606,9 @@ export async function registerRoutes(
   // Send email via MS365
   app.post("/api/ms365/send-email", requireAuth, async (req, res) => {
     try {
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { context = await resolveMissionEmailContext(pool, req.session.user!.id, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       const ms365Session = (req.session as any)?.ms365;
       
       if (!ms365Session?.accessToken) {
@@ -5617,7 +5622,11 @@ export async function registerRoutes(
       }
       
       const { sendEmail } = await import("./lib/ms365");
-      await sendEmail(ms365Session.accessToken, Array.isArray(to) ? to : [to], subject, body, isHtml !== false);
+      await deliverAttributedEmail(storage, context, {
+        userId: req.session.user!.id, subject, content: body,
+        recipientEmail: (Array.isArray(to) ? to : [to]).join(", "),
+        metadata: JSON.stringify({ sentVia: "ms365" }),
+      }, () => sendEmail(ms365Session.accessToken, Array.isArray(to) ? to : [to], subject, body, isHtml !== false));
       
       res.json({ message: "Email sent successfully" });
     } catch (error) {
@@ -5635,7 +5644,8 @@ export async function registerRoutes(
       catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
 
       // System mailbox path — use country-level M365 account, bypass user OAuth
-      const { useSystemMailbox, campaignCountryCode } = req.body;
+      const { useSystemMailbox } = req.body;
+      const campaignCountryCode = missionEmailContext.countryCode;
       if (useSystemMailbox === true && campaignCountryCode) {
         const { to: sTo, cc: sCc, subject: sSub, body: sBody, isHtml: sIsHtml, customerId: sCustId, contactType: sContactType } = req.body;
         if (!sTo || !sSub || !sBody) {
@@ -5656,19 +5666,16 @@ export async function registerRoutes(
           }
           const sToArr = Array.isArray(sTo) ? sTo : [sTo];
           const sCcArr = sCc ? (Array.isArray(sCc) ? sCc : [sCc]) : undefined;
-          const { conversationId: sysConvId } = await sendSysEmail(sysTok.accessToken, sToArr, sSub, sBody, sIsHtml !== false, sCcArr);
-          let sysMsgId: string | undefined;
+          const { messageId: sysMsgId } = await deliverAttributedEmail(
+            storage, missionEmailContext, {
+              userId, subject: sSub, content: sBody, recipientEmail: sToArr.join(", "),
+              metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system",
+                contactType: missionEmailContext.entityType, cc: sCcArr }),
+            }, () => sendSysEmail(sysTok.accessToken, sToArr, sSub, sBody, sIsHtml !== false, sCcArr));
           if (sCustId) {
             try {
-              const sysMsg = await storage.createCommunicationMessage({
-                campaignId: missionEmailContext.campaignId,
-                customerId: sCustId, userId, type: "email", subject: sSub, content: sBody,
-                status: "sent", recipients: sToArr.join(", "),
-                metadata: JSON.stringify({ from: (sysConn as any).email || "system", sentVia: "ms365-system", contactType: sContactType || "customer", conversationId: sysConvId || null }),
-              });
-              sysMsgId = sysMsg.id;
               await storage.createActivityLog({
-                userId, action: "email_sent", entityType: sContactType || "customer",
+                userId, action: "email_sent", entityType: missionEmailContext.entityType || "customer",
                 entityId: sCustId, entityName: sToArr[0],
                 details: JSON.stringify({ messageId: sysMsgId, subject: sSub, to: sToArr, from: (sysConn as any).email || "system", sentVia: "system" }),
               });
@@ -5814,10 +5821,20 @@ export async function registerRoutes(
       
       const { sendEmailAndGetConversationId, sendEmailFromSharedMailboxAndGetConversationId } = await import("./lib/ms365");
       
-      let sentConversationId: string | null = null;
-      if (sharedMailboxEmail) {
+      const emailMetadata = {
+        from: fromEmail, cc: ccArray?.join(", ") || null, isHtml: isHtml !== false,
+        sentVia: "ms365", sharedMailbox: sharedMailboxEmail || null,
+        compositionDurationSeconds: compositionDurationSeconds || null,
+        contactType: missionEmailContext.entityType, recipientEmails: toArray,
+      };
+      const { messageId } = await deliverAttributedEmail(
+        storage, missionEmailContext, {
+          userId, subject, content: body, recipientEmail: toArray.join(", "),
+          metadata: JSON.stringify(emailMetadata),
+        }, async () => {
+        if (sharedMailboxEmail) {
         // Send from shared mailbox
-        const result = await sendEmailFromSharedMailboxAndGetConversationId(
+        return sendEmailFromSharedMailboxAndGetConversationId(
           tokenResult.accessToken,
           sharedMailboxEmail,
           toArray,
@@ -5827,49 +5844,23 @@ export async function registerRoutes(
           ccArray,
           finalAttachments.length > 0 ? finalAttachments : undefined
         );
-        sentConversationId = result.conversationId;
       } else {
         // Send from user's own mailbox
-        const result = await sendEmailAndGetConversationId(tokenResult.accessToken, toArray, subject, body, isHtml !== false, ccArray, finalAttachments.length > 0 ? finalAttachments : undefined);
-        sentConversationId = result.conversationId;
+        return sendEmailAndGetConversationId(tokenResult.accessToken, toArray, subject, body, isHtml !== false, ccArray, finalAttachments.length > 0 ? finalAttachments : undefined);
       }
+      });
       
       // Log email to customer history if customerId is provided
-      let messageId: string | undefined;
       if (customerId) {
         try {
-          // Save to communication_messages table
-          const message = await storage.createCommunicationMessage({
-            customerId,
-            userId,
-            type: "email",
-            campaignId: missionEmailContext.campaignId,
-            subject,
-            content: body,
-            status: "sent",
-            recipients: toArray.join(", "),
-            metadata: JSON.stringify({
-              from: fromEmail,
-              cc: ccArray?.join(", ") || null,
-              isHtml: isHtml !== false,
-              sentVia: "ms365",
-              sharedMailbox: sharedMailboxEmail || null,
-              compositionDurationSeconds: compositionDurationSeconds || null,
-              contactType: contactType || "customer",
-              recipientEmails: toArray,
-              conversationId: sentConversationId || null,
-            }),
-          });
-          messageId = message.id;
-          
           await storage.createActivityLog({
             userId,
             action: "email_sent",
-            entityType: contactType || "customer",
+            entityType: missionEmailContext.entityType || "customer",
             entityId: customerId,
             entityName: toArray[0],
             details: JSON.stringify({
-              messageId: message.id,
+              messageId,
               subject,
               to: toArray,
               cc: ccArray || [],
@@ -8156,6 +8147,10 @@ Always respond with valid JSON only, no markdown.`
   app.post("/api/users/:userId/ms365-send-email", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
+      if (userId !== req.session.user!.id) return res.status(403).json({ error: "Invalid mailbox owner" });
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { context = await resolveMissionEmailContext(pool, userId, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       const { to, cc, bcc, subject, body, isHtml, mailboxEmail, importance, attachments: reqAttachments } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
@@ -8165,6 +8160,11 @@ Always respond with valid JSON only, no markdown.`
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
         return res.status(400).json({ error: "MS365 not connected" });
+      }
+      if (mailboxEmail && mailboxEmail !== "personal" && mailboxEmail !== ms365Connection.email) {
+        const mailboxes = await storage.getUserMs365SharedMailboxes(userId);
+        if (!mailboxes.some(mailbox => mailbox.email === mailboxEmail))
+          return res.status(403).json({ error: "Invalid mailbox" });
       }
       
       const { decryptTokenSafe } = await import("./lib/token-crypto");
@@ -8185,7 +8185,12 @@ Always respond with valid JSON only, no markdown.`
         return res.status(401).json({ error: "Token expired", requiresReauth: true });
       }
       
-      const success = await sendEmailWithSignature(
+      const { messageId: communicationId } = await deliverAttributedEmail(storage, context, {
+        userId, subject: subject || "", content: body || "", recipientEmail: to.join(", "),
+        metadata: JSON.stringify({ sentVia: "ms365-email-client", contactType: context.entityType,
+          from: mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail }),
+      }, async () => {
+        const sent = await sendEmailWithSignature(
         tokenResult.accessToken,
         to,
         subject || "",
@@ -8197,9 +8202,12 @@ Always respond with valid JSON only, no markdown.`
         mailboxEmail === "personal" ? undefined : mailboxEmail,
         importance,
         Array.isArray(reqAttachments) ? reqAttachments : undefined
-      );
+        );
+        if (!sent) throw new Error("Email delivery failed");
+        return sent;
+      });
       
-      if (success) {
+      {
         let sentMessageId: string | undefined;
         try {
           const { Client } = await import("@microsoft/microsoft-graph-client");
@@ -8219,7 +8227,9 @@ Always respond with valid JSON only, no markdown.`
           const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
           const sanitizedBodyPreview = body ? body.replace(/<[^>]*>/g, '').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim().substring(0, 300) : undefined;
           
-          for (const recipientEmail of to) {
+          // Standalone mail-client linking is only a convenience notification;
+          // it never supplies Mission attribution or additional communication rows.
+          for (const recipientEmail of context.campaignId ? [] : to) {
             const matchingCustomers = await storage.findCustomersByEmail(recipientEmail);
             // Log for ALL matching customers (e.g., mother and partner sharing same email)
             for (const customer of matchingCustomers) {
@@ -8237,58 +8247,15 @@ Always respond with valid JSON only, no markdown.`
                 isRead: true
               });
               
-              // Also log to communication_messages for Activity Reports
-              await storage.createCommunicationMessage({
-                customerId: customer.id,
-                userId,
-                type: "email",
-                subject: subject || "(bez predmetu)",
-                content: body || "",
-                status: "sent",
-                recipients: recipientEmail,
-                metadata: JSON.stringify({
-                  from: actualMailbox,
-                  cc: cc || [],
-                  isHtml: isHtml !== false,
-                  sentVia: "ms365-email-client",
-                }),
-              });
-              
               console.log(`[EmailRouter] Logged outbound email to customer ${customer.firstName} ${customer.lastName} (${customer.email})`);
             }
           }
           
-          // If no matching customers found but email was sent, still log to activity for the user
-          if (to.length > 0) {
-            const allMatchingCustomers = await Promise.all(to.map(email => storage.findCustomersByEmail(email)));
-            const hasAnyMatch = allMatchingCustomers.some(customers => customers.length > 0);
-            if (!hasAnyMatch) {
-              // Log without customer association for Activity Reports
-              await storage.createCommunicationMessage({
-                customerId: null,
-                userId,
-                type: "email",
-                subject: subject || "(bez predmetu)",
-                content: body || "",
-                status: "sent",
-                recipients: to.join(", "),
-                metadata: JSON.stringify({
-                  from: actualMailbox,
-                  cc: cc || [],
-                  isHtml: isHtml !== false,
-                  sentVia: "ms365-email-client",
-                  noCustomerMatch: true,
-                }),
-              });
-            }
-          }
         } catch (linkError) {
           console.error("[EmailRouter] Error logging outbound email to customer:", linkError);
         }
         
-        res.json({ success: true, message: "Email sent successfully", sentMessageId });
-      } else {
-        res.status(500).json({ error: "Failed to send email" });
+        res.json({ success: true, message: "Email sent successfully", sentMessageId, messageId: communicationId });
       }
     } catch (error) {
       console.error("Error sending email:", error);
@@ -8300,11 +8267,20 @@ Always respond with valid JSON only, no markdown.`
   app.post("/api/users/:userId/ms365-reply/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
+      if (userId !== req.session.user!.id) return res.status(403).json({ error: "Invalid mailbox owner" });
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { context = await resolveMissionEmailContext(pool, userId, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       const { body, isHtml, replyAll, mailboxEmail, cc, bcc, attachments: reqAttachments } = req.body;
       
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
         return res.status(400).json({ error: "MS365 not connected" });
+      }
+      if (mailboxEmail && mailboxEmail !== "personal" && mailboxEmail !== ms365Connection.email) {
+        const mailboxes = await storage.getUserMs365SharedMailboxes(userId);
+        if (!mailboxes.some(mailbox => mailbox.email === mailboxEmail))
+          return res.status(403).json({ error: "Invalid mailbox" });
       }
       
       const { decryptTokenSafe } = await import("./lib/token-crypto");
@@ -8328,7 +8304,13 @@ Always respond with valid JSON only, no markdown.`
       const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
       const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
-      const success = await replyToEmail(
+      const { messageId } = await deliverAttributedEmail(storage, context, {
+        userId, subject: "(odpoveď)", content: body || "", recipientEmail: "(reply)",
+        metadata: JSON.stringify({ from: mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail,
+          isHtml: isHtml !== false, sentVia: "ms365-email-client",
+          action: replyAll ? "reply_all" : "reply", originalEmailId: emailId }),
+      }, async () => {
+        const success = await replyToEmail(
         tokenResult.accessToken,
         emailId,
         body || "",
@@ -8339,35 +8321,10 @@ Always respond with valid JSON only, no markdown.`
         ccList.length > 0 ? ccList : undefined,
         bccList.length > 0 ? bccList : undefined,
         Array.isArray(reqAttachments) ? reqAttachments : undefined
-      );
-      
-      if (success) {
-        // Log to communication_messages for Activity Reports
-        try {
-          const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
-          await storage.createCommunicationMessage({
-            customerId: null,
-            userId,
-            type: "email",
-            subject: "(odpoveď)",
-            content: body || "",
-            status: "sent",
-            recipients: "(reply)",
-            metadata: JSON.stringify({
-              from: actualMailbox,
-              isHtml: isHtml !== false,
-              sentVia: "ms365-email-client",
-              action: replyAll ? "reply_all" : "reply",
-              originalEmailId: emailId,
-            }),
-          });
-        } catch (logError) {
-          console.error("[EmailRouter] Error logging reply to activity:", logError);
-        }
-        res.json({ success: true, message: "Reply sent successfully" });
-      } else {
-        res.status(500).json({ error: "Failed to send reply" });
-      }
+        );
+        if (!success) throw new Error("Reply delivery failed");
+      });
+      res.json({ success: true, message: "Reply sent successfully", messageId });
     } catch (error) {
       console.error("Error replying to email:", error);
       res.status(500).json({ error: "Failed to send reply" });
@@ -8378,6 +8335,10 @@ Always respond with valid JSON only, no markdown.`
   app.post("/api/users/:userId/ms365-forward/:emailId", requireAuth, async (req, res) => {
     try {
       const { userId, emailId } = req.params;
+      if (userId !== req.session.user!.id) return res.status(403).json({ error: "Invalid mailbox owner" });
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { context = await resolveMissionEmailContext(pool, userId, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       const { to, body, isHtml, mailboxEmail, cc, bcc, attachments: reqAttachments } = req.body;
       
       if (!to || !Array.isArray(to) || to.length === 0) {
@@ -8387,6 +8348,11 @@ Always respond with valid JSON only, no markdown.`
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
         return res.status(400).json({ error: "MS365 not connected" });
+      }
+      if (mailboxEmail && mailboxEmail !== "personal" && mailboxEmail !== ms365Connection.email) {
+        const mailboxes = await storage.getUserMs365SharedMailboxes(userId);
+        if (!mailboxes.some(mailbox => mailbox.email === mailboxEmail))
+          return res.status(403).json({ error: "Invalid mailbox" });
       }
       
       const { decryptTokenSafe } = await import("./lib/token-crypto");
@@ -8410,7 +8376,12 @@ Always respond with valid JSON only, no markdown.`
       const ccList = Array.isArray(cc) ? cc.filter(Boolean) : [];
       const bccList = Array.isArray(bcc) ? bcc.filter(Boolean) : [];
       
-      const success = await forwardEmail(
+      const { messageId } = await deliverAttributedEmail(storage, context, {
+        userId, subject: "(preposlanie)", content: body || "", recipientEmail: to.join(", "),
+        metadata: JSON.stringify({ from: mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail,
+          isHtml: isHtml !== false, sentVia: "ms365-email-client", action: "forward", originalEmailId: emailId }),
+      }, async () => {
+        const success = await forwardEmail(
         tokenResult.accessToken,
         emailId,
         to,
@@ -8421,66 +8392,10 @@ Always respond with valid JSON only, no markdown.`
         ccList.length > 0 ? ccList : undefined,
         bccList.length > 0 ? bccList : undefined,
         Array.isArray(reqAttachments) ? reqAttachments : undefined
-      );
-      
-      if (success) {
-        // Log to communication_messages for Activity Reports
-        try {
-          const actualMailbox = mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
-          
-          for (const recipientEmail of to) {
-            const matchingCustomers = await storage.findCustomersByEmail(recipientEmail);
-            if (matchingCustomers.length > 0) {
-              for (const customer of matchingCustomers) {
-                await storage.createCommunicationMessage({
-                  customerId: customer.id,
-                  userId,
-                  type: "email",
-                  subject: "(preposlanie)",
-                  content: body || "",
-                  status: "sent",
-                  recipients: recipientEmail,
-                  metadata: JSON.stringify({
-                    from: actualMailbox,
-                    isHtml: isHtml !== false,
-                    sentVia: "ms365-email-client",
-                    action: "forward",
-                    originalEmailId: emailId,
-                  }),
-                });
-              }
-            }
-          }
-          
-          // If no matching customers, still log for activity
-          const allMatchingCustomers = await Promise.all(to.map(email => storage.findCustomersByEmail(email)));
-          const hasAnyMatch = allMatchingCustomers.some(customers => customers.length > 0);
-          if (!hasAnyMatch) {
-            await storage.createCommunicationMessage({
-              customerId: null,
-              userId,
-              type: "email",
-              subject: "(preposlanie)",
-              content: body || "",
-              status: "sent",
-              recipients: to.join(", "),
-              metadata: JSON.stringify({
-                from: actualMailbox,
-                isHtml: isHtml !== false,
-                sentVia: "ms365-email-client",
-                action: "forward",
-                originalEmailId: emailId,
-                noCustomerMatch: true,
-              }),
-            });
-          }
-        } catch (logError) {
-          console.error("[EmailRouter] Error logging forward to activity:", logError);
-        }
-        res.json({ success: true, message: "Email forwarded successfully" });
-      } else {
-        res.status(500).json({ error: "Failed to forward email" });
-      }
+        );
+        if (!success) throw new Error("Forward delivery failed");
+      });
+      res.json({ success: true, message: "Email forwarded successfully", messageId });
     } catch (error) {
       console.error("Error forwarding email:", error);
       res.status(500).json({ error: "Failed to forward email" });
@@ -15380,102 +15295,29 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }
   });
 
-  app.post("/api/customers/:customerId/messages/email", requireAuth, async (req, res) => {
-    try {
-      const parsed = sendEmailSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ error: "Invalid request", details: parsed.error.errors });
-      }
-      const { subject, content } = parsed.data;
-      
-      const customer = await storage.getCustomer(req.params.customerId);
-      if (!customer) {
-        return res.status(404).json({ error: "Customer not found" });
-      }
-      if (!customer.email) {
-        return res.status(400).json({ error: "Customer has no email address" });
-      }
-
-      const user = req.session.user!;
-      
-      // Create message record
-      const message = await storage.createCommunicationMessage({
-        customerId: req.params.customerId,
-        userId: user.id,
-        type: "email",
-        subject,
-        content,
-        recipientEmail: customer.email,
-        status: "pending",
-      });
-
-      // Try to send email via SendGrid or fallback to simulation
-      const sendGridApiKey = process.env.SENDGRID_API_KEY;
-      const fromEmail = process.env.EMAIL_FROM || "noreply@nexusbiolink.com";
-      
-      if (sendGridApiKey) {
-        try {
-          const response = await fetch("https://api.sendgrid.com/v3/mail/send", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${sendGridApiKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              personalizations: [{ to: [{ email: customer.email }] }],
-              from: { email: fromEmail },
-              subject,
-              content: [{ type: "text/plain", value: content }],
-            }),
-          });
-
-          if (response.ok) {
-            await storage.updateCommunicationMessage(message.id, {
-              status: "sent",
-              sentAt: new Date(),
-            });
-            
-            await logActivity(user.id, "send_email", "communication", message.id, 
-              `Email to ${customer.firstName} ${customer.lastName}`, { subject });
-            
-            return res.json({ ...message, status: "sent", sentAt: new Date() });
-          } else {
-            const errorText = await response.text();
-            await storage.updateCommunicationMessage(message.id, {
-              status: "failed",
-              errorMessage: errorText,
-            });
-            return res.status(500).json({ error: "Failed to send email", details: errorText });
-          }
-        } catch (emailError: any) {
-          await storage.updateCommunicationMessage(message.id, {
-            status: "failed",
-            errorMessage: emailError.message,
-          });
-          return res.status(500).json({ error: "Failed to send email", details: emailError.message });
-        }
-      } else {
-        // Simulate sending (for demo purposes when no API key configured)
-        await storage.updateCommunicationMessage(message.id, {
-          status: "sent",
-          sentAt: new Date(),
-        });
-        
-        await logActivity(user.id, "send_email", "communication", message.id, 
-          `Email to ${customer.firstName} ${customer.lastName}`, { subject, simulated: true });
-        
-        res.json({ ...message, status: "sent", sentAt: new Date(), simulated: true });
-      }
-    } catch (error) {
-      console.error("Error sending email:", error);
-      res.status(500).json({ error: "Failed to send email" });
-    }
-  });
+  app.post("/api/customers/:customerId/messages/email", requireAuth, createCustomerEmailHandler({
+    storage,
+    config: () => ({ apiKey: process.env.SENDGRID_API_KEY, fromEmail: process.env.EMAIL_FROM }),
+    fetch: (...args) => fetch(...args),
+    logActivity,
+    resolveContext: async (req) => {
+      if (req.body.customerId != null && req.body.customerId !== req.params.customerId ||
+          req.body.contactType != null && req.body.contactType !== "customer") throw new Error("Invalid customer");
+      return missionEmailFields(await resolveMissionEmailContext(pool, req.session.user!.id, {
+        ...req.body, customerId: req.params.customerId, contactType: "customer",
+      }));
+    },
+  }));
 
   // Send invoice calculation email with HTML format
   app.post("/api/send-invoice-email", requireAuth, async (req, res) => {
     try {
       const { customerId, billsetId, recipients } = req.body;
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try {
+        if (req.body.contactType != null && req.body.contactType !== "customer") throw new Error("Invalid customer");
+        context = await resolveMissionEmailContext(pool, req.session.user!.id, { ...req.body, contactType: "customer" });
+      } catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       
       if (!customerId || !billsetId || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -15626,6 +15468,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
       // Create message record for each recipient
       for (const recipientEmail of recipients) {
         const message = await storage.createCommunicationMessage({
+          ...missionEmailFields(context), provider: "sendgrid",
           customerId,
           userId: user.id,
           type: "email",
@@ -16077,6 +15920,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
   app.post("/api/send-email", requireAuth, uploadEmailAttachment.array("attachments", 10), async (req, res) => {
     try {
       const userId = req.session.user!.id;
+      let context: Awaited<ReturnType<typeof resolveMissionEmailContext>>;
+      try { context = await resolveMissionEmailContext(pool, userId, req.body); }
+      catch { return res.status(403).json({ error: "invalid_mission_email_context" }); }
       const { to, subject, body, mailboxId, customerId, documentIds } = req.body;
       
       if (!to || !subject || !body) {
@@ -16203,15 +16049,21 @@ Return ONLY valid JSON, no markdown code blocks.`,
       }));
       
       // Send email via MS365
+      let sharedMailbox: Awaited<ReturnType<typeof storage.getUserMs365SharedMailbox>> | undefined;
       if (mailboxId && mailboxId !== "default") {
-        // Get mailbox address
-        const mailbox = await storage.getUserMs365SharedMailbox(mailboxId);
-        if (!mailbox) {
-          return res.status(404).json({ error: "Mailbox not found" });
+        sharedMailbox = await storage.getUserMs365SharedMailbox(mailboxId);
+        if (!sharedMailbox || sharedMailbox.userId !== userId) {
+          return res.status(403).json({ error: "Invalid mailbox" });
         }
-        await sendEmailFromSharedMailbox(
+      }
+      const { messageId } = await deliverAttributedEmail(storage, context, {
+        userId, subject, content: body, recipientEmail: recipients.join(", "),
+        metadata: JSON.stringify({ sentVia: "ms365", contactType: context.entityType }),
+      }, async () => {
+      if (sharedMailbox) {
+        return sendEmailFromSharedMailbox(
           tokenResult.accessToken,
-          mailbox.emailAddress,
+          sharedMailbox.email,
           recipients,
           subject,
           body,
@@ -16223,7 +16075,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
         // For default mailbox, also use sendEmailFromSharedMailbox with user's email
         // or fall back to basic sendEmail (which doesn't support attachments)
         if (formattedAttachments.length > 0 && ms365Connection.email) {
-          await sendEmailFromSharedMailbox(
+          return sendEmailFromSharedMailbox(
             tokenResult.accessToken,
             ms365Connection.email,
             recipients,
@@ -16234,7 +16086,7 @@ Return ONLY valid JSON, no markdown code blocks.`,
             formattedAttachments
           );
         } else {
-          await sendEmail(
+          return sendEmail(
             tokenResult.accessToken,
             recipients,
             subject,
@@ -16243,30 +16095,18 @@ Return ONLY valid JSON, no markdown code blocks.`,
           );
         }
       }
+      });
       
-      // Create communication record if customerId provided
+      // The typed communication record was saved before transport.
       if (customerId) {
         const customer = await storage.getCustomer(customerId);
         if (customer) {
-          await storage.createCommunicationMessage({
-            customerId,
-            userId,
-            type: "email",
-            direction: "outbound",
-            content: body,
-            subject,
-            recipientEmail: recipients.join(", "),
-            status: "sent",
-            sentAt: new Date(),
-            provider: "ms365",
-          });
-          
           await logActivity(userId, "send_email", "communication", customerId, 
             `Email to ${customer.firstName} ${customer.lastName}: ${subject}`);
         }
       }
       
-      res.json({ success: true, message: "Email sent successfully" });
+      res.json({ success: true, message: "Email sent successfully", messageId });
     } catch (error: any) {
       console.error("Error sending email:", error);
       res.status(500).json({ error: "Failed to send email", details: error.message });
@@ -55099,6 +54939,9 @@ Return ONLY the JSON object.`
         return res.status(400).json({ error: "Invalid template countries" });
       if (!["email", "sms", "task", "notification"].includes(safeBody.type))
         return res.status(400).json({ error: "Unknown template type" });
+      if (safeBody.emailPurpose !== undefined && (!emailPurposeSchema.safeParse(safeBody.emailPurpose).success ||
+          safeBody.type !== "email" && safeBody.emailPurpose !== "unspecified"))
+        return res.status(400).json({ error: "Invalid email template purpose" });
       if (safeBody.type === "task" && !validTaskMessageTemplate(safeBody))
         return res.status(400).json({ error: "Task templates require a name and plain-text content" });
       if (safeBody.type === "notification" && !validNotificationMessageTemplate(safeBody))
@@ -55125,6 +54968,10 @@ Return ONLY the JSON object.`
       if (!existing) return res.status(404).json({ error: "Message template not found" });
       if (safeBody2.type !== undefined && !["email", "sms", "task", "notification"].includes(safeBody2.type))
         return res.status(400).json({ error: "Unknown template type" });
+      if (safeBody2.emailPurpose !== undefined && (!emailPurposeSchema.safeParse(safeBody2.emailPurpose).success ||
+          (safeBody2.type || existing.type) !== "email" && safeBody2.emailPurpose !== "unspecified"))
+        return res.status(400).json({ error: "Invalid email template purpose" });
+      if ((safeBody2.type || existing.type) !== "email") safeBody2.emailPurpose = "unspecified";
       if ((safeBody2.type || existing.type) === "task") {
         if (!validTaskMessageTemplate({ ...existing, ...safeBody2 }))
           return res.status(400).json({ error: "Task templates require a name and plain-text content" });
@@ -55225,6 +55072,7 @@ Return ONLY the JSON object.`
         name: name,
         description: source.description,
         type: source.type,
+        emailPurpose: source.emailPurpose,
         format: source.format,
         subject: subject || undefined,
         content: content,

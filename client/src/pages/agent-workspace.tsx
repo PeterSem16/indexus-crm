@@ -2691,7 +2691,7 @@ export function CommunicationCanvas({
   onHistoryDialogChannelChange?: (channel: "email" | "sms" | null) => void;
   onChannelChange: (ch: string) => void;
   timeline: TimelineEntry[];
-  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean }) => Promise<boolean> | boolean | void;
+  onSendEmail: (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean; emailTemplateId?: string }) => Promise<boolean> | boolean | void;
   onSendSms: (data: { to: string[]; message: string; gateway?: "bulkgate" | "smstools"; compositionDurationSeconds?: number | null }) => void;
   isSendingEmail: boolean;
   isSendingSms: boolean;
@@ -2903,6 +2903,8 @@ export function CommunicationCanvas({
   const [emailTemplatePopoverOpen, setEmailTemplatePopoverOpen] = useState(false);
   const [smsTemplatePopoverOpen, setSmsTemplatePopoverOpen] = useState(false);
   const [selectedEmailTemplateName, setSelectedEmailTemplateName] = useState("");
+  const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<string | null>(null);
+  const selectedEmailTemplateIdRef = useRef<string | null>(null);
   const [selectedSmsTemplateName, setSelectedSmsTemplateName] = useState("");
   const [emailHtmlEditMode, setEmailHtmlEditMode] = useState(false);
   const [emailPreviewExpanded, setEmailPreviewExpanded] = useState(false);
@@ -4041,6 +4043,8 @@ export function CommunicationCanvas({
     emailBodyDirtyRef.current = false;
     emailAutoSignatureRef.current = "";
     setSelectedEmailTemplateName("");
+    setSelectedEmailTemplateId(null);
+    selectedEmailTemplateIdRef.current = null;
     setEmailHtmlEditMode(false);
     setSmsMessage("");
     setSelectedFromAccount("");
@@ -4061,6 +4065,13 @@ export function CommunicationCanvas({
     setSlBatchCallbackNote("");
     setSlQuestionAnswers({});
   }, [contact?.id]);
+
+  useEffect(() => {
+    setSelectedEmailTemplateName("");
+    setSelectedEmailTemplateId(null);
+    selectedEmailTemplateIdRef.current = null;
+    setTemplateAttachments([]);
+  }, [campaign?.id]);
 
   // Auto-select phone when it loads after contact (lazy hydration)
   useEffect(() => {
@@ -4527,6 +4538,7 @@ export function CommunicationCanvas({
   }, [contact, clinicData, hospitalData, collaboratorData, campaign, user]);
 
   const applyEmailTemplate = useCallback((template: any) => {
+    const templateId = String(template.id);
     templateLangRef.current = template.language || "sk";
     const subject = personalizeInstitutionEmail
       ? preserveRecipientFields(template.subject || "", replaceTemplateVars) : replaceTemplateVars(template.subject || "");
@@ -4545,18 +4557,22 @@ export function CommunicationCanvas({
     emailAutoSignatureRef.current = "";
     setEmailHtmlEditMode(false);
     setSelectedEmailTemplateName(template.name);
+    setSelectedEmailTemplateId(templateId);
+    selectedEmailTemplateIdRef.current = templateId;
+    setTemplateAttachments([]);
     setEmailTemplateSearch("");
     setEmailTemplatePopoverOpen(false);
-    fetch(`/api/message-templates/${template.id}/use`, { method: "POST", credentials: "include" });
+    fetch(`/api/message-templates/${templateId}/use`, { method: "POST", credentials: "include" });
 
     if (template.attachments?.length > 0) {
-      fetch(`/api/message-templates/${template.id}/attachments`, { credentials: "include" })
+      fetch(`/api/message-templates/${templateId}/attachments`, { credentials: "include" })
         .then(r => r.json())
         .then((atts: any[]) => {
+          if (selectedEmailTemplateIdRef.current !== templateId) return;
           const valid = atts.filter((a: any) => a.contentBase64 && !a.error);
           setTemplateAttachments(valid);
         })
-        .catch(() => setTemplateAttachments([]));
+        .catch(() => { if (selectedEmailTemplateIdRef.current === templateId) setTemplateAttachments([]); });
     } else {
       setTemplateAttachments([]);
     }
@@ -4662,6 +4678,7 @@ export function CommunicationCanvas({
     }
     emailSendingRef.current = true;
     setEmailBatchSending(true);
+    const emailTemplateId = selectedEmailTemplateIdRef.current || undefined;
     const sendingIdentity = emailComposeIdentityRef.current;
     const sendFromOriginalContact = onSendEmail;
     const recipientsToSend = uniqueRecipientEmails(selectedEmails);
@@ -4690,6 +4707,7 @@ export function CommunicationCanvas({
         attachments: pcAttachments.length > 0 ? pcAttachments : undefined,
         compositionDurationSeconds,
         deferDisposition: personalizeInstitutionEmail && normalizeRecipientEmail(recipient) !== lastRecipient,
+        emailTemplateId,
         });
       };
       const sent = personalizeInstitutionEmail
@@ -4721,6 +4739,8 @@ export function CommunicationCanvas({
     setShowCcField(false);
     setSelectedDocuments([]);
     setSelectedEmailTemplateName("");
+    setSelectedEmailTemplateId(null);
+    selectedEmailTemplateIdRef.current = null;
     setEmailHtmlEditMode(false);
     setEmailOpenedAt(null);
     setEmailPreviewRecipient("");
@@ -5628,6 +5648,8 @@ export function CommunicationCanvas({
                   setShowCcField(false);
                   setSelectedDocuments([]);
                   setSelectedEmailTemplateName("");
+                  setSelectedEmailTemplateId(null);
+                  selectedEmailTemplateIdRef.current = null;
                   setEmailPreviewRecipient("");
                 }} data-testid="button-cancel-email">
                   {t.common?.cancel || "Cancel"}
@@ -5854,7 +5876,7 @@ export function CommunicationCanvas({
                               onClick={() => handleSelectEmailTemplate(template.id)}
                               data-testid={`email-template-option-${template.id}`}
                             >
-                              <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateName === template.name ? "opacity-100" : "opacity-0"}`} />
+                              <Check className={`h-4 w-4 shrink-0 ${selectedEmailTemplateId === template.id ? "opacity-100" : "opacity-0"}`} />
                               <span className="truncate flex-1">{template.name}</span>
                               {(template as any).attachments?.length > 0 && <Paperclip className="h-3 w-3 text-muted-foreground shrink-0" />}
                             </button>
@@ -13672,7 +13694,7 @@ function AgentWorkspacePageContent() {
   ]);
 
   const sendEmailMutation = useMutation({
-    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean; deferDisposition?: boolean; campaignId?: string }) => {
+    mutationFn: async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; customerId?: string; contactType?: string; compositionDurationSeconds?: number | null; useSystemMailbox?: boolean; campaignCountryCode?: string; isReply?: boolean; deferDisposition?: boolean; campaignId?: string; emailTemplateId?: string }) => {
       const res = await apiRequest("POST", "/api/ms365/send-email-from-mailbox", {
         to: data.to,
         subject: data.subject,
@@ -13688,6 +13710,7 @@ function AgentWorkspacePageContent() {
         useSystemMailbox: data.useSystemMailbox,
         campaignCountryCode: data.campaignCountryCode,
         campaignId: data.campaignId,
+        emailTemplateId: data.emailTemplateId,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -13696,6 +13719,9 @@ function AgentWorkspacePageContent() {
       return res.json();
     },
     onSuccess: (_data, variables) => {
+      if (variables.campaignId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/campaigns", variables.campaignId, "mission-funnel"] });
+      }
       toast({
         title: t.agentWorkspace.emailSent,
         description: `${t.agentWorkspace.emailSentDesc} ${variables.to.join(", ")}`,
@@ -14190,7 +14216,7 @@ function AgentWorkspacePageContent() {
     }
   };
 
-  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean }): Promise<boolean> => {
+  const handleSendEmail = async (data: { to: string[]; subject: string; body: string; mailboxId?: string | null; cc?: string; documentIds?: string[]; attachments?: { name: string; contentBase64: string; contentType: string }[]; compositionDurationSeconds?: number | null; deferDisposition?: boolean; emailTemplateId?: string }): Promise<boolean> => {
     if (!currentContact) {
       toast({ title: t.agentWorkspace.errorLabel, description: t.agentWorkspace.noContactSelected, variant: "destructive" });
       return false;
@@ -14233,7 +14259,6 @@ function AgentWorkspacePageContent() {
       body: data.body,
       mailboxId: effectiveMailboxId,
       useSystemMailbox: campaignEmailMode === "system" ? true : undefined,
-      campaignCountryCode: campaignEmailMode === "system" ? (selectedCampaign?.countryCodes?.[0] || "SK") : undefined,
       cc: data.cc,
       documentIds: data.documentIds,
       attachments: data.attachments,
@@ -14242,6 +14267,7 @@ function AgentWorkspacePageContent() {
       campaignId: selectedCampaignId || undefined,
       deferDisposition: data.deferDisposition,
       compositionDurationSeconds: data.compositionDurationSeconds,
+      emailTemplateId: data.emailTemplateId,
     });
     return true;
   };
@@ -19060,6 +19086,8 @@ function AgentWorkspacePageContent() {
                               body: replyBodyHtml,
                               customerId: currentContact!.id,
                               contactType: currentContactType || "customer",
+                              campaignId: selectedCampaignId || undefined,
+                              useSystemMailbox: campaignEmailMode === "system" ? true : undefined,
                               isReply: true,
                             });
                             setEmailReplyOpen(false);

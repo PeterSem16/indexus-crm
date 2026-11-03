@@ -34,6 +34,7 @@ test("email evidence respects reporting periods and disabled source mapping", ()
   input.emailEvidence = [{ id: "proof", contactId: "contact", at: "2026-09-03T08:00:00Z", actorId: "agent" }];
   assert.equal(computeMissionFunnel(input, { from: "2026-09-04" }).rows.find(r => r.key === "email")!.total, 0);
   input.config!.sources.email = [];
+  input.config!.emailPurposes = [];
   assert.equal(computeMissionFunnel(input).rows.find(r => r.key === "email")!.total, null);
 });
 test("email loader skips unnecessary work and uses bounded Mission/contact/configured-source identities", async () => {
@@ -45,12 +46,26 @@ test("email loader skips unnecessary work and uses bounded Mission/contact/confi
   assert.deepEqual(await loadFunnelEmailEvidence(db, "mission", ["contact"], []), []);
   assert.equal(calls.length, 0);
   const result = await loadFunnelEmailEvidence(db, "mission", ["contact"], ["proposal-sent"]);
-  assert.deepEqual(calls[0].params, ["mission", ["contact"], ["proposal-sent"]]);
+  assert.deepEqual(calls[0].params, ["mission", ["contact"], ["proposal-sent"], []]);
   assert.equal(result[0].at, "2026-09-02T08:00:00.000Z");
   assert.match(calls[0].sql, /e\.status='succeeded'/);
   assert.doesNotMatch(calls[0].sql, /subject|ILIKE|notify_email/);
 });
-test("reviewed recorded time never becomes a sending date", () => {
+test("typed proofs can measure email without a legacy checkbox but never a postal shipment", async () => {
+  const input = fixture();
+  input.config!.sources.email = [];
+  input.config!.emailPurposes = ["cooperation_proposal"];
+  input.emailEvidence = [{ id: "typed:one", contactId: "contact", at: "2026-09-02T08:00:00Z", actorId: "agent" }];
+  const report = computeMissionFunnel(input);
+  assert.equal(report.rows.find(r => r.key === "email")!.direct, 1);
+  assert.equal(report.rows.find(r => r.key === "sent")!.members.length, 0);
+  let params: unknown[] = [];
+  await loadFunnelEmailEvidence({ query: async (_sql, values) => {
+    params = values!; return { rows: [] };
+  } }, "mission", ["contact"], [], ["cooperation_proposal"]);
+  assert.deepEqual(params, ["mission", ["contact"], [], ["cooperation_proposal"]]);
+});
+test("reviewed recorded time never becomes a sending date or a dated attainment", () => {
   const input=fixture();
   input.emailEvidence=[{id:"review",contactId:"contact",at:null,recordedAt:"2026-09-23T10:05:03Z",actorId:"sender"}];
   const row=computeMissionFunnel(input).rows.find(row=>row.key==="email")!;

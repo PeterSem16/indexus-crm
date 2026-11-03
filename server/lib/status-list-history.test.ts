@@ -8,6 +8,12 @@ const call = { direction: "outbound", started_at: new Date(), status: "no_answer
 const msg = { direction: "outbound", type: "sms", status: "sent" };
 const facts = (calls: any[] = [], messages: any[] = []) => statusListHistoryFacts({ calls, messages });
 assert.ok(Object.values(facts()).every(value => value === false));
+// Keep the existing evidence model: non-success states are never email_sent.
+for (const status of ["pending", "failed", "simulated", "draft"]) {
+  assert.equal(facts([], [{ direction: "outbound", type: "email", status }])["history.email_sent"], false);
+}
+// Historical sent rows remain readable without retroactive provider requirements.
+assert.equal(facts([], [{ direction: "outbound", type: "email", status: "sent" }])["history.email_sent"], true);
 assert.equal(facts([call])["history.outreach_attempted"], true);
 assert.equal(facts([{ ...call, direction: "inbound" }])["history.outreach_attempted"], false);
 assert.equal(facts([call])["history.call_failed"], true);

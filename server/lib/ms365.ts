@@ -5,6 +5,7 @@
 
 import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest, CryptoProvider } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
+import { sendWithMs365Evidence, type Ms365SendEvidence } from './ms365-send-evidence';
 
 // Configuration from environment variables (secrets)
 const MS365_CONFIG = {
@@ -289,8 +290,8 @@ export async function sendEmail(
   cc?: string[],
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>,
   bcc?: string[]
-): Promise<void> {
-  await sendEmailAndGetConversationId(accessToken, to, subject, body, isHtml, cc, attachments, bcc);
+): Promise<Ms365SendEvidence> {
+  return sendEmailAndGetConversationId(accessToken, to, subject, body, isHtml, cc, attachments, bcc);
 }
 
 /**
@@ -306,7 +307,7 @@ export async function sendEmailAndGetConversationId(
   cc?: string[],
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>,
   bcc?: string[]
-): Promise<{ conversationId: string | null }> {
+): Promise<Ms365SendEvidence> {
   const client = createGraphClient(accessToken);
   
   const message: any = {
@@ -324,16 +325,7 @@ export async function sendEmailAndGetConversationId(
     }));
   }
 
-  try {
-    const draft = await client.api('/me/messages').post(message);
-    const conversationId = draft?.conversationId || null;
-    await client.api(`/me/messages/${draft.id}/send`).post({});
-    return { conversationId };
-  } catch (err) {
-    // Fallback: try sendMail if draft approach fails (permissions issue)
-    await client.api('/me/sendMail').post({ message });
-    return { conversationId: null };
-  }
+  return sendWithMs365Evidence(client, message);
 }
 
 /**
@@ -350,8 +342,8 @@ export async function sendEmailFromSharedMailbox(
   isHtml: boolean = true,
   cc?: string[],
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
-): Promise<void> {
-  await sendEmailFromSharedMailboxAndGetConversationId(accessToken, sharedMailboxEmail, to, subject, body, isHtml, cc, attachments);
+): Promise<Ms365SendEvidence> {
+  return sendEmailFromSharedMailboxAndGetConversationId(accessToken, sharedMailboxEmail, to, subject, body, isHtml, cc, attachments);
 }
 
 /**
@@ -367,7 +359,7 @@ export async function sendEmailFromSharedMailboxAndGetConversationId(
   isHtml: boolean = true,
   cc?: string[],
   attachments?: Array<{ name: string; contentType: string; contentBase64: string }>
-): Promise<{ conversationId: string | null }> {
+): Promise<Ms365SendEvidence> {
   const client = createGraphClient(accessToken);
   
   const message: any = {
@@ -385,16 +377,7 @@ export async function sendEmailFromSharedMailboxAndGetConversationId(
     }));
   }
 
-  try {
-    const draft = await client.api('/me/messages').post(message);
-    const conversationId = draft?.conversationId || null;
-    await client.api(`/me/messages/${draft.id}/send`).post({});
-    return { conversationId };
-  } catch (err) {
-    // Fallback: try sendMail approach
-    await client.api('/me/sendMail').post({ message });
-    return { conversationId: null };
-  }
+  return sendWithMs365Evidence(client, message);
 }
 
 /**
@@ -889,9 +872,8 @@ export async function sendEmailWithSignature(
   mailboxEmail?: string,
   importance?: string,
   attachments?: Array<{ name: string; contentType: string; contentBytes: string }>
-): Promise<boolean> {
+): Promise<Ms365SendEvidence> {
   const client = createGraphClient(accessToken);
-  const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
   let finalBody = body;
   const bodyAlreadyHasSignature = body.includes('class="email-signature"');
@@ -927,13 +909,7 @@ export async function sendEmailWithSignature(
     }));
   }
   
-  try {
-    await client.api(`${basePath}/sendMail`).post({ message, saveToSentItems: true });
-    return true;
-  } catch (error) {
-    console.error('[MS365] Error sending email with signature:', error);
-    return false;
-  }
+  return sendWithMs365Evidence(client, message, mailboxEmail);
 }
 
 /**

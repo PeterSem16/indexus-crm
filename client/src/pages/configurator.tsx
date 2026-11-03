@@ -16,6 +16,9 @@ import { Textarea } from "@/components/ui/textarea";
 import ReactQuill from "react-quill";
 import { getTaskActionCopy } from "@/i18n/automation-task-action-copy";
 import { getNotificationCopy } from "@/i18n/automation-notification-copy";
+import type { EmailPurpose } from "@shared/email-purpose";
+import { missionFunnelTranslations } from "@/i18n/mission-funnel-translations";
+import { emailPurposes } from "@shared/email-purpose";
 import { taskSalutationFields, templateVariableToken } from "@shared/task-template-variables";
 import "react-quill/dist/quill.snow.css";
 import { Switch } from "@/components/ui/switch";
@@ -11567,6 +11570,7 @@ interface MessageTemplate {
   name: string;
   description?: string;
   type: "email" | "sms" | "task" | "notification";
+  emailPurpose?: EmailPurpose;
   format: "text" | "html";
   subject?: string;
   content?: string;
@@ -11766,6 +11770,7 @@ export function MessageTemplatesTab() {
   const { t, locale } = useI18n();
   const taskCopy = getTaskActionCopy(locale);
   const notificationCopy = getNotificationCopy(locale);
+  const purposeCopy = missionFunnelTranslations[locale as keyof typeof missionFunnelTranslations] || missionFunnelTranslations.en;
   const { toast } = useToast();
   const [activeSubTab, setActiveSubTab] = useState<"templates" | "categories">("templates");
   
@@ -11791,6 +11796,7 @@ export function MessageTemplatesTab() {
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [templateType, setTemplateType] = useState<"email" | "sms" | "task" | "notification">("email");
+  const [templateEmailPurpose, setTemplateEmailPurpose] = useState<EmailPurpose>("unspecified");
   const { data: taskTemplateCatalog } = useQuery<any>({
     queryKey: ["/api/automation/catalog"],
     enabled: templateType === "task" || templateType === "notification",
@@ -12030,6 +12036,7 @@ export function MessageTemplatesTab() {
     setTemplateName("");
     setTemplateDescription("");
     setTemplateType("email");
+    setTemplateEmailPurpose("unspecified");
     setTemplateFormat("text");
     setTemplateSubject("");
     setTemplateContent("");
@@ -12101,6 +12108,7 @@ export function MessageTemplatesTab() {
         targetLanguage: copyTargetLanguage,
         translate: copyWithTranslation,
         countryCodes: copySourceTemplate.countryCodes || [],
+        emailPurpose: copySourceTemplate.type === "email" ? (copySourceTemplate.emailPurpose || "unspecified") : "unspecified",
       });
       if (!res.ok) throw new Error("Failed to copy template");
       queryClient.invalidateQueries({ queryKey: ["/api/message-templates"] });
@@ -12271,6 +12279,7 @@ export function MessageTemplatesTab() {
       setTemplateName(template.name);
       setTemplateDescription(template.description || "");
       setTemplateType(template.type);
+      setTemplateEmailPurpose(template.type === "email" ? (template.emailPurpose || "unspecified") : "unspecified");
       setTemplateFormat(template.type === "notification" ? "text" : template.format);
       setTemplateSubject(template.subject || "");
       setTemplateContent(template.content || "");
@@ -12315,6 +12324,7 @@ export function MessageTemplatesTab() {
       name: templateName,
       description: templateDescription || undefined,
       type: templateType,
+      emailPurpose: templateType === "email" ? templateEmailPurpose : "unspecified",
       format: templateFormat,
       subject: templateType !== "sms" ? templateSubject : undefined,
       content: contentValue,
@@ -12346,6 +12356,7 @@ export function MessageTemplatesTab() {
         name: templateName,
         description: templateDescription || undefined,
         type: templateType,
+        emailPurpose: templateType === "email" ? templateEmailPurpose : "unspecified",
         format: templateFormat,
         subject: templateType !== "sms" ? templateSubject : undefined,
         content: contentValue,
@@ -13084,6 +13095,25 @@ export function MessageTemplatesTab() {
                     </button>
                   </div>
                 </div>
+
+                {templateType === "email" && (
+                  <div className="space-y-1.5 rounded-md border border-border/70 bg-background/70 p-3" data-testid="template-email-purpose-field">
+                    <Label htmlFor="template-email-purpose" className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{purposeCopy.templateEmailPurposeLabel}</Label>
+                    <Select value={templateEmailPurpose} onValueChange={value => setTemplateEmailPurpose(value as EmailPurpose)}>
+                      <SelectTrigger id="template-email-purpose" className="h-8 text-xs" data-testid="select-template-email-purpose">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {emailPurposes.map(value => (
+                          <SelectItem key={value} value={value} data-testid={`template-email-purpose-option-${value}`}>
+                            {purposeCopy.emailPurposeLabels[value]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">{purposeCopy.templateEmailPurposeHelp}</p>
+                  </div>
+                )}
 
                 {templateType === "notification" && (
                   <div className="space-y-2 rounded-lg border border-amber-300/70 bg-amber-50/70 p-3 text-xs dark:border-amber-800 dark:bg-amber-950/20" data-testid="notification-text-only">

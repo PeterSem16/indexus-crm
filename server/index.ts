@@ -225,6 +225,16 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // External CORPCRM01 does not run db:push. Existing templates deliberately
+  // remain unspecified; never infer a business purpose from names or subjects.
+  try {
+    await pool.query(`ALTER TABLE message_templates
+      ADD COLUMN IF NOT EXISTS email_purpose varchar(50) NOT NULL DEFAULT 'unspecified'`);
+  } catch {
+    console.error("[migration] fatal Mission email template purpose schema error");
+    process.exit(1);
+  }
+
   // Mission SMS routing depends on these columns for provider/reply isolation.
   // Unlike best-effort legacy migrations below, startup must stop if they are
   // unavailable; running without them can disclose a reply to another Mission.

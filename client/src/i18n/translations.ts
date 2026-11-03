@@ -33,6 +33,7 @@ import { getStatusListRelationshipsHelpCopy } from "../components/status-list-re
 import { getSourceValidationCopy } from "../components/status-list-source-validation-copy";
 import { agreementWorkspaceTranslations, type AgreementWorkspaceCopy } from "./agreement-workspace-translations";
 import { recordActivityTranslations, type RecordActivityCopy } from "../components/record-activity-translations";
+import { missionHistoricalEmailsTranslations, type MissionHistoricalEmailsCopy } from "../components/campaigns/mission-historical-emails-translations";
 
 export type Locale = 'en' | 'sk' | 'cs' | 'hu' | 'ro' | 'it' | 'de';
 
@@ -92,6 +93,7 @@ import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
   missionFunnel: MissionFunnelCopy;
+  missionHistoricalEmails: MissionHistoricalEmailsCopy;
   missionReporting: MissionReportingCopy;
   agreementWorkspace: AgreementWorkspaceCopy;
   recordActivity: RecordActivityCopy;
@@ -1752,6 +1754,9 @@ export interface Translations {
       emailSentSuccess: string;
       emailSentSuccessDesc: string;
       emailSendFailed: string;
+      emailProviderNotConfigured: string;
+      emailProviderRejected: string;
+      emailProviderNetworkError: string;
       smsSentSuccess: string;
       smsSentSuccessDesc: string;
       smsSendFailed: string;
@@ -10925,6 +10930,9 @@ export const translations = {
         emailSentSuccess: 'Email sent',
         emailSentSuccessDesc: 'Email was sent successfully',
         emailSendFailed: 'Failed to send email',
+        emailProviderNotConfigured: 'Email was not sent: no email provider is configured. Contact your administrator.',
+        emailProviderRejected: 'Email was not sent: the email provider rejected the request.',
+        emailProviderNetworkError: 'Sending could not be confirmed because the email provider could not be reached. Check the message before retrying.',
         smsSentSuccess: 'SMS sent',
         smsSentSuccessDesc: 'SMS was sent successfully',
         smsSendFailed: 'Failed to send SMS',
@@ -18770,6 +18778,9 @@ export const translations = {
         emailSentSuccess: 'Email odoslaný',
         emailSentSuccessDesc: 'Email bol úspešne odoslaný',
         emailSendFailed: 'Nepodarilo sa odoslať email',
+        emailProviderNotConfigured: 'E-mail nebol odoslaný: poskytovateľ e-mailu nie je nakonfigurovaný. Kontaktujte správcu.',
+        emailProviderRejected: 'E-mail nebol odoslaný: poskytovateľ e-mailu zamietol požiadavku.',
+        emailProviderNetworkError: 'Odoslanie sa nepodarilo potvrdiť, pretože poskytovateľ e-mailu nebol dostupný. Pred opakovaním skontrolujte správu.',
         smsSentSuccess: 'SMS odoslaná',
         smsSentSuccessDesc: 'SMS bola úspešne odoslaná',
         smsSendFailed: 'Nepodarilo sa odoslať SMS',
@@ -26635,6 +26646,9 @@ export const translations = {
         emailSentSuccess: 'Email odeslán',
         emailSentSuccessDesc: 'Email byl úspěšně odeslán',
         emailSendFailed: 'Nepodařilo se odeslat email',
+        emailProviderNotConfigured: 'E-mail nebyl odeslán: poskytovatel e-mailu není nakonfigurován. Kontaktujte správce.',
+        emailProviderRejected: 'E-mail nebyl odeslán: poskytovatel e-mailu zamítl požadavek.',
+        emailProviderNetworkError: 'Odeslání se nepodařilo potvrdit, protože poskytovatel e-mailu nebyl dostupný. Před opakováním zkontrolujte zprávu.',
         smsSentSuccess: 'SMS odeslána',
         smsSentSuccessDesc: 'SMS byla úspěšně odeslána',
         smsSendFailed: 'Nepodařilo se odeslat SMS',
@@ -34459,6 +34473,9 @@ export const translations = {
         emailSentSuccess: 'Email elküldve',
         emailSentSuccessDesc: 'Az email sikeresen el lett küldve',
         emailSendFailed: 'Nem sikerült elküldeni az emailt',
+        emailProviderNotConfigured: 'Az e-mail nem lett elküldve: nincs beállítva e-mail-szolgáltató. Forduljon a rendszergazdához.',
+        emailProviderRejected: 'Az e-mail nem lett elküldve: az e-mail-szolgáltató elutasította a kérést.',
+        emailProviderNetworkError: 'A küldést nem sikerült megerősíteni, mert az e-mail-szolgáltató nem volt elérhető. Újrapróbálkozás előtt ellenőrizze az üzenetet.',
         smsSentSuccess: 'SMS elküldve',
         smsSentSuccessDesc: 'Az SMS sikeresen el lett küldve',
         smsSendFailed: 'Nem sikerült elküldeni az SMS-t',
@@ -42281,6 +42298,9 @@ export const translations = {
         emailSentSuccess: 'Email trimis',
         emailSentSuccessDesc: 'Emailul a fost trimis cu succes',
         emailSendFailed: 'Nu s-a putut trimite emailul',
+        emailProviderNotConfigured: 'E-mailul nu a fost trimis: nu este configurat niciun furnizor de e-mail. Contactați administratorul.',
+        emailProviderRejected: 'E-mailul nu a fost trimis: furnizorul de e-mail a respins cererea.',
+        emailProviderNetworkError: 'Trimiterea nu a putut fi confirmată deoarece furnizorul de e-mail nu a fost accesibil. Verificați mesajul înainte de a reîncerca.',
         smsSentSuccess: 'SMS trimis',
         smsSentSuccessDesc: 'SMS-ul a fost trimis cu succes',
         smsSendFailed: 'Nu s-a putut trimite SMS-ul',
@@ -50111,6 +50131,9 @@ export const translations = {
         emailSentSuccess: 'Email inviata',
         emailSentSuccessDesc: 'L\'email è stata inviata con successo',
         emailSendFailed: 'Impossibile inviare l\'email',
+        emailProviderNotConfigured: 'Email non inviata: nessun provider email configurato. Contattare l’amministratore.',
+        emailProviderRejected: 'Email non inviata: il provider email ha rifiutato la richiesta.',
+        emailProviderNetworkError: 'Impossibile confermare l’invio perché il provider email non era raggiungibile. Controllare il messaggio prima di riprovare.',
         smsSentSuccess: 'SMS inviato',
         smsSentSuccessDesc: 'L\'SMS è stato inviato con successo',
         smsSendFailed: 'Impossibile inviare l\'SMS',
@@ -57932,6 +57955,9 @@ export const translations = {
         emailSentSuccess: 'E-Mail gesendet',
         emailSentSuccessDesc: 'E-Mail wurde erfolgreich gesendet',
         emailSendFailed: 'E-Mail konnte nicht gesendet werden',
+        emailProviderNotConfigured: 'E-Mail wurde nicht gesendet: Es ist kein E-Mail-Anbieter konfiguriert. Wenden Sie sich an die Administration.',
+        emailProviderRejected: 'E-Mail wurde nicht gesendet: Der E-Mail-Anbieter hat die Anfrage abgelehnt.',
+        emailProviderNetworkError: 'Der Versand konnte nicht bestätigt werden, da der E-Mail-Anbieter nicht erreichbar war. Prüfen Sie die Nachricht vor einem erneuten Versuch.',
         smsSentSuccess: 'SMS gesendet',
         smsSentSuccessDesc: 'SMS wurde erfolgreich gesendet',
         smsSendFailed: 'SMS konnte nicht gesendet werden',
@@ -64199,5 +64225,6 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].agreementWorkspace = agreementWorkspaceTranslations[locale];
   translations[locale].recordActivity = recordActivityTranslations[locale];
   translations[locale].missionFunnel = missionFunnelTranslations[locale];
+  translations[locale].missionHistoricalEmails = missionHistoricalEmailsTranslations[locale];
   translations[locale].missionReporting = reportingTranslations[locale];
 }

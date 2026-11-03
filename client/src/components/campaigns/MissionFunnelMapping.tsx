@@ -4,10 +4,13 @@ import type { MissionFunnelCopy } from "@/i18n/mission-funnel-translations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MissionFunnelHelpLink } from "./MissionFunnelHelp";
 import type { MissionFunnelHelpChapter } from "./mission-funnel-help-translations";
+import type { EmailPurpose } from "@shared/email-purpose";
+import { emailPurposes } from "@shared/email-purpose";
 import MissionMaterialPackageMapping from "./MissionMaterialPackageMapping";
 import { materialPackageCopy, cooperationRuleCopy } from "./mission-material-package-copy";
 import {
   configurableFunnelSources,
+  effectiveFunnelEmailPurposes,
   type FunnelConfig,
   type FunnelSource,
   type MissionFunnelReport,
@@ -25,6 +28,7 @@ interface Props {
   onAbsenceQuestionChange: (value: string | null) => void;
   onSave: () => void;
   onMaterialsChange?: (value: NonNullable<FunnelConfig["materials"]>) => void;
+  onEmailPurposesChange?: (value: NonNullable<FunnelConfig["emailPurposes"]>) => void;
 }
 
 const TABS = [
@@ -35,7 +39,7 @@ const TABS = [
 ] as const;
 
 export default function MissionFunnelMapping({
-  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave, locale, onHelp, onMaterialsChange,
+  report, config, copy, saving, saveMessage, onUpdateSource, onAbsenceQuestionChange, onSave, locale, onHelp, onMaterialsChange, onEmailPurposesChange,
 }: Props) {
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("contact");
   const [activeSource, setActiveSource] = useState<FunnelSource>("qualified");
@@ -61,7 +65,9 @@ export default function MissionFunnelMapping({
   const packageConfigured = Boolean(config.materials?.packageSent.length) ||
     legacyMaterials.every(key => config.sources[key].length > 0 || Boolean(config.materials?.excluded[key].length));
   const independentSources = configurableFunnelSources.filter(source => source !== "activeWithout" && !legacyMaterials.includes(source as any));
-  const configuredCount = independentSources.filter(source => config.sources[source].length > 0).length + Number(packageConfigured);
+  const sourceConfigured = (source: FunnelSource) => config.sources[source].length > 0 ||
+    source === "email" && effectiveFunnelEmailPurposes(config).length > 0;
+  const configuredCount = independentSources.filter(sourceConfigured).length + Number(packageConfigured);
   const editableCount = independentSources.length + 1;
 
   return (
@@ -96,7 +102,7 @@ export default function MissionFunnelMapping({
                 {TABS.map(tab => {
                   const sources = tab.sources as readonly FunnelSource[];
                   const configured = tab.id === "materials" ? Number(compositeConfigured) + Number(packageConfigured) :
-                    sources.filter(source => config.sources[source].length > 0).length;
+                    sources.filter(source => sourceConfigured(source)).length;
                   return (
                     <TabsTrigger key={tab.id} value={tab.id} data-testid={`mapping-tab-${tab.id}`}
                       className={`flex min-h-12 min-w-0 w-full items-center justify-between gap-2 whitespace-normal rounded-lg border px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
@@ -116,6 +122,28 @@ export default function MissionFunnelMapping({
             </nav>
 
             <TabsContent value={activeTab} className="m-0 min-w-0 p-4 sm:p-5">
+              {selectedSource === "email" && onEmailPurposesChange && (() => {
+                const selectedPurposes = effectiveFunnelEmailPurposes(config).filter(purpose => purpose !== "unspecified") as Exclude<EmailPurpose, "unspecified">[];
+                return <section className="mb-5 max-w-3xl rounded-lg border border-border/80 bg-muted/20 p-3 sm:p-4" data-testid="mission-funnel-email-purpose-settings">
+                  <h3 className="text-sm font-semibold">{copy.funnelEmailPurposeLabel}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{copy.funnelEmailPurposeHelp}</p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {emailPurposes.filter(value => value !== "unspecified").map(value => {
+                      const purpose = value as Exclude<EmailPurpose, "unspecified">;
+                      const checked = selectedPurposes.includes(purpose);
+                      return <label key={value} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-border/70 bg-background px-3 py-2 text-sm hover:bg-muted/50">
+                        <input type="checkbox" data-testid={`mission-funnel-email-purpose-${value}`} checked={checked}
+                          onChange={event => onEmailPurposesChange(event.target.checked
+                            ? selectedPurposes.concat(purpose)
+                            : selectedPurposes.filter(value => value !== purpose))}
+                          className="h-4 w-4 accent-teal-800 dark:accent-teal-300" />
+                        <span>{copy.emailPurposeLabels[value]}</span>
+                      </label>;
+                    })}
+                  </div>
+                  <p className="mt-3 border-t border-border/70 pt-2 text-xs leading-relaxed text-muted-foreground">{copy.emailPurposePostalBoundary}</p>
+                </section>;
+              })()}
               {activeTab === "materials" && onMaterialsChange && <MissionMaterialPackageMapping
                 config={config} report={report} locale={locale} copy={copy} onChange={onMaterialsChange} />}
               <div className="mb-5">

@@ -24,11 +24,19 @@ try {
       VALUES ('other','email','outbound','sent','m2','clinic','c1'),
         ('unattributed','email','inbound','received',NULL,'clinic','c1'),
         ('other-entity','sms','outbound','delivered','m1','clinic','c2'),
-        ('draft','sms','outbound','draft','m1','clinic','c1');`);
+        ('draft','sms','outbound','draft','m1','clinic','c1'),
+        ('standalone-typed-email','email','outbound','sent',NULL,'clinic','c1'),
+        ('legacy-email-without-entity','email','outbound','sent','m1',NULL,NULL);`);
   assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc1"))!["history.outreach_attempted"], false);
+  assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc1"))!["history.email_sent"], false);
   assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc1"))!["history.reached"], false);
   assert.equal(await loadStatusListHistoryFacts(client, "m2", "cc1"), null);
   assert.equal(await loadStatusListHistoryFacts(client, "m1", "cc4"), null);
+  await client.query(`INSERT INTO communication_messages(id,type,direction,status,campaign_id,entity_type,entity_id,sent_at)
+    VALUES ('verified-email','email','outbound','sent','m1','clinic','c1',now())`);
+  assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc1"))!["history.email_sent"], true);
+  assert.equal((await loadStatusListHistoryFacts(client, "m2", "cc2"))!["history.email_sent"], true); // its own 'other' row only
+  assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc3"))!["history.email_sent"], false);
   await client.query(`INSERT INTO call_logs(id,direction,status,started_at,campaign_id,campaign_contact_id)
     VALUES ('valid','outbound','no_answer',now(),'m1','cc1')`);
   assert.equal((await loadStatusListHistoryFacts(client, "m1", "cc1"))!["history.call_attempted"], true);

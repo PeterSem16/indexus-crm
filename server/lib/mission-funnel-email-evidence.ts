@@ -9,8 +9,9 @@ type Queryable = { query(sql: string, params?: any[]): Promise<{ rows: any[] }> 
  * A subject match, arbitrary email, failed action or current checkbox is not. */
 export async function loadFunnelEmailEvidence(
   database: Queryable, missionId: string, contactIds: string[], emailItemIds: string[],
+  emailPurposes: string[] = [],
 ): Promise<FunnelEmailEvidence[]> {
-  if (!emailItemIds.length || !contactIds.length) return [];
+  if (!contactIds.length || !emailItemIds.length && !emailPurposes.length) return [];
   const result = await database.query(`
     WITH email_sources AS (
       SELECT id FROM campaign_status_list_items WHERE campaign_id=$1 AND id=ANY($3::text[])
@@ -47,6 +48,24 @@ export async function loadFunnelEmailEvidence(
       AND COALESCE(h.metadata#>>'{output,sentCount}','0') ~ '^[1-9][0-9]*$'
       AND COALESCE(h.metadata#>>'{output,failedCount}','0')='0'
     UNION ALL
+    SELECT 'typed:'||m.id,cc.id,m.user_id,m.sent_at,NULL::timestamp
+    FROM communication_messages m
+    JOIN campaign_contacts cc
+      ON cc.id=m.metadata::jsonb#>>'{missionEmail,campaignContactId}'
+      AND cc.campaign_id=$1 AND cc.contact_type='clinic'
+      AND cc.clinic_id=m.entity_id AND cc.clinic_id=m.customer_id
+    WHERE cc.id=ANY($2::text[]) AND m.campaign_id=$1
+      AND m.type='email' AND m.direction='outbound'
+      AND m.entity_type='clinic' AND m.status IN ('sent','delivered','read')
+      AND m.sent_at IS NOT NULL
+      AND m.metadata::jsonb#>>'{missionEmail,version}'='1'
+      AND m.metadata::jsonb#>>'{missionEmail,campaignId}'=$1
+      AND m.metadata::jsonb#>>'{missionEmail,entityType}'='clinic'
+      AND m.metadata::jsonb#>>'{missionEmail,entityId}'=cc.clinic_id
+      AND NULLIF(m.metadata::jsonb#>>'{missionEmail,templateId}','') IS NOT NULL
+      AND m.metadata::jsonb#>>'{missionEmail,purpose}'=ANY($4::text[])
+      AND m.metadata::jsonb#>>'{missionEmail,purpose}'<>'unspecified'
+    UNION ALL
     SELECT 'review:'||h.id,h.campaign_contact_id,m.user_id,m.sent_at,m.created_at
     FROM campaign_contact_history h
     JOIN campaign_contacts cc ON cc.id=h.campaign_contact_id AND cc.campaign_id=$1
@@ -56,7 +75,7 @@ export async function loadFunnelEmailEvidence(
       AND h.metadata->>'purpose'='contract_proposal'
       AND m.type='email' AND m.direction='outbound'
       AND m.status IN ('sent','delivered','read')
-  `, [missionId, contactIds, emailItemIds]);
+  `, [missionId, contactIds, emailItemIds, emailPurposes]);
   const iso = (value: unknown) => value == null ? null : value instanceof Date ? value.toISOString() : String(value);
   return result.rows.map(row => ({ ...row, at: iso(row.at),
     ...(row.recordedAt != null ? { recordedAt: iso(row.recordedAt) } : {}),

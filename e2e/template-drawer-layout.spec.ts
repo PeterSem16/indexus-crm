@@ -20,6 +20,11 @@ test("real template drawer keeps settings readable and every type accessible acr
   await page.getByTestId("input-template-name").fill("Zmluva o spolupráci – zaslanie návrhu spolupráce");
   for(const width of [1440,1024,390]){
     await page.setViewportSize({width,height:1000});
+    await drawer.evaluate(async el => {
+      await Promise.all(el.getAnimations({subtree:true})
+        .filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map(animation => animation.finished.catch(() => {})));
+    });
     const panel=page.getByTestId("template-settings-panel");
     await expect(panel).toBeVisible();
     const panelBounds=await panel.boundingBox();

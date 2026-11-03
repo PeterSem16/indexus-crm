@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { missionFunnelTranslations } from "./mission-funnel-translations";
 import { funnelSources, funnelSteps, funnelExceptions } from "../../../shared/mission-funnel";
+import { emailPurposes } from "../../../shared/email-purpose";
 
 test("all seven locales contain complete funnel copy, source labels and evidence labels",()=>{
   const keys=Object.keys(missionFunnelTranslations.en).sort();
@@ -62,5 +63,18 @@ test("all locales explain validated contract cooperation and name the three sent
       assert.doesNotMatch(copy.sourceLabels[source],/\b(?:17|18|19)\b/,`${locale}.${source}`);
       if (locale!=="en") assert.notEqual(copy.sourceLabels[source],missionFunnelTranslations.en.sourceLabels[source]);
     }
+  }
+});
+
+test("email purpose UI is translated in every locale and keeps email evidence separate from postal and Status List steps", () => {
+  for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
+    const copy = missionFunnelTranslations[locale];
+    for (const purpose of emailPurposes) assert.ok(copy.emailPurposeLabels[purpose].trim(), `${locale}.${purpose}`);
+    assert.ok(copy.templateEmailPurposeLabel.trim(), `${locale}.template purpose label`);
+    assert.ok(copy.templateEmailPurposeHelp.trim(), `${locale}.template snapshot note`);
+    assert.ok(copy.funnelEmailPurposeLabel.trim(), `${locale}.funnel purpose label`);
+    assert.ok(copy.funnelEmailPurposeHelp.trim(), `${locale}.funnel purpose help`);
+    assert.ok(copy.emailPurposePostalBoundary.trim(), `${locale}.postal boundary`);
+    assert.match(copy.emailPurposePostalBoundary, /Status List/);
   }
 });
