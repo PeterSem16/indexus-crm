@@ -2,7 +2,8 @@ import type { FunnelException, FunnelSource, FunnelStep } from "../../../../shar
 import type { Locale } from "@/i18n/translations";
 import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
-import { cooperationRuleCopy, standaloneCooperationCopy } from "./mission-material-package-copy";
+import { missionFunnelTranslations } from "@/i18n/mission-funnel-translations";
+import { cooperationRuleCopy, standaloneCooperationCopy, optionalPosterCopy } from "./mission-material-package-copy";
 
 export const missionFunnelHelpChapterIds = [
   "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
@@ -996,11 +997,12 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
     const corrections = contentCorrections[locale];
     const chapterContent = {
       ...base.content,
+      scope: [...base.content.scope, missionFunnelTranslations[locale].referralHelp],
       "without-contract": [cooperationRuleCopy[locale].without, base.content.combined[3]],
       agents: agentFunnelTranslations[locale].helpParagraphs,
       combined: [cooperationRuleCopy[locale].contract, cooperationRuleCopy[locale].without,
         standaloneCooperationCopy[locale], base.content.combined[1],
-        packageSentRuleNotes[locale], materialsOutcomeNotes[locale], base.content.combined[3]],
+        packageSentRuleNotes[locale], materialsOutcomeNotes[locale], base.content.combined[3], optionalPosterCopy[locale]],
       configuration: [
         base.content.configuration[0],
         mappingRuleNotes[locale],

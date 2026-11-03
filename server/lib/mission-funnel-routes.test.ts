@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import express from "express";
 import type { AddressInfo } from "node:net";
 import { registerMissionFunnelRoutes, parseFunnelSettings } from "./mission-funnel-routes";
-import { emptyFunnelConfig } from "../../shared/mission-funnel";
+import { emptyFunnelConfig, funnelSteps } from "../../shared/mission-funnel";
+import { missionClinicReferralSql } from "./mission-funnel-referral";
 
 async function fixture(run: (url: string, sql: { text: string; args: unknown[] }[]) => Promise<void>, options: {
   role?: string; roleId?: string; assigned?: boolean; moduleRead?: boolean; moduleEdit?: boolean;
@@ -39,6 +40,21 @@ async function fixture(run: (url: string, sql: { text: string; args: unknown[] }
   finally {await new Promise<void>(resolve=>server.close(()=>resolve()));}
 }
 const report="/api/campaigns/mission/mission-funnel";
+test("referral eligibility reads person links in the same protected clinic query, never as extra contacts", async () => {
+  await fixture(async(url,sql)=>{
+    const response=await fetch(url+report+"?referral=yes");
+    assert.equal(response.status,200);
+    const queries=sql.filter(s=>s.text.includes("SELECT DISTINCT c.id"));
+    assert.equal(queries.length,1);
+    const query=queries[0];
+    assert.ok(query.text.includes(missionClinicReferralSql));
+    assert.match(query.text,/cc\.campaign_id=\$1/);
+    assert.match(query.text,/cc\.contact_type='clinic'/);
+    assert.match(query.text,/c\.country_code=ANY\(\$3::text\[\]\)/);
+    assert.deepEqual(query.args,["mission",false,["SK"]]);
+    assert.doesNotMatch(query.text,/JOIN collaborators/);
+  },{role:"user",assigned:true});
+});
 test("report denies anonymous access before any database query",async()=>{
   await fixture(async(url,sql)=>{
     const response=await fetch(url+report,{headers:{"x-anonymous":"yes"}});
@@ -57,9 +73,10 @@ test("read-only snapshot binds Mission and authorized countries and does not wri
     assert.equal(response.status,200);
     const body=await response.json();
     assert.equal(body.canConfigure,false);
-    assert.equal(body.rows.length,15);
+    assert.equal(body.rows.length,funnelSteps.length);
     assert.ok(sql.some(s=>s.text.includes("REPEATABLE READ READ ONLY")));
     const clinics=sql.find(s=>s.text.includes("SELECT DISTINCT c.id"))!;
+    assert.ok(clinics.text.includes(missionClinicReferralSql));
     assert.deepEqual(clinics.args,["mission",false,["SK"]]);
     assert.equal(sql.some(s=>/^\s*(INSERT|UPDATE|DELETE)\b/.test(s.text)),false);
   },{role:"user",assigned:true});

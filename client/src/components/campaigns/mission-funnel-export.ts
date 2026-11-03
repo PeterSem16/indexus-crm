@@ -34,6 +34,7 @@ export function buildFunnelExport(report: MissionFunnelReport, copy: MissionFunn
       [labels.field, labels.value], [copy.title, report.missionName], ["INDEXUS · REPORTING", report.version],
       [copy.from, exportDate(filters.from) || labels.allTime], [copy.to, exportDate(filters.to) || labels.allTime],
       [copy.referral, filters.referral === "yes" ? copy.referralYes : filters.referral === "no" ? copy.referralNo : copy.referralAll],
+      [copy.referralHelp],
       [copy.generated, exportDate(report.generatedAt)], [copy.timezone, report.timezone],
       ...(options.step ? [[copy.step, copy.stepLabels[options.step]]] : []),
       [copy.assignedNote], [copy.refusedWindow], [copy.unreachableRule],

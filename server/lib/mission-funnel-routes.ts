@@ -10,6 +10,7 @@ import { computeMissionAgentFunnel } from "./mission-agent-funnel";
 import { registerMissionReportGet, missionReportUsesAttainments } from "./mission-report-sources";
 import { loadFunnelEmailEvidence } from "./mission-funnel-email-evidence";
 import { effectiveFunnelEmailPurposes } from "../../shared/mission-funnel";
+import { missionClinicReferralSql } from "./mission-funnel-referral";
 import { registerMissionHistoricalEmailRoutes } from "./mission-historical-emails";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(s =>
@@ -125,7 +126,7 @@ export function registerMissionFunnelRoutes(app: Express, requireAuth: RequestHa
           } } : {}),
         } as FunnelConfig;
         const clinicRows = await client.query(`
-          SELECT DISTINCT c.id,c.name,c.representative_id AS "representativeId",c.is_referred_by_doctor AS referred
+          SELECT DISTINCT c.id,c.name,c.representative_id AS "representativeId",${missionClinicReferralSql} AS referred
           FROM clinics c JOIN campaign_contacts cc ON cc.clinic_id=c.id
           WHERE cc.campaign_id=$1 AND cc.contact_type='clinic' AND ($2::boolean OR c.country_code=ANY($3::text[]))`,
         [req.params.id, user.admin, user.countries]);

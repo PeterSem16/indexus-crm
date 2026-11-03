@@ -1,5 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { missionFunnelHelpTranslations } from "../components/campaigns/mission-funnel-help-translations";
+test("all referral locales explain linked-person eligibility and count clinics only", () => {
+  for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
+    const copy=missionFunnelTranslations[locale];
+    assert.ok(copy.referralHelp.length>100,locale);
+    assert.notEqual(copy.referralYes,copy.referralNo);
+    assert.ok(missionFunnelHelpTranslations[locale].content.scope.includes(copy.referralHelp),locale);
+    if(locale!=="en") assert.notEqual(copy.referralHelp,missionFunnelTranslations.en.referralHelp);
+  }
+});
 import { missionFunnelTranslations } from "./mission-funnel-translations";
 import { funnelSources, funnelSteps, funnelExceptions } from "../../../shared/mission-funnel";
 import { emailPurposes } from "../../../shared/email-purpose";

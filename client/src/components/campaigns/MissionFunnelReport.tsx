@@ -329,10 +329,11 @@ function MissionFunnelContent({ campaignId, showPeriodControls = false }: Props 
         <div className="max-w-md">
           <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
             {copy.referral}
-            <select data-testid="mission-funnel-referral" value={referral} onChange={event => setReferral(event.target.value as "all" | "yes" | "no")}
+            <select data-testid="mission-funnel-referral" aria-describedby="mission-funnel-referral-help" value={referral} onChange={event => setReferral(event.target.value as "all" | "yes" | "no")}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <option value="all">{copy.referralAll}</option><option value="yes">{copy.referralYes}</option><option value="no">{copy.referralNo}</option>
             </select>
+            <span id="mission-funnel-referral-help" className="block text-[11px] font-normal leading-relaxed">{copy.referralHelp}</span>
           </label>
         </div>
       </section>

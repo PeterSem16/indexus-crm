@@ -33,6 +33,7 @@ test("exports all steps and all evidence, not only the first UI page; unmapped i
   assert.equal(tables[1].rows[2][1], copy.unmeasured);
   assert.ok(tables[0].rows.some(row => row[1] && exportCellText(row[1]) === "01.09.2026"));
   assert.ok(tables[0].rows.some(row => row[1] === copy.referralYes));
+  assert.ok(tables[0].rows.some(row => row[0] === copy.referralHelp));
   assert.ok(tables[4].rows.some(row => row[0] === copy.noPeriodAssigned));
 });
 test("CSV keeps UTF-8, quoting and formula defenses while retaining numeric values", () => {

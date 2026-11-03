@@ -6,7 +6,7 @@ type MissionFunnelDisplayStep = FunnelStep | "packageSent";
 
 export interface MissionFunnelCopy {
   title: string; subtitle: string; period: string; from: string; to: string; referral: string;
-  referralAll: string; referralYes: string; referralNo: string; assignedNote: string;
+  referralAll: string; referralYes: string; referralNo: string; referralHelp: string; assignedNote: string;
   funnel: string; step: string; total: string; direct: string; inferred: string;
   chartTitle: string; chartIntro: string; chartLegend: string; chartTotalLegend: string;
   chartUnknownLegend: string; chartInferredLegend: string; chartAssignedCurrent: string;
@@ -61,7 +61,8 @@ const basisEn: Record<string, string> = { call:"Call", history:"History", state:
 
 const en: MissionFunnelCopy = {
   title:"Mission funnel", subtitle:"Clinic-level conversion evidence · v04", period:"Activity period", from:"From",
-  to:"To", referral:"Referral", referralAll:"All clinics", referralYes:"Referral clinics", referralNo:"Non-referral clinics",
+  to:"To", referral:"Referral", referralAll:"All clinics", referralYes:"Referral clinics and persons", referralNo:"Without clinic or person referral",
+  referralHelp:"Includes a Mission clinic when the clinic or at least one linked person has a referral. Each clinic counts once; people are not separate funnel entries. Without referral excludes both sources. Other filters still apply.",
   assignedNote:"Assigned is the full mission cohort and is not filtered by the selected activity period.",
   funnel:"Conversion by step", step:"Step", total:"Clinics", direct:"Direct", inferred:"Inferred",
   chartTitle:"Clinic conversion shape",
@@ -128,7 +129,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   en,
   sk: {
     ...en, title:"Lievik misie", subtitle:"Konverzia na úrovni kliník · v04", period:"Obdobie aktivity", from:"Od", to:"Do",
-    referral:"Odporúčanie", referralAll:"Všetky kliniky", referralYes:"Kliniky s odporúčaním", referralNo:"Bez odporúčania",
+    referral:"Odporúčanie", referralAll:"Všetky kliniky", referralYes:"Odporúčané ambulancie a osoby", referralNo:"Bez odporúčania ambulancie aj osoby",
+    referralHelp:"Zaradí ambulanciu v Mission, ak má odporúčanie ona alebo aspoň jedna prepojená osoba. Každá ambulancia sa počíta iba raz; osoby nie sú samostatné položky Funnelu. Bez odporúčania vylúči oba zdroje. Ostatné filtre zostávajú platné.",
     assignedNote:"Priradené zahŕňa celú kohortu misie a nie je filtrované zvoleným obdobím aktivity.",
     funnel:"Konverzia podľa kroku", step:"Krok", total:"Kliniky", direct:"Priame", inferred:"Odvodené",
     chartTitle:"Tvar konverzie kliník",
@@ -204,7 +206,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
   cs: {
     ...en, title:"Trychtýř mise", subtitle:"Konverze na úrovni klinik · v04", period:"Období aktivity", from:"Od", to:"Do",
-    referral:"Doporučení", referralAll:"Všechny kliniky", referralYes:"Kliniky s doporučením", referralNo:"Bez doporučení",
+    referral:"Doporučení", referralAll:"Všechny kliniky", referralYes:"Doporučené ambulance a osoby", referralNo:"Bez doporučení ambulance i osoby",
+    referralHelp:"Zařadí ambulanci v Mission, pokud má doporučení ona nebo alespoň jedna propojená osoba. Každá ambulance se počítá pouze jednou; osoby nejsou samostatné položky Funnelu. Bez doporučení vyloučí oba zdroje. Ostatní filtry zůstávají platné.",
     assignedNote:"Přiřazeno zahrnuje celou kohortu mise a není filtrováno vybraným obdobím aktivity.",
     funnel:"Konverze podle kroku", step:"Krok", total:"Kliniky", direct:"Přímé", inferred:"Odvozené",
     chartTitle:"Tvar konverze klinik",
@@ -271,7 +274,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
   hu: {
     ...en, title:"Missziós tölcsér", subtitle:"Klinikánkénti konverzió · v04", period:"Aktivitási időszak", from:"Ettől", to:"Eddig",
-    referral:"Ajánlás", referralAll:"Minden klinika", referralYes:"Ajánlott klinikák", referralNo:"Nem ajánlott klinikák",
+    referral:"Ajánlás", referralAll:"Minden klinika", referralYes:"Ajánlott rendelők és személyek", referralNo:"Rendelői és személyes ajánlás nélkül",
+    referralHelp:"A Mission rendelőjét akkor veszi figyelembe, ha a rendelő vagy legalább egy kapcsolt személy rendelkezik ajánlással. Minden rendelő egyszer számít; a személyek nem külön tölcsérelemek. Az ajánlás nélküli nézet mindkét forrást kizárja. A többi szűrő továbbra is érvényes.",
     assignedNote:"A hozzárendelt érték a teljes missziós kohorsz, nem szűri a kiválasztott aktivitási időszak.",
     funnel:"Konverzió lépésenként", step:"Lépés", total:"Klinikák", direct:"Közvetlen", inferred:"Következtetett",
     chartTitle:"Klinikai konverzió alakzata",
@@ -339,7 +343,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
   ro: {
     ...en, title:"Pâlnia misiunii", subtitle:"Conversie la nivel de clinică · v04", period:"Perioada activității", from:"De la", to:"Până la",
-    referral:"Recomandare", referralAll:"Toate clinicile", referralYes:"Clinici recomandate", referralNo:"Clinici fără recomandare",
+    referral:"Recomandare", referralAll:"Toate clinicile", referralYes:"Clinici și persoane recomandate", referralNo:"Fără recomandarea clinicii sau persoanei",
+    referralHelp:"Include clinica din Mission dacă aceasta sau cel puțin o persoană asociată are o recomandare. Fiecare clinică se numără o singură dată; persoanele nu sunt intrări separate în funnel. Fără recomandare exclude ambele surse. Celelalte filtre rămân valabile.",
     assignedNote:"Numărul atribuit include întreaga cohortă a misiunii și nu este filtrat de perioada selectată.",
     funnel:"Conversie pe etapă", step:"Etapă", total:"Clinici", direct:"Direct", inferred:"Dedus",
     chartTitle:"Forma conversiei clinicilor",
@@ -407,7 +412,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
   it: {
     ...en, title:"Funnel della missione", subtitle:"Conversione per clinica · v04", period:"Periodo di attività", from:"Da", to:"A",
-    referral:"Segnalazione", referralAll:"Tutte le cliniche", referralYes:"Cliniche segnalate", referralNo:"Cliniche non segnalate",
+    referral:"Segnalazione", referralAll:"Tutte le cliniche", referralYes:"Cliniche e persone segnalate", referralNo:"Senza segnalazione di clinica o persona",
+    referralHelp:"Include la clinica della Mission se la clinica o almeno una persona collegata ha una segnalazione. Ogni clinica conta una sola volta; le persone non sono voci separate del funnel. Senza segnalazione esclude entrambe le fonti. Gli altri filtri restano validi.",
     assignedNote:"Il totale assegnato comprende l’intera coorte della missione e non è filtrato dal periodo selezionato.",
     funnel:"Conversione per fase", step:"Fase", total:"Cliniche", direct:"Diretto", inferred:"Dedotto",
     chartTitle:"Forma della conversione delle cliniche",
@@ -475,7 +481,8 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
   de: {
     ...en, title:"Missions-Trichter", subtitle:"Konversion je Klinik · v04", period:"Aktivitätszeitraum", from:"Von", to:"Bis",
-    referral:"Empfehlung", referralAll:"Alle Kliniken", referralYes:"Empfohlene Kliniken", referralNo:"Nicht empfohlene Kliniken",
+    referral:"Empfehlung", referralAll:"Alle Kliniken", referralYes:"Empfohlene Praxen und Personen", referralNo:"Ohne Praxis- oder Personenempfehlung",
+    referralHelp:"Nimmt eine Mission-Praxis auf, wenn die Praxis oder mindestens eine verknüpfte Person eine Empfehlung hat. Jede Praxis zählt einmal; Personen sind keine eigenen Funnel-Einträge. Ohne Empfehlung schließt beide Quellen aus. Andere Filter gelten weiterhin.",
     assignedNote:"Zugewiesen umfasst die gesamte Missionskohorte und wird nicht nach dem gewählten Aktivitätszeitraum gefiltert.",
     funnel:"Konversion je Schritt", step:"Schritt", total:"Kliniken", direct:"Direkt", inferred:"Abgeleitet",
     chartTitle:"Konversionsform der Kliniken",
