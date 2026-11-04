@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n";
 import { useStatusListWorkflowContact } from "@/hooks/use-status-list-workflow-contact";
 import { createStatusListExecutionClient } from "@/lib/status-list-execution-client";
 import { isStatusListInfoHeading } from "@shared/status-list-confirmation-kind";
+import { statusListPhaseProgress } from "@/lib/status-list-phase-progress";
 import { createSingleSelectTransition, executeSingleSelectTransition } from "@/lib/status-list-single-select-transition";
 import { prepareStatusListCallbackReview } from "@/lib/status-list-callback-review";
 import { statusListAnswerChanges, hasStatusListCallbackAction } from "@shared/status-list-execution-policy";
@@ -6617,7 +6618,10 @@ export function CommunicationCanvas({
           const dbRequiredMissing = scoreUnits.filter((i: any) => i.required && !isUnitConfirmed(i, dbSlChecked));
           const progress = dbTotal > 0 ? Math.round((dbConfirmed / dbTotal) * 100) : 0;
 
-          // Per-phase stats for pipeline timeline (same 1× collapsing logic)
+          // Read-only completion of visible answers, including info headings.
+          // dbSlChecked and slQuestionAnswers already include current Batch drafts.
+          const categoryProgress = statusListPhaseProgress(dbStatusList as any[], dbSlChecked, slQuestionAnswers);
+          // Per-phase stats for pipeline timeline.
           const phaseStats = [
             { key: 'acquisition' as const, label: 'Acquisition',
               cardActive: 'bg-blue-50 dark:bg-blue-950/40 border-blue-300 dark:border-blue-600 shadow-lg ring-1 ring-blue-400/40',
@@ -6631,20 +6635,7 @@ export function CommunicationCanvas({
               cardActive: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-lg ring-1 ring-emerald-400/40',
               labelColor: 'text-emerald-600 dark:text-emerald-400', dotColor: 'bg-emerald-500', pctColor: 'text-emerald-500',
               barGradient: 'linear-gradient(90deg, #34d399 0%, #059669 100%)' },
-          ].map(ph => {
-            // Use scoreUnits so 1× groups are already collapsed to 1 unit each
-            const phItems = scoreUnits.filter((i: any) => {
-              const itemTab = i.tab ?? null;
-              if (itemTab) return itemTab === ph.key;
-              if (i.parentId) {
-                const parent = (dbStatusList as any[]).find((p: any) => String(p.id) === String(i.parentId));
-                return (parent?.tab ?? null) === ph.key;
-              }
-              return false;
-            });
-            const confirmed = phItems.filter((i: any) => isUnitConfirmed(i, dbSlChecked)).length;
-            return { ...ph, total: phItems.length, confirmed, pct: phItems.length > 0 ? Math.round((confirmed / phItems.length) * 100) : 0 };
-          });
+          ].map(ph => ({ ...ph, ...categoryProgress[ph.key] }));
 
           return (
             <fieldset disabled={slExecuting || slBatchSaving} className="contents">
@@ -6653,7 +6644,7 @@ export function CommunicationCanvas({
               <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0">
                 {/* ── Phase Journey Pipeline (tabs + progress) ─── */}
                 {hasSlTabAssignment ? (
-                  <StatusListPhasePipeline phases={phaseStats} active={slActiveTab} onSelect={phase => {
+                  <StatusListPhasePipeline phases={phaseStats} active={slActiveTab} pending={statusListMode === "batch" && batchUnsavedIds.size > 0} onSelect={phase => {
                     setSlActiveTab(phase);
                     if (campaign?.id && campaignContactId) localStorage.setItem(`sl-tab-${campaign.id}-${campaignContactId}`, phase);
                   }} />

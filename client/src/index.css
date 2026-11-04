@@ -1,3 +1,5 @@
+@import "./components/status-list-phase-pipeline.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

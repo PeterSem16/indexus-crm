@@ -2,6 +2,11 @@ export type StatusListAgentPreviewCopy = {
   phaseAcquisition: string;
   phaseContract: string;
   phaseRetention: string;
+  phasePipelineLabel: string;
+  phaseProgressCaption: string;
+  phaseEmpty: string;
+  phaseDraft: string;
+  phaseAriaLabel: string;
   options: string;
   batchTitle: string;
   batchMessage: string;
@@ -27,6 +32,8 @@ export type StatusListAgentPreviewCopy = {
 const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewCopy> = {
   en: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Status list phases", phaseProgressCaption: "{completed} of {total} completed",
+    phaseEmpty: "No steps yet", phaseDraft: "Draft", phaseAriaLabel: "{phase}: {completed} of {total} complete, {percent} percent",
     options: "Options", batchTitle: "Batch mode", batchMessage: "Save changes this preview only; no backend actions run.",
     batchPending: "automations pending", save: "Save status list", dismiss: "Dismiss",
     requiredMissing: "Required missing:", localSelected: "selected in preview only",
@@ -38,6 +45,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   sk: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Fázy status listu", phaseProgressCaption: "Dokončené: {completed} z {total}",
+    phaseEmpty: "Zatiaľ bez krokov", phaseDraft: "Koncept", phaseAriaLabel: "{phase}: dokončené {completed} z {total}, {percent} percent",
     options: "Možnosti", batchTitle: "Dávkový režim", batchMessage: "Uloženie zmení iba tento náhľad; nespustí žiadne akcie.",
     batchPending: "automácií čaká", save: "Uložiť status list", dismiss: "Dismiss",
     requiredMissing: "Povinné nevyplnené:", localSelected: "vybrané iba v náhľade",
@@ -49,6 +58,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   cs: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Fáze status listu", phaseProgressCaption: "Dokončeno: {completed} z {total}",
+    phaseEmpty: "Zatím bez kroků", phaseDraft: "Koncept", phaseAriaLabel: "{phase}: dokončeno {completed} z {total}, {percent} procent",
     options: "Možnosti", batchTitle: "Dávkový režim", batchMessage: "Uložení změní pouze tento náhled; nespustí žádné akce.",
     batchPending: "automatizací čeká", save: "Uložit status list", dismiss: "Dismiss",
     requiredMissing: "Povinné nevyplněné:", localSelected: "vybráno pouze v náhledu",
@@ -60,6 +71,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   hu: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Statuslista fázisai", phaseProgressCaption: "{completed} / {total} kész",
+    phaseEmpty: "Még nincsenek lépések", phaseDraft: "Piszkozat", phaseAriaLabel: "{phase}: {completed} / {total} kész, {percent} százalék",
     options: "Lehetőségek", batchTitle: "Kötegelt mód", batchMessage: "A mentés csak ezt az előnézetet módosítja; nem indít műveleteket.",
     batchPending: "automatizálás vár", save: "Status lista mentése", dismiss: "Dismiss",
     requiredMissing: "Hátralévő kötelező:", localSelected: "csak az előnézetben kijelölve",
@@ -71,6 +84,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   ro: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Etapele listei de status", phaseProgressCaption: "{completed} din {total} finalizate",
+    phaseEmpty: "Nu există pași încă", phaseDraft: "Ciornă", phaseAriaLabel: "{phase}: {completed} din {total} finalizate, {percent} la sută",
     options: "Opțiuni", batchTitle: "Mod batch", batchMessage: "Salvarea modifică doar această previzualizare; nu rulează acțiuni.",
     batchPending: "automatizări în așteptare", save: "Salvează lista de status", dismiss: "Dismiss",
     requiredMissing: "Obligatoriu lipsă:", localSelected: "selectate doar în previzualizare",
@@ -82,6 +97,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   it: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Fasi della lista di stato", phaseProgressCaption: "{completed} di {total} completati",
+    phaseEmpty: "Nessun passaggio", phaseDraft: "Bozza", phaseAriaLabel: "{phase}: {completed} di {total} completati, {percent} percento",
     options: "Opzioni", batchTitle: "Modalità batch", batchMessage: "Il salvataggio modifica solo questa anteprima; non esegue azioni.",
     batchPending: "automazioni in attesa", save: "Salva lista stato", dismiss: "Dismiss",
     requiredMissing: "Obbligatorio mancante:", localSelected: "selezionati solo nell'anteprima",
@@ -93,6 +110,8 @@ const statusListAgentPreviewTranslations: Record<string, StatusListAgentPreviewC
   },
   de: {
     phaseAcquisition: "Acquisition", phaseContract: "Contract", phaseRetention: "Retention",
+    phasePipelineLabel: "Statuslisten-Phasen", phaseProgressCaption: "{completed} von {total} abgeschlossen",
+    phaseEmpty: "Noch keine Schritte", phaseDraft: "Entwurf", phaseAriaLabel: "{phase}: {completed} von {total} abgeschlossen, {percent} Prozent",
     options: "Optionen", batchTitle: "Batch-Modus", batchMessage: "Speichern ändert nur diese Vorschau; es werden keine Aktionen ausgeführt.",
     batchPending: "Automatisierungen ausstehend", save: "Statusliste speichern", dismiss: "Dismiss",
     requiredMissing: "Pflichtfeld fehlt:", localSelected: "nur in der Vorschau ausgewählt",

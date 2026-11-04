@@ -1,0 +1,214 @@
+.sl-phase-pipeline {
+  --sl-phase-done: #159977;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.sl-phase-card {
+  --sl-phase-accent: #507ec3;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 112px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0.72rem 0.8rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--sl-phase-accent) 18%, hsl(var(--border)));
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--sl-phase-accent) 4%, hsl(var(--card)));
+  color: hsl(var(--foreground));
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.sl-phase-card[data-phase="acquisition"] {
+  --sl-phase-accent: #477fbd;
+}
+
+.sl-phase-card[data-phase="contract"] {
+  --sl-phase-accent: #8b68b8;
+}
+
+.sl-phase-card[data-phase="retention"] {
+  --sl-phase-accent: #438d78;
+}
+
+.sl-phase-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--sl-phase-accent) 48%, hsl(var(--border)));
+  background: color-mix(in srgb, var(--sl-phase-accent) 8%, hsl(var(--card)));
+}
+
+.sl-phase-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--sl-phase-accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.sl-phase-card.is-active {
+  border-color: color-mix(in srgb, var(--sl-phase-accent) 66%, hsl(var(--border)));
+  background: color-mix(in srgb, var(--sl-phase-accent) 11%, hsl(var(--card)));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--sl-phase-accent) 12%, transparent);
+}
+
+.sl-phase-card.is-complete:not(.is-active) {
+  border-color: color-mix(in srgb, var(--sl-phase-done) 32%, hsl(var(--border)));
+}
+
+.sl-phase-card.is-empty {
+  background: color-mix(in srgb, var(--sl-phase-accent) 2.5%, hsl(var(--card)));
+}
+
+.sl-phase-card__top {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.sl-phase-card__label {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--sl-phase-accent) 88%, hsl(var(--foreground)));
+  font-size: 0.67rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sl-phase-card__check {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  color: var(--sl-phase-done);
+}
+
+.sl-phase-card__score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.27rem;
+}
+
+.sl-phase-card__percent {
+  color: hsl(var(--foreground));
+  font-size: clamp(1.48rem, 3.3vw, 1.82rem);
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.065em;
+  line-height: 1.05;
+}
+
+.sl-phase-card__percent-sign {
+  margin-left: 0.04em;
+  color: color-mix(in srgb, var(--sl-phase-accent) 75%, hsl(var(--foreground)));
+  font-size: 0.7em;
+  letter-spacing: -0.03em;
+}
+
+.sl-phase-card__active-mark {
+  width: 0.42rem;
+  height: 0.42rem;
+  margin-right: 0.08rem;
+  border-radius: 999px;
+  background: var(--sl-phase-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sl-phase-accent) 15%, transparent);
+}
+
+.sl-phase-card__track {
+  height: 0.34rem;
+  margin-top: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sl-phase-accent) 12%, hsl(var(--muted)));
+}
+
+.sl-phase-card__fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 500ms cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.sl-phase-card__caption {
+  min-height: 1rem;
+  margin-top: 0.42rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+  font-weight: 580;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-phase-card.is-active .sl-phase-card__caption {
+  color: color-mix(in srgb, var(--sl-phase-accent) 72%, hsl(var(--foreground)));
+}
+
+.sl-phase-card__draft {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  padding: 0.12rem 0.34rem;
+  border: 1px solid color-mix(in srgb, #c48a35 38%, hsl(var(--border)));
+  border-radius: 999px;
+  background: color-mix(in srgb, #d9a24a 11%, hsl(var(--card)));
+  color: color-mix(in srgb, #9a6720 88%, hsl(var(--foreground)));
+  font-size: 0.57rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dark .sl-phase-card {
+  background: color-mix(in srgb, var(--sl-phase-accent) 10%, hsl(var(--card)));
+  border-color: color-mix(in srgb, var(--sl-phase-accent) 24%, hsl(var(--border)));
+}
+
+.dark .sl-phase-card.is-active {
+  background: color-mix(in srgb, var(--sl-phase-accent) 20%, hsl(var(--card)));
+  border-color: color-mix(in srgb, var(--sl-phase-accent) 58%, hsl(var(--border)));
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--sl-phase-accent) 16%, transparent);
+}
+
+.dark .sl-phase-card__label,
+.dark .sl-phase-card__percent-sign {
+  color: color-mix(in srgb, var(--sl-phase-accent) 78%, #d9e0e7);
+}
+
+.dark .sl-phase-card__caption {
+  color: #b1bcc9;
+}
+
+@media (max-width: 480px) {
+  .sl-phase-pipeline {
+    gap: 0.35rem;
+  }
+
+  .sl-phase-card {
+    min-height: 108px;
+    padding: 0.62rem 0.58rem 0.58rem;
+    border-radius: 0.78rem;
+  }
+
+  .sl-phase-card__label {
+    font-size: 0.59rem;
+    letter-spacing: 0.085em;
+  }
+
+  .sl-phase-card__percent {
+    font-size: clamp(1.42rem, 7vw, 1.72rem);
+  }
+
+  .sl-phase-card__caption {
+    font-size: 0.62rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-phase-card,
+  .sl-phase-card__fill {
+    transition: none;
+  }
+}

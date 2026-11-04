@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, CheckCircle, ChevronRight, Info, Loader2, Mail, Phone, Save, Tag, X, Zap } from "lucide-react";
+import { Check, CheckCircle, Info, Loader2, Mail, Phone, Save, Tag, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getStatusListQuestionColorValue, StatusListQuickOptionIcon } from "@/components/status-list-quick-option-icons";
 import { isStatusListYesNo } from "@shared/status-list-answer-kind";
 import { translations, type Locale } from "@/i18n/translations";
 import { useI18n } from "@/i18n/I18nProvider";
 import { statusListOptionLabel } from "@shared/status-list-label-translations";
+import { statusListPhaseProgress } from "@/lib/status-list-phase-progress";
 
 type Phase = {
   key: "acquisition" | "contract" | "retention";
@@ -118,7 +119,7 @@ export function StatusListAgentQuestionChoices({
         </div>;
         const oneMode = groupMode === "ONE";
         return <div key={question.id} className="w-full" data-testid={`sl-question-${question.id}`}>
-          <button type="button" onClick={() => onAnswer(question, true, exclusiveQuestions, groupMode)}
+          <button type="button" aria-pressed={answered} onClick={() => onAnswer(question, true, exclusiveQuestions, groupMode)}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${answered ? "bg-primary text-primary-foreground border-primary" : "bg-background border-border hover:border-primary/50 text-foreground"}`}
             style={questionColor ? (answered ? { backgroundColor: questionColor, borderColor: questionColor, color: "#fff" } : { borderColor: questionColor, color: questionColor }) : undefined}
             data-testid={`btn-sl-q-${question.id}`}>
@@ -135,33 +136,46 @@ export function StatusListAgentQuestionChoices({
 }
 
 export function StatusListPhasePipeline({
-  phases, active, onSelect,
-}: { phases: Phase[]; active: string; onSelect: (phase: Phase["key"]) => void }) {
+  phases, active, onSelect, pending = false,
+}: { phases: Phase[]; active: string; onSelect: (phase: Phase["key"]) => void; pending?: boolean }) {
+  const { t } = useI18n();
+  const copy = t.statusListAgentPreview;
   return (
-    <div className="flex items-stretch gap-1">
-      {phases.flatMap((phase, index) => {
+    <div className="sl-phase-pipeline" role="group" aria-label={copy.phasePipelineLabel}>
+      {phases.map(phase => {
         const isActive = active === phase.key;
         const isComplete = phase.total > 0 && phase.confirmed === phase.total;
-        const isStarted = phase.confirmed > 0;
-        return [
-          ...(index > 0 ? [<div key={`sep-${phase.key}`} className="flex items-center shrink-0 self-center px-0.5"><ChevronRight className="h-3 w-3 text-muted-foreground/30" /></div>] : []),
-          <button key={phase.key} type="button" onClick={() => onSelect(phase.key)}
-            className={`flex-1 rounded-xl border p-2.5 transition-all duration-200 text-left relative overflow-hidden ${isActive ? phase.cardActive : "bg-muted/20 dark:bg-muted/10 border-border/40 hover:bg-muted/50 hover:border-border/70"}`}
-            data-testid={`sl-phase-${phase.key}`}>
-            {isComplete && <div className="absolute top-1.5 right-1.5"><CheckCircle className={`h-3 w-3 ${phase.dotColor}`} /></div>}
-            <div className="flex items-center gap-1.5 mb-2 pr-4">
-              <div className={`h-1.5 w-1.5 rounded-full shrink-0 transition-colors ${isComplete ? "bg-emerald-500" : isStarted ? phase.dotColor : "bg-muted-foreground/20"}`} />
-              <span className={`text-[9px] font-extrabold uppercase tracking-widest leading-none transition-colors ${isActive ? phase.labelColor : "text-muted-foreground/50"}`}>{phase.label}</span>
-            </div>
-            <div className="h-1.5 bg-black/5 dark:bg-white/8 rounded-full overflow-hidden mb-1.5">
-              <div className="h-full rounded-full transition-all duration-700" style={{ width: phase.total > 0 ? `${phase.pct}%` : "0%", background: isComplete ? "#10b981" : phase.pct > 0 ? phase.barGradient : "transparent" }} />
-            </div>
-            {phase.total > 0 ? <div className="flex items-center justify-between gap-1">
-              <span className={`text-[9px] tabular-nums font-semibold leading-none transition-colors ${isActive ? phase.labelColor : "text-muted-foreground/40"}`}>{phase.confirmed}/{phase.total}</span>
-              <span className={`text-[9px] font-bold tabular-nums leading-none transition-colors ${isComplete ? "text-emerald-500" : isActive ? phase.pctColor : "text-muted-foreground/30"}`}>{phase.pct}%</span>
-            </div> : <span className="text-[9px] text-muted-foreground/25 italic leading-none">—</span>}
-          </button>,
-        ];
+        const isEmpty = phase.total === 0;
+        const progressCaption = isEmpty
+          ? copy.phaseEmpty
+          : copy.phaseProgressCaption
+            .replace("{completed}", String(phase.confirmed))
+            .replace("{total}", String(phase.total));
+        const ariaLabel = copy.phaseAriaLabel
+          .replace("{phase}", phase.label)
+          .replace("{completed}", String(phase.confirmed))
+          .replace("{total}", String(phase.total))
+          .replace("{percent}", String(phase.pct));
+        return <button key={phase.key} type="button" onClick={() => onSelect(phase.key)}
+          className={`sl-phase-card ${isActive ? "is-active" : ""} ${isComplete ? "is-complete" : ""} ${isEmpty ? "is-empty" : ""}`}
+          data-phase={phase.key} data-testid={`sl-phase-${phase.key}`} aria-label={ariaLabel} aria-pressed={isActive}>
+          <div className="sl-phase-card__top">
+            <span className="sl-phase-card__label">{phase.label}</span>
+          </div>
+          <div className="sl-phase-card__score-row">
+            <span className="sl-phase-card__percent">{phase.pct}<span className="sl-phase-card__percent-sign">%</span></span>
+            {isComplete && <CheckCircle className="sl-phase-card__check" aria-hidden="true" />}
+            {isActive && <span className="sl-phase-card__active-mark" aria-hidden="true" />}
+          </div>
+          <div className="sl-phase-card__track" role="presentation">
+            <div className="sl-phase-card__fill" style={{
+              width: `${isEmpty ? 0 : Math.max(0, Math.min(100, phase.pct))}%`,
+              background: isComplete ? "var(--sl-phase-done)" : phase.barGradient,
+            }} />
+          </div>
+          <div className="sl-phase-card__caption">{progressCaption}</div>
+          {pending && !isEmpty && <span className="sl-phase-card__draft">{copy.phaseDraft}</span>}
+        </button>;
       })}
     </div>
   );
@@ -283,14 +297,8 @@ export function StatusListAgentPreview({ items, locale, statusListMode = "immedi
     { key: "contract", label: tr("phaseContract", locale), cardActive: "bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-600 shadow-lg ring-1 ring-violet-400/40", labelColor: "text-violet-600 dark:text-violet-400", dotColor: "bg-violet-500", pctColor: "text-violet-500", barGradient: "linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%)" },
     { key: "retention", label: tr("phaseRetention", locale), cardActive: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-600 shadow-lg ring-1 ring-emerald-400/40", labelColor: "text-emerald-600 dark:text-emerald-400", dotColor: "bg-emerald-500", pctColor: "text-emerald-500", barGradient: "linear-gradient(90deg, #34d399 0%, #059669 100%)" },
   ];
-  const phases: Phase[] = phaseDefinitions.map(phase => {
-    const bucket = scoreUnits.filter(item => {
-      const tab = item.tab || items.find(parent => parent.id === item.parentId)?.tab || null;
-      return tab === phase.key;
-    });
-    const confirmed = bucket.filter(isUnitConfirmed).length;
-    return { ...phase, total: bucket.length, confirmed, pct: bucket.length ? Math.round(confirmed / bucket.length * 100) : 0 };
-  });
+  const categoryProgress = statusListPhaseProgress(items, checked, answers);
+  const phases: Phase[] = phaseDefinitions.map(phase => ({ ...phase, ...categoryProgress[phase.key] }));
   const activeItems = roots.filter(item => !item.tab || item.tab === active);
   const toggle = (id: string) => setChecked(previous => { const next = new Set(previous); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const answer = (question: AgentStatusQuestion, value: string | boolean, exclusiveQuestions: AgentStatusQuestion[], groupMode?: string) => {
@@ -311,7 +319,7 @@ export function StatusListAgentPreview({ items, locale, statusListMode = "immedi
   const progress = totalCount ? Math.round(confirmedCount / totalCount * 100) : 0;
   const requiredMissing = scoreUnits.filter(item => item.required && !isUnitConfirmed(item));
   return <div className="flex flex-col flex-1 min-h-[360px] overflow-hidden bg-background" style={{ height: "min(720px, 72vh)" }} data-testid="status-list-agent-preview">
-    <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0"><StatusListPhasePipeline phases={phases} active={active} onSelect={setActive} /></div>
+    <div className="px-3 pt-2.5 pb-2.5 border-b bg-gradient-to-br from-primary/5 via-background to-background shrink-0"><StatusListPhasePipeline phases={phases} active={active} onSelect={setActive} pending={statusListMode === "batch" && (checked.size > 0 || Object.values(answers).some(value => value != null))} /></div>
     {statusListMode === "batch" && bannerVisible && <StatusListBatchBanner title={tr("batchTitle", locale)} message={tr("batchMessage", locale)} dismissLabel={tr("dismiss", locale)} onDismiss={() => setBannerVisible(false)} />}
     <div className="mx-3 mt-2 rounded-lg border border-border/60 bg-muted/35 px-2.5 py-2 flex items-start gap-2 text-[10px] leading-snug text-muted-foreground" data-testid="status-list-preview-safety"><Info className="h-3.5 w-3.5 mt-px shrink-0 text-primary/70" />{tr("safePreview", locale)}</div>
     <StatusListQuickOptionsPanel options={options} locale={locale} label={tr("options", locale)} selectedId={selectedQuickOption} onSelect={setSelectedQuickOption} />

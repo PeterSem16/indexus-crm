@@ -95,6 +95,9 @@ describe("Status List agent preview", () => {
       assert.equal(appearance.palette.length, 6);
       assert.ok(appearance.icon && appearance.color && appearance.keep);
       assert.ok(translations[locale].statusListQuestionHistory.save);
+      for (const key of ["phasePipelineLabel", "phaseProgressCaption", "phaseEmpty", "phaseDraft", "phaseAriaLabel"] as const) {
+        assert.ok(translations[locale].statusListAgentPreview[key], `${locale}: ${key}`);
+      }
       assert.ok(translations[locale].mobileStatusListNote.placeholder);
       assert.ok(translations[locale].statusListReportingLabels.acquisition_contacted);
     }
