@@ -6,6 +6,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, Di
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/contexts/auth-context";
 import { actionDisplayName, activityActionKey, activityDetailEntries, activityStatusListSummary, moduleDisplayName } from "./record-activity-display";
+import "./customer-card-actions.css";
 
 type EventRow = { id: string; action: string; module: string; actor: string | null; createdAt: string; details: Record<string, unknown> | null };
 type EventPage = { events: EventRow[]; nextCursor: string | null };
@@ -144,9 +145,11 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
   };
 
   return <>
-    <Button type="button" variant="outline" size="sm" className="gap-1.5" disabled={!recordId} onClick={() => setOpen(true)}>
-      <Activity className="h-3.5 w-3.5" />{tx.history}
-    </Button>
+    <span className="customer-card-actions">
+      <Button type="button" variant="outline" size="icon" className="customer-card-action" aria-label={tx.history} title={tx.history} disabled={!recordId} onClick={() => setOpen(true)}>
+        <Activity className="h-3.5 w-3.5" />
+      </Button>
+    </span>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent hideCloseButton className="z-[10051] flex max-h-[min(88dvh,860px)] w-[min(1100px,calc(100vw-24px))] max-w-none flex-col gap-0 overflow-hidden p-0" style={{ width: "min(1100px, calc(100vw - 24px))", maxWidth: "min(1100px, calc(100vw - 24px))" }} overlayClassName="z-[10050]">
         <DialogHeader className="relative shrink-0 border-b px-5 py-4 pr-12">

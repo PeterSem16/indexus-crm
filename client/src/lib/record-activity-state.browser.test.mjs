@@ -59,6 +59,17 @@ try {
       </script></body></html>`,
   }));
   await page.goto(`${base}/record-activity-state-test`);
+  const trigger = page.getByRole("button").first();
+  await trigger.waitFor();
+  assert.equal(await trigger.getAttribute("title"), await trigger.getAttribute("aria-label"));
+  assert.ok(await trigger.getAttribute("aria-label"));
+  assert.equal(await trigger.textContent(), "");
+  const triggerStyle = await trigger.evaluate(button => {
+    const style = getComputedStyle(button);
+    return { width: style.width, height: style.height, radius: style.borderRadius, color: style.color };
+  });
+  assert.deepEqual(triggerStyle, { width: "38px", height: "38px", radius: "12px", color: "rgb(40, 100, 134)" });
+  await page.screenshot({ path: "generated-artifacts/record-activity-evidence/action-button.png" });
   await page.getByRole("button").first().click();
   const dialog = page.getByRole("dialog");
   const removedBadges = dialog.locator("b").filter({ hasText: /^Step confirmation removed$/ });
