@@ -2,7 +2,55 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { pool } from "../db";
-import { loadRecordActivity, safeRecordActivityDetails } from "./agreement-workspace";
+import { loadRecordActivity, parseRecordActivityScope, safeRecordActivityDetails } from "./agreement-workspace";
+
+test("audit scope accepts only the two supported server-side modes", () => {
+  assert.equal(parseRecordActivityScope(undefined), "all");
+  assert.equal(parseRecordActivityScope("all"), "all");
+  assert.equal(parseRecordActivityScope("status-list"), "status-list");
+  for (const bad of ["", "status_list_", ["status-list"], {}, true, "status-list' OR 1=1"])
+    assert.throws(() => parseRecordActivityScope(bad), /invalid_activity_scope/);
+});
+
+test("Status List audit projects scalar answer transitions and real outcomes without forwarding raw sources", () => {
+  const input = { previous: true, value: false, itemNote: "Saved note", ruleName: "Reviewed rule",
+    sourceLabel: "Saved source", ok: false, skipped: false, status: "failed", rawSource: "never-return",
+    analysis: { private: "never-return" }, token: "never-return" };
+  assert.deepEqual(safeRecordActivityDetails(input, "status_list_answer"), {
+    previous: true, value: false, itemNote: "Saved note", ruleName: "Reviewed rule",
+    sourceLabel: "Saved source", ok: false, skipped: false, status: "failed",
+  });
+  assert.deepEqual(safeRecordActivityDetails(input, "agreement_added"), {});
+  assert.deepEqual(safeRecordActivityDetails({ value: { password: "never-return" } }, "status_list_answer"), {});
+  assert.deepEqual(safeRecordActivityDetails({ status: ["failed"], ok: "false" }, "status_list_action"), {});
+});
+
+test("audit is bound in SQL before pagination, preserves Mission authorization and carries the exact cursor", async () => {
+  const original = pool.query;
+  let captured: { sql: string; values: unknown[] } | undefined;
+  (pool as any).query = async (sql: string, values: unknown[]) => {
+    captured = { sql, values };
+    return { rows: Array.from({ length: 51 }, (_, n) => ({
+      id: `mission:fixture-${n}`, action: "status_list_confirmation",
+      createdAt: "2026-11-03T10:34:56.350Z", _cursorTime: "2026-11-03 10:34:56.350123",
+      details: { confirmed: false },
+    })) };
+  };
+  try {
+    const cursor = { time: "2026-11-04 10:00:00.123456", id: "mission:next-page" };
+    const page = await loadRecordActivity("hospital", "fixture-record", "fixture-user", "fixture-mission", cursor, "status-list");
+    assert.equal(page.events.length, 50);
+    assert.deepEqual(captured!.values, ["fixture-record", "fixture-user", "fixture-mission", "hospital", false, cursor.time, cursor.id, "status-list"]);
+    assert.match(captured!.sql, /left\(s\.action,12\)='status_list_'/);
+    assert.ok(captured!.sql.indexOf("$8::text") < captured!.sql.indexOf("ORDER BY s.created_at"));
+    assert.match(captured!.sql, /c\.campaign_id IN \(SELECT id FROM authorized_missions\)/);
+    assert.deepEqual(JSON.parse(Buffer.from(page.nextCursor!, "base64url").toString()), {
+      time: "2026-11-03 10:34:56.350123", id: "mission:fixture-49",
+    });
+    await loadRecordActivity("clinic", "fixture-record", "fixture-user", undefined, null);
+    assert.equal(captured!.values[7], "all");
+  } finally { pool.query = original; }
+});
 
 test("removal audit records snapshot the item label and type instead of relying on its mutable live definition", () => {
   const source = readFileSync("server/routes.ts", "utf8");

@@ -69,6 +69,12 @@ export async function agreementPreviewPdf(target: string, contentType: string, p
 }
 
 export type RecordActivityCursor = { time: string; id: string };
+export type RecordActivityScope = "all" | "status-list";
+export function parseRecordActivityScope(value: unknown): RecordActivityScope {
+  if (value == null || value === "all") return "all";
+  if (value === "status-list") return value;
+  throw new Error("invalid_activity_scope");
+}
 export function parseActivityCursor(value: unknown): RecordActivityCursor | null {
   if (value == null) return null;
   if (typeof value !== "string" || value.length > 512) throw new Error("invalid_cursor");
@@ -79,13 +85,25 @@ export function parseActivityCursor(value: unknown): RecordActivityCursor | null
   if (typeof v.time !== "string" || !Number.isFinite(Date.parse(v.time)) || typeof v.id !== "string" || v.id.length > 150) throw new Error("invalid_cursor");
   return v;
 }
-export function safeRecordActivityDetails(raw: unknown) {
+export function safeRecordActivityDetails(raw: unknown, action = "") {
   if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { return {}; } }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const input = raw as Record<string, unknown>, result: Record<string, unknown> = {};
   // Confirmation and removal share one historical action code. Preserve the
   // explicit boolean or the UI cannot distinguish opposite operations.
   if (typeof input.confirmed === "boolean") result.confirmed = input.confirmed;
+  // Scalar, authorized Status List snapshots only; never forward raw sources,
+  // nested analysis payloads, communication bodies or execution credentials.
+  if (action.startsWith("status_list_")) {
+    for (const key of ["ok", "skipped", "keptExisting"])
+      if (typeof input[key] === "boolean") result[key] = input[key];
+    if (typeof input.status === "string" && ["failed", "skipped", "kept_existing"].includes(input.status)) result.status = input.status;
+    for (const key of ["previous", "value", "itemNote", "ruleName", "sourceLabel"]) {
+      const value = input[key];
+      if (value === null || typeof value === "boolean" || typeof value === "number" || typeof value === "string")
+        result[key] = typeof value === "string" ? value.slice(0, 4000) : value;
+    }
+  }
   for (const key of ["before","after"]) {
     let snapshot = input[key];
     if (typeof snapshot === "string") { try { snapshot=JSON.parse(snapshot); } catch { snapshot=null; } }
@@ -110,7 +128,7 @@ export function safeRecordActivityDetails(raw: unknown) {
   return result;
 }
 /** Merge real saved events; source Mission authorization is independent from entity access. */
-export async function loadRecordActivity(entity: "clinic" | "hospital", entityId: string, userId: string, campaignId: string | undefined, cursor: RecordActivityCursor | null) {
+export async function loadRecordActivity(entity: "clinic" | "hospital", entityId: string, userId: string, campaignId: string | undefined, cursor: RecordActivityCursor | null, scope: RecordActivityScope = "all") {
   const fk = entity === "clinic" ? "clinic_id" : "hospital_id";
   const clinicSource = entity === "clinic" ? `
     UNION ALL SELECT 'clinic:'||e.id,e.event_type,e.created_by,e.created_at,
@@ -131,7 +149,9 @@ export async function loadRecordActivity(entity: "clinic" | "hospital", entityId
       ${clinicSource}
       UNION ALL SELECT 'mission:'||h.id,h.action,h.user_id,h.created_at,
         COALESCE(h.metadata,'{}'::jsonb) || jsonb_build_object('previousStatus',h.previous_status,
-          'newStatus',h.new_status,'reason',h.notes,'campaignId',c.campaign_id),
+          'newStatus',h.new_status,
+          'reason',COALESCE(h.notes,CASE WHEN jsonb_typeof(h.metadata->'reason')='string' THEN h.metadata->>'reason' END),
+          'campaignId',c.campaign_id),
         'Nexus Pulse'
       FROM campaign_contact_history h JOIN campaign_contacts c ON c.id=h.campaign_contact_id
       WHERE c.${fk}=$1 AND c.campaign_id IN (SELECT id FROM authorized_missions)
@@ -156,11 +176,12 @@ export async function loadRecordActivity(entity: "clinic" | "hospital", entityId
     ) question ON true
     WHERE (NOT (s.details ? 'campaignId') OR s.details->>'campaignId' IN (SELECT id FROM authorized_missions))
       AND ($3::varchar IS NULL OR NOT (s.details ? 'campaignId') OR s.details->>'campaignId'=$3)
+      AND ($8::text='all' OR (left(s.id,8)='mission:' AND left(s.action,12)='status_list_'))
       AND ($6::timestamp IS NULL OR (s.created_at,s.id)<($6::timestamp,$7::text))
     ORDER BY s.created_at DESC,s.id DESC LIMIT 51`,
-  [entityId,userId,campaignId || null,entity,!campaignId,cursor?.time || null,cursor?.id || null]);
+  [entityId,userId,campaignId || null,entity,!campaignId,cursor?.time || null,cursor?.id || null,scope]);
   const page = rows.slice(0,50);
-  const events = page.map(({_cursorTime,...row}) => ({ ...row, details: safeRecordActivityDetails(row.details) }));
+  const events = page.map(({_cursorTime,...row}) => ({ ...row, details: safeRecordActivityDetails(row.details, row.action) }));
   const last = page.at(-1);
   return { events, nextCursor: rows.length > 50 && last ? Buffer.from(JSON.stringify({time:last._cursorTime,id:last.id})).toString("base64url") : null };
 }

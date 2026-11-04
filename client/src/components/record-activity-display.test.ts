@@ -1,12 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { actionDisplayName, activityActionKey, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
+import { actionDisplayName, activityActionKey, activityDetailEntries, activityStatusListSummary, moduleDisplayName } from "./record-activity-display";
 import { statusListConfirmationLabel } from "../../../shared/status-list-history-display";
 
 test("known events and modules get human-readable localized names", () => {
   assert.equal(actionDisplayName("status_list_background", "en", "Other event"), "Background automation ran");
   assert.equal(actionDisplayName("agreement_updated", "sk", "Iná udalosť"), "Zmluva upravená");
   assert.equal(moduleDisplayName("status_list", "en", "Module"), "Status list");
+});
+test("audit summaries show answer transitions and failures without inventing confirmations from absent flags", () => {
+  const answer = activityStatusListSummary("status_list_answer", { previous: true, value: false, questionLabel: "Send materials?" }, "en")!;
+  assert.match(answer.title, /Send materials/);
+  assert.equal(answer.details, "Selected → Not selected");
+  assert.equal(activityStatusListSummary("status_list_action", { actionType: "send_sms", ok: false }, "en")!.title, "Action failed");
+  assert.equal(activityStatusListSummary("status_list_confirmation", {}, "en")!.title, "Action recorded");
+  assert.equal(activityStatusListSummary("status_list_confirmation", { confirmed: false }, "en")!.title, "Step confirmation removed");
+  assert.equal(activityStatusListSummary("call", {}, "en"), null);
 });
 
 test("opposite confirmation events have explicit localized badges and distinct filter/search keys", () => {

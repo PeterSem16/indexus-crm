@@ -13,7 +13,7 @@ import {
 } from "./clinic-agreement-contract";
 import {
   workspaceProjection, agreementAudit, agreementReason, validAgreementKey,
-  agreementPreviewPdf, loadRecordActivity, parseActivityCursor,
+  agreementPreviewPdf, loadRecordActivity, parseActivityCursor, parseRecordActivityScope,
 } from "./agreement-workspace";
 
 type AgreementEntity = "clinic" | "hospital";
@@ -225,9 +225,10 @@ function registerEntityAgreementRoutes(app: Express, requireAuth: any, entity: A
   app.get(`/api/${entityTable}/:id/record-activity`,requireAuth,access(false),async(req,res)=>{
     try {
       const cursor = parseActivityCursor(req.query.before);
+      const scope = parseRecordActivityScope(req.query.scope);
       res.setHeader("Cache-Control","private, no-store");
-      res.json(await loadRecordActivity(entity,req.params.id,req.session.user!.id,req.query.campaignId as string | undefined,cursor));
-    } catch(error) { res.status(error instanceof Error && error.message === "invalid_cursor" ? 400 : 500).json({error:"Activity unavailable"}); }
+      res.json(await loadRecordActivity(entity,req.params.id,req.session.user!.id,req.query.campaignId as string | undefined,cursor,scope));
+    } catch(error) { res.status(error instanceof Error && ["invalid_cursor", "invalid_activity_scope"].includes(error.message) ? 400 : 500).json({error:"Activity unavailable"}); }
   });
   // Conversions are expensive: bound global concurrency; no queued private document copies.
   let converting = 0;

@@ -1,8 +1,16 @@
 import type { Locale } from "@/i18n/translations";
 import { getRecordActivityCopy } from "./record-activity-translations";
-import { statusListConfirmationLabel } from "@shared/status-list-history-display";
+import { formatStatusListHistory, statusListConfirmationLabel } from "@shared/status-list-history-display";
 
 export type ActivityDetail = readonly [label: string, value: string];
+
+export function activityStatusListSummary(action: string, details: Record<string, unknown> | null, locale: Locale) {
+  const summary = formatStatusListHistory({
+    action, metadata: { ...details, itemLabel: details?.statusListItemLabel ?? details?.itemLabel },
+  }, locale);
+  return summary && action === "status_list_confirmation"
+    ? { ...summary, title: statusListConfirmationLabel(details?.confirmed, locale) } : summary;
+}
 
 /** Shared by the visible badge, search and action filter. */
 export function activityActionKey(action: string, confirmed?: unknown): string {
@@ -90,7 +98,8 @@ export function activityDetailEntries(
   }
 
   for (const [key, raw] of Object.entries(details || {})) {
-    if (sensitiveKey.test(key) || identifierKey.test(key) || key === "campaignId" || key === "actionType" || key === "confirmed") continue;
+    if (sensitiveKey.test(key) || identifierKey.test(key) ||
+      ["campaignId", "actionType", "confirmed", "previous", "value", "itemNote", "ruleName", "sourceLabel", "ok", "skipped", "keptExisting", "status"].includes(key)) continue;
     const parsed = asObject(raw);
     if (key === "before" || key === "after") {
       if (!rootBefore && !rootAfter) {

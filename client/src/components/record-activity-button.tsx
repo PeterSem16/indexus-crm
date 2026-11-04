@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/contexts/auth-context";
-import { actionDisplayName, activityActionKey, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
+import { actionDisplayName, activityActionKey, activityDetailEntries, activityStatusListSummary, moduleDisplayName } from "./record-activity-display";
 
 type EventRow = { id: string; action: string; module: string; actor: string | null; createdAt: string; details: Record<string, unknown> | null };
 type EventPage = { events: EventRow[]; nextCursor: string | null };
@@ -80,6 +80,7 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
+  const [statusListOnly, setStatusListOnly] = useState(false);
   const [module, setModule] = useState("");
   const [action, setAction] = useState("");
   const [from, setFrom] = useState("");
@@ -91,8 +92,9 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
     if (!recordId) return "";
     const params = new URLSearchParams();
     if (campaignId) params.set("campaignId", campaignId);
+    if (statusListOnly) params.set("scope", "status-list");
     return `/api/${recordType === "clinic" ? "clinics" : "hospitals"}/${encodeURIComponent(String(recordId))}/record-activity${params.size ? `?${params}` : ""}`;
-  }, [recordType, recordId, campaignId, userScope]);
+  }, [recordType, recordId, campaignId, userScope, statusListOnly]);
 
   const load = async (next?: string | null, reset = false) => {
     if (!baseUrl) return;
@@ -106,6 +108,7 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
       const page = await parsePage(await fetch(url, { credentials: "include", signal: controller.signal }));
       if (controller.signal.aborted) return;
       setRows(current => reset ? page.events : [...current, ...page.events.filter(event => !current.some(row => row.id === event.id))]);
+      if (statusListOnly) setExpanded(current => reset ? page.events.map(row => row.id) : [...current, ...page.events.map(row => row.id)]);
       setCursor(page.nextCursor);
     } catch {
       if (!controller.signal.aborted) setError(true);
@@ -126,7 +129,8 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
     const displayAction = actionDisplayName(eventActionKey(row), locale, tx.unknownAction, row.details?.actionType);
     const displayModule = moduleDisplayName(row.module, locale, tx.module);
     const visibleDetails = activityDetailEntries(row.details, locale, tx.before, tx.after).flat().join(" ");
-    const text = `${row.actor || ""} ${displayAction} ${displayModule} ${visibleDetails}`.toLocaleLowerCase();
+    const summary = activityStatusListSummary(row.action, row.details, locale);
+    const text = `${row.actor || ""} ${displayAction} ${displayModule} ${visibleDetails} ${summary?.title || ""} ${summary?.details || ""}`.toLocaleLowerCase();
     const parsedDay = new Date(row.createdAt);
     const day = Number.isNaN(parsedDay.getTime()) ? "" : new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/Bratislava",year:"numeric",month:"2-digit",day:"2-digit" }).format(parsedDay);
     return (!search || text.includes(search.toLocaleLowerCase())) && (!module || row.module === module) &&
@@ -136,7 +140,7 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
   const actionLabel = (value: string) => actionDisplayName(value, locale, tx.unknownAction);
   const dateTime = (value: string) => {
     const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? tx.unknownAction : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone:"Europe/Bratislava" }).format(date);
+    return Number.isNaN(date.getTime()) ? tx.unknownAction : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: statusListOnly ? "medium" : "short", timeZone:"Europe/Bratislava" }).format(date);
   };
 
   return <>
@@ -148,8 +152,12 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
         <DialogHeader className="relative shrink-0 border-b px-5 py-4 pr-12">
           <DialogClose asChild><Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3" aria-label={tx.close}><X className="h-4 w-4" /></Button></DialogClose>
           <DialogTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-primary" />{tx.history}</DialogTitle>
-          <DialogDescription>{tx.coverageNote}</DialogDescription>
+          <DialogDescription>{statusListOnly ? tx.statusListAuditHint : tx.coverageNote}</DialogDescription>
         </DialogHeader>
+        <div className="flex shrink-0 flex-wrap gap-2 border-b px-4 py-2">
+          <Button type="button" size="sm" variant={statusListOnly ? "outline" : "secondary"} aria-pressed={!statusListOnly} onClick={() => setStatusListOnly(false)}>{tx.allActivity}</Button>
+          <Button type="button" size="sm" variant={statusListOnly ? "secondary" : "outline"} aria-pressed={statusListOnly} onClick={() => setStatusListOnly(true)} className="gap-1.5"><ListChecks className="h-3.5 w-3.5" />{tx.statusListAudit}</Button>
+        </div>
          <div className="grid shrink-0 gap-2 border-b bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="relative sm:col-span-2 lg:col-span-1"><Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label={tx.searchActivity} value={search} onChange={event => setSearch(event.target.value)} className="pl-8" placeholder={tx.searchActivity} /></div>
            <select aria-label={tx.module} className="h-9 rounded-md border bg-background px-2 text-sm" value={module} onChange={event => setModule(event.target.value)}><option value="">{tx.allModules}</option>{modules.map(item => <option key={item} value={item}>{moduleDisplayName(item, locale, tx.module)}</option>)}</select>
@@ -167,6 +175,7 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
               const isExpanded = expanded.includes(row.id);
                const details = activityDetailEntries(row.details, locale, tx.before, tx.after);
                const operation = eventActionKey(row);
+               const summary = activityStatusListSummary(row.action, row.details, locale);
                const visual = actionStyle(operation.startsWith("status_list_confirm")
                  || operation === "status_list_unconfirmed" ? operation
                  : typeof row.details?.actionType === "string" ? row.details.actionType : operation);
@@ -175,7 +184,7 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
                    <span className={`relative z-[1] mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border shadow-sm ${visual.className}`}>{visual.icon}</span>
                    <span className="min-w-0 flex-1">
                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                       <b className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold leading-4 ${visual.className}`}>{actionDisplayName(operation, locale, tx.unknownAction, row.details?.actionType)}</b>
+                       <b className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold leading-4 ${visual.className}`}>{statusListOnly && summary && row.action !== "status_list_confirmation" ? summary.title : actionDisplayName(operation, locale, tx.unknownAction, row.details?.actionType)}</b>
                        <span className="rounded-full border border-border/70 bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{moduleDisplayName(row.module, locale, tx.module)}</span>
                      </span>
                      <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
@@ -185,7 +194,9 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
                    <span className="mt-2 shrink-0 text-muted-foreground">{isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
                 </button>
                  {isExpanded && <div className="animate-in fade-in slide-in-from-top-1 border-t bg-muted/20 px-4 py-3 text-xs duration-150 motion-reduce:animate-none sm:px-[4.5rem]">
+                  {statusListOnly && summary?.details && <p className="mb-3 whitespace-pre-wrap break-words text-sm">{summary.details}</p>}
                    {details.length ? <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">{details.map(([key, value], index) => <div key={`${key}-${index}`} className="min-w-0"><dt className="mb-1 text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{key}</dt><dd className="break-words text-sm leading-relaxed text-foreground/90">{value}</dd></div>)}</dl> : <p className="text-muted-foreground">{tx.noDetails}</p>}
+                  {statusListOnly && !(typeof row.details?.reason === "string" && row.details.reason.trim()) && <p className="mt-3 text-xs text-muted-foreground">{tx.noReason}</p>}
                 </div>}
               </li>;
             })}

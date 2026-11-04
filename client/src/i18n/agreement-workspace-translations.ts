@@ -1,6 +1,7 @@
 import type { Locale } from "./translations";
 
 export interface AgreementWorkspaceCopy {
+  allActivity: string; statusListAudit: string; statusListAuditHint: string;
   activeView: string; archive: string; activeCount: string; archiveCount: string; search: string;
   noResults: string; selectRecord: string; history: string; timeline: string; versions: string;
   version: string; latest: string; reason: string; createdBy: string; createdAt: string;
@@ -26,6 +27,8 @@ export interface AgreementWorkspaceCopy {
 
 export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCopy> = {
   en: {
+    allActivity: "All activity", statusListAudit: "Status List audit",
+    statusListAuditHint: "Only Status List events are loaded from the server. Times use Europe/Bratislava. Search and date filters apply to loaded entries; load older entries to continue. A recorded user does not prove why a choice was removed.",
     activeView:"Current agreements",archive:"Archive",activeCount:"CURRENT",archiveCount:"ARCHIVE",search:"Search agreements",
     noResults:"No agreements match this view.",selectRecord:"Select an agreement to review its history.",history:"Record activity",
     timeline:"Version history",versions:"versions",version:"Version",latest:"Latest",reason:"Reason / note",createdBy:"Added by",
@@ -49,6 +52,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"All modules",allActions:"All actions",fromDate:"From date",toDate:"To date"
   },
   sk: {
+    allActivity: "Všetky aktivity", statusListAudit: "Audit Status Listu",
+    statusListAuditHint: "Zo servera sa načítavajú iba udalosti Status Listu. Časy sú v Europe/Bratislava. Vyhľadávanie a dátumy filtrujú načítané záznamy; na pokračovanie načítajte staršie. Zaznamenaný používateľ nedokazuje dôvod zrušenia voľby.",
     activeView:"Aktuálne zmluvy",archive:"Archív",activeCount:"AKTUÁLNE",archiveCount:"ARCHÍV",search:"Hľadať zmluvy",
     noResults:"Tomuto zobrazeniu nevyhovujú žiadne zmluvy.",selectRecord:"Vyberte zmluvu a zobrazte jej históriu.",history:"Aktivita záznamu",
     timeline:"História verzií",versions:"verzie",version:"Verzia",latest:"Najnovšia",reason:"Dôvod / poznámka",createdBy:"Pridal/a",
@@ -72,6 +77,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"Všetky moduly",allActions:"Všetky udalosti",fromDate:"Od dátumu",toDate:"Do dátumu"
   },
   cs: {
+    allActivity: "Všechny aktivity", statusListAudit: "Audit Status Listu",
+    statusListAuditHint: "Ze serveru se načítají pouze události Status Listu. Časy jsou v Europe/Bratislava. Hledání a data filtrují načtené záznamy; pokračujte načtením starších. Zaznamenaný uživatel nedokazuje důvod zrušení volby.",
     activeView:"Aktuální smlouvy",archive:"Archiv",activeCount:"AKTUÁLNÍ",archiveCount:"ARCHIV",search:"Hledat smlouvy",
     noResults:"Tomuto zobrazení neodpovídají žádné smlouvy.",selectRecord:"Vyberte smlouvu a zobrazte její historii.",history:"Aktivita záznamu",
     timeline:"Historie verzí",versions:"verze",version:"Verze",latest:"Nejnovější",reason:"Důvod / poznámka",createdBy:"Přidal/a",
@@ -95,6 +102,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"Všechny moduly",allActions:"Všechny události",fromDate:"Od data",toDate:"Do data"
   },
   hu: {
+    allActivity: "Minden tevékenység", statusListAudit: "Status List audit",
+    statusListAuditHint: "A szerver csak a Status List eseményeit tölti be. Az időzóna Europe/Bratislava. A keresés és a dátumszűrők a betöltött bejegyzésekre vonatkoznak; a folytatáshoz töltse be a régebbieket. A rögzített felhasználó nem bizonyítja a választás törlésének okát.",
     activeView:"Aktuális megállapodások",archive:"Archívum",activeCount:"AKTUÁLIS",archiveCount:"ARCHÍVUM",search:"Megállapodások keresése",
     noResults:"Nincs a nézetnek megfelelő megállapodás.",selectRecord:"Válasszon megállapodást az előzmények megtekintéséhez.",history:"Rekordtevékenység",
     timeline:"Verzióelőzmények",versions:"verzió",version:"Verzió",latest:"Legújabb",reason:"Indok / megjegyzés",createdBy:"Hozzáadta",
@@ -118,6 +127,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"Minden modul",allActions:"Minden esemény",fromDate:"Kezdő dátum",toDate:"Záró dátum"
   },
   ro: {
+    allActivity: "Toate activitățile", statusListAudit: "Audit Status List",
+    statusListAuditHint: "Serverul încarcă numai evenimente Status List. Orele folosesc Europe/Bratislava. Căutarea și datele filtrează intrările încărcate; încărcați intrări mai vechi pentru a continua. Utilizatorul înregistrat nu dovedește motivul anulării unei opțiuni.",
     activeView:"Acorduri curente",archive:"Arhivă",activeCount:"CURENTE",archiveCount:"ARHIVĂ",search:"Caută acorduri",
     noResults:"Niciun acord nu corespunde acestei vizualizări.",selectRecord:"Selectați un acord pentru a-i vedea istoricul.",history:"Activitatea înregistrării",
     timeline:"Istoricul versiunilor",versions:"versiuni",version:"Versiune",latest:"Cea mai nouă",reason:"Motiv / notă",createdBy:"Adăugat de",
@@ -141,6 +152,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"Toate modulele",allActions:"Toate evenimentele",fromDate:"De la data",toDate:"Până la data"
   },
   it: {
+    allActivity: "Tutte le attività", statusListAudit: "Audit Status List",
+    statusListAuditHint: "Il server carica solo gli eventi della Status List. Il fuso orario è Europe/Bratislava. Ricerca e date filtrano le voci caricate; carica quelle precedenti per continuare. L'utente registrato non dimostra il motivo dell'annullamento di una scelta.",
     activeView:"Accordi correnti",archive:"Archivio",activeCount:"CORRENTI",archiveCount:"ARCHIVIO",search:"Cerca accordi",
     noResults:"Nessun accordo corrisponde a questa vista.",selectRecord:"Seleziona un accordo per consultarne la cronologia.",history:"Attività del record",
     timeline:"Cronologia versioni",versions:"versioni",version:"Versione",latest:"Più recente",reason:"Motivo / nota",createdBy:"Aggiunto da",
@@ -164,6 +177,8 @@ export const agreementWorkspaceTranslations: Record<Locale, AgreementWorkspaceCo
     allModules:"Tutti i moduli",allActions:"Tutti gli eventi",fromDate:"Dalla data",toDate:"Alla data"
   },
   de: {
+    allActivity: "Alle Aktivitäten", statusListAudit: "Status-List-Audit",
+    statusListAuditHint: "Der Server lädt nur Status-List-Ereignisse. Zeitzone: Europe/Bratislava. Suche und Datum filtern geladene Einträge; zum Fortsetzen ältere laden. Der protokollierte Benutzer beweist nicht den Grund für das Aufheben einer Auswahl.",
     activeView:"Aktuelle Vereinbarungen",archive:"Archiv",activeCount:"AKTUELL",archiveCount:"ARCHIV",search:"Vereinbarungen suchen",
     noResults:"Keine Vereinbarung passt zu dieser Ansicht.",selectRecord:"Wählen Sie eine Vereinbarung, um den Verlauf anzusehen.",history:"Datensatzaktivität",
     timeline:"Versionsverlauf",versions:"Versionen",version:"Version",latest:"Neueste",reason:"Grund / Notiz",createdBy:"Hinzugefügt von",
