@@ -66,3 +66,17 @@ test("the observed clean production funnel baseline validates its exact audit-on
   assert.throws(() => engine.validate((args, raw = false) =>
     args[0] === "diff" && args.includes("--binary") ? "changed patch" : observed(args, raw), release.TARGET), /fingerprint/);
 });
+test("the existing audit release can promote the icon update without schema changes", () => {
+  const base = "f6018d294c62b0fcc2a61b4340efbca4d9f6859e";
+  const observed = (args, raw = false) => args.join(" ") === "rev-parse HEAD" ? base : git(args, raw);
+  const engine = release.loadEngine(observed);
+  const plan = engine.validate(observed, release.TARGET);
+  assert.equal(plan.paths.length, 4);
+  assert.deepEqual(plan.paths, [
+    "client/src/components/record-activity-button.tsx",
+    "client/src/lib/record-activity-state.browser.test.mjs",
+    "script/operator/promote-record-activity-state.cjs",
+    "script/operator/promote-record-activity-state.test.cjs",
+  ]);
+  assert.equal(cp.spawnSync("bash", ["-n"], { input: engine.render(observed, plan), encoding: "utf8" }).status, 0);
+});
