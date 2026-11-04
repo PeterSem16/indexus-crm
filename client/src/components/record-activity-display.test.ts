@@ -1,11 +1,32 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { actionDisplayName, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
+import { actionDisplayName, activityActionKey, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
+import { statusListConfirmationLabel } from "../../../shared/status-list-history-display";
 
 test("known events and modules get human-readable localized names", () => {
   assert.equal(actionDisplayName("status_list_background", "en", "Other event"), "Background automation ran");
   assert.equal(actionDisplayName("agreement_updated", "sk", "Iná udalosť"), "Zmluva upravená");
   assert.equal(moduleDisplayName("status_list", "en", "Module"), "Status list");
+});
+
+test("opposite confirmation events have explicit localized badges and distinct filter/search keys", () => {
+  for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {
+    const confirmed = activityActionKey("status_list_confirmation", true);
+    const removed = activityActionKey("status_list_confirmation", false);
+    assert.notEqual(confirmed, removed);
+    assert.equal(actionDisplayName(confirmed, locale, "fallback"), statusListConfirmationLabel(true, locale));
+    assert.equal(actionDisplayName(removed, locale, "fallback"), statusListConfirmationLabel(false, locale));
+    assert.notEqual(actionDisplayName(confirmed, locale, "fallback"), actionDisplayName(removed, locale, "fallback"));
+    assert.equal(actionDisplayName(removed, locale, "fallback", "send_email"), statusListConfirmationLabel(false, locale));
+  }
+});
+test("missing or malformed legacy confirmation flags are not invented as positive confirmations", () => {
+  for (const flag of [undefined, null, "false", "true", 0, 1, {}]) {
+    assert.equal(activityActionKey("status_list_confirmation", flag), "status_list_confirmation");
+    assert.equal(actionDisplayName("status_list_confirmation", "en", "fallback"), "Action recorded");
+  }
+  assert.equal(actionDisplayName(activityActionKey("status_list_confirmation", false), "en", "fallback"), "Step confirmation removed");
+  assert.equal(activityActionKey("agreement_updated", false), "agreement_updated");
 });
 
 test("automation action types use specific localized names without exposing unknown codes", () => {

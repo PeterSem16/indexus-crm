@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/contexts/auth-context";
-import { actionDisplayName, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
+import { actionDisplayName, activityActionKey, activityDetailEntries, moduleDisplayName } from "./record-activity-display";
 
 type EventRow = { id: string; action: string; module: string; actor: string | null; createdAt: string; details: Record<string, unknown> | null };
 type EventPage = { events: EventRow[]; nextCursor: string | null };
+const eventActionKey = (row: EventRow) => activityActionKey(row.action, row.details?.confirmed);
 type Props = { recordType: "clinic" | "hospital"; recordId?: string | number | null; campaignId?: string };
 
 async function parsePage(response: Response): Promise<EventPage> {
@@ -18,6 +19,14 @@ async function parsePage(response: Response): Promise<EventPage> {
 
 function actionStyle(action: string) {
   const key = action.toLowerCase();
+  if (key === "status_list_unconfirmed") return {
+    icon: <ListChecks className="h-3.5 w-3.5" />,
+    className: "border-amber-300/70 bg-amber-100/70 text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200",
+  };
+  if (key === "status_list_confirmed") return {
+    icon: <ListChecks className="h-3.5 w-3.5" />,
+    className: "border-emerald-300/70 bg-emerald-100/70 text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200",
+  };
   if (key.includes("callback")) return {
     icon: <CalendarClock className="h-3.5 w-3.5" />,
     className: "border-violet-300/70 bg-violet-100/70 text-violet-900 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-200",
@@ -112,16 +121,16 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
   }, [open, baseUrl, userScope]);
 
   const modules = Array.from(new Set(rows.map(row => row.module).filter(Boolean)));
-  const actions = Array.from(new Set(rows.map(row => row.action).filter(Boolean)));
+  const actions = Array.from(new Set(rows.map(eventActionKey).filter(Boolean)));
   const filteredRows = rows.filter(row => {
-    const displayAction = actionDisplayName(row.action, locale, tx.unknownAction, row.details?.actionType);
+    const displayAction = actionDisplayName(eventActionKey(row), locale, tx.unknownAction, row.details?.actionType);
     const displayModule = moduleDisplayName(row.module, locale, tx.module);
     const visibleDetails = activityDetailEntries(row.details, locale, tx.before, tx.after).flat().join(" ");
     const text = `${row.actor || ""} ${displayAction} ${displayModule} ${visibleDetails}`.toLocaleLowerCase();
     const parsedDay = new Date(row.createdAt);
     const day = Number.isNaN(parsedDay.getTime()) ? "" : new Intl.DateTimeFormat("en-CA", { timeZone:"Europe/Bratislava",year:"numeric",month:"2-digit",day:"2-digit" }).format(parsedDay);
     return (!search || text.includes(search.toLocaleLowerCase())) && (!module || row.module === module) &&
-      (!action || row.action === action) && (!from || day >= from) && (!to || day <= to);
+      (!action || eventActionKey(row) === action) && (!from || day >= from) && (!to || day <= to);
   });
 
   const actionLabel = (value: string) => actionDisplayName(value, locale, tx.unknownAction);
@@ -157,13 +166,16 @@ export function RecordActivityButton({ recordType, recordId, campaignId }: Props
             {filteredRows.map(row => {
               const isExpanded = expanded.includes(row.id);
                const details = activityDetailEntries(row.details, locale, tx.before, tx.after);
-               const visual = actionStyle(typeof row.details?.actionType === "string" ? row.details.actionType : row.action);
+               const operation = eventActionKey(row);
+               const visual = actionStyle(operation.startsWith("status_list_confirm")
+                 || operation === "status_list_unconfirmed" ? operation
+                 : typeof row.details?.actionType === "string" ? row.details.actionType : operation);
                return <li key={row.id} className="relative rounded-xl border bg-card shadow-sm shadow-foreground/[0.025] transition-[border-color,background-color,box-shadow] duration-200 hover:border-primary/25 hover:bg-muted/[0.12] motion-reduce:transition-none">
                  <button type="button" className="relative flex w-full items-start gap-3 rounded-xl p-3 text-left outline-none transition-colors hover:bg-muted/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:gap-4 sm:p-4 motion-reduce:transition-none" aria-expanded={isExpanded} onClick={() => setExpanded(value => isExpanded ? value.filter(id => id !== row.id) : [...value, row.id])}>
                    <span className={`relative z-[1] mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border shadow-sm ${visual.className}`}>{visual.icon}</span>
                    <span className="min-w-0 flex-1">
                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                       <b className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold leading-4 ${visual.className}`}>{actionDisplayName(row.action, locale, tx.unknownAction, row.details?.actionType)}</b>
+                       <b className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold leading-4 ${visual.className}`}>{actionDisplayName(operation, locale, tx.unknownAction, row.details?.actionType)}</b>
                        <span className="rounded-full border border-border/70 bg-muted/70 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{moduleDisplayName(row.module, locale, tx.module)}</span>
                      </span>
                      <span className="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">

@@ -1,17 +1,29 @@
 import type { Locale } from "@/i18n/translations";
 import { getRecordActivityCopy } from "./record-activity-translations";
+import { statusListConfirmationLabel } from "@shared/status-list-history-display";
 
 export type ActivityDetail = readonly [label: string, value: string];
+
+/** Shared by the visible badge, search and action filter. */
+export function activityActionKey(action: string, confirmed?: unknown): string {
+  if (action !== "status_list_confirmation") return action;
+  return confirmed === true ? "status_list_confirmed"
+    : confirmed === false ? "status_list_unconfirmed" : action;
+}
 
 const sensitiveKey = /password|token|secret|email|phone|address|credential|authorization/i;
 const identifierKey = /(^|[_-])(?:id|uuid|key)(?:$|[_-])|(?:Id|UUID|Key)$/i;
 
 export function actionDisplayName(action: string, locale: Locale, fallback: string, actionType?: unknown): string {
   const copy = getRecordActivityCopy(locale);
+  const key = action.trim().toLowerCase();
+  // The historical operation takes precedence over an unrelated actionType.
+  if (key === "status_list_confirmed" || key === "status_list_unconfirmed" || key === "status_list_confirmation")
+    return statusListConfirmationLabel(key === "status_list_confirmed" ? true
+      : key === "status_list_unconfirmed" ? false : undefined, locale);
   if (typeof actionType === "string" && actionType.trim()) {
     return copy.actions[actionType.trim().toLowerCase()] ?? copy.genericAction;
   }
-  const key = action.trim().toLowerCase();
   if (copy.actions[key]) return copy.actions[key];
   return key ? copy.genericAction : fallback;
 }
@@ -78,7 +90,7 @@ export function activityDetailEntries(
   }
 
   for (const [key, raw] of Object.entries(details || {})) {
-    if (sensitiveKey.test(key) || identifierKey.test(key) || key === "campaignId" || key === "actionType") continue;
+    if (sensitiveKey.test(key) || identifierKey.test(key) || key === "campaignId" || key === "actionType" || key === "confirmed") continue;
     const parsed = asObject(raw);
     if (key === "before" || key === "after") {
       if (!rootBefore && !rootAfter) {

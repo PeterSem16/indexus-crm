@@ -79,10 +79,13 @@ export function parseActivityCursor(value: unknown): RecordActivityCursor | null
   if (typeof v.time !== "string" || !Number.isFinite(Date.parse(v.time)) || typeof v.id !== "string" || v.id.length > 150) throw new Error("invalid_cursor");
   return v;
 }
-function safeDetails(raw: unknown) {
+export function safeRecordActivityDetails(raw: unknown) {
   if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { return {}; } }
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   const input = raw as Record<string, unknown>, result: Record<string, unknown> = {};
+  // Confirmation and removal share one historical action code. Preserve the
+  // explicit boolean or the UI cannot distinguish opposite operations.
+  if (typeof input.confirmed === "boolean") result.confirmed = input.confirmed;
   for (const key of ["before","after"]) {
     let snapshot = input[key];
     if (typeof snapshot === "string") { try { snapshot=JSON.parse(snapshot); } catch { snapshot=null; } }
@@ -157,7 +160,7 @@ export async function loadRecordActivity(entity: "clinic" | "hospital", entityId
     ORDER BY s.created_at DESC,s.id DESC LIMIT 51`,
   [entityId,userId,campaignId || null,entity,!campaignId,cursor?.time || null,cursor?.id || null]);
   const page = rows.slice(0,50);
-  const events = page.map(({_cursorTime,...row}) => ({ ...row, details: safeDetails(row.details) }));
+  const events = page.map(({_cursorTime,...row}) => ({ ...row, details: safeRecordActivityDetails(row.details) }));
   const last = page.at(-1);
   return { events, nextCursor: rows.length > 50 && last ? Buffer.from(JSON.stringify({time:last._cursorTime,id:last.id})).toString("base64url") : null };
 }

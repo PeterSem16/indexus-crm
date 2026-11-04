@@ -42,6 +42,11 @@ const copies: Record<string, HistoryCopy> = {
     unselected: "Nicht ausgewählt", failed: "Aktion fehlgeschlagen", skipped: "Aktion übersprungen", kept: "Bestehender Rückruf beibehalten" },
 };
 const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+/** An absent/legacy flag must never be presented as a positive confirmation. */
+export function statusListConfirmationLabel(confirmed: unknown, locale = "en"): string {
+  const copy = copies[locale] || copies.en;
+  return confirmed === true ? copy.confirmed : confirmed === false ? copy.unconfirmed : copy.action;
+}
 const object = (value: unknown): Record<string, any> =>
   value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
 

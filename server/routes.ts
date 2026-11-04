@@ -35265,7 +35265,12 @@ Respond ONLY with valid JSON in this exact format:
           campaignContactId,
           userId,
           action: "status_list_confirmation",
-          metadata: { statusListItemId: itemId, confirmed: false, campaignId },
+          metadata: {
+            statusListItemId: itemId, confirmed: false, campaignId,
+            itemLabel: itemRouteItem.label,
+            itemDescription: itemRouteItem.description,
+            itemType: itemRouteItem.itemType,
+          },
         });
 
         return res.json({ confirmed: false });
