@@ -3,7 +3,7 @@ import type { Locale } from "@/i18n/translations";
 import { exportScopeTranslations } from "./export-scope-translations";
 import { agentFunnelTranslations } from "./mission-agent-funnel-translations";
 import { missionFunnelTranslations } from "@/i18n/mission-funnel-translations";
-import { cooperationRuleCopy, standaloneCooperationCopy, optionalPosterCopy } from "./mission-material-package-copy";
+import { cooperationRuleCopy, standaloneCooperationCopy, optionalPosterCopy, wantsToSignRuleCopy } from "./mission-material-package-copy";
 
 export const missionFunnelHelpChapterIds = [
   "scope", "contact-contract", "without-contract", "combined", "evidence", "exceptions-quality", "configuration", "sources", "interpret-export", "agents",
@@ -857,13 +857,13 @@ const packageSentRuleNotes: Record<Locale, string> = {
   de:"Paket versendet bedeutet: Nachweis, dass das gesamte Paket versendet wurde, oder ein gültiger bestehender Komponenten-/Ausschlussnachweis. Kooperation ist keine Voraussetzung; der Schritt ist unabhängig von Kooperiert. Ein Prozentsatz zum vorherigen Schritt ist absichtlich nicht anwendbar; der Prozentsatz der Qualifizierten verwendet weiterhin den üblichen Nenner Qualifiziert.",
 };
 const materialsOutcomeNotes: Record<Locale, string> = {
-  en:"Materials retains its previous eligibility rule: cooperating AND package sent on the same enrollment. Its existing previous-percent denominator is unchanged; it is not recalculated against a newly broadened Cooperating population.",
-  sk:"Materiály zachovávajú pôvodné pravidlo oprávnenosti: spolupracuje A balík odoslaný v rovnakom zaradení. Existujúci menovateľ percenta voči predchádzajúcemu zostáva nezmenený; neprepočítava sa voči novo rozšírenej populácii kroku Spolupracuje.",
-  cs:"Materiály zachovávají původní pravidlo způsobilosti: spolupracuje A balíček odeslán v témže zařazení. Dosavadní jmenovatel předchozího procenta zůstává beze změny; nepřepočítává se vůči nově rozšířené populaci kroku Spolupracuje.",
-  hu:"Az Anyagok megtartja a korábbi jogosultsági szabályt: együttműködik ÉS a csomag elküldve ugyanazon beiratkozáson. A korábbi százalék nevezője változatlan; nem számolódik újra az Együttműködik kibővített populációjára.",
-  ro:"Materiale păstrează regula anterioară de eligibilitate: colaborează ȘI pachet trimis pe aceeași înscriere. Numitorul existent al procentului anterior rămâne neschimbat; nu se recalculează față de populația extinsă recent a etapei Colaborează.",
-  it:"Materiali mantiene la precedente regola di idoneità: collabora E pacchetto spedito sulla stessa iscrizione. Il denominatore esistente della percentuale precedente resta invariato e non viene ricalcolato sulla popolazione ampliata di Collabora.",
-  de:"Materialien behält die bisherige Anspruchsregel bei: kooperiert UND Paket versendet in derselben Einschreibung. Der bisherige Nenner des Vorher-Prozentsatzes bleibt unverändert und wird nicht anhand der neu erweiterten Population von Kooperiert neu berechnet.",
+  en:"Cooperating AND package sent requires both milestones on the same enrollment. Its previous-stage percentage uses the same Cooperating population shown in the report.",
+  sk:"Spolupracuje A balík odoslaný vyžaduje oba míľniky v rovnakom zaradení. Percento voči predchádzajúcemu kroku používa rovnakú populáciu Spolupracuje, akú zobrazuje report.",
+  cs:"Spolupracuje A balík odeslán vyžaduje oba milníky ve stejném zařazení. Procento vůči předchozímu kroku používá stejnou populaci Spolupracuje, kterou zobrazuje report.",
+  hu:"Az Együttműködik ÉS csomag elküldve mindkét mérföldkövet ugyanazon hozzárendelésben igényli. Az előző lépés százalékának nevezője a jelentésben megjelenő együttműködő rendelők száma.",
+  ro:"Colaborează ȘI pachet trimis necesită ambele etape în aceeași înscriere. Procentul față de etapa anterioară folosește aceeași populație Colaborează afișată în raport.",
+  it:"Collabora E pacco inviato richiede entrambi i traguardi nella stessa iscrizione. La percentuale rispetto alla fase precedente usa la stessa popolazione Collabora mostrata nel rapporto.",
+  de:"Kooperiert UND Paket versendet erfordert beide Meilensteine innerhalb derselben Zuordnung. Der Prozentsatz zur vorherigen Stufe verwendet dieselbe Kooperiert-Population wie der Bericht.",
 };
 const legacySourceNotes: Record<Locale, string> = {
   en:"The legacy “Cooperating (explicit yes)” source may remain in saved configuration for reference, but it does not control the current contract cooperation calculation.",
@@ -1042,7 +1042,7 @@ export const missionFunnelHelpTranslations: Record<Locale, MissionFunnelHelpLoca
       ...helpLabels[locale],
       chapters: { ...chapterNavigation[locale], "without-contract": corrections.chapterTitle, agents: agentFunnelTranslations[locale].title },
       content: chapterContent,
-      stages: { ...stageMaps[locale], withoutContract: cooperationRuleCopy[locale].without,
+      stages: { ...stageMaps[locale], wantsToSign: wantsToSignRuleCopy[locale], withoutContract: cooperationRuleCopy[locale].without,
         cooperating: `${cooperationRuleCopy[locale].contract} ${cooperationRuleCopy[locale].without} ${standaloneCooperationCopy[locale]}`,
         packageSent: packageSentRuleNotes[locale],
         materials: materialsOutcomeNotes[locale] },

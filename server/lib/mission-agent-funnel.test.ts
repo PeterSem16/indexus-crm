@@ -77,7 +77,7 @@ test("simultaneous cross-author AND proofs are unknown while simple sources reta
   const data = input();
   data.events = [event("agreed", 2, "a"), event("proposalAccepted", 2, "b"), event("validated", 2, "c")];
   const result = computeMissionAgentFunnel(computeMissionFunnel(data).rows, agents);
-  assert.equal(metric(result.contribution, null, "cooperating")?.total, 1);
+  assert.equal(metric(result.contribution, "c", "cooperating")?.total, 1);
   assert.equal(metric(result.contribution, null, "wantsContract")?.total, 1);
   assert.equal(metric(result.contribution, "a", "agreed")?.total, 1);
   assert.equal(metric(result.contribution, "c", "validated")?.total, 1);

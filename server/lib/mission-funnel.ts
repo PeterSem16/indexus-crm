@@ -4,7 +4,6 @@ import {
   type FunnelSource, type FunnelStep, type MissionFunnelReport,
 } from "../../shared/mission-funnel";
 import { uniqueFunnelActor } from "./mission-funnel-actors";
-import { standaloneCooperationItemIds } from "../../shared/mission-cooperation-policy";
 import type { FunnelEmailEvidence } from "./mission-funnel-email-evidence";
 
 export interface FunnelClinic {
@@ -50,10 +49,7 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
   const sources = config.sources;
   const has = (source: FunnelSource) => sources[source].length > 0;
   const emailMeasurable = has("email") || effectiveFunnelEmailPurposes(config).length > 0 || effectiveFunnelEmailSteps(config).length > 0;
-  const standaloneCooperationIds = standaloneCooperationItemIds(input.items, sources.proposalOther);
-  // Cooperating alone is broadened; keep material eligibility on its old rule.
-  const legacyCooperationReached = new WeakSet<Map<FunnelStep, Milestone>>();
-  const legacyCooperatingClinics = new Set<string>();
+  const cooperationReached = new WeakSet<Map<FunnelStep, Milestone>>();
   const rows = new Map<FunnelStep, Map<string, Milestone>>(funnelSteps.map(key => [key, new Map()]));
   const exceptions = new Map(funnelExceptions.map(key => [key, new Map<string, Milestone>()]));
   const eligible = input.clinics.filter(c => filters.referral === "yes" ? c.referred : filters.referral === "no" ? !c.referred : true);
@@ -92,19 +88,22 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     for (const key of ["qualified", "agreed", "email", "sent", "received", "returned", "validated"] as const) {
       if (yes(key)) credit(key, [key]);
     }
-    if (yes("proposalAccepted") && yes("agreed")) credit("wantsToSign", ["proposalAccepted", "agreed"]);
+    // Acceptance is the explicit signing-intent proof, not an agreement tick.
+    if (yes("proposalAccepted")) credit("wantsToSign", ["proposalAccepted"]);
     if (yes("agreed")) {
       // SQL-like null semantics: an absent answer never proves != unaccepted.
       if (yes("proposalUnaccepted")) credit("withoutContract", ["agreed", "proposalUnaccepted"]);
       else if (yes("proposalAccepted") || yes("proposalOther")) credit("wantsContract", ["agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"]);
     }
-    const legacyCooperation = yes("validated") && yes("agreed") && (yes("proposalAccepted") || yes("proposalOther")) ||
-      yes("agreed") && yes("proposalUnaccepted");
-    if (legacyCooperation) legacyCooperationReached.add(target);
-    if (standaloneCooperationIds.some(id => active.has(id)))
-      credit("cooperating", [], standaloneCooperationIds);
-    else if (legacyCooperation)
-      credit("cooperating", ["validated", "agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"]);
+    // Reviewed rule: validated contract OR (agreement AND no contract).
+    // A "contract not necessary" answer alone proves neither branch.
+    if (yes("validated")) {
+      cooperationReached.add(target);
+      credit("cooperating", ["validated"]);
+    } else if (yes("agreed") && yes("proposalUnaccepted")) {
+      cooperationReached.add(target);
+      credit("cooperating", ["agreed", "proposalUnaccepted"]);
+    }
     const materials = input.config?.materials;
     const parts = ["materials17", "materials18", "materials19"] as const;
     const packageSent = materials?.packageSent.some(id => active.has(id));
@@ -116,8 +115,8 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     if (packageSent || partsSent)
       credit("packageSent", ["materials17", "materials18", "materials19"],
         [...(materials?.packageSent ?? []), ...parts.flatMap(key => materials?.excluded[key] ?? [])]);
-    if (legacyCooperationReached.has(target) && (packageSent || partsSent))
-      credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalAccepted", "proposalOther", "proposalUnaccepted"],
+    if (cooperationReached.has(target) && (packageSent || partsSent))
+      credit("materials", ["materials17", "materials18", "materials19", "validated", "agreed", "proposalUnaccepted"],
         [...(materials?.packageSent ?? []), ...parts.flatMap(key => materials?.excluded[key] ?? [])]);
   };
   for (const [contactId] of enrollment) {
@@ -187,7 +186,6 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     for (const [contactId, clinicId] of enrollment) {
       if (clinicId !== clinic.id) continue;
       const ownMilestones = local.get(contactId)!;
-      if (legacyCooperationReached.has(ownMilestones)) legacyCooperatingClinics.add(clinic.id);
       const saved = current.get(contactId)!;
       const base: FunnelStep[] = ["connected","qualified","agreed"];
       for (let i = base.length - 1; i > 0; i--) {
@@ -251,19 +249,16 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     if (!cohort.has(clinic.id) && !options.allMilestones) continue;
     for (const [key, value] of clinicMilestones.get(clinic.id)!) rows.get(key)!.set(clinic.id, value);
   }
-  const legacyCooperationMeasurable =
-    has("validated") && has("agreed") && (has("proposalAccepted") || has("proposalOther")) ||
-    has("agreed") && has("proposalUnaccepted");
-  const cooperationMeasurable = legacyCooperationMeasurable || standaloneCooperationIds.length > 0;
+  const cooperationMeasurable = has("validated") || has("agreed") && has("proposalUnaccepted");
   const measurable: Record<FunnelStep, boolean> = {
     assigned: true, dialed: true, connected: true, qualified: has("qualified"), agreed: has("agreed"),
     wantsContract: has("agreed") && (has("proposalAccepted") || has("proposalOther")),
     withoutContract: has("agreed") && has("proposalUnaccepted"), email: emailMeasurable,
-    wantsToSign: has("agreed") && has("proposalAccepted"), sent: has("sent"), received: has("received"),
+    wantsToSign: has("proposalAccepted"), sent: has("sent"), received: has("received"),
     returned: has("returned"), validated: has("validated"), cooperating: cooperationMeasurable,
     packageSent: Boolean(input.config?.materials?.packageSent.length) ||
       (["materials17", "materials18", "materials19"] as const).every(key => has(key) || Boolean(input.config?.materials?.excluded[key].length)),
-    materials: legacyCooperationMeasurable && (Boolean(input.config?.materials?.packageSent.length) ||
+    materials: cooperationMeasurable && (Boolean(input.config?.materials?.packageSent.length) ||
       (["materials17", "materials18", "materials19"] as const).every(key => has(key) || Boolean(input.config?.materials?.excluded[key].length))),
   };
   const previous: Record<FunnelStep, FunnelStep | null> = {
@@ -278,11 +273,9 @@ export function computeMissionFunnel(input: FunnelInput, filters: FunnelFilters 
     ...(value.timestampKind ? { timestampKind: value.timestampKind } : {}),
   })).sort((a,b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
   const count = (key: FunnelStep) => measurable[key] || rows.get(key)!.size > 0 ? rows.get(key)!.size : null;
-  const legacyCooperationCount = [...legacyCooperatingClinics].filter(id =>
-    options.allMilestones || cohort.has(id)).length;
-  const materialsPreviousCount = legacyCooperationMeasurable || legacyCooperationCount > 0 ? legacyCooperationCount : null;
+  const materialsPreviousCount = count("cooperating");
   return {
-    version: "funnel-v04.2", generatedAt: now.toISOString(), timezone: "Europe/Bratislava", config, items: input.items,
+    version: "funnel-v04.3", generatedAt: now.toISOString(), timezone: "Europe/Bratislava", config, items: input.items,
     quality,
     rows: funnelSteps.map(key => {
       const values = members(rows.get(key)!);

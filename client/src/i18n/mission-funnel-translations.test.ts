@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { missionFunnelHelpTranslations } from "../components/campaigns/mission-funnel-help-translations";
+import { cooperationRuleCopy, wantsToSignRuleCopy } from "../components/campaigns/mission-material-package-copy";
 test("all referral locales explain linked-person eligibility and count clinics only", () => {
   for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
     const copy=missionFunnelTranslations[locale];
@@ -77,11 +78,10 @@ test("combined-outcomes copy distinguishes package sent from the cooperating mat
 });
 
 test("all locales explain validated contract cooperation and name the three sent materials", () => {
-  const terms={en:"validated contract",sk:"overenú zmluvu",cs:"ověřenou smlouvu",
-    hu:"ellenőrzött szerződés",ro:"contract validat",it:"contratto convalidato",de:"geprüften Vertrag"};
   for (const locale of ["en","sk","cs","hu","ro","it","de"] as const) {
     const copy=missionFunnelTranslations[locale];
-    assert.ok(copy.configurationHelp.includes(terms[locale]),`${locale}.contract rule`);
+    assert.ok(copy.configurationHelp.includes(cooperationRuleCopy[locale].contract),`${locale}.contract rule`);
+    assert.ok(copy.configurationHelp.includes(wantsToSignRuleCopy[locale]),`${locale}.signing rule`);
     for (const source of ["materials17","materials18","materials19"] as const) {
       assert.doesNotMatch(copy.sourceLabels[source],/\b(?:17|18|19)\b/,`${locale}.${source}`);
       if (locale!=="en") assert.notEqual(copy.sourceLabels[source],missionFunnelTranslations.en.sourceLabels[source]);

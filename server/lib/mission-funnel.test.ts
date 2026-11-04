@@ -51,11 +51,11 @@ test("null proposal is not proof of wants contract; exact unaccepted creates no-
 test("AND requires concurrent choices on the same enrollment, not marginal matches", () => {
   const input=setup();
   confirm(input,"agreed","2026-09-02"); confirm(input,"agreed","2026-09-03",false);
-  confirm(input,"proposalAccepted","2026-09-04");
-  assert.equal(row(input,"wantsToSign").total,0);
+  confirm(input,"proposalUnaccepted","2026-09-04");
+  assert.equal(row(input,"withoutContract").total,0);
   input.enrollments.push({id:"other",clinicId:"a"});
   confirm(input,"agreed","2026-09-02",true,"other");
-  assert.equal(row(input,"wantsToSign").total,0);
+  assert.equal(row(input,"withoutContract").total,0);
 });
 test("inferred contract predecessors remain separate, with no fabricated date or no-contract pollution", () => {
   const input=setup(); confirm(input,"agreed","2026-09-02");
@@ -76,18 +76,18 @@ test("later direct evidence replaces inferred provenance without multiplying cli
   assert.equal(row(input,"email").direct,1); assert.equal(row(input,"email").inferred,0);
   assert.equal(row(input,"email").members[0].firstDate,at("2026-09-06"));
 });
-test("contract cooperation uses validation, agreement and a proven branch without the retired source", () => {
+test("validated contract alone proves cooperation without the retired source", () => {
   const input=setup();
   input.config!.sources.activeWith=[];
   confirm(input,"validated","2026-09-02");
-  assert.equal(row(input,"cooperating").total,0);
+  assert.equal(row(input,"cooperating").total,1);
   confirm(input,"agreed","2026-09-03");
-  assert.equal(row(input,"cooperating").total,0);
+  assert.equal(row(input,"cooperating").total,1);
   confirm(input,"proposalAccepted","2026-09-04");
   const cooperation=row(input,"cooperating");
   assert.equal(cooperation.total,1);
   assert.equal(cooperation.direct,1);
-  assert.equal(cooperation.members[0].firstDate,at("2026-09-04"));
+  assert.equal(cooperation.members[0].firstDate,at("2026-09-02"));
   assert.equal(cooperation.members[0].basis,"history");
   const legacy=setup();
   confirm(legacy,"agreed","2026-09-02");
@@ -95,12 +95,11 @@ test("contract cooperation uses validation, agreement and a proven branch withou
   confirm(legacy,"activeWith","2026-09-04");
   assert.equal(row(legacy,"cooperating").total,0);
 });
-test("contract cooperation never joins withdrawn or separate-enrollment evidence", () => {
+test("no-contract cooperation never joins withdrawn or separate-enrollment evidence", () => {
   const input=setup();
   confirm(input,"agreed","2026-09-02");
   confirm(input,"agreed","2026-09-03",false);
-  confirm(input,"validated","2026-09-04");
-  confirm(input,"proposalAccepted","2026-09-04");
+  confirm(input,"proposalUnaccepted","2026-09-04");
   assert.equal(row(input,"cooperating").total,0);
   input.enrollments.push({id:"other",clinicId:"a"});
   confirm(input,"agreed","2026-09-05",true,"other");
@@ -148,6 +147,7 @@ test("retired source remains save-compatible but is not offered in the configura
 test("cooperation is unknown when no complete branch is mapped, including materials", () => {
   const input=setup();
   input.config!.sources.agreed=[];
+  input.config!.sources.validated=[];
   assert.equal(row(input,"cooperating").total,null);
   assert.equal(row(input,"materials").total,null);
 });

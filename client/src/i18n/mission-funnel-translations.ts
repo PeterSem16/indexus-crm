@@ -1,6 +1,7 @@
 import type { Locale } from "./translations";
 import type { FunnelException, FunnelSource, FunnelStep } from "../../../shared/mission-funnel";
 import type { EmailPurpose } from "../../../shared/email-purpose";
+import { cooperationRuleCopy, materialPackageCopy, wantsToSignRuleCopy } from "../components/campaigns/mission-material-package-copy";
 
 type MissionFunnelDisplayStep = FunnelStep | "packageSent";
 
@@ -588,4 +589,14 @@ const translations: Record<Locale, MissionFunnelCopy> = {
   },
 };
 
-export const missionFunnelTranslations: Record<Locale, MissionFunnelCopy> = translations;
+export const missionFunnelTranslations: Record<Locale, MissionFunnelCopy> = Object.fromEntries(
+  (Object.keys(translations) as Locale[]).map(locale => [locale, {
+    ...translations[locale],
+    configurationHelp: [
+      materialPackageCopy[locale].help,
+      cooperationRuleCopy[locale].contract,
+      cooperationRuleCopy[locale].without,
+      wantsToSignRuleCopy[locale],
+    ].join(" "),
+  }]),
+) as Record<Locale, MissionFunnelCopy>;
