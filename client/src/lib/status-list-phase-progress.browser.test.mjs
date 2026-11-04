@@ -59,6 +59,15 @@ try {
   assert.match(await contract.textContent(), /Draft/);
   assert.match(await retention.textContent(), /No steps yet/);
   assert.equal(await contract.getAttribute("aria-pressed"), "true");
+  for (const button of [acq, contract, retention]) {
+    assert.equal(Math.round((await button.boundingBox()).height), 64);
+    assert.equal(await button.locator(".sl-phase-card__percent").evaluate(node => getComputedStyle(node).fontSize), "18px");
+    if (await button.locator(".sl-phase-card__draft").count()) {
+      const caption = await button.locator(".sl-phase-card__caption").boundingBox();
+      const draft = await button.locator(".sl-phase-card__draft").boundingBox();
+      assert.ok(draft.x >= caption.x + caption.width - 65);
+    }
+  }
   await page.screenshot({ path: `${out}/desktop.png` });
   await page.getByTestId("btn-sl-q-review").click();
   assert.match(await contract.getAttribute("aria-label"), /0 of 1.*0 percent/);
@@ -67,7 +76,8 @@ try {
     for (const button of [acq, contract, retention]) {
       const rect = await button.boundingBox();
       assert.ok(rect && rect.x >= 0 && rect.x + rect.width <= width);
-      assert.ok(await button.locator(".sl-phase-card__percent").evaluate(node => parseFloat(getComputedStyle(node).fontSize)) >= 22);
+      assert.equal(await button.locator(".sl-phase-card__percent").evaluate(node => getComputedStyle(node).fontSize), "18px");
+      assert.equal(Math.round(rect.height), 100);
       const label = button.locator(".sl-phase-card__label");
       assert.ok(await label.evaluate(node => node.scrollWidth <= node.clientWidth));
       if (await button.locator(".sl-phase-card__draft").count()) {

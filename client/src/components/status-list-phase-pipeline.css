@@ -206,6 +206,84 @@
   }
 }
 
+/* Approved 64px phase strip, graduated from the compact canvas preview. */
+.sl-phase-pipeline {
+  gap: 8px;
+}
+.sl-phase-pipeline .sl-phase-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 20px 4px 12px;
+  grid-template-areas: "title score" "track track" "caption caption";
+  gap: 4px 8px;
+  height: 64px;
+  min-height: 64px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px #202c3e05;
+}
+.sl-phase-pipeline .sl-phase-card.is-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sl-phase-accent) 22%, transparent), 0 2px 6px #202c3e08;
+}
+.sl-phase-pipeline .sl-phase-card:hover { transform: translateY(-1px); }
+.sl-phase-pipeline .sl-phase-card:active { transform: scale(.99); }
+.sl-phase-pipeline .sl-phase-card__top { grid-area: title; }
+.sl-phase-pipeline .sl-phase-card__label { font-size: 9.5px; letter-spacing: .06em; }
+.sl-phase-pipeline .sl-phase-card__score-row {
+  grid-area: score;
+  justify-content: flex-end;
+  gap: 7px;
+  margin: 0;
+}
+.sl-phase-pipeline .sl-phase-card__percent { font-size: 18px; letter-spacing: -.045em; }
+.sl-phase-pipeline .sl-phase-card__percent-sign { font-size: .65em; }
+.sl-phase-pipeline .sl-phase-card__check { width: 12px; height: 12px; }
+.sl-phase-pipeline .sl-phase-card__active-mark { width: 4px; height: 4px; }
+.sl-phase-pipeline .sl-phase-card__track { grid-area: track; height: 4px; margin: 0; }
+.sl-phase-pipeline .sl-phase-card__caption {
+  grid-area: caption;
+  min-height: 0;
+  margin: 0;
+  font-size: 10px;
+  line-height: 12px;
+}
+.sl-phase-pipeline .sl-phase-card:has(.sl-phase-card__draft) .sl-phase-card__caption {
+  padding-right: 65px;
+}
+.sl-phase-pipeline .sl-phase-card__draft {
+  grid-area: caption;
+  justify-self: end;
+  align-self: center;
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .sl-phase-pipeline { gap: 6px; }
+  .sl-phase-pipeline .sl-phase-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 12px 20px 12px 4px;
+    grid-template-areas: "title" "score" "caption" "track";
+    height: 84px;
+    min-height: 84px;
+    padding: 8px 7px;
+    gap: 4px;
+  }
+  .sl-phase-pipeline .sl-phase-card__score-row { justify-content: flex-start; }
+  .sl-phase-pipeline .sl-phase-card__label { font-size: 8px; letter-spacing: .035em; }
+  .sl-phase-pipeline .sl-phase-card__caption { font-size: 9px; }
+  .sl-phase-pipeline:has(.sl-phase-card__draft) .sl-phase-card {
+    height: 100px;
+    min-height: 100px;
+  }
+  .sl-phase-pipeline .sl-phase-card:has(.sl-phase-card__draft) {
+    grid-template-rows: 12px 20px 12px 12px 4px;
+    grid-template-areas: "title" "score" "caption" "draft" "track";
+  }
+  .sl-phase-pipeline .sl-phase-card:has(.sl-phase-card__draft) .sl-phase-card__caption {
+    padding-right: 0;
+  }
+  .sl-phase-pipeline .sl-phase-card__draft { grid-area: draft; justify-self: start; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .sl-phase-card,
   .sl-phase-card__fill {
