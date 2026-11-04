@@ -11,9 +11,9 @@ const git = (args, raw = false) => {
 test("the exact production patch, parent, tree and source whitelist validate", () => {
   const engine = release.loadEngine(git);
   assert.equal(engine.TARGET, release.TARGET);
-  assert.equal(engine.TESTS.length, 12);
+  assert.equal(engine.TESTS.length, 13);
   const plan = engine.validate(git, release.TARGET);
-  assert.equal(plan.paths.length, 22);
+  assert.equal(plan.paths.length, 26);
   assert.ok(plan.paths.includes("server/lib/agreement-workspace.ts"));
   assert.ok(plan.paths.includes("client/src/components/record-activity-button.tsx"));
   assert.throws(() => engine.validate(git, "wrong-target"));
@@ -30,6 +30,15 @@ test("promotion renders valid shell with isolated build and no database or depen
 });
 test("a modified promotion engine cannot be loaded", () => {
   assert.throws(() => release.loadEngine(() => "changed source"), /Reviewed promotion engine differs/);
+});
+test("the already-promoted previous fix is also an explicitly fingerprinted safe baseline", () => {
+  const alternative = (args, raw = false) => args.join(" ") === "rev-parse HEAD"
+    ? "8bcf6241f1a4618ebc4ddc2061b51bba0504128a" : git(args, raw);
+  const engine = release.loadEngine(alternative);
+  const plan = engine.validate(alternative, release.TARGET);
+  assert.equal(plan.base, "8bcf6241f1a4618ebc4ddc2061b51bba0504128a");
+  assert.equal(plan.paths.length, 10);
+  assert.equal(cp.spawnSync("bash", ["-n"], { input: engine.render(alternative, plan), encoding: "utf8" }).status, 0);
 });
 test("the operator's piped stdin command executes the argument guard instead of silently doing nothing", () => {
   const run = cp.spawnSync(process.execPath, ["-"], {
