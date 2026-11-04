@@ -48,3 +48,21 @@ test("the operator's piped stdin command executes the argument guard instead of 
   assert.equal(run.status, 1);
   assert.match(run.stderr, new RegExp(`Use --apply ${release.TARGET}`));
 });
+test("the observed clean production funnel baseline validates its exact audit-only delta and renders safely", () => {
+  const base = "714e05cf336e29759d57f7c91aff0f2c93a11602";
+  const observed = (args, raw = false) => args.join(" ") === "rev-parse HEAD" ? base : git(args, raw);
+  const engine = release.loadEngine(observed);
+  const plan = engine.validate(observed, release.TARGET);
+  assert.equal(plan.base, base);
+  assert.equal(plan.paths.length, 16);
+  assert.ok(!plan.paths.includes("server/lib/mission-funnel.ts"));
+  const body = engine.render(observed, plan);
+  assert.equal(cp.spawnSync("bash", ["-n"], { input: body, encoding: "utf8" }).status, 0);
+  assert.doesNotMatch(body, /pg_dump|pg_restore|reset --hard|git clean|npm install|npm ci/);
+  assert.throws(() => release.loadEngine((args, raw = false) =>
+    args.join(" ") === "rev-parse HEAD" ? "unreviewed-production-head" : git(args, raw)), /Unexpected production HEAD/);
+  assert.throws(() => engine.validate((args, raw = false) =>
+    args[0] === "diff" && args.includes("--name-only") ? "unreviewed-file.ts" : observed(args, raw), release.TARGET), /whitelist/);
+  assert.throws(() => engine.validate((args, raw = false) =>
+    args[0] === "diff" && args.includes("--binary") ? "changed patch" : observed(args, raw), release.TARGET), /fingerprint/);
+});

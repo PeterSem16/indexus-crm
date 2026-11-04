@@ -8,6 +8,10 @@ const TARGET = "f6018d294c62b0fcc2a61b4340efbca4d9f6859e";
 const SOURCE = "script/operator/promote-mission-funnel-status-policy.cjs";
 const SOURCE_HASH = "2e2071fe176f5b569336ce8a32b118515f7519e0eca65ab2d6476dc6b86d6951";
 const BASES = {
+  "714e05cf336e29759d57f7c91aff0f2c93a11602": {
+    patch: "dfc50bb243025acb3e238e3d71ba2f59f6a0610f84343bd6ab0bb13df039f759",
+    paths: "6846296a6ecb57ec1d0b039303b69be41c4fd625b4a6b9d523be45447ede23eb",
+  },
   "70668b15ae2ddace29946c6bb42d6bd2a80a3029": {
     patch: "87f54c9aa441e8c8bdb836ec760816a08c9e1c47598e5382d6509355ba67c005",
     paths: "bb8dfca329be4e3fe0cda138ac6951056a95cda0d6ee3f8637ceef01f522b7a5",
