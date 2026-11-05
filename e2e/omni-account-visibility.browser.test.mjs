@@ -14,6 +14,7 @@ const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromiu
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
 page.setDefaultTimeout(15_000);
 let smsAdmin = false, taskManager = true;
+let backOfficeMembership = true, backOfficeGroupCount = 1;
 const errors = [];
 const mailboxes = [
   { id: "personal", email: "me@example.test", displayName: "Personal account", type: "personal", isDefault: true },
@@ -34,6 +35,27 @@ await page.route("**/api/**", async route => {
   if (path === "/api/tasks/assignment-options") data = { users: [], groups: [], canResolve: true };
   if (path === "/api/task-settings/access") data = { canManage: taskManager };
   if (path === "/api/task-settings/users") data = { configured: false, allowedUserIds: [], users: [], updatedAt: null };
+  if (path === "/api/task-groups") data = [
+    ...Array.from({ length: backOfficeGroupCount }, (_, index) => ({
+      id: `bo${index + 1}`, name: `Back Office ${index + 1}`, displayAlias: index ? "BO 2" : "BO",
+      isBackOffice: true, color: "#dc2626",
+      members: backOfficeMembership ? [{ userId: "omni-fixture" }] : [],
+    })),
+    { id: "support", name: "Support", displayAlias: "Support", isBackOffice: false, members: [{ userId: "omni-fixture" }] },
+  ];
+  if (path === "/api/tasks") data = [
+    ...(backOfficeGroupCount ? [
+      { id: "bo-pending", title: "Back Office pending", status: "pending", tags: ["group_id:bo1"] },
+      { id: "bo-progress", title: "Back Office in progress", status: "in_progress", tags: ["group_id:bo1"] },
+    ] : []),
+    ...(backOfficeGroupCount > 1 ? [
+      { id: "bo-second", title: "Second Back Office", status: "pending", tags: ["group_id:bo2"] },
+    ] : []),
+    { id: "support-task", title: "Support request", status: "pending", tags: ["group_id:support"] },
+  ].map(task => ({
+    ...task, priority: "medium", assignedUserId: "omni-fixture", createdByUserId: "omni-fixture",
+    createdAt: "2026-11-05T10:00:00Z", updatedAt: "2026-11-05T10:00:00Z",
+  }));
   if (path === "/api/omni-sms/access") data = { isAdmin: smsAdmin, grants: [{ countryCode: "SK", provider: "bulkgate" }],
     countries: ["SK"], gateways: [{ provider: "bulkgate", countries: ["SK"] }] };
   if (path === "/api/omni-sms/unread") data = { unread: 0 };
@@ -71,6 +93,49 @@ try {
   await standalone.waitFor();
   assert.equal(await groupMember.count(), 1);
 
+  await page.getByTestId("tab-tasks").click();
+  const regularBackOffice = page.getByTestId("task-subtab-group-bo1");
+  const aggregateBackOffice = page.getByTestId("task-subtab-back-office");
+  await regularBackOffice.click();
+  await page.getByTestId("task-item-bo-pending").waitFor();
+  assert.equal(await regularBackOffice.count(), 1);
+  assert.equal(await aggregateBackOffice.count(), 0, "a regular BO group must not be repeated as Back Office");
+  assert.equal(await regularBackOffice.getAttribute("aria-pressed"), "true");
+  assert.equal(await regularBackOffice.locator("[data-task-count-badge]").innerText(), "2");
+  assert.equal(await page.getByTestId("task-item-bo-progress").count(), 1);
+  assert.equal(await page.getByTestId("task-item-support-task").count(), 0);
+  for (const id of ["my", "all", "group-support", "reporting"])
+    assert.equal(await page.getByTestId(`task-subtab-${id}`).count(), 1);
+  await mkdir("generated-artifacts/omni-visibility", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/omni-visibility/tasks-single-back-office.png" });
+  // Preserve the existing aggregate entry for people without the regular group tab.
+  backOfficeMembership = false;
+  await loadEmail();
+  await page.getByTestId("tab-tasks").click();
+  await aggregateBackOffice.click();
+  await page.getByTestId("task-item-bo-pending").waitFor();
+  assert.equal(await regularBackOffice.count(), 0);
+  assert.equal(await aggregateBackOffice.locator("[data-task-count-badge]").innerText(), "2");
+  // Several genuinely distinct BO groups still need their combined view.
+  backOfficeMembership = true;
+  backOfficeGroupCount = 2;
+  await loadEmail();
+  await page.getByTestId("tab-tasks").click();
+  await page.getByTestId("task-subtab-group-bo2").waitFor();
+  assert.equal(await regularBackOffice.count(), 1);
+  await aggregateBackOffice.click();
+  await page.getByTestId("task-item-bo-second").waitFor();
+  assert.equal(await aggregateBackOffice.locator("[data-task-count-badge]").innerText(), "3");
+  assert.equal(await page.getByTestId("task-item-support-task").count(), 0);
+  backOfficeGroupCount = 0;
+  await loadEmail();
+  await page.getByTestId("tab-tasks").click();
+  await page.getByTestId("task-subtab-group-support").waitFor();
+  assert.equal(await regularBackOffice.count(), 0);
+  assert.equal(await aggregateBackOffice.count(), 0);
+  backOfficeGroupCount = 1;
+  await loadEmail();
+
   await page.getByTestId("tab-sms").click();
   const smsSettings = page.getByTestId("button-sms-settings");
   await smsSettings.waitFor();
@@ -107,7 +172,7 @@ try {
   assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390);
   await page.screenshot({ path: "generated-artifacts/omni-visibility/mobile.png" });
   assert.deepEqual(errors, []);
-  console.log("PASS account visibility on/off/reload and group access; ordinary/admin SMS settings; permitted/denied task settings; mobile toolbar.");
+  console.log("PASS single BO navigation with preserved counts/filtering, non-member fallback, multiple/no BO groups; account visibility, SMS/task settings permissions and mobile toolbar.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Visible screen:", (await page.locator("body").innerText()).slice(0, 2000));

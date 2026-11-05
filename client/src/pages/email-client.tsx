@@ -4189,6 +4189,11 @@ export default function EmailClientPage() {
   const [taskReportingOpen, setTaskReportingOpen] = useState(false);
 
   const backOfficeGroupIds = taskGroupsList.filter((g: any) => g.isBackOffice).map((g: any) => g.id);
+  const visibleTaskGroups = taskGroupsList.filter((g: any) => g.members?.some((m: any) => m.userId === user?.id));
+  // The aggregate view is identical to a sole Back Office group already in navigation.
+  // Keep it when it provides otherwise unavailable access or combines several groups.
+  const backOfficeTabDuplicatesGroup = backOfficeGroupIds.length === 1 &&
+    visibleTaskGroups.some((g: any) => g.id === backOfficeGroupIds[0]);
 
   const taskScopeTasks = (tasksData || []).filter(task => {
     let matchesTab = true;
@@ -6133,19 +6138,20 @@ export default function EmailClientPage() {
                     {t.tasks.allTasks}
                     <span data-task-count className="ml-1">{allTaskCount}</span>
                   </Button>
-                  {taskGroupsList
-                    .filter((g: any) => g.members?.some((m: any) => m.userId === user?.id))
+                  {visibleTaskGroups
                     .map((g: any) => {
+                      const isSelected = taskSubTab === g.id ||
+                        (taskSubTab === "back_office" && backOfficeTabDuplicatesGroup && g.isBackOffice);
                       const groupCount = taskCountForScope((tasksData || []).filter(task =>
                         (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${g.id}`)
                       ));
                       return (
                         <Button
                           key={g.id}
-                          variant={taskSubTab === g.id ? "default" : "ghost"}
+                          variant={isSelected ? "default" : "ghost"}
                           size="sm"
                           className="h-6 text-[11px] px-2 gap-1"
-                          aria-pressed={taskSubTab === g.id}
+                          aria-pressed={!!isSelected}
                           onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
@@ -6162,7 +6168,7 @@ export default function EmailClientPage() {
                         </Button>
                       );
                     })}
-                  {backOfficeGroupIds.length > 0 && (() => {
+                  {backOfficeGroupIds.length > 0 && !backOfficeTabDuplicatesGroup && (() => {
                     const boTaskCount = taskCountForScope((tasksData || []).filter(task =>
                       backOfficeGroupIds.some(gid =>
                         (((task as any).tags || []) as string[]).some(tag => tag === `group_id:${gid}`)
