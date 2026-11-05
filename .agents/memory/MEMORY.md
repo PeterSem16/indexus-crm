@@ -1,38 +1,29 @@
 - [Wallboard scope and design](wallboard-design-approval.md) — preserve the approved dark large-display design; projected data requires exact Mission attribution and no contact identities.
+- [Customer card action icons](customer-card-action-icons.md) — customer-card actions, including eye and pencil, must match the provider-finder launcher's visual style.
 - [Clinic canonical cooperation statuses](clinic-canonical-statuses.md) — clinic_cooperation_statuses table + canonicalClinicStatusKey on campaign_status_list_items; write triggered on status-list confirmation when contactType=clinic.
-- [CORPCRM01 DB connection](corpcrm01-db-connection.md) — `PGPASSWORD=... psql -h localhost -U indexus -d indexus_crm -f script.sql`; always run locally on the server.
+- [CORPCRM01 DB connection](corpcrm01-db-connection.md) — use the application's DB configuration locally on the server; never print credentials or SSH from Replit.
 - [MS365 cross-origin OAuth handoff](ms365-cross-origin-oauth.md) — dev login routes through prod's only registered callback, hands back a signed one-time token; DBs aren't shared.
 - [Prod schema migrations](prod-schema-migrations.md) — new schema columns AND new tables must be added to the server/index.ts startup ALTER/CREATE...IF NOT EXISTS block; prod deploy does NOT run db:push; blank tab + HTTP 500 = table missing in prod.
-- [TabsContent nesting context](tabs-nesting-context.md) — TabsContent must be a direct descendant of the correct Tabs; placing it inside a nested Tabs (different value context) silently hides it even though the trigger appears selected.
+- [React UI runtime pitfalls](react-ui-pitfalls-index.md) — Tabs context, lazy/useCallback initialization, shared closures, form stripping, mobile taps and stale parent/drawer data.
 - [Custom queryFn must check res.ok](query-fn-ok-check.md) — inline fetch().then(r=>r.json()) without an ok-check stores error JSON as success data and crashes .map/.filter (prod-only).
-- [BO task hospital/clinic recovery](bo-task-entity-recovery.md) — status-list BO tasks never store the contact entity; recover hospital/clinic via campaign_contact_status_list_state matched by item+user+nearest time.
-- [Editable entity drawer freshness](entity-detail-drawer-stale-cache.md) — fetch fresh data before mounting a clinic/hospital edit form; invalidate its detail query after save too.
-- [BO status-list automation tasks](bo-status-list-automation.md) — campaignContacts contact id is polymorphic (clinic/hospital/collaborator/customer), so tasks.customerId must come from ccRow.customerId; and db.execute() returns {rows}, never array-destructure it.
+- [Back Office constraints](back-office-index.md) — identity recovery, country/role permissions, concurrency guards, twin deduplication, score attribution and nested drawers.
 - [Architect on huge files](architect-huge-files.md) — passing 50k-line files to architect echoes file dumps with no verdict; pass small files + includeGitDiff instead.
 - [Sheet over Dialog stacking](sheet-over-dialog-stacking.md) — a shadcn Sheet renders BEHIND an open Dialog; an "elevated" drawer needs z-[10020] + hideOverlay + onCloseAutoFocus preventDefault.
-- [Back Office country visibility](back-office-country-visibility.md) — BO endpoints enforce country authz server-side from session.assignedCountries; client `country` query only narrows, never widens; admin bypasses; NULL-country tasks shared; task.country inherited from CONTACT not campaign.
-- [BO forward concurrent-completion guard](bo-task-forward-guards.md) — guarded UPDATE+returning→409 on TOCTOU; nullable boState needs `IS DISTINCT FROM`, not ne() (NULL silently excluded); re-validate target in POST.
 - [Huge-repo tsc verification](huge-repo-tsc-verify.md) — full tsc can be OOM-killed silently (empty output, no process); prefer a scoped tsconfig over changed files + shared/, skipLibCheck; ignore TS2688 node/vite type-def noise.
-- [BO board twin dedup](bo-board-twin-dedup.md) — collapse only same-confirmation member-twins (time-cluster ±15s), else a done twin hides a newer answered task; display dedup + confirm cascade must share the time window.
-- [BO agent-score attribution](bo-agent-score-attribution.md) — credit completed BO tasks by resolver/confirmer, not assignee; the shared single task is owned by a nominal assignee but completed by whoever picks it up.
 - [Public upload extension XSS](public-upload-extension-xss.md) — files on public static mounts (/data,/uploads) must use a server-controlled MIME->ext whitelist; never keep the client filename ext (spoofed MIME + .html = stored XSS).
 - [Notification PII on external channels](notification-pii-external-channels.md) — email/SMS task notifications must send only the static title, never the resolved description (customer PII); redact recipient address + raw vendor errors from logs.
-- [BO nested full-card drawers](bo-nested-full-card-drawers.md) — reuse the REAL entity edit drawers above BO host sheets at z-[9994] (interval (9991,9996)); portal non-portalled custom fixed drawers to body via an optional default-off className/portal prop.
 - [useNotifications double-mount](use-notifications-double-mount.md) — the hook mounts twice (bell + page), each with its own WebSocket; per-notification side effects (sound/toast) must dedup via a module-level Set keyed by notification id, not component state.
-- [Back Office Agenda role permission](back-office-agenda-permission.md) — gating a workspace *mode* (not a route) needs every enabling path gated (incl. event/sessionStorage handlers via a permission ref) + the render; reuse CRM_MODULES with defaultAccess hidden.
 - [modal=false dialog state](modal-false-dialog-state.md) — a modal={false} dialog stays mounted so filter/search state survives reopens; reset on the `open` transition + make the empty state distinguish truly-empty from filtered-to-nothing.
 - [Lazy routes vs landing pages](lazy-route-landing-pages.md) — never React.lazy the post-login landing page (agents land on huge agent-workspace → red PageLoader spinner); eager-import landings, keep rest lazy + idle-prefetch.
-- [BO latest-comment-kind badges](bo-latest-comment-kind-badge.md) — BO board "their turn" badges (e.g. agent-answered) derive from the newest task_comments kind; self-clearing as newer comments/state_change supersede, no read-tracking.
 - [Agent scheduled-call queue invalidation](agent-scheduled-queue-invalidation.md) — queue panel+badge are backed by ["/api/agent/scheduled-queue"] (NOT /api/agent/callbacks); callback-scheduling mutations must invalidate that key or the reschedule won't show.
-- [Vite React.lazy import order](vite-lazy-import-tdz.md) — `const X = lazy(...)` above the `import {lazy} from "react"` line throws "Cannot access 'lazy' before initialization" (TDZ) in Vite dev; the react import must precede the lazy consts.
-- [useCallback deps TDZ in production](usecallback-deps-tdz.md) — a `const [x] = useState()` declared AFTER a `useCallback(..., [x])` causes TDZ crash in production (Rollup keeps `const`), but works in dev (esbuild lowers `const`→`var`); always declare state before the callbacks that list it in deps.
-- [Cross-component closure ref](cross-component-closure-ref.md) — a helper defined in component A's closure but called from component B ships (esbuild doesn't resolve free ids) and throws "not defined" only when that branch runs; hoist shared logic to a module-level fn taking an explicit context.
 - [Runtime perf-index ensure](runtime-index-ensure.md) — add perf indexes at runtime via background CREATE INDEX CONCURRENTLY IF NOT EXISTS; advisory lock + CONCURRENTLY are session-scoped so hold one dedicated pooled client; drop invalid leftovers first.
 - [Prod deploy skips npm install](prod-deploy-no-npm-install.md) — prod deploy is git pull+build+pm2 restart with NO npm install; new npm deps break the build — prefer Node built-ins (used zlib over the compression pkg).
 - [Callback wall-clock timezone](callback-timezone.md) — prod server is UTC; build/parse callback instants in app timezone (Europe/Bratislava), never the server clock, or 9:00 shows as 11:00 in the browser.
-- [Status List Options pattern](status-list-options.md) — options are campaign_status_list_items with itemType='option'; color stored in color col; automations via same infrastructure; options panel in CustomerInfoPanel above tabs; closes contact when set_contact_status returns no callbackDate.
-- [Status-list state refetch on reopen](status-list-state-refetch-on-reopen.md) — per-contact status-list-state query needs staleTime:0+refetchOnMount:"always"; global staleTime:Infinity + a definitive-option close cancels the invalidation refetch, leaving stale-empty flagged fresh → empty list until relog.
-- [Status-list ccId null outbound](status-list-ccid-outbound.md) — effectiveCampaignContactId must try all 4 CC fields as fallback when contactType is wrong; add red PhoneOff button to compact header for active/connecting calls.
+- [Status List policies](status-list-index.md) — documentation and Relationships help; source saves, background answers, callbacks, content, translations and agent UI boundaries.
+- [Callback approval boundaries](callback-approval-boundaries.md) — protect reviewed callback execution without blocking independent agent confirmations; never bypass approval data.
+- [Callback schema fingerprints](callback-schema-fingerprint-policy.md) — keep inventory, SQL capture, manual execution and rollback compatible with inert schema defaults.
+- [Status List schema readiness](status-list-schema-readiness.md) — verify real database reads, not only fixtures; a build cannot prove database compatibility.
+- [Compact phase approval](status-list-phase-visual-approval.md) — approved 64 px phase strip; focus the actual proposal before asking for approval.
 - [translations.ts scripted inserts](translations-insert-anchors.md) — never anchor on a key name (repeats across namespaces); walk locale+namespace structure and check keys don't already exist.
 - [Full i18n required for every new feature](full-i18n-rule.md) — every new UI string must have a translation key in ALL 7 languages (EN, SK, CS, HU, RO, IT, DE) added to translations.ts + TypeScript interface; never use hardcoded Slovak/English strings in components.
 - [Outbound ring-timeout & per-call campaign values](outbound-ring-timeout.md) — max-ring auto-hangup timer armed in Inviter Establishing case, cleared on every ringing-exit with an identity guard; per-call campaign settings ride PendingCall→refs (dialpad dials inherit stale ref).
@@ -40,19 +31,17 @@
 - [Agent presence for desk routing](agent-session-presence-heartbeat.md) — desk routing uses live Nexus Pulse WS presence (inboundCallWs.isAgentConnected), NOT a lastActiveAt/heartbeat freshness window; closed socket → standing-forward to mobile.
 - [invalid URI 2001 = no contact](softphone-2001-registration.md) — error means the AOR has no registered contact (check pjsip contacts + [WS-Proxy] log, not proxy code); the /wss-asterisk close-fix was reverted & is FORBIDDEN — real fix is registration-gated routing.
 - [Agent incoming-call alert bridge](agent-alert-user-collaborator-bridge.md) — no FK users→collaborators, so find mobile push tokens by last-9-digits phone match; alert fires 3 best-effort channels (web notif + Expo push via direct fetch + SMS), gated on CLI-substituted + deduped per call/agent.
-- [AW inline card save reverts on remount](aw-inline-card-remount-revert.md) — agent-workspace contact card unmounts on subtab switch & rebuilds from parent state; after inline save you MUST refetch+push fresh entity into currentClinicData/currentContact or the saved value visually reverts (server did persist). Also: compose email dedup, history twin dedup, localStorage unread badges.
 - [today-activity call-row entity resolution](today-activity-entity-resolution.md) — derive open-card entityId+type+name from ONE record; only set entityId when the row still EXISTS (key in name map) or a deleted link renders a broken "Open card" 404.
 - [Session-gate dialog flash on refresh](session-gate-dialog-flash.md) — a default-open gate modal must also gate on the deciding query's isLoading, or it flashes on refresh and its dismiss side-effect (e.g. redirect) bounces users who actually pass the gate.
 - [Call-log identity from refs](calllog-customerid-stale-state.md) — deferred outbound SIP dialing captures stale state; persist exact-call customer/Mission identity from synchronously updated refs.
-- [Form zod schemas silently drop fields](form-schema-strips-fields.md) — forms use local hand-written zod schemas; a field missing from the schema (or defaultValues) is stripped by zodResolver and never saved, even if DB/server are correct.
 - [Nexus Pulse modal i18n](nexus-pulse-modal-i18n.md) — status-list modal is 2 files: agent-workspace disposition Sheet (disp*) + shared NexusPulseView component (pulse*, also used in campaign builder); translate both.
 - [Salutation template vars sync](salutation-template-vars-sync.md) — {{*.salutation*}} vars must be computed synchronously client-side (rule mirror of server detect-gender), not the async AI endpoint; replaceTemplateVars runs at apply-time & strips unresolved vars, so async races.
 - [Scoped theme-var restyle](scoped-theme-var-restyle.md) — restyle a whole shadcn modal via theme CSS vars scoped on its root; also override interaction tokens (elevate/button-outline/intensity) or dark-mode hover leaks in; portaled popovers don't inherit.
-- [Mobile interactive JSX variables](mobile-jsx-sub-component.md) — JSX variables with onClick state toggles are unreliable on mobile; extract to a named sub-component with its own useState for guaranteed tap response.
 - [NexusPulse showOnlyAssigned dual scope](nexuspulse-only-assigned.md) — showOnlyAssigned filters baseCampaigns list AND must also filter contactGroups array (team-cb, other-cb); both are independent — fixing one does not fix the other.
 - [Workspace revert vs prod git sync](workspace-vs-prod-git-sync.md) — a workspace-only revert changes nothing on CORPCRM01 until it's on origin/main; check `git log origin/main..HEAD` before saying "deploy it".
 - [Campaign-contacts enrichment leak](campaign-contacts-enrichment-leak.md) — /api/campaigns/:id/contacts embeds full entity rows incl. collaborator.mobilePasswordHash; enumerate searchable fields explicitly, never key-scan enriched rows.
 - [MS365 tokens encrypted at rest](ms365-token-encryption.md) — decryptTokenSafe() before getValidAccessToken/Graph, else "IDX14100: JWT is not well formed".
+- [System mailbox reconnect](system-mailbox-reconnect-settings.md) — healthy M365 auth can still be blocked by a stale country sender address; save country settings, not rule snapshots.
 - [Campaign HTML signature render](campaign-html-signature-render.md) — per-campaign reply signature lives in campaign.settings JSON; sanitize manager-authored HTML before dangerouslySetInnerHTML/send (cross-agent XSS) + cache personal-sig fallback separately or it leaks across campaigns.
 - [Per-campaign task attribution](campaign-task-attribution.md) — clinic missions: emails/SMS via recipient_email/phone match (no comm FK); tasks via status_list_item→campaign_id; manual clinic tasks lost.
 - [Collab-sender mailbox PKCE](collab-sender-mailbox.md) — campaign sender OAuth reuses ms365_pkce_store's country_code slot for the campaign id; column had to be widened, callback must bind to the initiating user.
@@ -69,21 +58,9 @@
 - [Mediagtw agent-only recording control](mediagtw-agent-recording-control.md) — outbound recording uses localhost-only mediagtw AMI through SSH; external production needs its own PM2 secret.
 - [Ubuntu PostgreSQL CSV exports](psql-csv-export.md) — multiline `\copy` is unreliable in this psql; use `psql --csv -f - > file` and generate dynamic column lists when excluding secrets.
 - [Module snapshot settings isolation](module-snapshot-settings-isolation.md) — version snapshots whitelist module-owned campaign.settings keys; restore merges them and must never replace the shared settings object.
-- [Pulse gate escape](pulse-gate-escape.md) — mandatory readiness may block Agent Workspace, but must always offer a clear non-bypass return to normal INDEXUS.
-- [Pulse mandatory M365 readiness](pulse-m365-readiness.md) — every readiness run requires the agent’s connected M365 account; never derive this check from the selected Mission.
-- [Pulse quick readiness recheck](pulse-quick-sound-recheck.md) — reuse valid readiness only after fresh microphone, speaker, and latency checks; never bypass a started full check.
-- [Pulse incident telemetry](pulse-incident-telemetry.md) — persist only bounded active-call health events; queue offline failures, and never log media, numbers, SDP, candidates, IPs, or credentials.
-- [Pulse inbound call finalization](pulse-inbound-call-finalization.md) — agent End, SIP termination, media failure, and server hangup must share one idempotent history/recording finalizer.
-- [Pulse dial actions must not trust UI registration state](pulse-dial-registration-gate.md) — call buttons always dispatch; SIP ensureRegistered owns recovery, and failure must be visible.
-- [SIP full-register retry ordering](sip-full-register-retry-ordering.md) — schedule retry only after clearing the connecting guard; REGISTER send is not success until Registered is confirmed.
-- [WebRTC TURN relay policy](webrtc-turn-relay-policy.md) — behind the reverse-proxied Asterisk topology, configured TURN must use relay-only ICE or Chrome can release the relay Asterisk selected.
+- [Pulse readiness and live media](pulse-readiness-and-media-index.md) — index of readiness, registration, recovery, call finalization and safe telemetry policies.
 - [Call history outcomes](call-history-outcomes.md) — call badges come from timestamped events in that call’s window and Mission workflow mode, never mutable campaign-contact state.
-- [MOH collision recovery](moh-collision-recovery.md) — auto-unhold only after a correlated network/SIP/ICE collision; serialize re-INVITEs and verify fresh bidirectional RTP.
-- [Recovered-call readiness invalidation](pulse-recovered-call-recheck.md) — validated RTP recovery must cancel only its own deferred network/media recheck, including SIP-registration timing races.
 - [Mission FAQ source](mission-faq-source.md) — editor and both agent panels share campaign.settings.faq; absent uses localized defaults, explicit [] stays empty; saves atomically merge only FAQ.
-- [Initial RTP no-flow safety](initial-rtp-no-flow-safety.md) — initial silence only alerts; ICE re-INVITE requires prior healthy RTP or a correlated interruption; server hangups are session-bound.
-- [Pulse session activity counters](pulse-session-activity-counters.md) — header/My Activity counts outbound actions in the current session; daily quota usage is separate and must never overwrite it.
-- [Nexus Pulse notification boundary](nexus-pulse-notification-boundary.md) — workflow toasts use Focused Status and its chime; live-call audio/media/hold diagnostics retain legacy silent styling.
 - [Agent phone-card recall](agent-phone-card-recall.md) — remembered inbound card choices are agent-private, advisory, and keyed without cross-country phone-number collisions.
 - [Mockup preview first-load timing](mockup-preview-first-load.md) — a sandbox screenshot just after a Vite restart can capture the dynamic loader's blank state; verify once more before marking the frame failed.
 - [Inbound popup visual hierarchy](inbound-popup-visual-hierarchy.md) — caller-first identity layout is approved; keep red limited to urgency, missed calls, and reject.
@@ -95,7 +72,8 @@
 - [Bulk filter parity](medical-partner-bulk-filter-parity.md) — sharing the drawer is insufficient; lists and bulk assignment must share matching semantics and bind confirmation to the complete preview.
 - [Priority search design](priority-search-design-approval.md) — approved identity-rich results explain the match while preserving every operational badge and full-queue context.
 - [Status-list note semantics](status-list-note-semantics.md) — note edits are independent of confirmation/automations; null-on-reconfirm preserves, explicit note clear removes; history uses event snapshots.
-- [Browser request test fidelity](browser-request-test-fidelity.md) — fetch logging wrappers can mask native receiver-binding failures; retain a native-request browser test.
+- [Status List consistency incidents](status-list-consistency-incidents.md) — investigate the whole affected Mission; distinguish historical events, current state, enrollment identity and actual repair.
+- [Browser test fidelity](browser-request-test-fidelity.md) — preserve native fetch and callback serialization; settle transitions before judging layouts or themes.
 - [Wallboard alarm boundaries](wallboard-alarm-semantics.md) — personal monitoring preferences must not become shared Mission policy; unknown telemetry must not be interpreted as inactivity.
 - [Mission contact visibility boundaries](mission-contact-visibility-boundaries.md) — representative-only scope must cover every agent queue; omitted manager-owned settings must be preserved.
 - [Moving pages into nested settings tabs](nested-settings-page-moves.md) — preserve canonical tab URLs through legacy routes, OAuth callbacks, cleanup, permissions, and mobile embedding.
@@ -111,7 +89,7 @@
 - [My Shift Mission scope](my-shift-mission-scope.md) — activity is scoped to the selected Mission on the server and in the client cache; never mix a user's day across Missions.
 - [Saved shift login sets](saved-shift-login-sets.md) — sets are agent-private conveniences; session start must re-authorize every Mission, queue, and Back Office scope.
 - [Shift login Variant A](shift-login-variant-a.md) — approved design requires literal palette and structure fidelity, not a theme-token approximation or isolated larger CTA.
-- [Personnel call attribution](personnel-call-attribution.md) — dial a person, but keep Mission ownership on the parent institution; lifecycle history needs DB-backed idempotency.
+- [Personnel communication attribution](personnel-call-attribution.md) — keep Mission ownership on the institution; person emails need recipient-specific salutations and separate copies.
 - [Inactive Mission contacts](inactive-mission-contact-calls.md) — inactive cards and history stay readable, but every outbound path must block before SIP with a calm Back Office notice.
 - [Break availability scope](break-availability-scope.md) — break types are global when unscoped; otherwise visible only when the shift matches an assigned Mission or inbound queue.
 - [Action reward payment state](person-reward-payment-state.md) — reward payment belongs to each Actions row; server owns transition timestamps, separate from person-level reward settings.
@@ -124,6 +102,49 @@
 - [Dev proxy port mapping](dev-proxy-port-mapping.md) — a healthy local server can still yield 502 if external port 80 points to an inactive local port.
 - [Mission call report parity](mission-call-report-parity.md) — preserve ingress Mission across queue overflow; share display/export/email scope and fail closed on recording conflicts.
 - [Call recording identity boundary](call-recording-identity-boundary.md) — bind each audio stream to its SIP session; persist labels from the call log, and allocate unique temp paths before writing.
+- [Published Git baseline](git-published-baseline.md) — keep the published baseline active; do not resume or offer discarded development; only new incremental work may wait for push.
+- [Nix executable availability](nix-store-inspection.md) — check PATH rather than enumerating the Nix store; missing native tools can masquerade as application regressions.
+- [Production build promotion](production-build-promotion.md) — build away from live files; a running backend does not protect frontend assets when the build deletes dist.
+- [CORPCRM01 backup storage](production-backup-storage.md) — zálohy vždy na /dev/sdb1 v /var/www/indexus-crm/data; súkromne, mimo živého PG clustra, bez fallbacku na systémový disk.
+- [Production source hash validation](production-source-hash-check.md) — CORPCRM01 HEAD can advance between checks; pin current HEAD and source bytes together before promotion.
+- [Operator console environment](operator-console-environment.md) — console diagnostics do not inherit PM2 credentials; validate configuration separately from network and SQL failures.
+- [Production GitHub SSH](production-github-ssh.md) — key pre-acceptance is not authentication; compare private-derived public identity before rotating keys or blaming passphrase handling.
+- [Task deadline calendar policy](task-deadline-calendar-policy.md) — Queue-style task dates retain weekends and an optional empty deadline; visual reuse must not copy call restrictions.
+- [Task overdue event boundary](task-overdue-event-boundary.md) — calendar deadlines end in Bratislava; old premature cron events must not suppress actual expiry or backfill rules created later.
+- [INDEXUS date/time controls](indexus-date-picker-consistency.md) — reuse existing INDEXUS pickers; tasks use Nexus Pulse controls, never another automation-specific picker.
+- [Mission funnel requirements](mission-status-list-funnel-requirements.md) — v04 evidence rules, approved Reporting groups and shared date periods; preserve branch and snapshot semantics.
+- [Mission export policy](mission-export-policy.md) — no clinic IDs; explicit step/agent scope and typed Bratislava Excel dates/durations for later analysis.
+- [Drawer width scope](drawer-width-scope.md) — responsive width applies across INDEXUS drawer types, not only clinic cards; preserve navigation and stacking.
+- [Task routing and communication](task-create-routing-policy.md) — request types allow group/user combinations; agent center separates task discussions from private chat.
+- [Mission chat visibility](mission-chat-visibility.md) — per-agent colleague selections apply to Inbox and Omni; explicit Mission lists combine without legacy unrestricted bypasses.
+- [Chat receipt and event boundaries](chat-receipt-event-boundaries.md) — acknowledge new incoming messages, not cache timestamps; every committed chat writer must publish its analysis source.
+- [Task automation routing](task-automation-routing.md) — personal assignment filters exclude shared-task nominal owners; group handoffs are events and resolver groups use event-time membership.
+- [Task template policy](task-template-policy.md) — Configurator owns Task templates; rules keep editable copies, and defaults never overwrite later edits or deletions.
+- [Automation action editors](automation-action-editors-index.md) — approved email, notification, SMS and webhook editing; record tags and owner-assignment boundaries.
+- [Automation builder policy](automation-builder-policy.md) — help for WHEN/IF/THEN, compact assignment modal, snapshot-preserving language filters and atomic started-execution quotas.
+- [GitHub commit byte parity](github-commit-message-bytes.md) — API commits must preserve the local message's trailing newline when matching a prepared selective commit.
+- [Selective GitHub validation](selective-github-validation.md) — validate pinned remote sources plus a whitelist; reuse verified Git objects and batch tree writes to avoid request bursts.
+- [Update record safety](automation-update-record-safety.md) — prefer event/linked/searched targets and typed fields; explicit review, country scope, no guessed targets or silent field drops.
+- [Asterisk bridge recording](asterisk-bridge-recording.md) — ARI channel recording rejects already-bridged channels; mixed mobile-forward capture must target the authorized bridge.
+- [Omni SMS visibility](omni-sms-visibility.md) — Tasks visual parity; ordinary users start with no SMS and require explicit country/user/gateway grants.
+- [Calls summary motion](calls-summary-motion.md) — playful animated date/day/range summaries; explore live canvas alternatives before integrating a selected direction.
+- [Notification rule update payload](notification-rule-payload-boundary.md) — never round-trip the full GET response into legacy PUT; read-only timestamps cause HTTP 500.
+- [Unified Automation Services](automation-service-unification.md) — analysis precedes IF; originals stay active until reviewed replacement; mailbox-owner and sender filters combine without granting access.
+- [Automation retention approval](automation-retention-policy.md) — automatic analysis-cache and orphan-file deletion stays off until separately approved.
+- [Automation diagnostic translations](automation-diagnostic-translation-regression.md) — Runs diagnostic is role- and analysis-event gated; test its real branch to catch missing translations.
 - [Analysis record review](analysis-record-review-policy.md) — ambiguous matches can go to Back Office for a human decision; never auto-assign a candidate or turn documents into accounting invoices.
+- [Approved automation block editor](automation-block-editor-approval.md) — compact WHEN/IF/THEN/ELSE overview and focused modal editors; preserve the approved light/red direction.
 - [Rules overview direction](automation-rules-overview-approval.md) — retain A's structure, but all four tabs use native INDEXUS typography, shared navigation, global palettes and light/dark mode.
 - [Detailed activity templates](automation-activity-template-policy.md) — all activity families need source identity and true times; analyzed sources add AI findings, call links remain authenticated.
+- [Country company verification](orsr-verification-policy.md) — OR SR/ARES/ANAF preserve facility data; source limitations and tax status must not imply unsupported legal conclusions.
+- [Sidebar notification badges](sidebar-notification-badges.md) — approved compact icon/count direction includes incoming email, SMS, private chat and personal tasks; canvas approval is not integration.
+- [Universal provider finder](provider-finder-policy.md) — reusable customer/public search; alternate address, country policy, contract-first recommendations and modal map.
+- [Logistics route planning](logistics-route-planning.md) — user wants Google route planning for collection transport; distinguish routes from fleet optimization.
+- [Inner scrollport screenshots](inner-scrollport-screenshots.md) — full-page captures can miss lower settings controls; scroll actual controls into view and verify saved state.
+- [Nexus Pulse modal style](nexus-pulse-modal-style.md) — modals must match native Pulse and remain polished and playful; generic white/red confirmations are not acceptable.
+- [Agreement history policy](agreement-history-policy.md) — versioned clinic contracts; admin file deletion retains the record; shared activity across Pulse and other modules.
+- [Mission email delivery](mission-email-delivery-policy.md) — country INDEXUS system sender, matching Excel reports and explicit self-only tests without changing the schedule.
+- [Post-merge schema policy](post-merge-schema-policy.md) — never infer schema renames in an unattended merge hook; use reviewed, idempotent migrations.
+- [Omni groups and search](omni-account-groups-direction.md) — named account groups scope search; replace purple AI styling and redesign the toolbar from the live screens.
+- [Omni ZIP email diagnosis](omni-zip-email-diagnosis.md) — separate source/preparation errors from uncertain delivery; prove the affected host and cause before claiming a fix.
+- [Export cleanup verification](export-cleanup-verification.md) — HTTP completion is not filesystem cleanup completion; deployment checks need bounded state polling, not fixed sleeps.

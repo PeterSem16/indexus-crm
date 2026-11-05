@@ -10,7 +10,7 @@ function fixture(args, raw = false) {
 }
 test("exact production baseline and complete finished Omni release validate", () => {
   const plan = release.validate(fixture, release.TARGET);
-  assert.equal(plan.paths.length, 40);
+  assert.equal(plan.paths.length, 44);
   for (const filename of ["shared/schema.ts", "server/index.ts", "server/lib/omni-export-graph.ts",
     "client/src/pages/email-client.tsx", "e2e/omni-account-visibility.browser.test.mjs"])
     assert.ok(plan.paths.includes(filename));
@@ -25,7 +25,8 @@ test("rendered operator preserves private staging, backups, guards and rollback"
     'sudo chmod 600 "$STORE/release.txt" "$STORE/backup/dist.tar"',
     'pg_dump",["--format=custom"', 'pg_restore",["--list"',
     "sudo -u", 'e.code!=="EACCES"', "DATABASE_URL=postgresql://127.0.0.1:1/omni_deploy_test",
-    "BEGIN READ ONLY", "LIMIT 0", "OMNI_DATABAZA_OK", "NASADENIE_OK="])
+    "BEGIN READ ONLY", "LIMIT 0", "OMNI_DATABAZA_OK", "NASADENIE_OK=",
+    'grep -n -B 3 -A 30 \'^not ok\' "$VIEW/tests.log"', "TESTY_LOG=$STORE/build/tests.log"])
     assert.ok(body.includes(value), value);
   for (const filename of release.TESTS) assert.ok(body.includes(filename));
   assert.ok(body.indexOf("OMNI_DATABAZA_OK") < body.indexOf("PHASE=vstupna_stranka"));
@@ -33,6 +34,24 @@ test("rendered operator preserves private staging, backups, guards and rollback"
   assert.match(body, /git -C "\$APP" reset --keep "\$BASE"/);
   assert.match(body, /databazu neobnovujem/);
   assert.doesNotMatch(body, /reset --hard|git clean|npm install|npm ci|db:push|--clean/);
+});
+test("a failing test remains visible even when later passing tests fill the log tail", () => {
+  const body = release.render(fixture, release.validate(fixture, release.TARGET));
+  const handler = body.split("\n").find(line => line.includes("grep -n -B 3 -A 30 '^not ok'"));
+  assert.ok(handler);
+  const directory = fs.mkdtempSync(require("node:path").join(require("node:os").tmpdir(), "omni-test-report-"));
+  try {
+    fs.writeFileSync(directory + "/tests.log",
+      "not ok 1 - delayed cleanup fixture\n  error: fixture cleanup deadline\n" + "ok - later fixture\n".repeat(80));
+    const result = cp.spawnSync("bash", ["-c",
+      'set -u\nVIEW=$1; STORE=$2\nstop() { echo "STOP: $*" >&2; exit 7; }\n' + handler,
+      "test-report", directory, "/private/recovery"], { encoding: "utf8" });
+    assert.equal(result.status, 7);
+    assert.match(result.stdout, /not ok 1 - delayed cleanup fixture/);
+    assert.match(result.stdout, /fixture cleanup deadline/);
+    assert.match(result.stderr, /TESTY_LOG=\/private\/recovery\/build\/tests.log/);
+    assert.match(result.stderr, /STOP: Testy zlyhali; nasadenie zastavene/);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
 test("wrong HEAD, target, parent, tree, dependencies, whitelist, patch or renderer stop", () => {
   assert.throws(() => release.validate(fixture, "wrong-target"));

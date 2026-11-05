@@ -5,11 +5,11 @@ const crypto = require("node:crypto");
 const { Module } = require("node:module");
 const APP = "/var/www/indexus-crm";
 const BASE = "1f24432815b6c6f6100ea48941750b0fa8636483";
-const TARGET = "249355adb1ece88e30717fdbe4bd42b2a76b6f4e";
-const PARENT = "a8132a39342471ef614c5258aaa98473eeb35f63";
-const TREE = "e994826ce3dc1d3f244d3f5af513eb2180ce3994";
-const PATCH_HASH = "41869f85d7324852125ab3a9a9bdc931e87c18730471b929a8d33fdf90e28661";
-const PATHS_HASH = "43fb23309df343855c3cb407b4adb489ca64e1a978e4bd7af430606ff7dbcf11";
+const TARGET = "ec7dd851c462e050c3430c6cce04ed679497e632";
+const PARENT = "d732da992b68e96454a4be931710ccc56c0d6519";
+const TREE = "97f1c118bbd99fe3532f765fff90a0b9155dc3b8";
+const PATCH_HASH = "28840928cb84cb56217f0b68149974f5182fcdad8d9fbd000d56f0dc64ca7a0f";
+const PATHS_HASH = "2a7b42c1e8be0e9bdff65e675cce0ecee854d4888dff00ab25d5c60ac814e554";
 const RENDERER = "script/operator/promote-complete-replit.cjs";
 const RENDERER_HASH = "bb29fd69d71cee151cfcb60be282c3b6e952e71a95856f35b1125657b97187c4";
 const OLD_BACKEND = "4d8eb3185ccbd35804766fadd5c2c8e99f2a8603ade87e5994ef72319ef7eebb";
@@ -100,6 +100,9 @@ function render(git, plan) {
   body = once(body,
     "npx --no-install tsx --test shared/status-list-history-display.test.ts server/lib/status-list-history-display.test.ts client/src/components/hospital-agreement-copy.test.ts",
     `NODE_ENV=test DATABASE_URL=postgresql://127.0.0.1:1/omni_deploy_test npx --no-install tsx --test --test-concurrency=2 ${TESTS.join(" ")}`);
+  body = once(body,
+    '{ tail -30 "$VIEW/tests.log"; stop "Testy zlyhali; nasadenie zastavene"; }',
+    '{ grep -n -B 3 -A 30 \'^not ok\' "$VIEW/tests.log" || true; tail -30 "$VIEW/tests.log"; echo "TESTY_LOG=$STORE/build/tests.log" >&2; stop "Testy zlyhali; nasadenie zastavene"; }');
   body = once(body, 'cmp "$VIEW/dist/index.cjs" "$APP/dist/index.cjs"',
     'cmp "$VIEW/dist/index.cjs" "$APP/dist/index.cjs"\n' + READINESS);
   if (/reset --hard|git clean|npm install|npm ci|db:push|pg_restore[^]*?--clean/.test(body))
