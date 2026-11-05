@@ -5,12 +5,14 @@ import { tmpdir } from "node:os";
 import { availableOmniEmails } from "./omni-mailbox-group-routes";
 import { EmlZipWriter, safeEmlName } from "./omni-eml-zip";
 import { createExportGraph, MAX_EMAIL_ZIP_BYTES, type ExportMessage as Message, type ExportDelivery } from "./omni-export-graph";
+import { attachPersonalExportSignature, personalExportSignature } from "./omni-export-signature";
 type Dependencies = {
   inventory: (userId: string) => Promise<Set<string>>;
   token: (userId: string) => Promise<{ accessToken: string; personalMailbox?: string }>;
   mime: (token: string, message: Message, signal: AbortSignal) => Promise<Buffer>;
   msg?: (token: string, message: Message, signal: AbortSignal) => Promise<Buffer>;
   send?: (token: string, path: string, filename: string, delivery: ExportDelivery, signal: AbortSignal) => Promise<void>;
+  signature?: (userId: string) => Promise<string | undefined>;
 };
 const MAX_EXPORT_BYTES = 256 * 1024 * 1024;
 export function validateExportMessages(body: any, allowed: Set<string>): Message[] {
@@ -28,11 +30,12 @@ export function validateExportMessages(body: any, allowed: Set<string>): Message
 export function validateExportDelivery(value: unknown): ExportDelivery | undefined {
   if (value === undefined) return;
   if (!value || typeof value !== "object") throw new Error("invalid_delivery");
-  const { to, subject, body } = value as ExportDelivery;
+  const { to, subject, body, includeSignature } = value as ExportDelivery;
   if (typeof to !== "string" || to.length > 254 || !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(to) ||
     typeof subject !== "string" || !subject.trim() || subject.length > 200 || /[\r\n]/.test(subject) ||
-    typeof body !== "string" || body.length > 20_000) throw new Error("invalid_delivery");
-  return { to, subject: subject.trim(), body };
+    typeof body !== "string" || body.length > 20_000 ||
+    (includeSignature !== undefined && typeof includeSignature !== "boolean")) throw new Error("invalid_delivery");
+  return { to, subject: subject.trim(), body, ...(includeSignature === true ? { includeSignature: true } : {}) };
 }
 export function registerOmniSearchExport(app: Express, auth: RequestHandler, deps: Dependencies) {
   const running = new Set<string>();
@@ -46,9 +49,12 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
     let directory: string | undefined;
     try {
       const messages = validateExportMessages(req.body, await deps.inventory(userId));
-      const delivery = validateExportDelivery(req.body.delivery);
+      let delivery = validateExportDelivery(req.body.delivery);
       const authorization = await deps.token(userId);
       if (delivery && (!authorization.personalMailbox || !deps.send)) throw new Error("personal_mailbox_required");
+      if (delivery?.includeSignature) {
+        delivery = attachPersonalExportSignature(delivery, await deps.signature?.(userId));
+      }
       const format: "eml" | "msg" = req.body.format;
       const filename = `nexus-omni-${format}.zip`;
       directory = await mkdtemp(join(tmpdir(), "omni-export-"));
@@ -88,8 +94,8 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
       if (!res.headersSent && !res.destroyed) {
         const code = (error as Error).message;
         const status = ["mailbox_forbidden", "personal_mailbox_required"].includes(code) ? 403 :
-          ["invalid_export", "invalid_delivery"].includes(code) ? 400 : ["export_limit", "email_export_limit"].includes(code) ? 413 : 502;
-        res.status(status).json({ error: ["mailbox_forbidden", "personal_mailbox_required", "invalid_export", "invalid_delivery", "export_limit", "email_export_limit"].includes(code) ? code : "export_failed" });
+          ["invalid_export", "invalid_delivery", "signature_unavailable"].includes(code) ? 400 : ["export_limit", "email_export_limit"].includes(code) ? 413 : 502;
+        res.status(status).json({ error: ["mailbox_forbidden", "personal_mailbox_required", "invalid_export", "invalid_delivery", "signature_unavailable", "export_limit", "email_export_limit"].includes(code) ? code : "export_failed" });
       }
     } finally {
       res.off("close", abort); running.delete(userId);
@@ -117,5 +123,6 @@ export function createOmniExportDependencies(storage: any): Dependencies {
     mime: (token, message, signal) => createExportGraph(token, signal).message(message, "eml"),
     msg: (token, message, signal) => createExportGraph(token, signal).message(message, "msg"),
     send: (token, path, filename, delivery, signal) => createExportGraph(token, signal).send(path, filename, delivery),
+    signature: userId => personalExportSignature(storage, userId),
   };
 }

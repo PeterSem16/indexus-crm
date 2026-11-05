@@ -2,7 +2,7 @@ import { open, stat } from "node:fs/promises";
 import { writeOutlookMsg, type MsgAttachment, type MsgMessage } from "./omni-msg";
 
 export type ExportMessage = { id: string; mailbox: string; subject: string; personal?: boolean };
-export type ExportDelivery = { to: string; subject: string; body: string };
+export type ExportDelivery = { to: string; subject: string; body: string; includeSignature?: boolean; htmlBody?: string };
 export const MAX_EMAIL_ZIP_BYTES = 25 * 1024 * 1024;
 const MAX_MESSAGE_BYTES = 50 * 1024 * 1024;
 const GRAPH = "https://graph.microsoft.com/v1.0";
@@ -84,7 +84,9 @@ export function createExportGraph(token: string, signal: AbortSignal, request: t
     async send(path: string, filename: string, delivery: ExportDelivery) {
       const size = (await stat(path)).size;
       if (size > MAX_EMAIL_ZIP_BYTES) throw new Error("email_export_limit");
-      const message = { subject: delivery.subject, body: { contentType: "Text", content: delivery.body },
+      const message = { subject: delivery.subject, body: delivery.htmlBody !== undefined
+        ? { contentType: "HTML", content: delivery.htmlBody }
+        : { contentType: "Text", content: delivery.body },
         toRecipients: [{ emailAddress: { address: delivery.to } }] };
       // Always /me: never impersonate a shared mailbox or accept a client sender.
       // Draft/upload supports ZIPs beyond Graph's 4 MB JSON request ceiling.

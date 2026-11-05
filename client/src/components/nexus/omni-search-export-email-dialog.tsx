@@ -3,6 +3,7 @@ import { AlertCircle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { OmniGroupReplyTemplate } from "@shared/omni-mailbox-groups";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -13,11 +14,12 @@ type Copy = {
   sender: string; confirmSend: string; sending: string; cancel: string; sendSuccess: string;
   invalidDelivery: string; exportLimit: string; exportBusy: string; exportError: string;
   sendError: string; emailExportLimit: string;
+  includeSignature: string; groupContext: string; missingSignature: string;
 };
 
 export function OmniSearchExportEmailDialog({
   open, onOpenChange, messages, sender, copy, onSuccess,
-  format,
+  format, replyTemplate, groupName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,25 +28,31 @@ export function OmniSearchExportEmailDialog({
   copy: Copy;
   onSuccess: () => void;
   format: "eml" | "msg";
+  replyTemplate?: OmniGroupReplyTemplate;
+  groupName?: string;
 }) {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [includeSignature, setIncludeSignature] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submissionLock = useRef(false);
+  const wasOpen = useRef(false);
 
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpen.current) {
       setTo("");
-      setSubject("");
-      setBody("");
+      setSubject(replyTemplate?.subject ?? "");
+      setBody(replyTemplate?.body ?? "");
+      setIncludeSignature(replyTemplate?.includeSignature ?? false);
       setError("");
     }
-  }, [open]);
+    wasOpen.current = open;
+  }, [open, replyTemplate]);
 
   const send = async () => {
-    if (submissionLock.current || !sender || !messages.length) return;
+    if (submissionLock.current || !sender || !messages.length || body.length > 20000) return;
     submissionLock.current = true;
     setBusy(true);
     setError("");
@@ -56,7 +64,7 @@ export function OmniSearchExportEmailDialog({
         body: JSON.stringify({
           format,
           messages,
-          delivery: { to: to.trim(), subject, body },
+          delivery: { to: to.trim(), subject, body, ...(includeSignature ? { includeSignature: true } : {}) },
         }),
       });
       if (!response.ok) {
@@ -64,6 +72,7 @@ export function OmniSearchExportEmailDialog({
         const code = result?.error;
         setError(code === "email_export_limit"
           ? copy.emailExportLimit
+          : code === "signature_unavailable" ? copy.missingSignature
           : code === "export_limit" ? copy.exportLimit
           : code === "invalid_delivery" ? copy.invalidDelivery
             : code === "export_busy" ? copy.exportBusy : copy.sendError);
@@ -86,12 +95,16 @@ export function OmniSearchExportEmailDialog({
 
   return (
     <Dialog open={open} onOpenChange={next => { if (!busy) onOpenChange(next); }}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{copy.sendZip}</DialogTitle>
           <DialogDescription>{copy.sendZipDescription} ({messages.length})</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
+          {groupName && <p className="rounded-lg border bg-muted/35 px-3 py-2 text-sm">
+            <span className="text-xs text-muted-foreground">{copy.groupContext}</span>
+            <span className="ml-2 font-medium">{groupName}</span>
+          </p>}
           <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
             {copy.emailExportLimit}
           </p>
@@ -105,11 +118,15 @@ export function OmniSearchExportEmailDialog({
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium">{copy.subject}</span>
-            <Input data-testid="search-export-subject" maxLength={200} disabled={busy} value={subject} onChange={event => setSubject(event.target.value)} />
+            <Input data-testid="search-export-subject" maxLength={200} disabled={busy} value={subject} onChange={event => setSubject(event.target.value.replace(/[\r\n]/g, ""))} />
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium">{copy.body}</span>
             <Textarea data-testid="search-export-body" maxLength={20000} disabled={busy} value={body} onChange={event => setBody(event.target.value)} rows={4} />
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input data-testid="search-export-include-signature" type="checkbox" disabled={busy} checked={includeSignature} onChange={event => setIncludeSignature(event.target.checked)} />
+            <span>{copy.includeSignature}</span>
           </label>
           {error && (
             <div role="alert" className="flex gap-2 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm text-destructive">
@@ -122,7 +139,7 @@ export function OmniSearchExportEmailDialog({
           <Button
             type="button"
             data-testid="confirm-send-search-export"
-            disabled={busy || !sender || !to.trim() || !subject.trim() || !messages.length}
+            disabled={busy || !sender || !to.trim() || !subject.trim() || !messages.length || body.length > 20000}
             onClick={() => void send()}
           >
             <Send className="mr-2 h-4 w-4" /> {busy ? copy.sending : copy.confirmSend}

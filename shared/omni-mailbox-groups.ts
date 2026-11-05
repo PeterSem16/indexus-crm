@@ -1,4 +1,17 @@
-export interface OmniMailboxGroup { id: string; name: string; emails: string[]; icon?: string; color?: string }
+export interface OmniGroupReplyTemplate {
+  subject: string;
+  body: string;
+  includeSignature: boolean;
+}
+export interface OmniMailboxGroup { id: string; name: string; emails: string[]; icon?: string; color?: string; replyTemplate?: OmniGroupReplyTemplate }
+function validateReplyTemplate(value: unknown): OmniGroupReplyTemplate {
+  if (!value || typeof value !== "object") throw new Error("invalid_groups");
+  const { subject, body, includeSignature } = value as OmniGroupReplyTemplate;
+  if (typeof subject !== "string" || !subject.trim() || subject.length > 200 || /[\r\n]/.test(subject) ||
+      typeof body !== "string" || body.length > 20_000 ||
+      typeof includeSignature !== "boolean") throw new Error("invalid_groups");
+  return { subject, body, includeSignature };
+}
 export const OMNI_GROUP_ICON_KEYS = ["mail", "inbox", "user", "users", "office", "globe", "briefcase", "shield", "heart", "star", "fire", "bell", "gem", "rocket", "crown"];
 export interface OmniGroupSettings { groups: OmniMailboxGroup[]; revision: number }
 export interface ScopeMailbox { email: string; type: string }
@@ -19,7 +32,8 @@ export function validateMailboxGroups(value: unknown, allowed: Set<string>): Omn
     if (emails.some(email => !allowed.has(email))) throw new Error("mailbox_forbidden");
     return { id: group.id, name: group.name.trim(), emails,
       ...(group.icon !== undefined ? { icon: group.icon } : {}),
-      ...(group.color !== undefined ? { color: group.color } : {}) };
+      ...(group.color !== undefined ? { color: group.color } : {}),
+      ...(group.replyTemplate !== undefined ? { replyTemplate: validateReplyTemplate(group.replyTemplate) } : {}) };
   });
 }
 /** Resolve only against the current authorized mailbox inventory. Unknown groups stay empty. */

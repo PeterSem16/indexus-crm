@@ -31,3 +31,31 @@ test("group icon and color round-trip while legacy groups remain compatible", ()
     assert.throws(() => validateMailboxGroups([{ id: "a", name: "A", emails: [], ...settings }], allowed));
   }
 });
+test("group templates persist independently, preserve deliberate blanks and stay optional for legacy groups", () => {
+  const first = { subject: "Support export", body: "Requested emails.", includeSignature: true };
+  const second = { subject: "Finance export", body: "", includeSignature: false };
+  const source = [{ id: "a", name: "A", emails: [], replyTemplate: first },
+    { id: "b", name: "B", emails: [], replyTemplate: second }, { id: "legacy", name: "Legacy", emails: [] }];
+  const saved = validateMailboxGroups(JSON.parse(JSON.stringify(source)), allowed);
+  assert.deepEqual(saved, source);
+  assert.equal(saved[2].replyTemplate, undefined);
+  first.body = "Changed independently";
+  assert.equal(saved[0].replyTemplate?.body, "Requested emails.");
+  assert.equal(saved[1].replyTemplate?.body, "");
+});
+test("template validation rejects malformed values, header injection and oversized messages", () => {
+  const template = { subject: "Export", body: "Emails", includeSignature: true };
+  const invalid = [null, [], {}, { ...template, subject: "" }, { ...template, subject: "A\nB" },
+    { ...template, subject: "x".repeat(201) }, { ...template, body: 7 },
+    { ...template, body: "x".repeat(20001) }, { ...template, includeSignature: "true" }];
+  for (const replyTemplate of invalid) {
+    assert.throws(() => validateMailboxGroups([{ id: "a", name: "A", emails: [], replyTemplate }], allowed), /invalid_groups/);
+  }
+  assert.equal(validateMailboxGroups([{ id: "a", name: "A", emails: [],
+    replyTemplate: { ...template, body: "x".repeat(20000), includeSignature: false } }], allowed).length, 1);
+});
+test("group templates never store or accept a new group signature", () => {
+  const [group] = validateMailboxGroups([{ id: "a", name: "A", emails: [],
+    replyTemplate: { subject: "Export", body: "Messages", includeSignature: true, signature: "Not a personal signature" } }], allowed);
+  assert.deepEqual(group.replyTemplate, { subject: "Export", body: "Messages", includeSignature: true });
+});

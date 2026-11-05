@@ -16,7 +16,8 @@ import "@/components/nexus/omni-workspace.css";
 import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
 import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
 import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
-import { groupScope, resolveMailboxScope, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
+import { groupScope, resolveMailboxScope, type OmniGroupReplyTemplate, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
+import { defaultOmniGroupReplyTemplate } from "@/components/nexus/omni-reply-template";
 import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
 import { TaskQueueControls } from "@/components/tasks/task-queue-controls";
 import { TaskAttachmentList, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
@@ -3257,7 +3258,11 @@ export default function EmailClientPage() {
   const [smartDraftDateTo, setSmartDraftDateTo] = useState("");
   const [searchExportFormat, setSearchExportFormat] = useState<"eml" | "msg">("eml");
   const [searchExportEmailOpen, setSearchExportEmailOpen] = useState(false);
-  const [searchExportSnapshot, setSearchExportSnapshot] = useState<{ id: string; mailbox: string; subject: string }[]>([]);
+  const [searchExportSnapshot, setSearchExportSnapshot] = useState<{
+    messages: { id: string; mailbox: string; subject: string }[];
+    groupName?: string;
+    replyTemplate?: OmniGroupReplyTemplate;
+  }>({ messages: [] });
   const [aiSearchEnabled, setAiSearchEnabled] = useState(() => {
     try { return localStorage.getItem("nexus-ai-search") !== "false"; } catch { return true; }
   });
@@ -5550,9 +5555,19 @@ export default function EmailClientPage() {
                         disabled={searchRefreshing || searchFailed || !personalExportMailbox || !searchResults?.some(r => r.emails.length)}
                         title={t.omniGroups.sendZip}
                         onClick={() => {
-                          const snapshot = (searchResults || []).flatMap(result =>
+                          const messages = (searchResults || []).flatMap(result =>
                             result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
-                          setSearchExportSnapshot(snapshot);
+                          const executedGroup = mailboxGroups.find(group => groupScope(group.id) === searchMailbox);
+                          const replyTemplate = executedGroup
+                            ? { ...(executedGroup.replyTemplate ?? defaultOmniGroupReplyTemplate(executedGroup.name, {
+                                replySubjectDefault: t.omniGroups.replySubjectDefault,
+                                replyBodyDefault: t.omniGroups.replyBodyDefault,
+                              })) }
+                            : undefined;
+                          setSearchExportSnapshot({
+                            messages,
+                            ...(executedGroup ? { groupName: executedGroup.name, replyTemplate } : {}),
+                          });
                           setSearchExportEmailOpen(true);
                         }}
                       >
@@ -7291,10 +7306,12 @@ export default function EmailClientPage() {
       <OmniSearchExportEmailDialog
         open={searchExportEmailOpen}
         onOpenChange={setSearchExportEmailOpen}
-        messages={searchExportSnapshot}
+        messages={searchExportSnapshot.messages}
         sender={personalExportMailbox}
         format={searchExportFormat}
         copy={t.omniGroups}
+        groupName={searchExportSnapshot.groupName}
+        replyTemplate={searchExportSnapshot.replyTemplate}
         onSuccess={() => toast({ title: t.omniGroups.sendSuccess })}
       />
 

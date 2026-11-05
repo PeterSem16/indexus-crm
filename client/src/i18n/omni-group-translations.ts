@@ -54,9 +54,82 @@ const extra: Record<keyof typeof translations, Extra> = {
   it: { groupIcon:"Icona del gruppo",groupColor:"Colore del gruppo",exportZip:"Scarica ZIP",exportAll:"Scarica tutti i risultati come ZIP con email originali e allegati",exporting:"Preparazione ZIP…",exportError:"Esportazione non riuscita. Non è stato scaricato un archivio incompleto. Riprova.",exportLimit:"L’esportazione supera il limite di dimensione. Restringi la ricerca e riprova.",exportFormat:"Formato ZIP",exportEml:"EML",exportMsg:"MSG",sendZip:"Invia risultati via e-mail",sendZipDescription:"Verrà inviato uno ZIP dell’intero set di risultati corrente.",recipient:"Destinatario",subject:"Oggetto",body:"Messaggio",sender:"Account personale connesso",confirmSend:"Conferma e invia",sending:"Invio…",sendSuccess:"ZIP della ricerca inviato",invalidDelivery:"Inserisci un destinatario valido e i dettagli del messaggio.",exportBusy:"Un’esportazione è già in corso. Riprova tra poco.",dateFrom:"Data da",dateTo:"Data a",applyDates:"Cerca in queste date",reversedDates:"La data iniziale non può essere successiva a quella finale.",sendError:"L’invio non può essere confermato. Controlla la cartella Posta inviata prima di riprovare.",emailExportLimit:"Lo ZIP allegato all’e-mail può avere una dimensione massima di 25 MB." },
   de: { groupIcon:"Gruppensymbol",groupColor:"Gruppenfarbe",exportZip:"ZIP herunterladen",exportAll:"Alle Suchergebnisse als ZIP mit ursprünglichen E-Mails und Anhängen herunterladen",exporting:"ZIP wird vorbereitet…",exportError:"Export fehlgeschlagen. Es wurde kein unvollständiges Archiv heruntergeladen. Versuchen Sie es erneut.",exportLimit:"Der Export überschreitet die Größenbegrenzung. Grenzen Sie die Suche ein und versuchen Sie es erneut.",exportFormat:"ZIP-Format",exportEml:"EML",exportMsg:"MSG",sendZip:"Ergebnisse per E-Mail senden",sendZipDescription:"Ein ZIP der vollständigen aktuellen Ergebnismenge wird gesendet.",recipient:"Empfänger",subject:"Betreff",body:"Nachricht",sender:"Verbundenes persönliches Konto",confirmSend:"Bestätigen und senden",sending:"Wird gesendet…",sendSuccess:"Such-ZIP gesendet",invalidDelivery:"Geben Sie einen gültigen Empfänger und Nachrichtendetails ein.",exportBusy:"Ein Export wird bereits vorbereitet. Versuchen Sie es gleich erneut.",dateFrom:"Datum von",dateTo:"Datum bis",applyDates:"In diesen Zeiträumen suchen",reversedDates:"Das Startdatum darf nicht nach dem Enddatum liegen.",sendError:"Der Versand konnte nicht bestätigt werden. Prüfen Sie vor einem erneuten Versuch den Ordner „Gesendete Elemente“.",emailExportLimit:"Das per E-Mail angehängte ZIP darf höchstens 25 MB groß sein." },
 };
+const replyTemplateCopy: Record<keyof typeof translations, {
+  replySubjectDefault: string;
+  replyBodyDefault: string;
+  replyTemplateTitle: string;
+  replyTemplateDescription: string;
+  includeSignature: string;
+  groupContext: string;
+  missingSignature: string;
+}> = {
+  en: {
+    replySubjectDefault: "Search results — {group}",
+    replyBodyDefault: "The original messages I searched are attached in a ZIP file.",
+    replyTemplateTitle: "ZIP email template",
+    replyTemplateDescription: "Used for results searched in this group. The signature is taken from the connected personal account.",
+    includeSignature: "Include the existing personal-account signature",
+    groupContext: "Results searched in",
+    missingSignature: "The connected personal account has no active signature to include.",
+  },
+  sk: {
+    replySubjectDefault: "Výsledky vyhľadávania — {group}",
+    replyBodyDefault: "Pôvodné vyhľadané správy sú priložené v súbore ZIP.",
+    replyTemplateTitle: "Šablóna e-mailu ZIP",
+    replyTemplateDescription: "Použije sa pri odosielaní výsledkov vyhľadaných v tejto skupine. Podpis sa prevezme z pripojeného osobného konta.",
+    includeSignature: "Pripojiť existujúci podpis osobného konta",
+    groupContext: "Výsledky vyhľadané v skupine",
+    missingSignature: "Pripojené osobné konto nemá aktívny podpis, ktorý možno pripojiť.",
+  },
+  cs: {
+    replySubjectDefault: "Výsledky hledání — {group}",
+    replyBodyDefault: "Původní vyhledané zprávy jsou přiloženy v souboru ZIP.",
+    replyTemplateTitle: "Šablona e-mailu ZIP",
+    replyTemplateDescription: "Použije se při odesílání výsledků vyhledaných v této skupině. Podpis se převezme z připojeného osobního účtu.",
+    includeSignature: "Připojit existující podpis osobního účtu",
+    groupContext: "Výsledky vyhledané ve skupině",
+    missingSignature: "Připojený osobní účet nemá aktivní podpis, který lze připojit.",
+  },
+  hu: {
+    replySubjectDefault: "Keresési találatok — {group}",
+    replyBodyDefault: "A keresett eredeti üzenetek ZIP-fájlban vannak csatolva.",
+    replyTemplateTitle: "ZIP e-mail sablon",
+    replyTemplateDescription: "A csoportban keresett találatok e-mailes küldésekor használatos. Az aláírás a csatlakoztatott személyes fiókból származik.",
+    includeSignature: "Meglévő személyes fiók aláírásának hozzáadása",
+    groupContext: "Találatok keresési csoportja",
+    missingSignature: "A csatlakoztatott személyes fiókban nincs aktív, hozzáadható aláírás.",
+  },
+  ro: {
+    replySubjectDefault: "Rezultatele căutării — {group}",
+    replyBodyDefault: "Mesajele originale căutate sunt atașate într-un fișier ZIP.",
+    replyTemplateTitle: "Șablon e-mail ZIP",
+    replyTemplateDescription: "Folosit la trimiterea rezultatelor căutate în acest grup. Semnătura este preluată din contul personal conectat.",
+    includeSignature: "Include semnătura existentă a contului personal",
+    groupContext: "Rezultate căutate în",
+    missingSignature: "Contul personal conectat nu are o semnătură activă care să poată fi inclusă.",
+  },
+  it: {
+    replySubjectDefault: "Risultati della ricerca — {group}",
+    replyBodyDefault: "I messaggi originali cercati sono allegati in un file ZIP.",
+    replyTemplateTitle: "Modello e-mail ZIP",
+    replyTemplateDescription: "Usato per inviare i risultati cercati in questo gruppo. La firma viene presa dall’account personale connesso.",
+    includeSignature: "Includi la firma esistente dell’account personale",
+    groupContext: "Risultati cercati in",
+    missingSignature: "L’account personale connesso non ha una firma attiva da includere.",
+  },
+  de: {
+    replySubjectDefault: "Suchergebnisse — {group}",
+    replyBodyDefault: "Die gesuchten Originalnachrichten sind als ZIP-Datei angehängt.",
+    replyTemplateTitle: "E-Mail-Vorlage für ZIP",
+    replyTemplateDescription: "Wird für Ergebnisse aus dieser Gruppe verwendet. Die Signatur stammt aus dem verbundenen persönlichen Konto.",
+    includeSignature: "Vorhandene Signatur des persönlichen Kontos einfügen",
+    groupContext: "Ergebnisse gesucht in",
+    missingSignature: "Das verbundene persönliche Konto hat keine aktive Signatur zum Einfügen.",
+  },
+};
 export default {
-  en: { ...translations.en, ...visibilityCopy.en, ...extra.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk },
-  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu },
-  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it },
-  de: { ...translations.de, ...visibilityCopy.de, ...extra.de },
+  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk },
+  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu },
+  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it },
+  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de },
 };
