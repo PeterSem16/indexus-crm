@@ -14,6 +14,7 @@ import "@/components/nexus/nexus-signal-tasks.css";
 import "@/components/email-html-body.css";
 import "@/components/nexus/omni-workspace.css";
 import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
+import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
 import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
 import { groupScope, resolveMailboxScope, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
 import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
@@ -3250,6 +3251,11 @@ export default function EmailClientPage() {
   });
   const [searchDateFrom, setSearchDateFrom] = useState("");
   const [searchDateTo, setSearchDateTo] = useState("");
+  const [smartDraftDateFrom, setSmartDraftDateFrom] = useState("");
+  const [smartDraftDateTo, setSmartDraftDateTo] = useState("");
+  const [searchExportFormat, setSearchExportFormat] = useState<"eml" | "msg">("eml");
+  const [searchExportEmailOpen, setSearchExportEmailOpen] = useState(false);
+  const [searchExportSnapshot, setSearchExportSnapshot] = useState<{ id: string; mailbox: string; subject: string }[]>([]);
   const [aiSearchEnabled, setAiSearchEnabled] = useState(() => {
     try { return localStorage.getItem("nexus-ai-search") !== "false"; } catch { return true; }
   });
@@ -3945,23 +3951,28 @@ export default function EmailClientPage() {
   });
 
   const exportSearch = useMutation({
-    mutationFn: async (messages: { id: string; mailbox: string; subject: string }[]) => {
+    mutationFn: async ({ messages, format: exportFormat }: { messages: { id: string; mailbox: string; subject: string }[]; format: "eml" | "msg" }) => {
       const response = await fetch("/api/nexus/search-export", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format: "eml", messages }),
+        body: JSON.stringify({ format: exportFormat, messages }),
       });
-      if (!response.ok) throw new Error(response.status === 413 ? t.omniGroups.exportLimit : t.omniGroups.exportError);
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(response.status === 413 || result?.error === "email_export_limit" || result?.error === "export_limit"
+          ? t.omniGroups.exportLimit : t.omniGroups.exportError);
+      }
       if (!response.headers.get("content-type")?.includes("application/zip")) throw new Error(t.omniGroups.exportError);
       const blob = await response.blob();
       if (!blob.size) throw new Error(t.omniGroups.exportError);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url; link.download = "nexus-omni-eml.zip";
+      link.href = url; link.download = `nexus-omni-${exportFormat}.zip`;
       document.body.append(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);
     },
     onError: (error: Error) => toast({ title: t.nexusOmni.common.error, description: error.message, variant: "destructive" }),
   });
+  const personalExportMailbox = mailboxes.find(mailbox => mailbox.type === "personal")?.email || "";
 
   const handleSearch = () => {
     if (searchQuery.trim().length >= 2) {
@@ -4336,6 +4347,8 @@ export default function EmailClientPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
+        setSmartDraftDateFrom(searchDateFrom);
+        setSmartDraftDateTo(searchDateTo);
         setSmartSearchOpen(true);
         setTimeout(() => smartSearchInputRef.current?.focus(), 100);
       }
@@ -4354,7 +4367,7 @@ export default function EmailClientPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [smartSearchOpen, activeTab, nexusFullscreen, signatureDialogOpen]);
+  }, [smartSearchOpen, activeTab, nexusFullscreen, signatureDialogOpen, searchDateFrom, searchDateTo]);
   const startChatWithUser = (userId: string) => {
     setInternalChatPartner(userId);
   };
@@ -4677,8 +4690,8 @@ export default function EmailClientPage() {
 
   const executeSmartSearch = (query: string, mailboxOverride?: string, dateFromOverride?: string, dateToOverride?: string) => {
     let trimmed = query.trim();
-    let df = dateFromOverride !== undefined ? dateFromOverride : searchDateFrom;
-    let dt = dateToOverride !== undefined ? dateToOverride : searchDateTo;
+    let df = dateFromOverride !== undefined ? dateFromOverride : smartDraftDateFrom;
+    let dt = dateToOverride !== undefined ? dateToOverride : smartDraftDateTo;
 
     const dateMatch = trimmed.match(/^__date:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
     if (dateMatch) {
@@ -4689,6 +4702,7 @@ export default function EmailClientPage() {
 
     const hasDate = df || dt;
     if ((!trimmed || trimmed.length < 2) && !hasDate) return;
+    if (df && dt && df > dt) return;
     if (trimmed && trimmed.length >= 2) addRecentSearch(trimmed);
     setSearchQuery(trimmed);
     setDebouncedSearchQuery(trimmed);
@@ -4728,8 +4742,9 @@ export default function EmailClientPage() {
   const executeAiResult = (result: typeof aiSearchResult) => {
     if (!result) return;
     const q = result.searchQuery || "";
-    const df = result.dateFrom || "";
-    const dt = result.dateTo || "";
+    const df = smartDraftDateFrom || result.dateFrom || "";
+    const dt = smartDraftDateTo || result.dateTo || "";
+    if (df && dt && df > dt) return;
     if (q && q.length >= 2) addRecentSearch(smartSearchQuery.trim());
     setSearchQuery(q);
     setDebouncedSearchQuery(q);
@@ -5416,7 +5431,12 @@ export default function EmailClientPage() {
         : "flex flex-col h-[calc(100vh-56px)] overflow-hidden gap-2 px-2 pt-1 pb-0"
     )}>
       <OmniWorkspaceToolbar tabs={tabConfig} activeTab={activeTab} onTab={setActiveTab}
-        onSearch={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
+        onSearch={() => {
+          setSmartDraftDateFrom(searchDateFrom);
+          setSmartDraftDateTo(searchDateTo);
+          setSmartSearchOpen(true);
+          setTimeout(() => smartSearchInputRef.current?.focus(), 100);
+        }}
         onSettings={() => { openSignatureEditor(); setSettingsTab("accounts"); }}
         onFullscreen={() => { if (activeTab === "tasks" && selectedTask) setTaskDetailFullscreen(true); else setNexusFullscreen(prev => !prev); }}
         fullscreen={nexusFullscreen} scope={selectedGroup?.name || (selectedMailbox === "all" ? t.omniGroups.all : mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === selectedMailbox)?.displayName || selectedMailbox)}
@@ -5504,13 +5524,37 @@ export default function EmailClientPage() {
                   </div>
                   {isSearching && (
                     <div className="flex items-center gap-0.5">
+                      <Select value={searchExportFormat} onValueChange={(value: "eml" | "msg") => setSearchExportFormat(value)}>
+                        <SelectTrigger className="h-7 w-[82px] px-2 text-[10px]" aria-label={t.omniGroups.exportFormat} data-testid="search-export-format">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="eml">{t.omniGroups.exportEml}</SelectItem>
+                          <SelectItem value="msg">{t.omniGroups.exportMsg}</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] gap-1"
                         data-testid="button-export-search" title={t.omniGroups.exportAll} aria-label={t.omniGroups.exportAll}
                         disabled={searchRefreshing || searchFailed || exportSearch.isPending || !searchResults?.some(r => r.emails.length)}
-                        onClick={() => exportSearch.mutate((searchResults || []).flatMap(result =>
-                          result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))))}>
+                        onClick={() => exportSearch.mutate({ format: searchExportFormat, messages: (searchResults || []).flatMap(result =>
+                          result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))) })}>
                         {exportSearch.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
                         {exportSearch.isPending ? t.omniGroups.exporting : t.omniGroups.exportZip}
+                      </Button>
+                      <Button
+                        size="sm" variant="outline" className="h-7 px-2 text-[10px] gap-1"
+                        data-testid="button-email-search-export"
+                        disabled={searchRefreshing || searchFailed || !personalExportMailbox || !searchResults?.some(r => r.emails.length)}
+                        title={t.omniGroups.sendZip}
+                        onClick={() => {
+                          const snapshot = (searchResults || []).flatMap(result =>
+                            result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
+                          setSearchExportSnapshot(snapshot);
+                          setSearchExportEmailOpen(true);
+                        }}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {t.omniGroups.sendZip}
                       </Button>
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
@@ -6684,28 +6728,63 @@ export default function EmailClientPage() {
                   })}
                 </div>
 
-                {!aiSearchEnabled && (
+                <div className="space-y-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <DateTimePicker
-                      value={searchDateFrom}
-                      onChange={(v) => setSearchDateFrom(v)}
-                      countryCode={localeToCountry[locale] || "SK"}
-                      includeTime={false}
-                      placeholder={t.nexusOmni.filter?.from || "Od"}
-                      className="h-8 text-xs rounded-lg"
-                      data-testid="search-date-from"
-                    />
-                    <DateTimePicker
-                      value={searchDateTo}
-                      onChange={(v) => setSearchDateTo(v)}
-                      countryCode={localeToCountry[locale] || "SK"}
-                      includeTime={false}
-                      placeholder={t.nexusOmni.filter?.to || "Do"}
-                      className="h-8 text-xs rounded-lg"
-                      data-testid="search-date-to"
-                    />
+                    <label className="min-w-0 space-y-1">
+                      <span className="block text-[10px] font-medium text-muted-foreground">{t.omniGroups.dateFrom}</span>
+                      <DateTimePicker
+                        value={smartDraftDateFrom}
+                        onChange={setSmartDraftDateFrom}
+                        countryCode={localeToCountry[locale] || "SK"}
+                        includeTime={false}
+                        maxDate={smartDraftDateTo ? new Date(`${smartDraftDateTo}T00:00:00`) : undefined}
+                        placeholder={t.omniGroups.dateFrom}
+                        className="h-8 text-xs rounded-lg"
+                        data-testid="search-date-from"
+                      />
+                    </label>
+                    <label className="min-w-0 space-y-1">
+                      <span className="block text-[10px] font-medium text-muted-foreground">{t.omniGroups.dateTo}</span>
+                      <DateTimePicker
+                        value={smartDraftDateTo}
+                        onChange={setSmartDraftDateTo}
+                        countryCode={localeToCountry[locale] || "SK"}
+                        includeTime={false}
+                        minDate={smartDraftDateFrom ? new Date(`${smartDraftDateFrom}T00:00:00`) : undefined}
+                        placeholder={t.omniGroups.dateTo}
+                        className="h-8 text-xs rounded-lg"
+                        data-testid="search-date-to"
+                      />
+                    </label>
                   </div>
-                )}
+                  {smartDraftDateFrom && smartDraftDateTo && smartDraftDateFrom > smartDraftDateTo && (
+                    <p role="alert" className="text-[11px] text-destructive">{t.omniGroups.reversedDates}</p>
+                  )}
+                  {(smartDraftDateFrom || smartDraftDateTo) && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      data-testid="clear-search-dates"
+                      onClick={() => { setSmartDraftDateFrom(""); setSmartDraftDateTo(""); }}
+                    >
+                      {t.nexusOmni.email.clear}
+                    </button>
+                  )}
+                  {(smartDraftDateFrom || smartDraftDateTo) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full text-xs"
+                      data-testid="execute-date-search"
+                      disabled={!!(smartDraftDateFrom && smartDraftDateTo && smartDraftDateFrom > smartDraftDateTo)}
+                      onClick={() => executeSmartSearch(smartSearchQuery, smartSearchMailbox, smartDraftDateFrom, smartDraftDateTo)}
+                    >
+                      <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                      {t.omniGroups.applyDates}
+                    </Button>
+                  )}
+                </div>
 
                 {aiSearchEnabled && smartSearchQuery.length === 0 && (
                   <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
@@ -7206,6 +7285,15 @@ export default function EmailClientPage() {
           </>
         )}
 
+      <OmniSearchExportEmailDialog
+        open={searchExportEmailOpen}
+        onOpenChange={setSearchExportEmailOpen}
+        messages={searchExportSnapshot}
+        sender={personalExportMailbox}
+        format={searchExportFormat}
+        copy={t.omniGroups}
+        onSuccess={() => toast({ title: t.omniGroups.sendSuccess })}
+      />
 
       <Dialog open={composeOpen} onOpenChange={(open) => { setComposeOpen(open); if (!open) setComposeFullscreen(false); }}>
           <DialogContent hideCloseButton className={cn(

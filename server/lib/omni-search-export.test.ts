@@ -24,7 +24,7 @@ test("ZIP export preserves original MIME and attachments, checks inventory, and 
     headers: { "Content-Type": "application/json", ...(authorized ? { "x-test-user": "fixture" } : {}) }, body: JSON.stringify(body) });
   try {
     assert.equal((await call({ format: "eml", messages }, false)).status, 401);
-    assert.equal((await call({ format: "msg", messages })).status, 400);
+    assert.equal((await call({ format: "pdf", messages })).status, 400);
     assert.equal((await call({ format: "eml", messages: [] })).status, 400);
     assert.equal((await call({ format: "eml", messages: [{ ...messages[0], mailbox: "foreign@example.test" }] })).status, 403);
     assert.equal(calls.length, 0);

@@ -12,8 +12,8 @@ await new Promise(resolve => server.on("listening", resolve));
 const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
 page.setDefaultTimeout(15_000);
-const errors = [], searches = [], endpoints = [];
-let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1, exported;
+const errors = [], searches = [], endpoints = [], exportRequests = [];
+let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1;
 const mailboxes = [
   { id: "personal", email: "me@example.test", displayName: "Personal account", type: "personal", isDefault: true },
   { id: "support", email: "support@example.test", displayName: "Support account", type: "shared" },
@@ -37,14 +37,22 @@ await page.route("**/api/**", async route => {
     if (request.method() === "PUT") { const body = request.postDataJSON(); groups = body.groups; revision++; }
     data = { groups, revision };
   }
-  if (path === "/api/nexus/ai-search") data = { searchQuery: "invoice", explanation: "Invoice search", searchScope: "all", suggestions: [] };
+  if (path === "/api/nexus/ai-search") data = { searchQuery: "invoice", explanation: "Invoice search", searchScope: "all", dateFrom: "2020-01-01", dateTo: "2020-01-31", suggestions: [] };
   if (path.includes("ms365-search-emails")) {
-    searches.push(url.searchParams.get("mailbox"));
-    data = { connected: true, emails: [{ id: "result-1", subject: "Invoice result", from: { emailAddress: { name: "Sender", address: "sender@example.test" } },
-      toRecipients: [], receivedDateTime: "2026-11-05T10:00:00Z", isRead: true, bodyPreview: "Invoice", importance: "normal" }], totalCount: 1 };
+    searches.push({ mailbox: url.searchParams.get("mailbox"), q: url.searchParams.get("q"), dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo") });
+    data = { connected: true, emails: [
+      { id: "result-1", subject: "Invoice result", from: { emailAddress: { name: "Sender", address: "sender@example.test" } },
+        toRecipients: [], receivedDateTime: "2026-11-05T10:00:00Z", isRead: true, bodyPreview: "Invoice", importance: "normal" },
+      { id: "result-2", subject: "Second invoice", from: { emailAddress: { name: "Sender", address: "sender@example.test" } },
+        toRecipients: [], receivedDateTime: "2026-11-06T10:00:00Z", isRead: true, bodyPreview: "Invoice", importance: "normal" },
+    ], totalCount: 2 };
   }
   if (path === "/api/nexus/search-export") {
-    exported = request.postDataJSON();
+    const payload = request.postDataJSON();
+    exportRequests.push(payload);
+    if (payload.delivery) {
+      return route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ sent: true, sender: "me@example.test" }) });
+    }
     // ZIP transport fixture; original MIME/ZIP contents are checked by the HTTP tests.
     return route.fulfill({ status: 200, contentType: "application/zip",
       body: Buffer.from("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==", "base64") });
@@ -62,6 +70,16 @@ try {
   await page.getByTestId("omni-group-care").click();
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption("group:care");
+  const expectedDate = await page.evaluate(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const searchesBeforeDraft = searches.length;
+  await page.getByTestId("search-date-from").click();
+  await page.locator('[data-state="open"][data-side] button[name="day"].bg-accent').click();
+  await page.getByTestId("search-date-to").click();
+  await page.locator('[data-state="open"][data-side] button[name="day"].bg-accent').click();
+  assert.equal(searches.length, searchesBeforeDraft, "editing search dates must not immediately refetch");
   await page.getByTestId("input-smart-search").fill("Find invoices");
   // AI deliberately returns scope=all; execution MUST retain the selected group.
   await page.getByTestId("input-smart-search").press("Enter");
@@ -71,11 +89,35 @@ try {
     page.getByTestId("execute-ai-search").click(),
   ]);
   assert.ok(searches.length);
-  assert.deepEqual([...new Set(searches)], ["support@example.test"]);
+  assert.deepEqual([...new Set(searches.map(item => item.mailbox))], ["support@example.test"]);
+  assert.ok(searches.some(item => item.dateFrom === expectedDate && item.dateTo === expectedDate), "explicit dates must override AI dates");
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("button-export-search").click()]);
   assert.equal(download.suggestedFilename(), "nexus-omni-eml.zip");
-  assert.equal(exported.format, "eml");
-  assert.deepEqual(exported.messages, [{ id: "result-1", mailbox: "support@example.test", subject: "Invoice result" }]);
+  assert.equal(exportRequests.at(-1).format, "eml");
+  assert.deepEqual(exportRequests.at(-1).messages, [
+    { id: "result-1", mailbox: "support@example.test", subject: "Invoice result" },
+    { id: "result-2", mailbox: "support@example.test", subject: "Second invoice" },
+  ]);
+  await page.getByTestId("search-export-format").click();
+  await page.getByRole("option", { name: "MSG", exact: true }).click();
+  const [msgDownload] = await Promise.all([page.waitForEvent("download"), page.getByTestId("button-export-search").click()]);
+  assert.equal(msgDownload.suggestedFilename(), "nexus-omni-msg.zip");
+  assert.equal(exportRequests.at(-1).format, "msg");
+  await page.getByTestId("button-email-search-export").click();
+  assert.equal(await page.getByTestId("search-export-sender").innerText(), "me@example.test");
+  await page.getByTestId("search-export-recipient").fill("archive@example.test");
+  await page.getByTestId("search-export-subject").fill("Invoices");
+  await page.getByTestId("search-export-body").fill("Please see the attached archive.");
+  const [sendResponse] = await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/nexus/search-export") && response.request().postDataJSON()?.delivery),
+    page.getByTestId("confirm-send-search-export").click(),
+  ]);
+  assert.equal(sendResponse.status(), 202);
+  const sendPayload = exportRequests.at(-1);
+  assert.equal(sendPayload.format, "msg");
+  assert.deepEqual(sendPayload.delivery, { to: "archive@example.test", subject: "Invoices", body: "Please see the attached archive." });
+  assert.deepEqual(sendPayload.messages.map(message => message.id), ["result-1", "result-2"]);
+  await page.getByTestId("confirm-send-search-export").waitFor({ state: "hidden" });
   await page.getByTestId("button-signature").click();
   await page.locator(".omni-group-editor").waitFor();
   await page.locator(".omni-group-editor > .flex input").fill("Finance");
@@ -108,7 +150,24 @@ try {
     page.waitForResponse(response => response.url().includes("ms365-search-emails")),
     page.getByTestId("input-smart-search").press("Enter"),
   ]);
-  assert.deepEqual([...new Set(searches)], ["support@example.test"]);
+  assert.deepEqual([...new Set(searches.map(item => item.mailbox))], ["support@example.test"]);
+  // Date-only searches execute without AI parsing while AI mode remains enabled.
+  await page.getByTestId("button-smart-search").click();
+  await page.getByTestId("toggle-ai-search").click();
+  await page.getByTestId("input-smart-search").fill("");
+  await page.getByTestId("search-date-from").click();
+  await page.locator('[data-state="open"][data-side] button[name="day"].bg-accent').click();
+  await page.getByTestId("search-date-to").click();
+  await page.locator('[data-state="open"][data-side] button[name="day"].bg-accent').click();
+  const countBeforeDateOnly = searches.length;
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes("ms365-search-emails")),
+    page.getByTestId("execute-date-search").click(),
+  ]);
+  assert.equal(searches.length, countBeforeDateOnly + 1);
+  assert.equal(searches.at(-1).q, null);
+  assert.equal(searches.at(-1).dateFrom, expectedDate);
+  assert.equal(searches.at(-1).dateTo, expectedDate);
   await page.getByTestId("button-signature").click();
   const finance = page.locator(".omni-group-card").nth(1);
   await finance.getByRole("textbox").first().fill("Accounting");
@@ -126,7 +185,6 @@ try {
   assert.equal(groups.length, 1);
   await page.getByTestId("settings-close").click();
   await page.getByTestId("button-smart-search").click();
-  await page.getByTestId("toggle-ai-search").click();
   await page.locator(".omni-scope-select").selectOption("group:care");
   await mkdir("generated-artifacts/omni-groups", { recursive: true });
   await page.screenshot({ path: "generated-artifacts/omni-groups/desktop.png" });

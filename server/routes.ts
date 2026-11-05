@@ -7510,6 +7510,9 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
       const fetchAll = req.query.fetchAll === "true";
+      const { omniSearchDateRange } = await import("./lib/omni-search-dates");
+      try { omniSearchDateRange(dateFrom, dateTo); }
+      catch { return res.status(400).json({ error: "invalid_date_range" }); }
       
       const hasDateFilter = dateFrom || dateTo;
       if ((!query || query.trim().length < 2) && !hasDateFilter) {
@@ -7521,7 +7524,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
         return res.json({ connected: false, emails: [], totalCount: 0 });
       }
       
-      const { decryptTokenSafe, encryptTokenSafe } = await import("./lib/token-crypto");
+      const { decryptTokenSafe, encryptTokenWithMarker } = await import("./lib/token-crypto");
       const { getValidAccessToken, searchEmails } = await import("./lib/ms365");
       
       let accessToken: string;
@@ -7541,8 +7544,8 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
       
       if (tokenResult.refreshed && tokenResult.refreshToken) {
         await storage.updateUserMs365ConnectionTokens(userId, {
-          accessToken: encryptTokenSafe(tokenResult.accessToken),
-          refreshToken: encryptTokenSafe(tokenResult.refreshToken),
+          accessToken: encryptTokenWithMarker(tokenResult.accessToken),
+          refreshToken: encryptTokenWithMarker(tokenResult.refreshToken),
           tokenExpiresAt: tokenResult.expiresOn || new Date(Date.now() + 3600 * 1000),
         });
       }

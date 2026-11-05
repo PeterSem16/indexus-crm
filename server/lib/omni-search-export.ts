@@ -1,18 +1,20 @@
 import type { Express, RequestHandler } from "express";
-import { mkdtemp, open, rm } from "node:fs/promises";
+import { mkdtemp, open, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { availableOmniEmails } from "./omni-mailbox-group-routes";
 import { EmlZipWriter, safeEmlName } from "./omni-eml-zip";
-type Message = { id: string; mailbox: string; subject: string; personal?: boolean };
+import { createExportGraph, MAX_EMAIL_ZIP_BYTES, type ExportMessage as Message, type ExportDelivery } from "./omni-export-graph";
 type Dependencies = {
   inventory: (userId: string) => Promise<Set<string>>;
   token: (userId: string) => Promise<{ accessToken: string; personalMailbox?: string }>;
   mime: (token: string, message: Message, signal: AbortSignal) => Promise<Buffer>;
+  msg?: (token: string, message: Message, signal: AbortSignal) => Promise<Buffer>;
+  send?: (token: string, path: string, filename: string, delivery: ExportDelivery, signal: AbortSignal) => Promise<void>;
 };
 const MAX_EXPORT_BYTES = 256 * 1024 * 1024;
 export function validateExportMessages(body: any, allowed: Set<string>): Message[] {
-  if (body?.format !== "eml" || !Array.isArray(body.messages) || !body.messages.length || body.messages.length > 10_000) throw new Error("invalid_export");
+  if (!["eml", "msg"].includes(body?.format) || !Array.isArray(body.messages) || !body.messages.length || body.messages.length > 10_000) throw new Error("invalid_export");
   const unique = new Map<string, Message>();
   for (const item of body.messages) {
     if (!item || typeof item.id !== "string" || !item.id || item.id.length > 2048 ||
@@ -22,6 +24,15 @@ export function validateExportMessages(body: any, allowed: Set<string>): Message
     unique.set(`${mailbox}\0${item.id}`, { id: item.id, mailbox, subject: item.subject });
   }
   return Array.from(unique.values());
+}
+export function validateExportDelivery(value: unknown): ExportDelivery | undefined {
+  if (value === undefined) return;
+  if (!value || typeof value !== "object") throw new Error("invalid_delivery");
+  const { to, subject, body } = value as ExportDelivery;
+  if (typeof to !== "string" || to.length > 254 || !/^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(to) ||
+    typeof subject !== "string" || !subject.trim() || subject.length > 200 || /[\r\n]/.test(subject) ||
+    typeof body !== "string" || body.length > 20_000) throw new Error("invalid_delivery");
+  return { to, subject: subject.trim(), body };
 }
 export function registerOmniSearchExport(app: Express, auth: RequestHandler, deps: Dependencies) {
   const running = new Set<string>();
@@ -35,7 +46,11 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
     let directory: string | undefined;
     try {
       const messages = validateExportMessages(req.body, await deps.inventory(userId));
+      const delivery = validateExportDelivery(req.body.delivery);
       const authorization = await deps.token(userId);
+      if (delivery && (!authorization.personalMailbox || !deps.send)) throw new Error("personal_mailbox_required");
+      const format: "eml" | "msg" = req.body.format;
+      const filename = `nexus-omni-${format}.zip`;
       directory = await mkdtemp(join(tmpdir(), "omni-export-"));
       const path = join(directory, "emails.zip");
       const file = await open(path, "wx", 0o600);
@@ -45,26 +60,36 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
         for (let index = 0; index < messages.length; index++) {
           const message = messages[index];
           controller.signal.throwIfAborted();
-          const mime = await deps.mime(authorization.accessToken,
+          const getMessage = format === "msg" ? deps.msg : deps.mime;
+          if (!getMessage) throw new Error("export_failed");
+          const mime = await getMessage(authorization.accessToken,
             { ...message, personal: authorization.personalMailbox?.toLowerCase() === message.mailbox }, controller.signal);
           total += mime.length;
           if (total > MAX_EXPORT_BYTES) throw new Error("export_limit");
           if (!mime.length) throw new Error("mime_unavailable");
-          const filename = `${String(index + 1).padStart(5, "0")}-${safeEmlName(message.subject)}.eml`;
-          await zip.add(`${safeEmlName(message.mailbox)}/${filename}`, mime);
+          const entryName = `${String(index + 1).padStart(5, "0")}-${safeEmlName(message.subject)}.${format}`;
+          await zip.add(`${safeEmlName(message.mailbox)}/${entryName}`, mime);
         }
         await zip.finish();
       } finally { await file.close(); }
       res.setHeader("Cache-Control", "no-store");
-      await new Promise<void>(resolve => res.download(path, "nexus-omni-eml.zip", error => {
+      if (delivery) {
+        if ((await stat(path)).size > MAX_EMAIL_ZIP_BYTES) throw new Error("email_export_limit");
+        controller.signal.throwIfAborted();
+        await deps.send!(authorization.accessToken, path, filename, delivery, controller.signal);
+        res.status(202).json({ sent: true, sender: authorization.personalMailbox });
+        return;
+      }
+      await new Promise<void>(resolve => res.download(path, filename, error => {
         if (error && !res.headersSent && !res.destroyed) res.status(502).json({ error: "export_failed" });
         resolve();
       }));
     } catch (error) {
       if (!res.headersSent && !res.destroyed) {
         const code = (error as Error).message;
-        const status = code === "mailbox_forbidden" ? 403 : code === "invalid_export" ? 400 : code === "export_limit" ? 413 : 502;
-        res.status(status).json({ error: ["mailbox_forbidden", "invalid_export", "export_limit"].includes(code) ? code : "export_failed" });
+        const status = ["mailbox_forbidden", "personal_mailbox_required"].includes(code) ? 403 :
+          ["invalid_export", "invalid_delivery"].includes(code) ? 400 : ["export_limit", "email_export_limit"].includes(code) ? 413 : 502;
+        res.status(status).json({ error: ["mailbox_forbidden", "personal_mailbox_required", "invalid_export", "invalid_delivery", "export_limit", "email_export_limit"].includes(code) ? code : "export_failed" });
       }
     } finally {
       res.off("close", abort); running.delete(userId);
@@ -89,22 +114,8 @@ export function createOmniExportDependencies(storage: any): Dependencies {
       });
       return { accessToken: result.accessToken, personalMailbox: connection.email };
     },
-    mime: async (token, message, signal) => {
-      const base = message.personal ? "/me" : `/users/${encodeURIComponent(message.mailbox)}`;
-      const response = await fetch(`https://graph.microsoft.com/v1.0${base}/messages/${encodeURIComponent(message.id)}/$value`,
-        { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]) });
-      if (!response.ok || !response.body) throw new Error("mime_unavailable");
-      const reader = response.body.getReader(), chunks: Buffer[] = [];
-      let size = 0;
-      try {
-        for (;;) {
-          const part = await reader.read(); if (part.done) break;
-          size += part.value.byteLength;
-          if (size > 50 * 1024 * 1024) throw new Error("export_limit");
-          chunks.push(Buffer.from(part.value));
-        }
-      } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
-      return Buffer.concat(chunks);
-    },
+    mime: (token, message, signal) => createExportGraph(token, signal).message(message, "eml"),
+    msg: (token, message, signal) => createExportGraph(token, signal).message(message, "msg"),
+    send: (token, path, filename, delivery, signal) => createExportGraph(token, signal).send(path, filename, delivery),
   };
 }

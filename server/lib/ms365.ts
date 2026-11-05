@@ -6,6 +6,7 @@
 import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest, CryptoProvider } from '@azure/msal-node';
 import { Client } from '@microsoft/microsoft-graph-client';
 import { sendWithMs365Evidence, type Ms365SendEvidence } from './ms365-send-evidence';
+import { omniSearchDateRange } from './omni-search-dates';
 
 // Configuration from environment variables (secrets)
 const MS365_CONFIG = {
@@ -738,6 +739,7 @@ export async function searchEmails(
   dateTo?: string,
   fetchAll: boolean = false
 ): Promise<{ emails: any[]; totalCount: number }> {
+  const range = omniSearchDateRange(dateFrom, dateTo);
   const client = createGraphClient(accessToken);
   const basePath = mailboxEmail ? `/users/${mailboxEmail}` : '/me';
   
@@ -761,18 +763,21 @@ export async function searchEmails(
       .top(pageSize);
     
     if (sanitizedQuery) {
-      request = request.search(`"${sanitizedQuery}"`);
+      // Apply dates at Microsoft before result limits, not only to fetched rows.
+      const terms = [hasDateFilter ? `(${sanitizedQuery})` : sanitizedQuery, ...(range.start ? [`received>=${range.start}`] : []),
+        ...(range.end ? [`received<${range.end}`] : [])];
+      request = request.search(`"${terms.join(" AND ")}"`);
     } else {
       request = request.orderby('receivedDateTime desc');
     }
     
     if (hasDateFilter && !sanitizedQuery) {
       const filters: string[] = [];
-      if (dateFrom) {
-        filters.push(`receivedDateTime ge ${dateFrom}T00:00:00Z`);
+      if (range.start) {
+        filters.push(`receivedDateTime ge ${range.start}`);
       }
-      if (dateTo) {
-        filters.push(`receivedDateTime le ${dateTo}T23:59:59Z`);
+      if (range.end) {
+        filters.push(`receivedDateTime lt ${range.end}`);
       }
       request = request.filter(filters.join(' and '));
     }
@@ -792,24 +797,23 @@ export async function searchEmails(
         nextLink = nextResult['@odata.nextLink'] || null;
         page++;
       } catch (pageError) {
-        console.error(`[MS365] Error fetching search page ${page}:`, pageError);
-        break;
+        throw new Error("email_search_failed");
       }
     }
     
     if (hasDateFilter && sanitizedQuery) {
       allEmails = allEmails.filter(email => {
         const received = new Date(email.receivedDateTime);
-        if (dateFrom && received < new Date(`${dateFrom}T00:00:00Z`)) return false;
-        if (dateTo && received > new Date(`${dateTo}T23:59:59Z`)) return false;
+        if (!Number.isFinite(received.getTime())) return false;
+        if (range.start && received < new Date(range.start)) return false;
+        if (range.end && received >= new Date(range.end)) return false;
         return true;
       });
     }
     
     return { emails: allEmails, totalCount: allEmails.length, hasMore: !!nextLink } as any;
   } catch (error) {
-    console.error(`[MS365] Error searching emails:`, error);
-    return { emails: [], totalCount: 0 };
+    throw new Error("email_search_failed");
   }
 }
 
