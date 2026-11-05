@@ -89,6 +89,35 @@ try {
   // AI deliberately returns scope=all; execution MUST retain the selected group.
   await page.getByTestId("input-smart-search").press("Enter");
   await page.getByTestId("smart-search-panel").getByText("Invoice search", { exact: true }).waitFor();
+  // Test the actual composed CSS, not the old violet class names. Check both
+  // the primary action and the smaller query text in light and dark mode.
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle("dark", dark), dark);
+    for (const hover of [false, true]) {
+      if (hover) await page.getByTestId("execute-ai-search").hover();
+      else await page.mouse.move(0, 0);
+      await page.waitForTimeout(220); // settle the button's color transition
+      const ratios = await page.getByTestId("execute-ai-search").evaluate(button => {
+        const rgb = value => value.match(/[\d.]+/g).map(Number);
+        const luminance = values => values.slice(0, 3).map(n => n / 255)
+          .map(n => n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4)
+          .reduce((sum, n, index) => sum + n * [.2126, .7152, .0722][index], 0);
+        const background = rgb(getComputedStyle(button).backgroundColor);
+        return [button, ...button.querySelectorAll("p")].map(node => {
+          const foreground = rgb(getComputedStyle(node).color), alpha = foreground[3] ?? 1;
+          const blended = foreground.slice(0, 3).map((n, index) => n * alpha + background[index] * (1 - alpha));
+          const a = luminance(background), b = luminance(blended);
+          return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
+        });
+      });
+      assert.ok(ratios.every(ratio => ratio >= 4.5), `AI action contrast dark=${dark} hover=${hover}: ${ratios}`);
+    }
+  }
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(220);
+  await mkdir("generated-artifacts/omni-search", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/omni-search/ai-action-contrast.png" });
   await Promise.all([
     page.waitForResponse(response => response.url().includes("ms365-search-emails")),
     page.getByTestId("execute-ai-search").click(),

@@ -6895,13 +6895,13 @@ export default function EmailClientPage() {
 
                       <button
                         onClick={() => executeAiResult(aiSearchResult)}
-                        className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700 transition-all shadow-lg shadow-violet-500/25 group"
+                        className="omni-ai-submit w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white transition-all shadow-lg group"
                         data-testid="execute-ai-search"
                       >
                         <Search className="h-5 w-5" />
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-sm font-semibold">{t.nexusOmni.search.executeAiSearch}</p>
-                          <p className="text-[11px] text-white/60 truncate">{aiSearchResult.searchQuery || `${aiSearchResult.dateFrom} — ${aiSearchResult.dateTo}`}</p>
+                          <p className="text-[11px] text-white/90 truncate">{aiSearchResult.searchQuery || `${aiSearchResult.dateFrom} — ${aiSearchResult.dateTo}`}</p>
                         </div>
                         <ArrowRight className="h-5 w-5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
                       </button>

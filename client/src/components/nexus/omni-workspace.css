@@ -41,6 +41,9 @@
 .omni-scope-select { width: 100%; min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 9px 10px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 12px; }
 .omni-group-label { color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: .075em; font-size: 10px; font-weight: 600; margin: 4px 0 8px; }
 .omni-search-panel { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.omni-search-panel .omni-ai-submit { background: #346b61; color: #fff; box-shadow: 0 5px 16px rgb(52 107 97 / .18); }
+.omni-search-panel .omni-ai-submit:hover { background: #28564e; }
+.omni-search-panel .omni-ai-submit:focus-visible { outline: 2px solid #346b61; outline-offset: 3px; }
 .omni-search-panel > div:first-child { background: hsl(var(--card)); }
 .omni-search-panel :is([class*="text-violet"], [class*="text-purple"], [class*="text-indigo"]) { color: hsl(var(--omni-ai)); }
 .omni-search-panel :is([class*="bg-violet"], [class*="bg-purple"], [class*="bg-indigo"], [class*="from-violet"], [class*="via-purple"]) { background-image: none; background-color: hsl(var(--omni-ai-surface)); }
