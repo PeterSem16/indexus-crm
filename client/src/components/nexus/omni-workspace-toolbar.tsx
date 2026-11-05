@@ -13,7 +13,7 @@ export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSetti
   return <header className="omni-top">
     <div className="omni-toolbar">
       <div className="omni-brand"><div className="omni-brand-mark"><Network className="h-4 w-4" /></div>
-        <h1>INDEXUS <span>/ {t.nexusOmni.title}</span></h1>
+        <h1>{t.nexusOmni.title}</h1>
       </div>
       <nav className="omni-channel-tabs" aria-label={t.nexusOmni.title} data-testid="nexus-tabs">
         {tabs.map(tab => <button type="button" key={tab.key} onClick={() => onTab(tab.key)} data-testid={`tab-${tab.key}`}
@@ -24,6 +24,10 @@ export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSetti
       </nav>
       <div className="omni-toolbar-actions">
         {chatError && <Button size="sm" variant="outline" onClick={onChatRetry}>{t.common.refresh}</Button>}
+        <Button variant="outline" size="icon" onClick={onSearch} data-testid="button-smart-search"
+          aria-label={t.nexusOmni.search.searchInEmails} title={`${t.nexusOmni.search.searchInEmails} · Ctrl K\n${t.omniGroups.scope}: ${scope}`}>
+          <Search className="h-4 w-4" />
+        </Button>
         {activeTab === "email" && <Button variant="outline" size="icon" title={t.nexusOmni.settings.accounts} aria-label={t.nexusOmni.settings.accounts}
           onClick={onSettings} data-testid="button-signature"><Settings className="h-4 w-4" /></Button>}
         <Button variant="outline" size="icon" title={fullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen}
@@ -32,13 +36,6 @@ export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSetti
         </Button>
         {activeTab === "email" && <Button onClick={onCompose} data-testid="button-compose"><PenSquare className="h-4 w-4 mr-2" />{t.nexusOmni.common.newMessage}</Button>}
       </div>
-    </div>
-    <div className="omni-searchbar">
-      <button type="button" className="omni-search-launch" onClick={onSearch} data-testid="button-smart-search">
-        <Search className="h-4 w-4 shrink-0" /><span>{t.nexusOmni.search.searchInEmails}</span>
-        <kbd>Ctrl K</kbd>
-      </button>
-      <span className="omni-statusline" title={scope}>{t.omniGroups.scope}: {scope}</span>
     </div>
   </header>;
 }

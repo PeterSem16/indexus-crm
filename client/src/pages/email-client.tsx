@@ -3908,7 +3908,7 @@ export default function EmailClientPage() {
   });
   const saveNexusSubfolders = saveNexusFolderItems.filter((item: any) => item.folder);
 
-  const { data: searchResults, isLoading: searchLoading, isError: searchFailed, refetch: retrySearch } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
+  const { data: searchResults, isLoading: searchLoading, isFetching: searchRefreshing, isError: searchFailed, refetch: retrySearch } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo, mailboxScopeFingerprint, groupScopeFingerprint],
     queryFn: async () => {
       const hasQuery = debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2;
@@ -3942,6 +3942,25 @@ export default function EmailClientPage() {
     enabled: !!user?.id && isSearching && (
       (!!debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) || !!searchDateFrom || !!searchDateTo
     ),
+  });
+
+  const exportSearch = useMutation({
+    mutationFn: async (messages: { id: string; mailbox: string; subject: string }[]) => {
+      const response = await fetch("/api/nexus/search-export", {
+        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format: "eml", messages }),
+      });
+      if (!response.ok) throw new Error(response.status === 413 ? t.omniGroups.exportLimit : t.omniGroups.exportError);
+      if (!response.headers.get("content-type")?.includes("application/zip")) throw new Error(t.omniGroups.exportError);
+      const blob = await response.blob();
+      if (!blob.size) throw new Error(t.omniGroups.exportError);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = "nexus-omni-eml.zip";
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    },
+    onError: (error: Error) => toast({ title: t.nexusOmni.common.error, description: error.message, variant: "destructive" }),
   });
 
   const handleSearch = () => {
@@ -5485,6 +5504,14 @@ export default function EmailClientPage() {
                   </div>
                   {isSearching && (
                     <div className="flex items-center gap-0.5">
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] gap-1"
+                        data-testid="button-export-search" title={t.omniGroups.exportAll} aria-label={t.omniGroups.exportAll}
+                        disabled={searchRefreshing || searchFailed || exportSearch.isPending || !searchResults?.some(r => r.emails.length)}
+                        onClick={() => exportSearch.mutate((searchResults || []).flatMap(result =>
+                          result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))))}>
+                        {exportSearch.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                        {exportSearch.isPending ? t.omniGroups.exporting : t.omniGroups.exportZip}
+                      </Button>
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>

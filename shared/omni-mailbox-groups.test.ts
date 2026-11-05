@@ -24,3 +24,10 @@ test("forged, duplicate, oversized, invalid and revoked entries are rejected", (
     assert.throws(() => validateMailboxGroups(invalid, allowed));
   }
 });
+test("group icon and color round-trip while legacy groups remain compatible", () => {
+  const value = [{ id: "a", name: "A", emails: [], icon: "rocket", color: "#14B8A6" }];
+  assert.deepEqual(validateMailboxGroups(value, allowed), value);
+  for (const settings of [{ icon: "javascript:bad" }, { color: "red;display:none" }, { color: "#fff" }]) {
+    assert.throws(() => validateMailboxGroups([{ id: "a", name: "A", emails: [], ...settings }], allowed));
+  }
+});

@@ -13,7 +13,7 @@ const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromiu
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
 page.setDefaultTimeout(15_000);
 const errors = [], searches = [], endpoints = [];
-let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1;
+let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1, exported;
 const mailboxes = [
   { id: "personal", email: "me@example.test", displayName: "Personal account", type: "personal", isDefault: true },
   { id: "support", email: "support@example.test", displayName: "Support account", type: "shared" },
@@ -40,13 +40,25 @@ await page.route("**/api/**", async route => {
   if (path === "/api/nexus/ai-search") data = { searchQuery: "invoice", explanation: "Invoice search", searchScope: "all", suggestions: [] };
   if (path.includes("ms365-search-emails")) {
     searches.push(url.searchParams.get("mailbox"));
-    data = { connected: true, emails: [], totalCount: 0 };
+    data = { connected: true, emails: [{ id: "result-1", subject: "Invoice result", from: { emailAddress: { name: "Sender", address: "sender@example.test" } },
+      toRecipients: [], receivedDateTime: "2026-11-05T10:00:00Z", isRead: true, bodyPreview: "Invoice", importance: "normal" }], totalCount: 1 };
+  }
+  if (path === "/api/nexus/search-export") {
+    exported = request.postDataJSON();
+    // ZIP transport fixture; original MIME/ZIP contents are checked by the HTTP tests.
+    return route.fulfill({ status: 200, contentType: "application/zip",
+      body: Buffer.from("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==", "base64") });
   }
   await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
 });
 try {
   await page.goto(`http://127.0.0.1:${server.address().port}/email`, { waitUntil: "domcontentloaded" });
   await page.getByTestId("button-smart-search").waitFor();
+  assert.equal(await page.locator(".omni-top h1").innerText(), "NEXUS Omni");
+  assert.equal(await page.locator(".omni-searchbar").count(), 0);
+  const searchButton = await page.getByTestId("button-smart-search").boundingBox();
+  const settingsButton = await page.getByTestId("button-signature").boundingBox();
+  assert.equal(searchButton.y, settingsButton.y);
   await page.getByTestId("omni-group-care").click();
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption("group:care");
@@ -60,21 +72,33 @@ try {
   ]);
   assert.ok(searches.length);
   assert.deepEqual([...new Set(searches)], ["support@example.test"]);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("button-export-search").click()]);
+  assert.equal(download.suggestedFilename(), "nexus-omni-eml.zip");
+  assert.equal(exported.format, "eml");
+  assert.deepEqual(exported.messages, [{ id: "result-1", mailbox: "support@example.test", subject: "Invoice result" }]);
   await page.getByTestId("button-signature").click();
   await page.locator(".omni-group-editor").waitFor();
   await page.locator(".omni-group-editor > .flex input").fill("Finance");
   await page.locator(".omni-group-editor > .flex button").first().click();
   const groupCard = page.locator(".omni-group-editor .omni-group-card").last();
+  await groupCard.locator(".omni-group-palette").first().getByRole("button").nth(13).click();
+  await groupCard.locator(".omni-group-palette").nth(1).getByRole("button").nth(7).click();
   await groupCard.getByText("Billing account", { exact: true }).click();
   await Promise.all([
     page.waitForResponse(response => response.url().endsWith("/api/nexus/mailbox-groups") && response.request().method() === "PUT"),
     page.locator(".omni-group-editor > .flex.justify-end button").last().click(),
   ]);
   assert.ok(groups.some(g => g.name === "Finance" && g.emails.includes("billing@example.test")));
+  assert.ok(groups.some(g => g.name === "Finance" && g.icon === "rocket" && g.color === "#14B8A6"));
   await page.getByTestId("settings-close").click();
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByTestId("button-smart-search").waitFor();
-  assert.ok(await page.getByRole("button", { name: "Finance", exact: true }).count());
+  await page.getByRole("button", { name: "Finance", exact: true }).waitFor();
+  const financeMark = page.getByRole("button", { name: "Finance", exact: true }).locator(".omni-group-mark");
+  assert.equal(await financeMark.evaluate(el => getComputedStyle(el).color), "rgb(20, 184, 166)");
+  assert.equal(await financeMark.locator(".omni-group-badge").count(), 1);
+  await mkdir("generated-artifacts/omni-groups", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/omni-groups/compact-toolbar.png" });
   // Ordinary search uses exactly the same scope as AI search.
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption("group:care");
@@ -87,13 +111,13 @@ try {
   assert.deepEqual([...new Set(searches)], ["support@example.test"]);
   await page.getByTestId("button-signature").click();
   const finance = page.locator(".omni-group-card").nth(1);
-  await finance.getByRole("textbox").fill("Accounting");
+  await finance.getByRole("textbox").first().fill("Accounting");
   await Promise.all([
     page.waitForResponse(response => response.url().endsWith("/api/nexus/mailbox-groups") && response.request().method() === "PUT"),
     page.locator(".omni-group-editor > .flex.justify-end button").last().click(),
   ]);
   assert.ok(groups.some(g => g.name === "Accounting"));
-  await finance.locator('button[aria-label]').click();
+  await finance.locator(":scope > div").first().getByRole("button").click();
   await finance.locator('[role="alert"] button').first().click();
   await Promise.all([
     page.waitForResponse(response => response.url().endsWith("/api/nexus/mailbox-groups") && response.request().method() === "PUT"),

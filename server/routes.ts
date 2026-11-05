@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerOmniMailboxGroupRoutes, availableOmniEmails } from "./lib/omni-mailbox-group-routes";
+import { registerOmniSearchExport, createOmniExportDependencies } from "./lib/omni-search-export";
 import { createCustomerEmailHandler } from "./lib/customer-email-handler";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
 import { prepareContactHistory } from "./lib/contact-history-scope";
@@ -6151,6 +6152,7 @@ export async function registerRoutes(
   });
 
   registerOmniMailboxGroupRoutes(app, requireAuth, storage, pool);
+  registerOmniSearchExport(app, requireAuth, createOmniExportDependencies(storage));
 
   // Get all available mailboxes for sending (user's own + shared)
   app.get("/api/users/:userId/ms365-available-mailboxes", requireAuth, async (req, res) => {

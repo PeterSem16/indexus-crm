@@ -1,4 +1,5 @@
-export interface OmniMailboxGroup { id: string; name: string; emails: string[] }
+export interface OmniMailboxGroup { id: string; name: string; emails: string[]; icon?: string; color?: string }
+export const OMNI_GROUP_ICON_KEYS = ["mail", "inbox", "user", "users", "office", "globe", "briefcase", "shield", "heart", "star", "fire", "bell", "gem", "rocket", "crown"];
 export interface OmniGroupSettings { groups: OmniMailboxGroup[]; revision: number }
 export interface ScopeMailbox { email: string; type: string }
 export const groupScope = (id: string) => `group:${id}`;
@@ -12,9 +13,13 @@ export function validateMailboxGroups(value: unknown, allowed: Set<string>): Omn
         !Array.isArray(group.emails) || group.emails.length > 100 ||
         group.emails.some((email: unknown) => typeof email !== "string")) throw new Error("invalid_groups");
     ids.add(group.id);
+    if (group.icon !== undefined && !OMNI_GROUP_ICON_KEYS.includes(group.icon)) throw new Error("invalid_groups");
+    if (group.color !== undefined && (typeof group.color !== "string" || !/^#[0-9a-f]{6}$/i.test(group.color))) throw new Error("invalid_groups");
     const emails = Array.from(new Set<string>(group.emails.map((email: string) => email.trim().toLowerCase())));
     if (emails.some(email => !allowed.has(email))) throw new Error("mailbox_forbidden");
-    return { id: group.id, name: group.name.trim(), emails };
+    return { id: group.id, name: group.name.trim(), emails,
+      ...(group.icon !== undefined ? { icon: group.icon } : {}),
+      ...(group.color !== undefined ? { color: group.color } : {}) };
   });
 }
 /** Resolve only against the current authorized mailbox inventory. Unknown groups stay empty. */

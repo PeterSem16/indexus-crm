@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { OmniMailboxGroup } from "@shared/omni-mailbox-groups";
+import { AccountIcon, getAccountIcons } from "./nexus-sidebar";
+import { OmniGroupMark } from "./omni-group-mark";
 
 interface Props {
   groups: OmniMailboxGroup[];
@@ -34,11 +36,24 @@ export function OmniMailboxGroups({ groups, mailboxes, onSave }: Props) {
     {draft.length >= 30 && <p>{c.maxGroups}</p>}
     {!draft.length && <p className="py-3 text-sm text-muted-foreground">{c.empty}</p>}
     {draft.map(group => <div className="omni-group-card" key={group.id}>
-      <div className="flex items-center gap-2 border-b p-3"><FolderOpen className="h-4 w-4 shrink-0" />
+      <div className="flex items-center gap-2 border-b p-3"><OmniGroupMark group={group} />
         <Input aria-label={c.name} value={group.name} maxLength={80} disabled={busy}
           onChange={e => setDraft(draft.map(g => g.id === group.id ? { ...g, name: e.target.value } : g))} />
         <span className="text-xs text-muted-foreground">{group.emails.length}</span>
         <Button size="icon" variant="ghost" disabled={busy} aria-label={`${c.remove}: ${group.name}`} onClick={() => setConfirmId(group.id)}><Trash2 className="h-4 w-4" /></Button>
+      </div>
+      <div className="omni-group-palette" role="group" aria-label={c.groupIcon}>
+        {getAccountIcons(t).map(icon => <button key={icon.key} type="button" disabled={busy} title={icon.label}
+          aria-label={icon.label} aria-pressed={(group.icon || "users") === icon.key} onClick={() => setDraft(draft.map(g => g.id === group.id ? { ...g, icon: icon.key } : g))}>
+          <AccountIcon iconKey={icon.key} className="h-4 w-4" />
+        </button>)}
+      </div>
+      <div className="omni-group-palette" role="group" aria-label={c.groupColor}>
+        {["#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#0EA5E9", "#14B8A6", "#F97316", "#6366F1", "#84CC16", "#6B7280"].map(color =>
+          <button type="button" key={color} disabled={busy} aria-label={`${c.groupColor} ${color}`} aria-pressed={group.color?.toLowerCase() === color.toLowerCase()}
+            style={{ backgroundColor: color }} onClick={() => setDraft(draft.map(g => g.id === group.id ? { ...g, color } : g))} />)}
+        <input type="color" aria-label={c.groupColor} disabled={busy} value={group.color || "#346B61"}
+          onChange={e => setDraft(draft.map(g => g.id === group.id ? { ...g, color: e.target.value } : g))} />
       </div>
       {confirmId === group.id && <div className="p-3 bg-muted text-sm" role="alert">
         <p>{c.deleteQuestion}</p><div className="flex gap-2 mt-2">
