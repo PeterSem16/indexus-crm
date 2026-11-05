@@ -4,9 +4,11 @@ import assert from "node:assert/strict";
 import express from "express";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
+import { resolve } from "node:path";
 const app = express();
-app.use(express.static("dist/public"));
-app.use((_, res) => res.sendFile(process.cwd() + "/dist/public/index.html"));
+const bundleDirectory = resolve(process.env.OMNI_TEST_DIST || "dist/public");
+app.use(express.static(bundleDirectory));
+app.use((_, res) => res.sendFile(resolve(bundleDirectory, "index.html")));
 const server = app.listen(0, "127.0.0.1");
 await new Promise(resolve => server.on("listening", resolve));
 const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
@@ -14,6 +16,10 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 950 
 const page = await context.newPage();
 page.setDefaultTimeout(15_000);
 const errors = [], searches = [], endpoints = [], exportRequests = [];
+const expectSelectionCount = async (selected, total) => {
+  const label = await page.getByTestId("omni-search-selection-count").innerText();
+  assert.deepEqual((label.match(/\d+/g) || []).map(Number), [selected, total]);
+};
 let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1;
 let smsIsAdmin = true, canManageTaskSettings = true;
 const mailboxes = [
@@ -137,6 +143,34 @@ try {
   const [msgDownload] = await Promise.all([page.waitForEvent("download"), page.getByTestId("button-export-search").click()]);
   assert.equal(msgDownload.suggestedFilename(), "nexus-omni-msg.zip");
   assert.equal(exportRequests.at(-1).format, "msg");
+  await expectSelectionCount(2, 2);
+  assert.equal(await page.getByTestId("omni-search-select-all").getAttribute("data-state"), "checked");
+  await page.getByTestId("omni-search-select-all").click();
+  await expectSelectionCount(0, 2);
+  assert.equal(await page.getByTestId("button-export-search").isDisabled(), true);
+  assert.equal(await page.getByTestId("button-email-search-export").isDisabled(), true);
+  const secondCheckbox = page.locator('[data-testid="omni-search-select-message"][data-message-id="result-2"]');
+  await secondCheckbox.click();
+  await expectSelectionCount(1, 2);
+  assert.equal(await page.getByTestId("omni-search-select-all").getAttribute("data-state"), "indeterminate");
+  assert.ok(!(await page.getByTestId("search-email-item-result-2").getAttribute("class")).split(/\s+/).includes("bg-accent"),
+    "selecting an export checkbox must not open the email preview");
+  const [selectedDownload] = await Promise.all([page.waitForEvent("download"), page.getByTestId("button-export-search").click()]);
+  assert.equal(selectedDownload.suggestedFilename(), "nexus-omni-msg.zip");
+  assert.deepEqual(exportRequests.at(-1).messages, [{ id: "result-2", mailbox: "support@example.test", subject: "Second invoice" }]);
+  for (const [label, width, height, dark] of [["desktop", 1440, 950, false], ["dark", 1440, 950, true], ["mobile", 390, 844, false]]) {
+    await page.setViewportSize({ width, height });
+    await page.evaluate(dark => document.documentElement.classList.toggle("dark", dark), dark);
+    await page.waitForTimeout(220);
+    const checkboxSize = await page.getByTestId("omni-search-select-all").evaluate(element => ({
+      width: getComputedStyle(element).width, height: getComputedStyle(element).height,
+    }));
+    assert.deepEqual(checkboxSize, { width: "16px", height: "16px" }, "production CSS must be applied, not just markup");
+    const overflowing = await page.getByTestId("omni-search-results-header").evaluate(header => header.scrollWidth > header.clientWidth + 1);
+    assert.equal(overflowing, false, `selection header overflow: ${label}`);
+    await page.screenshot({ path: `generated-artifacts/omni-search/selection-${label}.png` });
+  }
+  await page.setViewportSize({ width: 1440, height: 950 });
   await page.getByTestId("button-email-search-export").click();
   assert.equal(await page.getByTestId("search-export-sender").innerText(), "me@example.test");
   await page.getByTestId("search-export-recipient").fill("archive@example.test");
@@ -150,8 +184,10 @@ try {
   const sendPayload = exportRequests.at(-1);
   assert.equal(sendPayload.format, "msg");
   assert.deepEqual(sendPayload.delivery, { to: "archive@example.test", subject: "Invoices", body: "Please see the attached archive." });
-  assert.deepEqual(sendPayload.messages.map(message => message.id), ["result-1", "result-2"]);
+  assert.deepEqual(sendPayload.messages, [{ id: "result-2", mailbox: "support@example.test", subject: "Second invoice" }]);
   await page.getByTestId("confirm-send-search-export").waitFor({ state: "hidden" });
+  await page.getByTestId("omni-search-select-all").click();
+  await expectSelectionCount(2, 2);
   await page.getByTestId("button-signature").click();
   await page.locator(".omni-group-editor").waitFor();
   await page.locator(".omni-group-editor > .flex input").fill("Finance");

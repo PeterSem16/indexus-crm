@@ -17,6 +17,7 @@ import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
 import { OmniSearchResultsHeader } from "@/components/nexus/omni-search-results-header";
 import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
 import { snapshotOmniExportSearchContext, type OmniExportSearchContext } from "@/lib/omni-export-search-context";
+import { omniSearchMessageKey, omniSearchExportMessages, selectedOmniSearchMessages, toggleOmniSearchMessage, pruneOmniSearchSelection, type OmniSearchSelection } from "@/lib/omni-search-selection";
 import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
 import { groupScope, resolveMailboxScope, type OmniGroupReplyTemplate, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
 import { defaultOmniGroupReplyTemplate } from "@/components/nexus/omni-reply-template";
@@ -3261,12 +3262,14 @@ export default function EmailClientPage() {
   const [smartDraftDateTo, setSmartDraftDateTo] = useState("");
   const [searchExportFormat, setSearchExportFormat] = useState<"eml" | "msg">("eml");
   const [searchExportEmailOpen, setSearchExportEmailOpen] = useState(false);
+  const [searchSelection, setSearchSelection] = useState<OmniSearchSelection>(null);
   const [searchExportSnapshot, setSearchExportSnapshot] = useState<{
     messages: { id: string; mailbox: string; subject: string }[];
+    format: "eml" | "msg";
     groupName?: string;
     replyTemplate?: OmniGroupReplyTemplate;
     searchContext?: OmniExportSearchContext;
-  }>({ messages: [] });
+  }>({ messages: [], format: "eml" });
   const [aiSearchEnabled, setAiSearchEnabled] = useState(() => {
     try { return localStorage.getItem("nexus-ai-search") !== "false"; } catch { return true; }
   });
@@ -3975,8 +3978,25 @@ export default function EmailClientPage() {
     ),
   });
 
+  const searchSelectionScope = JSON.stringify([user?.id, debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo, mailboxScopeFingerprint, groupScopeFingerprint]);
+  const allSearchExportMessages = useMemo(() => omniSearchExportMessages(searchResults || []), [searchResults]);
+  const selectedSearchExportMessages = useMemo(
+    () => selectedOmniSearchMessages(allSearchExportMessages, searchSelection, searchSelectionScope),
+    [allSearchExportMessages, searchSelection, searchSelectionScope],
+  );
+  const selectedSearchExportKeys = useMemo(
+    () => new Set(selectedSearchExportMessages.map(omniSearchMessageKey)), [selectedSearchExportMessages],
+  );
+  useEffect(() => {
+    setSearchSelection(current => current && current.scope !== searchSelectionScope ? null : current);
+    if (searchResults && !searchRefreshing && !searchFailed) {
+      setSearchSelection(current => pruneOmniSearchSelection(allSearchExportMessages, current, searchSelectionScope));
+    }
+  }, [searchResults, searchRefreshing, searchFailed, allSearchExportMessages, searchSelectionScope]);
+
   const exportSearch = useMutation({
     mutationFn: async ({ messages, format: exportFormat }: { messages: { id: string; mailbox: string; subject: string }[]; format: "eml" | "msg" }) => {
+      if (!messages.length) throw new Error(t.omniGroups.exportError);
       const response = await fetch("/api/nexus/search-export", {
         method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format: exportFormat, messages }),
@@ -4008,6 +4028,7 @@ export default function EmailClientPage() {
   };
 
   const clearSearch = () => {
+    setSearchSelection(null);
     setSearchQuery("");
     setDebouncedSearchQuery("");
     setSearchDateFrom("");
@@ -5542,7 +5563,7 @@ export default function EmailClientPage() {
                     exportEml: t.omniGroups.exportEml,
                     exportMsg: t.omniGroups.exportMsg,
                     exportZip: t.omniGroups.exportZip,
-                    exportAll: t.omniGroups.exportAll,
+                    exportAll: t.omniGroups.exportSelected,
                     exporting: t.omniGroups.exporting,
                     sendZip: t.omniGroups.sendZip,
                     sendByEmail: t.omniGroups.sendByEmail,
@@ -5560,16 +5581,25 @@ export default function EmailClientPage() {
                   failed={searchFailed}
                   exporting={exportSearch.isPending}
                   hasPersonalAccount={!!personalExportMailbox}
+                  selection={{
+                    selectedCount: selectedSearchExportMessages.length,
+                    totalCount: allSearchExportMessages.length,
+                    disabled: exportSearch.isPending || searchExportEmailOpen,
+                    copy: { selectAll: t.omniGroups.selectAllResults, selectedCount: t.omniGroups.selectedResultsCount },
+                    onToggleAll: checked => setSearchSelection({
+                      scope: searchSelectionScope,
+                      keys: new Set(checked ? allSearchExportMessages.map(omniSearchMessageKey) : []),
+                    }),
+                  }}
                   expanded={searchPanelExpanded}
                   onClear={clearSearch}
                   onExport={() => exportSearch.mutate({
                     format: searchExportFormat,
-                    messages: (searchResults || []).flatMap(result =>
-                      result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))),
+                    messages: selectedSearchExportMessages,
                   })}
                   onSend={() => {
-                    const messages = (searchResults || []).flatMap(result =>
-                      result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
+                    const messages = selectedSearchExportMessages;
+                    if (!messages.length) return;
                     const executedCriteria = searchResults?.[0]?.criteria;
                     const executedGroup = mailboxGroups.find(group => groupScope(group.id) === (executedCriteria?.scope ?? searchMailbox));
                     const replyTemplate = executedGroup
@@ -5580,6 +5610,7 @@ export default function EmailClientPage() {
                       : undefined;
                     setSearchExportSnapshot({
                       messages,
+                      format: searchExportFormat,
                       ...(executedCriteria ? {
                         searchContext: snapshotOmniExportSearchContext(executedCriteria, (searchResults || []).map(result => result.mailbox)),
                       } : {}),
@@ -5857,6 +5888,26 @@ export default function EmailClientPage() {
                                     <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: srAcctColor }} />
                                   )}
                                   <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", overflow: "hidden", width: "100%" }}>
+                                    <span
+                                      className="flex shrink-0 items-center justify-center -m-1 p-1 mt-0.5"
+                                      onClick={event => event.stopPropagation()}
+                                      onDoubleClick={event => event.stopPropagation()}
+                                      onKeyDown={event => event.stopPropagation()}
+                                    >
+                                      <Checkbox
+                                        className="h-4 w-4"
+                                        checked={selectedSearchExportKeys.has(omniSearchMessageKey({ id: email.id, mailbox: result.mailbox }))}
+                                        disabled={searchRefreshing || searchFailed || exportSearch.isPending || searchExportEmailOpen}
+                                        aria-label={t.omniGroups.selectResult.replace("{subject}", email.subject || t.nexusOmni.email.noSubject)}
+                                        data-testid="omni-search-select-message"
+                                        data-message-id={email.id}
+                                        data-mailbox={result.mailbox}
+                                        onCheckedChange={checked => setSearchSelection(current => toggleOmniSearchMessage(
+                                          allSearchExportMessages, current, searchSelectionScope,
+                                          { id: email.id, mailbox: result.mailbox }, checked === true,
+                                        ))}
+                                      />
+                                    </span>
                                     {emailPrefs.unreadIndicator && (
                                       <span className={`${!email.isRead ? "bg-blue-500" : "bg-transparent"}`} style={{ height: 8, width: 8, borderRadius: "50%", marginTop: 6, flexShrink: 0 }} />
                                     )}
@@ -7319,7 +7370,7 @@ export default function EmailClientPage() {
         onOpenChange={setSearchExportEmailOpen}
         messages={searchExportSnapshot.messages}
         sender={personalExportMailbox}
-        format={searchExportFormat}
+        format={searchExportSnapshot.format}
         copy={t.omniGroups}
         groupName={searchExportSnapshot.groupName}
         replyTemplate={searchExportSnapshot.replyTemplate}

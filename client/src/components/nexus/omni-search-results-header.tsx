@@ -2,6 +2,7 @@ import { Download, Loader2, Mail, Maximize2, Minimize2, Search, Send, X } from "
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CardHeader } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -58,6 +59,16 @@ type OmniSearchResultsHeaderProps = {
   onExport: () => void;
   onSend: () => void;
   onToggleExpanded: () => void;
+  selection?: {
+    selectedCount: number;
+    totalCount: number;
+    onToggleAll: (checked: boolean) => void;
+    disabled?: boolean;
+    copy: {
+      selectAll: string;
+      selectedCount: string;
+    };
+  };
 };
 
 const intlLocales: Record<LocaleCode, string> = {
@@ -100,6 +111,7 @@ export function OmniSearchResultsHeader({
   onExport,
   onSend,
   onToggleExpanded,
+  selection,
 }: OmniSearchResultsHeaderProps) {
   const from = localizedDate(dateFrom, locale);
   const to = localizedDate(dateTo, locale);
@@ -109,6 +121,12 @@ export function OmniSearchResultsHeader({
   const trimmedQuery = query.trim();
   const summaryText = trimmedQuery || dateSummary;
   const unavailable = refreshing || failed || !hasResults;
+  const allSelected = Boolean(selection && selection.totalCount > 0 && selection.selectedCount >= selection.totalCount);
+  const partiallySelected = Boolean(selection && selection.selectedCount > 0 && !allSelected);
+  const selectionCount = selection?.copy.selectedCount
+    .replace(/\{selected\}/g, String(selection.selectedCount))
+    .replace(/\{total\}/g, String(selection.totalCount));
+  const noSelectedResults = selection !== undefined && selection.selectedCount === 0;
 
   return (
     <CardHeader
@@ -169,6 +187,32 @@ export function OmniSearchResultsHeader({
         </TooltipProvider>
       </div>
 
+      {selection && (
+        <div className="flex min-w-0 items-center gap-2 border-t border-border/50 pt-2">
+          <Checkbox
+            id="omni-search-select-all"
+            checked={allSelected ? true : partiallySelected ? "indeterminate" : false}
+            onCheckedChange={(checked) => selection.onToggleAll(checked === true)}
+            disabled={selection.disabled || refreshing || failed}
+            aria-label={selection.copy.selectAll}
+            data-testid="omni-search-select-all"
+            className="h-4 w-4"
+          />
+          <label
+            htmlFor="omni-search-select-all"
+            className="min-w-0 flex-1 cursor-pointer text-[11px] leading-4 text-muted-foreground [overflow-wrap:anywhere]"
+          >
+            {selection.copy.selectAll}
+          </label>
+          <span
+            className="shrink-0 text-[10px] leading-4 tabular-nums text-muted-foreground"
+            data-testid="omni-search-selection-count"
+          >
+            {selectionCount}
+          </span>
+        </div>
+      )}
+
       <div className="omni-search-header-tools grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
         <Select value={format} onValueChange={(value: ExportFormat) => onFormatChange(value)}>
           <SelectTrigger className="h-8 min-w-0 w-[88px] max-w-full justify-self-start rounded-md px-2 text-xs" aria-label={copy.exportFormat} data-testid="search-export-format">
@@ -206,7 +250,7 @@ export function OmniSearchResultsHeader({
           data-testid="button-export-search"
           title={copy.exportAll}
           aria-label={copy.exportAll}
-          disabled={unavailable || exporting}
+          disabled={unavailable || exporting || noSelectedResults}
           onClick={onExport}
         >
           {exporting ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Download className="h-3.5 w-3.5 shrink-0" />}
@@ -218,7 +262,7 @@ export function OmniSearchResultsHeader({
           variant="default"
           className="h-auto min-h-9 min-w-0 w-full justify-center gap-1 rounded-md px-1.5 py-1 text-[11px] leading-[1.2] whitespace-normal shadow-sm"
           data-testid="button-email-search-export"
-          disabled={unavailable || !hasPersonalAccount}
+          disabled={unavailable || !hasPersonalAccount || noSelectedResults}
           title={copy.sendZip}
           aria-label={copy.sendZip}
           onClick={onSend}

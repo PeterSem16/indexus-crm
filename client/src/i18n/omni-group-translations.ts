@@ -255,9 +255,22 @@ const allAccountsCopy = {
   it: { showAllAccounts: "Mostra tutti gli account insieme", showAllAccountsDescription: "Mostra Tutti gli account nella barra laterale e-mail. I singoli account e i gruppi restano disponibili." },
   de: { showAllAccounts: "Alle Konten gemeinsam anzeigen", showAllAccountsDescription: "Zeigt Alle Konten in der E-Mail-Seitenleiste. Einzelne Konten und Gruppen bleiben verfügbar." },
 };
+type SelectionCopy = {
+  selectAllResults: string; selectedResultsCount: string; selectResult: string;
+  exportSelected: string; sendZipDescription: string;
+};
+const selectionCopy: Record<keyof typeof translations, SelectionCopy> = {
+  en: { selectAllResults: "Select all", selectedResultsCount: "{selected} of {total} selected", selectResult: "Select message: {subject}", exportSelected: "Download selected messages and attachments as ZIP", sendZipDescription: "A ZIP containing only the selected messages and their attachments will be sent." },
+  sk: { selectAllResults: "Vybrať všetky", selectedResultsCount: "Vybrané {selected} z {total}", selectResult: "Vybrať správu: {subject}", exportSelected: "Stiahnuť vybrané správy a prílohy ako ZIP", sendZipDescription: "Odošle sa ZIP obsahujúci iba vybrané správy a ich prílohy." },
+  cs: { selectAllResults: "Vybrat všechny", selectedResultsCount: "Vybráno {selected} z {total}", selectResult: "Vybrat zprávu: {subject}", exportSelected: "Stáhnout vybrané zprávy a přílohy jako ZIP", sendZipDescription: "Odešle se ZIP obsahující pouze vybrané zprávy a jejich přílohy." },
+  hu: { selectAllResults: "Összes kijelölése", selectedResultsCount: "{selected} / {total} kijelölve", selectResult: "Üzenet kijelölése: {subject}", exportSelected: "Kijelölt üzenetek és mellékletek letöltése ZIP-ként", sendZipDescription: "Csak a kijelölt üzeneteket és mellékleteiket tartalmazó ZIP kerül elküldésre." },
+  ro: { selectAllResults: "Selectează toate", selectedResultsCount: "{selected} din {total} selectate", selectResult: "Selectează mesajul: {subject}", exportSelected: "Descarcă mesajele și atașamentele selectate ca ZIP", sendZipDescription: "Va fi trimis un ZIP care conține doar mesajele selectate și atașamentele lor." },
+  it: { selectAllResults: "Seleziona tutti", selectedResultsCount: "{selected} di {total} selezionati", selectResult: "Seleziona messaggio: {subject}", exportSelected: "Scarica messaggi e allegati selezionati come ZIP", sendZipDescription: "Verrà inviato uno ZIP contenente solo i messaggi selezionati e i relativi allegati." },
+  de: { selectAllResults: "Alle auswählen", selectedResultsCount: "{selected} von {total} ausgewählt", selectResult: "Nachricht auswählen: {subject}", exportSelected: "Ausgewählte Nachrichten und Anhänge als ZIP herunterladen", sendZipDescription: "Es wird ein ZIP gesendet, das nur die ausgewählten Nachrichten und ihre Anhänge enthält." },
+};
 export default {
-  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en, ...criteriaCopy.en, ...deliveryCopy.en, ...allAccountsCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk, ...criteriaCopy.sk, ...deliveryCopy.sk, ...allAccountsCopy.sk },
-  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs, ...criteriaCopy.cs, ...deliveryCopy.cs, ...allAccountsCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu, ...criteriaCopy.hu, ...deliveryCopy.hu, ...allAccountsCopy.hu },
-  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro, ...criteriaCopy.ro, ...deliveryCopy.ro, ...allAccountsCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it, ...criteriaCopy.it, ...deliveryCopy.it, ...allAccountsCopy.it },
-  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de, ...criteriaCopy.de, ...deliveryCopy.de, ...allAccountsCopy.de },
+  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en, ...criteriaCopy.en, ...deliveryCopy.en, ...allAccountsCopy.en, ...selectionCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk, ...criteriaCopy.sk, ...deliveryCopy.sk, ...allAccountsCopy.sk, ...selectionCopy.sk },
+  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs, ...criteriaCopy.cs, ...deliveryCopy.cs, ...allAccountsCopy.cs, ...selectionCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu, ...criteriaCopy.hu, ...deliveryCopy.hu, ...allAccountsCopy.hu, ...selectionCopy.hu },
+  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro, ...criteriaCopy.ro, ...deliveryCopy.ro, ...allAccountsCopy.ro, ...selectionCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it, ...criteriaCopy.it, ...deliveryCopy.it, ...allAccountsCopy.it, ...selectionCopy.it },
+  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de, ...criteriaCopy.de, ...deliveryCopy.de, ...allAccountsCopy.de, ...selectionCopy.de },
 };
