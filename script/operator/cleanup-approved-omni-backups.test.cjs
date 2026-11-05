@@ -167,6 +167,8 @@ test("failure after partial deletion stops, preserves undeleted directories priv
     assert.ok(fs.existsSync(f.data + "/" + holding + "/" + release.APPROVED[1] + "/old.txt"));
     assert.ok(fs.existsSync(f.store + "/backup/database.dump"));
     assert.ok(!f.logs.includes("CISTENIE_OK=18"));
+    assert.throws(() => f.api.cleanup("900001"), /nedokoncene sukromne cistenie/);
+    assert.equal(f.removed.length, 1, "retry cannot silently ignore a partial cleanup");
   } finally { f.close(); }
 });
 test("real CLI cannot silently succeed or run destructive actions without explicit arguments", () => {

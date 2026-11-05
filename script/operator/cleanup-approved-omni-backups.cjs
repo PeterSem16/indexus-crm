@@ -148,6 +148,8 @@ function cleanup(pid) {
   ensure(run("findmnt", ["-n", "-o", "FSROOT", "-T", DATA]) === "/", "Neocakavany koren datoveho disku");
   live(pid);
   const protectedStore = recoveryProof(), device = ordinary(DATA, true).dev;
+  ensure(!fs.readdirSync(DATA).some(name => name.startsWith(".approved-backup-cleanup-")),
+    "Existuje nedokoncene sukromne cistenie; najprv treba overit jeho obsah");
   const selected = [];
   for (const name of APPROVED) {
     const filename = path.join(DATA, name);
