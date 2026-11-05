@@ -39,21 +39,30 @@ test("genuine Unicode Outlook compound MSG: independent reader, HTML, recipients
   assert.equal(data.subject, message.subject);
   assert.equal(data.senderEmail, "sender@example.test");
   assert.equal(data.body, "Žiadosť");
-  assert.equal(Buffer.from(data.bodyHtml).toString(), html);
   assert.deepEqual(data.recipients.map((r: any) => r.email), ["to@example.test", "cc@example.test"]);
   assert.deepEqual(Buffer.from(reader.getAttachment(0).content), attachment);
   assert.equal(reader.getAttachment(0).fileName, "Príloha.bin");
   const ole = CFB.read(bytes, { type: "buffer" });
   assert.equal(ole.FileIndex[0].clsid.toLowerCase(), "0b0d020000000000c000000000000046");
+  // Published msgreader 1.0.1 does not expose PidTagBodyHtml. Verify the
+  // required binary MAPI stream directly, without extending the reader or
+  // depending on local node_modules patches. Other fields remain independently
+  // checked through msgreader above.
+  const htmlStream = CFB.find(ole, "__substg1.0_10130102");
+  assert.ok(htmlStream && htmlStream.type === 2, "PidTagBodyHtml binary stream is required");
+  assert.deepEqual(Buffer.from(htmlStream.content), Buffer.from(html, "utf8"));
   const props = Buffer.from(CFB.find(ole, "__properties_version1.0").content);
   assert.equal(props.readUInt32LE(16), 2); assert.equal(props.readUInt32LE(20), 2);
+  let htmlPropertyFound = false;
   for (let position = 32; position < props.length; position += 16) {
     const tag = props.readUInt32LE(position), type = tag & 0xffff;
+    if (tag === 0x10130102) htmlPropertyFound = true;
     if (type !== 0x001f && type !== 0x0102) continue;
     const stream = CFB.find(ole, `__substg1.0_${tag.toString(16).padStart(8, "0").toUpperCase()}`);
     assert.equal(props.readUInt32LE(position + 8), stream.size + (type === 0x001f ? 2 : 0));
     if (type === 0x001f) { assert.ok(stream.size > 0); assert.notEqual(Buffer.from(stream.content).readUInt16LE(stream.size - 2), 0); }
   }
+  assert.ok(htmlPropertyFound, "PidTagBodyHtml must also be declared in the MAPI properties table");
 });
 
 test("date range includes the whole last day, uses Bratislava DST, rejects invalid or reversed dates", () => {
