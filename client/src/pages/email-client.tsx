@@ -14,6 +14,7 @@ import "@/components/nexus/nexus-signal-tasks.css";
 import "@/components/email-html-body.css";
 import "@/components/nexus/omni-workspace.css";
 import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
+import { OmniSearchResultsHeader } from "@/components/nexus/omni-search-results-header";
 import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
 import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
 import { groupScope, resolveMailboxScope, type OmniGroupReplyTemplate, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
@@ -5500,96 +5501,73 @@ export default function EmailClientPage() {
                 ? "flex-1 min-w-[400px]"
                 : "w-[30%] min-w-[320px] max-w-[420px]"
             )}>
+              {isSearching ? (
+                <OmniSearchResultsHeader
+                  query={debouncedSearchQuery}
+                  dateFrom={searchDateFrom}
+                  dateTo={searchDateTo}
+                  count={searchResults ? searchResults.reduce((acc, result) => acc + result.emails.length, 0) : null}
+                  locale={locale}
+                  copy={{
+                    results: t.nexusOmni.search.results,
+                    resultsCount: t.omniGroups.resultsCount,
+                    exportFormat: t.omniGroups.exportFormat,
+                    exportEml: t.omniGroups.exportEml,
+                    exportMsg: t.omniGroups.exportMsg,
+                    exportZip: t.omniGroups.exportZip,
+                    exportAll: t.omniGroups.exportAll,
+                    exporting: t.omniGroups.exporting,
+                    sendZip: t.omniGroups.sendZip,
+                    sendByEmail: t.omniGroups.sendByEmail,
+                    noPersonalAccount: t.omniGroups.noPersonalAccount,
+                    fromDate: t.omniGroups.fromDate,
+                    throughDate: t.omniGroups.throughDate,
+                    clearSearch: t.nexusOmni.email.clear,
+                    minimizePanel: t.nexusOmni.settings.minimizePanel,
+                    maximizePanel: t.nexusOmni.settings.maximizePanel,
+                  }}
+                  format={searchExportFormat}
+                  onFormatChange={setSearchExportFormat}
+                  hasResults={!!searchResults?.some(result => result.emails.length > 0)}
+                  refreshing={searchRefreshing}
+                  failed={searchFailed}
+                  exporting={exportSearch.isPending}
+                  hasPersonalAccount={!!personalExportMailbox}
+                  expanded={searchPanelExpanded}
+                  onClear={clearSearch}
+                  onExport={() => exportSearch.mutate({
+                    format: searchExportFormat,
+                    messages: (searchResults || []).flatMap(result =>
+                      result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))),
+                  })}
+                  onSend={() => {
+                    const messages = (searchResults || []).flatMap(result =>
+                      result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
+                    const executedGroup = mailboxGroups.find(group => groupScope(group.id) === searchMailbox);
+                    const replyTemplate = executedGroup
+                      ? { ...(executedGroup.replyTemplate ?? defaultOmniGroupReplyTemplate(executedGroup.name, {
+                          replySubjectDefault: t.omniGroups.replySubjectDefault,
+                          replyBodyDefault: t.omniGroups.replyBodyDefault,
+                        })) }
+                      : undefined;
+                    setSearchExportSnapshot({
+                      messages,
+                      ...(executedGroup ? { groupName: executedGroup.name, replyTemplate } : {}),
+                    });
+                    setSearchExportEmailOpen(true);
+                  }}
+                  onToggleExpanded={() => setSearchPanelExpanded(prev => !prev)}
+                />
+              ) : (
               <CardHeader className="py-1.5 px-3 space-y-0 border-b shrink-0">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-semibold">{isSearching ? `${t.nexusOmni.search.results}: ${debouncedSearchQuery ? `"${debouncedSearchQuery}"` : ""}${(searchDateFrom || searchDateTo) ? ` ${searchDateFrom || "..."} — ${searchDateTo || "..."}` : ""}`.trim() : currentFolderName}</span>
-                    {!isSearching && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {activeFilterCount > 0 ? `${filteredEmails.length}/${emails.length}` : emails.length}
-                      </Badge>
-                    )}
-                    {isSearching && searchResults && (
-                      <Badge variant="secondary" className="text-[10px]">{searchResults.reduce((acc, r) => acc + r.emails.length, 0)}</Badge>
-                    )}
-                    {isSearching && (
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={clearSearch}
-                              className="p-1 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                              data-testid="button-clear-search"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{t.nexusOmni.email.clear}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
+                    <span className="text-sm font-semibold">{currentFolderName}</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {activeFilterCount > 0 ? `${filteredEmails.length}/${emails.length}` : emails.length}
+                    </Badge>
                   </div>
-                  {isSearching && (
-                    <div className="flex items-center gap-0.5">
-                      <Select value={searchExportFormat} onValueChange={(value: "eml" | "msg") => setSearchExportFormat(value)}>
-                        <SelectTrigger className="h-7 w-[82px] px-2 text-[10px]" aria-label={t.omniGroups.exportFormat} data-testid="search-export-format">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="eml">{t.omniGroups.exportEml}</SelectItem>
-                          <SelectItem value="msg">{t.omniGroups.exportMsg}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button size="sm" variant="outline" className="h-7 px-2 text-[10px] gap-1"
-                        data-testid="button-export-search" title={t.omniGroups.exportAll} aria-label={t.omniGroups.exportAll}
-                        disabled={searchRefreshing || searchFailed || exportSearch.isPending || !searchResults?.some(r => r.emails.length)}
-                        onClick={() => exportSearch.mutate({ format: searchExportFormat, messages: (searchResults || []).flatMap(result =>
-                          result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" }))) })}>
-                        {exportSearch.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                        {exportSearch.isPending ? t.omniGroups.exporting : t.omniGroups.exportZip}
-                      </Button>
-                      <Button
-                        size="sm" variant="outline" className="h-7 px-2 text-[10px] gap-1"
-                        data-testid="button-email-search-export"
-                        disabled={searchRefreshing || searchFailed || !personalExportMailbox || !searchResults?.some(r => r.emails.length)}
-                        title={t.omniGroups.sendZip}
-                        onClick={() => {
-                          const messages = (searchResults || []).flatMap(result =>
-                            result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
-                          const executedGroup = mailboxGroups.find(group => groupScope(group.id) === searchMailbox);
-                          const replyTemplate = executedGroup
-                            ? { ...(executedGroup.replyTemplate ?? defaultOmniGroupReplyTemplate(executedGroup.name, {
-                                replySubjectDefault: t.omniGroups.replySubjectDefault,
-                                replyBodyDefault: t.omniGroups.replyBodyDefault,
-                              })) }
-                            : undefined;
-                          setSearchExportSnapshot({
-                            messages,
-                            ...(executedGroup ? { groupName: executedGroup.name, replyTemplate } : {}),
-                          });
-                          setSearchExportEmailOpen(true);
-                        }}
-                      >
-                        <Send className="h-3.5 w-3.5" />
-                        {t.omniGroups.sendZip}
-                      </Button>
-                      <TooltipProvider delayDuration={200}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => setSearchPanelExpanded(prev => !prev)}
-                              className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all"
-                              data-testid="button-expand-search"
-                            >
-                              {searchPanelExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="text-xs">{searchPanelExpanded ? t.nexusOmni.settings.minimizePanel : t.nexusOmni.settings.maximizePanel}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  )}
                   {!isSearching && (
                     <div className="flex items-center gap-0.5">
                       <TooltipProvider delayDuration={200}>
@@ -5799,6 +5777,7 @@ export default function EmailClientPage() {
                   </div>
                 )}
               </CardHeader>
+              )}
               <CardContent className="p-0 flex-1 min-h-0 flex flex-col">
                 {isSearching ? (
                   searchLoading ? (

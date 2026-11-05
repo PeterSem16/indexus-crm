@@ -1,0 +1,18 @@
+.omni-search-results-header {
+  container-type: inline-size;
+  container-name: omni-search-results;
+}
+
+@container omni-search-results (max-width: 245px) {
+  .omni-search-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.omni-search-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}

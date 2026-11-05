@@ -12,7 +12,7 @@ const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromiu
 const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
 page.setDefaultTimeout(15_000);
 const errors = [], deliveries = [];
-let revision = 1;
+let revision = 1, personalAvailable = true;
 let groups = [
   { id: "care", name: "Customer support", emails: ["support@example.test"] },
   { id: "finance", name: "Finance", emails: ["billing@example.test"],
@@ -28,7 +28,7 @@ await page.route("**/api/**", async route => {
   const request = route.request(), path = new URL(request.url()).pathname;
   let data = [];
   if (path === "/api/auth/me") data = { user: { id: "omni-fixture", username: "fixture", fullName: "Test Operator", email: "me@example.test", role: "admin", isActive: true, assignedCountries: ["SK"] } };
-  if (path.includes("ms365-available-mailboxes")) data = mailboxes;
+  if (path.includes("ms365-available-mailboxes")) data = mailboxes.filter(mailbox => personalAvailable || mailbox.type !== "personal");
   if (path.includes("ms365-connection")) data = { connected: true, isConnected: true };
   if (path.includes("ms365-unread-counts")) data = { connected: true, counts: [] };
   if (path.includes("ms365-folders")) data = { connected: true, inboxId: "inbox", folders: [{ id: "inbox", displayName: "Inbox", wellKnownName: "inbox", unreadItemCount: 0, totalItemCount: 0 }] };
@@ -46,7 +46,11 @@ await page.route("**/api/**", async route => {
       toRecipients: [], receivedDateTime: "2026-11-05T10:00:00Z", isRead: true, bodyPreview: "Fixture", importance: "normal" },
   ] };
   if (path === "/api/nexus/search-export") {
-    deliveries.push(request.postDataJSON());
+    const payload = request.postDataJSON();
+    if (!payload.delivery) return route.fulfill({ status: 200, contentType: "application/zip",
+      headers: { "Content-Disposition": `attachment; filename="nexus-omni-${payload.format}.zip"` },
+      body: Buffer.from("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==", "base64") });
+    deliveries.push(payload);
     return route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ sent: true, sender: "me@example.test" }) });
   }
   await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(data) });
@@ -69,15 +73,31 @@ const confirmSend = async () => {
   ]);
   await page.getByTestId("confirm-send-search-export").waitFor({ state: "hidden" });
 };
-const search = async scope => {
+const search = async (scope, query = "fixture-search") => {
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption(scope);
-  await page.getByTestId("input-smart-search").fill("fixture-search");
+  await page.getByTestId("input-smart-search").fill(query);
   await Promise.all([
     page.waitForResponse(response => response.url().includes("ms365-search-emails")),
     page.getByTestId("input-smart-search").press("Enter"),
   ]);
   await page.getByTestId("button-email-search-export").waitFor();
+};
+const assertHeaderFits = async () => {
+  const header = page.getByTestId("omni-search-results-header");
+  await header.waitFor();
+  const layout = await header.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    return { width: element.clientWidth, scrollWidth: element.scrollWidth, left: rect.left, right: rect.right };
+  });
+  assert.ok(layout.scrollWidth <= layout.width + 1, "result controls must not overflow the actual results pane");
+  for (const id of ["button-export-search", "button-email-search-export", "search-export-format"]) {
+    const control = page.getByTestId(id);
+    assert.equal(await control.isVisible(), true, `${id} must remain visible`);
+    const bounds = await control.boundingBox();
+    assert.ok(bounds && bounds.x >= layout.left - 1 && bounds.x + bounds.width <= layout.right + 1,
+      `${id} must fit inside the actual ${layout.width}px header`);
+  }
 };
 try {
   await go();
@@ -109,7 +129,16 @@ try {
   await page.getByTestId("button-smart-search").click();
   await page.getByTestId("toggle-ai-search").click();
   await page.keyboard.press("Escape");
-  await search("group:care");
+  await search("group:care", "Requested invoice correspondence with a deliberately long search description that must not displace the download or email controls");
+  await assertHeaderFits();
+  await mkdir("generated-artifacts/omni-results-header", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/omni-results-header/narrow-desktop.png" });
+  await page.getByTestId("search-export-format").click();
+  await page.getByRole("option", { name: "MSG", exact: true }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent("download"), page.getByTestId("button-export-search").click(),
+  ]);
+  assert.equal(download.suggestedFilename(), "nexus-omni-msg.zip");
   // Changing only the draft scope must not change the executed search's template.
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption("group:finance");
@@ -147,8 +176,34 @@ try {
   await page.screenshot({ path: "generated-artifacts/omni-group-templates/mobile.png" });
   await confirmSend();
   assert.equal(deliveries[2].delivery.body, "Finance messages attached.");
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.getByTestId("button-smart-search").click();
+  await page.getByTestId("input-smart-search").fill("");
+  for (const id of ["search-date-from", "search-date-to"]) {
+    await page.getByTestId(id).click();
+    await page.locator('[data-state="open"][data-side] button[name="day"]').filter({ hasText: /^5$/ }).first().click();
+  }
+  await Promise.all([
+    page.waitForResponse(response => response.url().includes("ms365-search-emails")),
+    page.getByTestId("execute-date-search").click(),
+  ]);
+  await assertHeaderFits();
+  await page.screenshot({ path: "generated-artifacts/omni-results-header/date-only.png" });
+  await page.getByTestId("button-expand-search").click();
+  await assertHeaderFits();
+  await page.getByTestId("button-expand-search").click();
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await assertHeaderFits();
+  await page.screenshot({ path: "generated-artifacts/omni-results-header/dark.png" });
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  // Missing personal sender must never make the send action disappear.
+  personalAvailable = false;
+  await go();
+  await search("group:care");
+  await assertHeaderFits();
+  assert.equal(await page.getByTestId("button-email-search-export").isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log("PASS group template defaults, persistence, group isolation, executed-search scope, editable send copies, signature on/off and mobile confirmation.");
+  console.log("PASS group templates and signature on/off; narrow results header, long query/date-only, MSG download, visible send action, expanded/dark layouts and missing personal sender.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Visible screen:", (await page.locator("body").innerText()).slice(0, 2400));
