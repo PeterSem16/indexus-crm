@@ -19,6 +19,10 @@ export type OmniSearchCriteriaCopy = {
   dateTo: string;
 };
 
+export function proposeOmniExportSubject(templateSubject: string | undefined, defaultSubject: string): string {
+  return templateSubject?.trim() ? templateSubject : defaultSubject;
+}
+
 /** The result batch, including accounts with zero matches, owns this snapshot. */
 export function snapshotOmniExportSearchContext(
   criteria: Omit<OmniExportSearchContext, "accounts">,

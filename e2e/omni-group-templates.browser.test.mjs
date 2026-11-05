@@ -13,6 +13,7 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, red
 page.setDefaultTimeout(15_000);
 const errors = [], deliveries = [];
 let revision = 1, personalAvailable = true;
+let deliveryError;
 let groups = [
   { id: "care", name: "Customer support", emails: ["support@example.test", "empty@example.test"] },
   { id: "finance", name: "Finance", emails: ["billing@example.test"],
@@ -50,6 +51,10 @@ await page.route("**/api/**", async route => {
     data = { connected: true, totalCount: 0, emails: [] };
   if (path === "/api/nexus/search-export") {
     const payload = request.postDataJSON();
+    if (payload.delivery && deliveryError) return route.fulfill({
+      status: deliveryError === "send_permissions_required" ? 403 : 502,
+      contentType: "application/json", body: JSON.stringify({ error: deliveryError }),
+    });
     if (!payload.delivery) return route.fulfill({ status: 200, contentType: "application/zip",
       headers: { "Content-Disposition": `attachment; filename="nexus-omni-${payload.format}.zip"` },
       body: Buffer.from("UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==", "base64") });
@@ -236,9 +241,31 @@ try {
   await search("all");
   await page.getByTestId("button-email-search-export").click();
   const allAccountsBody = await page.getByTestId("search-export-body").inputValue();
+  assert.equal(await page.getByTestId("search-export-subject").inputValue(), "Výsledky vyhľadávania");
   for (const mailbox of mailboxes) assert.ok(allAccountsBody.includes(`- ${mailbox.email}`));
   assert.doesNotMatch(allAccountsBody, /Skupina kont:/);
-  await page.keyboard.press("Escape");
+  await page.getByTestId("search-export-recipient").fill("archive@example.test");
+  for (const [code, expected] of [
+    ["message_unavailable", /pôvodné správy/],
+    ["unsupported_attachment", /Skúste formát EML/],
+    ["mailbox_disconnected", /Znovu pripojte/],
+    ["send_permissions_required", /oprávnenia na odosielanie/],
+    ["send_preparation_failed", /ZIP sa nepodarilo pripraviť/],
+    ["send_rejected", /odmietol odoslanie/],
+    ["send_uncertain", /Skontrolujte.*odoslan/i],
+  ]) {
+    deliveryError = code;
+    await Promise.all([
+      page.waitForResponse(response => response.url().endsWith("/api/nexus/search-export")),
+      page.getByTestId("confirm-send-search-export").click(),
+    ]);
+    await page.getByRole("alert").filter({ hasText: expected }).waitFor();
+    assert.equal(await page.getByTestId("search-export-subject").inputValue(), "Výsledky vyhľadávania");
+    assert.equal(await page.getByTestId("search-export-body").inputValue(), allAccountsBody);
+  }
+  deliveryError = undefined;
+  await confirmSend();
+  assert.equal(deliveries.at(-1).delivery.subject, "Výsledky vyhľadávania");
   const originalBody = groups[0].replyTemplate.body;
   groups[0].replyTemplate.body = "x".repeat(20000);
   await go();
@@ -255,7 +282,7 @@ try {
   await assertHeaderFits();
   assert.equal(await page.getByTestId("button-email-search-export").isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log("PASS executed criteria and all searched accounts including zero matches; editable send copies, group isolation, date-only/all accounts, size guard, responsive controls and personal signature.");
+  console.log("PASS proposed subject/custom templates, localized source/preparation/permission/rejected/uncertain failures, criteria/account snapshots, signature, size guard and responsive controls.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Visible screen:", (await page.locator("body").innerText()).slice(0, 2400));

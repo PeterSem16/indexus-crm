@@ -119,17 +119,17 @@ test("Graph MSG reader fetches every attachment page, uses correct mailbox and p
   assert.equal(Buffer.from(CFB.find(ole, "Root Entry/__attach_version1.0_#00000002/__substg1.0_3712001F").content).toString("utf16le"), "picture");
 });
 
-test("email ZIP uses personal /me draft, attaches exact bytes and sends once; Graph rejection cleans draft and never succeeds", async () => {
+test("small email ZIP uses personal sendMail with exact bytes and no draft permission; rejection never succeeds", async () => {
   const dir = await mkdtemp(join(tmpdir(), "omni-send-test-")), path = join(dir, "test.zip");
   await writeFile(path, attachment);
   const calls: any[] = [];
   let rejectAttachment = false;
   const request = (async (url: any, options: any) => {
     calls.push({ url: String(url), method: options?.method, body: options?.body });
-    if (String(url).endsWith("/attachments")) {
+    if (String(url).endsWith("/me/sendMail")) {
       if (rejectAttachment) return new Response("private vendor error", { status: 500 });
-      assert.deepEqual(Buffer.from(JSON.parse(options.body).contentBytes, "base64"), attachment);
-      return Response.json({ id: "attachment" }, { status: 201 });
+      assert.deepEqual(Buffer.from(JSON.parse(options.body).message.attachments[0].contentBytes, "base64"), attachment);
+      return new Response(null, { status: 202 });
     }
     if (options.method === "DELETE") return new Response(null, { status: 204 });
     if (String(url).endsWith("/send")) return new Response(null, { status: 202 });
@@ -138,16 +138,16 @@ test("email ZIP uses personal /me draft, attaches exact bytes and sends once; Gr
   try {
     const graph = createExportGraph("test-only", new AbortController().signal, request);
     await graph.send(path, "nexus-omni-msg.zip", { to: "recipient@example.test", subject: "Export", body: "Requested messages" });
-    assert.ok(calls.every(call => call.url.startsWith("https://graph.microsoft.com/v1.0/me/messages")));
-    assert.equal(calls.filter(call => call.url.endsWith("/send")).length, 1);
-    const payload = JSON.parse(calls[0].body);
+    assert.ok(calls.every(call => call.url === "https://graph.microsoft.com/v1.0/me/sendMail"));
+    assert.equal(calls.length, 1);
+    const payload = JSON.parse(calls[0].body).message;
     assert.equal(payload.from, undefined);
     assert.deepEqual(payload.toRecipients, [{ emailAddress: { address: "recipient@example.test" } }]);
     assert.equal(payload.body.contentType, "Text");
     rejectAttachment = true; calls.length = 0;
     await assert.rejects(graph.send(path, "a.zip", { to: "a@example.test", subject: "a", body: "" }));
     assert.equal(calls.some(call => call.url.endsWith("/send")), false);
-    assert.equal(calls.at(-1).method, "DELETE");
+    assert.equal(calls.length, 1, "never automatically retry an uncertain send");
     // No network operation when the ZIP exceeds the email-specific size limit.
     const file = await import("node:fs/promises").then(fs => fs.open(path, "w"));
     await file.truncate(MAX_EMAIL_ZIP_BYTES + 1); await file.close(); calls.length = 0;

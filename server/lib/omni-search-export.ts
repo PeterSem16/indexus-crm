@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { availableOmniEmails } from "./omni-mailbox-group-routes";
 import { EmlZipWriter, safeEmlName } from "./omni-eml-zip";
-import { createExportGraph, MAX_EMAIL_ZIP_BYTES, type ExportMessage as Message, type ExportDelivery } from "./omni-export-graph";
+import { createExportGraph, MAX_EMAIL_ZIP_BYTES, OmniExportGraphError, type ExportMessage as Message, type ExportDelivery } from "./omni-export-graph";
 import { attachPersonalExportSignature, personalExportSignature } from "./omni-export-signature";
 type Dependencies = {
   inventory: (userId: string) => Promise<Set<string>>;
@@ -47,6 +47,7 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
     const abort = () => controller.abort();
     res.once("close", abort);
     let directory: string | undefined;
+    let sending = false;
     try {
       const messages = validateExportMessages(req.body, await deps.inventory(userId));
       let delivery = validateExportDelivery(req.body.delivery);
@@ -82,6 +83,7 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
       if (delivery) {
         if ((await stat(path)).size > MAX_EMAIL_ZIP_BYTES) throw new Error("email_export_limit");
         controller.signal.throwIfAborted();
+        sending = true;
         await deps.send!(authorization.accessToken, path, filename, delivery, controller.signal);
         res.status(202).json({ sent: true, sender: authorization.personalMailbox });
         return;
@@ -92,10 +94,20 @@ export function registerOmniSearchExport(app: Express, auth: RequestHandler, dep
       }));
     } catch (error) {
       if (!res.headersSent && !res.destroyed) {
-        const code = (error as Error).message;
-        const status = ["mailbox_forbidden", "personal_mailbox_required"].includes(code) ? 403 :
+        const knownCodes = ["mailbox_forbidden", "personal_mailbox_required", "invalid_export", "invalid_delivery",
+          "signature_unavailable", "export_limit", "email_export_limit", "mailbox_disconnected",
+          "message_unavailable", "unsupported_attachment", "send_preparation_failed", "send_permissions_required",
+          "send_rejected", "send_uncertain"];
+        const message = (error as Error).message;
+        const code = knownCodes.includes(message) ? message : sending ? "send_uncertain" : "export_failed";
+        const status = code === "mailbox_disconnected" ? 401 :
+          ["mailbox_forbidden", "personal_mailbox_required", "send_permissions_required"].includes(code) ? 403 :
           ["invalid_export", "invalid_delivery", "signature_unavailable"].includes(code) ? 400 : ["export_limit", "email_export_limit"].includes(code) ? 413 : 502;
-        res.status(status).json({ error: ["mailbox_forbidden", "personal_mailbox_required", "invalid_export", "invalid_delivery", "signature_unavailable", "export_limit", "email_export_limit"].includes(code) ? code : "export_failed" });
+        // Never log token, recipient, query, message ID, Graph URL or provider body.
+        console.warn("[OmniExport] failed", JSON.stringify({
+          code, ...(error instanceof OmniExportGraphError ? { stage: error.stage, status: error.status } : {}),
+        }));
+        res.status(status).json({ error: code });
       }
     } finally {
       res.off("close", abort); running.delete(userId);

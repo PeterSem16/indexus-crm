@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { OmniGroupReplyTemplate } from "@shared/omni-mailbox-groups";
 import {
-  appendOmniExportSearchContext, type OmniExportSearchContext, type OmniSearchCriteriaCopy,
+  appendOmniExportSearchContext, proposeOmniExportSubject, type OmniExportSearchContext, type OmniSearchCriteriaCopy,
 } from "@/lib/omni-export-search-context";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -19,6 +19,9 @@ type Copy = OmniSearchCriteriaCopy & {
   sendError: string; emailExportLimit: string;
   includeSignature: string; groupContext: string; missingSignature: string;
   criteriaBodyTooLong: string;
+  defaultSearchSubject: string; exportSourceError: string; exportUnsupportedAttachment: string;
+  exportMailboxError: string; exportPermissionError: string; sendPreparationError: string;
+  sendRejectedError: string; exportForbidden: string; noPersonalAccount: string;
 };
 
 export function OmniSearchExportEmailDialog({
@@ -49,7 +52,7 @@ export function OmniSearchExportEmailDialog({
   useEffect(() => {
     if (open && !wasOpen.current) {
       setTo("");
-      setSubject(replyTemplate?.subject ?? "");
+      setSubject(proposeOmniExportSubject(replyTemplate?.subject, copy.defaultSearchSubject));
       setBody(appendOmniExportSearchContext(replyTemplate?.body ?? "", searchContext, copy, locale));
       setIncludeSignature(replyTemplate?.includeSignature ?? false);
       setError("");
@@ -76,12 +79,16 @@ export function OmniSearchExportEmailDialog({
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
         const code = result?.error;
-        setError(code === "email_export_limit"
-          ? copy.emailExportLimit
-          : code === "signature_unavailable" ? copy.missingSignature
-          : code === "export_limit" ? copy.exportLimit
-          : code === "invalid_delivery" ? copy.invalidDelivery
-            : code === "export_busy" ? copy.exportBusy : copy.sendError);
+        const errorCopy: Record<string, string> = {
+          email_export_limit: copy.emailExportLimit, signature_unavailable: copy.missingSignature,
+          export_limit: copy.exportLimit, invalid_delivery: copy.invalidDelivery, export_busy: copy.exportBusy,
+          message_unavailable: copy.exportSourceError, unsupported_attachment: copy.exportUnsupportedAttachment,
+          mailbox_disconnected: copy.exportMailboxError, send_permissions_required: copy.exportPermissionError,
+          send_preparation_failed: copy.sendPreparationError, send_rejected: copy.sendRejectedError,
+          mailbox_forbidden: copy.exportForbidden, personal_mailbox_required: copy.noPersonalAccount,
+          export_failed: copy.exportError,
+        };
+        setError(errorCopy[code] ?? copy.sendError);
         return;
       }
       const result = await response.json().catch(() => ({}));

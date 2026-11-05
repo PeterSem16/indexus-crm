@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import copy from "../i18n/omni-group-translations";
 import {
-  appendOmniExportSearchContext, snapshotOmniExportSearchContext, type OmniExportSearchContext,
+  appendOmniExportSearchContext, snapshotOmniExportSearchContext, proposeOmniExportSubject, type OmniExportSearchContext,
 } from "./omni-export-search-context";
 
 const context: OmniExportSearchContext = {
@@ -11,6 +11,15 @@ const context: OmniExportSearchContext = {
   scope: "group:care", groupName: "Customer support",
   accounts: ["support@example.test", "zero-matches@example.test"],
 };
+
+test("suggested subject covers all locales, empty templates and no group without replacing custom subjects", () => {
+  for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {
+    for (const value of [undefined, "", " \t "])
+      assert.equal(proposeOmniExportSubject(value, copy[locale].defaultSearchSubject), copy[locale].defaultSearchSubject);
+    assert.equal(proposeOmniExportSubject("Custom group subject", copy[locale].defaultSearchSubject), "Custom group subject");
+  }
+  assert.equal(copy.sk.defaultSearchSubject, "Výsledky vyhľadávania");
+});
 
 test("all seven locales describe the executed expression, dates, group and every searched account", () => {
   for (const locale of ["en", "sk", "cs", "hu", "ro", "it", "de"] as const) {

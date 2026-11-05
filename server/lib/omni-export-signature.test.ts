@@ -94,9 +94,9 @@ test("Graph sends the prepared personal signature as HTML without changing unsig
   await writeFile(path, Buffer.from("Fixture ZIP"));
   const drafts: any[] = [];
   const fakeFetch: typeof fetch = async (url, options) => {
-    if (String(url).endsWith("/me/messages")) {
-      drafts.push(JSON.parse(options!.body as string));
-      return new Response(JSON.stringify({ id: "draft" }), { status: 201, headers: { "Content-Type": "application/json" } });
+    if (String(url).endsWith("/me/sendMail")) {
+      drafts.push(JSON.parse(options!.body as string).message);
+      return new Response(null, { status: 202 });
     }
     if (String(url).endsWith("/send")) return new Response(null, { status: 202 });
     return new Response(JSON.stringify({ id: "attachment" }), { status: 201, headers: { "Content-Type": "application/json" } });
