@@ -14,7 +14,7 @@ page.setDefaultTimeout(15_000);
 const errors = [], deliveries = [];
 let revision = 1, personalAvailable = true;
 let groups = [
-  { id: "care", name: "Customer support", emails: ["support@example.test"] },
+  { id: "care", name: "Customer support", emails: ["support@example.test", "empty@example.test"] },
   { id: "finance", name: "Finance", emails: ["billing@example.test"],
     replyTemplate: { subject: "Finance archive", body: "Finance messages attached.", includeSignature: false } },
 ];
@@ -22,6 +22,7 @@ const mailboxes = [
   { id: "personal", email: "me@example.test", displayName: "Personal account", type: "personal", isDefault: true },
   { id: "support", email: "support@example.test", displayName: "Support account", type: "shared" },
   { id: "billing", email: "billing@example.test", displayName: "Billing account", type: "shared" },
+  { id: "empty", email: "empty@example.test", displayName: "Empty account", type: "shared" },
 ];
 page.on("pageerror", error => errors.push(error.message));
 await page.route("**/api/**", async route => {
@@ -45,6 +46,8 @@ await page.route("**/api/**", async route => {
     { id: "result-1", subject: "Searched original", from: { emailAddress: { name: "Sender", address: "sender@example.test" } },
       toRecipients: [], receivedDateTime: "2026-11-05T10:00:00Z", isRead: true, bodyPreview: "Fixture", importance: "normal" },
   ] };
+  if (path.includes("ms365-search-emails") && new URL(request.url()).searchParams.get("mailbox") === "empty@example.test")
+    data = { connected: true, totalCount: 0, emails: [] };
   if (path === "/api/nexus/search-export") {
     const payload = request.postDataJSON();
     if (!payload.delivery) return route.fulfill({ status: 200, contentType: "application/zip",
@@ -73,6 +76,11 @@ const confirmSend = async () => {
   ]);
   await page.getByTestId("confirm-send-search-export").waitFor({ state: "hidden" });
 };
+const settleDialog = async () => page.getByRole("dialog").evaluate(async element => {
+  await Promise.all(element.getAnimations({ subtree: true })
+    .filter(animation => animation.effect?.getTiming().iterations !== Infinity)
+    .map(animation => animation.finished.catch(() => {})));
+});
 const search = async (scope, query = "fixture-search") => {
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption(scope);
@@ -142,12 +150,22 @@ try {
   // Changing only the draft scope must not change the executed search's template.
   await page.getByTestId("button-smart-search").click();
   await page.locator(".omni-scope-select").selectOption("group:finance");
+  await page.getByTestId("input-smart-search").fill("unexecuted draft criteria");
   await page.keyboard.press("Escape");
   await page.getByTestId("button-email-search-export").click();
   assert.equal(await page.getByTestId("search-export-subject").inputValue(), "Support correspondence");
   assert.equal(await page.getByTestId("search-export-sender").innerText(), "me@example.test");
   assert.equal(await page.getByTestId("search-export-include-signature").isChecked(), true);
+  const supportBody = await page.getByTestId("search-export-body").inputValue();
+  assert.ok(supportBody.startsWith("Please find the requested emails attached.\n\nKritériá vyhľadávania"));
+  assert.match(supportBody, /Requested invoice correspondence.*download or email controls/);
+  assert.match(supportBody, /Bez dátumového obmedzenia/);
+  assert.match(supportBody, /Skupina kont: Customer support/);
+  assert.match(supportBody, /support@example\.test/);
+  assert.match(supportBody, /empty@example\.test/, "include searched accounts even if they have no matches");
+  assert.doesNotMatch(supportBody, /billing@example|unexecuted draft/);
   await mkdir("generated-artifacts/omni-group-templates", { recursive: true });
+  await settleDialog();
   await page.screenshot({ path: "generated-artifacts/omni-group-templates/desktop.png" });
   await page.getByTestId("search-export-subject").fill("One-time edited subject");
   await page.getByTestId("search-export-body").fill("One-time edited message.");
@@ -162,20 +180,28 @@ try {
   assert.equal(await page.getByTestId("search-export-subject").inputValue(), "Support correspondence");
   await page.getByTestId("search-export-include-signature").uncheck();
   await confirmSend();
-  assert.equal(deliveries[1].delivery.body, "Please find the requested emails attached.");
+  assert.equal(deliveries[1].delivery.body, supportBody);
+  assert.equal(groups[0].replyTemplate.body, "Please find the requested emails attached.",
+    "dynamic search criteria must never be saved into the reusable group template");
   await search("group:finance");
   await page.getByTestId("button-email-search-export").click();
   assert.equal(await page.getByTestId("search-export-subject").inputValue(), "Finance archive");
   assert.equal(await page.getByTestId("search-export-signature").count(), 0);
   assert.equal(await page.getByTestId("search-export-include-signature").isChecked(), false);
+  const financeBody = await page.getByTestId("search-export-body").inputValue();
+  assert.ok(financeBody.startsWith("Finance messages attached.\n\nKritériá vyhľadávania"));
+  assert.match(financeBody, /fixture-search/);
+  assert.match(financeBody, /billing@example\.test/);
+  assert.doesNotMatch(financeBody, /support@example|empty@example/);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("search-export-recipient").fill("archive@example.test");
   await page.getByTestId("confirm-send-search-export").scrollIntoViewIfNeeded();
   const bounds = await page.getByTestId("confirm-send-search-export").boundingBox();
   assert.ok(bounds && bounds.y >= 0 && bounds.y + bounds.height <= 844);
+  await settleDialog();
   await page.screenshot({ path: "generated-artifacts/omni-group-templates/mobile.png" });
   await confirmSend();
-  assert.equal(deliveries[2].delivery.body, "Finance messages attached.");
+  assert.equal(deliveries[2].delivery.body, financeBody);
   await page.setViewportSize({ width: 1440, height: 950 });
   await page.getByTestId("button-smart-search").click();
   await page.getByTestId("input-smart-search").fill("");
@@ -188,6 +214,16 @@ try {
     page.getByTestId("execute-date-search").click(),
   ]);
   await assertHeaderFits();
+  await page.getByTestId("button-email-search-export").click();
+  const dateBody = await page.getByTestId("search-export-body").inputValue();
+  assert.match(dateBody, /Bez textového obmedzenia/);
+  assert.match(dateBody, /Dátum od: \d{2}\. \d{2}\. \d{4}/);
+  assert.match(dateBody, /Dátum do: \d{2}\. \d{2}\. \d{4}/);
+  assert.match(dateBody, /billing@example\.test/);
+  assert.doesNotMatch(dateBody, /fixture-search|support@example|empty@example/);
+  await settleDialog();
+  await page.screenshot({ path: "generated-artifacts/omni-results-header/date-criteria-dialog.png" });
+  await page.keyboard.press("Escape");
   await page.screenshot({ path: "generated-artifacts/omni-results-header/date-only.png" });
   await page.getByTestId("button-expand-search").click();
   await assertHeaderFits();
@@ -196,6 +232,22 @@ try {
   await assertHeaderFits();
   await page.screenshot({ path: "generated-artifacts/omni-results-header/dark.png" });
   await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await go();
+  await search("all");
+  await page.getByTestId("button-email-search-export").click();
+  const allAccountsBody = await page.getByTestId("search-export-body").inputValue();
+  for (const mailbox of mailboxes) assert.ok(allAccountsBody.includes(`- ${mailbox.email}`));
+  assert.doesNotMatch(allAccountsBody, /Skupina kont:/);
+  await page.keyboard.press("Escape");
+  const originalBody = groups[0].replyTemplate.body;
+  groups[0].replyTemplate.body = "x".repeat(20000);
+  await go();
+  await search("group:care");
+  await page.getByTestId("button-email-search-export").click();
+  assert.ok((await page.getByTestId("search-export-body").inputValue()).length > 20000);
+  assert.match(await page.getByRole("alert").innerText(), /20 000/);
+  assert.equal(await page.getByTestId("confirm-send-search-export").isDisabled(), true);
+  groups[0].replyTemplate.body = originalBody;
   // Missing personal sender must never make the send action disappear.
   personalAvailable = false;
   await go();
@@ -203,7 +255,7 @@ try {
   await assertHeaderFits();
   assert.equal(await page.getByTestId("button-email-search-export").isDisabled(), true);
   assert.deepEqual(errors, []);
-  console.log("PASS group templates and signature on/off; narrow results header, long query/date-only, MSG download, visible send action, expanded/dark layouts and missing personal sender.");
+  console.log("PASS executed criteria and all searched accounts including zero matches; editable send copies, group isolation, date-only/all accounts, size guard, responsive controls and personal signature.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Visible screen:", (await page.locator("body").innerText()).slice(0, 2400));

@@ -5,21 +5,25 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { OmniGroupReplyTemplate } from "@shared/omni-mailbox-groups";
 import {
+  appendOmniExportSearchContext, type OmniExportSearchContext, type OmniSearchCriteriaCopy,
+} from "@/lib/omni-export-search-context";
+import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 
 type ExportMessage = { id: string; mailbox: string; subject: string };
-type Copy = {
+type Copy = OmniSearchCriteriaCopy & {
   sendZip: string; sendZipDescription: string; recipient: string; subject: string; body: string;
   sender: string; confirmSend: string; sending: string; cancel: string; sendSuccess: string;
   invalidDelivery: string; exportLimit: string; exportBusy: string; exportError: string;
   sendError: string; emailExportLimit: string;
   includeSignature: string; groupContext: string; missingSignature: string;
+  criteriaBodyTooLong: string;
 };
 
 export function OmniSearchExportEmailDialog({
   open, onOpenChange, messages, sender, copy, onSuccess,
-  format, replyTemplate, groupName,
+  format, replyTemplate, groupName, searchContext, locale,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +34,8 @@ export function OmniSearchExportEmailDialog({
   format: "eml" | "msg";
   replyTemplate?: OmniGroupReplyTemplate;
   groupName?: string;
+  searchContext?: OmniExportSearchContext;
+  locale: string;
 }) {
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
@@ -44,12 +50,12 @@ export function OmniSearchExportEmailDialog({
     if (open && !wasOpen.current) {
       setTo("");
       setSubject(replyTemplate?.subject ?? "");
-      setBody(replyTemplate?.body ?? "");
+      setBody(appendOmniExportSearchContext(replyTemplate?.body ?? "", searchContext, copy, locale));
       setIncludeSignature(replyTemplate?.includeSignature ?? false);
       setError("");
     }
     wasOpen.current = open;
-  }, [open, replyTemplate]);
+  }, [open, replyTemplate, searchContext, copy, locale]);
 
   const send = async () => {
     if (submissionLock.current || !sender || !messages.length || body.length > 20000) return;
@@ -122,8 +128,9 @@ export function OmniSearchExportEmailDialog({
           </label>
           <label className="block space-y-1.5">
             <span className="text-xs font-medium">{copy.body}</span>
-            <Textarea data-testid="search-export-body" maxLength={20000} disabled={busy} value={body} onChange={event => setBody(event.target.value)} rows={4} />
+            <Textarea data-testid="search-export-body" maxLength={20000} disabled={busy} value={body} onChange={event => setBody(event.target.value)} rows={8} />
           </label>
+          {body.length > 20000 && <p role="alert" className="text-sm text-destructive">{copy.criteriaBodyTooLong}</p>}
           <label className="flex items-center gap-2 text-sm">
             <input data-testid="search-export-include-signature" type="checkbox" disabled={busy} checked={includeSignature} onChange={event => setIncludeSignature(event.target.checked)} />
             <span>{copy.includeSignature}</span>

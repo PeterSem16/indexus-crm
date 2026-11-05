@@ -130,9 +130,53 @@ const replyTemplateCopy: Record<keyof typeof translations, {
     missingSignature: "Das verbundene persönliche Konto hat keine aktive Signatur zum Einfügen.",
   },
 };
+const criteriaCopy = {
+  en: {
+    criteriaTitle: "Search criteria", criteriaQuery: "Search expression", criteriaNoQuery: "No text restriction",
+    criteriaPeriod: "Period", criteriaAnyDate: "No date restriction", criteriaAccounts: "Email accounts searched",
+    criteriaGroup: "Account group",
+    criteriaBodyTooLong: "The message including search criteria exceeds 20,000 characters. Shorten it before sending.",
+  },
+  sk: {
+    criteriaTitle: "Kritériá vyhľadávania", criteriaQuery: "Hľadaný výraz", criteriaNoQuery: "Bez textového obmedzenia",
+    criteriaPeriod: "Obdobie", criteriaAnyDate: "Bez dátumového obmedzenia", criteriaAccounts: "Prehľadávané e-mailové kontá",
+    criteriaGroup: "Skupina kont",
+    criteriaBodyTooLong: "Správa vrátane kritérií vyhľadávania presahuje 20 000 znakov. Pred odoslaním ju skráťte.",
+  },
+  cs: {
+    criteriaTitle: "Kritéria vyhledávání", criteriaQuery: "Hledaný výraz", criteriaNoQuery: "Bez textového omezení",
+    criteriaPeriod: "Období", criteriaAnyDate: "Bez omezení data", criteriaAccounts: "Prohledávané e-mailové účty",
+    criteriaGroup: "Skupina účtů",
+    criteriaBodyTooLong: "Zpráva včetně kritérií vyhledávání přesahuje 20 000 znaků. Před odesláním ji zkraťte.",
+  },
+  hu: {
+    criteriaTitle: "Keresési feltételek", criteriaQuery: "Keresőkifejezés", criteriaNoQuery: "Nincs szöveges korlátozás",
+    criteriaPeriod: "Időszak", criteriaAnyDate: "Nincs dátumkorlátozás", criteriaAccounts: "Átkeresett e-mail-fiókok",
+    criteriaGroup: "Fiókcsoport",
+    criteriaBodyTooLong: "Az üzenet a keresési feltételekkel együtt meghaladja a 20 000 karaktert. Küldés előtt rövidítse le.",
+  },
+  ro: {
+    criteriaTitle: "Criterii de căutare", criteriaQuery: "Expresie căutată", criteriaNoQuery: "Fără restricție de text",
+    criteriaPeriod: "Perioadă", criteriaAnyDate: "Fără restricție de dată", criteriaAccounts: "Conturi de e-mail căutate",
+    criteriaGroup: "Grup de conturi",
+    criteriaBodyTooLong: "Mesajul cu criteriile de căutare depășește 20.000 de caractere. Scurtați-l înainte de trimitere.",
+  },
+  it: {
+    criteriaTitle: "Criteri di ricerca", criteriaQuery: "Espressione cercata", criteriaNoQuery: "Nessuna restrizione di testo",
+    criteriaPeriod: "Periodo", criteriaAnyDate: "Nessuna restrizione di data", criteriaAccounts: "Account e-mail esaminati",
+    criteriaGroup: "Gruppo di account",
+    criteriaBodyTooLong: "Il messaggio con i criteri di ricerca supera i 20.000 caratteri. Abbreviarlo prima dell’invio.",
+  },
+  de: {
+    criteriaTitle: "Suchkriterien", criteriaQuery: "Suchausdruck", criteriaNoQuery: "Keine Texteinschränkung",
+    criteriaPeriod: "Zeitraum", criteriaAnyDate: "Keine Datumseinschränkung", criteriaAccounts: "Durchsuchte E-Mail-Konten",
+    criteriaGroup: "Kontogruppe",
+    criteriaBodyTooLong: "Die Nachricht mit Suchkriterien überschreitet 20.000 Zeichen. Kürzen Sie sie vor dem Senden.",
+  },
+};
 export default {
-  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk },
-  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu },
-  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it },
-  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de },
+  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en, ...criteriaCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk, ...criteriaCopy.sk },
+  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs, ...criteriaCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu, ...criteriaCopy.hu },
+  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro, ...criteriaCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it, ...criteriaCopy.it },
+  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de, ...criteriaCopy.de },
 };

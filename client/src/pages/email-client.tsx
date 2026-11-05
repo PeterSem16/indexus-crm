@@ -16,6 +16,7 @@ import "@/components/nexus/omni-workspace.css";
 import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
 import { OmniSearchResultsHeader } from "@/components/nexus/omni-search-results-header";
 import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
+import { snapshotOmniExportSearchContext, type OmniExportSearchContext } from "@/lib/omni-export-search-context";
 import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
 import { groupScope, resolveMailboxScope, type OmniGroupReplyTemplate, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
 import { defaultOmniGroupReplyTemplate } from "@/components/nexus/omni-reply-template";
@@ -3263,6 +3264,7 @@ export default function EmailClientPage() {
     messages: { id: string; mailbox: string; subject: string }[];
     groupName?: string;
     replyTemplate?: OmniGroupReplyTemplate;
+    searchContext?: OmniExportSearchContext;
   }>({ messages: [] });
   const [aiSearchEnabled, setAiSearchEnabled] = useState(() => {
     try { return localStorage.getItem("nexus-ai-search") !== "false"; } catch { return true; }
@@ -3918,14 +3920,23 @@ export default function EmailClientPage() {
   });
   const saveNexusSubfolders = saveNexusFolderItems.filter((item: any) => item.folder);
 
-  const { data: searchResults, isLoading: searchLoading, isFetching: searchRefreshing, isError: searchFailed, refetch: retrySearch } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
+  const { data: searchResults, isLoading: searchLoading, isFetching: searchRefreshing, isError: searchFailed, refetch: retrySearch } = useQuery<{
+    emails: EmailMessage[]; mailbox: string; criteria: Omit<OmniExportSearchContext, "accounts">;
+  }[]>({
     queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo, mailboxScopeFingerprint, groupScopeFingerprint],
     queryFn: async () => {
       const hasQuery = debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2;
       const hasDate = searchDateFrom || searchDateTo;
       if (!hasQuery && !hasDate) return [];
       const mailboxesToSearch = resolveMailboxScope(searchMailbox, mailboxGroups, mailboxes);
-      const results: { emails: EmailMessage[]; mailbox: string }[] = [];
+      const criteria: Omit<OmniExportSearchContext, "accounts"> = {
+        query: hasQuery ? debouncedSearchQuery : "",
+        dateFrom: searchDateFrom,
+        dateTo: searchDateTo,
+        scope: searchMailbox,
+        groupName: mailboxGroups.find(group => groupScope(group.id) === searchMailbox)?.name,
+      };
+      const results: { emails: EmailMessage[]; mailbox: string; criteria: typeof criteria }[] = [];
       for (const mbx of mailboxesToSearch) {
         try {
           const params = new URLSearchParams();
@@ -3941,7 +3952,8 @@ export default function EmailClientPage() {
           const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: actualEmail }));
           results.push({
             emails: taggedEmails,
-            mailbox: actualEmail
+            mailbox: actualEmail,
+            criteria,
           });
         } catch {
           throw new Error(t.omniGroups.searchError);
@@ -5543,7 +5555,8 @@ export default function EmailClientPage() {
                   onSend={() => {
                     const messages = (searchResults || []).flatMap(result =>
                       result.emails.map(email => ({ id: email.id, mailbox: result.mailbox, subject: email.subject || "" })));
-                    const executedGroup = mailboxGroups.find(group => groupScope(group.id) === searchMailbox);
+                    const executedCriteria = searchResults?.[0]?.criteria;
+                    const executedGroup = mailboxGroups.find(group => groupScope(group.id) === (executedCriteria?.scope ?? searchMailbox));
                     const replyTemplate = executedGroup
                       ? { ...(executedGroup.replyTemplate ?? defaultOmniGroupReplyTemplate(executedGroup.name, {
                           replySubjectDefault: t.omniGroups.replySubjectDefault,
@@ -5552,6 +5565,9 @@ export default function EmailClientPage() {
                       : undefined;
                     setSearchExportSnapshot({
                       messages,
+                      ...(executedCriteria ? {
+                        searchContext: snapshotOmniExportSearchContext(executedCriteria, (searchResults || []).map(result => result.mailbox)),
+                      } : {}),
                       ...(executedGroup ? { groupName: executedGroup.name, replyTemplate } : {}),
                     });
                     setSearchExportEmailOpen(true);
@@ -7291,6 +7307,8 @@ export default function EmailClientPage() {
         copy={t.omniGroups}
         groupName={searchExportSnapshot.groupName}
         replyTemplate={searchExportSnapshot.replyTemplate}
+        searchContext={searchExportSnapshot.searchContext}
+        locale={locale}
         onSuccess={() => toast({ title: t.omniGroups.sendSuccess })}
       />
 
