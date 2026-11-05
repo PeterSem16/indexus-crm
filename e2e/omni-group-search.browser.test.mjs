@@ -10,10 +10,12 @@ app.use((_, res) => res.sendFile(process.cwd() + "/dist/public/index.html"));
 const server = app.listen(0, "127.0.0.1");
 await new Promise(resolve => server.on("listening", resolve));
 const browser = await chromium.launch({ executablePath: "/repl/tools/bin/chromium", headless: true, args: ["--no-sandbox"] });
-const page = await browser.newPage({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
+const context = await browser.newContext({ viewport: { width: 1440, height: 950 }, reducedMotion: "reduce" });
+const page = await context.newPage();
 page.setDefaultTimeout(15_000);
 const errors = [], searches = [], endpoints = [], exportRequests = [];
 let groups = [{ id: "care", name: "Customer support", emails: ["support@example.test"] }], revision = 1;
+let smsIsAdmin = true, canManageTaskSettings = true;
 const mailboxes = [
   { id: "personal", email: "me@example.test", displayName: "Personal account", type: "personal", isDefault: true },
   { id: "support", email: "support@example.test", displayName: "Support account", type: "shared" },
@@ -27,7 +29,10 @@ await page.route("**/api/**", async route => {
   if (path === "/api/auth/me") data = { user: { id: "omni-fixture", username: "omni-fixture", fullName: "Test Operator", email: "me@example.test", role: "admin", isActive: true, assignedCountries: ["SK"], language: "en" } };
   if (path.includes("ms365-available-mailboxes")) data = mailboxes;
   if (path.includes("ms365-connection")) data = { connected: true, isConnected: true };
-  if (path === "/api/omni-sms/access") data = { isAdmin: true, grants: [], countries: ["SK"], providers: [] };
+  if (path === "/api/omni-sms/access") data = { isAdmin: smsIsAdmin,
+    grants: [{ countryCode: "SK", provider: "bulkgate" }], countries: ["SK"], gateways: [{ provider: "bulkgate", countries: ["SK"] }] };
+  if (path === "/api/task-settings/access") data = { canManage: canManageTaskSettings };
+  if (path === "/api/task-settings/users") data = { configured: false, allowedUserIds: [], users: [], updatedAt: null };
   if (path === "/api/omni-sms/unread") data = { count: 0 };
   if (path.includes("ms365-unread-counts")) data = { connected: true, counts: [] };
   if (path === "/api/tasks/assignment-options") data = { users: [], groups: [], canResolve: true };
@@ -136,6 +141,29 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByTestId("button-smart-search").waitFor();
   await page.getByRole("button", { name: "Finance", exact: true }).waitFor();
+  assert.equal(await page.getByTestId("account-expanded-support@example.test").count(), 1);
+  assert.equal(await page.locator('.omni-group-children button[title="support@example.test"]').count(), 1,
+    "a visible standalone account can also appear inside its group");
+  await page.getByTestId("button-signature").click();
+  const supportVisibility = page.getByTestId("account-show-individually-support");
+  assert.equal(await supportVisibility.getAttribute("aria-checked"), "true");
+  await supportVisibility.click();
+  assert.equal(await supportVisibility.getAttribute("aria-checked"), "false");
+  await page.getByTestId("settings-close").click();
+  assert.equal(await page.getByTestId("account-expanded-support@example.test").count(), 0,
+    "hidden account must not have a standalone navigation row");
+  assert.equal(await page.locator('.omni-group-children button[title="support@example.test"]').count(), 1,
+    "hiding standalone navigation must not remove an account from its group");
+  const hiddenSupportInGroup = page.locator('.omni-group-children button[title="support@example.test"]');
+  await hiddenSupportInGroup.click();
+  assert.ok((await hiddenSupportInGroup.getAttribute("class")).includes("selected"),
+    "a hidden standalone account remains selectable inside its group");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("button-smart-search").waitFor();
+  await page.locator('.omni-group-children button[title="support@example.test"]').waitFor();
+  assert.equal(await page.getByTestId("account-expanded-support@example.test").count(), 0,
+    "standalone visibility preference persists after reload");
+  assert.equal(await page.locator('.omni-group-children button[title="support@example.test"]').count(), 1);
   const financeMark = page.getByRole("button", { name: "Finance", exact: true }).locator(".omni-group-mark");
   assert.equal(await financeMark.evaluate(el => getComputedStyle(el).color), "rgb(20, 184, 166)");
   assert.equal(await financeMark.locator(".omni-group-badge").count(), 1);
@@ -193,11 +221,43 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok((await page.getByTestId("smart-search-panel").boundingBox()).width <= 390);
   await page.screenshot({ path: "generated-artifacts/omni-groups/mobile.png" });
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.keyboard.press("Escape");
+  await page.getByTestId("smart-search-overlay").waitFor({ state: "detached" });
+  await page.getByTestId("tab-sms").click();
+  smsIsAdmin = false;
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("tab-sms").click();
+  await page.getByTestId("button-sms-settings").waitFor();
+  assert.equal(await page.getByTestId("button-sms-manage-access").count(), 0,
+    "ordinary SMS users retain filter settings but do not receive admin permission controls");
+  await page.getByTestId("button-sms-settings").click();
+  await page.getByTestId("sms-filter-controls").waitFor();
+  smsIsAdmin = true;
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("tab-sms").click();
+  await page.getByTestId("button-sms-manage-access").waitFor();
+  await page.getByTestId("button-sms-manage-access").click();
+  await page.locator(".sms-permissions-panel").waitFor();
+
+  await page.getByTestId("tab-tasks").click();
+  await page.getByTestId("button-task-groups-settings").waitFor();
+  await page.getByTestId("button-task-groups-settings").click();
+  await page.getByTestId("dialog-task-groups").waitFor();
+  canManageTaskSettings = false;
+  await Promise.all([
+    page.waitForResponse(response => response.url().endsWith("/api/task-settings/access")),
+    page.reload({ waitUntil: "domcontentloaded" }),
+  ]);
+  await page.getByTestId("tab-tasks").click();
+  assert.equal(await page.getByTestId("button-task-groups-settings").count(), 0,
+    "task settings entry is absent when server-resolved permission is denied");
   assert.deepEqual(errors, []);
-  console.log("PASS real Omni: selected group cannot be widened by AI, group save/reload, desktop/dark/mobile.");
+  console.log("PASS real Omni: group search and account visibility persistence; permission-aware SMS/task toolbar settings; desktop/dark/mobile.");
 } catch (error) {
   console.error("Browser errors:", errors);
-  console.error("Visible body:", (await page.locator("body").innerText()).slice(-2500));
+  const body = await page.locator("body").innerText();
+  console.error("Visible body:", body.slice(0, 1400), body.slice(-1000));
   console.error("Fixture endpoints:", [...new Set(endpoints)]);
   throw error;
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }

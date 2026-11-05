@@ -42,9 +42,16 @@ interface OmniSmsWorkspaceProps {
   onDirectionFilterChange?: (direction: DirectionFilter) => void;
   selectedMessageId?: string | null;
   onClearSelectedMessage?: () => void;
+  hostToolbar?: boolean;
+  manageAccessOpen?: boolean;
+  onManageAccessOpenChange?: (open: boolean) => void;
+  onManageAccessAvailabilityChange?: (available: boolean) => void;
+  filtersOpen?: boolean;
+  onFiltersOpenChange?: (open: boolean) => void;
+  onFiltersAvailabilityChange?: (available: boolean) => void;
 }
 
-export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, selectedMessageId, onClearSelectedMessage }: OmniSmsWorkspaceProps) {
+export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, selectedMessageId, onClearSelectedMessage, hostToolbar, manageAccessOpen, onManageAccessOpenChange, onManageAccessAvailabilityChange, filtersOpen: controlledFiltersOpen, onFiltersOpenChange, onFiltersAvailabilityChange }: OmniSmsWorkspaceProps) {
   const { user } = useAuth();
   const { t, locale } = useI18n();
   const copy = t.omniSms;
@@ -52,7 +59,13 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   const actorId = user?.id ?? "anonymous";
   const [country, setCountry] = useState("");
   const [provider, setProvider] = useState<ProviderFilter>("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [localFiltersOpen, setLocalFiltersOpen] = useState(false);
+  const filtersOpen = controlledFiltersOpen ?? localFiltersOpen;
+  const setFiltersOpen = (next: boolean | ((open: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(filtersOpen) : next;
+    if (controlledFiltersOpen === undefined) setLocalFiltersOpen(value);
+    onFiltersOpenChange?.(value);
+  };
   const [readState, setReadState] = useState<"all" | "read" | "unread">("all");
   const [readError, setReadError] = useState(false);
   const visibleMessageRef = useRef<string | null>(null);
@@ -69,7 +82,13 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
   const [sending, setSending] = useState(false);
   const [replyError, setReplyError] = useState("");
   const [replySuccess, setReplySuccess] = useState(false);
-  const [manageOpen, setManageOpen] = useState(false);
+  const [localManageOpen, setLocalManageOpen] = useState(false);
+  const manageOpen = manageAccessOpen ?? localManageOpen;
+  const setManageOpen = (next: boolean | ((open: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(manageOpen) : next;
+    if (manageAccessOpen === undefined) setLocalManageOpen(value);
+    onManageAccessOpenChange?.(value);
+  };
   const [permissionEdits, setPermissionEdits] = useState<Record<string, OmniSmsProvider[]>>({});
   const [savingUser, setSavingUser] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState("");
@@ -133,6 +152,12 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
     if (!access) return;
     if (!country || !access.countries.includes(country)) setCountry(access.countries[0] ?? "");
   }, [access, country]);
+  useEffect(() => {
+    onManageAccessAvailabilityChange?.(!!access?.isAdmin && COUNTRIES.includes(country));
+  }, [access?.isAdmin, country, onManageAccessAvailabilityChange]);
+  useEffect(() => {
+    onFiltersAvailabilityChange?.(!!access);
+  }, [!!access, onFiltersAvailabilityChange]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -356,8 +381,8 @@ export function OmniSmsWorkspace({ directionFilter, onDirectionFilterChange, sel
               <Badge variant="secondary" className="text-[10px]">{total}</Badge>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.filters} title={copy.filters} aria-expanded={filtersOpen} aria-controls="sms-filter-controls" onClick={() => setFiltersOpen(value => !value)} data-testid="sms-toggle-filters"><Settings2 className="h-3.5 w-3.5" /></Button>
-              {access.isAdmin && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.manageAccess} title={copy.manageAccess} disabled={!COUNTRIES.includes(country)} onClick={() => setManageOpen(value => !value)}><UserRound className="h-3.5 w-3.5" /></Button>}
+              {!hostToolbar && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.filters} title={copy.filters} aria-expanded={filtersOpen} aria-controls="sms-filter-controls" onClick={() => setFiltersOpen(value => !value)} data-testid="sms-toggle-filters"><Settings2 className="h-3.5 w-3.5" /></Button>}
+              {access.isAdmin && !hostToolbar && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.manageAccess} title={copy.manageAccess} disabled={!COUNTRIES.includes(country)} onClick={() => setManageOpen(value => !value)} data-testid="sms-manage-access-standalone"><UserRound className="h-3.5 w-3.5" /></Button>}
               <Button type="button" variant="ghost" size="icon" className="h-7 w-7" aria-label={copy.retry} title={copy.retry} onClick={() => { setSelectedId(null); setMobileDetail(false); onClearSelectedMessage?.(); void accessQuery.refetch(); void messagesQuery.refetch(); }}><RefreshCw className="h-3.5 w-3.5" /></Button>
               <Button type="button" variant="ghost" size="icon" className="sms-mobile-back h-7 w-7" aria-label={copy.close} onClick={() => setMobileDetail(false)}><X className="h-4 w-4" /></Button>
             </div>

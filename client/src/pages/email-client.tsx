@@ -183,7 +183,6 @@ import {
   FileSearch,
   GripVertical,
   ListChecks,
-  Settings2,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
@@ -3067,6 +3066,10 @@ export default function EmailClientPage() {
   const [serverTotalCount, setServerTotalCount] = useState(0);
 
   const [smsFilter, setSmsFilter] = useState<SmsFilter>("all");
+  const [smsFiltersAvailable, setSmsFiltersAvailable] = useState(false);
+  const [smsFiltersOpen, setSmsFiltersOpen] = useState(false);
+  const [smsManageAccessAvailable, setSmsManageAccessAvailable] = useState(false);
+  const [smsManageAccessOpen, setSmsManageAccessOpen] = useState(false);
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("all");
   const [taskSubTab, setTaskSubTab] = useState<string>("my");
   const [taskDeepLinkId, setTaskDeepLinkId] = useState<string | null>(null);
@@ -3167,7 +3170,6 @@ export default function EmailClientPage() {
     const saved = localStorage.getItem("nexus-account-configs");
     return saved ? JSON.parse(saved) : {};
   });
-
   const updateAccountConfig = (email: string, config: { icon: string; color: string; enabled: boolean }) => {
     setAccountConfigs(prev => {
       const next = { ...prev, [email]: config };
@@ -3746,18 +3748,14 @@ export default function EmailClientPage() {
   const mailboxColorMap: Record<string, string> = {};
   mailboxColorsList.forEach((mc: any) => { mailboxColorMap[mc.mailboxEmail] = mc.color; });
 
-  const sidebarMailboxes: AccountIconConfig[] = mailboxes
-    .filter(mb => {
-      const cfg = accountConfigs[mb.email];
-      return cfg ? cfg.enabled !== false : true;
-    })
-    .map(mb => ({
+  const sidebarMailboxes: AccountIconConfig[] = mailboxes.map(mb => ({
       email: mb.email,
       displayName: mb.displayName || mb.email,
       icon: accountConfigs[mb.email]?.icon || "mail",
       color: accountConfigs[mb.email]?.color || mailboxColorMap[mb.email] || "#6B7280",
       type: mb.type,
       isDefault: mb.isDefault,
+      showIndividually: accountConfigs[mb.email]?.enabled !== false,
     }));
 
   const handleSidebarMailboxSelect = (mbKey: string) => {
@@ -5438,6 +5436,11 @@ export default function EmailClientPage() {
           setTimeout(() => smartSearchInputRef.current?.focus(), 100);
         }}
         onSettings={() => { openSignatureEditor(); setSettingsTab("accounts"); }}
+        onSmsFilters={() => setSmsFiltersOpen(open => !open)} smsFiltersAvailable={smsFiltersAvailable} smsFiltersOpen={smsFiltersOpen}
+        onSmsManageAccess={() => { if (smsManageAccessAvailable) setSmsManageAccessOpen(open => !open); }}
+        smsManageAccessAvailable={smsManageAccessAvailable} smsManageAccessOpen={smsManageAccessOpen}
+        onTaskSettings={() => { if (canManageTaskSettings) setTaskGroupsDialogOpen(true); }}
+        canManageTaskSettings={canManageTaskSettings}
         onFullscreen={() => { if (activeTab === "tasks" && selectedTask) setTaskDetailFullscreen(true); else setNexusFullscreen(prev => !prev); }}
         fullscreen={nexusFullscreen} scope={selectedGroup?.name || (selectedMailbox === "all" ? t.omniGroups.all : mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === selectedMailbox)?.displayName || selectedMailbox)}
         chatError={chatConversationsQuery.isError} onChatRetry={() => { void chatConversationsQuery.refetch(); }}
@@ -6034,7 +6037,10 @@ export default function EmailClientPage() {
           </>
         )}
 
-        {activeTab === "sms" && <OmniSmsWorkspace directionFilter={smsFilter} onDirectionFilterChange={setSmsFilter} selectedMessageId={routeSmsId || selectedSms?.id} onClearSelectedMessage={() => {
+        {activeTab === "sms" && <OmniSmsWorkspace directionFilter={smsFilter} onDirectionFilterChange={setSmsFilter} selectedMessageId={routeSmsId || selectedSms?.id} hostToolbar
+          filtersOpen={smsFiltersOpen} onFiltersOpenChange={setSmsFiltersOpen} onFiltersAvailabilityChange={setSmsFiltersAvailable}
+          manageAccessOpen={smsManageAccessOpen} onManageAccessOpenChange={setSmsManageAccessOpen} onManageAccessAvailabilityChange={setSmsManageAccessAvailable}
+          onClearSelectedMessage={() => {
           setSelectedSms(null);
           setRouteSmsId(null);
           const url = new URL(window.location.href);
@@ -6106,9 +6112,6 @@ export default function EmailClientPage() {
                         />
                       </PopoverContent>
                     </Popover>
-                    {canManageTaskSettings && <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => setTaskGroupsDialogOpen(true)} aria-label={t.tasks.workspace.settings} title={t.tasks.workspace.settings} data-testid="btn-task-groups-nexus">
-                      <Settings2 className="h-3.5 w-3.5" />
-                    </Button>}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 mt-1.5 flex-wrap">
@@ -9145,6 +9148,19 @@ export default function EmailClientPage() {
                     <Badge variant={mb.type === "personal" ? "default" : "secondary"} className="text-[10px] shrink-0">
                       {mb.type === "personal" ? t.nexusOmni.settings.personal : t.nexusOmni.settings.shared}
                     </Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium">{t.omniGroups.showAccountIndividually}</p>
+                      <p id={`account-individual-description-${mb.id}`} className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{t.omniGroups.showAccountIndividuallyDescription}</p>
+                    </div>
+                    <Switch
+                      checked={cfg.enabled !== false}
+                      onCheckedChange={enabled => updateAccountConfig(mbEmail, { ...cfg, enabled })}
+                      aria-label={t.omniGroups.showAccountIndividually}
+                      aria-describedby={`account-individual-description-${mb.id}`}
+                      data-testid={`account-show-individually-${mb.id}`}
+                    />
                   </div>
                   <div>
                     <p className="text-[11px] text-muted-foreground mb-1.5">{t.nexusOmni.settings.sidebarIcon}</p>

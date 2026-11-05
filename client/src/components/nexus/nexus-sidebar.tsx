@@ -70,6 +70,7 @@ export interface AccountIconConfig {
   color: string;
   type: "personal" | "shared";
   isDefault: boolean;
+  showIndividually?: boolean;
 }
 
 const ACCOUNT_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -598,7 +599,7 @@ export default function NexusSidebar({
                   <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.allAccounts}</TooltipContent>
                 </Tooltip>
               )}
-              {mailboxes.filter(mb => !mailboxGroups.some(g => g.emails.includes(mb.email.toLowerCase()))).map(mb => {
+              {mailboxes.filter(mb => mb.showIndividually !== false).map(mb => {
                 const mbKey = mb.type === "personal" ? "personal" : mb.email;
                 const isActive = selectedMailbox === mbKey;
                 const unread = mailboxUnreadCounts?.[mb.email] || 0;
@@ -937,7 +938,7 @@ export default function NexusSidebar({
               <span className="truncate text-xs">{t.nexusOmni.common.allAccounts}</span>
             </button>
           )}
-          {mailboxes.filter(mb => !mailboxGroups.some(g => g.emails.includes(mb.email.toLowerCase()))).map(mb => {
+          {mailboxes.filter(mb => mb.showIndividually !== false).map(mb => {
             const mbKey = mb.type === "personal" ? "personal" : mb.email;
             const isActive = selectedMailbox === mbKey;
             const unread = mailboxUnreadCounts?.[mb.email] || 0;

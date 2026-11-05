@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
-import { Maximize2, Minimize2, Network, PenSquare, Search, Settings } from "lucide-react";
+import { Maximize2, Minimize2, Network, PenSquare, Search, Settings, Settings2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { NexusTab } from "./nexus-types";
-export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSettings, onFullscreen, fullscreen, onCompose, scope, chatError, onChatRetry }: {
+export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSettings, onSmsFilters, smsFiltersAvailable, smsFiltersOpen, onSmsManageAccess, smsManageAccessAvailable, smsManageAccessOpen, onTaskSettings, canManageTaskSettings, onFullscreen, fullscreen, onCompose, scope, chatError, onChatRetry }: {
   tabs: { key: NexusTab; label: string; icon: ReactNode; badge?: number }[];
   activeTab: NexusTab; onTab: (tab: NexusTab) => void; onSearch: () => void; onSettings: () => void;
+  onSmsFilters?: () => void; smsFiltersAvailable?: boolean; smsFiltersOpen?: boolean;
+  onSmsManageAccess?: () => void; smsManageAccessAvailable?: boolean; smsManageAccessOpen?: boolean;
+  onTaskSettings?: () => void; canManageTaskSettings?: boolean;
   onFullscreen: () => void; fullscreen: boolean; onCompose: () => void; scope: string;
   chatError: boolean; onChatRetry: () => void;
 }) {
@@ -30,6 +33,12 @@ export function OmniWorkspaceToolbar({ tabs, activeTab, onTab, onSearch, onSetti
         </Button>
         {activeTab === "email" && <Button variant="outline" size="icon" title={t.nexusOmni.settings.accounts} aria-label={t.nexusOmni.settings.accounts}
           onClick={onSettings} data-testid="button-signature"><Settings className="h-4 w-4" /></Button>}
+        {activeTab === "sms" && smsFiltersAvailable && onSmsFilters && <Button variant="outline" size="icon" title={t.omniSms.filters} aria-label={t.omniSms.filters}
+          onClick={onSmsFilters} aria-expanded={smsFiltersOpen} aria-controls="sms-filter-controls" data-testid="button-sms-settings"><Settings2 className="h-4 w-4" /></Button>}
+        {activeTab === "sms" && smsManageAccessAvailable && onSmsManageAccess && <Button variant="outline" size="icon" title={t.omniSms.manageAccess} aria-label={t.omniSms.manageAccess}
+          onClick={onSmsManageAccess} aria-expanded={smsManageAccessOpen} data-testid="button-sms-manage-access"><UserRound className="h-4 w-4" /></Button>}
+        {activeTab === "tasks" && canManageTaskSettings && onTaskSettings && <Button variant="outline" size="icon" title={t.tasks.workspace.settings} aria-label={t.tasks.workspace.settings}
+          onClick={onTaskSettings} data-testid="button-task-groups-settings"><Settings2 className="h-4 w-4" /></Button>}
         <Button variant="outline" size="icon" title={fullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen}
           aria-label={fullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen} onClick={onFullscreen} data-testid="button-nexus-fullscreen">
           {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
