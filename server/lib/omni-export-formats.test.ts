@@ -206,8 +206,17 @@ test("export route validates delivery before downloads, serializes work, returns
     assert.equal(result.status, 202);
     assert.deepEqual(await result.json(), { sent: true, sender: "me@example.test" });
     assert.equal(sent, 1);
-    await new Promise(resolve => setTimeout(resolve, 10));
-    await assert.rejects(access(zipPath));
+    // The HTTP response is deliberately sent before asynchronous temp cleanup.
+    // Under build/test load 10 ms is not a completion guarantee. Still require
+    // actual removal (ENOENT), fail on other IO errors, and bound the wait.
+    await assert.rejects(async () => {
+      const deadline = Date.now() + 5_000;
+      for (;;) {
+        await access(zipPath);
+        assert.ok(Date.now() < deadline, "Temporary export ZIP was not removed within 5 seconds");
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }, { code: "ENOENT" });
     const download = await call({ format: "msg", messages });
     assert.equal(download.status, 200); assert.match(download.headers.get("content-disposition")!, /nexus-omni-msg.zip/);
     const zip = Buffer.from(await download.arrayBuffer()), compressedSize = zip.readUInt32LE(18), nameLength = zip.readUInt16LE(26);
