@@ -141,6 +141,7 @@ interface NexusSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   mailboxes?: AccountIconConfig[];
+  showAllAccounts?: boolean;
   mailboxGroups?: OmniMailboxGroup[];
   selectedMailbox?: string;
   onSelectMailbox?: (mailbox: string) => void;
@@ -195,6 +196,7 @@ export default function NexusSidebar({
   collapsed,
   onToggleCollapse,
   mailboxes,
+  showAllAccounts = true,
   mailboxGroups = [],
   selectedMailbox,
   onSelectMailbox,
@@ -581,7 +583,7 @@ export default function NexusSidebar({
           {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
             <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
               <OmniGroupNavigation groups={mailboxGroups} mailboxes={mailboxes} selected={selectedMailbox} onSelect={onSelectMailbox} collapsed />
-              {mailboxes.length > 1 && (
+              {showAllAccounts && mailboxes.length > 1 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
@@ -924,7 +926,7 @@ export default function NexusSidebar({
       {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
         <div className="border-t px-2 py-2 space-y-1">
           <OmniGroupNavigation groups={mailboxGroups} mailboxes={mailboxes} selected={selectedMailbox} onSelect={onSelectMailbox} />
-          {mailboxes.length > 1 && (
+          {showAllAccounts && mailboxes.length > 1 && (
             <button
               onClick={() => onSelectMailbox?.("all")}
               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-all ${

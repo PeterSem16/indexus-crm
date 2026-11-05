@@ -72,6 +72,44 @@ const loadEmail = async () => {
 try {
   await loadEmail();
   await standalone.waitFor();
+  const allTogether = page.getByTestId("accounts-show-all-together");
+  const allExpanded = page.getByTestId("account-expanded-all");
+  const allCollapsed = page.getByTestId("account-icon-all");
+  await allExpanded.click();
+  await page.getByTestId("button-signature").click();
+  assert.equal(await allTogether.getAttribute("aria-checked"), "true", "existing preferences default to visible");
+  await allTogether.click();
+  await page.getByTestId("settings-close").click();
+  await allExpanded.waitFor({ state: "detached" });
+  assert.match(await page.getByTestId("account-expanded-me@example.test").getAttribute("class"), /bg-primary\/10/,
+    "hiding an active combined view returns to the default account");
+  assert.equal(await groupMember.count(), 1);
+  assert.equal(await standalone.count(), 1);
+  await loadEmail();
+  assert.equal(await allExpanded.count(), 0, "the choice survives reloading");
+  await page.getByTestId("button-hide-sidebar").click();
+  await page.getByTestId("button-expand-sidebar").waitFor();
+  assert.equal(await allCollapsed.count(), 0, "the collapsed sidebar also hides All accounts");
+  await page.getByTestId("button-signature").click();
+  assert.equal(await allTogether.getAttribute("aria-checked"), "false");
+  await allTogether.click();
+  await mkdir("generated-artifacts/omni-visibility", { recursive: true });
+  await page.screenshot({ path: "generated-artifacts/omni-visibility/all-accounts-settings.png" });
+  await page.getByTestId("settings-close").click();
+  await allCollapsed.waitFor();
+  await page.getByTestId("button-signature").click();
+  await allTogether.click();
+  await page.getByTestId("settings-close").click();
+  await allCollapsed.waitFor({ state: "detached" });
+  await page.getByTestId("button-expand-sidebar").click();
+  await groupMember.click();
+  await page.getByTestId("button-signature").click();
+  await allTogether.click();
+  await page.getByTestId("settings-close").click();
+  await allExpanded.waitFor();
+  assert.match(await groupMember.getAttribute("class"), /selected/, "enabling All accounts does not change the selected group");
+  await loadEmail();
+  await allExpanded.waitFor();
   await page.getByTestId("button-signature").click();
   const toggle = page.getByTestId("account-show-individually-support");
   await toggle.waitFor();
@@ -172,7 +210,7 @@ try {
   assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390);
   await page.screenshot({ path: "generated-artifacts/omni-visibility/mobile.png" });
   assert.deepEqual(errors, []);
-  console.log("PASS single BO navigation with preserved counts/filtering, non-member fallback, multiple/no BO groups; account visibility, SMS/task settings permissions and mobile toolbar.");
+  console.log("PASS optional All accounts in expanded/collapsed navigation, reload persistence and active-view fallback; individual/group access, BO tabs, settings permissions and mobile toolbar.");
 } catch (error) {
   console.error("Browser errors:", errors);
   console.error("Visible screen:", (await page.locator("body").innerText()).slice(0, 2000));

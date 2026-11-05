@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
@@ -3184,6 +3184,7 @@ export default function EmailClientPage() {
   const [emailPrefs, setEmailPrefs] = useState(() => {
     const saved = localStorage.getItem("nexus-email-prefs");
     const defaults = {
+      showAllAccounts: true,
       showAccountIcons: true,
       highlightUnread: true,
       unreadIndicator: true,
@@ -3766,7 +3767,7 @@ export default function EmailClientPage() {
       showIndividually: accountConfigs[mb.email]?.enabled !== false,
     }));
 
-  const handleSidebarMailboxSelect = (mbKey: string) => {
+  const handleSidebarMailboxSelect = useCallback((mbKey: string) => {
     setSelectedMailbox(mbKey);
     setSmartSearchMailbox(mbKey);
     setIsSearching(false);
@@ -3774,7 +3775,15 @@ export default function EmailClientPage() {
     setSelectedEmail(null);
     setPage(0);
     setAccumulatedEmails([]);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (emailPrefs.showAllAccounts !== false || selectedMailbox !== "all" || !mailboxes.length) return;
+    const visible = mailboxes.filter(mb => accountConfigs[mb.email]?.enabled !== false);
+    const fallback = visible.find(mb => mb.isDefault) || visible[0] ||
+      mailboxes.find(mb => mb.isDefault) || mailboxes[0];
+    handleSidebarMailboxSelect(fallback.type === "personal" ? "personal" : fallback.email);
+  }, [emailPrefs.showAllAccounts, selectedMailbox, mailboxes, accountConfigs, handleSidebarMailboxSelect]);
 
   const getAccountTint = (emailAddr?: string | null): string | undefined => {
     if (!emailAddr) return undefined;
@@ -5501,6 +5510,7 @@ export default function EmailClientPage() {
           collapsed={isSidebarHidden}
           onToggleCollapse={() => setIsSidebarHidden(prev => !prev)}
           mailboxes={sidebarMailboxes}
+          showAllAccounts={emailPrefs.showAllAccounts !== false}
           mailboxGroups={mailboxGroups}
           selectedMailbox={selectedMailbox}
           onSelectMailbox={handleSidebarMailboxSelect}
@@ -9141,6 +9151,19 @@ export default function EmailClientPage() {
         <div>
           <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.accounts}</h2>
           <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.connectedAccountsDesc}</p>
+          <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border bg-muted/30 px-3 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{t.omniGroups.showAllAccounts}</p>
+              <p id="accounts-show-all-description" className="mt-0.5 text-xs leading-5 text-muted-foreground">{t.omniGroups.showAllAccountsDescription}</p>
+            </div>
+            <Switch
+              checked={emailPrefs.showAllAccounts !== false}
+              onCheckedChange={enabled => updateEmailPref("showAllAccounts", enabled)}
+              aria-label={t.omniGroups.showAllAccounts}
+              aria-describedby="accounts-show-all-description"
+              data-testid="accounts-show-all-together"
+            />
+          </div>
           {groupSettings.isLoading ? <Loader2 className="h-5 w-5 animate-spin my-4" /> : groupSettings.isError ?
             <div role="alert" className="text-sm text-destructive my-4">{t.omniGroups.loadError}
               <Button variant="outline" size="sm" className="ml-2" onClick={() => { void groupSettings.refetch(); }}>{t.omniGroups.retry}</Button>

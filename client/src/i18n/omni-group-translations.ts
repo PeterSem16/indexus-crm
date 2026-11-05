@@ -246,9 +246,18 @@ const deliveryCopy = {
     exportForbidden: "Sie haben nicht auf alle ausgewählten E-Mail-Konten Zugriff. Prüfen Sie den Zugriff und wiederholen Sie die Suche.",
   },
 };
+const allAccountsCopy = {
+  en: { showAllAccounts: "Show all accounts together", showAllAccountsDescription: "Show the All accounts entry in the email sidebar. Individual accounts and groups remain available." },
+  sk: { showAllAccounts: "Zobrazovať všetky účty spolu", showAllAccountsDescription: "Zobrazí položku Všetky účty v bočnom paneli e-mailu. Jednotlivé kontá a skupiny zostanú dostupné." },
+  cs: { showAllAccounts: "Zobrazovat všechny účty společně", showAllAccountsDescription: "Zobrazí položku Všechny účty v bočním panelu e-mailu. Jednotlivé účty a skupiny zůstanou dostupné." },
+  hu: { showAllAccounts: "Összes fiók megjelenítése együtt", showAllAccountsDescription: "Megjeleníti az Összes fiók elemet az e-mail-oldalsávban. Az egyes fiókok és csoportok továbbra is elérhetők." },
+  ro: { showAllAccounts: "Afișează toate conturile împreună", showAllAccountsDescription: "Afișează opțiunea Toate conturile în bara laterală de e-mail. Conturile individuale și grupurile rămân disponibile." },
+  it: { showAllAccounts: "Mostra tutti gli account insieme", showAllAccountsDescription: "Mostra Tutti gli account nella barra laterale e-mail. I singoli account e i gruppi restano disponibili." },
+  de: { showAllAccounts: "Alle Konten gemeinsam anzeigen", showAllAccountsDescription: "Zeigt Alle Konten in der E-Mail-Seitenleiste. Einzelne Konten und Gruppen bleiben verfügbar." },
+};
 export default {
-  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en, ...criteriaCopy.en, ...deliveryCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk, ...criteriaCopy.sk, ...deliveryCopy.sk },
-  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs, ...criteriaCopy.cs, ...deliveryCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu, ...criteriaCopy.hu, ...deliveryCopy.hu },
-  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro, ...criteriaCopy.ro, ...deliveryCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it, ...criteriaCopy.it, ...deliveryCopy.it },
-  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de, ...criteriaCopy.de, ...deliveryCopy.de },
+  en: { ...translations.en, ...visibilityCopy.en, ...extra.en, ...replyTemplateCopy.en, ...criteriaCopy.en, ...deliveryCopy.en, ...allAccountsCopy.en }, sk: { ...translations.sk, ...visibilityCopy.sk, ...extra.sk, ...replyTemplateCopy.sk, ...criteriaCopy.sk, ...deliveryCopy.sk, ...allAccountsCopy.sk },
+  cs: { ...translations.cs, ...visibilityCopy.cs, ...extra.cs, ...replyTemplateCopy.cs, ...criteriaCopy.cs, ...deliveryCopy.cs, ...allAccountsCopy.cs }, hu: { ...translations.hu, ...visibilityCopy.hu, ...extra.hu, ...replyTemplateCopy.hu, ...criteriaCopy.hu, ...deliveryCopy.hu, ...allAccountsCopy.hu },
+  ro: { ...translations.ro, ...visibilityCopy.ro, ...extra.ro, ...replyTemplateCopy.ro, ...criteriaCopy.ro, ...deliveryCopy.ro, ...allAccountsCopy.ro }, it: { ...translations.it, ...visibilityCopy.it, ...extra.it, ...replyTemplateCopy.it, ...criteriaCopy.it, ...deliveryCopy.it, ...allAccountsCopy.it },
+  de: { ...translations.de, ...visibilityCopy.de, ...extra.de, ...replyTemplateCopy.de, ...criteriaCopy.de, ...deliveryCopy.de, ...allAccountsCopy.de },
 };
