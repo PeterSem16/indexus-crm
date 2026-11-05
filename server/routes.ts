@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import { registerOmniMailboxGroupRoutes, availableOmniEmails } from "./lib/omni-mailbox-group-routes";
 import { createCustomerEmailHandler } from "./lib/customer-email-handler";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
 import { prepareContactHistory } from "./lib/contact-history-scope";
@@ -6149,10 +6150,13 @@ export async function registerRoutes(
     }
   });
 
+  registerOmniMailboxGroupRoutes(app, requireAuth, storage, pool);
+
   // Get all available mailboxes for sending (user's own + shared)
   app.get("/api/users/:userId/ms365-available-mailboxes", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
+      if (userId !== req.session.user?.id) return res.status(403).json({ error: "Forbidden" });
       const connection = await storage.getUserMs365Connection(userId);
       const sharedMailboxes = await storage.getUserMs365SharedMailboxes(userId);
       
@@ -7493,8 +7497,13 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
   app.get("/api/users/:userId/ms365-search-emails", requireAuth, async (req, res) => {
     try {
       const { userId } = req.params;
+      if (userId !== req.session.user?.id) return res.status(403).json({ error: "Forbidden" });
       const query = req.query.q as string;
       const mailboxEmail = req.query.mailbox as string | undefined;
+      const allowedMailboxes = await availableOmniEmails(storage, userId);
+      if (mailboxEmail && mailboxEmail !== "personal" && !allowedMailboxes.has(mailboxEmail.toLowerCase())) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
       const top = parseInt(req.query.top as string) || 50;
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;

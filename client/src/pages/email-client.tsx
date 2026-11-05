@@ -12,6 +12,10 @@ import { Link, useSearch, useLocation } from "wouter";
 import { useI18n } from "@/i18n/I18nProvider";
 import "@/components/nexus/nexus-signal-tasks.css";
 import "@/components/email-html-body.css";
+import "@/components/nexus/omni-workspace.css";
+import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
+import { OmniWorkspaceToolbar } from "@/components/nexus/omni-workspace-toolbar";
+import { groupScope, resolveMailboxScope, type OmniGroupSettings, type OmniMailboxGroup } from "@shared/omni-mailbox-groups";
 import { TaskGroupsDialog } from "@/components/tasks/task-groups-dialog";
 import { TaskQueueControls } from "@/components/tasks/task-queue-controls";
 import { TaskAttachmentList, TaskAttachmentPicker } from "@/components/tasks/task-attachments";
@@ -3300,12 +3304,53 @@ export default function EmailClientPage() {
 
   const { data: mailboxes = [], isLoading: mailboxesLoading } = useQuery<Mailbox[]>({
     queryKey: ["/api/users", user?.id, "ms365-available-mailboxes"],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-available-mailboxes`, { credentials: "include" }).then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/ms365-available-mailboxes`, { credentials: "include" });
+      if (!response.ok) throw new Error("Mailboxes unavailable");
+      return response.json();
+    },
     enabled: !!user?.id,
     select: (data) => Array.isArray(data) ? data : [],
   });
 
-  const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox;
+  const groupSettingsKey = ["/api/nexus/mailbox-groups", user?.id];
+  const groupSettings = useQuery<OmniGroupSettings>({
+    queryKey: groupSettingsKey,
+    queryFn: async () => {
+      const response = await fetch("/api/nexus/mailbox-groups", { credentials: "include" });
+      if (!response.ok) throw new Error(t.omniGroups.loadError);
+      return response.json();
+    },
+    enabled: !!user?.id,
+    staleTime: 30_000,
+  });
+  const mailboxGroups = groupSettings.data?.groups || [];
+  const selectedGroup = mailboxGroups.find(g => groupScope(g.id) === selectedMailbox);
+  const navigationMailboxes = selectedMailbox.startsWith("group:")
+    ? mailboxes.filter(m => selectedGroup?.emails.includes(m.email.toLowerCase()))
+    : mailboxes;
+  const mailboxScopeFingerprint = mailboxes.map(m => `${m.type}:${m.email.toLowerCase()}`).join("|");
+  const groupScopeFingerprint = JSON.stringify(mailboxGroups);
+  const smartSearchScopeLabel = mailboxGroups.find(g => groupScope(g.id) === smartSearchMailbox)?.name
+    || (smartSearchMailbox === "all" ? t.omniGroups.all : smartSearchMailbox.startsWith("group:") ? t.omniGroups.missing : smartSearchMailbox);
+  useEffect(() => {
+    if (selectedMailbox.startsWith("group:")) {
+      setAccumulatedEmails([]); setPage(0); setSelectedEmail(null); setSelectedFolderId(null);
+    }
+  }, [mailboxScopeFingerprint, groupScopeFingerprint]);
+  const saveMailboxGroups = async (groups: OmniMailboxGroup[]) => {
+    const response = await fetch("/api/nexus/mailbox-groups", {
+      method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groups, revision: groupSettings.data?.revision ?? 0 }),
+    });
+    if (!response.ok) throw new Error(response.status === 409 ? t.omniGroups.conflict : t.omniGroups.saveError);
+    queryClient.setQueryData(groupSettingsKey, await response.json());
+    toast({ title: t.omniGroups.saved });
+  };
+
+  const effectiveMailbox = selectedMailbox === "all" ? "personal" : selectedMailbox.startsWith("group:")
+    ? (navigationMailboxes[0]?.type === "personal" ? "personal" : navigationMailboxes[0]?.email || "")
+    : selectedMailbox;
 
   const [, navigateOmni] = useLocation();
   const processedSearchRef = useRef<string | null>(null);
@@ -3322,10 +3367,10 @@ export default function EmailClientPage() {
   });
 
   const { data: allMailboxFoldersData } = useQuery<Record<string, MailFolder[]>>({
-    queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes", mailboxes.map(m => m.email).join(",")],
+    queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes", selectedMailbox, navigationMailboxes.map(m => m.email).join(",")],
     queryFn: async () => {
       const result: Record<string, MailFolder[]> = {};
-      for (const mb of mailboxes) {
+      for (const mb of navigationMailboxes) {
         const mbKey = mb.type === "personal" ? "personal" : mb.email;
         try {
           const data = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbKey}`).then(r => r.json());
@@ -3334,7 +3379,7 @@ export default function EmailClientPage() {
       }
       return result;
     },
-    enabled: !!user?.id && selectedMailbox === "all" && mailboxes.length > 1,
+    enabled: !!user?.id && (selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && navigationMailboxes.length > 0,
     staleTime: 60000,
   });
 
@@ -3360,15 +3405,16 @@ export default function EmailClientPage() {
   };
 
   const { data: messagesData, isLoading: messagesLoading, isFetching: messagesFetching, refetch: refetchMessages } = useQuery<{ connected: boolean; emails: EmailMessage[]; totalCount: number }>({
-    queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, page],
+    queryKey: ["/api/users", user?.id, "ms365-folder-messages", selectedFolderId, selectedMailbox, mailboxScopeFingerprint, groupScopeFingerprint, page],
     queryFn: async () => {
-      if (selectedMailbox === "all" && mailboxes.length > 1) {
+      if (selectedMailbox.startsWith("group:") && !navigationMailboxes.length) return { connected: true, emails: [], totalCount: 0 };
+      if ((selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && navigationMailboxes.length > 0) {
         const selectedFolderObj = folders.find(f => f.id === selectedFolderId);
         const selectedFolderName = selectedFolderObj?.displayName || "Inbox";
-        const perMb = Math.max(10, Math.floor(pageSize / mailboxes.length));
-        const perMbSkip = Math.floor((page * pageSize) / mailboxes.length);
+        const perMb = Math.max(10, Math.floor(pageSize / navigationMailboxes.length));
+        const perMbSkip = Math.floor((page * pageSize) / navigationMailboxes.length);
         const results = await Promise.all(
-          mailboxes.map(async (mb) => {
+          navigationMailboxes.map(async (mb) => {
             const mbParam = mb.type === "personal" ? "personal" : mb.email;
             try {
               const foldersRes = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbParam}`);
@@ -3611,7 +3657,7 @@ export default function EmailClientPage() {
 
   const currentMailboxEmail = selectedMailbox === "personal"
     ? mailboxes.find(m => m.type === "personal")?.email
-    : selectedMailbox === "all"
+    : (selectedMailbox === "all" || selectedMailbox.startsWith("group:"))
       ? (selectedEmail?._mailboxEmail || mailboxes.find(m => m.type === "personal")?.email || null)
       : selectedMailbox;
 
@@ -3710,6 +3756,8 @@ export default function EmailClientPage() {
 
   const handleSidebarMailboxSelect = (mbKey: string) => {
     setSelectedMailbox(mbKey);
+    setSmartSearchMailbox(mbKey);
+    setIsSearching(false);
     setSelectedFolderId(null);
     setSelectedEmail(null);
     setPage(0);
@@ -3860,15 +3908,13 @@ export default function EmailClientPage() {
   });
   const saveNexusSubfolders = saveNexusFolderItems.filter((item: any) => item.folder);
 
-  const { data: searchResults, isLoading: searchLoading } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
-    queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo],
+  const { data: searchResults, isLoading: searchLoading, isError: searchFailed, refetch: retrySearch } = useQuery<{ emails: EmailMessage[]; mailbox: string }[]>({
+    queryKey: ["/api/users", user?.id, "ms365-search-emails", debouncedSearchQuery, searchMailbox, searchDateFrom, searchDateTo, mailboxScopeFingerprint, groupScopeFingerprint],
     queryFn: async () => {
       const hasQuery = debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2;
       const hasDate = searchDateFrom || searchDateTo;
       if (!hasQuery && !hasDate) return [];
-      const mailboxesToSearch = searchMailbox === "all"
-        ? mailboxes.map(m => m.type === "personal" ? "personal" : m.email)
-        : [searchMailbox];
+      const mailboxesToSearch = resolveMailboxScope(searchMailbox, mailboxGroups, mailboxes);
       const results: { emails: EmailMessage[]; mailbox: string }[] = [];
       for (const mbx of mailboxesToSearch) {
         try {
@@ -3879,6 +3925,7 @@ export default function EmailClientPage() {
           if (searchDateFrom) params.set("dateFrom", searchDateFrom);
           if (searchDateTo) params.set("dateTo", searchDateTo);
           const response = await fetch(`/api/users/${user?.id}/ms365-search-emails?${params.toString()}`);
+          if (!response.ok) throw new Error(t.omniGroups.searchError);
           const data = await response.json();
           const actualEmail = mbx === "personal" ? (mailboxes.find(m => m.type === "personal")?.email || mbx) : mbx;
           const taggedEmails = (data.emails || []).map((e: EmailMessage) => ({ ...e, _mailboxEmail: actualEmail }));
@@ -3887,7 +3934,7 @@ export default function EmailClientPage() {
             mailbox: actualEmail
           });
         } catch {
-          results.push({ emails: [], mailbox: mbx });
+          throw new Error(t.omniGroups.searchError);
         }
       }
       return results;
@@ -4033,7 +4080,7 @@ export default function EmailClientPage() {
 
   const rawFolders = foldersData?.folders || [];
   const folders = (() => {
-    if (selectedMailbox !== "all" || !allMailboxFoldersData) return rawFolders;
+    if ((selectedMailbox !== "all" && !selectedMailbox.startsWith("group:")) || !allMailboxFoldersData) return rawFolders;
     const wkNameMap: Record<string, string> = {
       "Inbox": "inbox", "Doručená pošta": "inbox",
       "Sent Items": "sentitems", "Odoslané": "sentitems", "Odoslaná pošta": "sentitems",
@@ -4043,7 +4090,7 @@ export default function EmailClientPage() {
       "Archive": "archive", "Archív": "archive",
     };
     const getWK = (f: MailFolder) => f.wellKnownName || wkNameMap[f.displayName] || null;
-    const otherMbFolders = Object.entries(allMailboxFoldersData).filter(([k]) => k !== "personal").flatMap(([, v]) => v);
+    const otherMbFolders = Object.entries(allMailboxFoldersData).filter(([k]) => k !== effectiveMailbox).flatMap(([, v]) => v);
     return rawFolders.map(f => {
       const wk = getWK(f);
       if (!wk) return f;
@@ -4653,7 +4700,7 @@ export default function EmailClientPage() {
     } catch {
       setAiSearchResult(null);
       setAiSuggestions([]);
-      executeSmartSearch(query);
+      toast({ title: t.omniGroups.aiError, variant: "destructive" });
     } finally {
       setAiSearchLoading(false);
     }
@@ -4669,7 +4716,8 @@ export default function EmailClientPage() {
     setDebouncedSearchQuery(q);
     setSearchDateFrom(df);
     setSearchDateTo(dt);
-    setSearchMailbox(result.searchScope === "all" ? "all" : (result.searchScope || smartSearchMailbox));
+    // AI may interpret the query, but cannot expand the user's selected mailbox scope.
+    setSearchMailbox(smartSearchMailbox);
     setIsSearching(true);
     setSelectedEmail(null);
     setSmartSearchOpen(false);
@@ -5342,102 +5390,19 @@ export default function EmailClientPage() {
 
   return (
     <div className={cn(
+      "omni-workspace",
       activeTab === "tasks" && "nexus-signal-tasks",
       nexusFullscreen
         ? "fixed inset-0 z-50 bg-background flex flex-col p-3 pt-1 gap-2 overflow-hidden"
         : "flex flex-col h-[calc(100vh-56px)] overflow-hidden gap-2 px-2 pt-1 pb-0"
     )}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className={cn(
-            "rounded-xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center shadow-lg",
-            nexusFullscreen ? "h-8 w-8" : "h-10 w-10"
-          )}>
-            <Network className={nexusFullscreen ? "h-4 w-4 text-primary-foreground" : "h-5 w-5 text-primary-foreground"} />
-          </div>
-          <div>
-            <h1 className={nexusFullscreen ? "text-lg font-bold tracking-tight" : "text-2xl font-bold tracking-tight"}>{t.nexusOmni.title}</h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
-            className={cn("group flex items-center gap-2.5 px-4 py-2 rounded-xl text-sm cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md",
-              aiSearchEnabled
-                ? "bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-300 hover:from-violet-500/15 hover:to-purple-500/15 hover:border-violet-500/30"
-                : "bg-background border border-border/60 text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:border-border"
-            )}
-            data-testid="button-smart-search"
-          >
-            {aiSearchEnabled ? <BrainCircuit className="h-4 w-4 group-hover:scale-110 transition-transform" /> : <Search className="h-4 w-4 group-hover:scale-110 transition-transform" />}
-            <span className="hidden md:inline">{aiSearchEnabled ? t.nexusOmni.search.aiSearch : t.nexusOmni.search.searchInEmails}</span>
-          </button>
-          {activeTab === "email" && (
-            <Button variant="outline" size="icon" onClick={openSignatureEditor} data-testid="button-signature">
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    if (activeTab === "tasks" && selectedTask) setTaskDetailFullscreen(true);
-                    else setNexusFullscreen(prev => !prev);
-                  }}
-                  data-testid="button-nexus-fullscreen"
-                >
-                  {nexusFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">{nexusFullscreen ? t.nexusOmni.exitFullscreen : t.nexusOmni.fullscreen}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {activeTab === "email" && (
-            <Button onClick={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); setComposeEditorKey(0); setAiComposeLang(locale || "sk"); }} data-testid="button-compose">
-              <PenSquare className="h-4 w-4 mr-2" />
-              {t.nexusOmni.common.newMessage}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border nexus-signal-tabs" data-testid="nexus-tabs">
-        {tabConfig.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${
-              activeTab === tab.key
-                ? "selected bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-            }`}
-            data-testid={`tab-${tab.key}`}
-            aria-selected={activeTab === tab.key}
-          >
-            <span className={activeTab === tab.key ? typeColors[tab.key].accent : ""}>{tab.icon}</span>
-            <span>{tab.label}</span>
-            {tab.badge !== undefined && tab.badge > 0 && (
-              <Badge className="nexus-signal-tab-badge text-white text-[10px] h-5 min-w-[20px] px-1.5">
-                {tab.badge}
-              </Badge>
-            )}
-          </button>
-        ))}
-        {chatConversationsQuery.isError && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="ml-auto shrink-0"
-            onClick={() => { void chatConversationsQuery.refetch(); }}
-          >
-            {t.common.refresh}
-          </Button>
-        )}
-      </div>
+      <OmniWorkspaceToolbar tabs={tabConfig} activeTab={activeTab} onTab={setActiveTab}
+        onSearch={() => { setSmartSearchOpen(true); setTimeout(() => smartSearchInputRef.current?.focus(), 100); }}
+        onSettings={() => { openSignatureEditor(); setSettingsTab("accounts"); }}
+        onFullscreen={() => { if (activeTab === "tasks" && selectedTask) setTaskDetailFullscreen(true); else setNexusFullscreen(prev => !prev); }}
+        fullscreen={nexusFullscreen} scope={selectedGroup?.name || (selectedMailbox === "all" ? t.omniGroups.all : mailboxes.find(m => (m.type === "personal" ? "personal" : m.email) === selectedMailbox)?.displayName || selectedMailbox)}
+        chatError={chatConversationsQuery.isError} onChatRetry={() => { void chatConversationsQuery.refetch(); }}
+        onCompose={() => { setComposeOpen(true); setReplyMode(null); setComposeData({ to: "", cc: "", bcc: "", subject: "", body: "", importance: "normal", tagId: null, replyTo: "" }); setAttachments([]); setComposeMailbox(effectiveMailbox); setComposeEditorKey(0); setAiComposeLang(locale || "sk"); }} />
 
       <div className={cn("flex gap-2 transition-all duration-300 flex-1 min-h-0", activeTab === "tasks" && "nexus-task-layout")}>
         {activeTab !== "training-room" && (
@@ -5471,6 +5436,7 @@ export default function EmailClientPage() {
           collapsed={isSidebarHidden}
           onToggleCollapse={() => setIsSidebarHidden(prev => !prev)}
           mailboxes={sidebarMailboxes}
+          mailboxGroups={mailboxGroups}
           selectedMailbox={selectedMailbox}
           onSelectMailbox={handleSidebarMailboxSelect}
           teamsSidebarFilter={teamsSidebarFilter}
@@ -5748,6 +5714,10 @@ export default function EmailClientPage() {
                 {isSearching ? (
                   searchLoading ? (
                     <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+                  ) : searchFailed ? (
+                    <div role="alert" className="p-4 text-sm text-destructive">{t.omniGroups.searchError}
+                      <Button variant="outline" size="sm" className="mt-2" onClick={() => { void retrySearch(); }}>{t.omniGroups.retry}</Button>
+                    </div>
                   ) : !searchResults || searchResults.every(r => r.emails.length === 0) ? (
                     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                       <Search className="h-8 w-8 mb-2 opacity-50" />
@@ -5858,7 +5828,7 @@ export default function EmailClientPage() {
                   <ScrollArea className="flex-1 min-h-0" style={{ overflowX: "hidden" }}>
                     <div className="divide-y" style={{ overflowX: "hidden", maxWidth: "100%" }}>
                       {emailsPage.map((email) => {
-                        const tintBg = selectedMailbox === "all" && email._mailboxEmail
+                        const tintBg = (selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && email._mailboxEmail
                           ? getAccountTint(email._mailboxEmail)
                           : undefined;
                         const acctColor = email._mailboxEmail
@@ -5875,7 +5845,7 @@ export default function EmailClientPage() {
                           data-testid={`email-item-${email.id}`}
                           style={tintBg && selectedEmail?.id !== email.id ? { backgroundColor: tintBg } : undefined}
                         >
-                          {selectedMailbox === "all" && acctColor && (
+                          {(selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && acctColor && (
                             <span className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-sm" style={{ backgroundColor: acctColor }} />
                           )}
                           <button
@@ -5909,7 +5879,7 @@ export default function EmailClientPage() {
                                   {email.subject || "(Bez predmetu)"}
                                 </p>
                                 {email.hasAttachments && <Paperclip className="text-muted-foreground/70" style={{ height: 14, width: 14, flexShrink: 0 }} />}
-                                {selectedMailbox === "all" && acctColor && (
+                                {(selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && acctColor && (
                                   <span
                                     style={{ height: 20, width: 20, minWidth: 20, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: acctColor, flexShrink: 0 }}
                                     title={mailboxes.find(m => m.email === email._mailboxEmail)?.displayName || email._mailboxEmail}
@@ -6530,8 +6500,11 @@ export default function EmailClientPage() {
             />
             <div
               data-fluid-drawer-width="compact"
-              className="fixed inset-y-0 right-0 z-[61] w-[520px] max-w-[95vw] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+              className="omni-search-panel fixed inset-y-0 right-0 z-[61] w-[520px] max-w-[95vw] bg-background border-l shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
               data-testid="smart-search-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t.nexusOmni.search.searchInEmails}
             >
               <div className={cn("shrink-0 px-5 pt-5 pb-4 space-y-4 border-b transition-colors",
                 aiSearchEnabled && "bg-gradient-to-b from-violet-500/5 via-purple-500/3 to-transparent"
@@ -6641,7 +6614,17 @@ export default function EmailClientPage() {
                   );
                 })()}
 
-                <div className="flex flex-wrap gap-1.5">
+                <label className="block space-y-1.5">
+                  <span className="omni-group-label">{t.omniGroups.scope}</span>
+                  <select className="omni-scope-select" value={smartSearchMailbox} onChange={e => { setSmartSearchMailbox(e.target.value); setAiSearchResult(null); }}>
+                    <option value="all">{t.omniGroups.all}</option>
+                    {mailboxGroups.map(group => <option key={group.id} value={groupScope(group.id)}>{group.name}</option>)}
+                    {mailboxes.map(m => <option key={m.email} value={m.type === "personal" ? "personal" : m.email}>{m.displayName || m.email}</option>)}
+                  </select>
+                  {smartSearchMailbox.startsWith("group:") && !resolveMailboxScope(smartSearchMailbox, mailboxGroups, mailboxes).length &&
+                    <span role="status" className="block text-xs text-muted-foreground">{t.omniGroups.missing}</span>}
+                </label>
+                <div className="hidden">
                   <button
                     onClick={() => setSmartSearchMailbox("all")}
                     className={cn("px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border",
@@ -6844,7 +6827,7 @@ export default function EmailClientPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{t.nexusOmni.search.searchInEmailsQuery} &bdquo;<span className="text-primary">{smartSearchQuery}</span>&ldquo;</p>
-                        <p className="text-[11px] text-muted-foreground">{smartSearchMailbox === "all" ? t.nexusOmni.search.searchAllMailboxesLabel : smartSearchMailbox}</p>
+                        <p className="text-[11px] text-muted-foreground">{smartSearchScopeLabel}</p>
                       </div>
                       <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -7527,7 +7510,7 @@ export default function EmailClientPage() {
             onClick={() => setSignatureDialogOpen(false)}
             data-testid="settings-backdrop"
           />
-          <div data-fluid-drawer-width="standard" className="fixed inset-y-0 right-0 z-61 w-[720px] max-w-[90vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
+          <div data-fluid-drawer-width="standard" className="omni-configurator-dialog fixed inset-y-0 right-0 z-61 w-[720px] max-w-[90vw] bg-background border-l shadow-2xl animate-in slide-in-from-right duration-300 flex flex-col">
             <div className="shrink-0 flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -9020,6 +9003,10 @@ export default function EmailClientPage() {
         <div>
           <h2 className="text-lg font-semibold mb-1">{t.nexusOmni.settings.accounts}</h2>
           <p className="text-sm text-muted-foreground mb-4">{t.nexusOmni.settings.connectedAccountsDesc}</p>
+          {groupSettings.isLoading ? <Loader2 className="h-5 w-5 animate-spin my-4" /> : groupSettings.isError ?
+            <div role="alert" className="text-sm text-destructive my-4">{t.omniGroups.loadError}
+              <Button variant="outline" size="sm" className="ml-2" onClick={() => { void groupSettings.refetch(); }}>{t.omniGroups.retry}</Button>
+            </div> : <OmniMailboxGroups groups={mailboxGroups} mailboxes={mailboxes} onSave={saveMailboxGroups} />}
           <div className="space-y-4">
             {mailboxes.map((mb) => {
               const mbEmail = mb.email;

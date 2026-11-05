@@ -1526,6 +1526,12 @@ app.use((req, res, next) => {
 
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS nexus_omni_mailbox_groups (
+        user_id varchar PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        groups jsonb NOT NULL DEFAULT '[]'::jsonb,
+        revision integer NOT NULL DEFAULT 0,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
       CREATE TABLE IF NOT EXISTS agent_phone_entity_preferences (
         id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,

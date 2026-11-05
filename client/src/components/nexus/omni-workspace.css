@@ -1,0 +1,91 @@
+/* Approved Nexus Omni direction: warm surfaces, INDEXUS garnet, restrained teal AI.
+   Scoped to Omni and its own portals; never change other INDEXUS modules. */
+.omni-workspace, .omni-search-panel, .omni-configurator-dialog {
+  --background: 40 30% 97%; --foreground: 215 24% 18%;
+  --card: 40 27% 99%; --card-foreground: 215 24% 18%;
+  --muted: 40 18% 93%; --muted-foreground: 215 10% 43%;
+  --primary: 354 69% 43%; --primary-foreground: 0 0% 100%;
+  --border: 35 15% 86%; --accent: 40 19% 91%; --accent-foreground: 215 24% 18%;
+  --input: 35 15% 82%; --ring: 354 69% 43%;
+  --omni-ai: 169 35% 31%; --omni-ai-surface: 168 33% 93%;
+  font-family: "Open Sans", sans-serif;
+}
+.dark .omni-workspace, .dark .omni-search-panel, .dark .omni-configurator-dialog {
+  --background: 218 20% 12%; --foreground: 38 20% 91%;
+  --card: 218 19% 15%; --card-foreground: 38 20% 91%;
+  --muted: 218 14% 20%; --muted-foreground: 218 9% 70%;
+  --primary: 354 64% 58%; --primary-foreground: 0 0% 100%;
+  --border: 218 13% 27%; --accent: 218 14% 23%; --accent-foreground: 38 20% 91%;
+  --input: 218 13% 30%; --ring: 354 64% 58%;
+  --omni-ai: 168 54% 75%; --omni-ai-surface: 168 29% 20%;
+}
+.omni-workspace { background: hsl(var(--background)); color: hsl(var(--foreground)); }
+.omni-workspace .omni-top { flex-shrink: 0; background: hsl(var(--card)); border-bottom: 1px solid hsl(var(--border)); padding: 12px 16px; border-radius: 10px; }
+.omni-toolbar { display: flex; align-items: center; gap: 20px; min-width: 0; }
+.omni-brand { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+.omni-brand h1 { font-size: 16px; font-weight: 700; white-space: nowrap; letter-spacing: -.035em; }
+.omni-brand h1 span { font-weight: 500; color: hsl(var(--muted-foreground)); }
+.omni-brand-mark { width: 34px; height: 34px; border-radius: 10px; background: hsl(var(--primary)); color: white; display: grid; place-items: center; box-shadow: 0 3px 8px hsl(var(--primary) / .2); }
+.omni-channel-tabs { display: flex; align-items: center; gap: 2px; overflow: auto; min-width: 0; max-width: 100%; border: 1px solid hsl(var(--border)); padding: 3px; border-radius: 9px; background: hsl(var(--background)); }
+.omni-channel-tabs button { display: flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0; padding: 6px 9px; font-size: 12px; font-weight: 500; border-radius: 6px; color: hsl(var(--muted-foreground)); transition: background .15s, color .15s; }
+.omni-channel-tabs button.selected { background: hsl(var(--card)); color: hsl(var(--foreground)); box-shadow: 0 1px 4px hsl(215 20% 20% / .12); }
+.omni-channel-tabs button:hover { background: hsl(var(--accent)); color: hsl(var(--foreground)); }
+.omni-tab-count { background: hsl(var(--primary)); color: white; border-radius: 8px; padding: 0 5px; min-width: 16px; font-size: 10px; text-align: center; }
+.omni-toolbar-actions { display: flex; align-items: center; gap: 7px; margin-left: auto; flex-shrink: 0; }
+.omni-toolbar-actions button { height: 36px; border-radius: 9px; }
+.omni-searchbar { display: flex; align-items: center; gap: 12px; margin-top: 12px; min-width: 0; }
+.omni-search-launch { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; text-align: left; padding: 9px 12px; border: 1px solid hsl(var(--border)); border-radius: 9px; background: hsl(var(--background)); color: hsl(var(--muted-foreground)); transition: border-color .15s, background .15s; font-size: 13px; }
+.omni-search-launch:hover { border-color: hsl(var(--omni-ai) / .5); background: hsl(var(--omni-ai-surface)); }
+.omni-search-launch kbd { margin-left: auto; border: 1px solid hsl(var(--border)); border-radius: 4px; padding: 1px 5px; font-size: 9px; white-space: nowrap; }
+.omni-statusline { font-size: 10px; color: hsl(var(--muted-foreground)); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.omni-scope-select { width: 100%; min-width: 0; border: 1px solid hsl(var(--border)); border-radius: 8px; padding: 9px 10px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 12px; }
+.omni-group-label { color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: .075em; font-size: 10px; font-weight: 600; margin: 4px 0 8px; }
+.omni-search-panel { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+.omni-search-panel > div:first-child { background: hsl(var(--card)); }
+.omni-search-panel :is([class*="text-violet"], [class*="text-purple"], [class*="text-indigo"]) { color: hsl(var(--omni-ai)); }
+.omni-search-panel :is([class*="bg-violet"], [class*="bg-purple"], [class*="bg-indigo"], [class*="from-violet"], [class*="via-purple"]) { background-image: none; background-color: hsl(var(--omni-ai-surface)); }
+.omni-search-panel [class*="border-violet"] { border-color: hsl(var(--omni-ai) / .25); }
+.omni-search-panel [class*="shadow-violet"] { --tw-shadow-color: hsl(var(--omni-ai) / .12); }
+.omni-search-panel :is([class*="from-violet-500"][class*="text-white"], [class*="from-violet-500"]):has(> svg.text-white),
+.omni-search-panel [data-testid="toggle-ai-search"][class*="text-white"] { background: hsl(var(--omni-ai)); color: white; }
+.omni-search-panel [class*="from-violet-500"]:has(> svg.text-white),
+.omni-search-panel [data-testid="toggle-ai-search"][class*="text-white"] { background: #346b61; }
+.omni-search-panel [class*="from-violet-500"] > svg.text-white { color: white; }
+.omni-search-panel svg:is([class*="text-violet"], [class*="text-purple"], [class*="text-indigo"]) { color: hsl(var(--omni-ai)) !important; }
+.omni-search-panel [data-testid="input-smart-search"]:focus-visible { --tw-ring-color: hsl(var(--omni-ai) / .25); border-color: hsl(var(--omni-ai) / .5); }
+.omni-group-editor { margin: 18px 0 26px; padding: 18px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--card)); }
+.omni-group-editor > header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+.omni-group-editor h3 { font-size: 15px; font-weight: 600; }
+.omni-group-editor header p { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.omni-group-card { border: 1px solid hsl(var(--border)); border-radius: 10px; margin-top: 12px; overflow: hidden; background: hsl(var(--background)); }
+.omni-group-account { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid hsl(var(--border) / .6); cursor: pointer; }
+.omni-group-account:last-child { border-bottom: 0; }
+.omni-group-account input { accent-color: hsl(var(--primary)); width: 15px; height: 15px; flex-shrink: 0; }
+.omni-group-account strong, .omni-group-account small { display: block; overflow-wrap: anywhere; }
+.omni-group-account strong { font-size: 12px; font-weight: 600; }
+.omni-group-account small { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.omni-group-link { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 8px; font-size: 12px; text-align: left; transition: background .15s; }
+.omni-group-link:hover, .omni-group-link.selected { background: hsl(var(--accent)); }
+.omni-group-link.selected { font-weight: 600; }
+.omni-group-navigation { max-height: 240px; overflow-y: auto; }
+.omni-group-children { margin-left: 14px; padding-left: 5px; border-left: 1px solid hsl(var(--border)); }
+.omni-group-navigation.is-collapsed .omni-group-link { width: 34px; justify-content: center; padding: 8px; }
+.omni-group-navigation.is-collapsed .omni-group-link span { display: none; }
+@media (max-width: 1200px) {
+  .omni-toolbar { flex-wrap: wrap; gap: 10px; }
+  .omni-channel-tabs { order: 3; flex-basis: 100%; }
+}
+@media (max-width: 640px) {
+  .omni-workspace .omni-top { padding: 10px; }
+  .omni-brand h1 { font-size: 13px; }
+  .omni-brand { min-width: 0; }
+  .omni-brand-mark { width: 28px; height: 28px; }
+  .omni-toolbar-actions { gap: 4px; }
+  .omni-toolbar-actions [data-testid="button-compose"] { padding: 0 8px; font-size: 11px; }
+  .omni-statusline { display: none; }
+  .omni-group-editor { padding: 10px; }
+  .omni-search-panel { width: 100vw !important; max-width: 100vw !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .omni-workspace *, .omni-search-panel * { transition: none !important; animation: none !important; }
+}

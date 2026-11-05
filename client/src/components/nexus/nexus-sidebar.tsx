@@ -60,6 +60,8 @@ import {
 import type { MailFolder, SmsMessage, Task, ChatConversation, NexusTab, TaskFilter, SmsFilter } from "./nexus-types";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
+import type { OmniMailboxGroup } from "@shared/omni-mailbox-groups";
+import { OmniGroupNavigation } from "./omni-group-navigation";
 
 export interface AccountIconConfig {
   email: string;
@@ -138,6 +140,7 @@ interface NexusSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   mailboxes?: AccountIconConfig[];
+  mailboxGroups?: OmniMailboxGroup[];
   selectedMailbox?: string;
   onSelectMailbox?: (mailbox: string) => void;
   mailboxUnreadCounts?: Record<string, number>;
@@ -191,6 +194,7 @@ export default function NexusSidebar({
   collapsed,
   onToggleCollapse,
   mailboxes,
+  mailboxGroups = [],
   selectedMailbox,
   onSelectMailbox,
   mailboxUnreadCounts,
@@ -575,6 +579,7 @@ export default function NexusSidebar({
 
           {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
             <div className="mt-auto pt-2 border-t flex flex-col items-center gap-1">
+              <OmniGroupNavigation groups={mailboxGroups} mailboxes={mailboxes} selected={selectedMailbox} onSelect={onSelectMailbox} collapsed />
               {mailboxes.length > 1 && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -593,7 +598,7 @@ export default function NexusSidebar({
                   <TooltipContent side="right" className="text-xs">{t.nexusOmni.common.allAccounts}</TooltipContent>
                 </Tooltip>
               )}
-              {mailboxes.map(mb => {
+              {mailboxes.filter(mb => !mailboxGroups.some(g => g.emails.includes(mb.email.toLowerCase()))).map(mb => {
                 const mbKey = mb.type === "personal" ? "personal" : mb.email;
                 const isActive = selectedMailbox === mbKey;
                 const unread = mailboxUnreadCounts?.[mb.email] || 0;
@@ -917,6 +922,7 @@ export default function NexusSidebar({
       </ScrollArea>
       {activeTab === "email" && mailboxes && mailboxes.length > 0 && (
         <div className="border-t px-2 py-2 space-y-1">
+          <OmniGroupNavigation groups={mailboxGroups} mailboxes={mailboxes} selected={selectedMailbox} onSelect={onSelectMailbox} />
           {mailboxes.length > 1 && (
             <button
               onClick={() => onSelectMailbox?.("all")}
@@ -931,7 +937,7 @@ export default function NexusSidebar({
               <span className="truncate text-xs">{t.nexusOmni.common.allAccounts}</span>
             </button>
           )}
-          {mailboxes.map(mb => {
+          {mailboxes.filter(mb => !mailboxGroups.some(g => g.emails.includes(mb.email.toLowerCase()))).map(mb => {
             const mbKey = mb.type === "personal" ? "personal" : mb.email;
             const isActive = selectedMailbox === mbKey;
             const unread = mailboxUnreadCounts?.[mb.email] || 0;

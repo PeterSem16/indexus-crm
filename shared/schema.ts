@@ -6688,6 +6688,13 @@ export const wallboardAlarmHistory = pgTable("wallboard_alarm_history", {
 // Last card an agent explicitly opened for a caller number. The entity is
 // polymorphic, so no entity foreign key is stored; callers must validate it
 // against the current phone lookup before using it.
+export const nexusOmniMailboxGroups = pgTable("nexus_omni_mailbox_groups", {
+  userId: varchar("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  groups: jsonb("groups").$type<import("./omni-mailbox-groups").OmniMailboxGroup[]>().notNull().default([]),
+  revision: integer("revision").notNull().default(0),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const agentPhoneEntityPreferences = pgTable("agent_phone_entity_preferences", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
