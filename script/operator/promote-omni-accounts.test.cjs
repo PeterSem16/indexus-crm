@@ -10,7 +10,7 @@ function fixture(args, raw = false) {
 }
 test("exact production baseline and complete finished Omni release validate", () => {
   const plan = release.validate(fixture, release.TARGET);
-  assert.equal(plan.paths.length, 44);
+  assert.equal(plan.paths.length, 46);
   for (const filename of ["shared/schema.ts", "server/index.ts", "server/lib/omni-export-graph.ts",
     "client/src/pages/email-client.tsx", "e2e/omni-account-visibility.browser.test.mjs"])
     assert.ok(plan.paths.includes(filename));

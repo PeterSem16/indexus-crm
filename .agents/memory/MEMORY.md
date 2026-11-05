@@ -148,3 +148,4 @@
 - [Omni groups and search](omni-account-groups-direction.md) — named account groups scope search; replace purple AI styling and redesign the toolbar from the live screens.
 - [Omni ZIP email diagnosis](omni-zip-email-diagnosis.md) — separate source/preparation errors from uncertain delivery; prove the affected host and cause before claiming a fix.
 - [Export cleanup verification](export-cleanup-verification.md) — HTTP completion is not filesystem cleanup completion; deployment checks need bounded state polling, not fixed sleeps.
+- [MSG reader dependency parity](msg-reader-dependency-parity.md) — published msgreader lacks bodyHtml; identical versions can conceal local mapping patches.

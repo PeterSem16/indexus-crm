@@ -8,3 +8,9 @@ Do not treat an HTTP success response as proof that asynchronous temporary-file 
 **Why:** A deploy-equivalent Omni test run reproduced a release-blocking failure because the test assumed cleanup would finish within a short fixed sleep after the response. Keep the deletion requirement; do not bypass the test or change application response sequencing solely to satisfy that timing assumption.
 
 **How to apply:** Run release tests with the operator's exact isolated environment and concurrency. Wait for observable cleanup rather than elapsed time, retain a finite failure deadline, and ensure operator failure output includes the failing test rather than only a tail of subsequent successes.
+
+Matching aggregate test totals across development and production do not establish the same failure.
+
+**Why:** A local cleanup-timing failure and a production MSG HTML-reader failure produced identical pass/fail totals. Fixing the local timing assumption did not resolve the production blocker.
+
+**How to apply:** Obtain the actual failing subtest and stack before attributing a production failure or preparing another release. When a reader's output differs, inspect the installed package version and source fingerprint on that host; the lockfile alone does not prove installed dependency parity.
