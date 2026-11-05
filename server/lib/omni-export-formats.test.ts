@@ -106,7 +106,12 @@ test("Graph MSG reader fetches every attachment page, uses correct mailbox and p
     if (path.endsWith("/attachments/b/$value")) return new Response("From: embedded@example.test\r\n\r\nOriginal");
     if (path.endsWith("/attachments/c/$value")) return new Response(attachment);
     if (path.endsWith("/attachments/b")) return Response.json({ item: { "@odata.type": "#microsoft.graph.message" } });
-    if (path.endsWith("/attachments/c")) return Response.json({ contentId: "picture" });
+    if (path.endsWith("/attachments/c")) {
+      // Graph binds $select against the base attachment type. The old mock
+      // accepted any query and hid the production 400 for signature images.
+      assert.equal(new URL(String(url)).searchParams.get("$select"), "microsoft.graph.fileAttachment/contentId");
+      return Response.json({ contentId: "picture" });
+    }
     if (String(url).includes("page=2")) return Response.json({ value: [
       { id: "b", "@odata.type": "#microsoft.graph.itemAttachment", name: "forwarded" },
       { id: "c", "@odata.type": "#microsoft.graph.fileAttachment", name: "inline.png", isInline: true },

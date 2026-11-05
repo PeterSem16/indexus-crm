@@ -85,7 +85,10 @@ export function createExportGraph(token: string, signal: AbortSignal, request: t
             else if (type === "#microsoft.graph.contact") { extension = ".vcf"; contentType = "text/vcard"; }
             else throw new Error("unsupported_attachment");
           } else if (attachment.isInline) {
-            contentId = (await json(`${attachmentPath}?$select=contentId`)).contentId;
+            // contentId belongs to fileAttachment, not the base attachment
+            // resource. An unqualified $select is rejected by Graph with 400
+            // (RequestBroker--ParseUri), including for ordinary signature logos.
+            contentId = (await json(`${attachmentPath}?$select=microsoft.graph.fileAttachment/contentId`)).contentId;
           }
           const content = await messageBytes(`${attachmentPath}/$value`);
           total += content.length;
