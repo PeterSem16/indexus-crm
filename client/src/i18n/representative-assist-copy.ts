@@ -31,6 +31,17 @@ export type RepresentativeAssistCopy = {
   selectCountryFirst: string;
   noSelection: string;
   unknownNotSelectable: string;
+  assignTo: string;
+  chooseRepresentative: string;
+  prepareAssignment: string;
+  prepareAssignmentHelp: string;
+  nextStep: string;
+  conflictingTargets: string;
+  noEligibleReps: string;
+  groupMappingHelp: string;
+  selectedCount: string;
+  group: string;
+  otherRegions: string;
 };
 
 export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" | "it" | "de", RepresentativeAssistCopy> = {
@@ -67,6 +78,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Choose a country before requesting suggestions.",
     noSelection: "Select at least one region before applying the filter.",
     unknownNotSelectable: "Records without a region are counted separately and cannot be selected as a region.",
+    assignTo: "Assign selected regions to",
+    chooseRepresentative: "Choose a representative",
+    prepareAssignment: "Prepare regional assignment",
+    prepareAssignmentHelp: "This loads only the selected country and regions into the assignment panel. Nothing changes until you review, preview, and confirm.",
+    nextStep: "Next: review the matched regions, run a preview, then confirm when the affected records look right.",
+    conflictingTargets: "A selected region is mapped to more than one representative. Adjust the group or region selections before continuing.",
+    noEligibleReps: "No active, eligible representatives are authorized for this country.",
+    groupMappingHelp: "A representative chosen on a group takes priority. This choice covers selected regions without a group assignment.",
+    selectedCount: "selected",
+    group: "Group",
+    otherRegions: "Other selected regions",
   },
   sk: {
     filteredPortfolioHelp: "Použijú sa aktuálne filtre a vyhľadávanie v rozsahu vašich krajín.",
@@ -101,6 +123,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Pred vyžiadaním návrhov vyberte krajinu.",
     noSelection: "Pred použitím filtra vyberte aspoň jeden región.",
     unknownNotSelectable: "Záznamy bez regiónu sa počítajú samostatne a nemožno ich vybrať ako región.",
+    assignTo: "Priradiť vybrané regióny",
+    chooseRepresentative: "Vyberte reprezentanta",
+    prepareAssignment: "Pripraviť regionálne priradenie",
+    prepareAssignmentHelp: "Do panela priradenia sa načíta iba vybraná krajina a regióny. Nič sa nezmení, kým výber neskontrolujete, nevytvoríte náhľad a nepotvrdíte ho.",
+    nextStep: "Ďalej: skontrolujte nájdené regióny, vytvorte náhľad a potvrďte až po kontrole záznamov.",
+    conflictingTargets: "Vybraný región je priradený viacerým reprezentantom. Pred pokračovaním upravte výber skupín alebo regiónov.",
+    noEligibleReps: "Pre túto krajinu nie sú autorizovaní aktívni a oprávnení reprezentanti.",
+    groupMappingHelp: "Reprezentant vybraný pri skupine má prednosť. Toto nastavenie pokrýva vybrané regióny bez priradenej skupiny.",
+    selectedCount: "vybrané",
+    group: "Skupina",
+    otherRegions: "Ostatné vybrané regióny",
   },
   cs: {
     filteredPortfolioHelp: "Použijí se aktuální filtry a vyhledávání v rozsahu vašich zemí.",
@@ -135,6 +168,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Před vyžádáním návrhů vyberte zemi.",
     noSelection: "Před použitím filtru vyberte alespoň jeden region.",
     unknownNotSelectable: "Záznamy bez regionu se počítají samostatně a nelze je vybrat jako region.",
+    assignTo: "Přiřadit vybrané regiony",
+    chooseRepresentative: "Vyberte reprezentanta",
+    prepareAssignment: "Připravit regionální přiřazení",
+    prepareAssignmentHelp: "Do panelu přiřazení se načte pouze vybraná země a regiony. Nic se nezmění, dokud výběr nezkontrolujete, nevytvoříte náhled a nepotvrdíte ho.",
+    nextStep: "Dále: zkontrolujte nalezené regiony, vytvořte náhled a potvrďte až po kontrole záznamů.",
+    conflictingTargets: "Vybraný region je namapován na více zástupců. Před pokračováním upravte výběr skupin nebo regionů.",
+    noEligibleReps: "Pro tuto zemi nejsou autorizováni aktivní a způsobilí zástupci.",
+    groupMappingHelp: "Přednost má zástupce vybraný u skupiny. Toto nastavení pokrývá vybrané regiony bez přiřazené skupiny.",
+    selectedCount: "vybráno",
+    group: "Skupina",
+    otherRegions: "Ostatní vybrané regiony",
   },
   hu: {
     filteredPortfolioHelp: "Az aktuális szűrők és a keresés érvényesülnek az országkörön belül.",
@@ -169,6 +213,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "A javaslatok lekérése előtt válasszon országot.",
     noSelection: "A szűrő alkalmazása előtt válasszon legalább egy régiót.",
     unknownNotSelectable: "A régió nélküli rekordok külön számítanak, régióként nem választhatók ki.",
+    assignTo: "Kijelölt régiók hozzárendelése",
+    chooseRepresentative: "Válasszon képviselőt",
+    prepareAssignment: "Regionális hozzárendelés előkészítése",
+    prepareAssignmentHelp: "A hozzárendelési panel csak a kiválasztott országot és régiókat tölti be. Semmi nem változik, amíg át nem tekinti, előnézetet nem készít és meg nem erősíti.",
+    nextStep: "Következő: ellenőrizze a talált régiókat, készítsen előnézetet, majd csak a megfelelő rekordok láttán erősítse meg.",
+    conflictingTargets: "Egy kijelölt régió több képviselőhöz van rendelve. Folytatás előtt módosítsa a csoport- vagy régiókijelölést.",
+    noEligibleReps: "Ehhez az országhoz nincs aktív, jogosult képviselő.",
+    groupMappingHelp: "A csoportnál kiválasztott képviselő élvez elsőbbséget. Ez a beállítás a csoporthoz nem rendelt kijelölt régiókra vonatkozik.",
+    selectedCount: "kijelölve",
+    group: "Csoport",
+    otherRegions: "Egyéb kijelölt régiók",
   },
   ro: {
     filteredPortfolioHelp: "Se folosesc filtrele și căutarea curente în țările permise.",
@@ -203,6 +258,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Alegeți o țară înainte de a cere sugestii.",
     noSelection: "Selectați cel puțin o regiune înainte de a aplica filtrul.",
     unknownNotSelectable: "Înregistrările fără regiune sunt numărate separat și nu pot fi selectate ca regiune.",
+    assignTo: "Atribuiți regiunile selectate către",
+    chooseRepresentative: "Alegeți un reprezentant",
+    prepareAssignment: "Pregătiți atribuirea regională",
+    prepareAssignmentHelp: "Panoul de atribuire va încărca doar țara și regiunile selectate. Nimic nu se schimbă până când verificați, previzualizați și confirmați.",
+    nextStep: "Următorul pas: verificați regiunile găsite, creați o previzualizare și confirmați doar după ce verificați înregistrările afectate.",
+    conflictingTargets: "O regiune selectată este atribuită mai multor reprezentanți. Ajustați selecția grupurilor sau regiunilor înainte de a continua.",
+    noEligibleReps: "Nu există reprezentanți activi și eligibili autorizați pentru această țară.",
+    groupMappingHelp: "Reprezentantul ales pentru un grup are prioritate. Această alegere se aplică regiunilor selectate fără un grup atribuit.",
+    selectedCount: "selectate",
+    group: "Grup",
+    otherRegions: "Alte regiuni selectate",
   },
   it: {
     filteredPortfolioHelp: "Vengono usati i filtri e la ricerca correnti nell'ambito dei paesi.",
@@ -237,6 +303,17 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Scegli un paese prima di richiedere suggerimenti.",
     noSelection: "Seleziona almeno una regione prima di applicare il filtro.",
     unknownNotSelectable: "I record senza regione vengono conteggiati separatamente e non sono selezionabili come regione.",
+    assignTo: "Assegna le regioni selezionate a",
+    chooseRepresentative: "Scegli un rappresentante",
+    prepareAssignment: "Prepara l'assegnazione regionale",
+    prepareAssignmentHelp: "Il pannello caricherà solo il paese e le regioni selezionate. Nulla cambia finché non controlli, visualizzi l'anteprima e confermi.",
+    nextStep: "Passaggio successivo: controlla le regioni trovate, crea un'anteprima e conferma solo dopo aver verificato i record interessati.",
+    conflictingTargets: "Una regione selezionata è associata a più rappresentanti. Modifica i gruppi o le regioni selezionati prima di continuare.",
+    noEligibleReps: "Nessun rappresentante attivo e idoneo è autorizzato per questo paese.",
+    groupMappingHelp: "Prevale il rappresentante scelto per il gruppo. Questa scelta copre le regioni selezionate senza un gruppo assegnato.",
+    selectedCount: "selezionate",
+    group: "Gruppo",
+    otherRegions: "Altre regioni selezionate",
   },
   de: {
     filteredPortfolioHelp: "Aktuelle Filter und Suche werden innerhalb Ihres Länderbereichs verwendet.",
@@ -271,5 +348,16 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectCountryFirst: "Wählen Sie ein Land, bevor Sie Vorschläge anfordern.",
     noSelection: "Wählen Sie mindestens eine Region, bevor Sie den Filter anwenden.",
     unknownNotSelectable: "Datensätze ohne Region werden separat gezählt und können nicht als Region ausgewählt werden.",
+    assignTo: "Ausgewählte Regionen zuweisen an",
+    chooseRepresentative: "Vertreter auswählen",
+    prepareAssignment: "Regionale Zuweisung vorbereiten",
+    prepareAssignmentHelp: "Das Zuweisungsfeld lädt nur das ausgewählte Land und die Regionen. Es wird nichts geändert, bis Sie prüfen, eine Vorschau erstellen und bestätigen.",
+    nextStep: "Nächster Schritt: Prüfen Sie die gefundenen Regionen, erstellen Sie eine Vorschau und bestätigen Sie erst nach Kontrolle der betroffenen Datensätze.",
+    conflictingTargets: "Eine ausgewählte Region ist mehreren Vertretern zugeordnet. Passen Sie die Gruppen- oder Regionsauswahl an, bevor Sie fortfahren.",
+    noEligibleReps: "Für dieses Land sind keine aktiven, berechtigten Vertreter zugelassen.",
+    groupMappingHelp: "Ein für eine Gruppe ausgewählter Vertreter hat Vorrang. Diese Auswahl gilt für ausgewählte Regionen ohne Gruppenzuweisung.",
+    selectedCount: "ausgewählt",
+    group: "Gruppe",
+    otherRegions: "Andere ausgewählte Regionen",
   },
 };

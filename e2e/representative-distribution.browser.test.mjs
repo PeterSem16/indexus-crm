@@ -21,7 +21,16 @@ const users = [
   { id: "third", name: "Third", isActive: true, eligible: true, countries: ["SK"] },
   { id: "gone", name: "Departed", isActive: false, eligible: false, countries: ["SK"] },
 ];
-const groups = [{ countryCode: "SK", region: "A", count: 2 }, { countryCode: "SK", region: "B", count: 1 }, { countryCode: "SK", region: "", count: 1 }];
+const groups = [
+  { countryCode: "SK", region: "Bratislavský kraj", count: 1 },
+  { countryCode: "SK", region: "Trnavský kraj", count: 1 },
+  { countryCode: "SK", region: "", count: 1 },
+  { countryCode: "SK", region: "bratislavsky kraj", count: 1 },
+];
+const matchingGroups = criteria => {
+  const rule = criteria?.filterRules?.find(rule => rule.field === "region" && rule.op === "isAny");
+  return rule ? groups.filter(group => rule.value.includes(group.region)) : groups;
+};
 let plans = [], lastPreview = "", slow = false, ends = 0, suggestionDelay = false, aiFailure = false, expectedCountries = ["SK"];
 const previews = [], loads = [];
 await page.route("**/contexts/country-filter-context.tsx*", route => route.fulfill({
@@ -44,16 +53,28 @@ await page.route("**/api/**", async route => {
       groups: body.mode === "balanced" ? [{ index: 0, regions: ["Bratislavský kraj"], count: 2 },
         { index: 1, regions: ["Trnavský kraj"], count: 1 }] : [] };
   } else if (path.endsWith("/distribution/regions")) {
-    loads.push(req.postDataJSON());
+    const body = req.postDataJSON();
+    loads.push(body);
     if (slow) await new Promise(resolve => setTimeout(resolve, 500));
-    data = { groups, total: 4 };
+    const selected = matchingGroups(body.criteria);
+    data = { groups: selected, total: selected.reduce((sum, group) => sum + group.count, 0) };
   } else if (path.endsWith("/distribution/plans") && req.method() === "POST") {
     const body = req.postDataJSON();
     assert.deepEqual(body.criteria.countryScope, expectedCountries);
-    const affected = body.regions.reduce((count, r) => count + groups.find(g => g.region === r.region).count, 0);
-    if (body.dryRun) { previews.push(body); lastPreview = JSON.stringify(body); data = { affected, unchanged: 4 - affected, fingerprint: lastPreview, groups }; }
+    const selected = matchingGroups(body.criteria);
+    assert.equal(new Set(body.regions.map(r => JSON.stringify([r.countryCode, r.region]))).size, body.regions.length);
+    const affected = body.regions.reduce((count, r) => {
+      const group = selected.find(g => g.countryCode === r.countryCode && g.region === r.region);
+      assert(group, "Assignments must stay inside the current filtered selection");
+      return count + group.count;
+    }, 0);
+    if (body.dryRun) { previews.push(body); lastPreview = JSON.stringify(body); data = { affected, unchanged: selected.reduce((sum, group) => sum + group.count, 0) - affected, fingerprint: lastPreview, groups: selected }; }
     else {
       assert.equal(body.fingerprint, lastPreview);
+      const original = JSON.parse(lastPreview);
+      const { dryRun: _dryRun, fingerprint: _fingerprint, ...confirmedInput } = body;
+      const { dryRun: _originalDryRun, fingerprint: _originalFingerprint, ...previewedInput } = original;
+      assert.deepEqual(confirmedInput, previewedInput, "Confirm must preserve the complete previewed input");
       confirms.push(body);
       plans = [{ id: "plan-" + confirms.length, kind: body.kind, sourceName: body.fromUserId || null,
         startsAt: new Date().toISOString(), endsAt: body.endsAt || null,
@@ -167,7 +188,7 @@ try {
     await preview(); await page.getByTestId("distribution-preview").waitFor();
     const body = previews.at(-1);
     assert.equal(body.entity, entity); assert.equal(body.kind, "temporary");
-    assert.equal(body.regions.length, 3); assert(body.regions.every(r => r.userId === target.toLowerCase()));
+    assert.equal(body.regions.length, matchingGroups(body.criteria).length); assert(body.regions.every(r => r.userId === target.toLowerCase()));
     assert(body.endsAt.endsWith("Z"));
   };
   await cover("Second", "clinic");
@@ -203,8 +224,110 @@ try {
   assert.deepEqual(previews.at(-1).criteria.countryScope, ["SK", "CZ"]);
   assert.equal(await page.getByTestId("distribution-confirm").isEnabled(), true,
     "Target eligibility must use actual selected record countries, not the wider global scope");
+  expectedCountries = ["SK"];
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("filter-bulk-clinic-search").fill("preserved-search");
+  await page.locator("#only-unassigned").click();
+  await page.getByTestId("suggestion-load").click();
+  await page.getByTestId("suggestion-region-0").click();
+  await choose("suggestion-representative", "Second");
+  const confirmationsBeforePrepare = confirms.length, previewsBeforePrepare = previews.length;
+  await page.getByTestId("suggestion-prepare-assignment").click();
+  await page.getByTestId("distribution-handoff-next-step").waitFor();
+  assert.equal(confirms.length, confirmationsBeforePrepare, "Prepare must never commit an assignment");
+  assert.equal(previews.length, previewsBeforePrepare, "Prepare must leave preview as an explicit review step");
+  assert.equal(loads.at(-1).criteria.search, "preserved-search");
+  assert.equal(loads.at(-1).criteria.currentRepresentativeId, null, "Handoff must retain only-unassigned scope");
+  assert.equal(await page.getByTestId("distribution-target-0").innerText(), "Second");
+  assert.equal(await page.getByTestId("distribution-target-1").innerText(), "Second",
+    "Stored aliases for one official region must retain the same representative");
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true);
+  assert(await page.evaluate(() => document.activeElement?.tabIndex === -1
+    && document.activeElement.contains(document.querySelector('[data-testid="representative-distribution"]'))),
+    "Prepare must focus the actual assignment panel");
+  await preview(); await page.getByTestId("distribution-preview").waitFor();
+  assert.deepEqual(previews.at(-1).regions.map(r => r.region).sort(),
+    ["Bratislavský kraj", "bratislavsky kraj"].sort());
+  assert(previews.at(-1).regions.every(r => r.userId === "second"));
+  await settle(); await page.getByTestId("representative-distribution").screenshot({ path: out + "/prepared-official.png" });
+  await confirm();
+  assert.equal(confirms.at(-1).criteria.currentRepresentativeId, null);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("suggestion-mode").click(); await page.getByRole("option").nth(1).click();
+  await page.getByTestId("suggestion-load").click();
+  await choose("suggestion-group-representative-0", "Second");
+  await choose("suggestion-group-representative-1", "Third");
+  assert.equal(await page.getByTestId("suggestion-representative").count(), 0,
+    "Fully assigned groups must not present a competing global representative");
+  await settle(); await page.getByTestId("representative-region-suggestions").screenshot({ path: out + "/balanced-representatives.png" });
+  await page.getByTestId("suggestion-prepare-assignment").click();
+  await page.getByTestId("distribution-handoff-next-step").waitFor();
+  await preview(); await page.getByTestId("distribution-preview").waitFor();
+  const balancedTargets = Object.fromEntries(previews.at(-1).regions.map(r => [r.region, r.userId]));
+  assert.deepEqual(balancedTargets, {
+    "Bratislavský kraj": "second", "Trnavský kraj": "third", "bratislavsky kraj": "second",
+  });
+  assert(!previews.at(-1).regions.some(r => r.region === ""), "Unknown regions must never enter a proposed assignment");
+  await choose("distribution-target-0", "Third");
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true,
+    "Editing a proposed target must invalidate the reviewed preview");
+
+  // Re-preparing identical filters with different representatives must replace
+  // the old draft rather than leaving its preview confirmable.
+  await page.getByTestId("suggestion-load").click();
+  await choose("suggestion-group-representative-0", "Third");
+  await choose("suggestion-group-representative-1", "Second");
+  await page.getByTestId("suggestion-prepare-assignment").click();
+  await page.getByTestId("distribution-handoff-next-step").waitFor();
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true);
+  await preview(); await page.getByTestId("distribution-preview").waitFor();
+  assert.deepEqual(Object.fromEntries(previews.at(-1).regions.map(r => [r.region, r.userId])), {
+    "Bratislavský kraj": "third", "Trnavský kraj": "second", "bratislavsky kraj": "third",
+  });
+  await confirm();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Swap Representative", exact: true }).click();
+  await page.getByRole("button", { name: "Hospital", exact: true }).click();
+  await page.getByTestId("bulk-temporary-cover").click();
+  await choose("distribution-source", "Original");
+  await page.getByTestId("suggestion-load").click();
+  await page.getByTestId("suggestion-region-1").click();
+  await choose("suggestion-representative", "Third");
+  await page.getByTestId("suggestion-prepare-assignment").click();
+  await page.getByTestId("distribution-handoff-next-step").waitFor();
+  assert.match(await page.getByTestId("distribution-kind").innerText(), /temporary/i);
+  assert.equal(await page.getByTestId("distribution-source").innerText(), "Original");
+  assert.equal(await page.getByTestId("distribution-preview-button").isDisabled(), true,
+    "Temporary handoff requires explicit review of the return date");
+  await page.getByTestId("distribution-end").click();
+  await page.locator('[role="gridcell"]:not([disabled]):not([aria-disabled="true"])').last().click();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("distribution-handoff-next-step").waitFor();
+  await preview(); await page.getByTestId("distribution-preview").waitFor();
+  assert.equal(previews.at(-1).entity, "hospital");
+  assert.equal(previews.at(-1).kind, "temporary");
+  assert.equal(previews.at(-1).fromUserId, "original");
+  assert(previews.at(-1).endsAt.endsWith("Z"));
+  await confirm();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("suggestion-load").click();
+  await page.getByTestId("suggestion-region-0").click();
+  await choose("suggestion-representative", "Second");
+  slow = true;
+  const lateDraft = page.waitForResponse(r => r.url().endsWith("/distribution/regions"));
+  await page.getByTestId("suggestion-prepare-assignment").click();
+  await page.getByTestId("filter-bulk-clinic-search").fill("changed-after-prepare");
+  await lateDraft;
+  await page.waitForFunction(() => !document.querySelector('[data-testid="distribution-load"]').disabled);
+  assert.equal(await page.getByTestId("distribution-region-0").count(), 0,
+    "A late prepared draft must not install targets under changed filters");
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true);
+  slow = false;
   assert.deepEqual(errors, []);
-  console.log("PASS: regional regression; official/AI filter application, proposal staleness and AI failure; filtered/whole single-target cover in Bulk and Swap, clinics/hospitals, dark/mobile");
+  console.log("PASS: regional regression; official/AI filter application and direct delegation; aliases, independent group targets, exact preview/confirm identity, repeated/stale drafts, preserved filters/source/temporary intent; filtered/whole cover, clinics/hospitals, dark/mobile");
 } catch (error) {
   await page.screenshot({ path: out + "/failure.png" }); console.error(errors, (await page.locator("body").innerText()).slice(-1600)); throw error;
 } finally { await browser.close(); if (vite) await vite.close(); }

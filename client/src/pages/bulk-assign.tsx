@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRightLeft,
@@ -32,7 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { RepresentativeDistributionPanel } from "@/components/representative-distribution-panel";
+import {
+  RepresentativeDistributionPanel,
+  representativeAssignmentCriteriaKey,
+  type RepresentativeRegionAssignmentDraft,
+} from "@/components/representative-distribution-panel";
 import { RepresentativeRegionSuggestions } from "@/components/representative-region-suggestions";
 import { REGIONS_BY_COUNTRY } from "@/lib/regions";
 import { applyRepresentativeRegionFilter } from "@shared/representative-region-filter";
@@ -46,6 +50,12 @@ interface RepUser {
 
 type Mode = "bulk" | "swap" | "regional";
 type EntityType = "clinic" | "hospital";
+type AssignmentCriteria = {
+  search?: string;
+  filterRules: FilterRule[];
+  currentRepresentativeId?: string | null;
+  countryScope?: string[];
+};
 
 type PreviewResult = {
   affected: number;
@@ -77,6 +87,14 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
   const [swapTo, setSwapTo] = useState("");
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [regionalCriteria, setRegionalCriteria] = useState<AssignmentCriteria | null>(null);
+  const [assignmentDraft, setAssignmentDraft] = useState<RepresentativeRegionAssignmentDraft | undefined>();
+  const [regionalPanelRevision, setRegionalPanelRevision] = useState(0);
+  const [regionalSource, setRegionalSource] = useState("");
+  const [regionalKind, setRegionalKind] = useState<"assign" | "departure" | "temporary">("assign");
+  const [focusRegionalPanel, setFocusRegionalPanel] = useState(false);
+  const regionalPanelRef = useRef<HTMLDivElement>(null);
+  const assignmentRevision = useRef(0);
 
   const { data: representatives = [], isLoading: repsLoading } = useQuery<RepUser[]>({
     queryKey: ["/api/representatives"],
@@ -104,21 +122,31 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
     [entityType, locale],
   );
 
-  const criteria = useMemo(() => ({
+  const criteria = useMemo(() => mode === "regional" && regionalCriteria ? ({
+    ...regionalCriteria,
+    currentRepresentativeId: regionalCriteria.currentRepresentativeId === null
+      ? null : regionalSource || undefined,
+    search: searchQuery.trim() || undefined,
+    filterRules,
+    countryScope: selectedCountries.length ? selectedCountries : undefined,
+  }) : ({
     search: searchQuery.trim() || undefined,
     filterRules,
     currentRepresentativeId: mode === "bulk"
       ? (onlyUnassigned ? null : (fromUserId || undefined))
-      : undefined,
+      : mode === "swap" ? (swapFrom || undefined) : (regionalSource || undefined),
     // This is a UI scope, never an authority grant.  The server intersects it
     // with the signed-in manager's assigned countries.
     countryScope: selectedCountries.length ? selectedCountries : undefined,
   }), [
+    mode,
+    regionalCriteria,
+    regionalSource,
     searchQuery,
     filterRules,
-    mode,
     onlyUnassigned,
     fromUserId,
+    swapFrom,
     selectedCountries,
   ]);
 
@@ -144,6 +172,12 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
     setPreview(null);
     setConfirmed(false);
   }, [entityType, mode, criteria, targetUserId, swapSourceId]);
+
+  useEffect(() => {
+    if (assignmentDraft && assignmentDraft.key !== representativeAssignmentCriteriaKey(entityType, criteria)) {
+      setAssignmentDraft(undefined);
+    }
+  }, [assignmentDraft, entityType, criteria]);
 
   const clearSelection = () => {
     setPreview(null);
@@ -250,6 +284,8 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
     setFilterRules([]);
     setFromUserId("");
     setOnlyUnassigned(false);
+    setRegionalCriteria(null);
+    setAssignmentDraft(undefined);
     clearSelection();
   };
 
@@ -260,8 +296,48 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
     // request (or vice versa).
     setSearchQuery("");
     setFilterRules([]);
+    setRegionalCriteria(null);
+    setAssignmentDraft(undefined);
     clearSelection();
   };
+
+  const prepareRegionalAssignment = (countryCode: string, regions: string[], targets: Record<string, string>) => {
+    try {
+      const nextRules = applyRepresentativeRegionFilter(criteria.filterRules || filterRules, countryCode, regions) as FilterRule[];
+      const nextCriteria = {
+        ...criteria,
+        filterRules: nextRules,
+      };
+      setFilterRules(nextRules);
+      setRegionalCriteria(nextCriteria);
+      setAssignmentDraft({
+        key: representativeAssignmentCriteriaKey(entityType, nextCriteria),
+        revision: ++assignmentRevision.current,
+        entity: entityType,
+        targets,
+      });
+      setRegionalPanelRevision(assignmentRevision.current);
+      if (mode !== "regional") {
+        setRegionalSource(mode === "swap" ? swapFrom : mode === "bulk" && !onlyUnassigned ? fromUserId : "");
+        setRegionalKind(temporaryCover ? "temporary" : "assign");
+      }
+      setMode("regional");
+      clearSelection();
+      setFocusRegionalPanel(true);
+    } catch {
+      toast({ title: t.common.error, description: t.representativeAssist.suggestionError, variant: "destructive" });
+    }
+  };
+
+  useEffect(() => {
+    if (!focusRegionalPanel || mode !== "regional") return;
+    const frame = requestAnimationFrame(() => {
+      regionalPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      regionalPanelRef.current?.focus({ preventScroll: true });
+      setFocusRegionalPanel(false);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusRegionalPanel, mode]);
 
   const startPreview = () => {
     if (mode === "bulk") {
@@ -317,18 +393,18 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
           </div>
           <div className="flex flex-wrap rounded-md border overflow-hidden text-sm max-w-full">
             <button
-              onClick={() => { setMode("bulk"); clearSelection(); }}
+              onClick={() => { setMode("bulk"); setRegionalCriteria(null); setAssignmentDraft(undefined); clearSelection(); }}
               className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "bulk" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               <UserCheck className="h-3.5 w-3.5" />{p.bulkAssignTitle}
             </button>
             <button
-              onClick={() => { setMode("swap"); clearSelection(); }}
+              onClick={() => { setMode("swap"); setRegionalCriteria(null); setAssignmentDraft(undefined); clearSelection(); }}
               className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "swap" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />{p.swapTitle}
             </button>
-            <button onClick={() => { setMode("regional"); clearSelection(); }} data-testid="bulk-mode-regional"
+            <button onClick={() => { setMode("regional"); setRegionalCriteria(null); setAssignmentDraft(undefined); setRegionalSource(mode === "swap" ? swapFrom : ""); setRegionalKind("assign"); clearSelection(); }} data-testid="bulk-mode-regional"
               className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "regional" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
               <Building2 className="h-3.5 w-3.5" />{t.representativeDistribution.title}
             </button>
@@ -355,12 +431,12 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
 
             <EntityFilter
               searchQuery={searchQuery}
-              onSearchChange={(value) => { setSearchQuery(value); clearSelection(); }}
+              onSearchChange={(value) => { setSearchQuery(value); setRegionalCriteria(previous => previous ? { ...previous, search: value.trim() || undefined } : null); setAssignmentDraft(undefined); clearSelection(); }}
               searchPlaceholder={entityType === "clinic"
                 ? t.clinics.searchPlaceholder
                 : t.hospitals.searchPlaceholder}
               rules={filterRules}
-              onRulesChange={(rules) => { setFilterRules(rules); clearSelection(); }}
+              onRulesChange={(rules) => { setFilterRules(rules); setRegionalCriteria(previous => previous ? { ...previous, filterRules: rules } : null); setAssignmentDraft(undefined); clearSelection(); }}
               fields={fields}
               presets={presets}
               storageKey={`entity-filter:bulk-assignment:${entityType}`}
@@ -377,14 +453,20 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
             />
 
             <RepresentativeRegionSuggestions entity={entityType} criteria={criteria} onApply={(country, regions) => {
-              setFilterRules(applyRepresentativeRegionFilter(filterRules, country, regions) as FilterRule[]);
+              const nextRules = applyRepresentativeRegionFilter(criteria.filterRules || filterRules, country, regions) as FilterRule[];
+              setFilterRules(nextRules);
+              setRegionalCriteria(previous => previous ? { ...previous, filterRules: nextRules } : null);
+              setAssignmentDraft(undefined);
               clearSelection();
-            }} />
+            }} onPrepare={prepareRegionalAssignment} />
 
             {selectedCountries.length > 0 && (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
                 {t.mpn.country}: {selectedCountries.join(", ")}
               </div>
+            )}
+            {mode === "regional" && criteria.currentRepresentativeId === null && (
+              <p className="text-xs font-medium text-muted-foreground">{p.bulkOnlyUnassigned}</p>
             )}
 
             {mode === "bulk" && !temporaryCover && (
@@ -436,10 +518,24 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
               </div>
               <p className="text-xs text-muted-foreground">{t.representativeAssist.tempHelp}</p>
             </div>}
-            {mode === "regional" ? <RepresentativeDistributionPanel entity={entityType} criteria={criteria} />
+            {mode === "regional" ? <div ref={regionalPanelRef} tabIndex={-1} className="min-w-0 scroll-mt-4 outline-none">
+              <RepresentativeDistributionPanel key={regionalPanelRevision} entity={entityType} criteria={criteria} initialKind={regionalKind}
+                initialSource={regionalSource} assignmentDraft={assignmentDraft}
+                onContextChange={(kind, source) => {
+                  setRegionalKind(kind);
+                  setRegionalSource(source);
+                }} />
+            </div>
               : temporaryCover ? <RepresentativeDistributionPanel key={`${mode}:${entityType}:temporary`} entity={entityType}
                 criteria={{ ...criteria, currentRepresentativeId: undefined }} singleTarget
-                initialSource={mode === "bulk" ? fromUserId : swapFrom} initialTarget={mode === "bulk" ? toUserId : swapTo} /> : <>
+                initialSource={mode === "bulk" ? fromUserId : swapFrom} initialTarget={mode === "bulk" ? toUserId : swapTo}
+                onContextChange={(_kind, source) => {
+                  if (mode === "swap") setSwapFrom(source);
+                  else {
+                    setFromUserId(source);
+                    if (source) setOnlyUnassigned(false);
+                  }
+                }} /> : <>
             {mode === "bulk" ? (
               <div className="space-y-1.5">
                 <Label>{p.bulkTo}</Label>

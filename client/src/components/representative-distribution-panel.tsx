@@ -16,6 +16,14 @@ type Plan = { id: string; kind: Kind; startsAt: string; endsAt: string | null; s
   pending: number; active: number; completed: number; skipped: number; conflict: number };
 const keyFor = (g: Group) => JSON.stringify([g.countryCode, g.region || ""]);
 const api = "/api/representatives/distribution";
+export type RepresentativeRegionAssignmentDraft = {
+  key: string;
+  revision: number;
+  entity: "clinic" | "hospital";
+  targets: Record<string, string>;
+};
+export const representativeAssignmentCriteriaKey = (entity: "clinic" | "hospital", criteria: any) =>
+  JSON.stringify({ entity, criteria });
 async function request(path: string, body?: unknown) {
   const response = await fetch(path, { credentials: "include", ...(body === undefined ? {} : {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
@@ -30,17 +38,20 @@ type DistributionProps = {
   entity: "clinic" | "hospital";
   criteria: any;
   singleTarget?: boolean;
+  initialKind?: Kind;
   initialSource?: string;
   initialTarget?: string;
+  assignmentDraft?: RepresentativeRegionAssignmentDraft;
+  onContextChange?: (kind: Kind, source: string) => void;
 };
 
 export function RepresentativeDistributionPanel({
-  entity, criteria, singleTarget = false, initialSource = "", initialTarget = "",
+  entity, criteria, singleTarget = false, initialKind = "assign", initialSource = "", initialTarget = "", assignmentDraft, onContextChange,
 }: DistributionProps) {
   const { t, locale } = useI18n(), c = t.representativeDistribution, p = t.representantPanel;
   const a = t.representativeAssist;
   const { toast } = useToast(), qc = useQueryClient();
-  const [kind, setKind] = useState<Kind>(singleTarget ? "temporary" : "assign");
+  const [kind, setKind] = useState<Kind>(singleTarget ? "temporary" : initialKind);
   const [source, setSource] = useState(initialSource);
   const [replacement, setReplacement] = useState(initialTarget);
   const [wholePortfolio, setWholePortfolio] = useState(false);
@@ -49,6 +60,14 @@ export function RepresentativeDistributionPanel({
   const [targets, setTargets] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<{ key: string; affected: number; unchanged: number; fingerprint: string } | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
+  const contextChangeRef = useRef(onContextChange);
+  contextChangeRef.current = onContextChange;
+  const draftMatches = !!assignmentDraft && assignmentDraft.entity === entity
+    && assignmentDraft.key === representativeAssignmentCriteriaKey(entity, criteria);
+  const draftKey = draftMatches ? assignmentDraft!.key : "";
+  const draftRevision = draftMatches ? assignmentDraft!.revision : 0;
+  const draftIdentity = draftKey ? `${draftKey}:${draftRevision}` : "";
+  const draftTargets = draftMatches ? assignmentDraft!.targets : {};
   const activeKind: Kind = singleTarget ? "temporary" : kind;
   const effectiveCriteria = useMemo(() => singleTarget && wholePortfolio
     ? { countryScope: criteria?.countryScope }
@@ -66,6 +85,7 @@ export function RepresentativeDistributionPanel({
   const reps = users.data || [];
   const baseKey = JSON.stringify({
     entity, criteria: effectiveCriteria, kind: activeKind, source,
+    draftIdentity,
     replacement: singleTarget ? replacement : undefined,
     startsAt: activeKind === "temporary" && !now ? start : "",
     endsAt: activeKind === "temporary" ? end : "",
@@ -73,8 +93,13 @@ export function RepresentativeDistributionPanel({
   });
   const selectionKey = JSON.stringify({ baseKey, targets, now, start, end, replacement });
   const liveBase = useRef(baseKey), liveKey = useRef(selectionKey);
+  const liveDraftKey = useRef(draftIdentity);
   liveBase.current = baseKey;
   liveKey.current = selectionKey;
+  liveDraftKey.current = draftIdentity;
+  useEffect(() => {
+    contextChangeRef.current?.(activeKind, source);
+  }, [activeKind, source]);
   useEffect(() => { setRegions(null); setTargets({}); setPreview(null); }, [baseKey]);
   const groups = regions?.key === baseKey ? regions.groups : [];
   const allowedCountries: string[] = groups.length
@@ -102,7 +127,8 @@ export function RepresentativeDistributionPanel({
     toast({ title: t.common.error, description: copy, variant: "destructive" });
   };
   const action = useMutation({
-    mutationFn: async (v: { type: "load" | "preview" | "confirm" | "end"; key: string; base: string; body?: any; id?: string }) => ({
+    mutationFn: async (v: { type: "load" | "preview" | "confirm" | "end"; key: string; base: string; body?: any; id?: string;
+      draftKey?: string; draftRevision?: number; draftTargets?: Record<string, string> }) => ({
       data: await request(v.type === "load" ? api + "/regions" : v.type === "end" ? `${api}/plans/${v.id}/end` : api + "/plans",
         v.type === "end" ? {} : v.body), v,
     }),
@@ -117,9 +143,21 @@ export function RepresentativeDistributionPanel({
       }
       if (v.base !== liveBase.current) return;
       if (v.type === "load") {
-        if (v.key !== liveKey.current) return;
+        // A new date/kind clears old targets in the same effect cycle as an
+        // automatic draft load. Its base and draft identity remain authoritative;
+        // the transient previous targets must not make that response stale.
+        if ((!v.draftKey && v.key !== liveKey.current)
+          || (v.draftKey ? `${v.draftKey}:${v.draftRevision || 0}` : "") !== liveDraftKey.current) return;
         setRegions({ key: v.base, groups: Array.isArray(data.groups) ? data.groups : [] });
-        setTargets({});
+        const loadedGroups: Group[] = Array.isArray(data.groups) ? data.groups : [];
+        const prefilled: Record<string, string> = {};
+        if (v.draftKey && v.draftTargets) {
+          for (const group of loadedGroups) {
+            const target = v.draftTargets[group.region];
+            if (target) prefilled[keyFor(group)] = target;
+          }
+        }
+        setTargets(prefilled);
         setPreview(null);
       } else if (v.key === liveKey.current) setPreview({ key: v.key, ...data });
     },
@@ -129,16 +167,34 @@ export function RepresentativeDistributionPanel({
     try {
       action.mutate({
         type, key: selectionKey, base: baseKey,
+        ...(type === "load" ? { draftKey, draftRevision, draftTargets } : {}),
         body: type === "load"
           ? { entity, criteria: effectiveCriteria, kind: activeKind, fromUserId: source || undefined }
           : { ...input(), dryRun: type === "preview", fingerprint: type === "confirm" ? preview?.fingerprint : undefined },
       });
     } catch { error(new Error("period")); }
   };
+  const autoLoadKey = useRef("");
+  const mutateRef = useRef(action.mutate);
+  mutateRef.current = action.mutate;
+  useEffect(() => {
+    const loadIdentity = `${draftIdentity}:${baseKey}`;
+    if (!draftKey || singleTarget || users.isLoading || (activeKind !== "assign" && !source)
+      || autoLoadKey.current === loadIdentity) return;
+    autoLoadKey.current = loadIdentity;
+    mutateRef.current({
+      type: "load", key: selectionKey, base: baseKey, draftKey, draftRevision, draftTargets,
+      body: { entity, criteria: effectiveCriteria, kind: activeKind, fromUserId: source || undefined },
+    });
+  }, [draftIdentity, users.isLoading, singleTarget, selectionKey, baseKey, activeKind, source]);
   const validPeriod = activeKind !== "temporary" || (!!end && (now || !!start));
+  const assignedGroups = groups.filter(group => !!targets[keyFor(group)]);
   const validTarget = singleTarget
     ? targetReps.some(rep => rep.id === replacement)
-    : groups.some(group => !!targets[keyFor(group)]);
+    : assignedGroups.length > 0 && assignedGroups.every(group => reps.some(rep =>
+      rep.id === targets[keyFor(group)] && rep.isActive && rep.eligible
+      && (activeKind === "assign" || rep.id !== source)
+      && (!rep.countries?.length || rep.countries.includes(group.countryCode))));
   const canLoad = (activeKind === "assign" || !!source) && (!singleTarget || !!replacement)
     && !users.isError && !users.isLoading && !action.isPending;
   const canPreview = canLoad && validPeriod && groups.length > 0 && validTarget;
@@ -147,12 +203,20 @@ export function RepresentativeDistributionPanel({
   return <div className="space-y-5 min-w-0" data-testid="representative-distribution">
     <div><h2 className="font-semibold">{singleTarget ? a.tempToggle : c.title}</h2><p className="text-xs text-muted-foreground mt-1">{singleTarget ? a.tempHelp : c.help}</p></div>
     <div className="space-y-2">
-      {!singleTarget && <Select value={kind} onValueChange={value => setKind(value as Kind)} disabled={action.isPending}>
+       {!singleTarget && <Select value={kind} onValueChange={value => {
+         const nextKind = value as Kind;
+         setKind(nextKind);
+         contextChangeRef.current?.(nextKind, source);
+       }} disabled={action.isPending}>
         <SelectTrigger data-testid="distribution-kind"><SelectValue /></SelectTrigger>
         <SelectContent>{(["assign", "departure", "temporary"] as const).map(k => <SelectItem key={k} value={k}>{c[k]}</SelectItem>)}</SelectContent>
       </Select>}
       <Label>{c.from}</Label>
-      <Select value={source || "__all"} onValueChange={value => setSource(value === "__all" ? "" : value)} disabled={action.isPending || users.isLoading}>
+       <Select value={source || "__all"} onValueChange={value => {
+         const nextSource = value === "__all" ? "" : value;
+         setSource(nextSource);
+         contextChangeRef.current?.(activeKind, nextSource);
+       }} disabled={action.isPending || users.isLoading}>
         <SelectTrigger data-testid="distribution-source"><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="__all">{activeKind === "assign" ? c.anySource : p.selectPlaceholder}</SelectItem>
@@ -208,6 +272,7 @@ export function RepresentativeDistributionPanel({
         </Select>
       </div>)}
     </div> : <p className="text-sm text-muted-foreground">{c.empty}</p>)}
+    {draftKey && regions?.key === baseKey && <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground" data-testid="distribution-handoff-next-step">{a.nextStep}</p>}
     {preview?.key === selectionKey && <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" data-testid="distribution-preview">
       <strong>{preview.affected}</strong> {p.bulkPreviewCount} · {c.unchanged}: {preview.unchanged}
     </div>}

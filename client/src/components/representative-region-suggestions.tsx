@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/i18n/I18nProvider";
 import { COUNTRIES } from "@/lib/countries";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,11 @@ type Props = {
   entity: "clinic" | "hospital";
   criteria: any;
   onApply: (countryCode: string, regions: string[]) => void;
+  onPrepare: (countryCode: string, regions: string[], targets: Record<string, string>) => void;
 };
+type Rep = { id: string; name: string; isActive: boolean; eligible: boolean; countries: string[] };
 
-export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: Props) {
+export function RepresentativeRegionSuggestions({ entity, criteria, onApply, onPrepare }: Props) {
   const { t } = useI18n();
   const c = t.representativeAssist;
   const scopedCountries: string[] = Array.isArray(criteria?.countryScope)
@@ -42,17 +45,35 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
   const [result, setResult] = useState<SuggestionResult | null>(null);
   const [resultKey, setResultKey] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [officialTarget, setOfficialTarget] = useState("");
+  const [groupTargets, setGroupTargets] = useState<Record<number, string>>({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
   const requestKey = JSON.stringify({ entity, criteria, countryCode, mode, territories });
   const currentKey = useRef(requestKey);
   currentKey.current = requestKey;
+  const repsQuery = useQuery<Rep[]>({
+    queryKey: ["/api/representatives/distribution/users", countryCode],
+    enabled: !!countryCode,
+    queryFn: async () => {
+      const response = await fetch(`/api/representatives/distribution/users?countries=${encodeURIComponent(countryCode)}`, {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("representatives_unavailable");
+      const payload = await response.json();
+      return Array.isArray(payload) ? payload : [];
+    },
+  });
+  const eligibleReps = (repsQuery.data || []).filter(rep => rep.isActive && rep.eligible
+    && (!rep.countries?.length || rep.countries.includes(countryCode)));
 
   useEffect(() => {
     setResult(null);
     setResultKey("");
     setSelected([]);
+    setOfficialTarget("");
+    setGroupTargets({});
     setError("");
     setLoading(false);
   }, [requestKey]);
@@ -68,6 +89,8 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
     setResult(null);
     setResultKey("");
     setSelected([]);
+    setOfficialTarget("");
+    setGroupTargets({});
     setError("");
     if (!countryCode) {
       setError(c.selectCountryFirst);
@@ -102,6 +125,7 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
   };
 
   const setName = (name: string, checked: boolean) => {
+    setError("");
     setSelected(previous => checked
       ? previous.includes(name) ? previous : [...previous, name]
       : previous.filter(value => value !== name));
@@ -122,7 +146,48 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
     setSelected(previous => Array.from(new Set([...previous, ...regions])));
     setError("");
   };
+  const prepare = () => {
+    if (!result || resultKey !== requestKey || result.countryCode !== countryCode || !selected.length) {
+      if (!selected.length) setError(c.noSelection);
+      return;
+    }
+    const entries = [...result.catalogue, ...result.unmapped];
+    const mappings: Record<string, string> = {};
+    for (const name of selected) {
+      const entry = entries.find(item => item.name === name);
+      const owners = Array.from(new Set(result.groups
+        .filter(group => group.regions.includes(name) && groupTargets[group.index])
+        .map(group => groupTargets[group.index])));
+      if (owners.length > 1) {
+        setError(c.conflictingTargets);
+        return;
+      }
+      const target = owners[0] || officialTarget;
+      if (!target) {
+        setError(c.chooseRepresentative);
+        return;
+      }
+      if (!eligibleReps.some(rep => rep.id === target)) {
+        setError(c.noEligibleReps);
+        return;
+      }
+      for (const value of entry?.values?.length ? entry.values : [name]) {
+        if (mappings[value] && mappings[value] !== target) {
+          setError(c.conflictingTargets);
+          return;
+        }
+        mappings[value] = target;
+      }
+    }
+    const values = Array.from(new Set(selected.flatMap(name => {
+      const entry = entries.find(item => item.name === name);
+      return entry?.values?.length ? entry.values : [name];
+    }).filter(value => value.trim().length > 0)));
+    onPrepare(result.countryCode, values, mappings);
+  };
   const selectedKeys = new Set(selected);
+  const needsFallbackTarget = mode !== "balanced" || !result?.groups.length
+    || selected.some(name => !result.groups.some(group => group.regions.includes(name) && !!groupTargets[group.index]));
 
   return <section className="space-y-3 border-t pt-4" data-testid="representative-region-suggestions">
     <div>
@@ -167,13 +232,34 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>{c.portfolioTotal}: {result.total}</span>
         <span>{c.unknownCount}: {result.unknownCount}</span>
+        {selected.length > 0 && <span aria-live="polite">{selected.length} {c.selectedCount}</span>}
       </div>
       <p className="text-xs text-muted-foreground">{c.unknownNotSelectable}</p>
       {mode === "balanced" && result.groups.length > 0 && <div className="space-y-2">
-        {result.groups.map(group => <div key={group.index} data-testid={`suggestion-group-${group.index}`} className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
-          <div className="min-w-0"><span>{c.territories} {group.index + 1} · {group.count}</span>
-            <p className="mt-1 text-xs text-muted-foreground break-words">{group.regions.join(", ")}</p></div>
-          <Button type="button" variant="outline" size="sm" onClick={() => chooseGroup(group.regions)}>{c.selectGroup}</Button>
+        {result.groups.map(group => <div key={group.index} data-testid={`suggestion-group-${group.index}`} className="space-y-2 rounded-md border px-3 py-2 text-sm">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0"><span className="font-medium">{c.group} {group.index + 1} · {group.count}</span>
+              <p className="mt-1 text-xs text-muted-foreground break-words">{group.regions.join(", ")}</p></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => chooseGroup(group.regions)}>{c.selectGroup}</Button>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">{t.representativeDistribution.representative}</Label>
+            <Select value={groupTargets[group.index] || "__choose"} onValueChange={value => {
+              setError("");
+              if (value === "__choose") {
+                setGroupTargets(previous => { const next = { ...previous }; delete next[group.index]; return next; });
+              } else {
+                setGroupTargets(previous => ({ ...previous, [group.index]: value }));
+                chooseGroup(group.regions);
+              }
+            }}>
+              <SelectTrigger data-testid={`suggestion-group-representative-${group.index}`}><SelectValue placeholder={c.chooseRepresentative} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__choose">{c.chooseRepresentative}</SelectItem>
+                {eligibleReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
         </div>)}
       </div>}
       <div className="space-y-2">
@@ -192,8 +278,28 @@ export function RepresentativeRegionSuggestions({ entity, criteria, onApply }: P
         </label>)}
       </div>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" data-testid="suggestion-apply" onClick={apply} disabled={!selected.length}>{c.applyFilter}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setSelected([])} disabled={!selected.length}>{c.clear}</Button>
+        {needsFallbackTarget && <div className="w-full space-y-1.5">
+          <Label className="text-xs">{mode === "balanced" && result.groups.length > 0 ? c.otherRegions : c.assignTo}</Label>
+          <Select value={officialTarget || "__choose"} onValueChange={value => { setOfficialTarget(value === "__choose" ? "" : value); setError(""); }}>
+            <SelectTrigger data-testid="suggestion-representative"><SelectValue placeholder={c.chooseRepresentative} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__choose">{c.chooseRepresentative}</SelectItem>
+              {eligibleReps.map(rep => <SelectItem key={rep.id} value={rep.id}>{rep.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {!eligibleReps.length && countryCode && <p role="status" className="text-xs text-muted-foreground">
+            {repsQuery.isLoading ? c.loading : c.noEligibleReps}
+          </p>}
+          {mode === "balanced" && result.groups.length > 0 && <p className="text-xs text-muted-foreground">{c.groupMappingHelp}</p>}
+          {repsQuery.isError && <p role="alert" className="text-xs text-destructive">{c.suggestionError}</p>}
+        </div>}
+        <Button type="button" size="sm" variant="outline" data-testid="suggestion-apply" onClick={apply} disabled={!selected.length}>{c.applyFilter}</Button>
+        <Button type="button" size="sm" data-testid="suggestion-prepare-assignment"
+          onClick={prepare} disabled={!selected.length || repsQuery.isLoading || repsQuery.isError || eligibleReps.length === 0}>
+          {c.prepareAssignment}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => { setSelected([]); setOfficialTarget(""); setGroupTargets({}); setError(""); }} disabled={!selected.length}>{c.clear}</Button>
+        <p className="w-full text-xs text-muted-foreground">{c.prepareAssignmentHelp}</p>
       </div>
     </>}
   </section>;
