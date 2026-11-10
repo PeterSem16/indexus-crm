@@ -13,6 +13,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import "@/components/nexus/nexus-signal-tasks.css";
 import "@/components/email-html-body.css";
 import "@/components/nexus/omni-workspace.css";
+import "@/components/nexus/omni-task-queue-header.css";
 import { OmniMailboxGroups } from "@/components/nexus/omni-mailbox-groups";
 import { OmniSearchResultsHeader } from "@/components/nexus/omni-search-results-header";
 import { OmniSearchExportEmailDialog } from "@/components/nexus/omni-search-export-email-dialog";
@@ -95,6 +96,9 @@ import {
   ChevronRight,
   Settings,
   User,
+  UserRound,
+  UsersRound,
+  SlidersHorizontal,
   Search,
   UserCheck,
   Flame,
@@ -6129,22 +6133,19 @@ export default function EmailClientPage() {
         {activeTab === "tasks" && (
           <>
             <Card className={cn(
-              "nexus-signal-queue",
+              "nexus-signal-queue omni-task-queue",
               "transition-all duration-300 shrink-0 flex flex-col",
               taskMobileDetailOpen
                 ? "hidden md:flex md:w-[30%] md:min-w-[300px] md:max-w-[420px]"
                 : "flex-1 w-full min-w-0 md:flex-none md:w-[30%] md:min-w-[300px] md:max-w-[420px]",
             )}>
-              <CardHeader className="nexus-signal-queue-header py-2 px-3 border-b shrink-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ListTodo className="h-4 w-4 text-amber-600" />
-                    <span className="sr-only md:not-sr-only text-sm font-semibold">{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "open" ? t.tasks.openTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</span>
-                    <Badge variant="secondary" className="text-[10px]">{visibleTasks.length}</Badge>
-                  </div>
-                  <div className="flex items-center gap-0.5">
+              <CardHeader className="nexus-signal-queue-header tasks-refined shrink-0">
+                <div className="tasks-refined-heading">
+                  <div className="tasks-refined-title">
+                    <span className="tasks-title-icon" aria-hidden="true"><ListTodo size={19} strokeWidth={1.8} /></span>
+                    <h2 className="tasks-refined-label hidden md:block" title={taskFilter === "all" ? t.tasks.allTasks : taskFilter === "open" ? t.tasks.openTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}>{taskFilter === "all" ? t.tasks.allTasks : taskFilter === "open" ? t.tasks.openTasks : taskFilter === "pending" ? t.tasks.pending : taskFilter === "in_progress" ? t.tasks.inProgress : taskFilter === "completed" ? t.tasks.completed : t.tasks.cancelled}</h2>
                     <Select value={taskFilter} onValueChange={(value: TaskFilter) => { setTaskFilter(value); setTaskMobileDetailOpen(false); }}>
-                      <SelectTrigger className="h-7 w-[88px] text-[11px] md:hidden" data-testid="task-mobile-filter">
+                      <SelectTrigger className="tasks-mobile-filter md:hidden" aria-label={t.common.status} data-testid="task-mobile-filter">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -6156,18 +6157,22 @@ export default function EmailClientPage() {
                         <SelectItem value="cancelled">{t.tasks.cancelled}</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="task-page-prev">
-                      <ChevronLeft className="h-3.5 w-3.5" />
+                    <span className="tasks-count tasks-heading-count" data-testid="task-queue-count">{visibleTasks.length}</span>
+                  </div>
+                  <div className="tasks-refined-tools">
+                    <div className="tasks-pagination">
+                    <Button variant="ghost" size="icon" aria-label={t.common.previous} disabled={localPage === 0} onClick={() => setLocalPage(p => p - 1)} data-testid="task-page-prev">
+                      <ChevronLeft size={16} />
                     </Button>
-                    <span className="text-[11px] min-w-[40px] text-center text-muted-foreground">{totalTaskPages > 0 ? `${localPage + 1}/${totalTaskPages}` : "0/0"}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" disabled={localPage >= totalTaskPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="task-page-next">
-                      <ChevronRight className="h-3.5 w-3.5" />
+                    <span className="tasks-page-number" data-testid="task-page-number">{totalTaskPages > 0 ? localPage + 1 : 0}<span className="tasks-page-divider">/</span>{totalTaskPages}</span>
+                    <Button variant="ghost" size="icon" aria-label={t.common.next} disabled={localPage >= totalTaskPages - 1} onClick={() => setLocalPage(p => p + 1)} data-testid="task-page-next">
+                      <ChevronRight size={16} />
                     </Button>
+                    </div>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button type="button" variant="ghost" size="icon" className={cn("relative h-7 w-7", taskQueueHasFilters && "bg-primary/10 text-primary")} aria-label={t.tasks.workspace.filtersTitle} title={t.tasks.workspace.filtersTitle} data-testid="btn-task-filters" data-active={taskQueueHasFilters}>
-                          <Filter className="h-3.5 w-3.5" />
-                          {taskQueueHasFilters && <span className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />}
+                        <Button type="button" variant="ghost" size="icon" className="tasks-filter-button" aria-label={t.tasks.workspace.filtersTitle} title={t.tasks.workspace.filtersTitle} data-testid="btn-task-filters" data-active={taskQueueHasFilters}>
+                          <SlidersHorizontal size={17} />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent align="end" className="task-filters-popover" aria-label={t.tasks.workspace.filtersTitle} data-testid="task-filters-popover">
@@ -6190,15 +6195,20 @@ export default function EmailClientPage() {
                     </Popover>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                  <Button variant={taskSubTab === "my" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
-                    {t.tasks.myTasks}
-                    <span data-task-count className="ml-1">{myTaskCount}</span>
+                <div className="tasks-scope-switch" role="group" aria-label={t.tasks.title}>
+                  <Button variant="ghost" size="sm" title={t.tasks.myTasks} aria-pressed={taskSubTab === "my"} onClick={() => { setTaskSubTab("my"); setLocalPage(0); }} data-testid="task-subtab-my">
+                    <UserRound size={16} strokeWidth={1.7} aria-hidden="true" />
+                    <span className="tasks-scope-label">{t.tasks.myTasks}</span>
+                    <span data-task-count className="tasks-count">{myTaskCount}</span>
                   </Button>
-                  <Button variant={taskSubTab === "all" ? "default" : "ghost"} size="sm" className="h-6 text-[11px] px-2" aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
-                    {t.tasks.allTasks}
-                    <span data-task-count className="ml-1">{allTaskCount}</span>
+                  <Button variant="ghost" size="sm" title={t.tasks.allTasks} aria-pressed={taskSubTab === "all"} onClick={() => { setTaskSubTab("all"); setLocalPage(0); }} data-testid="task-subtab-all">
+                    <UsersRound size={16} strokeWidth={1.7} aria-hidden="true" />
+                    <span className="tasks-scope-label">{t.tasks.allTasks}</span>
+                    <span data-task-count className="tasks-count">{allTaskCount}</span>
                   </Button>
+                </div>
+                <div className="tasks-team-row">
+                  <div className="tasks-team-groups">
                   {visibleTaskGroups
                     .map((g: any) => {
                       const isSelected = taskSubTab === g.id ||
@@ -6209,23 +6219,21 @@ export default function EmailClientPage() {
                       return (
                         <Button
                           key={g.id}
-                          variant={isSelected ? "default" : "ghost"}
+                          variant="ghost"
                           size="sm"
-                          className="h-6 text-[11px] px-2 gap-1"
+                          className="tasks-team-button"
+                          title={g.displayAlias || g.name}
                           aria-pressed={!!isSelected}
                           onClick={() => { setTaskSubTab(g.id); setLocalPage(0); }}
                           data-testid={`task-subtab-group-${g.id}`}
                         >
-                          {g.isBackOffice
-                            ? <Building2 className="h-3 w-3" />
-                            : <ListChecks className="h-3 w-3" />}
-                          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: g.color || '#3b82f6' }} />
-                          {g.displayAlias || g.name}
-                          {groupCount > 0 && (
-                            <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-blue-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                          <span className="tasks-team-icon" style={{ borderLeftColor: g.color || undefined }} aria-hidden="true">{g.isBackOffice
+                            ? <Building2 size={16} strokeWidth={1.8} />
+                            : <ListChecks size={16} strokeWidth={1.8} />}</span>
+                          <span className="tasks-team-name">{g.displayAlias || g.name}</span>
+                            <span data-task-count-badge className="tasks-count">
                               {groupCount}
                             </span>
-                          )}
                         </Button>
                       );
                     })}
@@ -6237,26 +6245,26 @@ export default function EmailClientPage() {
                     ));
                     return (
                       <Button
-                        variant={taskSubTab === "back_office" ? "default" : "ghost"}
+                        variant="ghost"
                         size="sm"
-                        className="h-6 text-[11px] px-2 gap-1"
+                        className="tasks-team-button"
+                        title={t.tasks.taskGroups.backOfficeTab}
                         aria-pressed={taskSubTab === "back_office"}
                         onClick={() => { setTaskSubTab("back_office"); setLocalPage(0); }}
                         data-testid="task-subtab-back-office"
                       >
-                        <Building2 className="h-3.5 w-3.5" />
-                        {t.tasks.taskGroups.backOfficeTab}
-                        {boTaskCount > 0 && (
-                          <span data-task-count-badge className="ml-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-semibold min-w-[14px] h-3.5 px-0.5 leading-none">
+                        <span className="tasks-team-icon" aria-hidden="true"><Building2 size={16} strokeWidth={1.8} /></span>
+                        <span className="tasks-team-name">{t.tasks.taskGroups.backOfficeTab}</span>
+                          <span data-task-count-badge className="tasks-count">
                             {boTaskCount}
                           </span>
-                        )}
                       </Button>
                     );
                   })()}
-                  <Button variant="ghost" size="sm" className="h-6 text-[11px] px-2" aria-pressed="false" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
-                    <BarChart3 className="h-3 w-3 mr-1" />
-                    {t.tasks.reporting}
+                  </div>
+                  <Button variant="ghost" size="sm" className="tasks-report-button" aria-pressed="false" onClick={() => setTaskReportingOpen(true)} data-testid="task-subtab-reporting">
+                    <BarChart3 size={16} strokeWidth={1.8} />
+                    <span>{t.tasks.reporting}</span>
                   </Button>
                 </div>
               </CardHeader>

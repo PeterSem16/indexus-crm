@@ -1,0 +1,102 @@
+/* Graduated from the approved Omni Tasks panel. All rules are scoped to this
+   queue, including overrides of the older Signal active-button/count rules.
+   Use the user's palette and theme instead of freezing the mockup's colors. */
+.nexus-signal-tasks .omni-task-queue { border-radius: 16px; }
+.nexus-signal-tasks .nexus-signal-queue-header.tasks-refined {
+  --tp-panel: var(--signal-surface);
+  --tp-text: var(--signal-ink);
+  --tp-muted: var(--signal-muted);
+  --tp-line: var(--signal-line);
+  --tp-track: hsl(var(--muted) / .36);
+  --tp-soft: var(--signal-rose);
+  --tp-brand: var(--signal-crimson);
+  --tp-hover: hsl(var(--muted) / .26);
+  --tp-amber: #a96518;
+  --tp-amber-bg: #fbf2e5;
+  display: block;
+  padding: 0;
+  background: var(--tp-panel);
+  color: var(--tp-text);
+}
+.dark .nexus-signal-queue-header.tasks-refined {
+  --tp-brand: color-mix(in srgb, hsl(var(--primary)) 55%, white 45%);
+  --tp-soft: hsl(var(--primary) / .16);
+  --tp-amber: #ecc084;
+  --tp-amber-bg: #3b3026;
+}
+.tasks-refined > :not([hidden]) ~ :not([hidden]) { margin-top: 0; margin-bottom: 0; }
+.tasks-refined button { transition: background-color 150ms, color 150ms, box-shadow 150ms; }
+.tasks-refined button::before, .tasks-refined button::after { display: none; }
+.tasks-refined button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.tasks-refined .tasks-refined-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 17px 16px 14px; }
+.tasks-refined .tasks-refined-title { display: flex; gap: 9px; min-width: 0; align-items: center; }
+.tasks-refined .tasks-title-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--tp-soft); color: var(--tp-brand); flex-shrink: 0; }
+.tasks-refined .tasks-title-icon svg { color: inherit; }
+.tasks-refined .tasks-refined-label { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 14px; font-weight: 650; letter-spacing: -.25px; white-space: nowrap; color: var(--tp-text); }
+.nexus-signal-queue-header.tasks-refined .tasks-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 23px;
+  min-width: 28px;
+  padding: 0 6px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: var(--tp-track);
+  color: var(--tp-muted) !important;
+  font-size: 11px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  opacity: 1;
+}
+.nexus-signal-queue-header.tasks-refined .tasks-heading-count { background: var(--tp-soft); color: var(--tp-brand) !important; }
+.tasks-refined .tasks-refined-tools { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.tasks-refined .tasks-pagination { display: flex; gap: 1px; align-items: center; color: var(--tp-muted); }
+.tasks-refined .tasks-pagination button { border: 0; background: transparent; height: 28px; min-height: 28px; width: 20px; display: grid; place-items: center; padding: 0; color: var(--tp-muted); }
+.tasks-refined .tasks-pagination button svg { width: 16px; height: 16px; color: inherit; }
+.tasks-refined .tasks-pagination button:disabled { opacity: .35; cursor: default; }
+.tasks-refined .tasks-page-number { font-size: 10px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tasks-refined .tasks-page-divider { margin: 0 4px; opacity: .5; }
+.tasks-refined .tasks-filter-button { display: grid; place-items: center; width: 30px; height: 30px; min-height: 30px; padding: 0; border: 1px solid var(--tp-line); border-radius: 8px; color: var(--tp-muted); background: var(--tp-panel); }
+.tasks-refined .tasks-filter-button svg { width: 17px; height: 17px; color: inherit; }
+.tasks-refined .tasks-filter-button:hover, .tasks-refined .tasks-filter-button[data-state="open"], .tasks-refined .tasks-filter-button[data-active="true"] { background: var(--tp-soft); border-color: transparent; color: var(--tp-brand); }
+.tasks-refined .tasks-scope-switch { display: flex; gap: 4px; border: 1px solid var(--tp-line); background: var(--tp-track); border-radius: 11px; padding: 4px; margin: 0 16px 14px; }
+.nexus-signal-queue-header.tasks-refined .tasks-scope-switch > button { display: flex; gap: 9px; align-items: center; flex: 1; min-width: 0; min-height: 37px; height: auto; background: transparent; color: var(--tp-muted); border: 1px solid transparent; border-radius: 8px; padding: 5px 10px; font-size: 12px; font-weight: 600; }
+.tasks-refined .tasks-scope-switch > button > svg { flex-shrink: 0; width: 16px; height: 16px; color: inherit; }
+.tasks-refined .tasks-scope-label { flex: 1; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.3; }
+.nexus-signal-queue-header.tasks-refined .tasks-scope-switch > button[aria-pressed="true"] { background: var(--tp-panel) !important; color: var(--tp-brand) !important; border-color: var(--tp-line); box-shadow: 0 1px 3px #00000008; }
+.nexus-signal-queue-header.tasks-refined [data-testid^="task-subtab-"][aria-pressed="true"] svg { color: inherit !important; }
+.nexus-signal-queue-header.tasks-refined .tasks-scope-switch > button[aria-pressed="true"] .tasks-count { background: var(--tp-soft); color: var(--tp-brand) !important; }
+.nexus-signal-queue-header.tasks-refined .tasks-scope-switch > button:hover:not([aria-pressed="true"]) { color: var(--tp-text); background: var(--tp-hover); }
+.tasks-refined .tasks-team-row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; border-top: 1px solid var(--tp-line); padding: 10px 12px; }
+.tasks-refined .tasks-team-groups { display: flex; flex: 1; min-width: 0; gap: 4px; flex-wrap: wrap; max-height: 168px; overflow-y: auto; padding: 2px; }
+.nexus-signal-queue-header.tasks-refined .tasks-team-button { display: flex; align-items: center; gap: 8px; max-width: 100%; min-width: 0; min-height: 37px; height: auto; border: 1px solid transparent; background: transparent; border-radius: 9px; padding: 5px 7px; font-size: 12px; font-weight: 550; color: var(--tp-text); }
+.tasks-refined .tasks-team-icon { display: grid; place-items: center; flex-shrink: 0; width: 27px; height: 27px; background: var(--tp-amber-bg); color: var(--tp-amber); border-radius: 7px; border-left: 2px solid transparent; }
+.tasks-refined .tasks-team-icon svg { width: 16px; height: 16px; color: inherit; }
+.tasks-refined .tasks-team-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tasks-refined .tasks-team-button > .tasks-count { margin-left: 4px; }
+.nexus-signal-queue-header.tasks-refined .tasks-team-button:hover, .nexus-signal-queue-header.tasks-refined .tasks-team-button[aria-pressed="true"] { background: var(--tp-soft) !important; color: var(--tp-brand) !important; }
+.nexus-signal-queue-header.tasks-refined .tasks-team-button[aria-pressed="true"] .tasks-count { background: var(--tp-panel); color: var(--tp-brand) !important; }
+.nexus-signal-queue-header.tasks-refined .tasks-report-button { display: flex; flex-shrink: 0; gap: 6px; align-items: center; border: 0; background: transparent; color: var(--tp-muted); font-size: 11px; min-height: 37px; height: auto; border-radius: 8px; padding: 9px 8px; margin-top: 2px; }
+.tasks-refined .tasks-report-button svg { width: 16px; height: 16px; color: inherit; }
+.nexus-signal-queue-header.tasks-refined .tasks-report-button:hover { background: var(--tp-hover); color: var(--tp-brand); }
+.tasks-refined .tasks-mobile-filter { height: 28px; min-height: 28px; min-width: 0; width: auto; flex: 1; gap: 3px; padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--tp-text); font-size: 13px; font-weight: 650; }
+.tasks-refined .tasks-mobile-filter > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tasks-refined .tasks-mobile-filter > svg { width: 12px; flex-shrink: 0; color: var(--tp-muted); }
+@media (max-width: 1100px) {
+  .tasks-refined .tasks-refined-heading { padding: 14px 12px; gap: 5px; }
+  .tasks-refined .tasks-title-icon { width: 28px; height: 28px; }
+  .tasks-refined .tasks-refined-title { gap: 6px; }
+  .tasks-refined .tasks-refined-label { font-size: 13px; }
+  .tasks-refined .tasks-refined-tools { gap: 3px; }
+  .tasks-refined .tasks-pagination { gap: 0; }
+  .tasks-refined .tasks-pagination button { width: 17px; }
+  .nexus-signal-queue-header.tasks-refined .tasks-heading-count { min-width: 24px; }
+  .tasks-refined .tasks-scope-switch { margin-right: 12px; margin-left: 12px; }
+  .nexus-signal-queue-header.tasks-refined .tasks-scope-switch > button { padding: 5px 7px; gap: 6px; }
+  .tasks-refined .tasks-team-row { padding: 9px 8px; gap: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tasks-refined button { transition: none; }
+}
