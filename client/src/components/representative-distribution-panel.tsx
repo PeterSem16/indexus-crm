@@ -11,6 +11,18 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, A
 
 type Rep = { id: string; name: string; isActive: boolean; eligible: boolean; countries: string[] };
 type Group = { countryCode: string; region: string; count: number };
+type PreviewGroup = { countryCode: string; region: string; userId: string; count: number; affected: number; alreadyAssigned: number };
+type Preview = {
+  key: string;
+  affected: number;
+  unchanged: number;
+  fingerprint: string;
+  total?: number;
+  selected?: number;
+  alreadyAssigned?: number;
+  unselected?: number;
+  previewGroups?: PreviewGroup[];
+};
 type Kind = "assign" | "departure" | "temporary";
 type Plan = { id: string; kind: Kind; startsAt: string; endsAt: string | null; sourceName: string | null;
   pending: number; active: number; completed: number; skipped: number; conflict: number };
@@ -58,7 +70,7 @@ export function RepresentativeDistributionPanel({
   const [now, setNow] = useState(true), [start, setStart] = useState(""), [end, setEnd] = useState("");
   const [regions, setRegions] = useState<{ key: string; groups: Group[] } | null>(null);
   const [targets, setTargets] = useState<Record<string, string>>({});
-  const [preview, setPreview] = useState<{ key: string; affected: number; unchanged: number; fingerprint: string } | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [ending, setEnding] = useState<string | null>(null);
   const contextChangeRef = useRef(onContextChange);
   contextChangeRef.current = onContextChange;
@@ -189,6 +201,7 @@ export function RepresentativeDistributionPanel({
   }, [draftIdentity, users.isLoading, singleTarget, selectionKey, baseKey, activeKind, source]);
   const validPeriod = activeKind !== "temporary" || (!!end && (now || !!start));
   const assignedGroups = groups.filter(group => !!targets[keyFor(group)]);
+  const selectedGroups = singleTarget ? groups.filter(() => !!replacement) : assignedGroups;
   const validTarget = singleTarget
     ? targetReps.some(rep => rep.id === replacement)
     : assignedGroups.length > 0 && assignedGroups.every(group => reps.some(rep =>
@@ -199,6 +212,42 @@ export function RepresentativeDistributionPanel({
     && !users.isError && !users.isLoading && !action.isPending;
   const canPreview = canLoad && validPeriod && groups.length > 0 && validTarget;
   const total = groups.reduce((sum, group) => sum + group.count, 0);
+  const currentPreview = preview?.key === selectionKey ? preview : null;
+  const previewGroups = currentPreview?.previewGroups;
+  const previewBreakdownValid = (() => {
+    if (!currentPreview || !Number.isSafeInteger(currentPreview.total) || !Number.isSafeInteger(currentPreview.selected)
+      || !Number.isSafeInteger(currentPreview.alreadyAssigned) || !Number.isSafeInteger(currentPreview.unselected)
+      || !Array.isArray(previewGroups) || !Number.isSafeInteger(currentPreview.affected)
+      || !Number.isSafeInteger(currentPreview.unchanged) || !currentPreview.fingerprint) return false;
+    const { total: previewTotal, selected, alreadyAssigned, unselected, affected, unchanged } = currentPreview;
+    if (previewTotal! < 0 || selected! < 0 || alreadyAssigned! < 0 || unselected! < 0 || affected! < 0
+      || previewTotal !== selected! + unselected! || affected! + alreadyAssigned! !== selected!
+      || unchanged! !== alreadyAssigned! + unselected! || selected !== selectedGroups.reduce((sum, group) => sum + group.count, 0)
+      || previewGroups.length !== selectedGroups.length) return false;
+    const matched = new Set<string>();
+    for (const item of previewGroups) {
+      if (!item || typeof item.countryCode !== "string" || typeof item.region !== "string"
+        || typeof item.userId !== "string") return false;
+      const key = keyFor(item);
+      const sourceGroup = selectedGroups.find(group => keyFor(group) === key);
+      const expectedTarget = singleTarget ? replacement : targets[key];
+      if (!sourceGroup || matched.has(key) || item.userId !== expectedTarget || item.count !== sourceGroup.count
+        || !Number.isSafeInteger(item.affected) || !Number.isSafeInteger(item.alreadyAssigned)
+        || item.affected < 0 || item.alreadyAssigned < 0 || item.affected + item.alreadyAssigned !== item.count) return false;
+      matched.add(key);
+    }
+    return matched.size === selectedGroups.length
+      && previewGroups.reduce((sum, item) => sum + item.affected, 0) === affected
+      && previewGroups.reduce((sum, item) => sum + item.alreadyAssigned, 0) === alreadyAssigned;
+  })();
+  const previewTargetIds = Array.from(new Set(selectedGroups.map(group => singleTarget ? replacement : targets[keyFor(group)]).filter(Boolean)));
+  const previewTargetNames = previewTargetIds.map(id => reps.find(rep => rep.id === id)?.name || "");
+  const previewSentence = (template: string) => template
+    .replace("{selected}", String(currentPreview?.selected ?? ""))
+    .replace("{total}", String(currentPreview?.total ?? ""))
+    .replace("{unselected}", String(currentPreview?.unselected ?? ""))
+    .replace("{name}", previewTargetNames[0] || "")
+    .replace("{count}", String(previewTargetIds.length));
   const showDate = (value: string) => new Intl.DateTimeFormat(locale, { timeZone: "Europe/Bratislava", dateStyle: "short", timeStyle: "short" }).format(new Date(value));
   return <div className="space-y-5 min-w-0" data-testid="representative-distribution">
     <div><h2 className="font-semibold">{singleTarget ? a.tempToggle : c.title}</h2><p className="text-xs text-muted-foreground mt-1">{singleTarget ? a.tempHelp : c.help}</p></div>
@@ -273,12 +322,50 @@ export function RepresentativeDistributionPanel({
       </div>)}
     </div> : <p className="text-sm text-muted-foreground">{c.empty}</p>)}
     {draftKey && regions?.key === baseKey && <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground" data-testid="distribution-handoff-next-step">{a.nextStep}</p>}
-    {preview?.key === selectionKey && <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm" data-testid="distribution-preview">
-      <strong>{preview.affected}</strong> {p.bulkPreviewCount} · {c.unchanged}: {preview.unchanged}
-    </div>}
+    {currentPreview && <section className="space-y-3 rounded-lg border p-3 sm:p-4 text-sm" data-testid="distribution-preview">
+      {!previewBreakdownValid ? <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm" data-testid="distribution-preview-refresh">
+        {a.previewRefresh}
+      </p> : <>
+        <p className="font-medium" data-testid="distribution-outcome">
+          {previewTargetIds.length === 1
+            ? previewSentence(a.previewOneTarget)
+            : previewSentence(a.previewMultipleTargets)}
+        </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="rounded-md border bg-muted/20 px-3 py-2" data-testid="distribution-new-count">
+            <span className="text-muted-foreground">{a.newAssignments}</span>
+            <strong className="ml-2 tabular-nums">{currentPreview.affected}</strong>
+          </div>
+          <div className="rounded-md border bg-muted/20 px-3 py-2" data-testid="distribution-already-count">
+            <span className="text-muted-foreground">{a.alreadyAssigned}</span>
+            <strong className="ml-2 tabular-nums">{currentPreview.alreadyAssigned}</strong>
+          </div>
+        </div>
+        {currentPreview.unselected! > 0 && <p className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm" data-testid="distribution-unselected-warning">
+          {previewSentence(a.unselectedWarning)}
+        </p>}
+        {currentPreview.affected === 0 && <p className="rounded-md border bg-muted/20 px-3 py-2 text-sm" data-testid="distribution-no-changes">
+          {a.noChanges}
+        </p>}
+        <div className="space-y-2 border-t pt-3" data-testid="distribution-region-breakdown">
+          <h3 className="text-xs font-semibold text-muted-foreground">{c.region}</h3>
+          {previewGroups!.map((item, index) => {
+            const representative = reps.find(rep => rep.id === item.userId)?.name || "";
+            const region = item.region || c.unknownRegion;
+            return <div key={`${item.countryCode}:${item.region}:${item.userId}`} className="grid grid-cols-1 gap-1 rounded-md border px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" data-testid={`distribution-preview-region-${index}`}>
+              <div className="min-w-0"><span className="mr-2 text-xs text-muted-foreground">{item.countryCode}</span><span>{region}</span><span className="ml-2 text-muted-foreground">· {representative}</span></div>
+              <div className="flex flex-wrap gap-x-3 text-xs tabular-nums">
+                <span><span className="text-muted-foreground">{a.newAssignments}:</span> {item.affected}</span>
+                <span><span className="text-muted-foreground">{a.alreadyAssigned}:</span> {item.alreadyAssigned}</span>
+              </div>
+            </div>;
+          })}
+        </div>
+      </>}
+    </section>}
     <div className="flex flex-wrap gap-2">
       <Button variant="outline" onClick={() => run("preview")} disabled={!canPreview} data-testid="distribution-preview-button">{p.bulkDryRunBtn}</Button>
-      <Button onClick={() => run("confirm")} disabled={!canPreview || preview?.key !== selectionKey || !preview?.affected} data-testid="distribution-confirm">{p.bulkConfirm}</Button>
+      <Button onClick={() => run("confirm")} disabled={!canPreview || !currentPreview || !previewBreakdownValid || !currentPreview.affected} data-testid="distribution-confirm">{p.bulkConfirm}</Button>
     </div>
     <div className="border-t pt-4 space-y-3"><h3 className="text-sm font-semibold">{c.plans}</h3>
       {plans.isError && <p role="alert" className="text-sm text-destructive">{c.error}</p>}

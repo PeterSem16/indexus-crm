@@ -126,8 +126,21 @@ export async function buildDistribution(client: any, input: DistributionInput, r
   const fingerprint = createHash("sha256").update(JSON.stringify({
     actorId, input, rows: selected.map(r => [r.id, r.assignmentId, r.userId, r.coveredOwner, r.countryCode, r.region]),
   })).digest("hex");
+  const groups = regionGroups(selected);
+  const changedCounts = new Map<string, number>();
+  for (const row of changes) {
+    const key = regionKey(row.countryCode, row.region);
+    changedCounts.set(key, (changedCounts.get(key) || 0) + 1);
+  }
+  const previewGroups = groups.map(group => {
+    const key = regionKey(group.countryCode, group.region);
+    const affected = changedCounts.get(key) || 0;
+    return { ...group, userId: map.get(key)!, affected, alreadyAssigned: group.count - affected };
+  });
   return { ...times, fingerprint, changes: changes.map(r => ({ ...r, toUserId: map.get(regionKey(r.countryCode, r.region))! })),
-    affected: changes.length, unchanged: rows.length - changes.length, selected: selected.length, groups: regionGroups(selected) };
+    affected: changes.length, unchanged: rows.length - changes.length,
+    total: rows.length, selected: selected.length, alreadyAssigned: selected.length - changes.length,
+    unselected: rows.length - selected.length, groups, previewGroups };
 }
 export async function saveDistribution(client: any, input: DistributionInput, built: Awaited<ReturnType<typeof buildDistribution>>, actorId: string) {
   const { rows: [plan] } = await client.query(`INSERT INTO representative_distribution_plans

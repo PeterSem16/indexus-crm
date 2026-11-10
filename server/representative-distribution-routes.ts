@@ -81,7 +81,11 @@ export function registerRepresentativeDistributionRoutes(app: Express, deps: Dep
     await client.query(`LOCK TABLE ${t.entity},${t.assignments} IN SHARE ROW EXCLUSIVE MODE`);
     const rows = await rowsFor(req, client, input);
     const built = await buildDistribution(client, input, rows, req.session.user.id);
-    const summary = { affected: built.affected, unchanged: built.unchanged, groups: built.groups, fingerprint: built.fingerprint };
+    const summary = {
+      affected: built.affected, unchanged: built.unchanged, groups: built.groups, fingerprint: built.fingerprint,
+      total: built.total, selected: built.selected, alreadyAssigned: built.alreadyAssigned,
+      unselected: built.unselected, previewGroups: built.previewGroups,
+    };
     if (req.body.dryRun === true) return summary;
     if (req.body.fingerprint !== built.fingerprint) throw new DistributionError("stale", 409);
     if (!built.affected) throw new DistributionError("empty");

@@ -32,6 +32,7 @@ const matchingGroups = criteria => {
   return rule ? groups.filter(group => rule.value.includes(group.region)) : groups;
 };
 let plans = [], lastPreview = "", slow = false, ends = 0, suggestionDelay = false, aiFailure = false, expectedCountries = ["SK"];
+let ownershipScenario = "new";
 const previews = [], loads = [];
 await page.route("**/contexts/country-filter-context.tsx*", route => route.fulfill({
   contentType: "application/javascript", body: 'export function useCountryFilter(){return {selectedCountries:window.__testCountries||["SK"]}};export function CountryFilterProvider({children}){return children}',
@@ -63,12 +64,28 @@ await page.route("**/api/**", async route => {
     assert.deepEqual(body.criteria.countryScope, expectedCountries);
     const selected = matchingGroups(body.criteria);
     assert.equal(new Set(body.regions.map(r => JSON.stringify([r.countryCode, r.region]))).size, body.regions.length);
-    const affected = body.regions.reduce((count, r) => {
+    const previewGroups = body.regions.map(r => {
       const group = selected.find(g => g.countryCode === r.countryCode && g.region === r.region);
       assert(group, "Assignments must stay inside the current filtered selection");
-      return count + group.count;
-    }, 0);
-    if (body.dryRun) { previews.push(body); lastPreview = JSON.stringify(body); data = { affected, unchanged: selected.reduce((sum, group) => sum + group.count, 0) - affected, fingerprint: lastPreview, groups: selected }; }
+      const alreadyAssigned = r.userId === "second"
+        && (ownershipScenario === "all-already" || (ownershipScenario === "mixed" && r.region === "Trnavský kraj"))
+        ? group.count : 0;
+      return { ...group, userId: r.userId, affected: group.count - alreadyAssigned, alreadyAssigned };
+    });
+    const affected = previewGroups.reduce((sum, group) => sum + group.affected, 0);
+    const selectedCount = previewGroups.reduce((sum, group) => sum + group.count, 0);
+    const total = selected.reduce((sum, group) => sum + group.count, 0);
+    const summary = {
+      affected, unchanged: total - affected, total, selected: selectedCount,
+      alreadyAssigned: selectedCount - affected, unselected: total - selectedCount,
+      previewGroups, groups: previewGroups.map(({ countryCode, region, count }) => ({ countryCode, region, count })),
+    };
+    if (body.dryRun) {
+      previews.push(body); lastPreview = JSON.stringify(body);
+      data = ownershipScenario === "old-api"
+        ? { affected, unchanged: total - affected, fingerprint: lastPreview, groups: summary.groups }
+        : { ...summary, fingerprint: lastPreview };
+    }
     else {
       assert.equal(body.fingerprint, lastPreview);
       const original = JSON.parse(lastPreview);
@@ -79,7 +96,7 @@ await page.route("**/api/**", async route => {
       plans = [{ id: "plan-" + confirms.length, kind: body.kind, sourceName: body.fromUserId || null,
         startsAt: new Date().toISOString(), endsAt: body.endsAt || null,
         pending: 0, active: body.kind === "temporary" ? affected : 0, completed: body.kind === "temporary" ? 0 : affected, skipped: 0, conflict: 0 }, ...plans];
-      data = { affected, planId: plans[0].id };
+      data = { ...summary, planId: plans[0].id };
     }
   } else if (/\/distribution\/plans\/[^/]+\/end$/.test(path)) {
     ends++; plans = plans.map(p => ({ ...p, completed: p.completed + p.active, active: 0, pending: 0 })); data = { ok: true };
@@ -326,8 +343,57 @@ try {
     "A late prepared draft must not install targets under changed filters");
   assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true);
   slow = false;
+  // Reproduce the user's exact two-region case without confusing existing
+  // ownership with a region that has no chosen recipient.
+  groups.splice(0, groups.length,
+    { countryCode: "SK", region: "Bratislavský kraj", count: 270 },
+    { countryCode: "SK", region: "Trnavský kraj", count: 154 });
+  ownershipScenario = "mixed";
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.getByTestId("bulk-mode-regional").click();
+  await page.getByTestId("distribution-load").click();
+  await choose("distribution-target-0", "Second"); await choose("distribution-target-1", "Second");
+  await preview(); await page.getByTestId("distribution-outcome").waitFor();
+  assert.match(await page.getByTestId("distribution-outcome").innerText(), /424.*Second/);
+  assert.equal(await page.getByTestId("distribution-new-count").locator("strong").innerText(), "270");
+  assert.equal(await page.getByTestId("distribution-already-count").locator("strong").innerText(), "154");
+  assert.equal(await page.getByTestId("distribution-unselected-warning").count(), 0,
+    "Already owned records must not appear as omitted regions");
+  assert.match(await page.getByTestId("distribution-preview-region-0").innerText(), /Bratislavský kraj.*Second/s);
+  assert.match(await page.getByTestId("distribution-preview-region-1").innerText(), /Trnavský kraj.*Second/s);
+  assert.match(await page.getByTestId("distribution-preview-region-1").innerText(), /154/);
+  assert.equal(await page.getByTestId("distribution-confirm").isEnabled(), true);
+  await settle(); await page.getByTestId("distribution-preview").screenshot({ path: out + "/clear-424-preview.png" });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await settle(); await page.getByTestId("distribution-preview").screenshot({ path: out + "/clear-424-preview-mobile-dark.png" });
+  const previewBounds = await page.getByTestId("distribution-preview").boundingBox();
+  assert(previewBounds.x >= 0 && previewBounds.x + previewBounds.width <= 391);
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+
+  await page.getByTestId("distribution-target-1").click();
+  await page.getByRole("option").first().click();
+  await preview(); await page.getByTestId("distribution-unselected-warning").waitFor();
+  assert.match(await page.getByTestId("distribution-outcome").innerText(), /270.*Second/);
+  assert.equal(await page.getByTestId("distribution-already-count").locator("strong").innerText(), "0");
+  assert.match(await page.getByTestId("distribution-unselected-warning").innerText(), /154/);
+  assert.equal(await page.getByTestId("distribution-preview-region-1").count(), 0);
+
+  await choose("distribution-target-1", "Second");
+  ownershipScenario = "all-already";
+  await preview(); await page.getByTestId("distribution-no-changes").waitFor();
+  assert.equal(await page.getByTestId("distribution-new-count").locator("strong").innerText(), "0");
+  assert.equal(await page.getByTestId("distribution-already-count").locator("strong").innerText(), "424");
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true);
+
+  ownershipScenario = "old-api";
+  await preview(); await page.getByTestId("distribution-preview-refresh").waitFor();
+  assert.equal(await page.getByTestId("distribution-outcome").count(), 0);
+  assert.equal(await page.getByTestId("distribution-confirm").isDisabled(), true,
+    "An old response must not guess whether unchanged rows are already owned or unselected");
   assert.deepEqual(errors, []);
-  console.log("PASS: regional regression; official/AI filter application and direct delegation; aliases, independent group targets, exact preview/confirm identity, repeated/stale drafts, preserved filters/source/temporary intent; filtered/whole cover, clinics/hospitals, dark/mobile");
+  console.log("PASS: regional regression; direct delegation, stale drafts, filters/source/temporary intent; exact 424=270+154 outcome, per-region ownership, unselected/all-already/old response states, mobile/dark");
 } catch (error) {
   await page.screenshot({ path: out + "/failure.png" }); console.error(errors, (await page.locator("body").innerText()).slice(-1600)); throw error;
 } finally { await browser.close(); if (vite) await vite.close(); }

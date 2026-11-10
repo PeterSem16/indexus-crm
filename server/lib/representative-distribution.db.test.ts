@@ -40,6 +40,8 @@ async function main() {
     ] });
     const built = await buildDistribution(client, regional, rows, actor, now);
     assert.equal(built.affected, 2); assert.equal(built.unchanged, 1);
+    assert.equal(built.total, 3); assert.equal(built.selected, 2);
+    assert.equal(built.alreadyAssigned, 0); assert.equal(built.unselected, 1);
     const plan = await saveDistribution(client, regional, built, actor);
     await processDistribution(client, plan, now);
     const current = async (entity: string, id: string) => (await client.query(`SELECT representative_id FROM ${entity} WHERE id=$1`, [id])).rows[0].representative_id;
@@ -47,6 +49,38 @@ async function main() {
     assert.equal(await current("clinics", clinicIds[1]), third);
     assert.equal(await current("clinics", clinicIds[2]), original);
     console.log("PASS: regional split, unknown regions, unselected records and country restrictions");
+
+    const sameOwners = await buildDistribution(client, regional,
+      await selectionRows(client, "clinic", selection.ids), actor, now);
+    assert.equal(sameOwners.affected, 0); assert.equal(sameOwners.alreadyAssigned, 2);
+    assert.equal(sameOwners.unselected, 1); assert.equal(sameOwners.unchanged, 3);
+    assert(sameOwners.previewGroups.every(group => group.affected === 0 && group.alreadyAssigned === group.count));
+    const toOne = parseDistributionInput({ entity: "clinic", kind: "assign", regions: [
+      { countryCode: "SK", region: "A", userId: second }, { countryCode: "SK", region: "B", userId: second },
+    ] });
+    const mixed = await buildDistribution(client, toOne,
+      await selectionRows(client, "clinic", selection.ids), actor, now);
+    assert.equal(mixed.selected, 2); assert.equal(mixed.affected, 1);
+    assert.equal(mixed.alreadyAssigned, 1); assert.equal(mixed.unselected, 1);
+    assert.deepEqual(mixed.previewGroups.map(group => [group.region, group.userId, group.affected, group.alreadyAssigned]),
+      [["A", second, 0, 1], ["B", second, 1, 0]]);
+    const screenshotRows = [
+      ...Array.from({ length: 270 }, (_, index) => ({
+        id: `preview-new-${index}`, assignmentId: `assignment-new-${index}`,
+        countryCode: "SK", region: "A", userId: original,
+      })),
+      ...Array.from({ length: 154 }, (_, index) => ({
+        id: `preview-existing-${index}`, assignmentId: `assignment-existing-${index}`,
+        countryCode: "SK", region: "B", userId: second,
+      })),
+    ];
+    const exact = await buildDistribution(client, toOne, screenshotRows, actor, now);
+    assert.deepEqual([exact.total, exact.selected, exact.affected, exact.alreadyAssigned, exact.unselected],
+      [424, 424, 270, 154, 0]);
+    assert.deepEqual(exact.previewGroups.map(group => [group.count, group.affected, group.alreadyAssigned]),
+      [[270, 270, 0], [154, 0, 154]]);
+    assert.equal(await current("clinics", clinicIds[1]), third, "Preview must not change actual ownership");
+    console.log("PASS: 424 selected = 270 new +154 already assigned; unselected and all-already remain distinct");
 
     const staleId = await create("clinic", "Stale");
     const staleInput = parseDistributionInput({ entity: "clinic", kind: "assign",

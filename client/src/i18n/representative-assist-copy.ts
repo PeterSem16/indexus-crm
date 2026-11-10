@@ -42,6 +42,13 @@ export type RepresentativeAssistCopy = {
   selectedCount: string;
   group: string;
   otherRegions: string;
+  previewOneTarget: string;
+  previewMultipleTargets: string;
+  newAssignments: string;
+  alreadyAssigned: string;
+  unselectedWarning: string;
+  noChanges: string;
+  previewRefresh: string;
 };
 
 export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" | "it" | "de", RepresentativeAssistCopy> = {
@@ -89,6 +96,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "selected",
     group: "Group",
     otherRegions: "Other selected regions",
+    previewOneTarget: "Final assignment: {selected} records → {name}.",
+    previewMultipleTargets: "Final allocation: {selected} records across {count} representatives.",
+    newAssignments: "New assignments",
+    alreadyAssigned: "Already assigned",
+    unselectedWarning: "{unselected} records have no chosen recipient. Their current assignment will remain unchanged.",
+    noChanges: "No changes are needed. Confirmation is not required.",
+    previewRefresh: "This preview is missing a valid region breakdown. Reload the records, then create a new preview.",
   },
   sk: {
     filteredPortfolioHelp: "Použijú sa aktuálne filtre a vyhľadávanie v rozsahu vašich krajín.",
@@ -134,6 +148,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "vybrané",
     group: "Skupina",
     otherRegions: "Ostatné vybrané regióny",
+    previewOneTarget: "Výsledné pridelenie: {selected} záznamov → {name}.",
+    previewMultipleTargets: "Výsledné pridelenie: {selected} záznamov medzi {count} reprezentantov.",
+    newAssignments: "Nové priradenia",
+    alreadyAssigned: "Už priradené",
+    unselectedWarning: "{unselected} záznamov nemá zvoleného príjemcu. Ich aktuálne pridelenie sa nezmení.",
+    noChanges: "Nie sú potrebné žiadne zmeny. Potvrdenie nie je potrebné.",
+    previewRefresh: "V náhľade chýba platný rozpis regiónov. Znova načítajte záznamy a potom vytvorte nový náhľad.",
   },
   cs: {
     filteredPortfolioHelp: "Použijí se aktuální filtry a vyhledávání v rozsahu vašich zemí.",
@@ -179,6 +200,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "vybráno",
     group: "Skupina",
     otherRegions: "Ostatní vybrané regiony",
+    previewOneTarget: "Výsledné přiřazení: {selected} záznamů → {name}.",
+    previewMultipleTargets: "Výsledné přiřazení: {selected} záznamů mezi {count} zástupců.",
+    newAssignments: "Nová přiřazení",
+    alreadyAssigned: "Již přiřazeno",
+    unselectedWarning: "{unselected} záznamů nemá vybraného příjemce. Jejich aktuální přiřazení se nezmění.",
+    noChanges: "Nejsou potřeba žádné změny. Potvrzení není nutné.",
+    previewRefresh: "V náhledu chybí platný rozpis regionů. Znovu načtěte záznamy a poté vytvořte nový náhled.",
   },
   hu: {
     filteredPortfolioHelp: "Az aktuális szűrők és a keresés érvényesülnek az országkörön belül.",
@@ -224,6 +252,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "kijelölve",
     group: "Csoport",
     otherRegions: "Egyéb kijelölt régiók",
+    previewOneTarget: "Végső hozzárendelés: {selected} rekord → {name}.",
+    previewMultipleTargets: "Végső elosztás: {selected} rekord {count} képviselő között.",
+    newAssignments: "Új hozzárendelések",
+    alreadyAssigned: "Már hozzárendelve",
+    unselectedWarning: "{unselected} rekordhoz nincs kiválasztott címzett. A jelenlegi hozzárendelésük változatlan marad.",
+    noChanges: "Nincs szükség módosításra. Megerősítés sem szükséges.",
+    previewRefresh: "Az előnézetből hiányzik az érvényes régióbontás. Töltse be újra a rekordokat, majd készítsen új előnézetet.",
   },
   ro: {
     filteredPortfolioHelp: "Se folosesc filtrele și căutarea curente în țările permise.",
@@ -269,6 +304,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "selectate",
     group: "Grup",
     otherRegions: "Alte regiuni selectate",
+    previewOneTarget: "Atribuire finală: {selected} înregistrări → {name}.",
+    previewMultipleTargets: "Distribuire finală: {selected} înregistrări între {count} reprezentanți.",
+    newAssignments: "Atribuiri noi",
+    alreadyAssigned: "Deja atribuite",
+    unselectedWarning: "{unselected} înregistrări nu au un destinatar ales. Atribuirea lor curentă va rămâne neschimbată.",
+    noChanges: "Nu sunt necesare modificări. Confirmarea nu este necesară.",
+    previewRefresh: "Previzualizării îi lipsește o detaliere validă pe regiuni. Reîncărcați înregistrările, apoi creați o previzualizare nouă.",
   },
   it: {
     filteredPortfolioHelp: "Vengono usati i filtri e la ricerca correnti nell'ambito dei paesi.",
@@ -314,6 +356,13 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "selezionate",
     group: "Gruppo",
     otherRegions: "Altre regioni selezionate",
+    previewOneTarget: "Assegnazione finale: {selected} record → {name}.",
+    previewMultipleTargets: "Ripartizione finale: {selected} record tra {count} rappresentanti.",
+    newAssignments: "Nuove assegnazioni",
+    alreadyAssigned: "Già assegnati",
+    unselectedWarning: "{unselected} record non hanno un destinatario scelto. L'assegnazione attuale resterà invariata.",
+    noChanges: "Non sono necessarie modifiche. Non è necessaria alcuna conferma.",
+    previewRefresh: "Nell'anteprima manca un dettaglio valido per regione. Ricarica i record, poi crea una nuova anteprima.",
   },
   de: {
     filteredPortfolioHelp: "Aktuelle Filter und Suche werden innerhalb Ihres Länderbereichs verwendet.",
@@ -359,5 +408,12 @@ export const representativeAssistCopy: Record<"en" | "sk" | "cs" | "hu" | "ro" |
     selectedCount: "ausgewählt",
     group: "Gruppe",
     otherRegions: "Andere ausgewählte Regionen",
+    previewOneTarget: "Endgültige Zuweisung: {selected} Datensätze → {name}.",
+    previewMultipleTargets: "Endgültige Verteilung: {selected} Datensätze auf {count} Vertreter.",
+    newAssignments: "Neue Zuweisungen",
+    alreadyAssigned: "Bereits zugewiesen",
+    unselectedWarning: "Für {unselected} Datensätze wurde kein Empfänger ausgewählt. Ihre aktuelle Zuweisung bleibt unverändert.",
+    noChanges: "Es sind keine Änderungen erforderlich. Eine Bestätigung ist nicht nötig.",
+    previewRefresh: "In dieser Vorschau fehlt eine gültige Aufschlüsselung nach Regionen. Laden Sie die Datensätze neu und erstellen Sie anschließend eine neue Vorschau.",
   },
 };
