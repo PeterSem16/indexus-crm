@@ -3058,6 +3058,8 @@ export async function registerRoutes(
   // Wallboard is manager/admin (or an explicit custom-role campaigns reader)
   // only; the route itself applies workspace-country filtering.
   registerWallboardRoutes(app, requireAuth);
+  const { registerContactLoadRoutes } = await import("./lib/mission-contact-load-routes");
+  registerContactLoadRoutes(app, requireAuth, applyCriteriaGroups);
   registerMissionFunnelRoutes(app, requireAuth);
   registerMissionEmailScheduleRoutes(app, requireAuth);
   registerWallboardPresenceRoutes(app, requireAuth);
@@ -30517,13 +30519,14 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   });
 
   app.post("/api/campaigns/:id/generate-contacts", requireAuth, async (req, res) => {
+    // Old browser tabs must refresh and use a reviewed, immutable load batch.
+    return res.status(409).json({ error: "contact_load_preview_required" });
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
         return res.status(404).json({ error: "Campaign not found" });
       }
       
-      await storage.deleteCampaignContactsByCampaign(req.params.id);
 
       const contactSources: string[] = req.body.contactSources || ["customer"];
       let campaignCriteria: any = null;
@@ -30718,6 +30721,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   // Upload external contacts for a campaign (CSV or Excel)
   app.post("/api/campaigns/:id/contacts/import", requireAuth, uploadContactsFile.single("file"), async (req, res) => {
+    return res.status(409).json({ error: "contact_load_preview_required" });
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
@@ -31020,6 +31024,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
   // Delete imported contacts batch (undo last import)
   app.post("/api/campaigns/:id/contacts/delete-batch", requireAuth, async (req, res) => {
+    return res.status(409).json({ error: "contact_load_preview_required" });
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });

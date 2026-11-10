@@ -8,6 +8,7 @@ import { startAlertEvaluator } from "./alert-evaluator";
 import { startSessionCleanup } from "./session-cleanup";
 import { startScheduledReportRunner } from "./scheduled-report-runner";
 import { ensureMissionEmailSchema } from "./lib/mission-email-schema";
+import { ensureContactLoadSchema } from "./lib/mission-contact-loads";
 import { startKpiSnapshotCron } from "./kpi-snapshot-cron";
 import { ensureIndexes } from "./ensure-indexes";
 import { pool } from "./db";
@@ -292,6 +293,7 @@ app.use((req, res, next) => {
 
   try {
     await ensureMissionEmailSchema(pool);
+    await ensureContactLoadSchema(pool);
   } catch {
     console.error("[migration] Mission email schema unavailable");
     process.exit(1);

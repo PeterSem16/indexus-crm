@@ -1,5 +1,7 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
 import MissionFunnelReport from "@/components/campaigns/MissionFunnelReport";
+import { ContactLoadReview, ContactLoadHistoryButton } from "@/components/campaigns/ContactLoadReview";
+import { useContactLoads } from "@/components/campaigns/use-contact-loads";
 import { useState, useEffect, useMemo, useRef, useCallback, Component } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -5202,11 +5204,7 @@ export default function CampaignDetailPage() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [importContactType, setImportContactType] = useState<"customer" | "clinic" | "hospital" | "collaborator">("customer");
   const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<{ created: number; skipped: number; duplicates?: number; updated?: number; errors: string[]; importedContactIds?: string[] } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
-  const [importPhase, setImportPhase] = useState<"upload" | "processing" | null>(null);
-  const [updateExisting, setUpdateExisting] = useState(false);
   const [showRequeueDialog, setShowRequeueDialog] = useState(false);
   const [showSortRulesDialog, setShowSortRulesDialog] = useState(false);
   const [draggingContactId, setDraggingContactId] = useState<string | null>(null);
@@ -5359,9 +5357,12 @@ export default function CampaignDetailPage() {
   const [previewCounts, setPreviewCounts] = useState<PreviewCounts | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contactLoads = useContactLoads(campaignId, JSON.stringify({ generateConfig, importContactType }), importFile, t.contactLoads);
+  const countRequestRef = useRef(0);
 
   const fetchPreviewCounts = useCallback(async (cfg: typeof generateConfig) => {
     if (!campaignId) return;
+    const requestId = ++countRequestRef.current;
     const contactSources: string[] = [];
     if (cfg.customer.enabled) contactSources.push("customer");
     if (cfg.hospital.enabled) contactSources.push("hospital");
@@ -5382,124 +5383,74 @@ export default function CampaignDetailPage() {
         collaboratorCriteria: cfg.collaborator.enabled ? cfg.collaborator.criteria : undefined,
       });
       const data = await res.json();
-      setPreviewCounts(data);
+      if (requestId === countRequestRef.current) setPreviewCounts(data);
     } catch {
-      setPreviewCounts(null);
+      if (requestId === countRequestRef.current) setPreviewCounts(null);
     } finally {
-      setPreviewLoading(false);
+      if (requestId === countRequestRef.current) setPreviewLoading(false);
     }
   }, [campaignId]);
 
   useEffect(() => {
+    countRequestRef.current += 1;
+    setPreviewCounts(null);
     if (!showGenerateDialog) return;
     if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     previewTimerRef.current = setTimeout(() => {
       fetchPreviewCounts(generateConfig);
     }, 400);
-    return () => { if (previewTimerRef.current) clearTimeout(previewTimerRef.current); };
+    return () => { countRequestRef.current += 1; if (previewTimerRef.current) clearTimeout(previewTimerRef.current); };
   }, [generateConfig, showGenerateDialog, fetchPreviewCounts]);
 
-  const generateContactsMutation = useMutation({
-    mutationFn: async () => {
+  const generateContactsMutation = {
+    isPending: contactLoads.busy,
+    mutate: async () => {
       const contactSources: string[] = [];
       if (generateConfig.customer.enabled) contactSources.push("customer");
       if (generateConfig.hospital.enabled) contactSources.push("hospital");
       if (generateConfig.clinic.enabled) contactSources.push("clinic");
       if (generateConfig.collaborator.enabled) contactSources.push("collaborator");
-      const res = await apiRequest("POST", `/api/campaigns/${campaignId}/generate-contacts`, {
+      setShowGenerateDialog(false);
+      await contactLoads.createPreview({
+        source: "crm",
         contactSources,
         customerCriteria: generateConfig.customer.enabled ? generateConfig.customer.criteria : undefined,
         hospitalCriteria: generateConfig.hospital.enabled ? generateConfig.hospital.criteria : undefined,
         clinicCriteria: generateConfig.clinic.enabled ? generateConfig.clinic.criteria : undefined,
         collaboratorCriteria: generateConfig.collaborator.enabled ? generateConfig.collaborator.criteria : undefined,
       });
-      return await res.json();
     },
-    onSuccess: (data: any) => {
-      toast({
-        title: t.campaigns.detail.contactsGenerated,
-        description: `${data.count}`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
-      setShowGenerateDialog(false);
-    },
-    onError: () => {
-      toast({
-        title: t.campaigns.detail.error,
-        variant: "destructive",
-      });
-    },
-  });
+  };
 
-  const deleteImportMutation = useMutation({
+  const importContactsMutation = {
+    isPending: contactLoads.busy,
+    mutate: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("source", "file");
+      formData.append("contactType", importContactType);
+      // Keep the selected file until review resolves; clearing it here would
+      // invalidate the in-flight preview's source identity.
+      setShowImportDialog(false);
+      await contactLoads.createPreview(formData);
+    },
+  };
+
+  // Manual bulk removal remains separate from protected contact-load undo.
+  const bulkDeleteContactsMutation = useMutation({
     mutationFn: async (contactIds: string[]) => {
       const res = await apiRequest("POST", `/api/campaigns/${campaignId}/contacts/delete-batch`, { contactIds });
       return await res.json();
     },
-    onSuccess: (data: any) => {
-      setImportResult(null);
+    onSuccess: () => {
       setSelectedContacts(new Set());
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns/contact-counts"] });
-      toast({ title: t.campaigns.detail.importDeleted, description: `Vymazaných: ${data.deleted} kontaktov` });
+      toast({ title: t.campaigns.detail.importDeleted });
     },
     onError: () => {
       toast({ title: t.campaigns.detail.error, description: t.campaigns.detail.importDeleteError, variant: "destructive" });
-    },
-  });
-
-  const importContactsMutation = useMutation({
-    mutationFn: async (file: File) => {
-      setImportProgress(0);
-      setImportPhase("upload");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("updateExisting", String(updateExisting));
-      formData.append("contactType", importContactType);
-      return new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `/api/campaigns/${campaignId}/contacts/import`);
-        xhr.withCredentials = true;
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            setImportProgress(Math.round((e.loaded / e.total) * 100));
-          }
-        };
-        xhr.upload.onload = () => {
-          setImportProgress(100);
-          setImportPhase("processing");
-        };
-        xhr.onload = () => {
-          try {
-            const data = JSON.parse(xhr.responseText);
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(data);
-            } else {
-              reject(new Error(data.error || t.campaigns.detail.importFailed));
-            }
-          } catch { reject(new Error(t.campaigns.detail.importFailed)); }
-        };
-        xhr.onerror = () => reject(new Error(t.campaigns.detail.networkError));
-        xhr.send(formData);
-      });
-    },
-    onSuccess: (data) => {
-      setImportPhase(null);
-      setImportProgress(0);
-      setImportResult(data);
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "contacts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaignId, "stats"] });
-      toast({
-        title: t.campaigns.detail.importCompleted,
-        description: `${data.created} / ${data.skipped}`,
-      });
-    },
-    onError: (err: any) => {
-      setImportPhase(null);
-      setImportProgress(0);
-      toast({ title: t.campaigns.detail.importError, description: err.message, variant: "destructive" });
     },
   });
 
@@ -6325,7 +6276,7 @@ export default function CampaignDetailPage() {
                         className="text-destructive focus:text-destructive"
                         onClick={() => {
                           if (window.confirm(t.campaigns.detail.bulkDeleteConfirm.replace("{count}", String(selectedContacts.size)))) {
-                            deleteImportMutation.mutate(Array.from(selectedContacts));
+                            bulkDeleteContactsMutation.mutate(Array.from(selectedContacts));
                           }
                         }}
                         data-testid="menu-bulk-delete"
@@ -6348,7 +6299,7 @@ export default function CampaignDetailPage() {
               </span>
 
               {/* Block: Add contacts (Import / Fill from CRM / Export) */}
-              <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1 pl-2.5" data-testid="toolbar-block-add-contacts">
+              <div className="flex flex-wrap items-center gap-1 rounded-lg border bg-muted/30 p-1 pl-2.5" data-testid="toolbar-block-add-contacts">
                 <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1.5 select-none">
                   {t.campaigns.detail.blockAddContacts}
                 </span>
@@ -6359,7 +6310,6 @@ export default function CampaignDetailPage() {
                       size="sm"
                       onClick={() => {
                         setImportFile(null);
-                        setImportResult(null);
                         setShowImportDialog(true);
                       }}
                       data-testid="button-import-contacts"
@@ -6370,6 +6320,7 @@ export default function CampaignDetailPage() {
                   </UITooltipTrigger>
                   <UITooltipContent className="max-w-[260px]">{t.campaigns.detail.tipImport}</UITooltipContent>
                 </UITooltip>
+                <ContactLoadHistoryButton controller={contactLoads} />
                 <UITooltip>
                   <UITooltipTrigger asChild>
                     <Button
@@ -8489,69 +8440,16 @@ export default function CampaignDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateExisting(false); setImportContactType("customer"); } }}>
+      <ContactLoadReview controller={contactLoads} />
+      <Dialog open={showImportDialog} onOpenChange={(open) => { if (!open) { setShowImportDialog(false); setImportFile(null); setImportContactType("customer"); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.campaigns.detail.importContacts}</DialogTitle>
             <DialogDescription>
-              {t.campaigns.detail.importCsvDesc}
+              {t.contactLoads.safety}
             </DialogDescription>
           </DialogHeader>
 
-          {importResult ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-                <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-                <div>
-                  <p className="font-medium text-green-800 dark:text-green-200">{t.campaigns.detail.importCompleted}</p>
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    {t.campaigns.detail.importCreated}: {importResult.created}
-                    {(importResult.updated || 0) > 0 && `, ${t.campaigns.detail.importUpdated}: ${importResult.updated}`}
-                    {(importResult.duplicates || 0) > 0 && `, ${t.campaigns.detail.importDuplicates}: ${importResult.duplicates}`}
-                    {importResult.skipped > 0 && `, ${t.campaigns.detail.importSkipped}: ${importResult.skipped}`}
-                  </p>
-                </div>
-              </div>
-              {importResult.errors.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    {t.campaigns.detail.importErrors} ({importResult.errors.length})
-                  </p>
-                  <ScrollArea className="h-32">
-                    <div className="space-y-1">
-                      {importResult.errors.map((err, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">{err}</p>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              )}
-              <div className="flex justify-between gap-2 flex-wrap">
-                {importResult.importedContactIds && importResult.importedContactIds.length > 0 && (
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      if (importResult.importedContactIds) {
-                        deleteImportMutation.mutate(importResult.importedContactIds);
-                      }
-                    }}
-                    disabled={deleteImportMutation.isPending}
-                    data-testid="button-delete-last-import"
-                  >
-                    {deleteImportMutation.isPending ? (
-                      <><RefreshCw className="w-4 h-4 mr-2 animate-spin" />{t.campaigns.detail.deleting}</>
-                    ) : (
-                      <><Trash2 className="w-4 h-4 mr-2" />{t.campaigns.detail.deleteLastImport} ({importResult.importedContactIds.length})</>
-                    )}
-                  </Button>
-                )}
-                <Button onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null); }} data-testid="button-close-import">
-                  {t.campaigns.detail.close}
-                </Button>
-              </div>
-            </div>
-          ) : (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-xs font-medium">{t.campaigns.detail.importContactTypeLabel}</Label>
@@ -8665,35 +8563,6 @@ export default function CampaignDetailPage() {
                 </div>
               </details>
 
-              <label className="flex items-center gap-2 cursor-pointer" data-testid="checkbox-update-existing">
-                <input
-                  type="checkbox"
-                  checked={updateExisting}
-                  onChange={(e) => setUpdateExisting(e.target.checked)}
-                  className="rounded border-muted-foreground/50"
-                />
-                <span className="text-sm">{t.campaigns.detail.updateExisting}</span>
-              </label>
-
-              {importPhase && (
-                <div className="space-y-2" data-testid="import-progress">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{importPhase === "upload" ? t.campaigns.detail.uploadingFile : t.campaigns.detail.processingContacts}</span>
-                    <span>{importPhase === "upload" ? `${importProgress}%` : ""}</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    {importPhase === "upload" ? (
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-300"
-                        style={{ width: `${importProgress}%` }}
-                      />
-                    ) : (
-                      <div className="h-full rounded-full bg-primary animate-pulse w-full" />
-                    )}
-                  </div>
-                </div>
-              )}
-
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importContactsMutation.isPending} data-testid="button-cancel-import">
                   {t.campaigns.detail.cancel}
@@ -8711,13 +8580,12 @@ export default function CampaignDetailPage() {
                   ) : (
                     <>
                       <Upload className="w-4 h-4 mr-2" />
-                      {t.campaigns.detail.import}
+                      {t.contactLoads.preview}
                     </>
                   )}
                 </Button>
               </div>
             </div>
-          )}
         </DialogContent>
       </Dialog>
 
@@ -9036,7 +8904,7 @@ export default function CampaignDetailPage() {
               {t.campaigns.detail.genContactsTitle}
             </DialogTitle>
             <DialogDescription>
-              {t.campaigns.detail.genContactsDesc}
+              {t.contactLoads.safety}
             </DialogDescription>
           </DialogHeader>
 
@@ -9055,11 +8923,11 @@ export default function CampaignDetailPage() {
             <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>{t.campaigns.detail.cancel}</Button>
             <Button
               onClick={() => generateContactsMutation.mutate()}
-              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && !generateConfig.collaborator.enabled) || (previewCounts?.total === 0)}
+              disabled={generateContactsMutation.isPending || (!generateConfig.customer.enabled && !generateConfig.hospital.enabled && !generateConfig.clinic.enabled && !generateConfig.collaborator.enabled)}
               data-testid="btn-confirm-generate"
             >
               {generateContactsMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {t.campaigns.detail.genButton}{previewCounts && !previewLoading ? ` (${previewCounts.total})` : ""}
+              {t.contactLoads.preview}{previewCounts && !previewLoading ? ` (${previewCounts.total})` : ""}
             </Button>
           </div>
         </DialogContent>
