@@ -1,6 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { pool } from "./db";
+import { completeTerritorySuggestion, recommendTerritories, regionCatalogue } from "./lib/representative-region-suggestions";
 import {
   DistributionError, parseDistributionInput, tables, representativeUsers, selectionRows,
   regionGroups, buildDistribution, saveDistribution, processDistribution,
@@ -11,6 +12,7 @@ type Dependencies = {
   parseCriteria: (raw: unknown) => any; countryScopeForRequest: (req: any, requested: unknown) => string[] | undefined;
   resolveBulkSelection: (input: any) => Promise<{ ids: string[] }>;
 };
+const suggestionRequests = new Map<string, number[]>();
 export function registerRepresentativeDistributionRoutes(app: Express, deps: Dependencies) {
   const auth = [deps.requireAuth, deps.requireManagerOrAdmin];
   const endpoint = (handler: (req: any, client: any) => Promise<any>, write = false): RequestHandler => async (req, res) => {
@@ -38,6 +40,35 @@ export function registerRepresentativeDistributionRoutes(app: Express, deps: Dep
   }
   app.get("/api/representatives/distribution/users", ...auth, endpoint(async (req, client) =>
     representativeUsers(client, scope(req))));
+  app.post("/api/representatives/distribution/suggestions", ...auth, endpoint(async (req, client) => {
+    const { countryCode, mode, territories } = req.body || {};
+    if (typeof countryCode !== "string" || !/^[A-Z]{2}$/.test(countryCode)
+      || !["official", "balanced"].includes(mode)) throw new DistributionError("invalid");
+    const criteria = deps.parseCriteria(req.body.criteria);
+    const allowed = scope(req, criteria);
+    if (allowed && !allowed.includes(countryCode)) throw new DistributionError("scope", 403);
+    const t = tables(req.body.entity);
+    regionCatalogue(countryCode, []); // Reject unsupported catalogues before querying or calling AI.
+    if (mode === "balanced") {
+      if (!Number.isInteger(territories) || territories < 2 || territories > 10) throw new DistributionError("invalid");
+      const now = Date.now();
+      for (const [id, times] of suggestionRequests) if (!times.some(at => at > now - 60000)) suggestionRequests.delete(id);
+      const recent = (suggestionRequests.get(req.session.user.id) || []).filter(at => at > now - 60000);
+      if (recent.length >= 6) throw new DistributionError("rate_limited", 429);
+      suggestionRequests.set(req.session.user.id, [...recent, now]);
+    }
+    // The proposed country/regions replace those filters on Apply. Count the
+    // same population, preserving all other search/AND/OR portfolio criteria.
+    const result = await deps.resolveBulkSelection({ entity: req.body.entity, criteria: {
+      ...criteria, country: countryCode, countries: undefined, region: undefined,
+      filterRules: (criteria.filterRules || []).filter((rule: any) => rule.field !== "region" && rule.field !== "country"),
+    }, req, executor: drizzle(client) });
+    const { rows } = await client.query(`SELECT region,count(*)::int AS count FROM ${t.entity}
+      WHERE id=ANY($1::varchar[]) AND country_code=$2 GROUP BY region ORDER BY region NULLS LAST`, [result.ids, countryCode]);
+    const data = regionCatalogue(countryCode, rows);
+    const groups = mode === "balanced" ? await recommendTerritories(data.catalogue, territories, completeTerritorySuggestion) : [];
+    return { countryCode, mode, source: mode === "balanced" ? "ai" : "catalogue", ...data, groups };
+  }));
   app.post("/api/representatives/distribution/regions", ...auth, endpoint(async (req, client) => {
     const input = parseDistributionInput({ ...req.body, kind: req.body.kind || "assign", regions: [] });
     const rows = await rowsFor(req, client, input);

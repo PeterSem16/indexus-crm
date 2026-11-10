@@ -33,6 +33,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { RepresentativeDistributionPanel } from "@/components/representative-distribution-panel";
+import { RepresentativeRegionSuggestions } from "@/components/representative-region-suggestions";
+import { REGIONS_BY_COUNTRY } from "@/lib/regions";
+import { applyRepresentativeRegionFilter } from "@shared/representative-region-filter";
 
 interface RepUser {
   id: string;
@@ -63,6 +66,7 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
   const p = t.representantPanel;
 
   const [mode, setMode] = useState<Mode>("bulk");
+  const [temporaryCover, setTemporaryCover] = useState(false);
   const [entityType, setEntityType] = useState<EntityType>("clinic");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterRules, setFilterRules] = useState<FilterRule[]>([]);
@@ -86,10 +90,15 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
     staleTime: 5 * 60 * 1000,
   });
 
-  const fields = useMemo(
-    () => getMedicalPartnerFilterFields(entityType, locale, representatives, laboratories),
-    [entityType, locale, representatives, laboratories],
-  );
+  const fields = useMemo(() => {
+    const values = [...new Set([
+      ...(selectedCountries.length ? selectedCountries : Object.keys(REGIONS_BY_COUNTRY)).flatMap(code => REGIONS_BY_COUNTRY[code] || []),
+      ...filterRules.filter(rule => rule.field === "region").flatMap(rule => Array.isArray(rule.value) ? rule.value : [rule.value]),
+    ])].filter(Boolean);
+    return getMedicalPartnerFilterFields(entityType, locale, representatives, laboratories).map(field =>
+      field.key === "region" && !filterRules.some(rule => rule.field === "region" && ["is", "contains"].includes(rule.op))
+        ? { ...field, type: "multiselect" as const, options: values.map(value => ({ value, label: value })) } : field);
+  }, [entityType, locale, representatives, laboratories, selectedCountries, filterRules]);
   const presets = useMemo(
     () => getMedicalPartnerFilterPresets(entityType, locale),
     [entityType, locale],
@@ -328,7 +337,7 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
       </div>
 
       <div className="flex-1 overflow-auto pt-4">
-        <div className={`grid grid-cols-1 ${mode === "regional" ? "xl:grid-cols-[320px_1fr]" : "xl:grid-cols-[1fr_340px]"} gap-4 items-start`}>
+        <div className={`grid grid-cols-1 ${mode === "regional" || temporaryCover ? "xl:grid-cols-[320px_1fr]" : "xl:grid-cols-[1fr_340px]"} gap-4 items-start`}>
           <div className="space-y-4 rounded-xl border p-5 bg-card">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -367,13 +376,18 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
               }}
             />
 
+            <RepresentativeRegionSuggestions entity={entityType} criteria={criteria} onApply={(country, regions) => {
+              setFilterRules(applyRepresentativeRegionFilter(filterRules, country, regions) as FilterRule[]);
+              clearSelection();
+            }} />
+
             {selectedCountries.length > 0 && (
               <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
                 {t.mpn.country}: {selectedCountries.join(", ")}
               </div>
             )}
 
-            {mode === "bulk" && (
+            {mode === "bulk" && !temporaryCover && (
               <>
                 <div className="flex items-center gap-3 border-t pt-3">
                   <Switch
@@ -415,7 +429,17 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
           </div>
 
           <div className="space-y-4 rounded-xl border p-5 bg-card">
-            {mode === "regional" ? <RepresentativeDistributionPanel entity={entityType} criteria={criteria} /> : <>
+            {mode !== "regional" && <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Switch id="bulk-temporary-cover" checked={temporaryCover} onCheckedChange={setTemporaryCover} data-testid="bulk-temporary-cover" />
+                <Label htmlFor="bulk-temporary-cover">{t.representativeAssist.tempToggle}</Label>
+              </div>
+              <p className="text-xs text-muted-foreground">{t.representativeAssist.tempHelp}</p>
+            </div>}
+            {mode === "regional" ? <RepresentativeDistributionPanel entity={entityType} criteria={criteria} />
+              : temporaryCover ? <RepresentativeDistributionPanel key={`${mode}:${entityType}:temporary`} entity={entityType}
+                criteria={{ ...criteria, currentRepresentativeId: undefined }} singleTarget
+                initialSource={mode === "bulk" ? fromUserId : swapFrom} initialTarget={mode === "bulk" ? toUserId : swapTo} /> : <>
             {mode === "bulk" ? (
               <div className="space-y-1.5">
                 <Label>{p.bulkTo}</Label>

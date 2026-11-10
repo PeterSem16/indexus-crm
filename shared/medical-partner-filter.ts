@@ -202,7 +202,8 @@ export function validateMedicalPartnerRules(
     if (typeof field !== "string" || !fields[field]) {
       throw new Error(`filterRules[${index}].field is not supported for ${entity}s`);
     }
-    if (typeof op !== "string" || !allowedOps(fields[field]).includes(op as MedicalPartnerFilterOp)) {
+    if (typeof op !== "string" || (!allowedOps(fields[field]).includes(op as MedicalPartnerFilterOp)
+      && !(field === "region" && op === "isAny"))) {
       throw new Error(`filterRules[${index}].op is not supported for field ${field}`);
     }
     const conjunction = rule.conjunction === undefined ? "and" : rule.conjunction;

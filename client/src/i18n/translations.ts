@@ -2,6 +2,7 @@ import automationNamespaceTranslations, { type LocalizedAutomationShape } from "
 import { clinicCreationCopy, type ClinicCreationCopy } from "./clinic-creation-copy";
 import { clinicBankingCopy, type ClinicBankingCopy } from "./clinic-banking-copy";
 import { representativeDistributionCopy, type RepresentativeDistributionCopy } from "./representative-distribution-copy";
+import { representativeAssistCopy, type RepresentativeAssistCopy } from "./representative-assist-copy";
 import { missionFunnelTranslations, type MissionFunnelCopy } from "./mission-funnel-translations";
 import { reportingTranslations, type MissionReportingCopy } from "./reporting-translations";
 import { hospitalAgreementTranslations, type HospitalAgreementCopy } from "../components/hospital-agreement-copy";
@@ -98,6 +99,7 @@ import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
   representativeDistribution: RepresentativeDistributionCopy;
+  representativeAssist: RepresentativeAssistCopy;
   clinicBanking: ClinicBankingCopy;
   clinicCreation: ClinicCreationCopy;
   missionFunnel: MissionFunnelCopy;
@@ -64254,4 +64256,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].clinicCreation = clinicCreationCopy[locale];
   translations[locale].clinicBanking = clinicBankingCopy[locale];
   translations[locale].representativeDistribution = representativeDistributionCopy[locale];
+  translations[locale].representativeAssist = representativeAssistCopy[locale];
 }
