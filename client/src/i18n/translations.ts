@@ -1,6 +1,7 @@
 import automationNamespaceTranslations, { type LocalizedAutomationShape } from "./automation-restored-translations";
 import { clinicCreationCopy, type ClinicCreationCopy } from "./clinic-creation-copy";
 import { clinicBankingCopy, type ClinicBankingCopy } from "./clinic-banking-copy";
+import { representativeDistributionCopy, type RepresentativeDistributionCopy } from "./representative-distribution-copy";
 import { missionFunnelTranslations, type MissionFunnelCopy } from "./mission-funnel-translations";
 import { reportingTranslations, type MissionReportingCopy } from "./reporting-translations";
 import { hospitalAgreementTranslations, type HospitalAgreementCopy } from "../components/hospital-agreement-copy";
@@ -96,6 +97,7 @@ export const COUNTRY_TO_LOCALE: Record<string, Locale> = {
 import { automationBlockEditorCopy } from "./automation-block-editor-copy";
 
 export interface Translations {
+  representativeDistribution: RepresentativeDistributionCopy;
   clinicBanking: ClinicBankingCopy;
   clinicCreation: ClinicCreationCopy;
   missionFunnel: MissionFunnelCopy;
@@ -64251,4 +64253,5 @@ for (const locale of Object.keys(translations) as Locale[]) {
   translations[locale].missionReporting = reportingTranslations[locale];
   translations[locale].clinicCreation = clinicCreationCopy[locale];
   translations[locale].clinicBanking = clinicBankingCopy[locale];
+  translations[locale].representativeDistribution = representativeDistributionCopy[locale];
 }

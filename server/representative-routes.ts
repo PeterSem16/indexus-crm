@@ -27,6 +27,7 @@ import {
 } from "@shared/medical-partner-filter";
 import { COUNTRIES } from "@shared/schema";
 import { createHash } from "node:crypto";
+import { registerRepresentativeDistributionRoutes } from "./representative-distribution-routes";
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
@@ -56,6 +57,7 @@ type BulkCriteria = {
 };
 
 type BulkSelectionInput = {
+  executor?: any;
   entity: MedicalPartnerEntity;
   criteria: BulkCriteria;
   explicitIds?: string[];
@@ -169,12 +171,13 @@ function validatePreviewIds(raw: unknown, name: string): string[] {
  * use page/limit or a client-provided count, so preview and confirm operate
  * on the same full set.
  */
-async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
+export async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
   ids: string[];
   rules: MedicalPartnerFilterRule[];
   scope: string[] | undefined;
 }> {
   const { entity, criteria, explicitIds, fromUserId, req } = input;
+  const executor: typeof db = input.executor || db;
   const rawRules = criteria.filterRules;
   const rules = validateMedicalPartnerRules(entity, rawRules);
   const scope = countryScopeForRequest(req, criteria.countryScope);
@@ -185,7 +188,7 @@ async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
   const assignmentKey = entity === "clinic"
     ? clinicRepresentativeAssignments.clinicId
     : hospitalRepresentativeAssignments.hospitalId;
-  const activeAssignments = await db
+  const activeAssignments = await executor
     .select({ entityId: assignmentKey, userId: assignmentTable.userId })
     .from(assignmentTable)
     .where(isNull(assignmentTable.validTo));
@@ -193,7 +196,7 @@ async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
     activeAssignments.map((row) => [row.entityId, row.userId]),
   );
 
-  const personnelRows = await db
+  const personnelRows = await executor
     .select({ entityId: contactAssignments.entityId })
     .from(contactAssignments)
     .where(
@@ -204,7 +207,7 @@ async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
     );
   const personnelByEntity = new Set(personnelRows.map((row) => row.entityId));
   if (entity === "hospital") {
-    const legacyRows = await db.select({
+    const legacyRows = await executor.select({
       hospitalId: collaborators.hospitalId,
       hospitalIds: collaborators.hospitalIds,
     }).from(collaborators);
@@ -221,7 +224,7 @@ async function resolveBulkSelection(input: BulkSelectionInput): Promise<{
     }
   }
 
-  const rows = await db.select().from(table);
+  const rows = await executor.select().from(table);
   const countryValues = [
     ...valuesForCriteria(criteria.country),
     ...valuesForCriteria(criteria.countries),
@@ -316,6 +319,9 @@ export function registerRepresentativeRoutes(
   app: Express,
   _requireAuthExternal?: (req: Request, res: Response, next: NextFunction) => void
 ) {
+  registerRepresentativeDistributionRoutes(app, {
+    requireAuth, requireManagerOrAdmin, parseCriteria, countryScopeForRequest, resolveBulkSelection,
+  });
 
   // ── GET /api/representatives
   // Zoznam všetkých používateľov s rolou Representant.

@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { RepresentativeDistributionPanel } from "@/components/representative-distribution-panel";
 
 interface RepUser {
   id: string;
@@ -40,7 +41,7 @@ interface RepUser {
   clinicCount: number;
 }
 
-type Mode = "bulk" | "swap";
+type Mode = "bulk" | "swap" | "regional";
 type EntityType = "clinic" | "hospital";
 
 type PreviewResult = {
@@ -285,7 +286,7 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
           </div>
           <div>
             <h1 className="text-lg font-semibold leading-tight break-words">
-              {mode === "bulk" ? p.bulkAssignTitle : p.swapTitle}
+              {mode === "regional" ? t.representativeDistribution.title : mode === "bulk" ? p.bulkAssignTitle : p.swapTitle}
             </h1>
             <p className="text-xs text-muted-foreground">{p.bulkFilterTitle}</p>
           </div>
@@ -318,12 +319,16 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
             >
               <ArrowRightLeft className="h-3.5 w-3.5" />{p.swapTitle}
             </button>
+            <button onClick={() => { setMode("regional"); clearSelection(); }} data-testid="bulk-mode-regional"
+              className={`flex min-w-0 items-center gap-1.5 px-3 py-1.5 font-medium whitespace-normal text-left transition-colors ${mode === "regional" ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+              <Building2 className="h-3.5 w-3.5" />{t.representativeDistribution.title}
+            </button>
           </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto pt-4">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4 items-start">
+        <div className={`grid grid-cols-1 ${mode === "regional" ? "xl:grid-cols-[320px_1fr]" : "xl:grid-cols-[1fr_340px]"} gap-4 items-start`}>
           <div className="space-y-4 rounded-xl border p-5 bg-card">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -410,6 +415,7 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
           </div>
 
           <div className="space-y-4 rounded-xl border p-5 bg-card">
+            {mode === "regional" ? <RepresentativeDistributionPanel entity={entityType} criteria={criteria} /> : <>
             {mode === "bulk" ? (
               <div className="space-y-1.5">
                 <Label>{p.bulkTo}</Label>
@@ -492,6 +498,7 @@ export default function BulkAssignPage({ embedded = false }: { embedded?: boolea
                 {p.bulkConfirm}
               </Button>
             </div>
+            </>}
           </div>
         </div>
       </div>

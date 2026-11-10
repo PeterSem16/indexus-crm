@@ -1,6 +1,6 @@
 import { sql, relations } from "drizzle-orm";
 export * from "./healthcare-legal-entity-schema";
-import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, bigserial, bigint, jsonb, unique, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, timestamp, decimal, integer, numeric, date, serial, bigserial, bigint, jsonb, unique, index, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import type { WallboardAlarmSettings } from "./wallboard-alarms";
@@ -531,6 +531,32 @@ export type InsertHospitalRepresentativeAssignment =
   z.infer<typeof insertHospitalRepresentativeAssignmentSchema>;
 export type HospitalRepresentativeAssignment =
   typeof hospitalRepresentativeAssignments.$inferSelect;
+
+export const representativeDistributionPlans = pgTable("representative_distribution_plans", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  entityType: text("entity_type").notNull(),
+  kind: text("kind").notNull(),
+  fromUserId: varchar("from_user_id"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+export const representativeDistributionItems = pgTable("representative_distribution_items", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: uuid("plan_id").notNull().references(() => representativeDistributionPlans.id),
+  entityId: varchar("entity_id").notNull(),
+  sourceAssignmentId: varchar("source_assignment_id"),
+  fromUserId: varchar("from_user_id"),
+  toUserId: varchar("to_user_id").notNull(),
+  temporaryAssignmentId: varchar("temporary_assignment_id"),
+  status: text("status").notNull().default("pending"),
+  reason: text("reason"),
+}, table => ({
+  uniqueEntity: unique().on(table.planId, table.entityId),
+  pending: index("representative_distribution_pending_idx").on(table.status, table.planId),
+  entity: index("representative_distribution_entity_idx").on(table.entityId),
+}));
 
 export const collaboratorReferrals = pgTable("collaborator_referrals", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

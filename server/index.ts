@@ -1452,6 +1452,10 @@ app.use((req, res, next) => {
     console.error('[migration] hospital_representative_assignments error:', e.message);
   }
 
+  // Distribution schedules are durable and migrated on the self-hosted server too.
+  const { ensureRepresentativePlanSchema } = await import("./lib/representative-plan-schema");
+  await ensureRepresentativePlanSchema(pool);
+
   // Ensure representative_id column exists on clinics + hospitals, then backfill from assignments
   try {
     await pool.query(`ALTER TABLE clinics ADD COLUMN IF NOT EXISTS representative_id varchar`);
@@ -1688,6 +1692,8 @@ app.use((req, res, next) => {
   }
 
   await registerRoutes(httpServer, app);
+  const { startRepresentativeDistributionWorker } = await import("./representative-distribution-routes");
+  startRepresentativeDistributionWorker();
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
