@@ -37,7 +37,7 @@ try {
       created_at timestamptz DEFAULT now(),item_note text,note_updated_at timestamptz);
     CREATE TABLE campaign_contact_history(id varchar DEFAULT gen_random_uuid()::text,campaign_contact_id varchar,
       user_id varchar,action text,metadata jsonb);
-    CREATE TABLE call_logs(contact_id varchar);
+    CREATE TABLE call_logs(customer_id varchar,campaign_contact_id varchar);
     CREATE TABLE mission_status_list_rules(id varchar,campaign_id varchar,definition jsonb);
     CREATE TABLE mission_status_list_sources(question_id varchar,campaign_id varchar);
     CREATE TABLE mission_status_list_option_sources(group_id varchar,campaign_id varchar);
@@ -67,6 +67,30 @@ try {
   const action = audit.actions[0];
   const confirmation = { campaignId: mission, campaignContactId: "contact", itemId: action.itemId, actorId: "agent",
     manualDate: "2026-11-02T10:00:00.000Z", note: "note", itemNote: "confirmation", skipAutomations: false };
+  // Use the REAL call-log identity columns: a synthetic contact_id column used
+  // to hide a runtime 42703 before any confirmation/event could commit.
+  await root.query("INSERT INTO campaigns(id,name) VALUES('count-other-mission','Other fixture')");
+  const countAction = audit.actions.find(a => a.callback && a.condition.kind === "always")!;
+  for (const [type, field] of [["clinic", "clinic_id"], ["hospital", "hospital_id"],
+    ["collaborator", "collaborator_id"], ["customer", "customer_id"]] as const) {
+    const entity = `count-${type}`, current = `${entity}-current`, other = `${entity}-other`, wrong = `${entity}-wrong`;
+    await root.query(`INSERT INTO campaign_contacts(id,campaign_id,contact_type,${field},status)
+      VALUES($1,$2,$3,$4,'pending'),($5,'count-other-mission',$3,$4,'pending')`, [current, mission, type, entity, other]);
+    await root.query(`INSERT INTO campaign_contacts(id,campaign_id,contact_type,customer_id,status)
+      VALUES($1,'count-other-mission','different-type',$2,'pending')`, [wrong, entity]);
+    await root.query(`INSERT INTO call_logs(customer_id,campaign_contact_id)
+      VALUES($1,NULL),(NULL,$2),(NULL,$3),($1,$2),(NULL,$4),('unrelated',NULL),(NULL,NULL)`,
+    [entity, current, other, wrong]);
+    await persistCallbackConfirmation({ ...confirmation, campaignContactId: current, itemId: countAction.itemId }, connections);
+    const event = (await root.query("SELECT payload FROM mission_callback_events WHERE campaign_contact_id=$1", [current])).rows[0];
+    assert.equal(event.payload.callCount, 4,
+      `${type}: entity-wide count includes other Missions, counts both links once, excludes unrelated/type collisions`);
+    await root.query("DELETE FROM mission_callback_events WHERE campaign_contact_id=$1", [current]);
+    await root.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id=$1", [current]);
+    await root.query("DELETE FROM call_logs");
+    await root.query("DELETE FROM campaign_contacts WHERE id=ANY($1::varchar[])", [[current, other, wrong]]);
+  }
+  await root.query("DELETE FROM campaigns WHERE id='count-other-mission'");
   const attempts = await Promise.allSettled([
     persistCallbackConfirmation(confirmation, connections), persistCallbackConfirmation(confirmation, connections),
   ]);
@@ -117,6 +141,27 @@ try {
   await root.query("UPDATE campaign_status_list_automations SET execution_policy='inherit' WHERE id=$1", [action.id]);
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
+  // Reproduce the production inventory shape: eight approved callbacks plus a
+  // separate, unreviewed six-day keep-existing callback. Current approval is
+  // campaign-wide; a SQL correction alone must not silently weaken it.
+  await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id)
+    VALUES('unreviewed-callback-item',$1,99,'UNREACHED')`, [mission]);
+  await root.query(`INSERT INTO campaign_status_list_automations
+    (id,status_list_item_id,action_type,callback_offset_days,callback_time,callback_business_days_only,callback_existing_policy)
+    VALUES('unreviewed-callback','unreviewed-callback-item','set_callback',6,'09:00',true,'keep_existing')`);
+  await root.query(`INSERT INTO campaign_contacts(id,campaign_id,contact_type,clinic_id,status)
+    VALUES('untracked-contact',$1,'clinic','untracked-clinic','pending')`, [mission]);
+  assert((await callbackReadiness(root, mission)).blockers.includes("untracked_actions"));
+  await assert.rejects(persistCallbackConfirmation({
+    ...confirmation, campaignContactId: "untracked-contact", itemId: countAction.itemId,
+  }, connections), /legacy_config_changed/, "unreviewed extra callback blocks before call-count capture");
+  assert.equal((await root.query("SELECT count(*) FROM mission_callback_events WHERE campaign_contact_id='untracked-contact'")).rows[0].count, "0");
+  assert.equal((await root.query("SELECT count(*) FROM campaign_contact_status_list_state WHERE campaign_contact_id='untracked-contact'")).rows[0].count, "0");
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
+  assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
+  await root.query("DELETE FROM campaign_status_list_automations WHERE id='unreviewed-callback'");
+  await root.query("DELETE FROM campaign_status_list_items WHERE id='unreviewed-callback-item'");
+  await root.query("DELETE FROM campaign_contacts WHERE id='untracked-contact'");
   // Creating a new item, question and disabled draft no longer changes approval.
   await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id)
     VALUES('independent',$1,90,'NEW'),('other',$1,91,'OTHER')`, [mission]);
@@ -238,7 +283,7 @@ try {
     manualDate: "2026-11-12T10:00:00Z", itemNote: "Independent quick reschedule" };
   const independentState = await persistCallbackConfirmation(independentConfirmation, connections);
   assert.ok(independentState.id, "independent quick step saves with zero calls despite unrelated callback drift");
-  assert.equal((await root.query("SELECT count(*) FROM call_logs WHERE contact_id='scope-clinic'")).rows[0].count, "0");
+  assert.equal((await root.query("SELECT count(*) FROM call_logs WHERE customer_id='scope-clinic'")).rows[0].count, "0");
   assert.equal((await root.query("SELECT count(*) FROM mission_callback_events")).rows[0].count, protectedEventCount,
     "independent confirmation must not create callback executor events");
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, protectedOwnership);

@@ -244,13 +244,25 @@ export async function enqueueCallbackConfirmation(client: Client, input: {
   const supported = inventory.actions.filter(a => a.itemId === input.itemId && a.callback && !a.issues.length && !a.excluded &&
     (!input.selectedAutomationId || a.id === input.selectedAutomationId));
   if (!supported.length) return;
-  const { rows: contacts } = await client.query(`SELECT CASE contact_type
+  const { rows: contacts } = await client.query(`SELECT contact_type, CASE contact_type
     WHEN 'clinic' THEN coalesce(clinic_id,customer_id) WHEN 'hospital' THEN coalesce(hospital_id,customer_id)
     WHEN 'collaborator' THEN coalesce(collaborator_id,customer_id) ELSE customer_id END AS entity_id
     FROM campaign_contacts WHERE id=$1 AND campaign_id=$2`, [input.campaignContactId, input.campaignId]);
   if (!contacts.length) throw new CallbackTransitionError("contact_not_found", 404);
-  const callCount = contacts[0].entity_id ? Number((await client.query("SELECT count(*)::int AS count FROM call_logs WHERE contact_id=$1",
-    [contacts[0].entity_id])).rows[0].count) : null;
+  // Match the service executor's canonical-entity semantics. customer_id also
+  // carries historical facility IDs; newer logs can have only an enrollment
+  // link. OR/EXISTS counts a log with both links once, across Missions.
+  const callCount = contacts[0].entity_id ? Number((await client.query(`
+    SELECT count(*)::int AS count FROM call_logs cl
+    WHERE cl.customer_id=$1 OR EXISTS(
+      SELECT 1 FROM campaign_contacts linked WHERE linked.id=cl.campaign_contact_id
+        AND linked.contact_type IS NOT DISTINCT FROM $2::text
+        AND (CASE linked.contact_type
+          WHEN 'clinic' THEN coalesce(linked.clinic_id,linked.customer_id)
+          WHEN 'hospital' THEN coalesce(linked.hospital_id,linked.customer_id)
+          WHEN 'collaborator' THEN coalesce(linked.collaborator_id,linked.customer_id)
+          ELSE linked.customer_id END)=$1
+    )`, [contacts[0].entity_id, contacts[0].contact_type])).rows[0].count) : null;
   const at = (await client.query("SELECT clock_timestamp() AS at")).rows[0].at;
   for (const action of supported) {
     const disposition = action.type === "set_contact_status" ? (await client.query(
