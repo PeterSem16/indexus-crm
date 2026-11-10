@@ -141,9 +141,9 @@ try {
   await root.query("UPDATE campaign_status_list_automations SET execution_policy='inherit' WHERE id=$1", [action.id]);
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
-  // Reproduce the production inventory shape: eight approved callbacks plus a
-  // separate, unreviewed six-day keep-existing callback. Current approval is
-  // campaign-wide; a SQL correction alone must not silently weaken it.
+  // Reproduce the production inventory shape without special-casing its IDs:
+  // transition readiness stays strict, but runtime validates the executing
+  // item's stored approval and dependencies rather than unrelated callbacks.
   await root.query(`INSERT INTO campaign_status_list_items(id,campaign_id,sort_order,step_id)
     VALUES('unreviewed-callback-item',$1,99,'UNREACHED')`, [mission]);
   await root.query(`INSERT INTO campaign_status_list_automations
@@ -152,11 +152,54 @@ try {
   await root.query(`INSERT INTO campaign_contacts(id,campaign_id,contact_type,clinic_id,status)
     VALUES('untracked-contact',$1,'clinic','untracked-clinic','pending')`, [mission]);
   assert((await callbackReadiness(root, mission)).blockers.includes("untracked_actions"));
-  await assert.rejects(persistCallbackConfirmation({
+  const scopedConfirmation = {
     ...confirmation, campaignContactId: "untracked-contact", itemId: countAction.itemId,
-  }, connections), /legacy_config_changed/, "unreviewed extra callback blocks before call-count capture");
-  assert.equal((await root.query("SELECT count(*) FROM mission_callback_events WHERE campaign_contact_id='untracked-contact'")).rows[0].count, "0");
-  assert.equal((await root.query("SELECT count(*) FROM campaign_contact_status_list_state WHERE campaign_contact_id='untracked-contact'")).rows[0].count, "0");
+  };
+  await persistCallbackConfirmation(scopedConfirmation, connections);
+  await drainCallbackEvents("untracked-contact", connections);
+  assert.equal((await root.query("SELECT callback_date FROM campaign_contacts WHERE id='untracked-contact'")).rows[0].callback_date.toISOString(),
+    confirmation.manualDate, "approved callback saves with no preceding call despite an unrelated unapproved callback");
+  const scopedManual = { ...scopedConfirmation, automationId: countAction.id, requestId: randomUUID(),
+    manualDate: "2027-05-11T07:00:00.000Z", note: "rescheduled" };
+  assert.equal((await runDurableManualCallback(scopedManual, connections))?.callbackDate, scopedManual.manualDate);
+  assert.equal((await runDurableManualCallback(scopedManual, connections))?.callbackDate, scopedManual.manualDate,
+    "manual reschedule retries remain idempotent");
+  const scopedBefore = (await root.query("SELECT * FROM campaign_contacts WHERE id='untracked-contact'")).rows;
+  const scopedEvents = (await root.query("SELECT count(*) FROM mission_callback_events")).rows[0].count;
+  await assert.rejects(persistCallbackConfirmation({ ...scopedConfirmation, itemId: "unreviewed-callback-item" },
+    connections), /legacy_config_changed/, "the unreviewed callback itself still fails closed");
+  await assert.rejects(runDurableManualCallback({ ...scopedManual, itemId: "unreviewed-callback-item",
+    automationId: "unreviewed-callback", requestId: randomUUID() }, connections), /legacy_config_changed/,
+    "run-now cannot bypass missing approval");
+  await root.query(`UPDATE campaign_status_list_automations SET status_list_item_id=$1 WHERE id='unreviewed-callback'`, [countAction.itemId]);
+  await assert.rejects(runDurableManualCallback({ ...scopedManual, requestId: randomUUID() }, connections), /legacy_config_changed/,
+    "an extra callback on the same executing item is not independent");
+  assert.deepEqual((await root.query("SELECT * FROM campaign_contacts WHERE id='untracked-contact'")).rows, scopedBefore,
+    "rejected actions do not change the contact");
+  assert.equal((await root.query("SELECT count(*) FROM mission_callback_events")).rows[0].count, scopedEvents,
+    "rejected automatic/manual actions do not leave events");
+  assert.equal((await root.query(`SELECT count(*) FROM campaign_contact_status_list_state
+    WHERE campaign_contact_id='untracked-contact' AND status_list_item_id='unreviewed-callback-item'`)).rows[0].count, "0",
+    "rejected confirmation is rolled back with its event");
+  await root.query("UPDATE campaign_status_list_automations SET status_list_item_id='unreviewed-callback-item' WHERE id='unreviewed-callback'");
+  // A changed/deleted approval on another item must not disable this valid one.
+  const unrelatedAction = audit.actions.find(a => a.callback && a.itemId !== countAction.itemId)!;
+  const unrelatedRow = (await root.query("SELECT * FROM campaign_status_list_automations WHERE id=$1", [unrelatedAction.id])).rows[0];
+  await root.query("UPDATE campaign_status_list_automations SET callback_offset_days=999 WHERE id=$1", [unrelatedAction.id]);
+  await runDurableManualCallback({ ...scopedManual, requestId: randomUUID() }, connections);
+  await assert.rejects(runDurableManualCallback({ ...scopedManual, itemId: unrelatedAction.itemId,
+    automationId: unrelatedAction.id, requestId: randomUUID() }, connections), /legacy_config_changed/);
+  await root.query("DELETE FROM campaign_status_list_automations WHERE id=$1", [unrelatedAction.id]);
+  await runDurableManualCallback({ ...scopedManual, requestId: randomUUID() }, connections);
+  await assert.rejects(runDurableManualCallback({ ...scopedManual, itemId: unrelatedAction.itemId,
+    automationId: unrelatedAction.id, requestId: randomUUID() }, connections), /legacy_config_changed/);
+  await root.query(`INSERT INTO campaign_status_list_automations
+    SELECT * FROM jsonb_populate_record(NULL::campaign_status_list_automations,$1::jsonb)`, [JSON.stringify(unrelatedRow)]);
+  assert.equal((await root.query("SELECT callback_date FROM campaign_contacts WHERE id='untracked-contact'")).rows[0].callback_date.toISOString(),
+    scopedManual.manualDate);
+  await root.query("DELETE FROM mission_callback_events WHERE campaign_contact_id='untracked-contact'");
+  await root.query("DELETE FROM campaign_contact_history WHERE campaign_contact_id='untracked-contact'");
+  await root.query("DELETE FROM campaign_contact_status_list_state WHERE campaign_contact_id='untracked-contact'");
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_candidates ORDER BY automation_id")).rows, pinnedCandidates);
   assert.deepEqual((await root.query("SELECT * FROM mission_callback_ownership")).rows, pinnedOwnership);
   await root.query("DELETE FROM campaign_status_list_automations WHERE id='unreviewed-callback'");

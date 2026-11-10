@@ -148,11 +148,55 @@ export async function withCallbackRuleChange<T>(
 
 export async function assertCallbackConfigurationIndependent(client: Client, campaignId: string) {
   if (campaignId !== MEDICAL_PARTNER_AUDIT_CAMPAIGN) return;
-  const ownership = (await client.query("SELECT owner FROM mission_callback_ownership WHERE campaign_id=$1", [campaignId])).rows[0];
+  const ownership = (await client.query("SELECT owner,fingerprint FROM mission_callback_ownership WHERE campaign_id=$1", [campaignId])).rows[0];
   if (ownership?.owner !== "compatible") return;
-  const readiness = await callbackReadiness(client, campaignId);
-  if (readiness.blockers.some(blocker => !["pending_events", "failed_events"].includes(blocker)))
-    throw new CallbackTransitionError("legacy_config_changed");
+  const inventory = await readTransitionInventory(client, campaignId, { withinTransaction: true });
+  await assertApprovedCallbackScope(client, campaignId, ownership.fingerprint, inventory);
+}
+
+/** Runtime admission is scoped to the stored approval, not the transition-wide
+ * inventory. Initial activation/handoff still uses the complete readiness check.
+ * No action IDs or labels are exempted, and no approval snapshot is rewritten. */
+async function assertApprovedCallbackScope(
+  client: Client, campaignId: string, fingerprint: string,
+  inventory: Awaited<ReturnType<typeof readTransitionInventory>>, itemId?: string,
+) {
+  const reject: () => never = () => { throw new CallbackTransitionError("legacy_config_changed"); };
+  if (!fingerprint || await serviceReservation(client, campaignId)) reject();
+  const candidates = (await client.query(`SELECT automation_id,definition,source_fingerprint
+    FROM mission_callback_candidates WHERE campaign_id=$1`, [campaignId])).rows;
+  const scoped = candidates.filter(candidate => !itemId || candidate.definition?.action?.itemId === itemId);
+  if (!scoped.length) reject();
+  if (scoped.some(candidate => typeof candidate.definition?.action?.itemId !== "string")) reject();
+  const protectedItems = [...new Set<string>(scoped.map(candidate => candidate.definition.action.itemId))];
+  const actions = inventory.actions.filter(action => protectedItems.includes(action.itemId));
+  // Any extra callback on the executing item is part of the same confirmation.
+  // It cannot silently fall through to the legacy executor.
+  if (actions.some(action => (action.callback || action.type === "set_callback" || action.type === "set_contact_status") &&
+    !scoped.some(candidate => candidate.automation_id === action.id))) reject();
+  const references = (await client.query(`SELECT a.id,a.question_id,d.code,d.action_type,d.campaign_id
+    FROM campaign_status_list_automations a JOIN campaign_status_list_items i ON i.id=a.status_list_item_id
+    LEFT JOIN campaign_dispositions d ON d.id=a.disposition_id WHERE i.campaign_id=$1`, [campaignId])).rows;
+  for (const candidate of scoped) {
+    const action = actions.find(row => row.id === candidate.automation_id);
+    const reference = references.find(row => row.id === candidate.automation_id);
+    if (!action?.callback || action.issues.length || action.excluded || !reference || reference.question_id ||
+      candidate.source_fingerprint !== fingerprint ||
+      (action.type === "set_contact_status" &&
+        (!reference.code || reference.action_type !== "callback" || reference.campaign_id !== campaignId)) ||
+      hash(candidate.definition) !== hash({
+        action, dispositionCode: action.type === "set_contact_status" ? reference.code || null : null,
+      })) reject();
+  }
+  const items = (await client.query("SELECT id,parent_id FROM campaign_status_list_items WHERE campaign_id=$1", [campaignId])).rows;
+  const questions = (await client.query(`SELECT q.id,q.item_id FROM campaign_status_list_questions q
+    JOIN campaign_status_list_items i ON i.id=q.item_id WHERE i.campaign_id=$1`, [campaignId])).rows;
+  const dependencies = (await client.query(`SELECT
+    (SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY r.id),'[]') FROM mission_status_list_rules r WHERE r.campaign_id=$1) AS rules,
+    (SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.question_id),'[]') FROM mission_status_list_sources s WHERE s.campaign_id=$1) AS sources,
+    (SELECT coalesce(jsonb_agg(to_jsonb(s) ORDER BY s.group_id),'[]') FROM mission_status_list_option_sources s WHERE s.campaign_id=$1) AS option_sources`,
+  [campaignId])).rows[0];
+  if (callbackDependencyBlockers(protectedItems, items, questions, dependencies).length) reject();
 }
 
 export async function readCallbackReadiness(campaignId: string) {
@@ -226,19 +270,23 @@ export async function enqueueCallbackConfirmation(client: Client, input: {
     [`mission-callback-contact:${input.campaignContactId}`]);
   const ownership = (await client.query("SELECT owner,fingerprint FROM mission_callback_ownership WHERE campaign_id=$1", [input.campaignId])).rows[0];
   const inventory = await readTransitionInventory(client, input.campaignId, { withinTransaction: true });
-  // Approval protects callback execution, not unrelated Status List answers.
-  // Keep originally reviewed items protected even if their callback was deleted
-  // or changed into an unsupported action. New/invalid callback actions must
-  // also pass readiness rather than silently falling through to legacy writes.
-  const reviewedCallbackItem = medicalPartnerAudit(input.campaignId)!.actions
-    .some(action => action.itemId === input.itemId && action.callback);
+  // Derive the execution boundary from live stored approvals, retaining the
+  // original audit as a fail-closed guard if an approval was lost or corrupted.
+  const candidates = ownership?.owner === "compatible" ? (await client.query(
+    "SELECT automation_id,definition FROM mission_callback_candidates WHERE campaign_id=$1", [input.campaignId])).rows : [];
+  const reviewedCallbackItem = candidates.some(candidate => candidate.definition?.action?.itemId === input.itemId) ||
+    medicalPartnerAudit(input.campaignId)!.actions.some(action => action.itemId === input.itemId && action.callback);
   const currentCallbackItem = inventory.actions.some(action => action.itemId === input.itemId &&
     (action.type === "set_callback" || action.type === "set_contact_status" || action.callback));
   if (!reviewedCallbackItem && !currentCallbackItem) return;
   // A changed source must not silently execute as an approved compatible rule.
   if (ownership?.owner === "compatible") {
-    const current = await callbackReadiness(client, input.campaignId);
-    if (current.blockers.some(b => b !== "pending_events"))
+    await assertApprovedCallbackScope(client, input.campaignId, ownership.fingerprint, inventory, input.itemId);
+    const failed = await client.query(`SELECT 1 FROM mission_callback_events WHERE campaign_id=$1
+      AND automation_id=ANY($2::varchar[]) AND status='failed' LIMIT 1`,
+    [input.campaignId, candidates.filter(candidate => candidate.definition?.action?.itemId === input.itemId)
+      .map(candidate => candidate.automation_id)]);
+    if (failed.rowCount)
       throw new CallbackTransitionError("legacy_config_changed");
   }
   const supported = inventory.actions.filter(a => a.itemId === input.itemId && a.callback && !a.issues.length && !a.excluded &&
