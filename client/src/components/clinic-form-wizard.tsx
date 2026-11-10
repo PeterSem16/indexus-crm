@@ -1,4 +1,5 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
+import { BankAccountSection } from "@/components/bank-account-section";
 import { CLINIC_CONTACT_TYPES, CLINIC_CONTACT_QUESTIONS } from "@shared/clinic-contact-type";
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
@@ -35,7 +36,7 @@ import {
   Clock, ArrowRight, ArrowRightLeft, History, FileText, MessageSquare, Megaphone, PhoneCall,
   CalendarDays, FileSignature, Newspaper, CheckCircle2, CircleDot, Circle,
   Building2, ScrollText, Target, ShieldCheck, Ban, HelpCircle, ChevronRight,
-  ChevronDown, ChevronUp, Send, Upload,
+  ChevronDown, ChevronUp, Send, Upload, CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/contexts/permissions-context";
@@ -75,6 +76,11 @@ import { HealthcareLegalEntityPanel } from "@/components/healthcare-legal-entity
 import { clinicSaveAddress } from "@/lib/clinic-save-address";
 
 interface ClinicFormData {
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankCode: string;
+  bankAccountIban: string;
+  swiftCode: string;
   name: string;
   doctorTitle: string;
   doctorFirstName: string;
@@ -481,6 +487,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
+      bankAccountName: "", bankAccountNumber: "", bankCode: "", bankAccountIban: "", swiftCode: "",
       name: "", doctorTitle: "", doctorFirstName: "", doctorLastName: "",
       idZz: "", pzsCode: "", pzsName: "", ico: "",
       address: "", street: "", streetNumber: "", orientationNumber: "",
@@ -515,6 +522,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     }
     return {
       name: data.name, doctorTitle: dTitle, doctorFirstName: dFirst, doctorLastName: dLast,
+      bankAccountName: data.bankAccountName || "", bankAccountNumber: data.bankAccountNumber || "",
+      bankCode: data.bankCode || "", bankAccountIban: data.bankAccountIban || "", swiftCode: data.swiftCode || "",
       idZz: (data as any).idZz || "", pzsCode: (data as any).pzsCode || "", pzsName: (data as any).pzsName || "", ico: (data as any).ico || "",
       address: data.address || "",
       street: (data as any).street || "",
@@ -953,6 +962,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         email2: data.email2 || null,
         email3: data.email3 || null,
         website: data.website || null,
+        bankAccountName: data.bankAccountName.trim() || null,
+        bankAccountNumber: data.bankAccountNumber.trim() || null,
+        bankCode: data.bankCode.trim() || null,
+        bankAccountIban: data.bankAccountIban.replace(/\s/g, "").toUpperCase() || null,
+        swiftCode: data.swiftCode.trim().toUpperCase() || null,
         latitude: data.latitude ? data.latitude : null,
         longitude: data.longitude ? data.longitude : null,
         isActive: data.isActive,
@@ -1139,10 +1153,23 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   // tc must be defined before tab arrays that reference it
   const tc = t.clinics as any;
+  const bankingContent = <section className="min-w-0 space-y-4" data-testid="clinic-banking">
+    <div className="border-b pb-4">
+      <h3 className="text-sm font-semibold">{t.wizard.steps.banking}</h3>
+      <p className="mt-1 text-xs text-muted-foreground">{t.clinicBanking.description}</p>
+    </div>
+    <BankAccountSection t={t} countryCode={formData.countryCode || "SK"} isHidden={() => false} isReadonly={() => readOnly}
+      bankAccountName={formData.bankAccountName} onAccountNameChange={bankAccountName => setFormData(previous => ({ ...previous, bankAccountName }))}
+      accountNumber={formData.bankAccountNumber} onAccountNumberChange={bankAccountNumber => setFormData(previous => ({ ...previous, bankAccountNumber }))}
+      bankCode={formData.bankCode} onBankCodeChange={bankCode => setFormData(previous => ({ ...previous, bankCode }))}
+      bankAccountIban={formData.bankAccountIban} onIbanChange={bankAccountIban => setFormData(previous => ({ ...previous, bankAccountIban }))}
+      swiftCode={formData.swiftCode} onSwiftChange={swiftCode => setFormData(previous => ({ ...previous, swiftCode }))} />
+  </section>;
 
   const clinicEditTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
+    { key: "banking", icon: CreditCard, label: t.wizard.steps.banking },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
@@ -2237,6 +2264,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         </div>
 
         <fieldset disabled={readOnly && activeTab !== "agreements" && !((activeTab === "referral" && roEx.referral) || (activeTab === "personnel" && roEx.personnel) || (activeTab === "basic" && (roEx.contactType || roEx.notes || roEx.contactInfo)))} className="flex-1 overflow-y-auto p-5 min-w-0" style={{ minInlineSize: 0 }}>
+          {activeTab === "banking" && bankingContent}
           {activeTab === "referral" && (
             <div className="space-y-4 pb-4">
               {false && <div className="space-y-3">
@@ -3103,6 +3131,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   const clinicAddTabs = [
     { key: "basic", icon: Building2, label: t.clinics.steps?.basic || "Info" },
     { key: "address", icon: MapPin, label: t.clinics.steps?.address || "Address" },
+    { key: "banking", icon: CreditCard, label: t.wizard.steps.banking },
     { key: "referral", icon: CircleDot, label: t.clinics.steps.referral },
     { key: "personnel", icon: Users, label: (t as any).personnel || "Personnel" },
     { key: "campaigns", icon: Megaphone, label: (t as any).campaigns?.title || "Campaigns" },
@@ -3154,6 +3183,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
             <fieldset disabled={saveMutation.isPending || (creationPending && !savedClinicId && activeTab !== "agreements")} className="flex-1 overflow-y-auto p-5 min-w-0"
               style={{ pointerEvents: saveMutation.isPending || (creationPending && !savedClinicId && activeTab !== "agreements") ? "none" : undefined }}>
+              {activeTab === "banking" && bankingContent}
               {activeTab === "referral" && (
                 <div className="space-y-4 pb-4">
                   <div className="space-y-3">

@@ -1,4 +1,5 @@
 import { RecordTagsBadges } from "@/components/record-tags-badges";
+import { BankAccountSection } from "@/components/bank-account-section";
 import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -3340,99 +3341,6 @@ function HistoryTabContent({ collaboratorId, t }: { collaboratorId: string; t: a
         ))}
       </div>
     </div>
-  );
-}
-
-function computeSKIban(accountNumber: string, bankCode: string): string {
-  const acc = accountNumber.replace(/[\s\-]/g, "");
-  const bk = bankCode.replace(/[\s\-]/g, "");
-  if (bk.length !== 4 || acc.length < 1 || acc.length > 10) return "";
-  const paddedAcc = acc.padStart(10, "0");
-  const bban = bk + "00" + paddedAcc;
-  const rearranged = bban + "281200";
-  let remainder = BigInt(rearranged) % 97n;
-  const checkDigits = String(98n - remainder).padStart(2, "0");
-  return `SK${checkDigits}${bban}`;
-}
-
-function BankAccountSection({ bankAccountIban, swiftCode, onIbanChange, onSwiftChange, countryCode, isHidden, isReadonly, t }: {
-  bankAccountIban: string; swiftCode: string; onIbanChange: (v: string) => void; onSwiftChange: (v: string) => void;
-  countryCode: string; isHidden: (f: string) => boolean; isReadonly: (f: string) => boolean; t: any;
-}) {
-  const [localAccount, setLocalAccount] = useState("");
-  const [localBankCode, setLocalBankCode] = useState("");
-
-  const handleConvert = () => {
-    const iban = computeSKIban(localAccount, localBankCode);
-    if (iban) onIbanChange(iban);
-  };
-
-  return (
-    <>
-      <div className="p-4 border rounded-lg space-y-3 bg-muted/30">
-        <Label className="text-sm font-medium">{t.collaborators?.fields?.accountAndBankCode || "Account number and bank code"}</Label>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.accountNumber || "Account Number"}</Label>
-            <Input
-              value={localAccount}
-              onChange={(e) => setLocalAccount(e.target.value.replace(/[^0-9\-]/g, ""))}
-              placeholder="1234567890"
-              data-testid="wizard-input-account-number"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t.collaborators?.fields?.bankCode || "Bank Code"}</Label>
-            <Input
-              value={localBankCode}
-              onChange={(e) => setLocalBankCode(e.target.value.replace(/[^0-9]/g, "").substring(0, 4))}
-              placeholder="0200"
-              maxLength={4}
-              data-testid="wizard-input-bank-code"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleConvert}
-              disabled={!localAccount || localBankCode.length !== 4}
-              className="w-full"
-              data-testid="btn-convert-iban"
-            >
-              {t.collaborators?.fields?.calculateIban || "Calculate IBAN"}
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {!isHidden("bank_account") && (
-          <div className="space-y-2">
-            <Label>{t.collaborators.fields.bankAccountIban}</Label>
-            <Input
-              value={bankAccountIban}
-              onChange={(e) => onIbanChange(e.target.value)}
-              placeholder="SK..."
-              data-testid="wizard-input-collaborator-iban"
-              disabled={isReadonly("bank_account")}
-              className={isReadonly("bank_account") ? "bg-muted" : ""}
-            />
-          </div>
-        )}
-        {!isHidden("bank_account") && (
-          <div className="space-y-2">
-            <Label>{t.collaborators.fields.swiftCode}</Label>
-            <Input
-              value={swiftCode}
-              onChange={(e) => onSwiftChange(e.target.value)}
-              data-testid="wizard-input-collaborator-swift"
-              disabled={isReadonly("bank_account")}
-              className={isReadonly("bank_account") ? "bg-muted" : ""}
-            />
-          </div>
-        )}
-      </div>
-    </>
   );
 }
 
