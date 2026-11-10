@@ -734,7 +734,7 @@ export function InstitutionPersonnelPanel({
   );
 }
 
-export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode, inlineMode, onCallPhone }: { entityType: string; entityId: string; entityName: string; countryCode?: string; inlineMode?: boolean; onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void }) {
+export function InstitutionPersonnelManager({ entityType, entityId, entityName, countryCode, inlineMode, onCallPhone, draft }: { entityType: string; entityId: string; entityName: string; countryCode?: string; inlineMode?: boolean; onCallPhone?: (phone: string, person?: { id: string; name?: string }) => void; draft?: { rows: any[]; onChange: (rows: any[]) => void } }) {
   const { t, locale } = useI18n();
   const { toast } = useToast();
   const mpnT = (t as any).medicalPartnerNetwork || {};
@@ -771,12 +771,13 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   const closeCollaboratorDrawer = () => {
     setIsDrawerOpen(false);
     setDrawerCollaborator(null);
-    personnelQuery.refetch();
+    if (!draft) personnelQuery.refetch();
     queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
   };
 
   const personnelQuery = useQuery<any>({
     queryKey: ["/api/institutions", entityType, entityId, "personnel"],
+    enabled: !draft && !!entityId,
     queryFn: async () => {
       const response = await fetch(`/api/institutions/${entityType}/${entityId}/personnel`, { credentials: "include" });
       if (!response.ok) throw new Error(`Failed to load personnel (${response.status})`);
@@ -809,13 +810,30 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
     queryFn: () => {
       const params = new URLSearchParams({ q: debouncedSearch });
       if (countryCode) params.set("countries", countryCode);
-      return fetch(`/api/collaborators/lookup?${params.toString()}`, { credentials: "include" }).then(r => r.json());
+      return fetch(`/api/collaborators/lookup?${params.toString()}`, { credentials: "include" }).then(r => {
+        if (!r.ok) throw new Error("person_lookup_failed");
+        return r.json();
+      });
     },
     enabled: showAssignForm && debouncedSearch.length >= 2,
   });
 
   const assignMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data),
+    mutationKey: draft ? ["clinic-create-draft"] : undefined,
+    mutationFn: async (data: any) => {
+      if (!draft) return apiRequest("POST", `/api/institutions/${entityType}/${entityId}/personnel`, data);
+      if (draft.rows.some(row => row.person_id === data.personId)) return;
+      const response = await apiRequest("GET", `/api/collaborators/${encodeURIComponent(data.personId)}`);
+      const person = await response.json();
+      draft.onChange([...draft.rows.map(row => data.isPrimary ? { ...row, is_primary: false, isPrimary: false } : row), {
+        ...data, assignment_id: crypto.randomUUID(), person_id: person.id,
+        first_name: person.firstName, last_name: person.lastName,
+        country_code: person.countryCode,
+        title_before: person.titleBefore, title_after: person.titleAfter,
+        email: person.email, phone: person.mobile || person.phone,
+        category_id: data.categoryId, is_primary: data.isPrimary,
+      }]);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
@@ -826,8 +844,13 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ assignmentId, data }: { assignmentId: string; data: any }) =>
-      apiRequest("PUT", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`, data),
+    mutationKey: draft ? ["clinic-create-draft"] : undefined,
+    mutationFn: async ({ assignmentId, data }: { assignmentId: string; data: any }) => {
+      if (!draft) return apiRequest("PUT", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`, data);
+      draft.onChange(draft.rows.map(row => row.assignment_id === assignmentId
+        ? { ...row, ...data, category_id: data.categoryId, is_primary: data.isPrimary }
+        : data.isPrimary ? { ...row, is_primary: false, isPrimary: false } : row));
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
       queryClient.invalidateQueries({ queryKey: ["/api/collaborators"] });
@@ -838,7 +861,11 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   });
 
   const removeMutation = useMutation({
-    mutationFn: (assignmentId: string) => apiRequest("DELETE", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`),
+    mutationKey: draft ? ["clinic-create-draft"] : undefined,
+    mutationFn: async (assignmentId: string) => {
+      if (!draft) return apiRequest("DELETE", `/api/institutions/${entityType}/${entityId}/personnel/${assignmentId}`);
+      draft.onChange(draft.rows.filter(row => row.assignment_id !== assignmentId));
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/institutions", entityType, entityId, "personnel"] });
       toast({ title: t.success?.saved || "Removed" });
@@ -928,7 +955,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
     });
   }
 
-  const data = personnelQuery.data;
+  const data = draft ? { assigned: draft.rows, legacy: [] } : personnelQuery.data;
   const assigned = data?.assigned || [];
   const legacy = data?.legacy || [];
   const _combined = [...assigned, ...legacy];
@@ -942,7 +969,7 @@ export function InstitutionPersonnelManager({ entityType, entityId, entityName, 
   });
   const clinicDoctor = entityType === "clinic" ? data?.clinicDoctor : null;
 
-  if (personnelQuery.isLoading) {
+  if (!draft && personnelQuery.isLoading) {
     return <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />)}</div>;
   }
 

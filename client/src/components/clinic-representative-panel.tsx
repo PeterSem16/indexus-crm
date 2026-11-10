@@ -30,7 +30,7 @@ interface RepUser {
   clinicCount: number;
 }
 
-interface Assignment {
+export interface Assignment {
   id: string;
   clinicId?: string;
   hospitalId?: string;
@@ -72,9 +72,10 @@ interface RepresentativePanelProps {
   entityId: string;
   /** Called whenever the assignment status is known or changes. */
   onAssignmentChange?: (hasAssignment: boolean) => void;
+  draft?: { assignment: Assignment | null; onChange: (assignment: Assignment | null) => void };
 }
 
-export function RepresentativePanel({ entityType, entityId, onAssignmentChange }: RepresentativePanelProps) {
+export function RepresentativePanel({ entityType, entityId, onAssignmentChange, draft }: RepresentativePanelProps) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { t } = useI18n();
@@ -105,8 +106,9 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
     }
   };
 
-  const { data: currentData, isLoading: currentLoading } = useQuery<{ assignment: Assignment | null }>({
+  const currentQuery = useQuery<{ assignment: Assignment | null }>({
     queryKey: qkCurrent,
+    enabled: !draft && !!entityId,
     queryFn: async () => {
       const res = await fetch(basePath, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
@@ -116,6 +118,8 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
     refetchOnMount: "always",
     refetchInterval: 30_000,
   });
+  const currentData = draft ? { assignment: draft.assignment } : currentQuery.data;
+  const currentLoading = !draft && currentQuery.isLoading;
 
   useEffect(() => {
     if (!currentLoading && currentData !== undefined) {
@@ -130,7 +134,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
-    enabled: showHistory,
+    enabled: showHistory && !draft,
     staleTime: 0,
     refetchOnMount: "always",
     refetchInterval: showHistory ? 30_000 : false,
@@ -149,6 +153,14 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
 
   const assignMutation = useMutation({
     mutationFn: async () => {
+      if (draft) {
+        const rep = representatives.find(row => row.id === selectedUserId);
+        if (!rep) throw new Error(t.errors.required);
+        draft.onChange({ id: crypto.randomUUID(), userId: rep.id, validFrom: new Date().toISOString(),
+          validTo: null, assignedBy: null, assignmentType: "manual", note: assignNote || null,
+          user: { id: rep.id, fullName: rep.name, email: rep.email } });
+        return;
+      }
       const res = await fetch(basePath, {
         method: "POST",
         credentials: "include",
@@ -170,6 +182,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
 
   const removeMutation = useMutation({
     mutationFn: async () => {
+      if (draft) { draft.onChange(null); return; }
       const res = await fetch(basePath, { method: "DELETE", credentials: "include" });
       if (!res.ok) throw new Error((await res.json())?.message ?? "Error");
       return res.json();
@@ -229,7 +242,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
             )}
             <div className="flex flex-wrap gap-2 pt-1">
               <Button size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
-                onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
+                data-testid="button-representative-assign" onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
                 <Pencil className="h-3.5 w-3.5" />
                 {p.changeBtn}
               </Button>
@@ -251,7 +264,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
               <div className="text-xs text-muted-foreground mt-0.5">{p.noRepresentativeDesc}</div>
             </div>
             <Button size="sm" className="gap-1.5"
-              onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
+              data-testid="button-representative-assign" onClick={() => { setSelectedUserId(""); setAssignNote(""); setAssignOpen(true); }}>
               <UserPlus className="h-4 w-4" />
               {p.assignBtn}
             </Button>
@@ -323,7 +336,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
             <div className="space-y-1.5">
               <Label>{p.tabLabel}</Label>
               <Select value={selectedUserId} onValueChange={setSelectedUserId} disabled={repsLoading}>
-                <SelectTrigger>
+                <SelectTrigger data-testid="select-representative-user">
                   <SelectValue placeholder={repsLoading ? t.common.loading : p.selectPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
@@ -357,7 +370,7 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
             <Button variant="outline" onClick={() => setAssignOpen(false)}>{t.common.cancel}</Button>
             <Button
               disabled={!selectedUserId || assignMutation.isPending}
-              onClick={() => assignMutation.mutate()}>
+              data-testid="button-representative-confirm" onClick={() => assignMutation.mutate()}>
               {assignMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               {current ? p.confirmChange : p.confirmAssign}
             </Button>
@@ -389,5 +402,5 @@ export function RepresentativePanel({ entityType, entityId, onAssignmentChange }
 }
 
 // Backward-compat alias
-export const ClinicRepresentativePanel = ({ clinicId }: { clinicId: string }) =>
-  <RepresentativePanel entityType="clinic" entityId={clinicId} />;
+export const ClinicRepresentativePanel = ({ clinicId, draft }: { clinicId: string; draft?: RepresentativePanelProps["draft"] }) =>
+  <RepresentativePanel entityType="clinic" entityId={clinicId} draft={draft} />;

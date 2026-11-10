@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -44,6 +44,11 @@ export function SuggestRegionButton({
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { t } = useI18n();
+  const addressKey = JSON.stringify([countryCode, city, streetNumber, postalCode]);
+  const currentAddress = useRef(addressKey);
+  currentAddress.current = addressKey;
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   const handleSuggest = async () => {
     if (!countryCode || !city?.trim()) {
@@ -56,6 +61,7 @@ export function SuggestRegionButton({
     }
 
     setLoading(true);
+    const requestedAddress = currentAddress.current;
     try {
       const resp = await fetch("/api/suggest-region-district", {
         method: "POST",
@@ -64,9 +70,10 @@ export function SuggestRegionButton({
         body: JSON.stringify({ countryCode, city: city.trim(), streetNumber, postalCode }),
       });
 
-      if (!resp.ok) throw new Error("Failed to get suggestion");
+      if (!resp.ok) throw new Error(resp.status === 503 ? "address_unavailable" : "suggestion_failed");
 
       const data = await resp.json();
+      if (!mounted.current || requestedAddress !== currentAddress.current) return;
       const { region, district, confidence } = data;
 
       const availableRegions = REGIONS_BY_COUNTRY[countryCode] || [];
@@ -96,6 +103,10 @@ export function SuggestRegionButton({
         }
       }
 
+      if (!availableRegions.includes(matchedRegion) ||
+          !matchedDistrict || !getDistrictsForRegion(countryCode, matchedRegion).includes(matchedDistrict)) {
+        throw new Error("invalid_administrative_area");
+      }
       onSuggestion(matchedRegion, matchedDistrict);
 
       toast({
@@ -105,7 +116,7 @@ export function SuggestRegionButton({
     } catch (err) {
       toast({
         title: t.common.aiSuggestError,
-        description: t.common.aiSuggestErrorDesc,
+        description: err instanceof Error && err.message === "address_unavailable" ? t.clinicCreation.addressUnavailable : t.common.aiSuggestErrorDesc,
         variant: "destructive",
       });
     } finally {

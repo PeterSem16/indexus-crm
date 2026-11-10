@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { AutomationRecordEntriesPanel } from "@/components/automation-record-entries-panel";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useIsMutating } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ import {
   ChevronDown, ChevronUp, Send, Upload,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/contexts/permissions-context";
 import { COUNTRY_TO_LOCALE } from "@/i18n/translations";
 import {
   Dialog,
@@ -56,7 +57,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CallCustomerButton } from "@/components/sip-phone";
 import { InstitutionPersonnelManager, CbcActivityBadgesForRow } from "@/components/institution-personnel-panel";
-import { ClinicRepresentativePanel } from "@/components/clinic-representative-panel";
+import { ClinicRepresentativePanel, type Assignment } from "@/components/clinic-representative-panel";
+import { ClinicCreateAgreements, type PendingClinicAgreement } from "@/components/clinic-create-agreements";
 import { CollaboratorFormWizard } from "@/components/collaborator-form-wizard";
 import EntityCampaignTimeline from "@/components/campaigns/EntityCampaignTimeline";
 import { getQueryFn } from "@/lib/queryClient";
@@ -445,6 +447,10 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   const { t } = useI18n();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { canEdit } = usePermissions();
+  const draftWriteCount = useIsMutating({ mutationKey: ["clinic-create-draft"] });
+  const canAssignNewRepresentative = user?.role === "admin" || user?.role === "manager";
+  const canManageNewAgreements = canEdit("hospitals");
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("basic");
   const [postalLookupLoading, setPostalLookupLoading] = useState(false);
@@ -466,6 +472,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
   const [showExtraContacts, setShowExtraContacts] = useState(false);
   const [savePersonDialogOpen, setSavePersonDialogOpen] = useState(false);
   const [savedClinicId, setSavedClinicId] = useState<string | null>(null);
+  const [draftPersonnel, setDraftPersonnel] = useState<any[]>([]);
+  const [draftRepresentative, setDraftRepresentative] = useState<Assignment | null>(null);
+  const [draftAgreements, setDraftAgreements] = useState<PendingClinicAgreement[]>([]);
+  const [creationPending, setCreationPending] = useState(false);
+  const [creationError, setCreationError] = useState(false);
+  const creationProgress = useRef<{ id: string | null; done: Set<string> }>({ id: null, done: new Set() });
 
   const buildFormData = (data: Clinic | null | undefined): ClinicFormData => {
     if (!data) return {
@@ -476,7 +488,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       phone: "", phone2: "", phone3: "", email: "", email2: "", email3: "", website: "", latitude: "", longitude: "", isActive: true,
       notes: "", leadSource: "", leadSourceDate: "", leadSourceNotes: "", conferenceName: "",
       conferenceDate: "", isReferredByDoctor: false, isFromConference: false,
-      initialStatus: "", interestCooperation: "", interestContract: "", contractStatus: "",
+      initialStatus: "not_contacted", interestCooperation: "", interestContract: "", contractStatus: "",
       lastCallResult: "", lastCallNote: "", nextContactDate: "", contractSentDate: "",
       contractReturnedDate: "", hasFlyers: false, flyersSentDate: "", flyersLocation: "",
     };
@@ -534,6 +546,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
     };
   };
   const [formData, setFormData] = useState<ClinicFormData>(() => ({ ...buildFormData(initialData), ...(prefillData || {}) }));
+  const handleCreateCityChange = (city: string) => setFormData(previous => {
+    if (city.trim().toLocaleLowerCase() === previous.city.trim().toLocaleLowerCase()) return { ...previous, city };
+    const ambiguous = previous.countryCode === "SK" && ["bratislava", "košice"].includes(city.trim().toLocaleLowerCase());
+    return { ...previous, city, region: getAutoRegion(previous.countryCode, city) || "",
+      district: ambiguous ? "" : getAutoDistrict(previous.countryCode, city) || "" };
+  });
   const originalAddressRef = useRef(formData);
 
   const lookupPostalCode = async () => {
@@ -732,6 +750,12 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       originalAddressRef.current = nextFormData;
       setFormData(nextFormData);
       setSavedClinicId(null);
+      setDraftPersonnel([]);
+      setDraftRepresentative(null);
+      setDraftAgreements([]);
+      setCreationPending(false);
+      setCreationError(false);
+      creationProgress.current = { id: null, done: new Set() };
       userEditedReferralsRef.current = false;
       pendingSuccessRef.current = false;
     }
@@ -892,12 +916,23 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   const saveMutation = useMutation({
     mutationFn: async (data: ClinicFormData) => {
+      if (!initialData && draftAgreements.some(row => !row.title.trim() ||
+        (!row.unlimited && !row.validTo) || (row.validFrom && row.validTo && !row.unlimited && row.validFrom > row.validTo))) {
+        throw new Error(t.errors.required);
+      }
+      if (!initialData && draftPersonnel.some(row => row.country_code && row.country_code !== data.countryCode)) {
+        throw new Error(t.errors.required);
+      }
+      if (!initialData && ((draftRepresentative && !canAssignNewRepresentative) ||
+          (draftAgreements.length && !canManageNewAgreements))) throw new Error("clinic_relationship_permission");
       const payload = {
         name: data.name,
-        doctorTitle: data.doctorTitle || null,
-        doctorFirstName: data.doctorFirstName || null,
-        doctorLastName: data.doctorLastName || null,
-        doctorName: [data.doctorTitle, data.doctorFirstName, data.doctorLastName].filter(Boolean).join(" ") || null,
+        ...(initialData ? {
+          doctorTitle: data.doctorTitle || null,
+          doctorFirstName: data.doctorFirstName || null,
+          doctorLastName: data.doctorLastName || null,
+          doctorName: [data.doctorTitle, data.doctorFirstName, data.doctorLastName].filter(Boolean).join(" ") || null,
+        } : {}),
         idZz: data.idZz || null,
         pzsCode: data.pzsCode || null,
         pzsName: data.pzsName || null,
@@ -929,7 +964,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         conferenceName: data.isFromConference ? (data.conferenceName || null) : null,
         isReferredByDoctor: data.isReferredByDoctor,
         isFromConference: data.isFromConference,
-        initialStatus: data.initialStatus || null,
+        initialStatus: data.initialStatus || (!initialData ? "not_contacted" : null),
         interestCooperation: data.interestCooperation || null,
         interestContract: data.interestContract || null,
         contractStatus: data.contractStatus || null,
@@ -945,11 +980,24 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       let res;
       if (initialData) {
         res = await apiRequest("PUT", `/api/clinics/${initialData.id}`, payload);
+      } else if (creationProgress.current.id) {
+        res = await apiRequest("PUT", `/api/clinics/${creationProgress.current.id}`, payload);
       } else {
         res = await apiRequest("POST", "/api/clinics", payload);
       }
       const savedClinic = await res.json();
-      if (savedClinic?.id) {
+      if (!initialData && savedClinic?.id) {
+        creationProgress.current.id = savedClinic.id;
+        setCreationPending(true);
+        pendingSuccessRef.current = true;
+        queryClient.invalidateQueries({ queryKey: ["/api/clinics"] });
+      }
+      const once = async (key: string, write: () => Promise<unknown>) => {
+        if (!initialData && creationProgress.current.done.has(key)) return;
+        await write();
+        if (!initialData) creationProgress.current.done.add(key);
+      };
+      if (savedClinic?.id && (initialData || !creationProgress.current.done.has("referrals"))) {
         if (initialData && existingReferrals && existingReferrals.length > 0) {
           for (const old of existingReferrals) {
             await apiRequest("DELETE", `/api/clinic-referrals/${old.id}`);
@@ -957,11 +1005,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         }
         if (referrals.length > 0) {
           for (const ref of referrals) {
-            await apiRequest("POST", "/api/clinic-referrals", {
+            await once(`referral:forward:${ref.clinicId}:${ref.referralType}`, () => apiRequest("POST", "/api/clinic-referrals", {
               clinicId: savedClinic.id,
               referringClinicId: ref.clinicId,
               referralType: ref.referralType,
-            });
+            }));
           }
         }
         if (initialData && reverseReferrals && reverseReferrals.length > 0) {
@@ -971,13 +1019,37 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
         }
         if (suggestsReferrals.length > 0) {
           for (const ref of suggestsReferrals) {
-            await apiRequest("POST", "/api/clinic-referrals", {
+            await once(`referral:reverse:${ref.clinicId}`, () => apiRequest("POST", "/api/clinic-referrals", {
               clinicId: ref.clinicId,
               referringClinicId: savedClinic.id,
               referralType: "doctor_referral",
-            });
+            }));
           }
         }
+      }
+      if (!initialData && savedClinic?.id) {
+        creationProgress.current.done.add("referrals");
+        for (const row of draftPersonnel) {
+          await once(`personnel:${row.assignment_id}`, () => apiRequest("POST", `/api/institutions/clinic/${savedClinic.id}/personnel`, {
+            personId: row.person_id, department: row.department || null, position: row.position || null,
+            role: row.role || null, categoryId: row.categoryId || null, isPrimary: !!row.is_primary, notes: row.notes || null,
+          }));
+        }
+        if (draftRepresentative) await once("representative", () => apiRequest("POST", `/api/clinics/${savedClinic.id}/representative`, {
+          userId: draftRepresentative.userId, note: draftRepresentative.note,
+        }));
+        for (const row of draftAgreements) await once(`agreement:${row.id}`, async () => {
+          const form = new FormData();
+          form.append("file", row.file); form.append("title", row.title.trim());
+          form.append("active", "true");
+          if (row.contractNumber.trim()) form.append("contractNumber", row.contractNumber.trim());
+          if (row.validFrom) form.append("validFrom", row.validFrom);
+          if (!row.unlimited && row.validTo) form.append("validTo", row.validTo);
+          const response = await fetch(`/api/clinics/${savedClinic.id}/agreements`, { method: "POST", credentials: "include", body: form });
+          if (!response.ok) throw new Error(t.clinics.agreements.uploadError);
+        });
+        setCreationError(false);
+        setCreationPending(false);
       }
       if (savedClinic?.id && onCreated && !initialData) {
         try { await onCreated(savedClinic); } catch (e) { console.error("[ClinicFormSheet] onCreated callback failed:", e); }
@@ -1004,7 +1076,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
       }
     },
     onError: () => {
-      toast({ title: t.errors.saveFailed, variant: "destructive" });
+      if (creationProgress.current.id) setCreationError(true);
+      toast({ title: t.errors.saveFailed, description: creationProgress.current.id ? t.clinicCreation.partial : undefined, variant: "destructive" });
     },
   });
 
@@ -1019,6 +1092,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
 
   // For the add-mode sheet: call onSuccess() exactly once, when the drawer actually closes.
   const handleAddModeOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && saveMutation.isPending) return;
     if (!nextOpen && pendingSuccessRef.current) {
       pendingSuccessRef.current = false;
       onSuccess();
@@ -2721,7 +2795,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                       streetNumber={[formData.street, [formData.streetNumber, formData.orientationNumber].filter(Boolean).join("/")].filter(Boolean).join(" ") || formData.address}
                       postalCode={formData.postalCode}
                       size="icon"
-                      onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                      onSuggestion={(region, district) => setFormData(prev => ({ ...prev, region, district }))}
                     />
                   </div>
                 </div>
@@ -3078,7 +3152,8 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               })}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5">
+            <fieldset disabled={saveMutation.isPending || (creationPending && !savedClinicId && activeTab !== "agreements")} className="flex-1 overflow-y-auto p-5 min-w-0"
+              style={{ pointerEvents: saveMutation.isPending || (creationPending && !savedClinicId && activeTab !== "agreements") ? "none" : undefined }}>
               {activeTab === "referral" && (
                 <div className="space-y-4 pb-4">
                   <div className="space-y-3">
@@ -3351,15 +3426,6 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   </div>
                   <Separator />
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-purple-100 dark:bg-purple-900"><Stethoscope className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.doctor || 'Doctor'}</h3></div>
-                    <div className="grid gap-3 sm:grid-cols-3 pl-1">
-                      <div className="space-y-1"><Label className="text-xs">{t.common.title || "Title"}</Label><Input value={formData.doctorTitle} onChange={(e) => setFormData({ ...formData, doctorTitle: e.target.value })} placeholder="MUDr." className="h-9" data-testid="input-add-doctor-title" /></div>
-                      <div className="space-y-1"><Label className="text-xs">{t.clinics.sections?.firstName || "First name"}</Label><Input value={formData.doctorFirstName} onChange={(e) => setFormData({ ...formData, doctorFirstName: e.target.value })} placeholder={t.clinics.sections?.firstName || "First name"} className="h-9" data-testid="input-add-doctor-firstname" /></div>
-                      <div className="space-y-1"><Label className="text-xs">{t.common.lastName || "Last name"}</Label><Input value={formData.doctorLastName} onChange={(e) => setFormData({ ...formData, doctorLastName: e.target.value })} placeholder={t.common.lastName || "Last name"} className="h-9" data-testid="input-add-doctor-lastname" /></div>
-                    </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-3">
                     <div className="flex items-center gap-2"><div className="flex items-center justify-center w-6 h-6 rounded-md bg-sky-100 dark:bg-sky-900"><Phone className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" /></div><h3 className="text-sm font-semibold tracking-wide">{t.clinics.sections?.contact || 'Contact'}</h3></div>
                     <div className="grid gap-3 sm:grid-cols-2 pl-1">
                       <div className="space-y-3">
@@ -3449,7 +3515,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                     </div>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={(e) => { const newCity = e.target.value; const newRegion = getAutoRegion(formData.countryCode, newCity); const newDistrict = getAutoDistrict(formData.countryCode, newCity); setFormData({ ...formData, city: newCity, region: newRegion || formData.region, district: newDistrict || formData.district }); }} placeholder={t.clinics.city} className="h-9" data-testid="input-add-clinic-city" /></div>
+                    <div className="space-y-1"><Label className="text-xs">{t.clinics.city}</Label><Input value={formData.city} onChange={event => handleCreateCityChange(event.target.value)} placeholder={t.clinics.city} className="h-9" data-testid="input-add-clinic-city" /></div>
                     <div className="space-y-1">
                       <Label className="text-xs">{t.clinics.postalCode}</Label>
                       <div className="flex items-center gap-1">
@@ -3488,7 +3554,7 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                           streetNumber={[formData.street, [formData.streetNumber, formData.orientationNumber].filter(Boolean).join("/")].filter(Boolean).join(" ") || formData.address}
                           postalCode={formData.postalCode}
                           size="icon"
-                          onSuggestion={(region, district) => setFormData({ ...formData, region, district })}
+                          onSuggestion={(region, district) => setFormData(prev => ({ ...prev, region, district }))}
                         />
                       </div>
                     </div>
@@ -3533,9 +3599,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               )}
 
               {activeTab === "personnel" && (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                  <Users className="h-10 w-10 mb-3 opacity-40" />
-                  <p className="text-sm">{(t as any).medicalPartnerNetwork?.noPersonnel || "Personnel can be added after saving."}</p>
+                <div className="space-y-3">
+                  {!savedClinicId && <p className="text-sm text-muted-foreground">{t.clinicCreation.pending}</p>}
+                  <InstitutionPersonnelManager entityType="clinic" entityId={savedClinicId || ""} entityName={formData.name}
+                    countryCode={formData.countryCode || "SK"}
+                    draft={savedClinicId ? undefined : { rows: draftPersonnel, onChange: setDraftPersonnel }} />
                 </div>
               )}
 
@@ -3549,12 +3617,11 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
               {activeTab === "representative" && (
                 savedClinicId ? (
                   <ClinicRepresentativePanel clinicId={savedClinicId} />
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                    <UserCheck className="h-10 w-10 mb-3 opacity-40" />
-                    <p className="text-sm">{t.representantPanel.notSaved}</p>
+                ) : canAssignNewRepresentative ? (
+                  <div className="space-y-3"><p className="text-sm text-muted-foreground">{t.clinicCreation.pending}</p>
+                    <ClinicRepresentativePanel clinicId="" draft={{ assignment: draftRepresentative, onChange: setDraftRepresentative }} />
                   </div>
-                )
+                ) : <p className="text-sm text-muted-foreground">{t.clinics.agreements.viewOnly}</p>
               )}
 
               {activeTab === "cooperation" && (
@@ -3564,17 +3631,22 @@ export function ClinicFormSheet({ open, onOpenChange, initialData, onSuccess, on
                   <p className="text-xs mt-1 max-w-xs">{tc.cooperationNoDataHint ?? "Records are created automatically when a coordinator confirms a status-list option with a canonical status set."}</p>
                 </div>
               )}
-              {activeTab === "agreements" && <ClinicAgreementsPanel key={String(savedClinicId || "unsaved")} clinicId={savedClinicId} readOnly={readOnly} allowReadOnlyEdit={roEx.agreements === true} campaignId={campaignId} countryCode={formData.countryCode || "SK"} />}
-            </div>
+              {activeTab === "agreements" && (savedClinicId
+                ? <ClinicAgreementsPanel clinicId={savedClinicId} readOnly={readOnly} allowReadOnlyEdit={roEx.agreements === true} campaignId={campaignId} countryCode={formData.countryCode || "SK"} />
+                : canManageNewAgreements ? <ClinicCreateAgreements rows={draftAgreements} onChange={setDraftAgreements} countryCode={formData.countryCode || "SK"}
+                  committed={new Set(draftAgreements.filter(row => creationProgress.current.done.has(`agreement:${row.id}`)).map(row => row.id))} />
+                : <p className="text-sm text-muted-foreground">{t.clinics.agreements.viewOnly}</p>)}
+            </fieldset>
           </div>
 
           <div className="shrink-0 border-t bg-muted/30 px-5 py-3 flex items-center justify-end gap-2">
+            {creationError && <p role="alert" className="mr-auto max-w-xl text-sm text-destructive">{t.clinicCreation.partial}</p>}
             {savedClinicId ? (
               <Button onClick={() => handleAddModeOpenChange(false)} data-testid="button-close-clinic-add">{t.common.cancel}</Button>
             ) : (
               <>
                 <Button variant="outline" onClick={() => handleAddModeOpenChange(false)} data-testid="button-cancel-clinic-add">{t.common.cancel}</Button>
-                <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-clinic-add">
+                <Button onClick={handleSave} disabled={saveMutation.isPending || draftWriteCount > 0} data-testid="button-save-clinic-add">
                   {saveMutation.isPending ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
                   {t.common.save}
                 </Button>
