@@ -105,7 +105,9 @@ runtime; neobnovuje automaticky databázu a nereštartuje Audio Analyzer.
 | IP CORPCRM01 | `10.1.2.111` – lokálna adresa a zdroj priameho IPv4 spojenia |
 | IPv4 DNS | Úspech: `ai.cordbloodcenter.com` → `10.9.2.140` |
 | Priame HTTPS/TLS | Úspech: koreň domény HTTP 200, curl exit 0, TLS verify result 0 |
-| IP videná AI serverom | Čaká sa na koreláciu root probe na prijímacej strane |
+| IP videná AI serverom | AI tím potvrdil `10.1.2.111`, bez NAT pre doložené spojenie; allowlist `10.1.2.111/32` |
+| Interný port Gateway | Potvrdený cieľ `127.0.0.1:8770`; nasadenie zatiaľ nepotvrdené |
+| Konfigurátor AI | Pripravené ovládanie, manuálne testy a audit; podrobnosti v `docs/ai-configurator-release.md` |
 | Uloženie tokenu | Postup navrhnutý; uloženie nepotvrdené, hodnota sa neuvádza |
 | Živé integračné testy Gateway | Zámerne nespustené; Gateway sa ešte pripravuje |
 | Smerovanie existujúcich služieb | V pripravenom zdroji OpenAI; žiadna zmena produkcie vykonaná |
@@ -130,16 +132,15 @@ Kontrola nevyžadovala token ani nasadenie nového CRM kódu.
 Toto potvrdzuje priame IPv4 DNS/TCP/HTTPS spojenie z CORPCRM01 ku koreňu domény
 v čase kontroly. **Nepotvrdzuje nasadenie `/gateway/`, Bearer autentifikáciu,
 pripravenosť modelu, Node trust store ani integračné správanie adaptéra.**
-Zdroj po prípadnom NAT-e stále musí potvrdiť prijímajúca strana; nesmie sa
-automaticky stotožniť s lokálnou adresou `10.1.2.111`.
+Prijímacia strana následne potvrdila v Nginx logu zdroj `10.1.2.111`, metódu
+HEAD, HTTP 200 a rovnaký UTC čas. Pre toto spojenie sa nepozoroval NAT.
 
 ### Odovzdanie AI tímu
 
-Vyhľadať root HEAD požiadavku s query identifikátorom
-`indexus-network-20261111T170309Z-17196` okolo `2026-11-11 17:03:09 UTC`
-v príslušnom prístupovom logu. Potvrdiť zdrojovú adresu s ohľadom na skutočnú
-proxy/NAT topológiu a dôveryhodné real-IP nastavenia; až podľa tejto adresy
-pripraviť Nginx obmedzenie prístupu pre CORPCRM01.
+Korelácia root HEAD je potvrdená: `10.1.2.111/32` je finálny allowlist pre
+CORPCRM01. Dohodnutý upstream Gateway je `127.0.0.1:8770`. Návrh samostatnej
+Nginx sekcie je v `ops/nginx/indexus-ai-gateway.location.conf`; do produkčnej
+konfigurácie sa v tejto príprave nezapisuje.
 
 Následne potvrdiť sprevádzkovanie dohodnutých endpointov pod `/gateway/`,
 Bearer autentifikáciu a skutočné text/JSON schopnosti modelu

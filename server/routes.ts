@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerOmniMailboxGroupRoutes, availableOmniEmails } from "./lib/omni-mailbox-group-routes";
+import { registerAIAdministration } from "./lib/ai-settings-bootstrap";
 import { registerOmniSearchExport, createOmniExportDependencies } from "./lib/omni-search-export";
 import { createCustomerEmailHandler } from "./lib/customer-email-handler";
 import { registerMissionFunnelRoutes } from "./lib/mission-funnel-routes";
@@ -3057,6 +3058,7 @@ export async function registerRoutes(
   // Wallboard is manager/admin (or an explicit custom-role campaigns reader)
   // only; the route itself applies workspace-country filtering.
   registerWallboardRoutes(app, requireAuth);
+  registerAIAdministration(app, requireAuth);
   const { registerContactLoadRoutes } = await import("./lib/mission-contact-load-routes");
   registerContactLoadRoutes(app, requireAuth, applyCriteriaGroups);
   registerMissionFunnelRoutes(app, requireAuth);

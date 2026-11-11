@@ -8,6 +8,8 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "test:pulse-dial-browser": "playwright test e2e/pulse-dial.spec.ts",
+    "test:ai-settings": "tsx --test server/lib/ai/settings.test.ts server/lib/ai/settings-routes.db.test.ts client/src/i18n/ai-settings-translations.test.ts",
+    "test:ai-settings-ui": "node script/test-ai-settings-ui.cjs",
     "test:clone-campaign": "bash script/test-clone-campaign.sh",
     "test:callback-transition": "tsx server/lib/status-list-service-calendar.test.ts && NODE_ENV=test tsx server/lib/status-list-service.test.ts && tsx server/lib/status-list-callback-journal-schema.test.ts && tsx client/src/lib/callback-request-identity.test.ts && tsx shared/status-list-transition.test.ts && tsx server/lib/status-list-transition-inventory.test.ts && tsx server/lib/status-list-transition-route.test.ts && tsx server/lib/status-list-callback-transition.db.test.ts && tsx server/lib/status-list-service-history.db.test.ts && tsx server/lib/status-list-transition-export.test.ts",
     "test:automation-eligibility": "tsx shared/automation-eligibility.test.ts && tsx server/lib/automation-input-history.test.ts && tsx server/lib/automation-eligibility.test.ts",

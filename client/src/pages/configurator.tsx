@@ -56,6 +56,7 @@ import { DepartmentTree } from "@/components/department-tree";
 import WebFormsPage from "@/pages/web-forms";
 import ScrapingPage from "@/pages/scraping";
 import { BeratungEmailTab } from "@/components/beratung-email-tab";
+import { AISettingsTab } from "@/components/configurator/AISettingsTab";
 
 const serviceFormSchema = z.object({
   serviceCode: z.string().min(1, "Service code is required"),
@@ -21588,7 +21589,13 @@ export default function ConfiguratorPage() {
         description={t.konfigurator.description}
       />
       
-      <Tabs defaultValue="products" className="space-y-4">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") === "ai" ? "ai" : "products"} className="space-y-4"
+        onValueChange={(value) => {
+          const url = new URL(window.location.href);
+          if (value === "products") url.searchParams.delete("tab");
+          else url.searchParams.set("tab", value);
+          window.history.replaceState({}, "", url);
+        }}>
         <TabsList className="flex flex-wrap h-auto gap-1 p-1 w-full">
           <TabsTrigger value="products" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-products">
             <Package className="h-4 w-4 shrink-0" />
@@ -21625,6 +21632,10 @@ export default function ConfiguratorPage() {
           <TabsTrigger value="beratung-email" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-beratung-email">
             <Mail className="h-4 w-4 shrink-0" />
             <span className="hidden md:inline">Beratung E-mail</span>
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="flex items-center gap-2 text-xs sm:text-sm" data-testid="tab-ai">
+            <Brain className="h-4 w-4 shrink-0" />
+            <span>{t.aiSettings.title}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -21852,6 +21863,10 @@ export default function ConfiguratorPage() {
               <BeratungEmailTab />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <AISettingsTab />
         </TabsContent>
 
       </Tabs>

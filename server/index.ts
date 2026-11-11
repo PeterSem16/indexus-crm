@@ -1,5 +1,6 @@
 import { RECORD_ENTRY_SCHEMA } from "./lib/automation-record-entry";
 import { initializeAIRouter } from "./lib/ai-router";
+import { initializeAIAdministration } from "./lib/ai-settings-bootstrap";
 import express, { type Request, Response, NextFunction } from "express";
 import { gzip } from "zlib";
 import { registerRoutes } from "./routes";
@@ -226,6 +227,16 @@ app.use((req, res, next) => {
     console.log("[migration] standalone Automation schema ensured");
   } catch (error) {
     console.error("[migration] fatal standalone Automation schema error:", error instanceof Error ? error.message : error);
+    process.exit(1);
+  }
+
+  // CORPCRM01 does not run db:push. Persisted defaults keep every service on OpenAI.
+  try {
+    await initializeAIAdministration();
+    initializeAIRouter();
+    console.log("[migration] AI administration schema ensured; no provider activated");
+  } catch {
+    console.error("[migration] fatal AI administration schema error");
     process.exit(1);
   }
 

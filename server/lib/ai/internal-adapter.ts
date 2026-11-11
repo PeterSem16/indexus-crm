@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import type { AIClientOptions, AIProviderAdapter } from "./openai-adapter";
+import { aiAdminSnapshot } from "./admin-runtime";
+import type { AIGatewaySettings } from "../../../shared/ai-settings";
 import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
   validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
 
@@ -9,14 +11,18 @@ export interface InternalAIConfiguration {
   replit: boolean;
   baseURL?: string;
   token?: string;
+  serverAllowed?: boolean;
 }
 /** Only this adapter reads Gateway credentials. No host, port or secret is guessed. */
 function environmentConfiguration(): InternalAIConfiguration {
+  const settings = aiAdminSnapshot()?.value.gateway;
+  const serverAllowed = process.env.INDEXUS_AI_GATEWAY_ENABLED === "true";
   return {
-    enabled: process.env.INDEXUS_AI_GATEWAY_ENABLED === "true",
+    enabled: serverAllowed && (settings?.enabled ?? true),
+    serverAllowed,
     production: process.env.NODE_ENV === "production",
     replit: !!(process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN),
-    baseURL: process.env.INDEXUS_AI_GATEWAY_BASE_URL,
+    baseURL: settings?.baseURL ?? process.env.INDEXUS_AI_GATEWAY_BASE_URL,
     token: process.env.INDEXUS_AI_GATEWAY_TOKEN,
   };
 }
@@ -56,6 +62,7 @@ const jsonResponse = (value: unknown, status = 200) => new Response(JSON.stringi
 
 export function createInternalAIAdapter(dependencies: {
   readConfiguration?: () => InternalAIConfiguration;
+  readSettings?: () => AIGatewaySettings | undefined;
   fetch?: typeof fetch;
   allowedModels?: readonly string[];
 } = {}) {
@@ -102,19 +109,28 @@ export function createInternalAIAdapter(dependencies: {
     return validateInternalDiscovery(models, capabilities, allowed);
   }
   const adapter: AIProviderAdapter & {
+    runtimeStatus(): { production: boolean; replit: boolean; serverAllowed: boolean; tokenConfigured: boolean };
     inspect(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<{
       ready: true; apiVersion: "1"; models: ReturnType<typeof validateInternalDiscovery>;
     }>;
   } = {
     id: "internal",
+    runtimeStatus() {
+      const config = readConfiguration();
+      return { production: config.production, replit: config.replit,
+        serverAllowed: config.serverAllowed ?? config.enabled, tokenConfigured: !!config.token?.trim() };
+    },
     isAvailable() {
       try { configuration(readConfiguration()); return true; } catch { return false; }
     },
     createClient(options: AIClientOptions) {
       const config = configuration(readConfiguration());
+      const managed = dependencies.readSettings?.() ??
+        (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
       const sdk = new OpenAI({
         baseURL: new URL("v1", config.base).href, apiKey: config.token,
-        timeout: options.timeout ?? 30_000, maxRetries: options.maxRetries ?? 0,
+        timeout: managed?.timeoutMs ?? options.timeout ?? 30_000,
+        maxRetries: managed?.maxRetries ?? options.maxRetries ?? 0,
         fetch: async (input, init) => {
           try {
             const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -141,6 +157,10 @@ export function createInternalAIAdapter(dependencies: {
       });
       const create = sdk.chat.completions.create.bind(sdk.chat.completions);
       sdk.chat.completions.create = ((body: unknown, options?: unknown) => {
+        if (managed && body && typeof body === "object") body = { ...body,
+          ...(managed.temperature !== null ? { temperature: managed.temperature } : {}),
+          ...(managed.maxTokens !== null ? { max_tokens: managed.maxTokens } : {}),
+        };
         // Synchronous capability rejection preserves the SDK APIPromise without wrapping it.
         validateInternalRequest(body, allowed);
         return create(body as any, options as any);
