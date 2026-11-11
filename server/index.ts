@@ -1,4 +1,5 @@
 import { RECORD_ENTRY_SCHEMA } from "./lib/automation-record-entry";
+import { initializeAIRouter } from "./lib/ai-router";
 import express, { type Request, Response, NextFunction } from "express";
 import { gzip } from "zlib";
 import { registerRoutes } from "./routes";
@@ -20,6 +21,8 @@ import {
   JMHZ_EDUCATION_TO_CARD_VALUE,
   JMHZ_PROFESSION_TO_CARD_VALUE,
 } from "@shared/jmhz-mappings";
+
+initializeAIRouter();
 
 async function normalizeJmhzCardValues(
   column: "highest_education" | "professional_classification",

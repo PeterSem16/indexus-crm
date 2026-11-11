@@ -1,4 +1,5 @@
 import { and, asc, eq, sql } from "drizzle-orm";
+import { isAIAvailable } from "./ai-router";
 import { callLogs, callRecordings, inboundCallLogs } from "@shared/schema";
 import { db } from "../db";
 import { createStandingAnalysisDispatcher } from "./standing-recording-analysis-policy";
@@ -20,7 +21,7 @@ export function setStandingRecordingAnalyzer(analyze: (id: string, filePath: str
 
 export async function dispatchPendingStandingAnalyses(callLogId?: string): Promise<void> {
   const analyze = dispatch;
-  if (!analyze || !process.env.OPENAI_API_KEY || (!callLogId && scanning)) return;
+  if (!analyze || !isAIAvailable("call_recording.transcription") || (!callLogId && scanning)) return;
   if (!callLogId) scanning = true;
   try {
     const rows = await db.select({

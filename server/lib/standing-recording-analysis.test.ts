@@ -84,6 +84,7 @@ test("native recovery worker starts at registration, survives PBX absence and di
   let available: StandingAnalysisPublication[] = [row];
   let tick!: () => void;
   let scans = 0;
+  let aiEnabled = true;
   const analyzed: string[] = [];
   const chain: any = {};
   for (const name of ["from", "innerJoin", "where", "orderBy"]) chain[name] = () => chain;
@@ -101,6 +102,10 @@ test("native recovery worker starts at registration, survives PBX absence and di
       if (name === "drizzle-orm") return drizzle;
       if (name === "@shared/schema") return { callLogs, callRecordings, inboundCallLogs };
       if (name === "../db") return { db: { select: () => chain } };
+      if (name === "./ai-router") return { isAIAvailable(service: string) {
+        assert.equal(service, "call_recording.transcription");
+        return aiEnabled;
+      } };
       if (name === "./standing-recording-analysis-policy") return { createStandingAnalysisDispatcher };
       throw Error(`Unexpected dependency ${name}`);
     },
@@ -113,4 +118,8 @@ test("native recovery worker starts at registration, survives PBX absence and di
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(scans, 2);
   assert.equal(analyzed.length, 2);
+  aiEnabled = false;
+  tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(scans, 2, "central readiness must stop recovery without touching recordings");
 });

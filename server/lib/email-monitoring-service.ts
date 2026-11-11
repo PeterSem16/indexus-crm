@@ -1,4 +1,5 @@
 import { storage } from "../storage";
+import { aiClient } from "./ai-router";
 import { notificationService } from "./notification-service";
 import { db } from "../db";
 import { communicationMessages, clinics, hospitals, collaborators, systemMs365Connections } from "../../shared/schema";
@@ -37,8 +38,7 @@ async function analyzeEmailContent(content: string): Promise<{
   alertLevel: "none" | "warning" | "critical";
   note: string;
 }> {
-  const openai = await import("openai");
-  const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+  const client = aiClient("email.monitoring");
   
   const response = await client.chat.completions.create({
     model: "gpt-4o-mini",

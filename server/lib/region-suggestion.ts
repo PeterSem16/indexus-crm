@@ -1,4 +1,5 @@
 import { REGIONS_BY_COUNTRY, DISTRICTS_BY_REGION, REGION_MAP, DISTRICT_MAP, getDistrictsForRegion } from "../../client/src/lib/regions";
+import { aiClient, isAIAvailable } from "./ai-router";
 
 const normalized = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()
   .replace(/\b(okres|district|region|kraj|county|megye|judetul)\b/g, "").replace(/[^a-z0-9]/g, "");
@@ -76,9 +77,8 @@ async function geocode(input: any, key: string, fetcher: typeof fetch) {
 /** Preserve the existing configured AI provider, but constrain its answer to the
  * real dropdown vocabulary. Never instantiate an unconfigured client. */
 export async function suggestRegionWithProviders(input: any) {
-  const ai: AiLookup | undefined = process.env.OPENAI_API_KEY ? async address => {
-    const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15000, maxRetries: 0 });
+  const ai: AiLookup | undefined = isAIAvailable("geography.region") ? async address => {
+    const client = aiClient("geography.region", { timeout: 15000, maxRetries: 0 });
     const vocabulary = DISTRICTS_BY_REGION[address.countryCode];
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini", temperature: 0, max_tokens: 250, response_format: { type: "json_object" },

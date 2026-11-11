@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isAIAvailable } from "./ai-router";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { and, eq, ne, or, sql } from "drizzle-orm";
@@ -56,7 +57,7 @@ export function setForwardedRecordingAnalyzer(
 
 async function dispatchPendingForwardedAnalyses(): Promise<void> {
   const dispatch = dispatchForwardedAnalysis;
-  if (!dispatch || !process.env.OPENAI_API_KEY || analysisScanRunning) return;
+  if (!dispatch || !isAIAvailable("call_recording.transcription") || analysisScanRunning) return;
   analysisScanRunning = true;
   try {
     const publications = await db.select({

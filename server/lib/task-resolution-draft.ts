@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { aiClient, isAIAvailable } from "./ai-router";
 
 const AI_TIMEOUT_MS = 15_000;
 const MODEL = "gpt-4o-mini";
@@ -211,11 +211,10 @@ export async function generateTaskResolutionDraft(
   if (!task.completedItems.length) {
     return { status: "unavailable", errorCode: "no_completed_items" };
   }
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return { status: "unavailable", errorCode: "api_key_missing" };
+  if (!isAIAvailable("task.resolution")) return { status: "unavailable", errorCode: "api_key_missing" };
 
   try {
-    const client = new OpenAI({ apiKey, timeout: AI_TIMEOUT_MS, maxRetries: 0 });
+    const client = aiClient("task.resolution", { timeout: AI_TIMEOUT_MS, maxRetries: 0 });
     return await generateTaskResolutionDraftWithCompletion(input, async (messages) => {
       const response = await client.chat.completions.create({
         model: MODEL,

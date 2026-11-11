@@ -1,7 +1,7 @@
-import OpenAI from "openai";
+import { aiClient } from "./ai-router";
 import { z } from "zod";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = aiClient("scraper.contacts");
 
 const ContactSchema = z.object({
   name: z.string().max(300).optional(),

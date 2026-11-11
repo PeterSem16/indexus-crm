@@ -7,6 +7,7 @@
 
 import { pool } from "../db";
 import { encryptTokenWithMarker, decryptTokenSafe } from "./token-crypto";
+import { aiClient } from "./ai-router";
 import { createGraphClient, getValidAccessToken } from "./ms365";
 
 const BERATUNG_EMAIL = process.env.BERATUNG_EMAIL || "beratung@cordbloodcenter.com";
@@ -250,8 +251,7 @@ function isAudioAttachment(contentType: string, name: string): boolean {
 
 async function transcribeAudio(buf: Buffer, filename: string): Promise<string> {
   try {
-    const openai = await import("openai");
-    const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+    const client = aiClient("beratung.transcription");
 
     // Determine extension for the File object
     const ext = filename.toLowerCase().substring(filename.lastIndexOf(".") + 1) || "mp3";
@@ -281,8 +281,7 @@ async function transcribeAudio(buf: Buffer, filename: string): Promise<string> {
 async function analyzeVoicemail(transcript: string): Promise<string> {
   if (!transcript || transcript.length < 10) return "";
   try {
-    const openai = await import("openai");
-    const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+    const client = aiClient("beratung.analysis");
     const resp = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -373,8 +372,7 @@ async function fetchAndExtractAttachments(
 // ─── Translation via OpenAI ───────────────────────────────────────────────────
 
 async function translateToLanguage(text: string, targetLang: "SK" | "CS"): Promise<string> {
-  const openai = await import("openai");
-  const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+  const client = aiClient("beratung.translation");
 
   const langName = targetLang === "SK" ? "Slovak" : "Czech";
   const response = await client.chat.completions.create({

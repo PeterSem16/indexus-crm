@@ -1,4 +1,5 @@
 import { normalizeCityLocation, type NormalizedCityLocation } from "@shared/priority-city";
+import { aiClient, isAIAvailable } from "./ai-router";
 
 export type PriorityCityLocation = NormalizedCityLocation;
 
@@ -305,8 +306,7 @@ async function defaultPriorityCityAiProvider(
   signal?: AbortSignal,
   repair?: PriorityCityAiRepairContext,
 ): Promise<unknown> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!isAIAvailable("geography.priority")) {
     throw new PriorityCityRankingError(
       "AI_UNCONFIGURED",
       "AI ranking is not configured",
@@ -316,9 +316,7 @@ async function defaultPriorityCityAiProvider(
 
   // Keep construction lazy: a missing key must not prevent the server from
   // booting, and no secret is read until an authenticated ranking is requested.
-  const { default: OpenAI } = await import("openai");
-  const client = new OpenAI({
-    apiKey,
+  const client = aiClient("geography.priority", {
     maxRetries: 0,
     timeout: PRIORITY_CITY_DEFAULT_TIMEOUT_MS,
   });

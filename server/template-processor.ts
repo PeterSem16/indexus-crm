@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, PDFName, PDFString } from "pdf-lib";
+import { aiClient } from "./lib/ai-router";
 import fontkit from "@pdf-lib/fontkit";
 import * as fs from "fs";
 import * as path from "path";
@@ -80,8 +81,7 @@ export async function extractPdfFormFields(pdfPath: string): Promise<TemplateFie
 
       const fieldNames = extractedFields.map(f => f.name);
       try {
-        const OpenAI = (await import("openai")).default;
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const openai = aiClient("template.pdf_extraction");
 
         const prompt = `I have a PDF form for a cord blood banking contract. I need to identify what each form field represents based on the surrounding text in the PDF.
 

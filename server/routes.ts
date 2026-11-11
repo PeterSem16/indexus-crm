@@ -243,7 +243,8 @@ import PDFDocument from "pdfkit";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
-import OpenAI, { toFile } from "openai";
+import { toFile } from "openai";
+import { aiClient, isAIAvailable } from "./lib/ai-router";
 import { createStatusListLabelTranslationHandler } from "./lib/status-list-label-translation";
 import { statusListLabelTranslationsSchema } from "../shared/status-list-label-translations";
 import {
@@ -551,9 +552,7 @@ ensureAllDirectoriesExist();
 // Global uploads directory (for backward compatibility)
 const uploadsDir = DATA_ROOT;
 
-// OpenAI client for AI-powered PDF conversion
-// the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// AI operations are routed by stable service purpose; caller models and prompts remain unchanged.
 
 // AI-powered email content analysis for sentiment, characteristics, and intent detection
 interface EmailAnalysisResult {
@@ -570,7 +569,7 @@ interface EmailAnalysisResult {
 }
 
 async function analyzeEmailContent(content: string, subject: string): Promise<EmailAnalysisResult | null> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isAIAvailable("email.sentiment")) {
     console.log("[AI Analysis] OpenAI API key not configured, skipping analysis");
     return null;
   }
@@ -579,7 +578,7 @@ async function analyzeEmailContent(content: string, subject: string): Promise<Em
     // Strip HTML tags and limit content length
     const cleanContent = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 2000);
     
-    const response = await openai.chat.completions.create({
+    const response = await aiClient("email.sentiment").chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -641,7 +640,7 @@ Slovak profanity: check for vulgar words like "sakra", "do riti", "kurva" and si
 
 // AI-powered SMS content analysis for sentiment, characteristics, and intent detection
 async function analyzeSmsContent(content: string): Promise<EmailAnalysisResult | null> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isAIAvailable("sms.sentiment")) {
     console.log("[AI SMS Analysis] OpenAI API key not configured, skipping analysis");
     return null;
   }
@@ -649,7 +648,7 @@ async function analyzeSmsContent(content: string): Promise<EmailAnalysisResult |
   try {
     const cleanContent = content.trim().substring(0, 500);
     
-    const response = await openai.chat.completions.create({
+    const response = await aiClient("sms.sentiment").chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
@@ -6698,10 +6697,8 @@ export async function registerRoutes(
       const { userId, meetingId } = req.params;
       const { transcript, meetingSubject } = req.body;
       if (!transcript) return res.status(400).json({ error: "No transcript provided" });
-      if (!process.env.OPENAI_API_KEY) return res.status(400).json({ error: "OpenAI not configured" });
-      const openaiModule = await import("openai");
-      const openai = new openaiModule.default({ apiKey: process.env.OPENAI_API_KEY });
-      const response = await openai.chat.completions.create({
+      if (!isAIAvailable("teams.summary")) return res.status(400).json({ error: "OpenAI not configured" });
+      const response = await aiClient("teams.summary").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -7570,7 +7567,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
 
   app.post("/api/nexus/ai-search", requireAuth, async (req, res) => {
     try {
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("nexus.search")) {
         return res.status(400).json({ error: "OpenAI not configured" });
       }
       const { query, locale } = req.body;
@@ -7580,7 +7577,7 @@ Format the output in clean HTML with headings (h3), bullet lists (ul/li), and bo
 
       const today = new Date().toISOString().split("T")[0];
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("nexus.search").chat.completions.create({
         model: "gpt-4o",
         temperature: 0.1,
         max_tokens: 800,
@@ -8438,7 +8435,7 @@ Always respond with valid JSON only, no markdown.`
 
       const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 3000);
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("email.reply").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -8483,7 +8480,7 @@ Always respond with valid JSON only, no markdown.`
 
       const plainBody = (emailBody || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().substring(0, 5000);
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("email.summary").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -8521,7 +8518,7 @@ Always respond with valid JSON only, no markdown.`
       const langName = langNames[targetLanguage] || targetLanguage || "slovenčina";
       const trimmedContent = content.substring(0, 8000);
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("email.translation").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -8570,7 +8567,7 @@ Always respond with valid JSON only, no markdown.`
       };
       const prompt = templatePrompts[templateType] || templatePrompts.custom;
       const recipientInfo = recipientName ? `Adresát: ${recipientName}. ` : "";
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("email.compose").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -8613,7 +8610,7 @@ Always respond with valid JSON only, no markdown.`
       const signaturePart = sigIndex >= 0 ? text.substring(sigIndex) : "";
       const htmlContent = bodyWithoutSig.substring(0, 8000);
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("email.translation_check").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -20166,7 +20163,7 @@ Additional custom categories you can suggest:
 
 Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0-1.0, "reasoning": "brief explanation in English"}`;
 
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("collaborator.category")) {
         let suggested = "uncategorized";
         if (collab.collaboratorType === "doctor") suggested = assignments.length > 0 ? "key_opinion_leader" : "referral_source";
         else if (collab.collaboratorType === "nurse") suggested = "head_nurse";
@@ -20174,7 +20171,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
         return res.json({ category: suggested, confidence: 0.5, reasoning: "Fallback suggestion based on collaborator type" });
       }
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("collaborator.category").chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
@@ -21350,13 +21347,11 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       let transcription = null;
       let isTranscribed = false;
       
-      if (process.env.OPENAI_API_KEY) {
+      if (isAIAvailable("mobile.voice_note")) {
         try {
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI();
           const fsSync = await import("fs");
           
-          const transcriptionResult = await openai.audio.transcriptions.create({
+          const transcriptionResult = await aiClient("mobile.voice_note").audio.transcriptions.create({
             file: fsSync.createReadStream(filePath),
             model: "whisper-1",
             language: "sk",
@@ -22375,7 +22370,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
        .catch(err => console.warn(`[FinalizeRecording] Cleanup failed: ${err?.message}`));
 
       // Trigger AI analysis + transcription in background (same as mic-upload path)
-      if (savedRecording && process.env.OPENAI_API_KEY) {
+      if (savedRecording && isAIAvailable("call_recording.transcription")) {
         processCallRecordingAnalysis(savedRecording.id, filePath).catch(err => {
           console.error(`[FinalizeRecording] Background analysis failed:`, err.message);
         });
@@ -22456,12 +22451,10 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
       if (recMode === "transcription_only") {
         // Transcribe, save transcript to callLog notes, delete the file
         const transcriptResult: { text: string } = { text: "" };
-        if (process.env.OPENAI_API_KEY) {
+        if (isAIAvailable("mobile.call_transcription")) {
           try {
-            const OpenAI = (await import("openai")).default;
-            const openai = new OpenAI();
             const fsSync = await import("fs");
-            const result = await openai.audio.transcriptions.create({
+            const result = await aiClient("mobile.call_transcription").audio.transcriptions.create({
               file: fsSync.createReadStream(req.file.path),
               model: "whisper-1",
               response_format: "text",
@@ -22483,7 +22476,7 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
 
       const [recording] = await db.insert(callRecordings).values(recordingData).returning();
 
-      if (process.env.OPENAI_API_KEY) {
+      if (isAIAvailable("call_recording.transcription")) {
         processCallRecordingAnalysis(recording.id, req.file.path).catch(err => {
           console.error(`[MobileRecording] Background analysis failed:`, err.message);
         });
@@ -33118,9 +33111,9 @@ Respond with ONLY a JSON object: {"category": "category_code", "confidence": 0.0
   app.post("/api/campaigns/:campaignId/status-list-label-translations", requireAuth,
     createStatusListLabelTranslationHandler({
       authorize: async req => (await import("./lib/status-list-workflow-routes")).authorize(req, true),
-      configured: () => !!process.env.OPENAI_API_KEY,
+      configured: () => isAIAvailable("status_list.translation"),
       translate: async text => {
-        const response = await openai.chat.completions.create({
+        const response = await aiClient("status_list.translation").chat.completions.create({
           model: "gpt-4o", temperature: 0.2, max_tokens: 900,
           response_format: { type: "json_object" },
           messages: [
@@ -33477,7 +33470,7 @@ Respond ONLY with valid JSON in this exact format:
 }`;
 
       console.log(`[suggest-canonical] sending ${JSON.stringify(listForAI).length} chars to OpenAI`);
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("status_list.canonical").chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -38803,7 +38796,7 @@ Respond ONLY with valid JSON in this exact format:
       await cleanupActiveRemoteRecording();
       console.warn("[AgentOnlyRecording] Finalized", callLogId,
         `inserted=${persistence.inserted}`, `bytes=${downloaded.buffer.length}`);
-      if (persistence.inserted && process.env.OPENAI_API_KEY) {
+      if (persistence.inserted && isAIAvailable("call_recording.transcription")) {
         processCallRecordingAnalysis(persistence.recording.id, persistence.recording.filePath).catch(error =>
           console.error("[AgentOnlyRecording] Analysis failed:", error));
       }
@@ -38824,7 +38817,7 @@ Respond ONLY with valid JSON in this exact format:
         }
       }
       if (persistedRecording && !shouldCleanup) {
-        if (persistedRecordingNeedsAnalysis && process.env.OPENAI_API_KEY) {
+        if (persistedRecordingNeedsAnalysis && isAIAvailable("call_recording.transcription")) {
           processCallRecordingAnalysis(persistedRecording.id, persistedRecording.filePath).catch(analysisError =>
             console.error("[AgentOnlyRecording] Analysis failed:", analysisError));
         }
@@ -39059,7 +39052,7 @@ Respond ONLY with valid JSON in this exact format:
       const stampPath = path.join(DATA_ROOT, "recordings-stamp.wav");
       if (!fs.existsSync(stampPath)) {
         try {
-          const stampResp = await openai.audio.speech.create({
+          const stampResp = await aiClient("call_recording.watermark").audio.speech.create({
             model: "tts-1",
             voice: "alloy",
             input: "Recorded via Indexus for training purposes.",
@@ -39290,7 +39283,7 @@ Respond ONLY with valid JSON in this exact format:
           const fileName = path.basename(filePath);
           const audioFile = await toFile(fileStream, fileName);
 
-          const transcriptionResult = await openai.audio.transcriptions.create({
+          const transcriptionResult = await aiClient("call_recording.transcription").audio.transcriptions.create({
             file: audioFile,
             model: "whisper-1",
             language: userLanguage,
@@ -39436,7 +39429,7 @@ Rules:
 - alertKeywords: alert words detected in transcript (e.g. complaint, lawyer, cancel contract). If none, return empty array []
 - Respond EXCLUSIVELY with valid JSON, no additional text`;
 
-        const analysisResponse = await openai.chat.completions.create({
+        const analysisResponse = await aiClient("call_recording.analysis").chat.completions.create({
           model: "gpt-4o",
           messages: [{ role: "user", content: analysisPrompt }],
           response_format: { type: "json_object" },
@@ -39840,7 +39833,7 @@ Rules:
       }
       uploadCleanup.markPersisted();
 
-      if (process.env.OPENAI_API_KEY) {
+      if (isAIAvailable("call_recording.transcription")) {
         processCallRecordingAnalysis(result.recording.id, result.recordingPath).catch(err => {
           console.error(`[CallAnalysis] Background processing failed:`, err.message);
         });
@@ -39910,7 +39903,7 @@ Rules:
       const stampPath = path.join(DATA_ROOT, "recordings-stamp.wav");
       if (!fs.existsSync(stampPath)) {
         try {
-          const stampResp = await openai.audio.speech.create({
+          const stampResp = await aiClient("call_recording.watermark").audio.speech.create({
             model: "tts-1", voice: "alloy",
             input: "Recorded via Indexus for training purposes.",
             response_format: "wav",
@@ -40025,7 +40018,7 @@ Rules:
         return res.status(403).json({ error: "Access denied" });
       }
 
-      if (recording.analysisStatus === "pending" && recording.filePath && process.env.OPENAI_API_KEY) {
+      if (recording.analysisStatus === "pending" && recording.filePath && isAIAvailable("call_recording.transcription")) {
         const fsCheck = await import("fs");
         if (fsCheck.existsSync(recording.filePath)) {
           console.log(`[CallAnalysis] Auto-triggering analysis for pending recording ${recording.id}`);
@@ -42830,7 +42823,7 @@ Respond in JSON format:
   }
 }`;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("contracts.mapping").chat.completions.create({
         model: "gpt-4o",
         messages: [
           { role: "system", content: "You are a CRM field mapping assistant for a cord blood banking system. Respond only in JSON format. Map PDF form fields to the exact CRM field keys provided." },
@@ -42879,7 +42872,7 @@ Respond in JSON format:
       };
       const langName = langNames[targetLanguage] || targetLanguage;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("script.translation").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -42921,7 +42914,7 @@ Respond in JSON format:
       }
       const country = countryCode || "SK";
       const userPrompt = `Krajina: ${country}\nMesto: ${city}${street ? `\nUlica: ${street}` : ""}\n\nVráť najpravdepodobnejšie PSČ (poštové smerovacie číslo) ako JSON v tvare {"postalCode": "<kód>"}. Ak je viac možností, vyber najznámejšiu pre dané mesto. PSČ má pre Slovensko a Česko 5 číslic, môže obsahovať medzeru (napr. "040 01"). Ak presné PSČ nepoznáš, vráť {"postalCode": null}.`;
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("postal_code.lookup").chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: "Si databáza poštových smerovacích čísel pre európske krajiny. Odpovedaj iba platným JSON-om bez vysvetlení a markdown formátovania." },
@@ -42964,7 +42957,7 @@ Poskytni stručné (max 150 slov) odporúčanie ohľadom:
 
 Odpovedz v slovenčine, profesionálne a stručne.`;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("contract.recommendation").chat.completions.create({
         model: "gpt-4o",
         messages: [
           { role: "system", content: "Si právny asistent pre oblasť biobankovníctva a uchovávania kmeňových buniek. Poskytuj stručné, praktické rady." },
@@ -43016,7 +43009,7 @@ Odpovedz v slovenčine, profesionálne a stručne.`;
       // Fallback to OpenAI for ambiguous cases
       if (gender === "unknown" && (first || last)) {
         try {
-          const gptRes = await openai.chat.completions.create({
+          const gptRes = await aiClient("gender.detection").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: "You detect gender from Slovak/Czech names. Respond ONLY with 'male' or 'female'." },
@@ -44946,7 +44939,7 @@ Pre každý scenár vygeneruj:
 
 Odpovedz VÝLUČNE ako JSON objekt s kľúčom "suggestions" obsahujúcim pole scenárov.`;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("lead_search.suggestion").chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -45328,7 +45321,7 @@ CRITICAL RULES:
 
 Return ONLY a JSON array of ${SP.queryCount} search query strings.`;
 
-          const queryGenResponse = await openai.chat.completions.create({
+          const queryGenResponse = await aiClient("lead_search.queries").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: queryGenPrompt }],
             temperature: 0.4,
@@ -45572,7 +45565,7 @@ Generate 25 COMPLETELY DIFFERENT queries that will find MANY results. Use these 
 8. Association member lists
 
 Return ONLY a JSON array of query strings.`;
-              const retryResp = await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: retryPrompt }], temperature: 0.6, max_tokens: 1500 });
+              const retryResp = await aiClient("lead_search.queries").chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: retryPrompt }], temperature: 0.6, max_tokens: 1500 });
               const retryQueries: string[] = JSON.parse((retryResp.choices[0]?.message?.content || "[]").replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
               for (let w = 0; w < Math.ceil(retryQueries.length / 3); w++) {
                 const batch = retryQueries.slice(w * 3, (w + 1) * 3);
@@ -45926,7 +45919,7 @@ Return ONLY the JSON array, nothing else.`;
 
           let contacts: any[] = [];
           try {
-            const extractResponse = await openai.chat.completions.create({
+            const extractResponse = await aiClient("lead_search.extraction").chat.completions.create({
               model: "gpt-4o-mini",
               messages: [
                 { role: "system", content: "You are a precise data extraction AI. Extract ALL matching contacts. Return ONLY valid JSON arrays. Be thorough and extract every contact you can find." },
@@ -45959,7 +45952,7 @@ Emails: ${p.emails.join(", ") || "none"} | Phones: ${p.phones.join(", ") || "non
 ${p.text.substring(0, 3500)}`).join("\n\n")}
 
 Return ONLY a JSON array of NEW contacts (same format: company_name, contact_person, email, phone, website, city, source_url, confidence_score).`;
-                const passResp = await openai.chat.completions.create({
+                const passResp = await aiClient("lead_search.extraction").chat.completions.create({
                   model: "gpt-4o-mini",
                   messages: [{ role: "system", content: "Extract ALL matching contacts. Return ONLY valid JSON array." }, { role: "user", content: passPrompt }],
                   temperature: 0.1, max_tokens: 12000,
@@ -46822,7 +46815,7 @@ Preferuj:
 
 Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryCode, segment, reason (krátke zdôvodnenie prečo je zdroj užitočný).`;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("lead_sources.suggestion").chat.completions.create({
         model: "gpt-4o",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
@@ -47507,8 +47500,7 @@ Odpovedz VÝHRADNE ako JSON pole objektov s kľúčmi: url, name, type, countryC
     try {
       const { goal, country } = req.body;
       if (!goal) return res.status(400).json({ error: "Goal text required" });
-      const openai = new (await import("openai")).default();
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("lead_intelligence.goal").chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: `You parse natural language lead search goals into structured search criteria. Return JSON only.
@@ -52021,7 +52013,7 @@ Segment should be one of: hospitals, clinics, ambulances, laboratories, pharmaci
       }
 
       // Check for OpenAI API key
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("nexus.query")) {
         return res.status(503).json({ error: "AI service is not configured" });
       }
 
@@ -52098,11 +52090,8 @@ ${notifications.slice(0, 5).map((n: any) => `- ${n.title}`).join("\n") || "No no
 Note: Data access is limited based on your role and assigned countries.
 `;
 
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      });
 
-      const completion = await openai.chat.completions.create({
+      const completion = await aiClient("nexus.query").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -52591,7 +52580,7 @@ Guidelines:
     try {
       const { cbuNumber, reportType, language } = req.body;
       if (!cbuNumber) return res.status(400).json({ error: "CBU number is required" });
-      if (!process.env.OPENAI_API_KEY) return res.status(400).json({ error: "AI analysis not available" });
+      if (!isAIAvailable("cbu_report.analysis")) return res.status(400).json({ error: "AI analysis not available" });
 
       const collection = await storage.getCollectionByCbuNumber(cbuNumber);
       let labResults: any[] = [];
@@ -52633,7 +52622,7 @@ Guidelines:
         infectionAgents: latestResult.infectionAgents || "N/A",
       };
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("cbu_report.analysis").chat.completions.create({
         model: "gpt-4o",
         messages: [
           { role: "system", content: prompt },
@@ -53108,11 +53097,11 @@ Guidelines:
       try { fs.unlinkSync(tmpPdf); } catch {}
       try { fs.unlinkSync(imgPath); } catch {}
       
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("collection.document")) {
         return res.status(500).json({ error: "OpenAI API key not configured" });
       }
       
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("collection.document").chat.completions.create({
         model: "gpt-4o",
         max_tokens: 8000,
         messages: [
@@ -55068,12 +55057,11 @@ Return ONLY the JSON object.`
       let contentHtml = source.contentHtml || "";
 
       if (translate) {
-        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all {{variables}} exactly as they are. Keep HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
 
         const translateText = async (text: string, isHtml: boolean): Promise<string> => {
           if (!text || text.trim().length === 0) return text;
-          const completion = await openaiInstance.chat.completions.create({
+          const completion = await aiClient("template.translation").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
@@ -56551,12 +56539,11 @@ Return ONLY the JSON object.`
       let summary = source.summary || "";
 
       if (translate) {
-        const openaiInstance = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const prompt = `Translate the following from ${sourceLangName} to ${targetLangName}. Keep all HTML tags exactly as they are. Return ONLY the translated text, nothing else.`;
 
         const translateText = async (text: string, isHtml: boolean): Promise<string> => {
           if (!text || text.trim().length === 0) return text;
-          const completion = await openaiInstance.chat.completions.create({
+          const completion = await aiClient("sop.translation").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               { role: "system", content: prompt + (isHtml ? " The text contains HTML markup - preserve all HTML tags exactly." : "") },
@@ -57890,7 +57877,7 @@ Return ONLY the JSON object.`
 
       let aiAnalysis = "";
       try {
-        const aiResponse = await openai.chat.completions.create({
+        const aiResponse = await aiClient("web_form.social").chat.completions.create({
           model: "gpt-4o-mini",
           temperature: 0.3,
           max_tokens: 800,
@@ -58549,7 +58536,7 @@ ${data.hospitalName || data.hospitalId ? `Nemocnica: ${data.hospitalName || data
       if (!form || !form.isActive || !form.aiAssistantEnabled) {
         return res.status(404).json({ error: "AI not available" });
       }
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("web_form.validation")) {
         return res.status(500).json({ error: "AI not configured" });
       }
       const { fieldKey, fieldLabel, fieldType, value, allValues } = req.body;
@@ -58611,9 +58598,7 @@ Ak je všetko v poriadku, vráť prázdne pole [].
 Ak máš tip alebo radu súvisiacu s tehotenstvom/odberom pupočníkovej krvi, pridaj ho ako "tip".
 DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("web_form.validation").chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
@@ -58907,10 +58892,10 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       if (!text || typeof text !== "string" || !text.trim()) {
         return res.status(400).json({ error: "text is required" });
       }
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("activity.translation")) {
         return res.status(400).json({ error: "OpenAI API key not configured" });
       }
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("activity.translation").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -58939,7 +58924,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       if (!name || typeof name !== "string" || !name.trim()) {
         return res.status(400).json({ error: "name is required" });
       }
-      if (!process.env.OPENAI_API_KEY) {
+      if (!isAIAvailable("activity.sample")) {
         return res.status(400).json({ error: "OpenAI API key not configured" });
       }
       const langMap: Record<string, string> = {
@@ -58948,7 +58933,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
       };
       const targetLang = langMap[(lang || "sk") as string] || "Slovak";
       const scopeLabel = String(entityScope || "hospital");
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("activity.sample").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -59011,7 +58996,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
     try {
       const { text, sourceLang } = req.body;
       if (!text) return res.status(400).json({ error: "text is required" });
-      if (!process.env.OPENAI_API_KEY) return res.status(400).json({ error: "OpenAI API key not configured" });
+      if (!isAIAvailable("mpn.translation")) return res.status(400).json({ error: "OpenAI API key not configured" });
 
       const languages = [
         { code: "sk", label: "Slovak" },
@@ -59023,7 +59008,7 @@ DÔLEŽITÉ: Vráť IBA JSON pole, žiadny iný text.`;
         { code: "de", label: "German" },
       ];
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("mpn.translation").chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
@@ -60410,7 +60395,7 @@ Return JSON object with keys: sk, cs, en, hu, ro, it, de`
 
       const participantList = (participants || []).map((p: any) => `${p.userName} (${p.language})`).join(", ");
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("training.summary").chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
@@ -60904,8 +60889,6 @@ Napíšte zápis v slovenčine. Buďte struční ale výstižní.`
         console.log(`[BulkGeo] Limiting to ${MAX_PER_REQUEST} of ${totalPending} rows`);
       }
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
       let updated = 0;
       const batchSize = 10;
@@ -60940,7 +60923,7 @@ Rules by country:
 
 Return ONLY valid JSON.`;
 
-          const response = await openai.chat.completions.create({
+          const response = await aiClient("geography.bulk").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.1,
@@ -61953,7 +61936,6 @@ async function gatherCollectionStats(countryCode: string | null, periodStart: Da
 }
 
 async function generateExecutiveSummaryWithAI(stats: any, countryCode: string | null, periodType: string, userLocale: string) {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const localeMap: Record<string, string> = {
     en: "English", sk: "Slovak", cs: "Czech", hu: "Hungarian", ro: "Romanian", it: "Italian", de: "German"
@@ -61998,7 +61980,7 @@ IMPORTANT:
 - All text must be in ${language}
 - Return ONLY valid JSON, no markdown`;
 
-  const response = await openai.chat.completions.create({
+  const response = await aiClient("executive.summary").chat.completions.create({
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.3,

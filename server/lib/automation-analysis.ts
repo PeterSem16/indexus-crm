@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { aiClient, isAIAvailable } from "./ai-router";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -60,8 +60,8 @@ export function startAutomationAnalysisRetention() {
 
 async function askAnalysis(text: string, attachment?: PreparedAttachment, extractText = false) {
   if (text.length > 60000) throw new Error("analysis_text_limit");
-  if (!process.env.OPENAI_API_KEY) throw new Error("analysis_ai_unavailable");
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 90000, maxRetries: 1 });
+  if (!isAIAvailable("automation.analysis")) throw new Error("analysis_ai_unavailable");
+  const client = aiClient("automation.analysis", { timeout: 90000, maxRetries: 1 });
   const content: any[] = [{ type: "input_text", text: text.slice(0, 60000) }];
   if (attachment) {
     if (attachment.mime.startsWith("image/")) content.push({

@@ -4,6 +4,7 @@
  */
 
 import type { Express, Request, Response } from "express";
+import { aiChatProbe, isAIAvailable } from "./lib/ai-router";
 import { pool } from "./db";
 import {
   fetchNewBeratungEmails,
@@ -353,20 +354,15 @@ export function registerBeratungRoutes(app: Express, requireAuth: (req: Request,
         return res.json(aiStatusCache);
       }
 
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
+      if (!isAIAvailable("beratung.health")) {
         aiStatusCache = { ok: false, error: "no_key", checkedAt: now };
         return res.json(aiStatusCache);
       }
 
-      const testRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const testRes = await aiChatProbe("beratung.health", {
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: "ok" }],
           max_tokens: 1,
-        }),
       });
 
       if (testRes.ok) {

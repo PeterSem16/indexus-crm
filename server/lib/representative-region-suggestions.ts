@@ -1,4 +1,5 @@
 import { REGIONS_BY_COUNTRY } from "../../client/src/lib/regions";
+import { aiClient, isAIAvailable } from "./ai-router";
 import { DistributionError } from "./representative-distribution";
 
 type Count = { region: string | null; count: number };
@@ -65,10 +66,9 @@ export async function recommendTerritories(catalogue: Entry[], count: number, co
 }
 
 export async function completeTerritorySuggestion(input: Parameters<Complete>[0]) {
-  if (!process.env.OPENAI_API_KEY) throw new DistributionError("ai_unavailable", 503);
+  if (!isAIAvailable("geography.representative")) throw new DistributionError("ai_unavailable", 503);
   try {
-    const { default: OpenAI } = await import("openai");
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20000, maxRetries: 0 });
+    const client = aiClient("geography.representative", { timeout: 20000, maxRetries: 0 });
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini", temperature: 0, max_tokens: 2400, response_format: { type: "json_object" },
       messages: [

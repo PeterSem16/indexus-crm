@@ -1,4 +1,5 @@
 import { EventEmitter } from "events";
+import { aiClient, isAIAvailable } from "./ai-router";
 import { randomUUID } from "crypto";
 import * as fs from "fs";
 import * as path from "path";
@@ -2453,7 +2454,7 @@ export class QueueEngine extends EventEmitter {
     }
 
     // 6. Whisper transcription (both "full" and "transcription_only")
-    if (!process.env.OPENAI_API_KEY) {
+    if (!isAIAvailable("call_recording.transcription")) {
       if (recMode === "transcription_only") try { fs.unlinkSync(filePath); } catch {}
       return;
     }
@@ -2474,8 +2475,7 @@ export class QueueEngine extends EventEmitter {
       await db.update(callRecordings).set({ analysisStatus: "processing" }).where(eq(callRecordings.id, recordingId)).catch(() => {});
     }
 
-    const { default: OpenAI, toFile } = await import("openai");
-    const openai = new OpenAI();
+    const { toFile } = await import("openai");
 
     let transcriptText = "";
     const maxRetries = 2;
@@ -2485,7 +2485,7 @@ export class QueueEngine extends EventEmitter {
         const fileStream = fs.createReadStream(filePath);
         const audioFile = await toFile(fileStream, path.basename(filePath));
         console.log(`[ForwardedRecording] Whisper attempt ${attempt + 1}/${maxRetries + 1} for ${filename}, lang=${whisperLanguage}`);
-        const transcriptionResult = await openai.audio.transcriptions.create({
+        const transcriptionResult = await aiClient("call_recording.transcription").audio.transcriptions.create({
           file: audioFile,
           model: "whisper-1",
           language: whisperLanguage,
@@ -2526,7 +2526,7 @@ export class QueueEngine extends EventEmitter {
 
     if (transcriptText.trim().length >= 10) {
       try {
-        const analysisResult = await openai.chat.completions.create({
+        const analysisResult = await aiClient("call_recording.analysis").chat.completions.create({
           model: "gpt-4o",
           messages: [
             {
@@ -3046,7 +3046,7 @@ export class QueueEngine extends EventEmitter {
       }
     }
 
-    if (!box.transcriptionEnabled || !process.env.OPENAI_API_KEY) {
+    if (!box.transcriptionEnabled || !isAIAvailable("voicemail.transcription")) {
       await db.update(voicemailMessages).set({ transcriptStatus: "completed" }).where(eq(voicemailMessages.id, messageId));
       return;
     }
@@ -3055,9 +3055,7 @@ export class QueueEngine extends EventEmitter {
       await db.update(voicemailMessages).set({ transcriptStatus: "processing" }).where(eq(voicemailMessages.id, messageId));
       console.log(`[QueueEngine] Starting voicemail transcription for ${messageId}`);
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI();
-      const transcriptionResult = await openai.audio.transcriptions.create({
+      const transcriptionResult = await aiClient("voicemail.transcription").audio.transcriptions.create({
         file: fs.createReadStream(filePath),
         model: "whisper-1",
         response_format: "text",
@@ -3072,7 +3070,7 @@ export class QueueEngine extends EventEmitter {
 
       if (customerId && transcriptText && transcriptText.trim().length > 10) {
         try {
-          const analysisResult = await openai.chat.completions.create({
+          const analysisResult = await aiClient("voicemail.analysis").chat.completions.create({
             model: "gpt-4o",
             messages: [{
               role: "system",

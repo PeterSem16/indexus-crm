@@ -1,4 +1,5 @@
 import { emitEventOnceForIdentity } from "./event-bus";
+import { aiClient, isAIAvailable } from "./ai-router";
 import { taskTextContentIdentity } from "./task-text-identity";
 
 type TaskText = {
@@ -47,14 +48,13 @@ export async function analyzeAndEmitTaskNegativeSentiment(
 ): Promise<void> {
   const text = taskSentimentText(task);
   if (!text || isRoutineGeneratedTask(task)) return;
-  if (!process.env.OPENAI_API_KEY) {
+  if (!isAIAvailable("task.sentiment")) {
     console.warn(`[TaskSentiment] AI analysis unavailable for task ${task.id}: OPENAI_API_KEY is not configured`);
     return;
   }
 
   try {
-    const openai = await import("openai");
-    const client = new openai.default({ apiKey: process.env.OPENAI_API_KEY });
+    const client = aiClient("task.sentiment");
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [

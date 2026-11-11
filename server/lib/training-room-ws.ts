@@ -1,8 +1,6 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "http";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { aiClient } from "./ai-router";
 
 const SUPPORTED_LANGUAGES: Record<string, string> = {
   sk: "Slovak",
@@ -337,7 +335,7 @@ class TrainingRoomWebSocketService {
       const wavBuffer = this.pcmToWav(audioData, 16000, 1, 16);
 
       const file = new File([wavBuffer], "audio.wav", { type: "audio/wav" });
-      const transcription = await openai.audio.transcriptions.create({
+      const transcription = await aiClient("training.transcription").audio.transcriptions.create({
         model: "whisper-1",
         file,
         language: participant.language === "at" ? "de" : participant.language,
@@ -395,7 +393,7 @@ class TrainingRoomWebSocketService {
         const sourceLangName = SUPPORTED_LANGUAGES[participant.language] || participant.language;
         const targetLangName = SUPPORTED_LANGUAGES[targetLang] || targetLang;
 
-        const translation = await openai.chat.completions.create({
+        const translation = await aiClient("training.translation").chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
             {
@@ -449,7 +447,7 @@ class TrainingRoomWebSocketService {
         const targetLangName = SUPPORTED_LANGUAGES[targetLang] || targetLang;
 
         try {
-          const translation = await openai.chat.completions.create({
+          const translation = await aiClient("training.translation").chat.completions.create({
             model: "gpt-4o-mini",
             messages: [
               {

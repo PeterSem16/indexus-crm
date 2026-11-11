@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import OpenAI from "openai";
+import { aiClient, isAIAvailable } from "./ai-router";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
@@ -300,9 +300,8 @@ async function applyGeneratedChecklist(
 }
 
 async function callOpenAi(task: TaskRecord): Promise<string[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new ChecklistGenerationError("unavailable", "api_key_missing");
-  const client = new OpenAI({ apiKey, timeout: AI_TIMEOUT_MS, maxRetries: 0 });
+  if (!isAIAvailable("task.checklist")) throw new ChecklistGenerationError("unavailable", "api_key_missing");
+  const client = aiClient("task.checklist", { timeout: AI_TIMEOUT_MS, maxRetries: 0 });
   return generateTaskChecklistWithCompletion(task, async (messages) => {
     const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
@@ -370,7 +369,7 @@ class ChecklistGenerationError extends Error {
 
 async function runClaim(claim: NonNullable<ClaimResult["claim"]>): Promise<void> {
   try {
-    if (!process.env.OPENAI_API_KEY) {
+    if (!isAIAvailable("task.checklist")) {
       await updateClaimFailure(claim.task.id, claim.token, "unavailable", "api_key_missing");
       return;
     }
@@ -407,7 +406,7 @@ export async function ensureTaskAiChecklist(
   try {
     const result = await claimGeneration(taskId, options.retry === true);
     if (!result.claim) return result.state;
-    if (!process.env.OPENAI_API_KEY) {
+    if (!isAIAvailable("task.checklist")) {
       await updateClaimFailure(taskId, result.claim.token, "unavailable", "api_key_missing");
       return { status: "unavailable", errorCode: "api_key_missing" };
     }

@@ -3,7 +3,7 @@ import { ANALYSIS_RESULT_TRIGGERS, analysisResultLabel } from "../../shared/auto
 import { db } from "../db";
 import { noMatchRoutingIssue } from "./automation-no-match";
 import { eq, desc, and, arrayContains, isNull, or } from "drizzle-orm";
-import OpenAI from "openai";
+import { aiClient, isAIAvailable } from "./ai-router";
 import {
   workflowRules,
   workflowRuns,
@@ -184,11 +184,11 @@ export function registerAutomationRoutes(app: Express) {
     } catch {
       return res.status(400).json({ error: "Invalid or unauthorized event draft context" });
     }
-    if (!process.env.OPENAI_API_KEY) {
+    if (!isAIAvailable("automation.draft")) {
       return res.status(503).json({ error: "AI service is not available in this environment" });
     }
     try {
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const client = aiClient("automation.draft");
       const response = await client.chat.completions.create({
         model: "gpt-4o",
         temperature: 0,

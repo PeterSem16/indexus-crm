@@ -1,4 +1,5 @@
 import { Express, Request, Response } from "express";
+import { aiClient } from "./lib/ai-router";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, gte, lte, gt, inArray, aliasedTable } from "drizzle-orm";
 import {
@@ -718,8 +719,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
         return res.status(400).json({ error: "Text content is required" });
       }
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = aiClient("ivr.speech");
 
       const ttsVoice = voice || "nova";
       const response = await openai.audio.speech.create({
@@ -787,8 +787,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const validVoices = ["nova", "shimmer", "alloy", "coral", "sage", "onyx", "echo", "fable", "ash"];
       const ttsVoice = validVoices.includes(voice) ? voice : "nova";
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = aiClient("ivr.speech");
 
       const response = await openai.audio.speech.create({
         model: "tts-1",
@@ -2354,8 +2353,7 @@ export function registerInboundRoutes(app: Express, requireAuth: any): void {
       const validVoices = ["nova", "shimmer", "alloy", "coral", "sage", "onyx", "echo", "fable", "ash"];
       const ttsVoice = validVoices.includes(voice) ? voice : "nova";
 
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = aiClient("voicemail.greeting");
 
       const response = await openai.audio.speech.create({
         model: "tts-1",

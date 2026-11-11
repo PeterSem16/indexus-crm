@@ -1,0 +1,19 @@
+{
+  "server/inbound-routes.ts": { "count": 3, "sha256": "13b6a5d6454d3c009b45d58a422ff285ac373b9983ef757bca8dc030b2bc40fd" },
+  "server/routes.ts": { "count": 43, "sha256": "b8250705d1e5bbb4048bad6482fe2df8415a4ba04cb5c4c724b97e86a193d36a" },
+  "server/template-processor.ts": { "count": 1, "sha256": "f4ce2ddf7c0732e74697cf306979df9c3ced5a6f4f84b6efb138cae8a649b28a" },
+  "server/lib/automation-analysis.ts": { "count": 1, "sha256": "ff52e876bcbfa5e81c927d65bbb6f398211717d9b7bcd06372c04cac0e0dd025" },
+  "server/lib/automation-routes.ts": { "count": 1, "sha256": "14d9f52c52ba6575f9c70cd7c2a3af5e4cab42bfbc3c3d11da4fa435d45bf175" },
+  "server/lib/beratung-email-service.ts": { "count": 3, "sha256": "01fbc6270979a259e6c1b2866af4389bcb2d0c7b8c90a066b44228bd05535b59" },
+  "server/lib/email-monitoring-service.ts": { "count": 1, "sha256": "30fcffde793c8e3fc617c5bb565f9bbf2bcdda0b5bced345f937c11036c23e0e" },
+  "server/lib/priority-city-ranking.ts": { "count": 1, "sha256": "25f41e2856c326efe0b19ee35b3f41c74cc3cef73222a8854e6fd1d20649eba6" },
+  "server/lib/queue-engine.ts": { "count": 4, "sha256": "e6ee042ffba31a2846089a412f14912afee2115dde19d3f85974ee9827fb5c83" },
+  "server/lib/region-suggestion.ts": { "count": 1, "sha256": "8d7bc5cae1ce712b97a421fcff3a5971b118435e0140bca4ef02fedc1e018b0f" },
+  "server/lib/representative-region-suggestions.ts": { "count": 1, "sha256": "130defcb8b815822b515089bc66d457c30fbe41679e0654679c82fb27d2a063b" },
+  "server/lib/scraper-ai.ts": { "count": 1, "sha256": "d26d368ca5d363a21e415d17a9cf407220129f667f701ac1cf47eb79562f1a4e" },
+  "server/lib/task-ai-checklist.ts": { "count": 1, "sha256": "36722f2c1566cd646c149b1eed27e6d4e6cd77496f821f42d112b597c47b3a52" },
+  "server/lib/task-resolution-draft.ts": { "count": 1, "sha256": "24fc440054ac57b21fd6ef2a1573e0b0fecbdf91e73fb58dd31a9adf56aa8559" },
+  "server/lib/task-sentiment.ts": { "count": 1, "sha256": "5185c47233a941e1cbc3f4d7aabe03cd6e3d552b8b21d50df6f2985f4855bf95" },
+  "server/lib/training-room-ws.ts": { "count": 3, "sha256": "31a55b1e189a0c59dc30dbbcbca156b8f55c4fb66e6a47e94646b269d4997ca9" },
+  "server/lib/virtual-agent.ts": { "count": 4, "sha256": "af73c55f736887e651e74103417f4a2f241b664b969c8d5c8ce389e98cccc98b" }
+}

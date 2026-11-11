@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { aiClient, isAIAvailable } from "./ai-router";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
@@ -8,7 +8,6 @@ import { eq, or, ilike, desc, and, sql } from "drizzle-orm";
 import type { AriClient, AriEvent } from "./ari-client";
 import { syncVoicemailGreetingToAsterisk, prewarmSftpPool, uploadBufferToAsterisk } from "./asterisk-audio-sync";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 let _dataRoot: string | null = null;
 async function getDataRoot(): Promise<string> {
@@ -645,7 +644,7 @@ export class VirtualAgentEngine {
 
     try {
       const sttStart = Date.now();
-      const transcription = await openai.audio.transcriptions.create({
+      const transcription = await aiClient("virtual_agent.transcription").audio.transcriptions.create({
         file: fs.createReadStream(tmpPath),
         model: "whisper-1",
         language: config.language === "sk" ? "sk" : config.language === "cs" ? "cs" : config.language === "hu" ? "hu" : "en",
@@ -713,7 +712,7 @@ export class VirtualAgentEngine {
       const gptTemp = parseFloat((config as any).gptTemperature as any) || 0.5;
       const gptMaxTokens = (config as any).gptMaxTokens || 80;
 
-      const response = await openai.chat.completions.create({
+      const response = await aiClient("virtual_agent.response").chat.completions.create({
         model: gptModel,
         messages,
         max_tokens: gptMaxTokens,
@@ -737,7 +736,7 @@ export class VirtualAgentEngine {
     try {
       const ttsVoice = (voice || "nova") as "nova" | "shimmer" | "alloy" | "coral" | "sage" | "onyx" | "echo" | "fable" | "ash";
       const ttsSpeed = Math.min(Math.max(speed || 1.05, 0.25), 4.0);
-      const ttsResponse = await openai.audio.speech.create({
+      const ttsResponse = await aiClient("virtual_agent.speech").audio.speech.create({
         model: (this.currentTtsModel as any) || "tts-1",
         voice: ttsVoice,
         input: text,
@@ -819,9 +818,9 @@ export class VirtualAgentEngine {
     let callbackRequested = false;
     let callbackNumber: string | null = null;
 
-    if (session.turns.length > 1 && process.env.OPENAI_API_KEY) {
+    if (session.turns.length > 1 && isAIAvailable("virtual_agent.summary")) {
       try {
-        const analysisResponse = await openai.chat.completions.create({
+        const analysisResponse = await aiClient("virtual_agent.summary").chat.completions.create({
           model: "gpt-4o",
           messages: [
             {
