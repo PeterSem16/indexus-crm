@@ -2,7 +2,7 @@ import OpenAI, { type ClientOptions } from "openai";
 
 export type AIClientOptions = Pick<ClientOptions, "timeout" | "maxRetries">;
 export interface AIProviderAdapter {
-  readonly id: "openai";
+  readonly id: "openai" | "internal";
   isAvailable(): boolean;
   createClient(options: AIClientOptions): OpenAI;
   chatProbe(body: Record<string, unknown>): Promise<Response>;

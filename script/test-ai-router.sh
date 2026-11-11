@@ -4,6 +4,7 @@ set -euo pipefail
 npx --no-install tsx --test --test-concurrency=2 \
   server/lib/ai-router.test.ts \
   server/lib/ai-router-coverage.test.ts \
+  server/lib/ai/internal-adapter.test.ts \
   server/lib/task-ai-checklist.test.ts \
   server/lib/task-resolution-draft.test.ts \
   server/lib/task-resolution-draft-route.test.ts \

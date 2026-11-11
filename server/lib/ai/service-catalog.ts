@@ -70,7 +70,7 @@ export const AI_SERVICES = {
 export type AIService = keyof typeof AI_SERVICES;
 export type AIOperation = typeof AI_SERVICES[AIService];
 export type AIRoute = Readonly<{
-  provider: "openai";
+  provider: "openai" | "internal";
   /** null means use the original model in the caller's request, including dynamic models. */
   model: string | null;
   enabled: boolean;

@@ -19,7 +19,7 @@ export type AITechnicalEvent = Readonly<{
   configurationHash: string;
   service?: AIService;
   operation?: AIOperation;
-  provider?: "openai";
+  provider?: "openai" | "internal";
   requestId?: string;
   model?: string;
   outcome?: "ok" | "error";
@@ -47,8 +47,9 @@ export function validateAIRoutes(overrides: AIRoutingOverrides): Readonly<Partia
   for (const [service, value] of Object.entries(overrides)) {
     if (!Object.hasOwn(AI_SERVICES, service) || !value || typeof value !== "object" ||
         Object.keys(value).some(key => !["provider", "model", "enabled"].includes(key)) ||
-        value.provider !== "openai" || typeof value.enabled !== "boolean" ||
-        (value.model !== null && !safeModel(value.model)))
+        !["openai", "internal"].includes(value.provider) || typeof value.enabled !== "boolean" ||
+        (value.model !== null && !safeModel(value.model)) ||
+        (value.provider === "internal" && (value.model === null || AI_SERVICES[service as AIService] !== "chat")))
       throw new AIRoutingError("ai_router_invalid_configuration");
     result[service as AIService] = Object.freeze({ ...value });
   }
@@ -57,12 +58,20 @@ export function validateAIRoutes(overrides: AIRoutingOverrides): Readonly<Partia
 
 export function createAIRouter(settings: {
   adapter: AIProviderAdapter;
+  adapters?: readonly AIProviderAdapter[];
   overrides: AIRoutingOverrides;
   revision: string;
   mode: AIRouterMode;
   emit: (event: AITechnicalEvent) => void;
 }) {
   const mode = settings.mode;
+  if (settings.adapter.id !== "openai") throw new AIRoutingError("ai_router_legacy_provider_required");
+  const adapters = new Map<string, AIProviderAdapter>([["openai", settings.adapter]]);
+  if (mode !== "legacy") for (const adapter of settings.adapters ?? []) {
+    if (!["openai", "internal"].includes(adapter.id) || adapters.has(adapter.id))
+      throw new AIRoutingError("ai_router_invalid_adapters");
+    adapters.set(adapter.id, adapter);
+  }
   // Legacy mode ignores routing configuration entirely: an invalid override must not block rollback.
   const overrides = mode === "legacy" ? {} : validateAIRoutes(settings.overrides);
   const configurationHash = createHash("sha256")
@@ -83,13 +92,14 @@ export function createAIRouter(settings: {
     if (operation && AI_SERVICES[service] !== operation) throw new AIRoutingError("ai_router_unsupported_operation");
     const route = overrides[service] || DEFAULT_ROUTE;
     if (!route.enabled) throw new AIRoutingError("ai_service_disabled");
-    if (route.provider !== settings.adapter.id) throw new AIRoutingError("ai_provider_unavailable");
+    if (!adapters.has(route.provider)) throw new AIRoutingError("ai_provider_unavailable");
     return route;
   };
-  const observe = (result: any, service: AIService, operation: AIOperation, model: unknown, started: number) => {
+  const observe = (result: any, service: AIService, operation: AIOperation, model: unknown, started: number,
+    provider: "openai" | "internal" = "openai") => {
     const requestId = randomUUID();
     const done = (outcome: "ok" | "error", status?: unknown) => emit({
-      event: "ai.request", service, operation, provider: "openai", requestId,
+      event: "ai.request", service, operation, provider, requestId,
       model: safeModel(model), outcome, durationMs: Math.max(0, Date.now() - started),
       ...(typeof status === "number" && status >= 100 && status <= 599 ? { httpStatus: status } : {}),
     });
@@ -106,8 +116,8 @@ export function createAIRouter(settings: {
     initialize,
     available(service: AIService) {
       try {
-        routeFor(service);
-        return settings.adapter.isAvailable();
+        const route = routeFor(service);
+        return adapters.get(route.provider)!.isAvailable();
       } catch (error) {
         if (error instanceof AIRoutingError && error.code === "ai_service_disabled") return false;
         throw error;
@@ -116,7 +126,8 @@ export function createAIRouter(settings: {
     client(service: AIService, options: AIClientOptions = {}): AIClient {
       initialize();
       let sdk: OpenAI | undefined;
-      const getSDK = () => sdk ||= settings.adapter.createClient(options);
+      const getSDK = (provider: "openai" | "internal" = "openai") =>
+        sdk ||= adapters.get(provider)!.createClient(options);
       // Rollback delegates straight to the original provider, without overrides or request telemetry.
       if (mode === "legacy") return getSDK();
       // A disabled globally-created client must not prevent unrelated services/server startup.
@@ -127,11 +138,11 @@ export function createAIRouter(settings: {
           const body = route.model === null ? args[0] : { ...args[0], model: route.model };
           const started = Date.now();
           try {
-            const result = call(getSDK(), [body, ...args.slice(1)]);
-            observe(result, service, operation, body?.model, started);
+            const result = call(getSDK(route.provider), [body, ...args.slice(1)]);
+            observe(result, service, operation, body?.model, started, route.provider);
             return result;
           } catch (error) {
-            emit({ event: "ai.request", service, operation, provider: "openai", requestId: randomUUID(),
+            emit({ event: "ai.request", service, operation, provider: route.provider, requestId: randomUUID(),
               model: safeModel(body?.model), outcome: "error", durationMs: Math.max(0, Date.now() - started) });
             throw error;
           }

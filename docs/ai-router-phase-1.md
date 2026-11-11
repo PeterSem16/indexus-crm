@@ -1,5 +1,9 @@
 # INDEXUS AI Router – prvá etapa
 
+Tento dokument opisuje prvú etapu. Nadväzujúci
+[pripravený interný adaptér](ai-router-phase-2-internal.md) nemení predvolené
+OpenAI smerovanie a nie je povolením produkčného nasadenia alebo aktivácie.
+
 ## Rozsah
 
 Všetky nájdené odchádzajúce OpenAI SDK operácie prechádzajú cez `server/lib/ai-router.ts`.

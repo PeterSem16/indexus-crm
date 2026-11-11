@@ -1,6 +1,22 @@
-# INDEXUS AI Gateway – návrh kontraktu pre textové služby
+# INDEXUS AI Gateway – schválený kontrakt pre textové služby
 
-**Stav: návrh na odsúhlasenie oboma stranami, nie popis nasadeného servera.**
+**Stav: kontrakt používateľ schválil. Nie je to potvrdenie nasadeného servera.**
+
+Na interné AI sa dostane **iba CORPCRM01, nie Replit**. Gateway bude samostatná
+služba nad Ollama. Začiatočný model je `indexus-document-audio:latest`;
+jeho dostupnosť a schopnosti sa ešte musia reálne overiť. Strict JSON Schema
+nie je zatiaľ schválená schopnosť.
+
+| Služba | Port | Hranica |
+|---|---|---|
+| Ollama | 11434 | Lokálny backend, nie priamy cieľ CRM adaptéra |
+| Audio API | 8765 | Existujúcich šesť audio endpointov; nemení sa |
+| Testovacie Audio API | 8766 | Rovnaká audio sada; nemení sa |
+| Audio Analyzer | 8780 | Existujúce webové rozhranie; nemení sa |
+| AI Gateway | 8770 iba návrh | Samostatná nová služba; port/TLS treba potvrdiť |
+
+Model, sieťová cesta, port a HTTPS sa overia výhradne z príslušnej serverovej
+siete. Z Replitu sa neskenujú interné porty ani neskúša súkromná adresa.
 
 Cieľ je pripojiť prvé interné textové modely cez INDEXUS adaptér. Gateway nemusí
 napodobňovať Responses, PDF, obrázky, prepis, syntézu reči ani celé OpenAI API.
@@ -36,7 +52,7 @@ Spojenie sa musí overiť zo siete, kde beží príslušný INDEXUS backend. Dos
 z iného stroja nepreukazuje dostupnosť z CORPCRM01. Test z Replitu sám osebe
 nemôže dokázať produkčnú smerovateľnosť súkromnej adresy.
 
-## Navrhované endpointy
+## Dohodnuté endpointy
 
 | Metóda a cesta | Účel |
 |---|---|
@@ -45,8 +61,7 @@ nemôže dokázať produkčnú smerovateľnosť súkromnej adresy.
 | `GET /indexus/v1/capabilities` | Explicitný kontrakt schopností a limitov podľa modelu |
 | `POST /v1/chat/completions` | Textové požiadavky a odpovede v kompatibilnom formáte |
 
-Cesty sú návrhom. Ak Gateway už má dokumentované API, INDEXUS adaptér môže
-mapovať jeho existujúci kontrakt namiesto vynucovania týchto ciest.
+Cesty sú dohodnuté pre novú Gateway; nepatria k existujúcemu Audio API.
 
 ### Schopnosti modelov
 
