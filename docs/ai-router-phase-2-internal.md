@@ -11,6 +11,11 @@ Gateway server sa pripravuje samostatne. Tento kód ho neinštaluje, nepripája
 Ollama priamo, nemení sieť, HTTPS, Audio API, Audio Analyzer 1.6 ani Voice Studio.
 Na CORPCRM01 sa nič nenasadilo a sieťové spojenie s Gateway sa neoverilo.
 
+Dohodnutá cieľová URL je teraz `https://ai.cordbloodcenter.com/gateway/`.
+To nie je potvrdenie nasadenia. Aktuálny
+[postup prípravy CORPCRM01](ai-gateway-corpcrm01-preparation.md) najprv povoľuje
+iba root DNS/TLS kontrolu bez tokenu a bez volania Gateway API.
+
 ## Prevádzkové hranice
 
 - Predvolený adaptér odmietne všetky požiadavky v Replite aj mimo production
