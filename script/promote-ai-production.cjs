@@ -57,7 +57,18 @@ function atomicFile(source, target, expected, replace, profile) {
   noLinks(source); noLinks(target);
   ensure(fs.lstatSync(source).isFile() && prepared.fileHash(source) === expected, "COPY_SOURCE_CHANGED");
   const parent = path.dirname(target);
-  fs.mkdirSync(parent, { recursive: true, mode: 0o755 });
+  const firstCreated = fs.mkdirSync(parent, { recursive: true, mode: 0o755 });
+  if (firstCreated) {
+    // sudo may retain the launcher's private umask. Make only newly created
+    // public directories readable by the verified application account.
+    let directory = parent;
+    while (true) {
+      noLinks(directory);
+      fs.chownSync(directory, profile.uid, profile.gid); fs.chmodSync(directory, 0o755);
+      if (directory === firstCreated) break;
+      directory = path.dirname(directory);
+    }
+  }
   noLinks(parent);
   const temp = path.join(parent, ".ai-install-" + crypto.randomUUID());
   try {

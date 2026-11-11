@@ -96,7 +96,11 @@ test("atomic publication preserves old files, refuses collisions, verifies bytes
     const src = root + "/source", dest = root + "/public/assets/chunk.js";
     fs.writeFileSync(src, "new");
     const expected = prepared.fileHash(src), profile = { uid: process.getuid(), gid: process.getgid(), mode: 0o644 };
-    helper.atomicFile(src, dest, expected, false, profile);
+    const previousUmask = process.umask(0o077);
+    try { helper.atomicFile(src, dest, expected, false, profile); } finally { process.umask(previousUmask); }
+    assert.equal(fs.statSync(root + "/public").mode & 0o777, 0o755);
+    assert.equal(fs.statSync(root + "/public/assets").mode & 0o777, 0o755);
+    assert.equal(fs.statSync(dest).mode & 0o777, 0o644);
     assert.equal(fs.readFileSync(dest, "utf8"), "new");
     assert.throws(() => helper.atomicFile(src, dest, expected, false, profile), /EEXIST/);
     fs.writeFileSync(src, "replacement");
