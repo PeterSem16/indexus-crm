@@ -102,9 +102,46 @@ runtime; neobnovuje automaticky databázu a nereštartuje Audio Analyzer.
 | Dohodnutá URL | `https://ai.cordbloodcenter.com/gateway/` |
 | Interný adaptér v GitHube | Pripravený; predchádzajúcich 105 kontrol a build prešli |
 | Produkčný runtime | Prítomnosť nového adaptéra zatiaľ neoverená |
-| IP CORPCRM01, DNS/TLS | Čaká sa na konzolový výstup |
+| IP CORPCRM01 | `10.1.2.111` – lokálna adresa a zdroj priameho IPv4 spojenia |
+| IPv4 DNS | Úspech: `ai.cordbloodcenter.com` → `10.9.2.140` |
+| Priame HTTPS/TLS | Úspech: koreň domény HTTP 200, curl exit 0, TLS verify result 0 |
 | IP videná AI serverom | Čaká sa na koreláciu root probe na prijímacej strane |
 | Uloženie tokenu | Postup navrhnutý; uloženie nepotvrdené, hodnota sa neuvádza |
 | Živé integračné testy Gateway | Zámerne nespustené; Gateway sa ešte pripravuje |
 | Smerovanie existujúcich služieb | V pripravenom zdroji OpenAI; žiadna zmena produkcie vykonaná |
 | Aktivácia | Nepovolená; vyžaduje samostatné schválenie pilotnej služby |
+
+### Doložený sieťový výsledok z CORPCRM01
+
+Operátor poskytol výsledok kontroly z **2026-11-11 17:03:09 UTC**.
+Kontrola nevyžadovala token ani nasadenie nového CRM kódu.
+
+- Lokálna IPv4: `10.1.2.111`.
+- DNS: `10.9.2.140`, `DNS_EXIT=0`.
+- Trasa: `10.9.2.140 via 10.1.1.1 dev eth0 src 10.1.2.111`.
+- Skutočný vzdialený cieľ curl: `10.9.2.140`; lokálna adresa spojenia: `10.1.2.111`.
+- Overenie certifikátu a mena hosta: `TLS_VERIFY_RESULT=0`, `CURL_EXIT=0`.
+- Koreň domény: `HTTP_STATUS=200`.
+- Čas TCP: približne 23 ms; čas od začiatku po TLS handshake: približne 48 ms.
+  Ide o jednorazové časy, nie výkonnostný záväzok.
+- Identifikátor pre AI tím: `indexus-network-20261111T170309Z-17196`.
+- `GATEWAY_API=not_called`, `TOKEN=not_used`, `INFERENCE=not_called`.
+
+Toto potvrdzuje priame IPv4 DNS/TCP/HTTPS spojenie z CORPCRM01 ku koreňu domény
+v čase kontroly. **Nepotvrdzuje nasadenie `/gateway/`, Bearer autentifikáciu,
+pripravenosť modelu, Node trust store ani integračné správanie adaptéra.**
+Zdroj po prípadnom NAT-e stále musí potvrdiť prijímajúca strana; nesmie sa
+automaticky stotožniť s lokálnou adresou `10.1.2.111`.
+
+### Odovzdanie AI tímu
+
+Vyhľadať root HEAD požiadavku s query identifikátorom
+`indexus-network-20261111T170309Z-17196` okolo `2026-11-11 17:03:09 UTC`
+v príslušnom prístupovom logu. Potvrdiť zdrojovú adresu s ohľadom na skutočnú
+proxy/NAT topológiu a dôveryhodné real-IP nastavenia; až podľa tejto adresy
+pripraviť Nginx obmedzenie prístupu pre CORPCRM01.
+
+Následne potvrdiť sprevádzkovanie dohodnutých endpointov pod `/gateway/`,
+Bearer autentifikáciu a skutočné text/JSON schopnosti modelu
+`indexus-document-audio:latest`. Token neposielať v chate ani v bežnom reporte.
+Do tohto potvrdenia sa z INDEXUS-u nespúšťajú živé Gateway API/inferenčné testy.
