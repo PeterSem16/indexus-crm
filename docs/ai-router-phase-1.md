@@ -100,6 +100,24 @@ Tento typ testu dokazuje rovnaké požiadavky a kontrakty, nie deterministicky
 identické odpovede skutočného LLM. Prihlásené UI a živé produkčné AI operácie
 nie sú týmto automaticky overené.
 
+### Samostatné živé overenie v testovacom prostredí
+
+```bash
+npx --no-install tsx script/ai-router-live-check.ts --live
+```
+
+Príkaz vykoná najviac 10 malých spoplatnených požiadaviek na existujúci
+OpenAI adaptér. Používa iba syntetický text, obrázok a PDF; nevytvára CRM
+udalosti, nečíta zákaznícke dáta a nepripája databázu. Každý scenár overí
+v legacy aj routed režime bez zmeny prostredia bežiacej aplikácie.
+Opakovanie nie je súčasťou bežného regresného testu.
+
+Výsledok sa uloží do ignorovaného
+`generated-artifacts/ai-router-live-check/report.json`; neobsahuje kľúče,
+prompty, obsah odpovedí alebo surové chyby poskytovateľa.
+Konkrétne výsledky a hranice overenia sú v
+[protokole živého overenia](ai-router-live-acceptance.md).
+
 ## Okamžitý rollback bez zmeny databázy
 
 1. V serverovej konfigurácii procesu nastaviť **necitlivú** premennú
