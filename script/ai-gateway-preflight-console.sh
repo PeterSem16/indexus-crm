@@ -7,14 +7,25 @@ if [[ "$(id -un)" != seman || ! "${PREFLIGHT_REV:-}" =~ ^[a-f0-9]{40}$ ]]; then
 fi
 trap 'printf "{\"status\":\"BLOCKED\",\"blockedAt\":\"toolDownloadOrSudo\",\"productionChanges\":false}\n" >&2' ERR
 sudo -v
-SRC="$(mktemp -d /tmp/indexus-gateway-source.XXXXXX)"
+if [[ -n "${PREFLIGHT_SOURCE:-}" ]]; then
+  SRC="$(realpath -e -- "$PREFLIGHT_SOURCE")"
+  [[ "$SRC" =~ ^/tmp/indexus-gateway-source\.[A-Za-z0-9]+$ ]]
+  [[ -d "$SRC" && "$(stat -c %u "$SRC")" == "$(id -u)" ]]
+else
+  SRC="$(mktemp -d /tmp/indexus-gateway-source.XXXXXX)"
+fi
 trap 'rm -rf -- "$SRC"' EXIT
-export GIT_SSH_COMMAND='ssh -o BatchMode=yes -o StrictHostKeyChecking=yes'
-git -c init.templateDir= -c core.hooksPath=/dev/null init --quiet "$SRC"
-git -C "$SRC" remote add origin git@github.com:PeterSem16/indexus-crm.git
-git -C "$SRC" config remote.origin.promisor true
-git -C "$SRC" config remote.origin.partialclonefilter blob:none
-git -C "$SRC" -c core.hooksPath=/dev/null fetch --quiet --depth=1 --filter=blob:none origin "$PREFLIGHT_REV"
+if [[ -z "${PREFLIGHT_SOURCE:-}" ]]; then
+  APP=/var/www/indexus-crm
+  export GIT_SSH_COMMAND="$(git -C "$APP" config --get core.sshCommand)"
+  [[ -n "$GIT_SSH_COMMAND" ]]
+  ORIGIN="$(git -C "$APP" remote get-url origin)"
+  git -c init.templateDir= -c core.hooksPath=/dev/null init --quiet "$SRC"
+  git -C "$SRC" remote add origin "$ORIGIN"
+  git -C "$SRC" config remote.origin.promisor true
+  git -C "$SRC" config remote.origin.partialclonefilter blob:none
+  git -C "$SRC" -c core.hooksPath=/dev/null fetch --quiet --depth=1 --filter=blob:none origin "$PREFLIGHT_REV"
+fi
 [[ "$(git -C "$SRC" rev-parse FETCH_HEAD)" == "$PREFLIGHT_REV" ]]
 FILES=(
   script/ai-gateway-production.cjs

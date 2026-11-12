@@ -60,6 +60,10 @@ ešte pred reštartom aplikácie.
 Operátor je prihlásený ako `seman`. Existujúce SSH oprávnenie k GitHubu
 sa použije iba na stiahnutie pripnutého tooling commitu do dočasného adresára.
 Produkčný checkout sa nepoužije na fetch, checkout, pull ani build.
+Dočasný checkout preberá existujúci `origin` a repo-local `core.sshCommand`
+produkčného repozitára; nepredpokladá predvolený kľúč ani predvolený SSH alias.
+Ak bootstrap už pripravil zdroje, launcher ich prijme cez `PREFLIGHT_SOURCE`,
+overí pripnutý commit a nepokúša sa o druhé sťahovanie.
 
 Root proces cez sudo vytvorí iba nový dočasný staging adresár nástrojov v `/tmp`,
 skopíruje sedem presne určených súborov a overí ich SHA-256 oproti manifestu
