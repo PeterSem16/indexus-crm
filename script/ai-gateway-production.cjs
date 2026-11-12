@@ -5,7 +5,8 @@ const fs = require("node:fs"), path = require("node:path");
 const P = require("./lib/ai-gateway-policy.cjs"), H = require("./lib/ai-gateway-host.cjs");
 const { C, ensure, hash } = P;
 const SOURCES = ["script/ai-gateway-production.cjs", "script/lib/ai-gateway-policy.cjs",
-  "script/lib/ai-gateway-host.cjs", "script/ai-gateway-production.test.cjs", "ops/ai-gateway/preload.cjs"];
+  "script/lib/ai-gateway-host.cjs", "script/ai-gateway-production.test.cjs", "ops/ai-gateway/preload.cjs",
+  "script/lib/ai-gateway-preflight.cjs", "script/ai-gateway-preflight.test.cjs"];
 const SOURCE_ROOT = path.resolve(__dirname, "..");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function source(name) { return H.file(path.join(SOURCE_ROOT, name)).bytes; }
@@ -116,7 +117,8 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
       H.command("runuser", ["-u", user, "--", "test", "!", "-r", dir + "/snapshot.private.json"]);
     }
     H.command("/usr/bin/node", ["--check", dir + "/rollback.cjs"]);
-    const result = H.command("/usr/bin/node", ["--test", dir + "/bundle/script/ai-gateway-production.test.cjs"]);
+    const result = H.command("/usr/bin/node", ["--test", dir + "/bundle/script/ai-gateway-production.test.cjs",
+      dir + "/bundle/script/ai-gateway-preflight.test.cjs"]);
     ensure(result.includes("# fail 0") || /ℹ fail 0/.test(result), "ROLLBACK_TEST_SUITE_FAILED");
     H.atomic(dir + "/pm2-seman.service", this.pre.unit, { uid: 0, gid: 0, mode: 0o600 });
     H.command("systemd-analyze", ["verify", dir + "/pm2-seman.service"]);
@@ -326,10 +328,8 @@ async function main(argv = process.argv.slice(2)) {
   try {
     let result;
     if (parsed.mode === "--preflight") {
-      const pre = await H.preflight();
-      P.verifyLoader(source("ops/ai-gateway/preload.cjs").toString());
-      result = { status: "PREFLIGHT_PASSED_NOT_APPLIED", productionChanges: false,
-        openaiRoutes: 65, nodeVersion: C.nodeVersion, pm2Version: pre.pm2.version };
+      result = await require("./lib/ai-gateway-preflight.cjs").run({ sourceRoot: SOURCE_ROOT, sources: SOURCES });
+      if (result.status === "BLOCKED") process.exitCode = 1;
     } else if (parsed.mode === "--apply") result = await P.applyFlow(io);
     else {
       ensure(require("node:os").hostname().toUpperCase() === "CORPCRM01" && process.getuid() === 0, "ROOT_ON_CORPCRM01_REQUIRED");
