@@ -62,10 +62,10 @@ for FILE in script/ai-gateway-production.cjs script/lib/ai-gateway-policy.cjs \
 done
 cd "$TOOLS"
 sha256sum --check --status <<'VERIFIED_SOURCES'
-41ce0d7e55aa9b28003b2af46e6a4c7303b27a07ec433a0e8137a0c77a03c619  script/ai-gateway-production.cjs
-ab4340252fb20281cf5493e3d1d4a9f2e57b9f9089b6fa1b60a4e827253e9588  script/lib/ai-gateway-policy.cjs
-4624d7e65b32c188345634d4201b729fbe0cb5016945362617c634d322d303d6  script/lib/ai-gateway-host.cjs
-e8cd087be7aba1bae442aca0a75d30561941b953d095c56b3e24ac51ab7a9b9a  script/ai-gateway-production.test.cjs
+aef02a6abf4f75c8c6c9d9a1050898ed3325a74c7c128ec95c573870aa677f12  script/ai-gateway-production.cjs
+be518aeccc3ad8d56e93ba6700cdd7b2889137d1ea26ea087cded2c7060adbd1  script/lib/ai-gateway-policy.cjs
+44dff281b1ea6a4090a462a40830a5cd31088811bee573164f01fcff14e7ed68  script/lib/ai-gateway-host.cjs
+3a11eab86c3864e8f1dac19688b329bc79455df985ae4ff3892ad4d696c1e4de  script/ai-gateway-production.test.cjs
 33af3aaff20605583f9152fcad2abe61ec0cef4c4ebe771e43f0cf7d87aa0fac  ops/ai-gateway/preload.cjs
 8d4742c58ce035282d3d813b72038e0cf1b7ab7c2382ff60b92d1126b703c688  script/lib/ai-gateway-preflight.cjs
 44d0f16556d89e72ce3a09465ae800ba89b13b7150934e25f94eeacfa0de8b40  script/ai-gateway-preflight.test.cjs

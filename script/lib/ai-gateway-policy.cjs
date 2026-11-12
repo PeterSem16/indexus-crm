@@ -175,7 +175,8 @@ const FAILURE_STAGES = new Set(["runtimeInstall", "runtimeDirectoryCreate", "run
   "runtimeLoaderInstall", "runtimeACLValidation", "ecosystemInstall", "installedLoaderValidation",
   "restartPrerequisites", "restartDispatch", "runtimeVerification", "pm2DumpSave", "bootEnable",
   "finalVerification", "completion"]);
-const FAILURE_CODES = new Set(["OPERATOR_COMMAND_FAILED", "INSTALLED_LOADER_TEST_FAILED",
+const FAILURE_CODES = new Set(["OPERATOR_COMMAND_FAILED", "OPERATOR_EXECUTABLE_NOT_FOUND",
+  "OPERATOR_EXECUTABLE_ACCESS_DENIED", "INSTALLED_LOADER_TEST_FAILED",
   "VERIFIED_BACKUP_REQUIRED", "DOTENV_CHANGED", "BACKEND_CHANGED", "PM2_DAEMON_CHANGED",
   "PM2_RPC_SOCKET_UNSAFE", "BACKUP_DISK_UNSAFE", "WORKER_CHANGED_BEFORE_INSTALL",
   "PM2_ENVIRONMENT_CHANGED", "PM2_SETTINGS_CHANGED", "OTHER_PM2_PROCESS_CHANGED",

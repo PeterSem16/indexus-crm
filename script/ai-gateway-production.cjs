@@ -171,7 +171,8 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
     const out = H.command("runuser", ["-u", "seman", "--", "/usr/bin/node", "--require", C.loader, "-e",
       "if(process.env.INDEXUS_AI_GATEWAY_ENABLED!=='true'||!process.env.INDEXUS_AI_GATEWAY_TOKEN||" +
       "process.env.OPENAI_API_KEY!=='synthetic-openai-marker')process.exit(1);process.stdout.write('LOADER_READY');"],
-    { env: { PATH: "/usr/bin:/bin", HOME: "/home/seman", NODE_ENV: "production", OPENAI_API_KEY: "synthetic-openai-marker" } });
+    { env: { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      HOME: "/home/seman", NODE_ENV: "production", OPENAI_API_KEY: "synthetic-openai-marker" } });
     ensure(out === "LOADER_READY", "INSTALLED_LOADER_TEST_FAILED");
     const m = readManifest(dir); m.installedLoaderVerified = true; updatedManifest(dir, m);
   }
@@ -229,7 +230,8 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
     const probe = H.command("runuser", ["-u", "seman", "--", "/usr/bin/node", "-e",
       "if(process.env.NODE_ENV!=='production'||process.env.OPENAI_API_KEY!=='synthetic-openai-marker')" +
       "process.exit(1);process.stdout.write('SYNTHETIC_ENVIRONMENT_PRESERVED');"],
-    { env: { PATH: "/usr/bin:/bin", HOME: "/home/seman", NODE_ENV: "production", OPENAI_API_KEY: "synthetic-openai-marker" } });
+    { env: { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      HOME: "/home/seman", NODE_ENV: "production", OPENAI_API_KEY: "synthetic-openai-marker" } });
     ensure(probe === "SYNTHETIC_ENVIRONMENT_PRESERVED", "ROLLBACK_ENVIRONMENT_PROBE_FAILED");
     return { status: "ROLLBACK_READ_ONLY_VERIFIED", toolDirectory: SOURCE_ROOT,
       productionChanges: false, restarts: 0,

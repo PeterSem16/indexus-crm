@@ -304,6 +304,35 @@ test("command errors expose only bounded exit status, never captured stderr or e
     return true;
   });
 });
+test("command lookup failures distinguish ENOENT and permissions without returning raw paths", () => {
+  for (const [native, safeCode] of [["ENOENT", "OPERATOR_EXECUTABLE_NOT_FOUND"],
+    ["EACCES", "OPERATOR_EXECUTABLE_ACCESS_DENIED"], ["EPERM", "OPERATOR_EXECUTABLE_ACCESS_DENIED"]]) {
+    const sandbox = { module: { exports: {} }, Buffer, process,
+      require(name) {
+        if (name === "node:child_process") return { execFileSync() {
+          const e = Error(SECRET); e.code = native; e.path = SECRET; throw e;
+        } };
+        if (name === "./ai-gateway-policy.cjs") return P;
+        return require(name);
+      },
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, "lib/ai-gateway-host.cjs"), "utf8"), sandbox);
+    assert.throws(() => sandbox.module.exports.command("synthetic", []), e => {
+      assert.equal(e.operatorCode, safeCode);
+      assert.equal(JSON.stringify(e).includes(SECRET), false); return true;
+    });
+  }
+});
+test("real child-process lookup uses its supplied PATH and succeeds only when the executable directory is included", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "gateway-path-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const bin = path.join(root, "bin"), sbin = path.join(root, "sbin");
+  fs.mkdirSync(bin); fs.mkdirSync(sbin);
+  fs.writeFileSync(path.join(sbin, "runuser"), "#!/bin/sh\nprintf SYNTHETIC_LOOKUP_OK\n", { mode: 0o700 });
+  assert.throws(() => H.command("runuser", [], { env: { PATH: bin } }), e =>
+    e.operatorCode === "OPERATOR_EXECUTABLE_NOT_FOUND");
+  assert.equal(H.command("runuser", [], { env: { PATH: sbin + ":" + bin } }), "SYNTHETIC_LOOKUP_OK");
+});
 test("default, partial and mixed commands refuse production access before any inspection", () => {
   for (const args of [[], ["--apply"], ["--apply", "--approve", "yes"], ["--rollback"],
     ["--self-test", "--apply"], ["--rollback", "/tmp/foreign", "--approve", "yes"]]) {
@@ -460,10 +489,15 @@ function recoveryFixture(options = {}) {
       return rows[0];
     },
     async readAI() { const r = goodAI(); r.value.gateway.enabled = !!options.gatewayEnabled; return r; },
-    command(bin, argv) {
+    command(bin, argv, options) {
       if (bin === "runuser") {
         calls.push("synthetic-environment-probe");
-        assert.equal(argv.includes("--require"), false);
+        // execFileSync resolves the executable using options.env.PATH, not
+        // the invoking shell's PATH. Ubuntu installs runuser in /usr/sbin.
+        assert(options.env.PATH.split(":").includes("/usr/sbin"), "RUNUSER_NOT_RESOLVABLE");
+        assert.equal(options.env.NODE_ENV, "production");
+        assert.equal(options.env.OPENAI_API_KEY, "synthetic-openai-marker");
+        if (argv.includes("--require")) return "LOADER_READY";
         return "SYNTHETIC_ENVIRONMENT_PRESERVED";
       }
       assert.equal(bin, "systemctl"); assert.equal(argv.includes("--now"), false);
@@ -536,6 +570,13 @@ test("standalone rollback verification reads the legacy backup and does not writ
   assert.equal(result.productionChanges, false); assert.equal(result.restarts, 0);
   assert.equal(f.calls.slice(before).some(c => /^(journal|restore:|remove:|rpc:restart|systemctl:)/.test(c)), false);
   assert.equal(f.calls.slice(before).includes("synthetic-environment-probe"), true);
+});
+test("installed loader probe resolves runuser from sbin before any PM2 restart", async () => {
+  const f = recoveryFixture({ beforeRestart: true, untouchedPM2: true });
+  await f.io.testInstalledLoader(f.directory);
+  const m = JSON.parse(f.storage.get(f.directory + "/manifest.json").bytes);
+  assert.equal(m.installedLoaderVerified, true);
+  assert.equal(f.calls.includes("rpc:restart"), false);
 });
 test("the reported production flag combination leaves PM2 dumps and boot registration untouched", async () => {
   const f = recoveryFixture({ beforeRestart: true, untouchedPM2: true });
