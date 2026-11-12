@@ -65,25 +65,28 @@ function fixture() {
   const ai = { version: 1, value: { gateway: { enabled: false,
     baseURL: "https://ai.cordbloodcenter.com/gateway/" }, routes: {} } };
   const dotenv = { bytes: Buffer.from("fake-env"), uid: 1001, gid: 1001, mode: 0o600 };
+  const ecosystem = { bytes: Buffer.from("fake-ecosystem"), uid: 1001, gid: 1001, mode: 0o664 };
   const files = new Map([
     [P.C.root + "/server/lib/ai/service-catalog.ts", Array.from({ length: 65 }, (_, i) => ` "service.${i}": "chat",`).join("\n")],
     [P.C.root + "/server/config/ai-routing.ts", "AI_ROUTING_OVERRIDES: AIRoutingOverrides = Object.freeze({})"],
     ["/fixture/ops/ai-gateway/preload.cjs", "fake-loader"],
     ["/fixture/script/fake.cjs", "fake-source"],
     [P.C.root + "/.env", "fake-env"],
+    [P.C.root + "/ecosystem.config.cjs", "fake-ecosystem"],
     [P.C.token, SECRET],
     [P.C.root + "/dist/index.cjs", "backend"],
   ]);
   let readCount = 0; const calls = [];
   const host = {
-    async preflight() { return { env: row.pm2_env.env, ai, dotenv, pm2: { version: "6.0.0" } }; },
+    async preflight() { return { env: row.pm2_env.env, ai, dotenv, ecosystem, pm2: { version: "6.0.0" } }; },
     rpc(_p, action) { assert.equal(action, "list"); calls.push("pm2-read"); return [row]; },
     application(rows) { return rows[0]; }, fileProfile() { return null; }, optionalFile() { return null; },
     noLinks() {}, disk() {}, aclAbsent() {}, daemon() {}, health() {},
     command(bin, args) { assert.ok(bin === "systemd-analyze" || (bin === "/usr/bin/node" && args[0] === "--check")); },
     file(name) {
       assert.ok(files.has(name), "fixture absent: " + name);
-      return { ...(name.endsWith("/.env") ? dotenv : { uid: 0, gid: 0, mode: 0o600 }),
+      return { ...(name.endsWith("/.env") ? dotenv : name.endsWith("/ecosystem.config.cjs") ?
+        ecosystem : { uid: 0, gid: 0, mode: 0o600 }),
         bytes: Buffer.from(files.get(name)) };
     },
     async readAI() { readCount++; return structuredClone(ai); },
@@ -146,6 +149,22 @@ test("a concurrent change after Gateway GETs blocks the final result", async () 
   const f = fixture(); f.host.readAI = async () => ({ ...f.ai, version: 2 });
   const r = await F.run(f.options);
   assert.equal(r.status, "BLOCKED"); assert.equal(r.blockedAt, "unchangedAfterChecks");
+});
+test("an operation lock, ecosystem change or preload added during GETs cannot yield READY", async () => {
+  for (const change of [
+    f => f.host.optionalFile = () => ({ bytes: Buffer.from("lock") }),
+    f => f.files.set(P.C.root + "/ecosystem.config.cjs", "outside-change"),
+    f => f.row.pm2_env.node_args = P.args(),
+  ]) {
+    const f = fixture(), original = f.options.get;
+    f.options.get = async (...args) => {
+      const value = await original(...args);
+      if (args[0] === F.ENDPOINTS[2]) change(f);
+      return value;
+    };
+    const r = await F.run(f.options);
+    assert.equal(r.status, "BLOCKED"); assert.equal(r.blockedAt, "unchangedAfterChecks");
+  }
 });
 test("actual CLI outside CORPCRM01 returns a single BLOCKED report without production access", () => {
   if (require("node:os").hostname().toUpperCase() === "CORPCRM01") return;

@@ -14,8 +14,8 @@ stav a všetkých 65 routov a overuje Gateway tromi autentifikovanými GET:
 2. `https://ai.cordbloodcenter.com/gateway/v1/models`
 3. `https://ai.cordbloodcenter.com/gateway/indexus/v1/capabilities`
 
-Lokálne overenie aktualizovaných nástrojov: **95/95 testov prešlo**
-(vrátane 19 nových preflight testov). Žiadny z týchto testov nekontaktoval
+Lokálne overenie aktualizovaných nástrojov: **96/96 testov prešlo**
+(vrátane 20 nových preflight testov). Žiadny z týchto testov nekontaktoval
 produkciu ani skutočnú Gateway.
 
 Token číta iba proces na CORPCRM01 z existujúceho root-only súboru.

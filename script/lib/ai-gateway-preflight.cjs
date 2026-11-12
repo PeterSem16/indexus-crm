@@ -79,6 +79,8 @@ function getJSON(endpoint, token, transport = https) {
 async function run(options) {
   const { sourceRoot, sources } = options;
   const h = options.host || H, p = options.policy || P, get = options.get || getJSON;
+  const operationLock = () => h.optionalFile ? h.optionalFile(p.C.backupRoot + "/operation.lock") :
+    h.file(p.C.backupRoot + "/operation.lock", true);
   const report = { status: "BLOCKED", scope: "PREFLIGHT_ONLY_AWAITING_EXECUTION_APPROVAL",
     productionChanges: false, restarts: 0, gatewayGETRequests: 0, inferenceRequests: 0,
     tokenPrinted: false, backupCreated: false, rollbackExecuted: false,
@@ -115,9 +117,7 @@ async function run(options) {
         "UNSAFE_BACKUP_ROOT");
       h.aclAbsent([p.C.backupRoot]);
     }
-    const lock = h.optionalFile ? h.optionalFile(p.C.backupRoot + "/operation.lock") :
-      h.file(p.C.backupRoot + "/operation.lock", true);
-    p.ensure(!lock, "GATEWAY_OPERATION_LOCKED");
+    p.ensure(!operationLock(), "GATEWAY_OPERATION_LOCKED");
     for (const name of sources) {
       h.file(path.join(sourceRoot, name));
       h.command("/usr/bin/node", ["--check", path.join(sourceRoot, name)]);
@@ -145,7 +145,7 @@ async function run(options) {
     stage = "unchangedAfterChecks";
     h.daemon();
     const afterRows = h.rpc(before.pm2, "list"), after = h.application(afterRows);
-    p.ensure(after.pid === row.pid, "WORKER_CHANGED_DURING_PREFLIGHT");
+    p.ensure(after.pid === row.pid && !after.pm2_env.node_args?.length, "WORKER_CHANGED_DURING_PREFLIGHT");
     p.assertPreserved(row, after); p.assertOtherProcesses(rows, afterRows);
     const ai = await h.readAI(before.env); p.assertRoutes(ai);
     p.ensure(p.hash(JSON.stringify(ai)) === p.hash(JSON.stringify(before.ai)), "AI_CONFIGURATION_CHANGED_DURING_PREFLIGHT");
@@ -154,6 +154,11 @@ async function run(options) {
       dotenv.gid === before.dotenv.gid && dotenv.mode === before.dotenv.mode, "DOTENV_CHANGED_DURING_PREFLIGHT");
     p.ensure(p.hash(tokenAfter.bytes) === p.hash(original.bytes) && tokenAfter.uid === original.uid &&
       tokenAfter.gid === original.gid && tokenAfter.mode === original.mode, "TOKEN_CHANGED_DURING_PREFLIGHT");
+    const ecosystem = h.file(p.C.root + "/ecosystem.config.cjs");
+    p.ensure(p.hash(ecosystem.bytes) === p.hash(before.ecosystem.bytes) && ecosystem.uid === before.ecosystem.uid &&
+      ecosystem.gid === before.ecosystem.gid && ecosystem.mode === before.ecosystem.mode,
+    "ECOSYSTEM_CHANGED_DURING_PREFLIGHT");
+    p.ensure(!operationLock(), "GATEWAY_OPERATION_LOCKED");
     p.ensure(p.hash(h.file(p.C.root + "/dist/index.cjs").bytes) === p.C.backend, "BACKEND_CHANGED");
     h.health();
     report.checks[stage] = { passed: true };
