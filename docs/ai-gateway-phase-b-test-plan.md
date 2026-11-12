@@ -51,7 +51,7 @@ Audit obsahuje interné ID aktéra; do reportu ani obrázkov ho nekopírovať.
 | B5 | Uložiť presne `Gateway enabled:false` s najnovšou verziou | DB zápis a audit; vymaže aktuálny Gateway check z live view, auditné udalosti zostanú; žiadne inferencie | Opätovne načítať konfiguráciu a potvrdiť Gateway off, 65 OpenAI, 0 internal, 0 overrides |
 | B6 | Záverečný report a stop | Bez ďalšej zmeny | Priložiť redigovaný dôkaz B0–B5; nepokračovať na pilotnú službu ani routovanie |
 
-### Dôležitý rozdiel: konfigurácia Gatew​ay verzus routovanie
+### Dôležitý rozdiel: konfigurácia Gateway verzus routovanie
 
 V B1 sa dočasne zmení Gateway prepínač v databáze. To je **zápis produkčnej
 konfigurácie**, hoci sa nemení žiadny z 65 routov a používateľské AI služby
