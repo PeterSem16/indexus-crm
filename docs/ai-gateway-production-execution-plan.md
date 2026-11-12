@@ -75,6 +75,13 @@ do PM2 deklarácie, argumentov príkazu alebo administračnej odpovede.
 Nový súbor sprístupňuje token účtu služby; nechráni ho pred rootom alebo
 kompromitovaným účtom služby. Iné skupinové prístupy sa nesmú pridať.
 
+Pri chýbajúcom, nečitateľnom alebo neplatnom runtime súbore loader vypne iba
+Gateway, odstráni jej prípadný token z prostredia a oznámi statický nesenzitívny
+diagnostický kód. Nesmie zastaviť celý CRM ani poškodiť OpenAI prostredie.
+Interné volania zostanú zablokované, bez automatického cloud fallbacku.
+Realizačný preflight musí takúto chybu odhaliť ešte pred reštartom; nejde o
+tiché prijatie nefunkčnej Gateway ako úspešného nasadenia.
+
 Pred nasadením treba s falošným tokenom otestovať konkrétny `.cjs` loader
 na produkčnej verzii Node: pozitívny prípad, poškodený/chýbajúci súbor,
 odmietnutie neznámych kľúčov a zachovanie ostatných premenných.
