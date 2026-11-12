@@ -14,6 +14,9 @@ Spustenie z `node - --read-only` je podporované a otestované.
 - Jediný Node proces pod účtom `seman` s cwd `/var/www/indexus-crm`;
   PID, vlastníka, parent PID, čas vzniku, Node executable.
 - Parent PM2 proces a zhodu s `/home/seman/.pm2/pm2.pid`, bez volania PM2 CLI.
+  PM2 démon sa vyberie a overí pred hľadaním workerov; jeho vlastný Node
+  proces sa nezapočíta ako INDEXUS, aj keď má rovnaký účet a pracovný adresár.
+  Pri nejednoznačnom výbere sa vrátia nesenzitívne metadáta kandidátov.
 - Prítomnosť vybraných premenných v počiatočnom prostredí procesu, `.env`
   a uloženom `/home/seman/.pm2/dump.pm2`; pri OpenAI a DB len zhodu hodnôt.
 - Metadáta a statické indikátory `ecosystem.config.cjs`; súbor sa nikdy

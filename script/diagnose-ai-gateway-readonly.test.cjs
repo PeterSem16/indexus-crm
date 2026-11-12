@@ -19,6 +19,17 @@ test("proc parsing preserves equals signs and selects only necessary keys", () =
   assert.deepEqual(h.parseEnvironment("OTHER=private\0OPENAI_API_KEY=a=b\0pm_id=4\0"),
     { OPENAI_API_KEY: "a=b", pm_id: "4" });
 });
+test("PM2 daemon sharing the worker cwd and UID must not count as an application", () => {
+  const base = { uid: 1001, cwd: "/var/www/indexus-crm", executable: "/usr/bin/node" };
+  const rows = [{ ...base, pid: 20, parent: 1 }, { ...base, pid: 10, parent: 20 },
+    { ...base, pid: 30, parent: 999 }, { ...base, pid: 40, parent: 20, uid: 0 }];
+  assert.deepEqual(h.selectWorker(rows, 1001, 20).map(p => p.pid), [10]);
+});
+test("multiple real workers remain ambiguous and unsupported executable names are not guessed", () => {
+  const base = { uid: 1001, cwd: "/var/www/indexus-crm", executable: "/usr/bin/node20", parent: 20 };
+  assert.equal(h.selectWorker([{ ...base, pid: 10 }, { ...base, pid: 11 }], 1001, 20).length, 2);
+  assert.equal(h.selectWorker([{ ...base, pid: 10, executable: "/bin/bash" }], 1001, 20).length, 0);
+});
 test("empty routes resolve the whole known catalog to OpenAI without claiming provider calls", () => {
   const r = h.routeSummary({ gateway: { enabled: false }, routes: {} }, ["a", "b"]);
   assert.equal(r.allServicesOpenAI, true); assert.equal(r.noModelOverrides, true);
@@ -99,7 +110,7 @@ test("complete simulated inventory uses only read-only SQL and never reads the t
     isDirectory: () => [root + "/data", "/etc/indexus-ai"].includes(file), isFile: () => true });
   const fakeFS = {
     lstatSync: stat, statSync: stat, existsSync: file => Object.hasOwn(files, file),
-    readdirSync: file => { assert.equal(file, "/proc"); return ["10"]; },
+    readdirSync: file => { assert.equal(file, "/proc"); return ["10", "20"]; },
     realpathSync: file => file.endsWith("/exe") ? "/usr/bin/node" : file.endsWith("/cwd") ? root : file,
     readFileSync(file) {
       assert.notEqual(file, "/etc/indexus-ai/gateway-token");
@@ -153,6 +164,8 @@ test("complete simulated inventory uses only read-only SQL and never reads the t
   assert.ok(!outputs[0].includes(SECRET));
   const report = JSON.parse(outputs[0]);
   assert.equal(report.sections.aiRouting.allServicesOpenAI, true);
+  assert.equal(report.sections.processes.length, 2);
+  assert.equal(report.sections.processSelection.workerCount, 1);
   assert.equal(report.sections.aiRouting.transactionReadOnly, true);
   assert.equal(report.sections.automaticStart.enabled, true);
   assert.equal(report.sections.processIdentityAfter.unchanged, true);
@@ -164,4 +177,16 @@ test("complete simulated inventory uses only read-only SQL and never reads the t
   assert.deepEqual(queries, ["BEGIN READ ONLY",
     "SELECT version,value FROM public.ai_router_configuration WHERE singleton=true",
     "SHOW transaction_read_only", "ROLLBACK"]);
+  outputs.length = 0; queries.length = 0;
+  files["/proc/11/stat"] = files["/proc/10/stat"].replace(/^10 /, "11 ");
+  fakeFS.readdirSync = () => ["10", "20", "11"];
+  await sandbox.module.exports.main(["--read-only"]);
+  const stopped = JSON.parse(outputs[0]);
+  assert.equal(stopped.status, "READ_ONLY_INVENTORY_STOPPED");
+  assert.equal(stopped.sections.processSelection.workerCount, 2);
+  assert.equal(stopped.sections.processes.length, 3);
+  assert.equal(stopped.result, "PROCESS_SELECTION_REQUIRES_REVIEW");
+  assert.equal(sandbox.process.exitCode, 1);
+  assert.equal(queries.length, 0);
+  assert.ok(!outputs[0].includes(SECRET));
 });

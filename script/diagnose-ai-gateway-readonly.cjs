@@ -74,6 +74,12 @@ function processInfo(pid) {
   return { pid: +pid, uid: fs.statSync(root).uid, parent: +fields[1], start: fields[19],
     cwd: fs.realpathSync(root + "/cwd"), executable: fs.realpathSync(root + "/exe") };
 }
+function selectWorker(processes, uid, daemonPID) {
+  // PM2 itself is a Node process and may have the same cwd and UID as INDEXUS.
+  // Select only its direct worker, never count the daemon as an application.
+  return processes.filter(p => p.pid !== daemonPID && p.parent === daemonPID &&
+    p.cwd === ROOT && p.uid === uid && /^node(?:js)?(?:-?\d+(?:\.\d+)*)?$/.test(path.basename(p.executable)));
+}
 function routeSummary(value, ids) {
   ensure(value && typeof value === "object" && !Array.isArray(value) &&
     value.routes && typeof value.routes === "object" && !Array.isArray(value.routes), "INVALID_AI_SETTINGS");
@@ -114,17 +120,31 @@ async function main(args = process.argv.slice(2)) {
     catch (e) { return report.sections[name] = { unavailable: errorCode(e) }; }
   };
   const uid = +run("id", ["-u", "seman"]), gid = +run("id", ["-g", "seman"]);
+  const daemonPIDText = read(HOME + "/pm2.pid").trim();
+  ensure(/^[1-9]\d*$/.test(daemonPIDText), "INVALID_PM2_DAEMON_PID");
+  const daemonPID = +daemonPIDText, daemon = processInfo(daemonPID);
+  ensure(daemon.uid === uid && fs.readFileSync("/proc/" + daemonPID + "/comm", "utf8").startsWith("PM2"),
+    "PM2_DAEMON_IDENTITY_NOT_VERIFIED");
   const processes = [];
   for (const pid of fs.readdirSync("/proc").filter(p => /^\d+$/.test(p))) {
     try {
       const p = processInfo(pid);
-      if (p.cwd === ROOT && p.uid === uid && /^node(?:js)?$/.test(path.basename(p.executable))) processes.push(p);
+      if (p.cwd === ROOT || p.pid === daemonPID || p.parent === daemonPID) processes.push(p);
     } catch {}
   }
   report.sections.processes = processes;
-  ensure(processes.length === 1, "EXPECTED_ONE_INDEXUS_NODE_PROCESS");
-  const live = processes[0], env = parseEnvironment(fs.readFileSync("/proc/" + live.pid + "/environ", "utf8"));
-  const daemon = processInfo(live.parent);
+  const workers = selectWorker(processes, uid, daemonPID);
+  report.sections.processSelection = { daemonPID, expectedUID: uid, workerCount: workers.length,
+    rule: "one direct Node child of verified seman PM2 daemon, matching application cwd and UID" };
+  if (workers.length !== 1) {
+    report.status = "READ_ONLY_INVENTORY_STOPPED";
+    report.code = "EXPECTED_ONE_INDEXUS_NODE_PROCESS";
+    report.result = "PROCESS_SELECTION_REQUIRES_REVIEW";
+    console.log(JSON.stringify(report, null, 2));
+    process.exitCode = 1;
+    return;
+  }
+  const live = workers[0], env = parseEnvironment(fs.readFileSync("/proc/" + live.pid + "/environ", "utf8"));
   section("pm2Daemon", () => ({
     ...daemon, uidMatches: daemon.uid === uid,
     commMatches: fs.readFileSync("/proc/" + daemon.pid + "/comm", "utf8").startsWith("PM2"),
@@ -251,7 +271,7 @@ async function main(args = process.argv.slice(2)) {
   report.result = "INVENTORY_ONLY_NOT_GATEWAY_READY";
   console.log(JSON.stringify(report, null, 2));
 }
-module.exports = { environmentSummary, parseEnvironment, equality, routeSummary, safeUnit, errorCode, main };
+module.exports = { environmentSummary, parseEnvironment, equality, routeSummary, safeUnit, errorCode, selectWorker, main };
 if (require.main === module || process.argv[1] === "-")
   main().catch(error => { console.error(JSON.stringify({ status: "READ_ONLY_INVENTORY_STOPPED",
     code: errorCode(error), productionChanges: false })); process.exitCode = 1; });
