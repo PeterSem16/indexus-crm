@@ -346,5 +346,6 @@ Technický cieľ fázy A bol dosiahnutý: runtime je pripravený, existujúcich
 Nejde o stav `GATEWAY_READY_OPENAI_ACTIVE`.
 
 **Zastaviť ďalšie produkčné zmeny. Fáza B nie je schválená.**
-Prípadné povolenie Gateway a syntetické admin testy bez zmeny routov
-vyžadujú samostatne opísaný rozsah a výslovné schválenie.
+Rozsah administrátorských a integračných testov je pripravený v
+[`docs/ai-gateway-phase-b-test-plan.md`](ai-gateway-phase-b-test-plan.md).
+Plán prípravy nenahrádza výslovné schválenie ich produkčného vykonania.
