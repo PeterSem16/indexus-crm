@@ -1,7 +1,9 @@
 # CORPCRM01 – návrh dokončenia Gateway na samostatné schválenie
 
 Stav: **návrh, nie vykonaná zmena ani povolenie realizácie**.
-Schválená a vykonaná bola iba vstupná diagnostika.
+Schválené sú vstupná diagnostika a príprava/testovanie realizačného helpera
+bez produkčných zmien. Samotná realizácia vrátane reštartu INDEXUS zatiaľ
+schválená nie je.
 
 ## Potvrdené vstupy
 
@@ -9,8 +11,8 @@ Schválená a vykonaná bola iba vstupná diagnostika.
 - Všetkých 65 služieb má OpenAI, bez modelových overrides; Gateway je vypnutá.
 - Existujúci OpenAI kľúč sa zhoduje medzi počiatočným prostredím procesu,
   `.env` a uloženým PM2 stavom. Hodnoty sa nevypisovali.
-- Node v20.20.0 podporuje CommonJS preload; konkrétny nový loader ešte neexistuje
-  a musí sa otestovať pred použitím.
+- Node v20.20.0 podporuje CommonJS preload; konkrétny loader je pripravený
+  a synteticky otestovaný, ale v produkcii ešte nebol nainštalovaný ani overený.
 - Pôvodný token je root:root 0600, jeho adresár root:root 0700.
 - Na kontrolovaných cestách nie je POSIX access/default ACL.
 - `/dev/sdb1` je pripojený do `/var/www/indexus-crm/data`, zapisovateľný,
