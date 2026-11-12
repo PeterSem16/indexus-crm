@@ -152,16 +152,22 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
     m.originalToken = { sha256: hash(original.bytes), uid: original.uid, gid: original.gid, mode: original.mode };
     m.runtimeCreationAttempted = true; updatedManifest(dir, m);
     ensure(!fs.lstatSync(C.runtime, { throwIfNoEntry: false }), "RUNTIME_TARGET_COLLISION");
+    this.failureStage = "runtimeDirectoryCreate";
     fs.mkdirSync(C.runtime, { mode: 0o750 }); fs.chownSync(C.runtime, 0, C.gid); fs.chmodSync(C.runtime, 0o750);
     const created = fs.statSync(C.runtime);
     m.runtimeCreated = true; m.runtimeIdentity = { ino: created.ino, dev: created.dev }; updatedManifest(dir, m);
+    this.failureStage = "runtimeConfigurationInstall";
     H.atomic(C.runtime + "/gateway.json", json, { uid: 0, gid: C.gid, mode: 0o640 });
+    this.failureStage = "runtimeLoaderInstall";
     H.atomic(C.loader, loader, { uid: 0, gid: 0, mode: 0o644 });
+    this.failureStage = "runtimeACLValidation";
     H.aclAbsent([C.runtime, C.runtime + "/gateway.json", C.loader]);
+    this.failureStage = "ecosystemInstall";
     H.atomic(C.root + "/ecosystem.config.cjs", ecosystem, m.files.ecosystem, true);
     m.status = "RUNTIME_FILES_INSTALLED_NOT_RESTARTED"; updatedManifest(dir, m);
   }
   async testInstalledLoader(dir) {
+    this.failureStage = "installedLoaderValidation";
     const out = H.command("runuser", ["-u", "seman", "--", "/usr/bin/node", "--require", C.loader, "-e",
       "if(process.env.INDEXUS_AI_GATEWAY_ENABLED!=='true'||!process.env.INDEXUS_AI_GATEWAY_TOKEN||" +
       "process.env.OPENAI_API_KEY!=='synthetic-openai-marker')process.exit(1);process.stdout.write('LOADER_READY');"],
@@ -178,7 +184,60 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
     ensure(current.pid === C.initialPID, "WORKER_CHANGED_BEFORE_RESTART");
     P.assertPreserved(this.before, current);
     m.restartAttempted = true; updatedManifest(dir, m);
+    this.failureStage = "restartDispatch";
     H.rpc(this.pre.pm2, "restart", P.args());
+  }
+  async recordFailure(dir, failure) {
+    const m = readManifest(dir);
+    m.applyFailure = failure;
+    updatedManifest(dir, m);
+  }
+  async verifyRollback(dir) {
+    // Read-only, also supports the original attempt's unmodified backup bundle.
+    const m = readManifest(dir); verifyBackupFiles(dir, m);
+    ensure(["ROLLBACK_VERIFIED_OPENAI_ONLY", "ROLLBACK_RUNTIME_RESTORED_GATEWAY_DB_DISABLE_REQUIRED"]
+      .includes(m.status), "ROLLBACK_STATUS_REQUIRES_REVIEW");
+    const snapshot = loadSnapshot(dir, m);
+    this.assertProtected(dir, m);
+    const rows = H.rpc(snapshot.pm2, "list"), current = H.application(rows);
+    P.assertPreserved(snapshot.row, current); P.assertOtherProcesses(snapshot.rows, rows);
+    ensure(JSON.stringify(current.pm2_env.node_args ?? []) === JSON.stringify(snapshot.row.pm2_env.node_args ?? []),
+      "ROLLBACK_NODE_ARGUMENTS_DIFFER");
+    if (!m.restartAttempted)
+      ensure(current.pid === snapshot.row.pid && H.proc(current.pid).start === C.initialStart,
+        "ROLLBACK_WORKER_IDENTITY_DIFFERS");
+    const actual = H.initialEnvironment(current.pid);
+    for (const [key, value] of Object.entries(snapshot.initialEnvironment))
+      ensure(actual[key] === value, "ROLLBACK_PROCESS_ENVIRONMENT_DIFFERS");
+    ensure(!actual.INDEXUS_AI_GATEWAY_TOKEN && actual.INDEXUS_AI_GATEWAY_ENABLED !== "true",
+      "ROLLBACK_GATEWAY_RUNTIME_ENABLED");
+    for (const [name, original] of Object.entries(m.files)) {
+      const target = name === "dotenv" ? C.root + "/.env" : name === "ecosystem" ?
+        C.root + "/ecosystem.config.cjs" : C.home + "/" + name;
+      const f = H.file(target, true);
+      ensure(original ? f && hash(f.bytes) === original.sha256 && f.uid === original.uid &&
+        f.gid === original.gid && f.mode === original.mode : !f, "ROLLBACK_FILE_PROFILE_DIFFERS");
+    }
+    for (const target of [C.runtime, C.unit, C.link])
+      ensure(!fs.lstatSync(target, { throwIfNoEntry: false }), "ROLLBACK_TARGET_REMAINS");
+    ensure(m.originalToken, "ROLLBACK_TOKEN_EVIDENCE_MISSING");
+    const token = H.file(C.token), expected = m.originalToken;
+    ensure(hash(token.bytes) === expected.sha256 && token.uid === expected.uid &&
+      token.gid === expected.gid && token.mode === expected.mode, "ORIGINAL_TOKEN_CHANGED");
+    const ai = await H.readAI(snapshot.initialEnvironment);
+    P.assertRoutes(ai); H.health();
+    const probe = H.command("runuser", ["-u", "seman", "--", "/usr/bin/node", "-e",
+      "if(process.env.NODE_ENV!=='production'||process.env.OPENAI_API_KEY!=='synthetic-openai-marker')" +
+      "process.exit(1);process.stdout.write('SYNTHETIC_ENVIRONMENT_PRESERVED');"],
+    { env: { PATH: "/usr/bin:/bin", HOME: "/home/seman", NODE_ENV: "production", OPENAI_API_KEY: "synthetic-openai-marker" } });
+    ensure(probe === "SYNTHETIC_ENVIRONMENT_PRESERVED", "ROLLBACK_ENVIRONMENT_PROBE_FAILED");
+    return { status: "ROLLBACK_READ_ONLY_VERIFIED", toolDirectory: SOURCE_ROOT,
+      productionChanges: false, restarts: 0,
+      inferenceRequests: 0, gatewayRequests: 0, backupIntegrityVerified: true,
+      pm2ConfigurationVerified: true, processEnvironmentVerified: true, originalFilesVerified: true,
+      runtimeAndBootTargetsAbsent: true, originalTokenVerified: true,
+      openaiRoutes: 65, gatewayEnabledInINDEXUS: false, syntheticRunuserEnvironmentVerified: true,
+      originalFailureRecorded: !!m.applyFailure };
   }
   async waitRuntime(snapshot, nodeArgs, mustChangePID) {
     const deadline = Date.now() + 120000;
@@ -312,6 +371,8 @@ require("./bundle/script/ai-gateway-production.cjs").main(["--rollback",__dirnam
 }
 function parseArgs(argv) {
   if (argv.length === 1 && ["--self-test", "--preflight"].includes(argv[0])) return { mode: argv[0] };
+  if (argv.length === 2 && argv[0] === "--verify-rollback")
+    return { mode: "--verify-rollback", directory: argv[1] };
   if (argv.length === 3 && argv[0] === "--apply" && argv[1] === "--approve" && argv[2] === C.approval)
     return { mode: "--apply" };
   if (argv.length === 4 && argv[0] === "--rollback" && argv[2] === "--approve" && argv[3] === C.rollbackApproval)
@@ -330,6 +391,9 @@ async function main(argv = process.argv.slice(2)) {
     if (parsed.mode === "--preflight") {
       result = await require("./lib/ai-gateway-preflight.cjs").run({ sourceRoot: SOURCE_ROOT, sources: SOURCES });
       if (result.status === "BLOCKED") process.exitCode = 1;
+    } else if (parsed.mode === "--verify-rollback") {
+      ensure(require("node:os").hostname().toUpperCase() === "CORPCRM01" && process.getuid() === 0, "ROOT_ON_CORPCRM01_REQUIRED");
+      result = await io.verifyRollback(parsed.directory);
     } else if (parsed.mode === "--apply") result = await P.applyFlow(io);
     else {
       ensure(require("node:os").hostname().toUpperCase() === "CORPCRM01" && process.getuid() === 0, "ROOT_ON_CORPCRM01_REQUIRED");
@@ -347,5 +411,6 @@ async function main(argv = process.argv.slice(2)) {
 module.exports = { Operations, parseArgs, safeError, main, SOURCES, assertBackupDirectory, verifyBackupFiles };
 if (require.main === module) main().catch(error => {
   console.error(JSON.stringify({ status: "OPERATION_STOPPED", code: safeError(error),
+    ...(error.failure ? { failure: error.failure, failureRecorded: error.failureRecorded } : {}),
     ...(error.backup ? { backup: error.backup } : {}) })); process.exitCode = 1;
 });

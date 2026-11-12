@@ -8,7 +8,13 @@ function command(bin, argv, options = {}) {
   try {
     return cp.execFileSync(bin, argv, { env: CLEAN, cwd: "/", encoding: "utf8", timeout: 30000,
       maxBuffer: 16 * 1024 * 1024, stdio: ["pipe", "pipe", "pipe"], ...options });
-  } catch { ensure(false, "OPERATOR_COMMAND_FAILED"); }
+  } catch (error) {
+    const safe = Error("OPERATOR_COMMAND_FAILED");
+    safe.operatorCode = "OPERATOR_COMMAND_FAILED";
+    if (Number.isInteger(error?.status) && error.status >= 0 && error.status <= 255)
+      safe.operatorExitStatus = error.status;
+    throw safe;
+  }
 }
 function noLinks(file) {
   let cursor = "/";

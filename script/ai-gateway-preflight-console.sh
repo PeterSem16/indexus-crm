@@ -5,6 +5,14 @@ if [[ "$(id -un)" != seman || ! "${PREFLIGHT_REV:-}" =~ ^[a-f0-9]{40}$ ]]; then
   printf '{"status":"BLOCKED","blockedAt":"operatorOrRevision","productionChanges":false}\n'
   exit 1
 fi
+MODE="${PREFLIGHT_MODE:-preflight}"
+BACKUP="${PREFLIGHT_BACKUP:-}"
+if [[ "$MODE" != preflight && "$MODE" != verify-rollback ]] ||
+   { [[ "$MODE" == verify-rollback ]] &&
+     [[ ! "$BACKUP" =~ ^/var/www/indexus-crm/data/\.ai-gateway-private/attempt-[A-Za-z0-9-]+$ ]]; }; then
+  printf '{"status":"BLOCKED","blockedAt":"readOnlyModeOrBackup","productionChanges":false}\n'
+  exit 1
+fi
 trap 'printf "{\"status\":\"BLOCKED\",\"blockedAt\":\"toolDownloadOrSudo\",\"productionChanges\":false}\n" >&2' ERR
 sudo -v
 if [[ -n "${PREFLIGHT_SOURCE:-}" ]]; then
@@ -38,11 +46,13 @@ FILES=(
 )
 git -C "$SRC" -c core.hooksPath=/dev/null checkout --quiet FETCH_HEAD -- "${FILES[@]}"
 if sudo env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
-  bash -s -- "$SRC" <<'ROOT_READ_ONLY_PREFLIGHT'
+  bash -s -- "$SRC" "$MODE" "$BACKUP" <<'ROOT_READ_ONLY_PREFLIGHT'
 set -euo pipefail
 umask 077
 trap 'printf "{\"status\":\"BLOCKED\",\"blockedAt\":\"rootToolIntegrity\",\"productionChanges\":false}\n" >&2' ERR
 SRC="$1"
+MODE="$2"
+BACKUP="$3"
 TOOLS="$(mktemp -d /tmp/indexus-gateway-tools.XXXXXX)"
 for FILE in script/ai-gateway-production.cjs script/lib/ai-gateway-policy.cjs \
   script/lib/ai-gateway-host.cjs script/ai-gateway-production.test.cjs \
@@ -52,17 +62,23 @@ for FILE in script/ai-gateway-production.cjs script/lib/ai-gateway-policy.cjs \
 done
 cd "$TOOLS"
 sha256sum --check --status <<'VERIFIED_SOURCES'
-478316c73553f6568047a2b011a3ef13eb4ab30be9364e454e94d18cb5905ec9  script/ai-gateway-production.cjs
-e50082290ed3ba74ba128c8469c10cbf83390260de39f41e96da9ae078b04711  script/lib/ai-gateway-policy.cjs
-2991ba3a3e655a7772154b724ca59a771b77f71a72e1dc9b60f1767538f3327e  script/lib/ai-gateway-host.cjs
-a23dfb16a85b9e52ec336930f65f571100b33c510c5c4cd31bb111cd6ee5a41f  script/ai-gateway-production.test.cjs
+41ce0d7e55aa9b28003b2af46e6a4c7303b27a07ec433a0e8137a0c77a03c619  script/ai-gateway-production.cjs
+ab4340252fb20281cf5493e3d1d4a9f2e57b9f9089b6fa1b60a4e827253e9588  script/lib/ai-gateway-policy.cjs
+4624d7e65b32c188345634d4201b729fbe0cb5016945362617c634d322d303d6  script/lib/ai-gateway-host.cjs
+e8cd087be7aba1bae442aca0a75d30561941b953d095c56b3e24ac51ab7a9b9a  script/ai-gateway-production.test.cjs
 33af3aaff20605583f9152fcad2abe61ec0cef4c4ebe771e43f0cf7d87aa0fac  ops/ai-gateway/preload.cjs
 8d4742c58ce035282d3d813b72038e0cf1b7ab7c2382ff60b92d1126b703c688  script/lib/ai-gateway-preflight.cjs
 44d0f16556d89e72ce3a09465ae800ba89b13b7150934e25f94eeacfa0de8b40  script/ai-gateway-preflight.test.cjs
 VERIFIED_SOURCES
 trap - ERR
 RESULT=0
-/usr/bin/node "$TOOLS/script/ai-gateway-production.cjs" --preflight || RESULT=$?
+if [[ "$MODE" == preflight ]]; then
+  /usr/bin/node "$TOOLS/script/ai-gateway-production.cjs" --preflight || RESULT=$?
+elif [[ "$MODE" == verify-rollback ]]; then
+  /usr/bin/node "$TOOLS/script/ai-gateway-production.cjs" --verify-rollback "$BACKUP" || RESULT=$?
+else
+  exit 1
+fi
 exit "$RESULT"
 ROOT_READ_ONLY_PREFLIGHT
 then

@@ -226,6 +226,84 @@ test("failed recovery is reported as operator attention, never as successful rol
   const f = fakeIO("verifyRuntime", true);
   await assert.rejects(P.applyFlow(f.io), error => helper.safeError(error) === "APPLY_FAILED_OPERATOR_ATTENTION_REQUIRED");
 });
+test("apply records a sanitized pre-restart failure before recovery and returns its stage", async () => {
+  const f = fakeIO();
+  f.io.testInstalledLoader = async () => {
+    f.calls.push("testInstalledLoader");
+    const e = Error(SECRET);
+    e.operatorCode = "OPERATOR_COMMAND_FAILED"; e.operatorExitStatus = 1;
+    throw e;
+  };
+  let saved;
+  f.io.recordFailure = async (_dir, value) => { f.calls.push("recordFailure"); saved = value; };
+  await assert.rejects(P.applyFlow(f.io), e => {
+    assert.equal(e.operatorCode, "APPLY_FAILED_ROLLBACK_VERIFIED");
+    assert.equal(e.failureRecorded, true);
+    assert.deepEqual(e.failure, { stage: "installedLoaderValidation", code: "OPERATOR_COMMAND_FAILED", exitStatus: 1 });
+    assert.deepEqual(saved, e.failure);
+    assert.equal(JSON.stringify(e).includes(SECRET), false);
+    return true;
+  });
+  assert(f.calls.indexOf("recordFailure") < f.calls.indexOf("recover"));
+  assert.equal(f.calls.includes("restart"), false);
+});
+test("unknown codes, stages, raw exceptions and invalid exit values cannot enter failure evidence", async () => {
+  const f = fakeIO();
+  f.io.install = async () => {
+    f.io.failureStage = SECRET;
+    const e = Error(SECRET); e.operatorCode = SECRET; e.operatorExitStatus = SECRET; throw e;
+  };
+  f.io.recordFailure = async () => { throw Error(SECRET); };
+  await assert.rejects(P.applyFlow(f.io), e => {
+    assert.deepEqual(e.failure, { stage: "unknown", code: "UNCLASSIFIED_OPERATION_FAILURE" });
+    assert.equal(e.failureRecorded, false);
+    assert.equal(e.operatorCode, "APPLY_FAILED_ROLLBACK_VERIFIED");
+    assert.equal(JSON.stringify(e).includes(SECRET), false); return true;
+  });
+  assert(f.calls.includes("recover")); assert.equal(f.calls.includes("restart"), false);
+});
+test("each pre-restart installation substage is retained without relaxing its validation", async () => {
+  for (const stage of ["runtimeDirectoryCreate", "runtimeConfigurationInstall", "runtimeLoaderInstall",
+    "runtimeACLValidation", "ecosystemInstall"]) {
+    const f = fakeIO();
+    f.io.install = async () => {
+      f.io.failureStage = stage;
+      const e = Error(SECRET); e.operatorCode = "ACL_REVIEW_REQUIRED"; throw e;
+    };
+    await assert.rejects(P.applyFlow(f.io), e =>
+      e.failure.stage === stage && e.failure.code === "ACL_REVIEW_REQUIRED");
+    assert.equal(f.calls.includes("restart"), false);
+  }
+});
+test("filesystem failure evidence distinguishes permission errors without recording file paths", async () => {
+  const f = fakeIO();
+  f.io.install = async () => {
+    f.io.failureStage = "runtimeConfigurationInstall";
+    const e = Error(SECRET); e.code = "EACCES"; e.path = SECRET; throw e;
+  };
+  await assert.rejects(P.applyFlow(f.io), e => {
+    assert.deepEqual(e.failure, { stage: "runtimeConfigurationInstall",
+      code: "UNCLASSIFIED_OPERATION_FAILURE", systemCode: "EACCES" });
+    assert.equal(JSON.stringify(e).includes(SECRET), false); return true;
+  });
+});
+test("command errors expose only bounded exit status, never captured stderr or environment", () => {
+  const sandbox = { module: { exports: {} }, Buffer, process,
+    require(name) {
+      if (name === "node:child_process") return { execFileSync() {
+        const e = Error(SECRET); e.status = 1; e.stderr = SECRET; e.stdout = SECRET; throw e;
+      } };
+      if (name === "./ai-gateway-policy.cjs") return P;
+      return require(name);
+    },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "lib/ai-gateway-host.cjs"), "utf8"), sandbox);
+  assert.throws(() => sandbox.module.exports.command("synthetic", []), e => {
+    assert.equal(e.operatorCode, "OPERATOR_COMMAND_FAILED"); assert.equal(e.operatorExitStatus, 1);
+    assert.equal(e.message.includes(SECRET), false); assert.equal(JSON.stringify(e).includes(SECRET), false);
+    return true;
+  });
+});
 test("default, partial and mixed commands refuse production access before any inspection", () => {
   for (const args of [[], ["--apply"], ["--apply", "--approve", "yes"], ["--rollback"],
     ["--self-test", "--apply"], ["--rollback", "/tmp/foreign", "--approve", "yes"]]) {
@@ -307,14 +385,15 @@ function recoveryFixture(options = {}) {
     storage.set(name, { bytes: Buffer.from(bytes), ...profile });
   }
   const before = row(), current = structuredClone(before);
-  current.pid = options.stopped ? 0 : 456;
+  current.pid = options.stopped ? 0 : options.beforeRestart ? before.pid : 456;
   if (!options.beforeRestart) current.pm2_env.node_args = P.args();
   current.pm2_env.status = options.stopped ? "errored" : "online";
   const snapshot = { row: before, rows: [before], initialEnvironment: { OPENAI_API_KEY: SECRET },
     pm2: { directory: "/synthetic/pm2" } };
   const m = { version: 1, head: C.head, directory, bundle: {}, files: {}, expected: {},
     runtimeCreated: true, runtimeCreationAttempted: true, runtimeIdentity: { ino: 17, dev: 7 },
-    restartAttempted: !options.beforeRestart, dumpWritten: true, unitTouched: true, unitCreated: true,
+    restartAttempted: !options.beforeRestart, dumpWritten: !options.untouchedPM2,
+    unitTouched: !options.untouchedPM2, unitCreated: !options.untouchedPM2,
     originalToken: { sha256: P.hash(SECRET), uid: 0, gid: 0, mode: 0o600 }, expectedDump: {} };
   const originals = { dotenv: "unchanged-env", ecosystem: "original-ecosystem",
     "dump.pm2": "original-dump", "dump.pm2.bak": null };
@@ -334,6 +413,10 @@ function recoveryFixture(options = {}) {
     put(C.home + "/" + name, bytes, { uid: 1001, gid: 1001, mode: 0o600 });
     m.expectedDump[name] = P.hash(bytes);
   }
+  if (options.untouchedPM2) {
+    put(C.home + "/dump.pm2", originals["dump.pm2"], m.files["dump.pm2"]);
+    storage.delete(C.home + "/dump.pm2.bak"); storage.delete(C.unit);
+  }
   for (const name of helper.SOURCES) {
     const bytes = "synthetic-bundle-" + name;
     put(directory + "/bundle/" + name, bytes); m.bundle[name] = P.hash(bytes);
@@ -342,7 +425,7 @@ function recoveryFixture(options = {}) {
   const saved = JSON.stringify(snapshot);
   put(directory + "/snapshot.private.json", saved); m.snapshotSHA256 = P.hash(saved);
   const dirs = new Set([C.backupRoot, directory, C.runtime]);
-  let link = true;
+  let link = !options.untouchedPM2;
   const fakeFS = {
     statSync(p) {
       assert.ok(dirs.has(p));
@@ -350,7 +433,8 @@ function recoveryFixture(options = {}) {
         ino: 17, dev: 7, isDirectory: () => true };
     },
     existsSync: p => dirs.has(p) || storage.has(p) || (p === C.link && link),
-    lstatSync: p => p === C.link && link ? { isSymbolicLink: () => true } : undefined,
+    lstatSync: p => p === C.link && link ? { isSymbolicLink: () => true } :
+      dirs.has(p) || storage.has(p) ? { isSymbolicLink: () => false } : undefined,
     realpathSync: p => { assert.equal(p, C.link); return C.unit; },
     unlinkSync: p => { assert.ok(storage.has(p)); calls.push("remove:" + p); storage.delete(p); },
     rmdirSync: p => {
@@ -359,6 +443,8 @@ function recoveryFixture(options = {}) {
   };
   const host = {
     noLinks() {}, daemon() {}, disk() {}, health() { calls.push("health"); },
+    proc() { return { start: C.initialStart }; },
+    initialEnvironment() { return { ...snapshot.initialEnvironment }; },
     file(p, optional) { if (!storage.has(p) && optional) return null; assert.ok(storage.has(p), "missing fixture " + p); return storage.get(p); },
     privateJSON(p, value) { calls.push("journal"); put(p, JSON.stringify(value)); },
     atomic(p, bytes, profile) { calls.push("restore:" + p); put(p, bytes, profile); },
@@ -375,6 +461,11 @@ function recoveryFixture(options = {}) {
     },
     async readAI() { const r = goodAI(); r.value.gateway.enabled = !!options.gatewayEnabled; return r; },
     command(bin, argv) {
+      if (bin === "runuser") {
+        calls.push("synthetic-environment-probe");
+        assert.equal(argv.includes("--require"), false);
+        return "SYNTHETIC_ENVIRONMENT_PRESERVED";
+      }
       assert.equal(bin, "systemctl"); assert.equal(argv.includes("--now"), false);
       calls.push("systemctl:" + argv.join(" "));
       if (argv[0] === "disable") link = false;
@@ -397,7 +488,7 @@ function recoveryFixture(options = {}) {
     calls.push("verify-original-runtime"); assert.equal(nodeArgs, undefined);
     return { rows: [current], row: current };
   };
-  return { C, directory, io, calls, storage, options, put, original: originals, snapshot, manifest: m };
+  return { C, directory, io, calls, storage, options, put, original: originals, snapshot, manifest: m, host, current };
 }
 for (const [name, options] of Object.entries({
   complete: {}, failedWorker: { stopped: true }, beforeRestart: { beforeRestart: true },
@@ -434,4 +525,86 @@ test("rollback refuses a damaged executable bundle before any restart or restora
   await assert.rejects(f.io.recover(f.directory), /ROLLBACK_BUNDLE_CHANGED/);
   assert.equal(f.calls.includes("rpc:restart"), false);
   assert.equal(f.calls.some(c => c.startsWith("restore:")), false);
+});
+test("standalone rollback verification reads the legacy backup and does not write or restart", async () => {
+  const f = recoveryFixture({ beforeRestart: true });
+  await f.io.recover(f.directory);
+  const before = f.calls.length;
+  const result = await f.io.verifyRollback(f.directory);
+  assert.equal(result.status, "ROLLBACK_READ_ONLY_VERIFIED");
+  assert.equal(result.originalFailureRecorded, false);
+  assert.equal(result.productionChanges, false); assert.equal(result.restarts, 0);
+  assert.equal(f.calls.slice(before).some(c => /^(journal|restore:|remove:|rpc:restart|systemctl:)/.test(c)), false);
+  assert.equal(f.calls.slice(before).includes("synthetic-environment-probe"), true);
+});
+test("the reported production flag combination leaves PM2 dumps and boot registration untouched", async () => {
+  const f = recoveryFixture({ beforeRestart: true, untouchedPM2: true });
+  await f.io.recordFailure(f.directory, {
+    stage: "installedLoaderValidation", code: "OPERATOR_COMMAND_FAILED", exitStatus: 1,
+  });
+  await f.io.recover(f.directory);
+  assert.equal(f.calls.some(c => /^(rpc:restart|systemctl:)/.test(c)), false);
+  assert.equal(f.calls.some(c => c === "restore:" + f.C.home + "/dump.pm2"), false);
+  const manifest = JSON.parse(f.storage.get(f.directory + "/manifest.json").bytes);
+  assert.equal(manifest.status, "ROLLBACK_VERIFIED_OPENAI_ONLY");
+  assert.equal(manifest.applyFailure.stage, "installedLoaderValidation");
+  const result = await f.io.verifyRollback(f.directory);
+  assert.equal(result.status, "ROLLBACK_READ_ONLY_VERIFIED");
+  assert.equal(result.originalFailureRecorded, true);
+});
+for (const [name, mutate, code] of [
+  ["node arguments", f => { f.current.pm2_env.node_args = P.args(); }, "ROLLBACK_NODE_ARGUMENTS_DIFFER"],
+  ["original file permissions", f => { f.storage.get(f.C.root + "/ecosystem.config.cjs").mode = 0o777; }, "ROLLBACK_FILE_PROFILE_DIFFERS"],
+  ["untouched PM2 dump", f => { f.put(f.C.home + "/dump.pm2", "external-change"); }, "ROLLBACK_FILE_PROFILE_DIFFERS"],
+  ["worker identity", f => { f.current.pid++; }, "ROLLBACK_WORKER_IDENTITY_DIFFERS"],
+  ["process environment", f => { f.host.initialEnvironment = () => ({ OPENAI_API_KEY: "changed" }); }, "ROLLBACK_PROCESS_ENVIRONMENT_DIFFERS"],
+  ["leftover runtime", f => { f.put(f.C.runtime + "/gateway.json", "external-file"); f.put(f.C.unit, "unexpected-unit"); }, "ROLLBACK_TARGET_REMAINS"],
+  ["Gateway DB flag", f => { f.options.gatewayEnabled = true; }, "AI_OPENAI_BASELINE_CHANGED"],
+]) {
+  test("read-only rollback verification refuses " + name + " without changing it", async () => {
+    const f = recoveryFixture({ beforeRestart: true });
+    await f.io.recover(f.directory); mutate(f);
+    const before = f.calls.length;
+    await assert.rejects(f.io.verifyRollback(f.directory), new RegExp(code));
+    assert.equal(f.calls.slice(before).some(c => /^(journal|restore:|remove:|rpc:restart|systemctl:)/.test(c)), false);
+  });
+}
+test("read-only rollback verification has a separate unambiguous CLI mode", () => {
+  assert.deepEqual(helper.parseArgs(["--verify-rollback", "/synthetic/backup"]),
+    { mode: "--verify-rollback", directory: "/synthetic/backup" });
+  assert.throws(() => helper.parseArgs(["--verify-rollback"]), /EXPLICIT_SEPARATE_APPROVAL_REQUIRED/);
+});
+test("console launcher accepts only read-only modes and forwards the exact backup to root staging", t => {
+  const launcher = path.join(__dirname, "ai-gateway-preflight-console.sh");
+  const tools = fs.mkdtempSync(path.join(os.tmpdir(), "gateway-launcher-test-"));
+  t.after(() => fs.rmSync(tools, { recursive: true, force: true }));
+  const capture = path.join(tools, "capture");
+  const pin = "a".repeat(40);
+  fs.writeFileSync(path.join(tools, "id"), "#!/bin/bash\nif [[ \"$1\" == -un ]]; then echo seman; else /usr/bin/id \"$@\"; fi\n", { mode: 0o700 });
+  fs.writeFileSync(path.join(tools, "git"), "#!/bin/bash\nif [[ \"$3\" == -c && \"$4\" == core.hooksPath=/dev/null && \"$5\" == checkout ]]; then exit 0; fi\n[[ \"$3\" == rev-parse && \"$4\" == FETCH_HEAD ]] || exit 91\nprintf '%s\\n' \"$PREFLIGHT_REV\"\n", { mode: 0o700 });
+  fs.writeFileSync(path.join(tools, "sudo"), "#!/bin/bash\n[[ \"$1\" != -v ]] || exit 0\nprintf '%s\\n' \"$@\" > \"$CAPTURE.args\"\ncat > \"$CAPTURE.stdin\"\n", { mode: 0o700 });
+  for (const mode of ["preflight", "verify-rollback", "apply", "--apply"]) {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), "indexus-gateway-source."));
+    t.after(() => fs.rmSync(src, { recursive: true, force: true }));
+    for (const ext of [".args", ".stdin"]) fs.rmSync(capture + ext, { force: true });
+    const backup = P.C.backupRoot + "/attempt-exact";
+    const r = cp.spawnSync("bash", [launcher], {
+      encoding: "utf8", env: { PATH: tools + ":" + process.env.PATH,
+        CAPTURE: capture, PREFLIGHT_REV: pin, PREFLIGHT_SOURCE: src,
+        PREFLIGHT_MODE: mode, PREFLIGHT_BACKUP: backup },
+    });
+    if (mode === "apply" || mode === "--apply") {
+      assert.equal(r.status, 1); assert.match(r.stdout, /readOnlyModeOrBackup/);
+      assert.equal(fs.existsSync(capture + ".args"), false);
+    } else {
+      assert.equal(r.status, 0, r.stderr);
+      const argv = fs.readFileSync(capture + ".args", "utf8").trim().split("\n");
+      assert.deepEqual(argv.slice(-3), [src, mode, backup]);
+      const script = fs.readFileSync(capture + ".stdin", "utf8");
+      assert.match(script, /--verify-rollback "\$BACKUP"/);
+      assert.doesNotMatch(script, /--apply|--rollback |restart all/);
+      for (const [, expected, name] of script.matchAll(/^([a-f0-9]{64})  ([^\n]+)$/gm))
+        assert.equal(P.hash(fs.readFileSync(path.join(__dirname, "..", name))), expected, name);
+    }
+  }
 });

@@ -135,21 +135,56 @@ async function applyFlow(io) {
   const backup = await io.backup();
   await io.verifyBackup(backup); // No live writes are allowed above this boundary.
   try {
+    io.failureStage = "runtimeInstall";
     await io.install(backup);
+    io.failureStage = "installedLoaderValidation";
     await io.testInstalledLoader(backup);
+    io.failureStage = "restartPrerequisites";
     state.restartAttempted = true;
     await io.restart(backup);
+    io.failureStage = "runtimeVerification";
     await io.verifyRuntime(backup);
+    io.failureStage = "pm2DumpSave";
     await io.saveDump(backup);
+    io.failureStage = "bootEnable";
     await io.enableBoot(backup);
+    io.failureStage = "finalVerification";
     await io.verifyFinal(backup);
+    io.failureStage = "completion";
     return await io.complete(backup);
   } catch (error) {
+    const failure = {
+      stage: FAILURE_STAGES.has(io.failureStage) ? io.failureStage : "unknown",
+      code: FAILURE_CODES.has(error?.operatorCode) ? error.operatorCode : "UNCLASSIFIED_OPERATION_FAILURE",
+      ...(Number.isInteger(error?.operatorExitStatus) && error.operatorExitStatus >= 0 &&
+        error.operatorExitStatus <= 255 ? { exitStatus: error.operatorExitStatus } : {}),
+      ...(["EACCES", "EPERM", "ENOENT", "ENOSPC", "EROFS", "EIO", "EDQUOT", "EMFILE", "EEXIST"]
+        .includes(error?.code) ? { systemCode: error.code } : {}),
+    };
+    // Never let a failed diagnostic write prevent recovery. No stderr/message/stack.
+    let failureRecorded = false;
+    try { if (io.recordFailure) { await io.recordFailure(backup, failure); failureRecorded = true; } } catch {}
     let recovered = false;
     try { await io.recover(backup, state); recovered = true; } catch {}
     const safe = Error(recovered ? "APPLY_FAILED_ROLLBACK_VERIFIED" : "APPLY_FAILED_OPERATOR_ATTENTION_REQUIRED");
-    safe.operatorCode = safe.message; safe.backup = backup; throw safe;
+    safe.operatorCode = safe.message; safe.backup = backup;
+    safe.failure = failure; safe.failureRecorded = failureRecorded; throw safe;
   }
 }
+const FAILURE_STAGES = new Set(["runtimeInstall", "runtimeDirectoryCreate", "runtimeConfigurationInstall",
+  "runtimeLoaderInstall", "runtimeACLValidation", "ecosystemInstall", "installedLoaderValidation",
+  "restartPrerequisites", "restartDispatch", "runtimeVerification", "pm2DumpSave", "bootEnable",
+  "finalVerification", "completion"]);
+const FAILURE_CODES = new Set(["OPERATOR_COMMAND_FAILED", "INSTALLED_LOADER_TEST_FAILED",
+  "VERIFIED_BACKUP_REQUIRED", "DOTENV_CHANGED", "BACKEND_CHANGED", "PM2_DAEMON_CHANGED",
+  "PM2_RPC_SOCKET_UNSAFE", "BACKUP_DISK_UNSAFE", "WORKER_CHANGED_BEFORE_INSTALL",
+  "PM2_ENVIRONMENT_CHANGED", "PM2_SETTINGS_CHANGED", "OTHER_PM2_PROCESS_CHANGED",
+  "AI_OPENAI_BASELINE_CHANGED", "ECOSYSTEM_CHANGED_BEFORE_INSTALL", "TOKEN_PERMISSIONS_CHANGED",
+  "TOKEN_FORMAT_REQUIRES_REVIEW", "TOKEN_IN_PM2_CONFIGURATION", "ECOSYSTEM_BASELINE_CHANGED",
+  "ECOSYSTEM_REQUIRES_REVIEW", "RUNTIME_TARGET_COLLISION", "ACL_REVIEW_REQUIRED",
+  "UNSAFE_SYMLINK", "UNSAFE_FILE", "FILE_IDENTITY_CHANGED", "RESTART_PREREQUISITES_MISSING",
+  "WORKER_CHANGED_BEFORE_RESTART", "RUNTIME_VERIFICATION_FAILED", "INSTALLED_FILE_CHANGED",
+  "ORIGINAL_TOKEN_CHANGED", "PM2_DUMP_CHANGED_EXTERNALLY", "BOOT_LINK_NOT_VERIFIED",
+  "BOOT_NOT_ENABLED", "NEW_BOOT_SERVICE_UNEXPECTEDLY_STARTED"]);
 module.exports = { C, ensure, hash, args, stable, envValues, assertPreserved, assertOtherProcesses,
   transformEcosystem, assertRoutes, assertOpenAI, renderUnit, dumpRows, assertNoToken, verifyLoader, applyFlow };
