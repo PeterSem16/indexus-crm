@@ -1,17 +1,21 @@
 # INDEXUS AI Gateway – technický report incidentu fázy A
 
-**Stav: oprava pripravená a otestovaná; produkčný stav po druhom pokuse čaká
-na nižšie uvedenú čítaciu kontrolu. Ďalší apply NIE JE schválený.**
+**Stav: fáza A úspešne dokončená na CORPCRM01 podľa dodaného produkčného
+výsledku. `RUNTIME_READY_OPENAI_ONLY_AWAITING_ADMIN_TESTS`.
+Ďalší apply ani fáza B nie sú povolené.**
 
 Tento dokument je aktuálny súhrnný report. Predchádzajúce realizačné bloky
 a kontrolné súčty v starších dokumentoch sa na nový pokus nepoužijú.
-Po získaní produkčného výsledku sa doplní tento istý report.
+Výsledok schválenej realizácie je doplnený v častiach 4 a 10.
+Časti 8 a 9 zachovávajú historický postup pred realizáciou; teraz ich
+neopakovať. Runtime a boot ciele už zámerne existujú, takže starý audit
+neaplikovaného stavu už nie je vhodnou kontrolou úspešného nasadenia.
 
 ## 1. Rozsah a bezpečnostné hranice
 
 - Žiadny ďalší `--apply`, reštart INDEXUS, fáza B ani inferencia.
 - Zachovať 65 OpenAI routov, bez modelových overrides a bez aktivácie Gateway.
-- Zachovať obe súkromné zálohy, pôvodný token, `.env`, Git HEAD a produkčný build.
+- Zachovať všetky tri súkromné zálohy, pôvodný token, `.env`, Git HEAD a produkčný build.
 - Nepripájať sa z Replitu cez SSH. Produkčné čítacie príkazy vykonáva operátor
   v konzole CORPCRM01 ako `seman`.
 - Dočasný tooling/test staging môže vzniknúť v `/tmp`; konfigurácia produkcie,
@@ -98,20 +102,30 @@ Tento záver musí pre produkciu potvrdiť manifest a porovnanie aktuálneho
 stavu. Novú zálohu nepoužívať na manuálny rollback, kým jej overenie
 neprešlo. Obe existujúce zálohy sa zachovávajú bez prepisovania.
 
-## 4. Aktuálny stav produkcie – dôkazy a otvorené body
+## 4. Aktuálny stav produkcie po úspešnej fáze A
 
-| Oblasť | Posledný overený údaj | Po druhom pokuse |
+Zdrojom je dodaný úplný výsledný JSON apply a zakončenie schváleného bloku
+`PHASE_A_FINISHED_STOP_BEFORE_PHASE_B`. Upload obsahuje iba koniec preflightu,
+nie úplný úvodný audit či raw PM2 výpis. Výsledky nižšie rozlišujú priame
+polia JSON od kontrol, ktoré musel overený helper úspešne dokončiť.
+
+| Oblasť | Výsledok | Dôkaz |
 |---|---|---|
-| Aplikačný zdroj | main `52902d20` pred pokusom | nový audit preverí pripnutý baseline; čerstvý preflight preverí HEAD |
-| PM2 a proces | online, pôvodná konfigurácia a PID 833559 pred pokusom | čaká na aktuálne čítacie porovnanie |
-| OpenAI routy | 65, interné 0, overrides 0 pred pokusom | čaká na aktuálny DB read-only SELECT |
-| Gateway | vypnutá pred pokusom | musí zostať vypnutá, overí audit |
-| Runtime/boot súbory | neprítomné po prvom rollbacku | overí neprítomnosť aj kontrola systemd |
-| Pôvodný token | zachovaný podľa prvého nezávislého auditu | porovná sa s hashom a právami zo staršej overenej zálohy |
-| Nová záloha | cesta uvedená v chybovom výstupe | preverí sa manifest, integrita, snapshot, príznaky a testy |
+| Fáza A | úspešná | konečný status v JSON |
+| PM2/indexus-crm | online, cielený reštart prešiel | úspešné `verifyRuntime`/`verifyFinal` pred dokončením; nový PID nebol vypísaný |
+| OpenAI routy | 65, routy nezmenené | `openaiRoutes:65`, `routesChanged:false` |
+| Interné routy / overrides | 0 / 0 | úspešný finálny `assertRoutes`; kompletný aktuálny zoznam nie je v tomto uploade |
+| Gateway v administrácii | vypnutá | povinná finálna kontrola `assertRoutes` |
+| Runtime loader/config | nainštalované a overené | povinný loader test a kontrola nainštalovaných hashov |
+| Ecosystem | schválene pridaný preload | povinné overenie; netvrdíme, že ecosystem zostal bajtovo nezmenený |
+| PM2 prostredie a ostatné procesy | zachované podľa kontrol helpera | úspešné porovnanie runtime a PM2 dumpov; raw dump sa nezverejňuje |
+| `.env` / pôvodný token | nezmenené | `originalDotenvUnchanged:true`, `originalTokenUnchanged:true` |
+| Systemd boot jednotka | enabled, staticky overená, nespustená | `startup:enabled_static_verified_not_started` |
+| Nová záloha | vytvorená, balík overený pred inštaláciou | identifikátor v časti 10; úspešný priechod `verifyBackup` |
+| Rollback počas úspešného pokusu | nebol potrebný | normálny úspešný koniec, nie vetva obnovy |
 
-**Aktuálny stav po druhom pokuse zatiaľ nie je nezávisle potvrdený.**
-Nezamieňame posledný preflight pred pokusom za dôkaz stavu po zlyhaní.
+Neoverené zostávajú reboot, prihlásené UI a Gateway konektivita/inferencia
+cez administráciu INDEXUS. Úspešná fáza A nie je aktiváciou Gateway.
 
 ## 5. Vykonaná oprava
 
@@ -179,9 +193,10 @@ b4ef4c6592327486b5d80630039cee7d047ea04955340fdf55f36e15ab83a607  script/ai-gate
 6c475b8906e28fd35420b2f5c06ffc2ec23cf63ffef8f5081373751fc41d3d54  script/ai-gateway-release.test.cjs
 ```
 
-## 8. Jediný pripravený produkčný krok: audit a read-only preflight
+## 8. Historický čítací blok pred realizáciou – teraz neopakovať
 
-Blok patrí do konzoly CORPCRM01 ako `seman`. V tejto analýze nebol vykonaný.
+Blok patril do konzoly CORPCRM01 ako `seman`, pred runtime inštaláciou.
+Nie je určený na opakovanie po úspešnej fáze A.
 Nič neaplikuje, nevykonáva rollback, nemení PM2/systemd/DB konfiguráciu a
 nespúšťa inferencie. Overí oba archívy, aktuálny stav a prehrá iba syntetické
 testy archivovaného balíka; testovacie súbory môžu vzniknúť v `/tmp`.
@@ -233,7 +248,14 @@ Ak je stav `ATTEMPT_REQUIRES_REVIEW`, nič neopravovať automaticky. Výstup
 obsahuje bezpečné `blockedBy` a dostupné príznaky. Preflight sa po takomto
 výsledku automaticky nespustí. Neposielať celý manifest, snapshot, dump ani token.
 
-## 9. Presný bezpečný postup ďalšieho nasadenia
+## 9. Historický bezpečný postup úspešnej realizácie – neopakovať
+
+Nasledujúci postup bol podkladom pre následné výslovné schválenie fázy A
+vrátane jedného plánovaného reštartu. Používateľ potvrdil audit
+`UNAPPLIED_ATTEMPT_READ_ONLY_VERIFIED`, `READY` a sedem overených SHA-256;
+schválený staging bol `/tmp/indexus-gateway-tools.K45AIM`.
+Realizačný blok znovu kontroloval integritu, audit a preflight pred apply.
+Tento zoznam je historický, nie nový pokyn vykonať nasadenie.
 
 1. Najprv vyhodnotiť oba produkčné JSON reporty z časti 8 a aktualizovať
    aktuálny stav v tomto reporte. Bez nich incident nie je uzavretý.
@@ -258,6 +280,71 @@ výsledku automaticky nespustí. Neposielať celý manifest, snapshot, dump ani 
 8. Žiadne povolenie Gateway v administrácii, fáza B, inferencie alebo
    presmerovanie služby bez ďalšieho osobitného súhlasu.
 
-Zámerne tu nie je ďalší kopírovateľný `--apply` blok: jeho konkrétny staging
-a schválenie musia nasledovať až po aktuálnom overení. Nevykonával sa
-produkčný reštart, deployment ani nové AI volanie z Replitu.
+Z Replitu sa na CORPCRM01 nevykonal žiadny príkaz. Schválenú realizáciu
+vykonal operátor. Ďalší apply ani ručný rollback sa teraz nevykonáva.
+
+## 10. Výsledok produkčnej realizácie fázy A
+
+Dodané operátorom 2026-11-12:
+
+```json
+{
+  "status": "RUNTIME_READY_OPENAI_ONLY_AWAITING_ADMIN_TESTS",
+  "backup": "/var/www/indexus-crm/data/.ai-gateway-private/attempt-985f17e6-82ec-47ec-afb7-6242af5884f9",
+  "openaiRoutes": 65,
+  "routesChanged": false,
+  "originalDotenvUnchanged": true,
+  "originalTokenUnchanged": true,
+  "gatewayRequests": 0,
+  "startup": "enabled_static_verified_not_started",
+  "rebootTest": "not_performed",
+  "signedInUI": "not_verified",
+  "gatewayConnectivity": "not_run",
+  "gatewaySmoke": "not_run"
+}
+```
+
+Konzola následne vypísala `PHASE_A_FINISHED_STOP_BEFORE_PHASE_B` a vrátila
+operátora do shellu. V dodanom výsledku nie je hlásená chyba apply.
+
+### Záloha a rollback
+
+Nová súkromná záloha:
+
+```text
+/var/www/indexus-crm/data/.ai-gateway-private/attempt-985f17e6-82ec-47ec-afb7-6242af5884f9
+```
+
+Úspešné dokončenie je možné až po overení zálohy, ochrany pred čítaním
+neoprávneným používateľom a testov samostatného rollback balíka.
+Neznamená to, že bola nasimulovaná reálna obnova živej produkcie:
+pri tomto úspešnom pokuse sa rollback nespúšťal.
+
+Polia `actualBackupVerified:false` a `actualRollbackTested:false` vo
+viditeľnom konci **preflightu** opisujú stav pred vytvorením tejto novej
+zálohy. Nie sú výsledkom následného úspešného `verifyBackup` v apply.
+Obe staršie zálohy sa nemažú; nový helper ich pri úspešnom apply neprepisuje.
+
+### Sieťové kontroly a hranice overenia
+
+- Preflight: TLS overené a tri Gateway GET s HTTP 200
+  (`health/ready`, `v1/models`, `indexus/v1/capabilities`).
+- Apply: `gatewayRequests:0`. Nie je to nulový počet GET za celú reláciu;
+  ide o nulový počet požiadaviek v samotnej realizačnej fáze.
+- Inferenčné testy sa nespúšťali. Model a deklarácia text/JSON kontraktu
+  boli objavené GET kontrolami, nie úspešnou generáciou.
+- Reboot nebol vykonaný; enabled boot jednotka zatiaľ nedokazuje
+  úspešné spustenie po reštarte servera.
+- Prihlásené UI a admin connectivity/smoke neboli overené.
+- V aktuálnom uploade nie je nový PID, úplný PM2 stav ani celý úvodný audit.
+  Neuvádzame ich ako samostatne získané výpisy.
+
+### Uzavretie fázy A
+
+Technický cieľ fázy A bol dosiahnutý: runtime je pripravený, existujúcich
+65 routov zostáva na OpenAI a Gateway v administrácii zostáva vypnutá.
+Nejde o stav `GATEWAY_READY_OPENAI_ACTIVE`.
+
+**Zastaviť ďalšie produkčné zmeny. Fáza B nie je schválená.**
+Prípadné povolenie Gateway a syntetické admin testy bez zmeny routov
+vyžadujú samostatne opísaný rozsah a výslovné schválenie.

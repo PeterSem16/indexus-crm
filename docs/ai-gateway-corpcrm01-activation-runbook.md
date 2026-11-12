@@ -1,12 +1,12 @@
 # INDEXUS AI Gateway – realizačný plán pre CORPCRM01
 
-**Stav: pripravené na samostatné schválenie, nie povolenie vykonať produkčné zmeny.**
+**Stav: fáza A už úspešne dokončená. Fáza B nie je schválená.**
 
-**POZASTAVENÉ po zlyhaní fázy A.** Pôvodné realizačné príkazy v tomto dokumente
-teraz neopakovať. Kontrolné súčty nižšie patria pôvodnej verzii nástrojov.
-Aktuálny súhrnný report a nové diagnostické nástroje sú v
-`docs/ai-gateway-incident-report.md`. Oprava nástroja ešte nie je
-potvrdením odstránenia pôvodnej príčiny ani povolením ďalšieho pokusu.
+**HISTORICKÝ PLÁN – PRÍKAZY NEOPAKOVAŤ.** Po oprave nástroja a samostatnom
+schválení operátor dosiahol `RUNTIME_READY_OPENAI_ONLY_AWAITING_ADMIN_TESTS`.
+Aktuálny výsledok, nová záloha a neoverené body sú v
+`docs/ai-gateway-incident-report.md`. Kontrolné súčty a východiská nižšie sú
+historické; nové runtime súbory sú teraz zámerne prítomné a PID sa zmenil.
 
 Táto analýza nemení produkciu, PM2, routy ani databázu. Príkazy v častiach
 označených „PO SCHVÁLENÍ“ sa teraz nespúšťajú. Operátor používa konzolu
