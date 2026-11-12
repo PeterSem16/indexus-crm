@@ -55,6 +55,39 @@ function atomic(fileName, bytes, profile, replace = false) {
 function privateJSON(fileName, value, replace = false) {
   atomic(fileName, JSON.stringify(value, null, 2), { uid: 0, gid: 0, mode: 0o600 }, replace);
 }
+function bundleTestSummary(bundleRoot) {
+  const args = ["--test", path.join(bundleRoot, "script/ai-gateway-production.test.cjs"),
+    path.join(bundleRoot, "script/ai-gateway-preflight.test.cjs")];
+  const result = cp.spawnSync("/usr/bin/node", args, { env: CLEAN, cwd: "/", encoding: "utf8",
+    timeout: 60000, maxBuffer: 2 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  // Only static findings and counts leave the captured TAP output.
+  const output = typeof result.stdout === "string" ? result.stdout : "";
+  const count = key => { const match = output.match(new RegExp("^# " + key + " (\\d+)$", "m")); return match ? +match[1] : null; };
+  return {
+    exitStatus: Number.isInteger(result.status) ? result.status : null,
+    timedOut: result.error?.code === "ETIMEDOUT",
+    tests: count("tests"), passed: count("pass"), failed: count("fail"), skipped: count("skipped"),
+    missingLauncherFailureReproduced: /not ok \d+ - console launcher accepts only read-only modes/.test(output) &&
+      /ai-gateway-preflight-console\.sh: No such file or directory/.test(output),
+  };
+}
+function systemdInspection() {
+  const result = cp.spawnSync("systemctl", ["show", "pm2-seman.service", "--no-pager",
+    "--property=LoadState,ActiveState,UnitFileState,MainPID"], {
+    env: CLEAN, cwd: "/", encoding: "utf8", timeout: 10000,
+    maxBuffer: 16384, stdio: ["ignore", "pipe", "pipe"],
+  });
+  const fields = Object.fromEntries(String(result.stdout || "").split("\n").filter(line => line.includes("="))
+    .map(line => { const at = line.indexOf("="); return [line.slice(0, at), line.slice(at + 1)]; }));
+  const load = ["loaded", "not-found", "error", "masked"].includes(fields.LoadState) ? fields.LoadState : "unknown";
+  const active = ["active", "inactive", "failed", "activating", "deactivating", "reloading"]
+    .includes(fields.ActiveState) ? fields.ActiveState : "unknown";
+  const unit = ["", "enabled", "disabled", "static", "masked", "not-found", "indirect"]
+    .includes(fields.UnitFileState) ? fields.UnitFileState : "unknown";
+  const pid = /^\d+$/.test(fields.MainPID || "") ? +fields.MainPID : null;
+  return { loadState: load, activeState: active, unitFileState: unit, mainPID: pid,
+    baselineNotRegistered: load === "not-found" && active === "inactive" && pid === 0 };
+}
 function proc(pid) {
   const raw = fs.readFileSync("/proc/" + pid + "/stat", "utf8");
   const fields = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
@@ -251,6 +284,6 @@ async function preflight() {
   const pm2 = discoverPM2();
   return { live, env, ai, pm2, dotenv, ecosystem, unit: renderUnit(pm2.cli) };
 }
-module.exports = { command, noLinks, file, atomic, privateJSON, proc, daemon, initialEnvironment,
+module.exports = { command, noLinks, file, atomic, privateJSON, bundleTestSummary, systemdInspection, proc, daemon, initialEnvironment,
   aclAbsent, disk, verifyPM2Merge, discoverPM2, rpcChild, rpc, application, readAI, health,
   preflight };

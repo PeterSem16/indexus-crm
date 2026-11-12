@@ -133,7 +133,18 @@ async function applyFlow(io) {
   const state = { restartAttempted: false };
   await io.preflight();
   const backup = await io.backup();
-  await io.verifyBackup(backup); // No live writes are allowed above this boundary.
+  io.failureStage = "backupVerification";
+  try {
+    await io.verifyBackup(backup); // No live writes are allowed above this boundary.
+  } catch (error) {
+    const failure = failureEvidence(io, error);
+    const recorded = await recordFailureSafely(io, backup, failure);
+    const safe = Error("BACKUP_VERIFICATION_FAILED_NO_RUNTIME_CHANGES");
+    safe.operatorCode = safe.message; safe.backup = backup;
+    safe.failure = failure; safe.failureRecorded = recorded;
+    // Never install, restart or recover from a bundle that failed verification.
+    throw safe;
+  }
   try {
     io.failureStage = "runtimeInstall";
     await io.install(backup);
@@ -153,17 +164,8 @@ async function applyFlow(io) {
     io.failureStage = "completion";
     return await io.complete(backup);
   } catch (error) {
-    const failure = {
-      stage: FAILURE_STAGES.has(io.failureStage) ? io.failureStage : "unknown",
-      code: FAILURE_CODES.has(error?.operatorCode) ? error.operatorCode : "UNCLASSIFIED_OPERATION_FAILURE",
-      ...(Number.isInteger(error?.operatorExitStatus) && error.operatorExitStatus >= 0 &&
-        error.operatorExitStatus <= 255 ? { exitStatus: error.operatorExitStatus } : {}),
-      ...(["EACCES", "EPERM", "ENOENT", "ENOSPC", "EROFS", "EIO", "EDQUOT", "EMFILE", "EEXIST"]
-        .includes(error?.code) ? { systemCode: error.code } : {}),
-    };
-    // Never let a failed diagnostic write prevent recovery. No stderr/message/stack.
-    let failureRecorded = false;
-    try { if (io.recordFailure) { await io.recordFailure(backup, failure); failureRecorded = true; } } catch {}
+    const failure = failureEvidence(io, error);
+    const failureRecorded = await recordFailureSafely(io, backup, failure);
     let recovered = false;
     try { await io.recover(backup, state); recovered = true; } catch {}
     const safe = Error(recovered ? "APPLY_FAILED_ROLLBACK_VERIFIED" : "APPLY_FAILED_OPERATOR_ATTENTION_REQUIRED");
@@ -171,7 +173,24 @@ async function applyFlow(io) {
     safe.failure = failure; safe.failureRecorded = failureRecorded; throw safe;
   }
 }
-const FAILURE_STAGES = new Set(["runtimeInstall", "runtimeDirectoryCreate", "runtimeConfigurationInstall",
+function failureEvidence(io, error) {
+  return {
+    stage: FAILURE_STAGES.has(io.failureStage) ? io.failureStage : "unknown",
+    code: FAILURE_CODES.has(error?.operatorCode) ? error.operatorCode : "UNCLASSIFIED_OPERATION_FAILURE",
+    ...(Number.isInteger(error?.operatorExitStatus) && error.operatorExitStatus >= 0 &&
+      error.operatorExitStatus <= 255 ? { exitStatus: error.operatorExitStatus } : {}),
+    ...(["EACCES", "EPERM", "ENOENT", "ENOSPC", "EROFS", "EIO", "EDQUOT", "EMFILE", "EEXIST"]
+      .includes(error?.code) ? { systemCode: error.code } : {}),
+  };
+}
+async function recordFailureSafely(io, backup, failure) {
+  // No raw stderr/message/stack; a diagnostic write must never block recovery.
+  try { if (io.recordFailure) { await io.recordFailure(backup, failure); return true; } } catch {}
+  return false;
+}
+const FAILURE_STAGES = new Set(["backupVerification", "backupIntegrityValidation", "backupPrivacyValidation",
+  "rollbackSyntaxValidation", "rollbackBundleTests", "bootUnitSyntaxValidation",
+  "runtimeInstall", "runtimeDirectoryCreate", "runtimeConfigurationInstall",
   "runtimeLoaderInstall", "runtimeACLValidation", "ecosystemInstall", "installedLoaderValidation",
   "restartPrerequisites", "restartDispatch", "runtimeVerification", "pm2DumpSave", "bootEnable",
   "finalVerification", "completion"]);

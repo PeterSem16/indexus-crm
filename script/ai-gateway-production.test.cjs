@@ -226,6 +226,24 @@ test("failed recovery is reported as operator attention, never as successful rol
   const f = fakeIO("verifyRuntime", true);
   await assert.rejects(P.applyFlow(f.io), error => helper.safeError(error) === "APPLY_FAILED_OPERATOR_ATTENTION_REQUIRED");
 });
+test("failed bundle verification reports its exact stage without install, restart or unsafe recovery", async () => {
+  const f = fakeIO();
+  f.io.verifyBackup = async () => {
+    f.calls.push("verifyBackup"); f.io.failureStage = "rollbackBundleTests";
+    const e = Error(SECRET); e.operatorCode = "OPERATOR_COMMAND_FAILED"; e.operatorExitStatus = 1; throw e;
+  };
+  let evidence;
+  f.io.recordFailure = async (_dir, failure) => { evidence = failure; };
+  await assert.rejects(P.applyFlow(f.io), e => {
+    assert.equal(e.operatorCode, "BACKUP_VERIFICATION_FAILED_NO_RUNTIME_CHANGES");
+    assert.deepEqual(e.failure, { stage: "rollbackBundleTests", code: "OPERATOR_COMMAND_FAILED", exitStatus: 1 });
+    assert.deepEqual(evidence, e.failure); assert.equal(e.failureRecorded, true);
+    assert.equal(JSON.stringify(e).includes(SECRET), false); return true;
+  });
+  assert.equal(f.calls.includes("install"), false);
+  assert.equal(f.calls.includes("restart"), false);
+  assert.equal(f.calls.includes("recover"), false);
+});
 test("apply records a sanitized pre-restart failure before recovery and returns its stage", async () => {
   const f = fakeIO();
   f.io.testInstalledLoader = async () => {
@@ -522,7 +540,7 @@ function recoveryFixture(options = {}) {
     calls.push("verify-original-runtime"); assert.equal(nodeArgs, undefined);
     return { rows: [current], row: current };
   };
-  return { C, directory, io, calls, storage, options, put, original: originals, snapshot, manifest: m, host, current };
+  return { C, directory, io, calls, storage, options, put, original: originals, snapshot, manifest: m, host, current, dirs };
 }
 for (const [name, options] of Object.entries({
   complete: {}, failedWorker: { stopped: true }, beforeRestart: { beforeRestart: true },
@@ -615,37 +633,108 @@ test("read-only rollback verification has a separate unambiguous CLI mode", () =
     { mode: "--verify-rollback", directory: "/synthetic/backup" });
   assert.throws(() => helper.parseArgs(["--verify-rollback"]), /EXPLICIT_SEPARATE_APPROVAL_REQUIRED/);
 });
-test("console launcher accepts only read-only modes and forwards the exact backup to root staging", t => {
-  const launcher = path.join(__dirname, "ai-gateway-preflight-console.sh");
-  const tools = fs.mkdtempSync(path.join(os.tmpdir(), "gateway-launcher-test-"));
-  t.after(() => fs.rmSync(tools, { recursive: true, force: true }));
-  const capture = path.join(tools, "capture");
-  const pin = "a".repeat(40);
-  fs.writeFileSync(path.join(tools, "id"), "#!/bin/bash\nif [[ \"$1\" == -un ]]; then echo seman; else /usr/bin/id \"$@\"; fi\n", { mode: 0o700 });
-  fs.writeFileSync(path.join(tools, "git"), "#!/bin/bash\nif [[ \"$3\" == -c && \"$4\" == core.hooksPath=/dev/null && \"$5\" == checkout ]]; then exit 0; fi\n[[ \"$3\" == rev-parse && \"$4\" == FETCH_HEAD ]] || exit 91\nprintf '%s\\n' \"$PREFLIGHT_REV\"\n", { mode: 0o700 });
-  fs.writeFileSync(path.join(tools, "sudo"), "#!/bin/bash\n[[ \"$1\" != -v ]] || exit 0\nprintf '%s\\n' \"$@\" > \"$CAPTURE.args\"\ncat > \"$CAPTURE.stdin\"\n", { mode: 0o700 });
-  for (const mode of ["preflight", "verify-rollback", "apply", "--apply"]) {
-    const src = fs.mkdtempSync(path.join(os.tmpdir(), "indexus-gateway-source."));
-    t.after(() => fs.rmSync(src, { recursive: true, force: true }));
-    for (const ext of [".args", ".stdin"]) fs.rmSync(capture + ext, { force: true });
-    const backup = P.C.backupRoot + "/attempt-exact";
-    const r = cp.spawnSync("bash", [launcher], {
-      encoding: "utf8", env: { PATH: tools + ":" + process.env.PATH,
-        CAPTURE: capture, PREFLIGHT_REV: pin, PREFLIGHT_SOURCE: src,
-        PREFLIGHT_MODE: mode, PREFLIGHT_BACKUP: backup },
-    });
-    if (mode === "apply" || mode === "--apply") {
-      assert.equal(r.status, 1); assert.match(r.stdout, /readOnlyModeOrBackup/);
-      assert.equal(fs.existsSync(capture + ".args"), false);
-    } else {
-      assert.equal(r.status, 0, r.stderr);
-      const argv = fs.readFileSync(capture + ".args", "utf8").trim().split("\n");
-      assert.deepEqual(argv.slice(-3), [src, mode, backup]);
-      const script = fs.readFileSync(capture + ".stdin", "utf8");
-      assert.match(script, /--verify-rollback "\$BACKUP"/);
-      assert.doesNotMatch(script, /--apply|--rollback |restart all/);
-      for (const [, expected, name] of script.matchAll(/^([a-f0-9]{64})  ([^\n]+)$/gm))
-        assert.equal(P.hash(fs.readFileSync(path.join(__dirname, "..", name))), expected, name);
-    }
+async function unappliedFixture() {
+  const f = recoveryFixture({ beforeRestart: true, untouchedPM2: true });
+  await f.io.recover(f.directory);
+  const attempt = f.C.backupRoot + "/attempt-new";
+  f.dirs.add(attempt);
+  for (const [name, value] of [...f.storage]) if (name.startsWith(f.directory + "/"))
+    f.storage.set(attempt + name.slice(f.directory.length), { ...value, bytes: Buffer.from(value.bytes) });
+  const m = JSON.parse(f.storage.get(attempt + "/manifest.json").bytes);
+  m.directory = attempt; m.status = "BACKUP_CREATED_NOT_APPLIED"; m.backupVerified = false;
+  for (const key of ["runtimeCreationAttempted", "runtimeCreated", "restartAttempted",
+    "dumpWritten", "unitTouched", "enableAttempted"]) m[key] = false;
+  delete m.originalToken;
+  const legacy = 'test("console launcher accepts only read-only modes';
+  const testPath = "script/ai-gateway-production.test.cjs";
+  f.put(attempt + "/bundle/" + testPath, legacy); m.bundle[testPath] = P.hash(legacy);
+  f.put(attempt + "/manifest.json", JSON.stringify(m));
+  f.host.bundleTestSummary = () => {
+    f.calls.push("synthetic-archived-tests");
+    return { exitStatus: 1, missingLauncherFailureReproduced: true, failed: 1 };
+  };
+  f.host.systemdInspection = () => ({
+    loadState: "not-found", activeState: "inactive", unitFileState: "", mainPID: 0, baselineNotRegistered: true,
+  });
+  return { ...f, attempt };
+}
+test("unapplied attempt audit preserves both backups, checks the old token evidence, and replays only synthetic tests", async () => {
+  const f = await unappliedFixture(), before = f.calls.length;
+  const originalManifest = f.storage.get(f.attempt + "/manifest.json").bytes.toString();
+  const result = await f.io.inspectAttempt(f.attempt, f.directory);
+  assert.equal(result.status, "UNAPPLIED_ATTEMPT_READ_ONLY_VERIFIED");
+  assert.equal(result.manifest.backupVerified, false);
+  assert.equal(result.baseline.status, "UNAPPLIED_ATTEMPT_BASELINE_VERIFIED");
+  assert.equal(result.bundle.launcherTestInRuntimeSuite, true);
+  assert.equal(result.bundle.launcherFilePresent, false);
+  assert.equal(result.bundle.replay.missingLauncherFailureReproduced, true);
+  assert.equal(result.rollbackNeededForRuntime, false);
+  assert.equal(f.calls.slice(before).some(c => /^(journal|restore:|remove:|rpc:restart|systemctl:)/.test(c)), false);
+  assert.equal(f.storage.get(f.attempt + "/manifest.json").bytes.toString(), originalManifest);
+});
+test("attempt audit reports mutation flags and refuses to call it safely unapplied", async () => {
+  const f = await unappliedFixture();
+  const m = JSON.parse(f.storage.get(f.attempt + "/manifest.json").bytes); m.runtimeCreated = true;
+  f.put(f.attempt + "/manifest.json", JSON.stringify(m));
+  const result = await f.io.inspectAttempt(f.attempt, f.directory);
+  assert.equal(result.status, "ATTEMPT_REQUIRES_REVIEW");
+  assert.equal(result.blockedBy, "ATTEMPT_NOT_PRE_MUTATION");
+  assert.equal(result.manifest.runtimeCreated, true);
+  assert.equal(result.rollbackNeededForRuntime, undefined);
+  assert.equal(f.calls.includes("synthetic-archived-tests"), false);
+});
+test("attempt audit refuses an unexpected active boot service without changing it", async () => {
+  const f = await unappliedFixture();
+  f.host.systemdInspection = () => ({ baselineNotRegistered: false, activeState: "active", mainPID: 999 });
+  const result = await f.io.inspectAttempt(f.attempt, f.directory);
+  assert.equal(result.status, "ATTEMPT_REQUIRES_REVIEW");
+  assert.equal(result.blockedBy, "SYSTEMD_STATE_REQUIRES_REVIEW");
+  assert.equal(f.calls.includes("synthetic-archived-tests"), false);
+});
+test("archived test summary returns no raw TAP or captured secrets", () => {
+  const sandbox = { module: { exports: {} }, Buffer, process,
+    require(name) {
+      if (name === "node:child_process") return { spawnSync(_node, args, options) {
+        assert.deepEqual(Array.from(args).slice(0, 1), ["--test"]);
+        assert.equal(options.env.OPENAI_API_KEY, undefined);
+        return { status: 1, stdout: "not ok 102 - console launcher accepts only read-only modes\n" +
+          SECRET + "/ai-gateway-preflight-console.sh: No such file or directory\n# tests 102\n# pass 101\n# fail 1\n# skipped 0\n",
+          stderr: SECRET };
+      } };
+      if (name === "./ai-gateway-policy.cjs") return P;
+      return require(name);
+    },
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, "lib/ai-gateway-host.cjs"), "utf8"), sandbox);
+  const result = sandbox.module.exports.bundleTestSummary("/synthetic/bundle");
+  assert.equal(result.missingLauncherFailureReproduced, true); assert.equal(result.failed, 1);
+  assert.equal(JSON.stringify(result).includes(SECRET), false);
+});
+test("systemd inspection is read-only, sanitized and fails closed on unknown states", () => {
+  for (const [stdout, expected] of [
+    ["LoadState=not-found\nActiveState=inactive\nUnitFileState=\nMainPID=0\nPrivate=" + SECRET, true],
+    ["LoadState=loaded\nActiveState=active\nUnitFileState=enabled\nMainPID=999", false],
+    ["LoadState=" + SECRET + "\nActiveState=" + SECRET + "\nMainPID=" + SECRET, false],
+  ]) {
+    const sandbox = { module: { exports: {} }, Buffer, process,
+      require(name) {
+        if (name === "node:child_process") return { spawnSync(bin, args) {
+          assert.equal(bin, "systemctl"); assert.equal(args[0], "show");
+          assert.equal(args.includes("start"), false); assert.equal(args.includes("restart"), false);
+          return { status: 0, stdout, stderr: SECRET };
+        } };
+        if (name === "./ai-gateway-policy.cjs") return P;
+        return require(name);
+      },
+    };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, "lib/ai-gateway-host.cjs"), "utf8"), sandbox);
+    const result = sandbox.module.exports.systemdInspection();
+    assert.equal(result.baselineNotRegistered, expected);
+    assert.equal(JSON.stringify(result).includes(SECRET), false);
   }
+});
+test("attempt inspection cannot be confused with apply or rollback CLI modes", () => {
+  assert.deepEqual(helper.parseArgs(["--inspect-attempt", "/attempt", "/baseline"]),
+    { mode: "--inspect-attempt", directory: "/attempt", baselineBackup: "/baseline" });
+  assert.throws(() => helper.parseArgs(["--inspect-attempt", "/attempt"]), /EXPLICIT_SEPARATE_APPROVAL_REQUIRED/);
 });
