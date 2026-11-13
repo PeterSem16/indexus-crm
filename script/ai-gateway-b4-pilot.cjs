@@ -220,21 +220,22 @@ function evaluate(text, expected) {
       correct !== FIELDS.length ? "B4_EXTRACTION_MISMATCH" : null,
   };
 }
-function aggregate(rows, finalVerified) {
+function aggregate(rows, finalVerified, corpus = CORPUS) {
   const attempted = rows.filter(r => r.attempted);
   const correct = rows.reduce((n, r) => n + (r.correct ?? 0), 0);
-  const presentTotal = CORPUS.reduce((n, d) => n + FIELDS.filter(k => d.expected[k] !== null).length, 0);
+  const presentTotal = corpus.reduce((n, d) => n + FIELDS.filter(k => d.expected[k] !== null).length, 0);
+  const totalFields = corpus.length * FIELDS.length;
   const presentCorrect = rows.reduce((n, r) => n + (r.presentCorrect ?? 0), 0);
   const unsupported = rows.reduce((n, r) => n + (r.unsupported?.length ?? 0), 0);
   const extraKeys = rows.reduce((n, r) => n + (r.extraKeys ?? 0), 0);
   const schemaPass = rows.filter(r => r.schemaValid).length;
-  const eligible = attempted.length === 10 && finalVerified && schemaPass === 10 &&
+  const eligible = corpus.length > 0 && attempted.length === corpus.length && finalVerified && schemaPass === corpus.length &&
     presentCorrect / presentTotal >= 0.95 && unsupported === 0 && extraKeys === 0 &&
     rows.every(r => !r.transportError);
   return {
-    attempted: attempted.length, planned: 10, correctFields: correct, totalFields: 80,
-    fieldAccuracyPercent: correct / 80 * 100,
-    nonNullFieldAccuracyPercent: presentCorrect / presentTotal * 100,
+    attempted: attempted.length, planned: corpus.length, correctFields: correct, totalFields,
+    fieldAccuracyPercent: totalFields ? correct / totalFields * 100 : 0,
+    nonNullFieldAccuracyPercent: presentTotal ? presentCorrect / presentTotal * 100 : 0,
     validJson: rows.filter(r => r.jsonValid).length, validSchema: schemaPass,
     exactDocuments: rows.filter(r => r.schemaValid && r.correct === 8).length,
     missingValues: rows.reduce((n, r) => n + (r.missing?.length ?? 0), 0),
@@ -269,23 +270,25 @@ function markdown(report) {
     "nejde o úplný detektor všetkých druhov halucinácií.\n";
 }
 async function executePilot({ readSnapshot, complete, persist, stopped = () => false, clock = () => performance.now(),
-  phase = "B4", instruction = INSTRUCTION, baseline = null, finalize = () => {}, render = markdown }) {
+  phase = "B4", instruction = INSTRUCTION, baseline = null, finalize = () => {}, render = markdown,
+  corpus = CORPUS, evaluateResponse = (text, doc) => evaluate(text, doc.expected), planMetadata }) {
+  const plan = { schema: SCHEMA, instruction, corpus, ...(planMetadata ? { testPolicy: planMetadata } : {}) };
   const report = { phase, startedAt: new Date().toISOString(), model: MODEL, status: "NOT_STARTED",
     before: null, after: null, finalVerified: false, code: null,
     generation: { temperature: 0, max_tokens: 512, stream: false, retries: 0 },
-    planSha256: hash({ schema: SCHEMA, instruction, corpus: CORPUS }),
-    rows: CORPUS.map(d => ({ id: d.id, attempted: false, code: `${phase}_NOT_RUN` })) };
+    planSha256: hash(plan),
+    rows: corpus.map(d => ({ id: d.id, attempted: false, code: `${phase}_NOT_RUN` })) };
   try {
     report.before = await readSnapshot();
     if (baseline && !unchanged(baseline.after, report.before))
-      fail("B5_CONFIGURATION_DIFFERS_FROM_B4");
-    if (baseline) await persist("baseline-b4.json", baseline);
-    await persist("plan.json", { schema: SCHEMA, instruction, corpus: CORPUS,
-      planSha256: report.planSha256, policy: "10 sequential requests; no retries; all 80 fields scored; null separate" });
+      fail(`${phase}_CONFIGURATION_DIFFERS_FROM_${phase === "B6" ? "B5" : "B4"}`);
+    if (baseline) await persist(phase === "B6" ? "baseline-b5.json" : "baseline-b4.json", baseline);
+    await persist("plan.json", { ...plan,
+      planSha256: report.planSha256, policy: `${corpus.length} sequential requests; no retries; all ${corpus.length * FIELDS.length} fields scored; null separate` });
     await persist("before.json", report.before);
-    for (let i = 0; i < CORPUS.length; i++) {
+    for (let i = 0; i < corpus.length; i++) {
       if (stopped()) fail("B4_INTERRUPTED");
-      const doc = CORPUS[i];
+      const doc = corpus[i];
       // Durable intent is saved before sending; an uncertain attempt is never repeated.
       await persist(`request-${doc.id}.json`, { id: doc.id, atUtc: new Date().toISOString(),
         requestSha256: hash({ instruction, text: doc.text }) });
@@ -294,7 +297,7 @@ async function executePilot({ readSnapshot, complete, persist, stopped = () => f
       try {
         const text = await complete(doc);
         report.rows[i] = { id: doc.id, attempted: true,
-          durationMs: Math.max(0, Math.round(clock() - start)), ...evaluate(text, doc.expected) };
+          durationMs: Math.max(0, Math.round(clock() - start)), ...evaluateResponse(text, doc) };
       } catch (error) {
         const code = error instanceof PilotError ? error.code : "B4_UNEXPECTED_ERROR";
         report.rows[i] = { id: doc.id, attempted: true,
@@ -320,9 +323,9 @@ async function executePilot({ readSnapshot, complete, persist, stopped = () => f
       report.code = report.code ?? "B4_FINAL_STATE_UNVERIFIED";
     }
     report.finishedAt = new Date().toISOString();
-    report.summary = aggregate(report.rows, report.finalVerified);
+    report.summary = aggregate(report.rows, report.finalVerified, corpus);
     report.status = report.code || !report.finalVerified ? "FAILED_OR_INCOMPLETE" :
-      report.summary.exactDocuments === 10 ? "PASSED_SYNTHETIC_PILOT" : "COMPLETED_WITH_EXTRACTION_ERRORS";
+      report.summary.exactDocuments === corpus.length ? "PASSED_SYNTHETIC_PILOT" : "COMPLETED_WITH_EXTRACTION_ERRORS";
     finalize(report, baseline);
     await persist("report.json", report);
     await persist("report.md", render(report));
@@ -410,19 +413,20 @@ function safeEnvironment(parsed, inherited) {
   return result;
 }
 async function main(options = {}) {
-  const phase = options.phase === "B5" ? "B5" : "B4";
+  const phase = ["B5", "B6"].includes(options.phase) ? options.phase : "B4";
   const isB5 = phase === "B5", instruction = options.instruction ?? INSTRUCTION;
+  const corpus = options.corpus ?? CORPUS;
   const render = options.render ?? markdown;
   if (isB5 ? process.argv.length !== 5 || process.argv[2] !== "--run-b5" ||
       process.argv[3] !== "--baseline" || !path.isAbsolute(process.argv[4]) :
-      process.argv.length !== 3 || process.argv[2] !== "--run-b4") {
+      process.argv.length !== 3 || process.argv[2] !== `--run-${phase.toLowerCase()}`) {
     console.log(`${phase}: node ai-gateway-${phase.toLowerCase()}-pilot.cjs ` +
-      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : "--run-b4\n") +
-      "Iba na CORPCRM01. 10 syntetických inferencií; bez opakovania; žiadne DB zápisy.\n" +
+      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : `--run-${phase.toLowerCase()}\n`) +
+      `Iba na CORPCRM01. ${corpus.length} syntetických inferencií; bez opakovania; žiadne DB zápisy.\n` +
       `Gateway v INDEXUS musí zostať vypnutá. Výstup: ~/.indexus-${phase.toLowerCase()}/.\n` +
       "Spustiť s existujúcim loaderom: NODE_ENV=production node " +
       `--require /etc/indexus-ai-runtime/preload.cjs ai-gateway-${phase.toLowerCase()}-pilot.cjs ` +
-      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : "--run-b4\n") +
+      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : `--run-${phase.toLowerCase()}\n`) +
       "Nečíta ani nemení PM2. Token zavedie existujúci loader iba do tohto procesu.");
     return;
   }
@@ -435,7 +439,7 @@ async function main(options = {}) {
   const dotenv = require(path.join(ROOT, "node_modules/dotenv"));
   const { Client } = require(path.join(ROOT, "node_modules/pg"));
   const env = safeEnvironment(dotenv.parse(fs.readFileSync(path.join(ROOT, ".env"))), process.env);
-  const baseline = isB5 ? options.loadBaseline(process.argv[4]) : null;
+  const baseline = isB5 || phase === "B6" ? options.loadBaseline(process.argv[4]) : null;
   const source = fs.readFileSync(path.join(ROOT, "server/lib/ai/service-catalog.ts"), "utf8");
   const catalog = [...source.matchAll(/^\s*"([a-z0-9_.]+)":\s*"(?:chat|transcription|speech|responses|chat_probe)",?\s*$/gm)]
     .map(m => m[1]);
@@ -480,11 +484,12 @@ async function main(options = {}) {
   try {
     const report = await executePilot({ readSnapshot, persist,
       phase, instruction, baseline, finalize: options.finalize, render,
+      corpus, evaluateResponse: options.evaluateResponse, planMetadata: options.planMetadata,
       stopped: () => signals.signal.aborted,
       complete: doc => requestCompletion(doc, env.INDEXUS_AI_GATEWAY_TOKEN, signals.signal, instruction) });
     console.log(render(report));
     console.log(`${phase}_RESULTS ` + runDir);
-    process.exitCode = report.status === "PASSED_SYNTHETIC_PILOT" ? 0 : 1;
+    process.exitCode = report.status === "PASSED_SYNTHETIC_PILOT" || report.rawPassed === true ? 0 : 1;
   } finally {
     process.removeListener("SIGINT", interrupt);
     process.removeListener("SIGTERM", interrupt);
