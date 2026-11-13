@@ -246,7 +246,7 @@ function aggregate(rows, finalVerified) {
 }
 function markdown(report) {
   const s = report.summary;
-  return `# B4 – syntetický pilot\n\nStav: **${report.status}**. Model: \`${MODEL}\`.\n\n` +
+  return `# ${report.phase ?? "B4"} – syntetický pilot\n\nStav: **${report.status}**. Model: \`${MODEL}\`.\n\n` +
     "| Dokument | JSON | Štruktúra | Správne polia / 8 | Čas ms | Chýbajúce | Nepodložené | Chyba |\n" +
     "|---|---|---|---:|---:|---|---|---|\n" +
     report.rows.map(r => `| ${r.id} | ${r.attempted ? r.jsonValid ? "OK" : "NIE" : "—"} | ` +
@@ -268,14 +268,19 @@ function markdown(report) {
     "Ostatné nesprávne hodnoty sú osobitne uvedené vo field-level výsledkoch JSON; " +
     "nejde o úplný detektor všetkých druhov halucinácií.\n";
 }
-async function executePilot({ readSnapshot, complete, persist, stopped = () => false, clock = () => performance.now() }) {
-  const report = { startedAt: new Date().toISOString(), model: MODEL, status: "NOT_STARTED",
+async function executePilot({ readSnapshot, complete, persist, stopped = () => false, clock = () => performance.now(),
+  phase = "B4", instruction = INSTRUCTION, baseline = null, finalize = () => {}, render = markdown }) {
+  const report = { phase, startedAt: new Date().toISOString(), model: MODEL, status: "NOT_STARTED",
     before: null, after: null, finalVerified: false, code: null,
-    planSha256: hash({ schema: SCHEMA, instruction: INSTRUCTION, corpus: CORPUS }),
-    rows: CORPUS.map(d => ({ id: d.id, attempted: false, code: "B4_NOT_RUN" })) };
+    generation: { temperature: 0, max_tokens: 512, stream: false, retries: 0 },
+    planSha256: hash({ schema: SCHEMA, instruction, corpus: CORPUS }),
+    rows: CORPUS.map(d => ({ id: d.id, attempted: false, code: `${phase}_NOT_RUN` })) };
   try {
     report.before = await readSnapshot();
-    await persist("plan.json", { schema: SCHEMA, instruction: INSTRUCTION, corpus: CORPUS,
+    if (baseline && !unchanged(baseline.after, report.before))
+      fail("B5_CONFIGURATION_DIFFERS_FROM_B4");
+    if (baseline) await persist("baseline-b4.json", baseline);
+    await persist("plan.json", { schema: SCHEMA, instruction, corpus: CORPUS,
       planSha256: report.planSha256, policy: "10 sequential requests; no retries; all 80 fields scored; null separate" });
     await persist("before.json", report.before);
     for (let i = 0; i < CORPUS.length; i++) {
@@ -283,7 +288,7 @@ async function executePilot({ readSnapshot, complete, persist, stopped = () => f
       const doc = CORPUS[i];
       // Durable intent is saved before sending; an uncertain attempt is never repeated.
       await persist(`request-${doc.id}.json`, { id: doc.id, atUtc: new Date().toISOString(),
-        requestSha256: hash({ instruction: INSTRUCTION, text: doc.text }) });
+        requestSha256: hash({ instruction, text: doc.text }) });
       const start = clock();
       let fatal = false;
       try {
@@ -318,8 +323,9 @@ async function executePilot({ readSnapshot, complete, persist, stopped = () => f
     report.summary = aggregate(report.rows, report.finalVerified);
     report.status = report.code || !report.finalVerified ? "FAILED_OR_INCOMPLETE" :
       report.summary.exactDocuments === 10 ? "PASSED_SYNTHETIC_PILOT" : "COMPLETED_WITH_EXTRACTION_ERRORS";
+    finalize(report, baseline);
     await persist("report.json", report);
-    await persist("report.md", markdown(report));
+    await persist("report.md", render(report));
   }
   return report;
 }
@@ -339,7 +345,7 @@ async function readLimited(response) {
     return Buffer.concat(chunks).toString("utf8");
   } finally { await reader.cancel().catch(() => {}); }
 }
-async function requestCompletion(doc, token, signal) {
+async function requestCompletion(doc, token, signal, instruction = INSTRUCTION) {
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
@@ -352,7 +358,7 @@ async function requestCompletion(doc, token, signal) {
         "content-type": "application/json" },
       body: JSON.stringify({ model: MODEL, temperature: 0, max_tokens: 512,
         stream: false, response_format: { type: "json_object" },
-        messages: [{ role: "system", content: INSTRUCTION }, { role: "user", content: doc.text }] }),
+        messages: [{ role: "system", content: instruction }, { role: "user", content: doc.text }] }),
     });
     if (r.status !== 200) {
       await r.body?.cancel().catch(() => {});
@@ -403,13 +409,20 @@ function safeEnvironment(parsed, inherited) {
   if (result.NODE_ENV && result.NODE_ENV !== "production") fail("B4_NOT_PRODUCTION");
   return result;
 }
-async function main() {
-  if (process.argv.length !== 3 || process.argv[2] !== "--run-b4") {
-    console.log("B4: node ai-gateway-b4-pilot.cjs --run-b4\n" +
+async function main(options = {}) {
+  const phase = options.phase === "B5" ? "B5" : "B4";
+  const isB5 = phase === "B5", instruction = options.instruction ?? INSTRUCTION;
+  const render = options.render ?? markdown;
+  if (isB5 ? process.argv.length !== 5 || process.argv[2] !== "--run-b5" ||
+      process.argv[3] !== "--baseline" || !path.isAbsolute(process.argv[4]) :
+      process.argv.length !== 3 || process.argv[2] !== "--run-b4") {
+    console.log(`${phase}: node ai-gateway-${phase.toLowerCase()}-pilot.cjs ` +
+      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : "--run-b4\n") +
       "Iba na CORPCRM01. 10 syntetických inferencií; bez opakovania; žiadne DB zápisy.\n" +
-      "Gateway v INDEXUS musí zostať vypnutá. Výstup: ~/.indexus-b4/.\n" +
+      `Gateway v INDEXUS musí zostať vypnutá. Výstup: ~/.indexus-${phase.toLowerCase()}/.\n` +
       "Spustiť s existujúcim loaderom: NODE_ENV=production node " +
-      "--require /etc/indexus-ai-runtime/preload.cjs ai-gateway-b4-pilot.cjs --run-b4\n" +
+      `--require /etc/indexus-ai-runtime/preload.cjs ai-gateway-${phase.toLowerCase()}-pilot.cjs ` +
+      (isB5 ? "--run-b5 --baseline /absolute/path/to/B4/report.json\n" : "--run-b4\n") +
       "Nečíta ani nemení PM2. Token zavedie existujúci loader iba do tohto procesu.");
     return;
   }
@@ -422,10 +435,11 @@ async function main() {
   const dotenv = require(path.join(ROOT, "node_modules/dotenv"));
   const { Client } = require(path.join(ROOT, "node_modules/pg"));
   const env = safeEnvironment(dotenv.parse(fs.readFileSync(path.join(ROOT, ".env"))), process.env);
+  const baseline = isB5 ? options.loadBaseline(process.argv[4]) : null;
   const source = fs.readFileSync(path.join(ROOT, "server/lib/ai/service-catalog.ts"), "utf8");
   const catalog = [...source.matchAll(/^\s*"([a-z0-9_.]+)":\s*"(?:chat|transcription|speech|responses|chat_probe)",?\s*$/gm)]
     .map(m => m[1]);
-  const baseDir = path.join(os.homedir(), ".indexus-b4");
+  const baseDir = path.join(os.homedir(), `.indexus-${phase.toLowerCase()}`);
   if (!fs.existsSync(baseDir)) fs.mkdirSync(baseDir, { mode: 0o700 });
   const stat = fs.lstatSync(baseDir);
   if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) ||
@@ -438,10 +452,10 @@ async function main() {
   };
   // Deliberately retained: accidental command repetition must not re-run inference.
   try {
-    fs.writeFileSync(path.join(baseDir, "b4-started.json"),
+    fs.writeFileSync(path.join(baseDir, `${phase.toLowerCase()}-started.json`),
       JSON.stringify({ atUtc: new Date().toISOString(), runDir }), { flag: "wx", mode: 0o600 });
-  } catch { fail("B4_ALREADY_STARTED"); }
-  console.log("B4_RESULTS " + runDir);
+  } catch { fail(`${phase}_ALREADY_STARTED`); }
+  console.log(`${phase}_RESULTS ` + runDir);
   const signals = new AbortController();
   const interrupt = () => signals.abort();
   process.on("SIGINT", interrupt);
@@ -465,10 +479,11 @@ async function main() {
   };
   try {
     const report = await executePilot({ readSnapshot, persist,
+      phase, instruction, baseline, finalize: options.finalize, render,
       stopped: () => signals.signal.aborted,
-      complete: doc => requestCompletion(doc, env.INDEXUS_AI_GATEWAY_TOKEN, signals.signal) });
-    console.log(markdown(report));
-    console.log("B4_RESULTS " + runDir);
+      complete: doc => requestCompletion(doc, env.INDEXUS_AI_GATEWAY_TOKEN, signals.signal, instruction) });
+    console.log(render(report));
+    console.log(`${phase}_RESULTS ` + runDir);
     process.exitCode = report.status === "PASSED_SYNTHETIC_PILOT" ? 0 : 1;
   } finally {
     process.removeListener("SIGINT", interrupt);
