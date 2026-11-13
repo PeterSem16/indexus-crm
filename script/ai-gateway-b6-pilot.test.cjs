@@ -200,6 +200,23 @@ test("B6 help is inert and the production guard prevents running from Replit", (
     encoding: "utf8", env: { ...process.env, REPL_ID: "local-test" } });
   assert.equal(blocked.status, 1); assert.match(blocked.stderr, /B4_CORPCRM01_ONLY/);
 });
+test("short operator launcher pins and checks every exact runtime dependency; does not deploy or restart", () => {
+  const filename = "script/run-ai-gateway-b6.sh";
+  const shell = fs.readFileSync(filename, "utf8");
+  assert.equal(spawnSync("bash", ["-n", filename]).status, 0);
+  assert.match(shell, /pin=92a079795ea5b08a745d691b3159eda363825a68/);
+  const entries = [...shell.matchAll(/^([a-f0-9]{64})  ([a-z0-9/.-]+\.cjs)$/gm)];
+  assert.equal(entries.length, 6);
+  for (const [, expectedHash, relative] of entries) {
+    const local = fs.readFileSync("script/" + relative);
+    assert.equal(crypto.createHash("sha256").update(local).digest("hex"), expectedHash);
+    const pinned = spawnSync("git", ["show",
+      "92a079795ea5b08a745d691b3159eda363825a68:script/" + relative]);
+    assert.equal(pinned.status, 0);
+    assert.equal(crypto.createHash("sha256").update(pinned.stdout).digest("hex"), expectedHash);
+  }
+  assert(!/\b(pm2|restart|npm|checkout|pull)\b/.test(shell));
+});
 test("whole B6 console entry loads existing B5 marker automatically, uses read-only SQL and has an independent one-run journal", async () => {
   const old = b5Fixture(), files = new Map(), sql = [], sent = [];
   const root = "/var/www/indexus-crm";
