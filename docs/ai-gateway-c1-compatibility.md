@@ -17,12 +17,16 @@ Audio Analyzer 1.6 sa nemení.
   vrátane strict schémy, obrazovej požiadavky a viacerých SDK volaní jednej služby.
   Nepodporované požiadavky sa neposielajú ako zjednodušený textový ekvivalent.
 - Pôvodné TypeScript výrazy a ich odtlačky sa zachovávajú vedľa konkrétneho
-  syntetického requestu. Pri izolovanej inferencii sa mení iba cieľový model na
+  syntetického requestu. Pri izolovanej textovej inferencii sa mení iba cieľový model na
   `indexus-document-audio:latest`. Neoptimalizuje sa prompt, tokenový limit,
   teplota ani formát odpovede.
 - Evidencia HTML, CSV a JSON obsahuje každý service ID vrátane nevykonaných služieb.
 - Pri podpore aktuálnym adaptérom: tri samostatné opakovania každého SDK miesta,
   sekvenčne, bez SDK retries. Nejde o test súbežnosti ani všetkých jazykov.
+- Sedem prepisových služieb / osem miest volania má osobitné testovacie mapovanie
+  na existujúce Audio API 1.6.1, `10.9.2.140:8765`, `POST /v1/audio/transcriptions`.
+  Zachováva pôvodný `whisper-1`, jazyk a `response_format`, nie textový cieľový model.
+  Nepridáva sa nový Whisper, Audio API, produkčný adaptér ani TTS riešenie.
 
 ### Čo zatiaľ nie je preukázané
 
@@ -33,7 +37,9 @@ Audio Analyzer 1.6 sa nemení.
   gold štandard nových fixtures ani dôkaz vecnej správnosti.
 - Jeden scenár na call-site nepokrýva všetky dynamické vetvy, jazyky,
   multimodálne prílohy, prázdne vstupy, dlhé vstupy, repair slučky ani oprávnenia.
-- Syntetické rečové WAV fixtures a skutočný kontrakt Audio API ešte chýbajú.
+- Minimálny request kontrakt prepisu potvrdil používateľ. Z implementácie ešte treba
+  prevziať protokol, autentifikáciu, akceptované kodeky a overiť správanie odpovedí.
+  Syntetické rečové WAV fixtures so známym prepisom ešte neboli dodané.
   Obrazový request obsahuje jasne označený nevykonateľný placeholder namiesto
   reálneho PNG; aktuálny adaptér ho odmieta ako multimodálny. Nie je to OCR test.
 - Štyri čisté aplikačné hranice majú vyhradené source-extracted replay:
@@ -41,6 +47,10 @@ Audio Analyzer 1.6 sa nemení.
   Ostatné služby sa pokúsia izolovane prehrať pôvodné príkazy za inferenciou.
   Chýbajúca závislosť alebo nadväzujúci zápis sa blokuje a reportuje, nenahrádza
   sa vlastným parserom. Úspešný replay ešte nie je overenie významu výsledku.
+- Pri prepise sa zo zdroja extrahuje pôvodné prevzatie textu, training filter
+  Whisper halucinácií a virtual-agent trim/minimálna dĺžka. DB zápisy, odstraňovanie
+  súborov, preklady a nadväzujúca analýza sa neprehrávajú. Nie je to integračný test
+  celej aplikačnej routy.
 
 ## Význam stavov
 
@@ -48,9 +58,12 @@ Audio Analyzer 1.6 sa nemení.
 |---|---|
 | COMPATIBLE | Vyžaduje živý beh, skutočný aplikačný kontrakt, vecnú kontrolu a dohodnuté pokrytie scenárov. Tento runner ho automaticky neudeľuje. |
 | REQUIRES_FIX | Konkrétny kontraktný problém **alebo chýbajúci dôkaz**. Rozlišuje ich reason a execution; NOT_EXECUTED nie je zlyhanie modelu. |
-| UNSUPPORTED | Požiadavka neprechádza aktuálnym INDEXUS adaptérom. Neznamená to, že ju hardvér alebo interný model nedokáže vykonať. |
+| UNSUPPORTED | Aktuálna testovacia cesta nepodporuje operáciu alebo jej podpora nebola potvrdená (vrátane TTS). Neznamená to, že ju hardvér alebo interný model nedokáže vykonať. |
 
-Predbežná tabuľka obsahuje 50 REQUIRES_FIX a 15 UNSUPPORTED; nula COMPATIBLE.
+Po doplnení testovacieho mapovania prepisov obsahuje predbežná tabuľka
+57 REQUIRES_FIX a 8 UNSUPPORTED; nula COMPATIBLE. Sedem prepisov sa presunulo
+medzi čakajúce na dôkazy, nie medzi úspešne overené služby. Zvyšných osem je
+štyri TTS služby, OCR, strict JSON Schema, Responses a chatProbe.
 Pri bežných textových službách REQUIRES_FIX znamená chýbajúci živý test, nie
 potvrdenú chybu. `lead_sources.suggestion` má navyše preukázaný rozpor:
 request vyžaduje JSON objekt, prompt žiada pole. Originál sa neopravoval.
@@ -68,6 +81,15 @@ Každé opakovanie uchováva samostatne:
 7. výsledok pôvodného aplikačného parsera, jeho stav alebo dôvod neprehratia;
 8. bezpečný chybový kód, pôvod chyby a mieru istoty zodpovednosti;
 9. trvanie HTTP volania inferencie a celkový čas vrátane discovery a parsera.
+
+Pri prepise je `rawAudioResponse` oddelené od `rawGatewayResponse` (to je null).
+`adapterOutput` označuje testovaciu OpenAI-kompatibilnú audio hranicu, nie nový
+produkčný adaptér. `modelOutput` je neupravený prepis; výsledok pôvodnej
+aplikačnej extrakcie/guardov je v `applicationParser`. Referenčný prepis a presné
+porovnanie sú v `semanticCheck`; nevykonáva sa normalizácia ani automatické schválenie.
+HTTP 200 musí mať pôvodný formát: `text/plain` pre explicitné `text`, JSON
+objekt s textovým poľom `text` pre pôvodný predvolený `json` (training).
+Žiadna tichá konverzia JSON obálky na text alebo naopak.
 
 Chýbajúce meranie je `null`, nikdy vymyslená nula. Trvanie HTTP nie je čistý
 čas lokálneho generovania. Na rozdelenie load/prompt/eval treba telemetriu
@@ -91,8 +113,9 @@ Reporty sa ukladajú po každom dokončenom pokuse a znova po záverečnej kontr
 
 ## Bezpečná príprava a spustenie
 
-Runner patrí do existujúceho CRM checkoutu. Nie je to návod na nasadenie celej
-rozpracovanej vetvy. Prenášajú sa len skontrolované súbory C1 a plán.
+Runner používa schválené existujúce CRM zdroje. Môže bežať z privátnej izolovanej
+kópie podľa návodu nižšie; živý checkout sa neupravuje. Nie je to návod na
+nasadenie celej rozpracovanej vetvy. Prenášajú sa len skontrolované súbory C1 a plán.
 Potrebuje existujúce `tsx`, `typescript`, `zod`, `pg`, `dotenv`, OpenAI SDK
 a existujúce moduly adaptéra. Nič automaticky neinštaluje.
 
@@ -124,6 +147,45 @@ Na kontrolu takého podkladu možno offline použiť posledný nepovinný argume
 
 ### Živý izolovaný beh — iba CORPCRM01
 
+#### Prvé skutočné výsledky bez nasadenia aplikácie
+
+Nový ZIP balík obsahuje `launch.cjs` a hashovaný zoznam runtime zdrojov.
+Spúšťač overí celý manifest a zhodu potrebných zdrojov so živým checkoutom,
+potom vytvorí súkromný adresár v `/var/www/indexus-crm/data`. Tam skopíruje len
+overené zdroje a testovací runner, pripojí existujúce závislosti a konfiguráciu
+symlinkom a použije už existujúci runtime loader. Žiadny `git pull`, inštalácia,
+reštart PM2 ani zmena súborov živého checkoutu. Pri nezhode zdrojov skončí.
+
+Ako `seman` na CORPCRM01, po nahratí doručeného ZIP do privátneho umiestnenia:
+
+```bash
+(
+  set -eu
+  test "$(hostname -s | tr '[:lower:]' '[:upper:]')" = CORPCRM01
+  test "$(id -u)" = 1001
+  read -r -p 'Úplná cesta k novému ZIP balíku C1: ' C1_ZIP
+  test -f "$C1_ZIP"
+  C1_ZIP="$(realpath "$C1_ZIP")"
+  umask 077
+  C1_BUNDLE="$(mktemp -d /var/www/indexus-crm/data/c1-bundle-XXXXXX)"
+  python3 -m zipfile -e "$C1_ZIP" "$C1_BUNDLE"
+  node "$C1_BUNDLE/script/ai-gateway-c1/launch.cjs" --services sms.sentiment
+)
+```
+
+Tento príkaz vykoná tri izolované syntetické inferencie jednej služby, pôvodný
+aplikačný parser a read-only kontrolu nastavení pred/po. Nevytvára SMS ani CRM
+záznam. Vypíše výsledkový adresár a súhrn, nie token alebo hlavičky.
+Výstup môže skončiť exit 2 — znamená zaznamenaný beh čakajúci na vecné schválenie.
+Absencia živého výsledku alebo exit 2 sa nesmie interpretovať ako COMPATIBLE.
+Reporty so syntetickým obsahom možno odovzdať na ďalšie vyhodnotenie; neposielať `.env`.
+
+Pre celý pripravený textový súbor sa vo **vedome spustenom ďalšom behu**
+vynechá `--services sms.sentiment`. Textové testy nečakajú na audio podklady.
+Marker je oddelený pre vybranú podmnožinu služieb a celý súbor.
+
+#### Priamy beh v existujúcom schválenom checkoute
+
 Spustiť ako existujúci prevádzkový používateľ `seman`, z koreňa schváleného
 checkoutu, s existujúcim bezpečným runtime loaderom:
 
@@ -146,23 +208,78 @@ ak sa nájdu, runner skončí bez zmeny nastavení.
 Porovnávajú sa aj verzia a odtlačky úplnej konfigurácie.
 Kontrola na začiatku a konci nevylučuje cudziu dočasnú zmenu medzi kontrolami.
 
-Pri autentifikačnej/sieťovej chybe, 429 alebo prerušení sa ďalšie volania
-zastavia a zostanú NOT_EXECUTED. Tokeny ani hlavička Authorization sa neukladajú.
+Pri autentifikačnej/sieťovej chybe alebo 429 sa ďalšie volania dotknutého
+transportu zastavia a zostanú NOT_EXECUTED. Audio a text majú oddelený circuit
+breaker; chyba audio autentifikácie neblokuje text. Prerušenie alebo únik tokenu
+zastaví celý beh. Tokeny ani hlavička Authorization sa neukladajú.
 Detekovaný token vo výstupe sa neuloží; taký pokus sa zahodí a beh zastaví.
 
 Výstup: `~/.indexus-c1/run-.../evidence.{json,csv,html}`, súkromné súbory 0600.
-Marker podľa odtlačku plánu bráni náhodnému opakovaniu celého behu.
+Marker podľa plánu, výberu služieb a verejného audio profilu/odtlačku manifestu
+bráni náhodnému opakovaniu rovnakého behu.
 Nemažte ho automaticky. Ďalší beh vyžaduje vedomé prevádzkové rozhodnutie.
 
 Exit 1: chyba alebo neoverený finálny stav. Exit 2: beh bol zaznamenaný,
 ale kompatibilita stále čaká na spoločnú vecnú kontrolu. Exit 2 nie je
 automatické schválenie ani signál pre prepnutie.
 
+### Existujúce Audio API — presné testovacie mapovanie
+
+| Služba | Miesta | Zachované parametre |
+|---|---:|---|
+| mobile.voice_note | 1 | whisper-1, sk, text |
+| mobile.call_transcription | 1 | whisper-1, text, bez jazykového hintu |
+| call_recording.transcription | 2 | whisper-1, pôvodný jazykový výraz, text |
+| beratung.transcription | 1 | whisper-1, text |
+| voicemail.transcription | 1 | whisper-1, text |
+| training.transcription | 1 | whisper-1, pôvodný jazyk vrátane at→de, predvolený JSON |
+| virtual_agent.transcription | 1 | whisper-1, pôvodná jazyková vetva, text |
+
+Polia multipart sú len pôvodné `file`, `model`, prípadne `language` a
+`response_format`. Vynechané polia zostávajú vynechané. Súbory sa nemenia na text.
+Port 8780 ani `/v1/audio/correct`, `/v1/audio/analyze`, `/v1/audio/analyze-text`,
+`/v1/audio/analyze-text-verified` sa automaticky nevolajú: nie sú náhradou za
+pôvodnú textovú analýzu ani dôkazom TTS.
+
+ZIP obsahuje dva **nevyplnené, netajné** podklady:
+
+- `audio-profile.template.json`: protokol/base URL, názov existujúcej runtime
+  premennej s autentifikáciou, názov hlavičky/prefix, potvrdený kodek a referencia
+  implementácie. Žiadne hodnoty tokenov. Gateway token sa na Audio API nepreberá.
+  Existujúci loader musí dodávať už nakonfigurovanú audio autentifikáciu; táto
+  verzia runnera podporuje existujúcu environment/header väzbu, nie odhad iného
+  credential úložiska. Bez potvrdenej väzby sa audio nevolá.
+- `audio-fixtures.template.json`: vedome vytvorená syntetická reč, jej jazyk,
+  SHA-256 skutočného WAV a doslovný očakávaný prepis. Tichý WAV z unit testov nie
+  je rečový fixture. Žiadna nová inštalácia Whisper/TTS; možno použiť existujúcu
+  testovaciu nahrávku alebo nahovoriť uvedenú testovaciu vetu.
+
+Prvá podpora runnera overuje PCM s16le, 16 kHz, mono WAV. To **nie je tvrdenie**
+o podporovaných kodekoch servera; tento kodek sa musí potvrdiť z jeho existujúcej
+implementácie. Chýbajúce potvrdenie, nezhoda hashu/jazyka alebo neplatný WAV
+zablokujú odoslanie. Profil nie je súčasť produkčnej konfigurácie.
+
+Po doplnení oboch privátnych súborov a WAV, z koreňa rozbaleného balíka:
+
+```bash
+node script/ai-gateway-c1/launch.cjs \
+  --services mobile.voice_note,mobile.call_transcription,call_recording.transcription,beratung.transcription,voicemail.transcription,training.transcription,virtual_agent.transcription \
+  --audio-profile ./audio-profile.json \
+  --audio-fixtures ./audio-fixtures.json
+```
+
+Ide o 24 samostatných inferencií (8 miest × 3), bez TTS, fallbacku v runneri a
+bez odoslania k OpenAI. Skutočnú identitu upstream modelu a prípadné interné
+správanie existujúceho Audio API treba doložiť zo servera; nie je odhadované
+z názvu `whisper-1`. Pri audio-only behu sa nevyžaduje Gateway token a existujúci
+textový adaptér sa nevytvorí. Pred/po zostáva povinná rovnaká DB read-only kontrola.
+
 ### Offline testy nástrojov
 
 ```sh
 npx --no-install tsx --test \
   script/ai-gateway-c1/c1.test.ts \
+  script/ai-gateway-c1/audio.test.ts \
   server/lib/ai/internal-adapter.test.ts \
   server/lib/ai-router-coverage.test.ts
 ```
@@ -182,12 +299,12 @@ na základe domnienok. Doplniť iba tieto katalógom preukázané potreby:
 | Strict JSON Schema | geography.priority | Dynamické povinné ID, null alebo integer, rozsahy, unique/contiguous ranking. Aktuálny adaptér schému odmieta pred sieťou. Nestačí json_object. |
 | Obrazové OCR | collection.document | Skutočný syntetický PNG, zhodné polia a polohy; nie textová náhrada obrázka. |
 | Responses a prílohy | automation.analysis | Text, obrázky/PDF a doslovné OCR vrátane úplnosti podľa vetvy. Bez tichého sploštenia na Chat. |
-| Prepis | 7 služieb, 8 call-sites | Potvrdený existujúci Audio API OpenAPI, transport súborov, jazyky, skutočné syntetické rečové fixtures a očakávané prepisy. |
+| Prepis | 7 služieb, 8 call-sites | Mapovanie potvrdeného multipart endpointu je pripravené. Doložiť existujúcu autentifikáciu/kodek, skutočné rečové fixtures a odpovede; nič nereinštalovať. |
 | Syntéza reči | 4 služby, 6 call-sites | OpenAPI existujúceho Audio API; hlasy, modely, speed, výstupné WAV/MP3/PCM a parametre PCM. Nepripisovať TTS schopnosť dokumentovému modelu. |
 | Diagnostický probe | beratung.health | Existujúci adaptér chatProbe odmieta; samostatne rozhodnúť presné testovacie mapovanie bez zmeny aplikačnej diagnostiky. |
 
-Pre Audio API poskytnúť špecifikáciu endpointov a formátov bez tajných údajov,
-nie token alebo heslo. Presné URL/porty sa nehádajú.
+Pre Audio API doplniť chýbajúce časti existujúceho kontraktu bez tajných údajov,
+nie token alebo heslo. Potvrdený prepisový endpoint sa používa, ostatné kontrakty sa nehádajú.
 Aktuálne `internalEligible` nie je dôkaz kompatibility.
 
 ### Dokončenie a spoločná kontrola C1

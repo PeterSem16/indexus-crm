@@ -12,6 +12,8 @@ const REASONS: Record<string, string> = {
   ai_internal_text_only: "Požiadavka obsahuje obrazový vstup; aktuálny adaptér prijíma iba content typu string.",
   ai_internal_output_format_not_verified: "Pôvodná požiadavka vyžaduje strict json_schema; aktuálny adaptér pripúšťa iba text/json_object.",
   C1_SOURCE_CONTRACT_ARRAY_VS_JSON_OBJECT: "Pôvodný request žiada json_object, ale pôvodný prompt žiada JSON pole; aktuálny adaptér pole odmietne.",
+  C1_AUDIO_RUNTIME_AND_FIXTURE_REQUIRED: "Mapovanie na existujúce Audio API je pripravené. Chýba potvrdená runtime autentifikácia/kodek a syntetická rečová nahrávka so známym prepisom; živý beh nebol vykonaný.",
+  C1_TTS_CAPABILITY_NOT_VERIFIED: "Syntéza reči nebola potvrdená. Existencia Whisper prepisu nedokazuje podporu TTS; nový hlasový systém sa nevytvára.",
 };
 
 export function safeFailure(error: any) {
@@ -33,9 +35,11 @@ export function safeFailure(error: any) {
 export function preparedRow(service: any) {
   let reason = "C1_LIVE_EXECUTION_REQUIRED", owner = "INDEXUS_TEST_EXECUTION";
   let status: C1Status = "REQUIRES_FIX";
-  if (["speech", "transcription"].includes(service.operation)) {
-    status = "UNSUPPORTED"; reason = "C1_AUDIO_NOT_SUPPORTED_BY_CURRENT_ADAPTER";
-    owner = "INDEXUS_AUDIO_INTEGRATION_AND_AI_SERVER_AUDIO_API";
+  if (service.operation === "transcription") {
+    reason = "C1_AUDIO_RUNTIME_AND_FIXTURE_REQUIRED"; owner = "INDEXUS_AUDIO_RUNTIME_EVIDENCE";
+  } else if (service.operation === "speech") {
+    status = "UNSUPPORTED"; reason = "C1_TTS_CAPABILITY_NOT_VERIFIED";
+    owner = "AI_SERVER_TTS_CAPABILITY_VERIFICATION";
   } else if (service.operation !== "chat") {
     status = "UNSUPPORTED"; reason = "ai_internal_unsupported_operation"; owner = "INDEXUS_ADAPTER_AND_AI_SERVER_API";
   } else {
@@ -52,6 +56,7 @@ export function preparedRow(service: any) {
   }
   return { id: service.id, name: service.name, operation: service.operation, status, reason, owner,
     explanation: REASONS[reason] || reason,
+    testTransport: service.operation === "transcription" ? "EXISTING_AUDIO_API" : "EXISTING_GATEWAY_ADAPTER",
     evidenceKind: "STATIC_CONTRACT_ONLY", execution: "NOT_EXECUTED", inferenceMs: null,
     modelCorrectness: "NOT_MEASURED", stability: "NOT_MEASURED",
     parser: "NOT_REPLAYED", validationError: null, attempts: [] as any[],
@@ -155,9 +160,9 @@ export function html(report: any) {
 <style>body{font:14px system-ui;margin:30px;color:#192a3e}table{border-collapse:collapse;width:100%}td,th{border:1px solid #d9e0e8;padding:9px;text-align:left;vertical-align:top}th{background:#edf2f7;position:sticky;top:0}input{padding:10px;width:440px;max-width:90%}.UNSUPPORTED{color:#93450b}.REQUIRES_FIX{color:#9e202b}details{max-width:720px}pre{white-space:pre-wrap;overflow-wrap:anywhere}small{color:#516176}</style>
 <h1>INDEXUS AI Gateway — fáza C1</h1><p><b>${escape(report.kind)}</b></p>
 <p>65 služieb. Produkčné smerovanie sa týmto dokumentom nemení. Gateway musí zostať vypnutá.</p>
-<p>UNSUPPORTED znamená nepodporované aktuálnym INDEXUS adaptérom, nie preukázanú nemožnosť interného servera.
+<p>UNSUPPORTED znamená nepodporované aktuálnou testovacou cestou alebo nepotvrdenú podporu operácie, nie preukázanú nemožnosť interného servera.
 REQUIRES_FIX môže znamenať chýbajúci dôkaz, nie chybu modelu. COMPATIBLE vyžaduje vecnú kontrolu a pokrytie kontraktu.</p>
-<p>Modelový text, odpoveď Gateway, výsledok adaptéra a aplikačný parser sú samostatné položky. Čas inferencie je trvanie HTTP volania Gateway, nie čistý čas generovania modelu.</p>
+<p>Modelový text, raw odpoveď Gateway alebo Audio API, výsledok adaptéra a aplikačný parser sú samostatné položky. Čas inferencie je trvanie HTTP volania príslušného API, nie čistý čas generovania modelu.</p>
 <input id="search" aria-label="Hľadať službu" placeholder="Hľadať službu, stav, dôvod alebo zodpovednosť">
 <table><thead><tr><th>Služba</th><th>Stav / vykonanie</th><th>Dôvod / zodpovednosť</th><th>Meranie a dôkazy</th></tr></thead><tbody>
 ${report.rows.map((r: any) => `<tr><td><b>${escape(r.id)}</b><br>${escape(r.name)}<br><small>${escape(r.operation)}</small></td>

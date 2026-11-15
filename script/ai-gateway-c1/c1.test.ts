@@ -45,10 +45,10 @@ sourceTest("all 65 real services and 72 call-sites are present; static evidence 
   validatePlan(plan);
   assert.deepEqual(plan.services.map((s: any) => s.id).sort(), Object.keys(AI_SERVICES).sort());
   assert.equal(plan.services.flatMap((s: any) => s.variants).length, 72);
-  assert.equal(plan.services.flatMap((s: any) => s.variants).filter((v: any) => v.request).length, 63);
+  assert.equal(plan.services.flatMap((s: any) => s.variants).filter((v: any) => v.request).length, 71);
   const report = initialReport(plan);
-  assert.equal(report.rows.filter((r: any) => r.status === "UNSUPPORTED").length, 15);
-  assert.equal(report.rows.filter((r: any) => r.status === "REQUIRES_FIX").length, 50);
+  assert.equal(report.rows.filter((r: any) => r.status === "UNSUPPORTED").length, 8);
+  assert.equal(report.rows.filter((r: any) => r.status === "REQUIRES_FIX").length, 57);
   assert.ok(report.rows.every((r: any) => r.inferenceMs === null && r.execution === "NOT_EXECUTED"));
   assert.ok(plan.services.filter((s: any) => s.operation === "chat").every((s: any) => s.variants.every((v: any) => v.request)));
 });

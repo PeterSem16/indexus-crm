@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const vm = require("node:vm");
 const ts = require("typescript");
 const { bindingsFor } = require("./synthetic.cjs");
+const { materializeTranscription, API: AUDIO_API } = require("./transcription-mapping.cjs");
 const hash = value => crypto.createHash("sha256").update(typeof value === "string" || Buffer.isBuffer(value) ? value : JSON.stringify(value)).digest("hex");
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -142,7 +143,8 @@ function prepare(catalog, root = ROOT) {
       id: `${service.id}:${index + 1}`, source: { file: request.file, line: request.line },
       originalExpression: request.arguments?.[0] ?? null,
       originalExpressionHash: hash(request.arguments?.[0] ?? ""),
-      ...(["chat", "responses", "speech"].includes(service.operation)
+      ...(service.operation === "transcription" ? materializeTranscription(service.id, request) :
+        ["chat", "responses", "speech"].includes(service.operation)
         ? materialize(service, request, root) : { error: service.operation === "chat_probe"
           ? "C1_PROBE_REQUIRES_DEDICATED_MAPPING" : "C1_SYNTHETIC_AUDIO_FIXTURE_REQUIRED" }),
     })),
@@ -150,7 +152,7 @@ function prepare(catalog, root = ROOT) {
   return { phase: "C1", kind: "OFFLINE_PREPARATION_NOT_LIVE_EVIDENCE",
     policy: { gatewayEnabled: false, productionProvider: "openai", fallback: false,
       automaticMigration: false, syntheticOnly: true },
-    sourceCommit: catalog.metadata.sourceCommit, sourceHashes,
+    sourceCommit: catalog.metadata.sourceCommit, sourceHashes, existingAudioAPI: AUDIO_API,
     sourceReconciliation: catalog.metadata.c1Reconciliation ?? null, services };
 }
 

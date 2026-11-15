@@ -11,6 +11,7 @@ import { AI_SERVICES } from "../../server/lib/ai/service-catalog";
 import { BASE, preparedRow, executeAttempt, aggregateRow, csv, html } from "./evidence";
 import { hash } from "./prepare.cjs";
 import { snapshot, unchanged } from "../ai-gateway-b4-pilot.cjs";
+import { createAudioExecutor } from "./audio";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const fail = (code: string): never => { throw new Error(code); };
@@ -42,7 +43,7 @@ export function initialReport(plan: any) {
       "No COMPATIBLE decisions without semantic and contract-coverage review.",
       "Documentation schemas are not substituted for application runtime validators.",
       "Four pure boundaries have dedicated replay; other services attempt original post-inference statements with IO blocked.",
-      "Media fixtures and Audio API contract are still required; no guessed Audio endpoint is called.",
+      "Seven transcription mappings target the existing Audio API; confirmed authentication, codec and synthetic speech bytes are required. TTS is unverified.",
       "Static unsupported rows do not measure the local model.",
       "Three repetitions per supported call-site in live mode; sequential; zero SDK retries.",
       "Inference timing is HTTP wall time, including Gateway/backend overhead, not native model-generation telemetry.",
@@ -104,46 +105,63 @@ function writeReport(directory: string, report: any, token = "") {
 export async function executeSuite(plan: any, report: any, dependencies: {
   readSnapshot: () => Promise<any>; persist: () => Promise<void>;
   client: any; capture: ReturnType<typeof captureTransport>; signal?: AbortSignal;
+  audioExecutor?: ReturnType<typeof createAudioExecutor>;
+  selectedServices?: string[];
 }) {
-  const { readSnapshot, persist, client, capture, signal } = dependencies;
-  let stopped: string | null = null;
+  const { readSnapshot, persist, client, capture, signal, audioExecutor, selectedServices } = dependencies;
+  const stopped: Record<string, string | null> = { text: null, audio: null };
+  let globalStop: string | null = null;
+  report.selection = selectedServices || "all available text services; audio only when explicitly configured";
   try {
     report.before = await readSnapshot();
-    report.productionState = "OBSERVED_GATEWAY_OFF_65_OPENAI";
     // Even mocked callers must supply the same validated read-only snapshot contract.
     if (report.before.gatewayEnabled !== false || report.before.openai !== 65 ||
-        report.before.internal !== 0 || report.before.modelOverrides !== 0)
+        report.before.internal !== 0 || report.before.modelOverrides !== 0) {
+      report.productionState = "OBSERVED_POLICY_MISMATCH";
       fail("C1_PRODUCTION_POLICY_MISMATCH");
+    }
+    report.productionState = "OBSERVED_GATEWAY_OFF_65_OPENAI";
     report.kind = "LIVE_ISOLATED_SYNTHETIC";
     for (let index = 0; index < plan.services.length; index++) {
       const service = plan.services[index], row = report.rows[index];
       if (row.status === "UNSUPPORTED") continue;
-      if (stopped || signal?.aborted) {
-        row.reason = stopped || "C1_INTERRUPTED"; row.owner = "INDEXUS_TEST_EXECUTION";
+      if (selectedServices && !selectedServices.includes(service.id)) {
+        row.reason = "C1_NOT_SELECTED_FOR_THIS_RUN";
+        row.explanation = "Táto služba nebola vybraná do tohto izolovaného behu.";
+        continue;
+      }
+      if (service.operation === "transcription" && !audioExecutor) continue;
+      const group = service.operation === "transcription" ? "audio" : "text";
+      if (globalStop || stopped[group] || signal?.aborted) {
+        row.reason = globalStop || stopped[group] || "C1_INTERRUPTED"; row.owner = "INDEXUS_TEST_EXECUTION";
+        row.explanation = row.reason;
         continue;
       }
       for (const variant of service.variants) {
         if (!variant.request || variant.error) continue;
-        for (let repeat = 1; repeat <= 3 && !stopped && !signal?.aborted; repeat++) {
-          const attempt = await executeAttempt(service, variant, repeat, client, capture, signal);
+        for (let repeat = 1; repeat <= 3 && !globalStop && !stopped[group] && !signal?.aborted; repeat++) {
+          const attempt = group === "audio" ? await audioExecutor!.execute(service, variant, repeat, signal) :
+            await executeAttempt(service, variant, repeat, client, capture, signal);
           row.attempts.push(attempt);
-          if (attempt.rawGatewayResponse?.captureError === "C1_SECRET_ECHO") {
+          if (attempt.rawGatewayResponse?.captureError === "C1_SECRET_ECHO" ||
+              attempt.failure?.code === "C1_SECRET_ECHO") {
             // Do not persist anything that might contain the echoed token.
-            row.attempts.pop(); stopped = "C1_SECRET_ECHO"; break;
+            row.attempts.pop(); globalStop = "C1_SECRET_ECHO"; break;
           }
           if (attempt.rawGatewayResponse?.captureError) attempt.failure = {
             code: attempt.rawGatewayResponse.captureError, owner: "INDEXUS_EVIDENCE_CAPTURE",
             responsibilityConfirmed: true, httpStatus: null,
           };
           const failure = attempt.failure;
-          if (failure && (["ai_internal_transport_error", "C1_ABORT_OR_TIMEOUT"].includes(failure.code) ||
-              [401, 403, 429].includes(failure.httpStatus))) stopped = failure.code;
+          if (failure && (["ai_internal_transport_error", "C1_AUDIO_TRANSPORT_ERROR", "C1_ABORT_OR_TIMEOUT"].includes(failure.code) ||
+              [401, 403, 429].includes(failure.httpStatus))) stopped[group] = failure.code;
           aggregateRow(row);
           await persist(); // Retain each completed attempt, including failures.
         }
       }
     }
-    if (stopped || signal?.aborted) report.error = stopped || "C1_INTERRUPTED";
+    if (globalStop || stopped.text || stopped.audio || signal?.aborted)
+      report.error = globalStop || stopped.text || stopped.audio || "C1_INTERRUPTED";
   } catch (error: any) {
     report.error = /^C1_[A-Z0-9_]+$/.test(error?.message) ? error.message :
       /^B4_[A-Z0-9_]+$/.test(error?.code) ? "C1_GUARD_" + error.code.slice(3) :
@@ -160,11 +178,31 @@ export async function executeSuite(plan: any, report: any, dependencies: {
   return report;
 }
 
+export function parseArguments(args: string[]) {
+  const [mode, planFile, ...rest] = args;
+  if (!["--offline", "--run-c1"].includes(mode) || !planFile) fail("C1_ARGUMENTS_INVALID");
+  if (mode === "--offline") {
+    if (![1, 2].includes(rest.length)) fail("C1_ARGUMENTS_INVALID");
+    return { mode, planFile, output: rest[0], offlineReferenceRoot: rest[1],
+      services: undefined, audioProfile: undefined, audioFixtures: undefined };
+  }
+  const options: Record<string, string> = {};
+  for (let index = 0; index < rest.length; index += 2) {
+    const key = rest[index], value = rest[index + 1];
+    if (!["--services", "--audio-profile", "--audio-fixtures"].includes(key) || !value ||
+        value.startsWith("--") || options[key]) fail("C1_ARGUMENTS_INVALID");
+    options[key] = value;
+  }
+  const services = options["--services"]?.split(",");
+  if (services && (!services.length || new Set(services).size !== services.length ||
+      services.some(s => !Object.hasOwn(AI_SERVICES, s)))) fail("C1_SERVICE_SELECTION_INVALID");
+  if (!!options["--audio-profile"] !== !!options["--audio-fixtures"]) fail("C1_AUDIO_PROFILE_AND_FIXTURES_REQUIRED");
+  return { mode, planFile, services, audioProfile: options["--audio-profile"],
+    audioFixtures: options["--audio-fixtures"], output: undefined, offlineReferenceRoot: undefined };
+}
 async function main() {
-  const [mode, planFile, output, offlineReferenceRoot] = process.argv.slice(2);
-  if (!["--offline", "--run-c1"].includes(mode) || !planFile ||
-      (mode === "--offline" ? !output || ![5, 6].includes(process.argv.length) : !!output || process.argv.length !== 4))
-    fail("Usage: run.ts --offline PLAN.json OUTPUT_DIRECTORY | --run-c1 PLAN.json");
+  const { mode, planFile, output, offlineReferenceRoot, services, audioProfile, audioFixtures } =
+    parseArguments(process.argv.slice(2));
   if (mode === "--run-c1" && (process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN ||
       os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" || process.platform !== "linux"))
     fail("C1_CORPCRM01_ONLY");
@@ -172,6 +210,7 @@ async function main() {
   validatePlan(plan, mode === "--offline" && offlineReferenceRoot ? path.resolve(offlineReferenceRoot) : ROOT);
   const report: any = initialReport(plan);
   if (mode === "--offline") {
+    if (!output) return fail("C1_ARGUMENTS_INVALID");
     fs.mkdirSync(output, { recursive: false, mode: 0o700 });
     writeReport(output, report);
     console.log("C1_OFFLINE_ONLY: " + output);
@@ -180,17 +219,30 @@ async function main() {
   if (process.getuid?.() !== 1001) fail("C1_RUN_AS_SEMAN");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("C1_TLS_VERIFICATION_REQUIRED");
   // Existing loader supplies credentials to this standalone process, never to the agent.
-  const token = process.env.INDEXUS_AI_GATEWAY_TOKEN;
-  if (!token || token.trim() !== token || /\s/.test(token)) fail("C1_EXISTING_RUNTIME_TOKEN_REQUIRED");
-  if (![BASE, BASE.slice(0, -1)].includes(process.env.INDEXUS_AI_GATEWAY_BASE_URL || ""))
+  const needsText = !services || services.some(s => AI_SERVICES[s as keyof typeof AI_SERVICES] === "chat");
+  const token = needsText ? process.env.INDEXUS_AI_GATEWAY_TOKEN : "";
+  if (needsText && (!token || token.trim() !== token || /\s/.test(token))) fail("C1_EXISTING_RUNTIME_TOKEN_REQUIRED");
+  if (needsText && ![BASE, BASE.slice(0, -1)].includes(process.env.INDEXUS_AI_GATEWAY_BASE_URL || ""))
     fail("C1_GATEWAY_URL_MISMATCH");
+  let audioExecutor: ReturnType<typeof createAudioExecutor> | undefined;
+  if (audioProfile && audioFixtures) {
+    try { audioExecutor = createAudioExecutor(JSON.parse(fs.readFileSync(audioProfile, "utf8")), audioFixtures, process.env); }
+    catch (error: any) {
+      report.audioSetupFailure = /^C1_[A-Z0-9_]+$/.test(error?.code) ? error.code : "C1_AUDIO_CONFIGURATION_UNREADABLE";
+    }
+  }
+  if (services?.some(s => AI_SERVICES[s as keyof typeof AI_SERVICES] === "transcription") && !audioExecutor)
+    report.audioSetupFailure ||= "C1_AUDIO_PROFILE_AND_FIXTURES_REQUIRED";
   const directory = path.join(os.homedir(), ".indexus-c1");
   if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
   const stat = fs.lstatSync(directory);
   if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid?.() || (stat.mode & 0o077))
     fail("C1_OUTPUT_DIRECTORY_UNSAFE");
   // Same plan cannot accidentally launch hundreds of inferences twice.
-  const marker = path.join(directory, report.planSha256 + ".started");
+  const runIdentity = hash({ plan: report.planSha256, services: services ? [...services].sort() : null,
+    audio: audioExecutor?.publicEvidence || null,
+    audioFixturesSha256: audioExecutor && audioFixtures ? hash(fs.readFileSync(audioFixtures)) : null });
+  const marker = path.join(directory, runIdentity + ".started");
   fs.writeFileSync(marker, new Date().toISOString(), { flag: "wx", mode: 0o600 });
   const runDirectory = fs.mkdtempSync(path.join(directory, "run-"));
   const { Client } = await import("pg");
@@ -216,23 +268,32 @@ async function main() {
       await db.end().catch(() => {});
     }
   };
-  const capture = captureTransport(token);
+  const capture = captureTransport(token || "");
   // Explicit dependency injection affects ONLY this test client's instance.
   // No process.env, DB setting, live router or PM2 switch is written/enabled.
-  const adapter = createInternalAIAdapter({ readConfiguration: () => ({
-    production: true, replit: false, enabled: true, serverAllowed: true, baseURL: BASE, token,
-  }), fetch: capture.fetch });
-  const client = adapter.createClient({ timeout: 120_000, maxRetries: 0 });
+  const client = needsText ? createInternalAIAdapter({ readConfiguration: () => ({
+    production: true, replit: false, enabled: true, serverAllowed: true, baseURL: BASE, token: token || undefined,
+  }), fetch: capture.fetch }).createClient({ timeout: 120_000, maxRetries: 0 }) : null;
   const controller = new AbortController();
   const abort = () => controller.abort();
   process.on("SIGINT", abort); process.on("SIGTERM", abort);
   console.log("C1_RESULTS " + runDirectory);
   try {
     await executeSuite(plan, report, { readSnapshot, client, capture, signal: controller.signal,
-      persist: async () => writeReport(runDirectory, report, token) });
+      audioExecutor, selectedServices: services,
+      persist: async () => {
+        audioExecutor?.assertSafeEvidence(JSON.stringify(report));
+        writeReport(runDirectory, report, token || "");
+      } });
     console.log("C1_RESULTS " + runDirectory);
+    console.log(JSON.stringify({ error: report.error, finalVerified: report.finalVerified,
+      audioSetupFailure: report.audioSetupFailure || null,
+      measured: report.rows.filter((r: any) => r.attempts.length).map((r: any) => ({
+        id: r.id, status: r.status, reason: r.reason, parser: r.parser,
+        attempts: r.attempts.length, inferenceMs: r.inferenceMs,
+      })) }, null, 2));
     // Measured transport success alone cannot make the phase accepted.
-    process.exitCode = report.error ? 1 : 2;
+    process.exitCode = report.error || report.audioSetupFailure ? 1 : 2;
   } finally {
     process.removeListener("SIGINT", abort); process.removeListener("SIGTERM", abort);
   }
