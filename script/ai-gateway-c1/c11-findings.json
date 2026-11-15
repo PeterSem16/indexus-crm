@@ -1,0 +1,32 @@
+{
+  "confirmedOutputIssues": [
+    {"service":"email.monitoring","issue":"FALSE_CONSENT","finding":"Žiadosť o potvrdenie prijatia je v 3/3 označená wantsConsent=true, hoci nevyjadruje súhlas so službou alebo zmluvou."},
+    {"service":"postal_code.lookup","issue":"WRONG_CITY_POSTAL_CODE","finding":"Bratislava dostala 952 11 alebo 952 01; JSON tvar bol prijatý, ale smerovací rozsah nezodpovedá mestu."},
+    {"service":"email.reply","issue":"REQUEST_VS_COMPLETION","finding":"Namiesto potvrdenia prijatia odpoveď ďakuje za už doručené potvrdenie."},
+    {"service":"teams.summary","issue":"WRONG_LANGUAGE_AND_WRAPPER","finding":"Slovenský prepis má 3/3 anglické zhrnutie a markdown obal namiesto čistého HTML."},
+    {"service":"call_recording.analysis","issue":"LANGUAGE_AND_EVENT_ATTRIBUTION","finding":"Prvá vetva nerešpektuje jazyk prepisu; druhá zamieňa žiadosť o potvrdenie za uskutočnené prijatie/potvrdenie agentom."},
+    {"service":"voicemail.analysis","issue":"WRONG_LANGUAGE","finding":"3/3 anglické zhrnutie pri pravidle zachovať jazyk slovenského prepisu."},
+    {"service":"training.summary","issue":"MISSING_REQUIRED_STRUCTURE","finding":"3/3 chýba požadovaná hlavička a sekcie tréningového zápisu; výstup iba opakuje krátky vstup."},
+    {"service":"lead_search.queries","issue":"INVALID_JSON","variant":"lead_search.queries:2","repetition":3,"finding":"Neukončený reťazec a následný ďalší markdown JSON blok nie sú platným JSON výstupom."},
+    {"service":"lead_search.suggestion","issue":"INVALID_SCENARIO_SHAPE","repetition":2,"finding":"Syntakticky platný JSON obsahuje poškodený objekt a reťazec reason namiesto úplných scenárov; Morava (SR, SK) nezodpovedá Slovensku."},
+    {"service":"email.compose","issue":"UNSUPPORTED_PERSISTENCE_CLAIM","finding":"Pokusy 2 a 3 tvrdia vytvorenie/zaznamenanie záznamu v systéme bez opory vo vstupe."},
+    {"service":"email.translation_check","issue":"INCORRECT_PROOFREADING","finding":"Pokusy 1 a 2 navrhujú potvrdite namiesto potvrďte a menia osobu/číslo bez opory."},
+    {"service":"status_list.translation","issue":"MIXED_LANGUAGE_TRANSLATION","repetition":3,"finding":"Maďarská hodnota obsahuje zmiešané potvrdozzák."},
+    {"service":"activity.translation","issue":"TRANSLATION_MEANING","finding":"Talianske hodnoty menia TEST na TESTO a kolíšu veľkosťou písmen."},
+    {"service":"mpn.translation","issue":"MIXED_LANGUAGE_TRANSLATION","finding":"Talianske TESTO namiesto TEST; maďarské potvrdozzák v pokuse 3."},
+    {"service":"automation.draft","issue":"UNSUPPORTED_DELIVERABILITY_PROMISE","finding":"draftText sľubuje odoslanie notifikácie napriek pravidlu netvrdiť konfigurovanie/vykonanie/doručiteľnosť."}
+  ],
+  "sourceContractConflicts": [
+    {"service":"lead_sources.suggestion","owner":"INDEXUS_SERVICE_CONTRACT","finding":"Prompt žiada JSON pole 8–12 zdrojov, response_format požaduje json_object. Nerozhodovať o chybe servera podľa splnenia jednej z protichodných požiadaviek."},
+    {"service":"lead_search.queries","variant":"lead_search.queries:1","owner":"INDEXUS_SERVICE_CONTRACT","finding":"Prompt žiada presne 20 query strings, no počty povinných kategórií 8+5+10+5+4+4+4 spolu tvoria 40."}
+  ],
+  "capabilityMismatches": [
+    {"service":"script.translation","owner":"INDEXUS_ADAPTER_AND_AI_SERVER_CAPABILITY_CONTRACT","finding":"Pôvodných max_tokens=16000 zablokovaných pred inferenciou po discovery. Číselná hodnota deklarovaného maxima nebola v C1 uložená."},
+    {"service":"lead_search.extraction","owner":"INDEXUS_ADAPTER_AND_AI_SERVER_CAPABILITY_CONTRACT","finding":"Pôvodných max_tokens=16000 a 12000 zablokovaných pred inferenciou po discovery. Neznižovať hodnoty automaticky."}
+  ],
+  "risksRequiringExpertReview": [
+    {"service":"contract.recommendation","finding":"Meniace sa neoverené právne citácie; nejde o právne verifikovaný výstup."},
+    {"service":"web_form.social","finding":"Neprimerané odporúčania kontaktovať políciu alebo prehľadávať register nehnuteľností bez opory v podozrení."},
+    {"service":"cbu_report.analysis","finding":"Medicínske interpretácie chýbajúcich údajov vyžadujú odbornú kontrolu; prvý pokus skončil pri 120 s."}
+  ]
+}

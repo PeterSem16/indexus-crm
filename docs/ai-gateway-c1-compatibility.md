@@ -1,5 +1,104 @@
 # INDEXUS AI Gateway — fáza C1
 
+## C1.1 — iba offline opravy a príprava cielenej validácie
+
+C1.1 nevytvára AI klienta, nepripája DB, nečíta prihlasovacie údaje a neposiela
+discovery ani inferenčné požiadavky. Produkčné prompty, max_tokens, adaptér,
+nastavenia a smerovanie nemení. Pri tejto etape nie je povolené opakovať hromadný
+živý beh. Gateway má zostať vypnutá a všetkých 65 služieb na OpenAI.
+
+### Offline príkaz
+
+Použiť pôvodný doručený plan.json a koreň zdrojov, ktoré mu hashovo zodpovedajú
+(napríklad už vytvorený izolovaný C1 adresár). Cieľový adresár nesmie existovať:
+
+```bash
+node --import tsx script/ai-gateway-c1/offline-c11.cjs \
+  /ABSOLUTNA/CESTA/plan.json \
+  /ABSOLUTNY/KOREN/POVODNYCH/ZDROJOV \
+  /ABSOLUTNY/NOVY/CIEL \
+  /ABSOLUTNA/CESTA/textove-evidence.json \
+  /ABSOLUTNA/CESTA/sms-evidence.json
+```
+
+Nástroj overuje všetky zdrojové odtlačky plánu, zhodu pôvodných requestov,
+identitu každého pokusu a zhodu modelOutput s raw odpoveďou. Nepreberá potichu
+nové prompty. Uložené pokusy sa nemenia: ich úplný originál a SHA-256 zostávajú
+vedľa nových výsledkov.
+
+Výstupy: `evidence-c11.json`, `evidence-c11.html`,
+`offline-parser-replay.csv`, `ai-server-issues.json`, `ai-server-issues.md`,
+`targeted-validation-plan.json`. Plán cielenej validácie má explicitne vypnuté
+oprávnenie živého vykonania; nič automaticky nespúšťa.
+JSON a HTML majú všetkých 65 služieb; CSV obsahuje každý dostupný pokus.
+Modelový obsah, pôvodný a znovu validovaný adaptér a pôvodný aj nový aplikačný
+parser sú samostatné polia. Žiadny stav COMPATIBLE sa neprideľuje.
+
+### Parserové a bezpečnostné hranice
+
+- Legitímny `undefined` sa zaznamená ako `returnKind: "undefined", value: null`,
+  nie ako neplatný modelový JSON. Chyba serializácie wrappera je oddelená od
+  syntaktickej chyby pôvodného parsera.
+- Pôvodné pure funkcie alebo explicitne zvolené AST prefixy sa extrahujú zo
+  zdroja. Nový ručne napísaný parser modelového obsahu ich nenahrádza.
+- Vybrané prefixy končia pred DB, obohatením, mapovaním na úložisko alebo
+  odosielaním. `omittedDownstream` a pomenovaná `boundary` priznávajú túto hranicu.
+  Pri voicemail sa samostatne prehráva pôvodná JSON extrakcia bez nadväzujúceho
+  persistence guardu závislého od callLogId; nejde o test autorizácie zápisu.
+- Pri lokálnych pomocných premenných pre čisté priradenia sa neoverujú
+  pôvodné vonkajšie fallback hodnoty. Tento rozsah je označený
+  `ORIGINAL_ASSIGNMENTS_ONLY`, nie plná aplikačná integrácia.
+- DB, pool, storage, sieť a explicitné odosielacie/eventové funkcie nie sú
+  skutočné služby: ich prípadné volanie vyvolá blokujúcu chybu a zapíše názov
+  zablokovaného efektu. Ani zachytenie chyby pôvodným kódom z toho neurobí úspech.
+  Import CRM modulov sa nevykonáva. Modelový text sa nikdy nevkladá do kódu.
+- `ACCEPTED` znamená prijatie iba na uvedenej hranici; neoveruje význam,
+  downstream zápisy, preklady všetkých jazykov ani pokrytie všetkých vetiev.
+
+### Diagnostika pre neskorší samostatne povolený test
+
+Zmeny sú iba v testovacom runneri, nie v produkčnom adaptéri. Transport uchováva
+oddelené bezpečné stopy discovery/inferencie, deklarované vstupné/výstupné limity,
+požadované max_tokens, HTTP stav a obmedzené meno/kód chyby, nikdy hlavičky či
+raw výnimky. Rozlišuje lokálny abort, lokálny deadline, pomenovaný SDK timeout,
+HTTP 408/504, HTTP chybu servera/Gateway a sieťovú chybu.
+
+Každý pokus má vlastný AbortController a odpojí listener nadradeného signálu
+v `finally`; nezvyšuje sa limit listenerov na skrytie varovania. Produkčný
+adaptér ani pôvodný 120-sekundový rozpočet sa nemení.
+
+Pôvodné C1 dáta discovery limity ani presnú identitu abortu neuložili. Číselný
+deklarovaný limit je preto `null` s `NOT_CAPTURED_IN_ORIGINAL_C1`; nečíta sa
+aktuálny server, aby sa vydával za historický dôkaz. Z pôvodného
+`ai_internal_token_limit_exceeded` a hashovaného adaptéra vieme iba, že
+deklarované maximum bolo menšie než požadovaných 16000/12000.
+Štyri zlyhania približne pri 120 s sú `SUSPECTED_120S_TIMEOUT`, nie spätne
+vymyslený HTTP timeout alebo potvrdená chyba modelu.
+
+### Odovzdanie tímu AI servera
+
+Samostatný zoznam oddeľuje:
+
+1. preukázané chyby/porušenia kontraktu v obsahu pozorovanom za Gateway;
+2. konfliktné pôvodné kontrakty INDEXUS (nie automaticky chyba AI servera);
+3. nesúlad požadovaných tokenov s discovery kontraktom;
+4. neoverené právne/medicínske či prevádzkové riziká na odborné posúdenie.
+
+Každá položka obsahuje konkrétne varianty/opakovania, request, modelový obsah,
+nový parser a odtlačok pôvodného pokusu. Bez upstream telemetrie sa výlučná
+zodpovednosť lokálneho modelu nepotvrdzuje. Cielená živá validácia a akékoľvek
+prepnutie zostávajú samostatne schvaľované.
+
+Testy:
+
+```bash
+node --import tsx --test script/ai-gateway-c1/c11.test.ts
+```
+
+Test celých 162 pokusov používa lokálne súkromné fixtures a overené referenčné
+zdroje; bez nich je explicitne SKIP. Ostatné testy sú samostatné a nikdy
+nevolajú skutočné AI.
+
 ## Stav a nemenné hranice
 
 Toto je **príprava a predbežná evidencia**, nie dokončený živý akceptačný test.

@@ -5,6 +5,8 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const path = require("node:path");
 const ROOT = path.resolve(__dirname, "../..");
+const { boundaryCode, BOUNDARIES } = require("./boundary-replay.cjs");
+const crypto = require("node:crypto");
 const RECIPES = {
   "email.sentiment": { file: "server/routes.ts", names: ["analyzeEmailContent"],
     invoke: "analyzeEmailContent(seed.content, seed.subject)" },
@@ -22,8 +24,8 @@ const RECIPES = {
       "generateTaskResolutionDraftWithCompletion", "safeProviderError"],
     invoke: "generateTaskResolutionDraftWithCompletion(seed.input, complete)" },
 };
-function extract(recipe) {
-  const text = fs.readFileSync(path.join(ROOT, recipe.file), "utf8");
+function extract(recipe, root = ROOT) {
+  const text = fs.readFileSync(path.join(root, recipe.file), "utf8");
   const ast = ts.createSourceFile(recipe.file, text, ts.ScriptTarget.Latest, true);
   const selected = [];
   const found = new Set();
@@ -42,9 +44,9 @@ function extract(recipe) {
   if (recipe.names.some(name => !found.has(name))) throw Error("C1_PARSER_SOURCE_CHANGED");
   return selected.join("\n");
 }
-function tailRecipe(variant) {
-  const file = path.resolve(ROOT, variant.source.file);
-  if (!file.startsWith(ROOT + path.sep)) throw Error("C1_PARSER_SOURCE_INVALID");
+function tailRecipe(variant, root = ROOT) {
+  const file = path.resolve(root, variant.source.file);
+  if (!file.startsWith(root + path.sep)) throw Error("C1_PARSER_SOURCE_INVALID");
   const text = fs.readFileSync(file, "utf8");
   const ast = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   let call;
@@ -65,9 +67,9 @@ function tailRecipe(variant) {
   return { responseName: declaration.name.text,
     code: tail.map(n => n.getText(ast)).join("\n") };
 }
-async function replayTail(raw, seed, variant) {
+async function replayTail(raw, seed, variant, options = {}) {
   let recipe;
-  try { recipe = tailRecipe(variant); } catch {}
+  try { recipe = tailRecipe(variant, options.sourceRoot || ROOT); } catch {}
   if (!recipe) return { state: "NOT_REPLAYED", value: null,
     validationError: "C1_APPLICATION_PARSER_REPLAY_REQUIRED" };
   let httpStatus = 200, captured = false, responseBody;
@@ -77,37 +79,63 @@ async function replayTail(raw, seed, variant) {
     send(value) { captured = true; responseBody = value; return value; },
   };
   const envelope = { choices: [{ message: { content: raw } }], output_text: raw };
+  const blockedEffects = [];
+  const blocked = label => new Proxy(function () { blockedEffects.push(label); throw Error("C11_SIDE_EFFECT_BLOCKED"); }, {
+    get(_target, key) { if (key === "then") return undefined; return blocked(label + "." + String(key)); },
+  });
+  let selected;
+  try { selected = options.bounded ? boundaryCode(options.id, recipe.code, variant) : null; }
+  catch { return { state: "REPLAY_ERROR", value: null, validationError: "C11_BOUNDARY_SOURCE_CHANGED" }; }
+  const code = selected?.code || recipe.code;
+  let dependencies = "";
+  if (selected?.recipe.dependencies) dependencies = extract({
+    file: selected.recipe.dependencyFile || variant.source.file,
+    names: selected.recipe.dependencies,
+  }, options.sourceRoot || ROOT);
   const context = vm.createContext({
-    ...seed, [recipe.responseName]: envelope, res, z: require("zod").z,
+    ...JSON.parse(JSON.stringify(seed)), [recipe.responseName]: envelope, res, z: require("zod").z,
     console: { log() {}, warn() {}, error() {} },
+    db: blocked("db"), pool: blocked("pool"), storage: blocked("storage"),
+    fetch: blocked("fetch"), require: blocked("require"), process: undefined,
+    emitEventOnceForIdentity: blocked("event"), sendEmail: blocked("email"), sendSms: blocked("sms"),
   }, { codeGeneration: { strings: false, wasm: false } });
-  let executing = false;
+  let stage = "COMPILE";
   try {
     // Only original statements AFTER inference are replayed. IO capabilities are absent.
-    const js = ts.transpileModule(`async function __parse() { ${recipe.code}
+    const js = ts.transpileModule(`${dependencies}\nasync function __parse() { ${code}
       return { __c1_no_return: true }; } globalThis.__completion = __parse();`,
       { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
     // Compilation failures belong to the harness, not to the model's JSON parser.
     const script = new vm.Script(js);
-    executing = true;
+    stage = "APPLICATION";
     script.runInContext(context, { timeout: 250 });
-    const value = await context.__completion;
+    let value = await context.__completion;
+    if (blockedEffects.length) throw Error("C11_SIDE_EFFECT_BLOCKED");
+    if (value?.__c11_capture) value = value.value;
     if (value?.__c1_no_return && !captured) throw Error("C1_NO_PARSER_RESULT");
+    stage = "SERIALIZE";
     return { state: httpStatus >= 400 || value === null ? "REJECTED" : "ACCEPTED",
-      boundary: "ORIGINAL_POST_INFERENCE_STATEMENTS",
-      value: JSON.parse(JSON.stringify(captured ? responseBody : value)),
+      boundary: selected?.scope || "ORIGINAL_POST_INFERENCE_STATEMENTS",
+      integrationVerified: false,
+      sourceBoundarySha256: crypto.createHash("sha256").update(dependencies + code).digest("hex"),
+      omittedDownstream: !!selected && !selected.recipe.full,
+      returnKind: (captured ? responseBody : value) === undefined ? "undefined" : "json",
+      value: (captured ? responseBody : value) === undefined ? null : JSON.parse(JSON.stringify(captured ? responseBody : value)),
+      blockedEffects,
       httpResponseStatus: captured ? httpStatus : null,
       validationError: httpStatus >= 400 || value === null ? "C1_APPLICATION_REJECTED_OUTPUT" : null };
   } catch (error) {
-    const validation = executing && ["SyntaxError", "ZodError"].includes(error?.name);
-    return { state: validation ? "REJECTED" : "NOT_REPLAYED", value: null,
+    const validation = stage === "APPLICATION" && ["SyntaxError", "ZodError"].includes(error?.name);
+    return { state: validation ? "REJECTED" : stage === "SERIALIZE" ? "REPLAY_ERROR" : "NOT_REPLAYED", value: null,
       boundary: "ORIGINAL_POST_INFERENCE_STATEMENTS",
-      validationError: validation ? "C1_APPLICATION_" + error.name.toUpperCase() :
+      blockedEffects,
+      validationError: stage === "SERIALIZE" ? "C11_WRAPPER_SERIALIZATION_FAILED" :
+        validation ? "C1_APPLICATION_" + error.name.toUpperCase() :
         "C1_APPLICATION_DEPENDENCY_OR_SIDE_EFFECT_BLOCKED" };
   }
 }
-async function replay(id, raw, seed, originalRequest, variant) {
-  if (!RECIPES[id]) return variant ? replayTail(raw, seed, variant) :
+async function replay(id, raw, seed, originalRequest, variant, options = {}) {
+  if (!RECIPES[id]) return variant ? replayTail(raw, seed, variant, { ...options, id }) :
     { state: "NOT_REPLAYED", value: null, validationError: "C1_APPLICATION_PARSER_REPLAY_REQUIRED" };
   let captured;
   const complete = async messages => { captured = messages; return raw; };
@@ -120,7 +148,7 @@ async function replay(id, raw, seed, originalRequest, variant) {
     } } } }),
   }, { codeGeneration: { strings: false, wasm: false } });
   try {
-    const js = ts.transpileModule(extract(RECIPES[id]) +
+    const js = ts.transpileModule(extract(RECIPES[id], options.sourceRoot || ROOT) +
       "\nglobalThis.__completion = " + RECIPES[id].invoke + ";",
       { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
     vm.runInContext(js, context, { timeout: 250 });
@@ -139,4 +167,4 @@ async function replay(id, raw, seed, originalRequest, variant) {
       validationError: rejected ? error.safeCode : "C1_PARSER_REPLAY_FAILED" };
   }
 }
-module.exports = { replay, RECIPES, extract, tailRecipe };
+module.exports = { replay, RECIPES, extract, tailRecipe, BOUNDARIES };

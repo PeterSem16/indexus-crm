@@ -12,6 +12,7 @@ import { BASE, preparedRow, executeAttempt, aggregateRow, csv, html } from "./ev
 import { hash } from "./prepare.cjs";
 import { snapshot, unchanged } from "../ai-gateway-b4-pilot.cjs";
 import { createAudioExecutor } from "./audio";
+import { errorIdentity, declarationsFrom } from "./diagnostics.cjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const fail = (code: string): never => { throw new Error(code); };
@@ -71,13 +72,35 @@ export async function limitedText(response: Response, token: string) {
 
 export function captureTransport(token: string, transport: typeof fetch = fetch) {
   let pending: Promise<any> = Promise.resolve(null);
+  let traces: any[] = [], declarations: any = null;
   return {
-    reset() { pending = Promise.resolve(null); },
+    reset() { pending = Promise.resolve(null); traces = []; declarations = null; },
     result() { return pending; },
+    diagnostics() { return { traces, declarations }; },
     fetch: (async (input: any, init: any) => {
       const start = performance.now();
-      const response = await transport(input, init);
-      if (new URL(String(input)).pathname === "/gateway/v1/chat/completions") {
+      const pathname = new URL(String(input)).pathname;
+      const stage = pathname.endsWith("/chat/completions") ? "INFERENCE" : "DISCOVERY";
+      let response: Response;
+      try { response = await transport(input, init); }
+      catch (error) {
+        traces.push({ stage, elapsedMs: performance.now() - start, aborted: !!init?.signal?.aborted,
+          transportError: errorIdentity(error) });
+        throw error;
+      }
+      traces.push({ stage, status: response.status, elapsedMs: performance.now() - start });
+      if (pathname.endsWith("/indexus/v1/capabilities")) {
+        let body: string;
+        try { body = await limitedText(response.clone(), token); }
+        catch (error: any) {
+          pending = Promise.resolve({ status: response.status, body: null,
+            captureError: /^C1_[A-Z0-9_]+$/.test(error?.message) ? error.message : "C1_RAW_CAPTURE_FAILED",
+            elapsedMs: performance.now() - start });
+          throw error;
+        }
+        try { declarations = declarationsFrom(JSON.parse(body)); } catch { /* Adapter validates malformed discovery. */ }
+      }
+      if (pathname === "/gateway/v1/chat/completions") {
         pending = limitedText(response.clone(), token)
           .then(body => ({ status: response.status, contentType: response.headers.get("content-type"),
             body, elapsedMs: performance.now() - start }))

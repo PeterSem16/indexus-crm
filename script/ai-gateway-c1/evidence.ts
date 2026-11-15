@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { validateInternalRequest, INTERNAL_TEXT_MODELS } from "../../server/lib/ai/internal-contract";
 import { replay } from "./replay.cjs";
+import { diagnose, tokenLimits, errorIdentity } from "./diagnostics.cjs";
 
 export type C1Status = "COMPATIBLE" | "REQUIRES_FIX" | "UNSUPPORTED";
 export const MODEL = INTERNAL_TEXT_MODELS[0];
@@ -21,7 +22,7 @@ export function safeFailure(error: any) {
   if (typeof code === "string" && /^ai_internal_[a-z_]+$/.test(code)) {
     const adapter = ["unsupported_request", "model_not_allowed", "streaming_not_supported", "text_only",
       "output_format_not_verified", "unsupported_operation", "invalid_temperature", "invalid_token_limit",
-      "request_too_large"].some(c => code === "ai_internal_" + c);
+      "request_too_large", "token_limit_exceeded"].some(c => code === "ai_internal_" + c);
     const transport = ["ai_internal_transport_error", "ai_internal_http_error"].includes(code);
     return { code, owner: adapter ? "INDEXUS_ADAPTER" : transport ? "TRANSPORT_OR_GATEWAY" : "GATEWAY_CONTRACT",
       // Invalid JSON alone does not prove that the local model, rather than Gateway serialization, failed.
@@ -91,6 +92,10 @@ export function aggregateRow(row: any) {
     semanticStability: "NOT_MEASURED",
     note: "Different valid creative outputs are not automatically a failure; exact equality is diagnostic only.",
   };
+  row.modelLimits = attempts.map((attempt: any) => ({
+    variant: attempt.variant, repetition: attempt.repetition,
+    ...(attempt.tokenLimits || tokenLimits(attempt.request)),
+  }));
   if (failed) {
     row.status = "REQUIRES_FIX"; row.reason = failed.failure.code; row.owner = failed.failure.owner;
     row.validationError = failed.failure.code;
@@ -105,15 +110,24 @@ export function aggregateRow(row: any) {
 }
 
 export async function executeAttempt(service: any, variant: any, repetition: number, client: any,
-  capture: { reset(): void; result(): Promise<any> }, signal?: AbortSignal) {
+  capture: { reset(): void; result(): Promise<any>; diagnostics?(): any }, signal?: AbortSignal,
+  timeoutMs = 120_000) {
   const started = performance.now();
+  const controller = new AbortController();
+  let localReason: string | null = null, caughtError: unknown = null;
+  const abort = () => { localReason = "C11_CALLER_ABORT"; controller.abort(localReason); };
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => {
+    localReason = "C11_LOCAL_DEADLINE"; controller.abort(localReason);
+  }, timeoutMs);
   capture.reset();
   const attempt: any = { variant: variant.id, repetition, originalModel: variant.request.model,
     targetModel: MODEL, originalRequest: variant.request, request: { ...variant.request, model: MODEL },
     rawGatewayResponse: null, modelOutput: null, adapterOutput: null, applicationParser: null,
     failure: null, inferenceMs: null, totalMs: null };
   try {
-    const completion = await client.chat.completions.create(attempt.request, { signal });
+    const completion = await client.chat.completions.create(attempt.request, { signal: controller.signal });
     attempt.adapterOutput = completion;
     attempt.modelOutput = completion.choices[0]?.message?.content ?? null;
     // Generic JSON decode is explicitly not presented as the application's parser.
@@ -129,11 +143,14 @@ export async function executeAttempt(service: any, variant: any, repetition: num
       responsibilityConfirmed: true, httpStatus: null,
     };
   } catch (error) {
+    caughtError = error;
     attempt.failure = safeFailure(error);
     attempt.applicationParser = { state: "NOT_INVOKED", value: null,
       validationError: "C1_ADAPTER_REJECTED_BEFORE_APPLICATION" };
   }
   finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
     const raw = await capture.result();
     attempt.rawGatewayResponse = raw;
     attempt.inferenceMs = raw?.elapsedMs ?? null;
@@ -142,6 +159,13 @@ export async function executeAttempt(service: any, variant: any, repetition: num
       try { attempt.modelOutput = JSON.parse(raw.body)?.choices?.[0]?.message?.content ?? null; } catch {}
     }
     attempt.totalMs = performance.now() - started;
+    const observed = capture.diagnostics?.() || { traces: [], declarations: null };
+    attempt.modelDeclarations = observed.declarations;
+    attempt.tokenLimits = tokenLimits(attempt.request, observed.declarations);
+    attempt.transportTraces = observed.traces;
+    attempt.transportDiagnostic = diagnose({ error: caughtError, signal: controller.signal,
+      localReason, traces: observed.traces, elapsedMs: attempt.totalMs });
+    attempt.safeErrorIdentity = errorIdentity(caughtError);
   }
   return attempt;
 }
@@ -150,7 +174,7 @@ const escape = (value: any) => String(value ?? "").replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 export function csv(report: any) {
   const keys = ["id", "name", "operation", "status", "reason", "explanation", "owner", "evidenceKind", "execution",
-    "inferenceMs", "parser", "validationError", "modelCorrectness", "stability"];
+    "inferenceMs", "parser", "validationError", "modelCorrectness", "stability", "modelLimits"];
   return "\uFEFF" + [keys, ...report.rows.map((r: any) => keys.map(k =>
     typeof r[k] === "object" && r[k] !== null ? JSON.stringify(r[k]) : r[k] ?? ""))]
     .map(row => row.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
