@@ -155,6 +155,10 @@ potom vytvorí súkromný adresár v `/var/www/indexus-crm/data`. Tam skopíruje
 overené zdroje a testovací runner, pripojí existujúce závislosti a konfiguráciu
 symlinkom a použije už existujúci runtime loader. Žiadny `git pull`, inštalácia,
 reštart PM2 ani zmena súborov živého checkoutu. Pri nezhode zdrojov skončí.
+Jediná výnimka pôvodu runtime závislostí je samostatný testovací pomocník
+`script/ai-gateway-b4-pilot.cjs`: preberá sa z balíka s kontrolou oboch hashov,
+nemusí byť v živej aplikácii. Pôvodné CRM prompty, parsery a adaptéry sa naďalej
+overujú výhradne proti živému checkoutu; táto výnimka ich nenahrádza.
 
 Ako `seman` na CORPCRM01, po nahratí doručeného ZIP do privátneho umiestnenia:
 
