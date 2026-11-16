@@ -7,20 +7,23 @@ const esbuild = require("esbuild");
 const { analyzeSource } = require("./source.cjs");
 async function main() {
   const out = process.argv[2];
+  const b12 = process.argv[3] === "--b12";
+  if (process.argv.length !== (b12 ? 4 : 3)) throw Error("B1_BUILD_ARGUMENTS_INVALID");
   if (!out || fs.existsSync(out)) throw Error("B1_NEW_OUTPUT_DIRECTORY_REQUIRED");
   const source = analyzeSource(path.resolve("server/lib/email-monitoring-service.ts"));
   fs.mkdirSync(out, { recursive: true, mode: 0o700 });
-  const outfile = path.join(out, "run-b1.cjs");
-  await esbuild.build({ entryPoints: ["script/ai-email-monitoring-b1/run.ts"], outfile,
+  const name = b12 ? "run-b12.cjs" : "run-b1.cjs";
+  const outfile = path.join(out, name);
+  await esbuild.build({ entryPoints: [b12 ? "script/ai-email-monitoring-b1/b12-run.ts" : "script/ai-email-monitoring-b1/run.ts"], outfile,
     bundle: true, platform: "node", target: "node20", format: "cjs", logLevel: "silent",
     banner: { js: `if (process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN || process.platform !== "linux" || require("node:os").hostname().split(".")[0].toUpperCase() !== "CORPCRM01") { console.error("B1_CORPCRM01_ONLY"); process.exit(1); }\nmodule.paths.unshift("/var/www/indexus-crm/node_modules");` },
     external: ["pg", "openai", "dotenv", "zod", "drizzle-orm", "drizzle-orm/*"],
     define: { B1_PREPARED_SOURCE: JSON.stringify(source) } });
   fs.chmodSync(outfile, 0o600);
   const hash = text => crypto.createHash("sha256").update(text).digest("hex");
-  const manifest = { kind: "ISOLATED_B1_TEST_NOT_PRODUCTION_DEPLOYMENT",
+  const manifest = { kind: b12 ? "ISOLATED_B12_SINGLE_TEST_NOT_PRODUCTION_DEPLOYMENT" : "ISOLATED_B1_TEST_NOT_PRODUCTION_DEPLOYMENT",
     originalRequestSha256: source.requestSha256, preparedAnalyzerSha256: source.sourceSha256,
-    files: { "run-b1.cjs": hash(fs.readFileSync(outfile)) } };
+    files: { [name]: hash(fs.readFileSync(outfile)) } };
   fs.writeFileSync(path.join(out, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
   console.log(JSON.stringify(manifest, null, 2));
 }

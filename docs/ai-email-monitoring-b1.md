@@ -1,5 +1,35 @@
 # B1 — izolovaná integrácia Email Monitoring
 
+## Aktuálne zadanie B1.2
+
+B1.2 je nový, samostatne schválený **jediný** syntetický integračný prípad.
+Používa výhradne `https://ai.cordbloodcenter.com/gateway/v1/chat/completions`,
+model `indexus-email-monitoring:v1`, teplotu 0.1, 200 tokenov, JSON objekt
+a `stream=false`. Vstup je presne „Prosím potvrďte prijatie správy. Ďakujem.“
+
+`prepare-console.cjs <PIN> --run-b12 <pôvodný evidence.json>` zostaví a spustí
+iba `run-b12.cjs`; nespustí starý osemdielny B1. Počas prípravy nemení checkout
+ani nespúšťa produkčný build. HTTPS voľba adaptéra platí len pre injektovanú
+testovaciu inštanciu, nie pre predvolené správanie či uložené nastavenia.
+
+Použije sa skutočný request/prompt z aplikácie s overenou zhodou živého requestu,
+router, adaptér a prísny deväťpoložkový parser. Povinné sú `wantsConsent=false`,
+`wantsToCancel=false`, `sentiment=neutral`, `alertLevel=none`. Žiadne opravy
+modelovej klasifikácie ani cloud fallback.
+
+Pred volaním aj po ňom sa iba čítajú produkčné nastavenia a porovnajú s pôvodným
+B1 reportom. Nevytvárajú sa ani dočasné DB tabuľky. Výsledok obsahuje HTTP stav,
+skutočný model, deväťpoložkový JSON, výsledok integračného spracovania,
+porovnanie produkcie a `PASS`/`FAIL`. Neoverený historický katalóg modelov je
+podľa zadania B1.2 výslovne neblokujúci.
+
+Nový, oddelený jednorazový marker B1.2 povoľuje najviac jeden inferenčný pokus.
+Pôvodné B1/B1.1 výsledky a markery sa nemenia ani nemažú. Opakovanie rovnakého
+B1.2 zastaví `B12_RUN_ALREADY_STARTED`. Token sa číta iba z existujúceho preloadu.
+
+Nasledujúce časti zachytávajú pôvodnú prípravu B1 vrátane historickej HTTP
+výnimky; nie sú pokynom na jej použitie v novom B1.2 teste.
+
 ## Rozsah a stav
 
 Pripravený profil iba pre `email.monitoring`:

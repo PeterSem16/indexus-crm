@@ -68,6 +68,8 @@ export function createInternalAIAdapter(dependencies: {
   readSettings?: () => AIGatewaySettings | undefined;
   fetch?: typeof fetch;
   allowedModels?: readonly string[];
+  /** Instance-only B1.2 test choice. Never persisted or read from environment. */
+  emailMonitoringTransport?: "canonical-https";
 } = {}) {
   const readConfiguration = dependencies.readConfiguration ?? environmentConfiguration;
   const transport = dependencies.fetch ?? globalThis.fetch;
@@ -144,10 +146,10 @@ export function createInternalAIAdapter(dependencies: {
             const body = JSON.parse(init.body);
             const spec = validateInternalRequest(body, permitted);
             const target = context?.service === EMAIL_MONITORING_PROFILE.service &&
-              spec.model === EMAIL_MONITORING_PROFILE.model
+              spec.model === EMAIL_MONITORING_PROFILE.model && dependencies.emailMonitoringTransport !== "canonical-https"
               ? configuration({ ...readConfiguration(), baseURL: EMAIL_MONITORING_PROFILE.baseURL }, true) : config;
-            // Discovery stays on the configured HTTPS Gateway. Only the
-            // dedicated model's inference uses the approved private HTTP path.
+            // Discovery stays on HTTPS. The historical dedicated HTTP inference
+            // path is unchanged unless this instance explicitly selects B1.2 HTTPS.
             const models = await discover(config, init.signal, permitted);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
