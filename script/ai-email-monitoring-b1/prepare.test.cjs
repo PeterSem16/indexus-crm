@@ -37,6 +37,10 @@ test("read-only discovery stops on redirect and reports absent models rather tha
     url.endsWith("health/ready") ? new Response(null) : Response.json({ data: [], models: [] }) });
   assert.equal(missing.error, "B1_DISCOVERY_MODEL_UNAVAILABLE");
   assert.equal(missing.declaredMaxOutputTokens, null);
+  const invalidShape = await checkDiscovery({ token: "SYNTHETIC", fetch: async url =>
+    url.endsWith("health/ready") ? new Response(null) : Response.json({ data: {}, models: {} }) });
+  assert.equal(invalidShape.error, "B1_DISCOVERY_CONTRACT_MISMATCH");
+  assert.equal(invalidShape.listed, null); assert.equal(invalidShape.declared, null);
 });
 test("B1 permits exactly three canonical HTTPS checks and the single private HTTP inference URL", () => {
   for (const p of ["health/ready", "v1/models", "indexus/v1/capabilities"])

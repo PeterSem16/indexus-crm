@@ -21,7 +21,7 @@ async function readJson(response) {
 }
 async function checkDiscovery({ fetch: transport, token }) {
   const result = { kind: "B1_HTTPS_DISCOVERY_ONLY", inferenceCalls: 0, checks: [],
-    model: MODEL, listed: false, declared: false, declaredMaxOutputTokens: null, error: null };
+    model: MODEL, listed: null, declared: null, declaredMaxOutputTokens: null, error: null };
   const documents = {};
   for (const route of ["health/ready", "v1/models", "indexus/v1/capabilities"]) {
     const url = BASE + route;
@@ -45,8 +45,12 @@ async function checkDiscovery({ fetch: transport, token }) {
   }
   if (!result.error) {
     const models = documents["v1/models"], capabilities = documents["indexus/v1/capabilities"];
-    const model = Array.isArray(capabilities?.models) ? capabilities.models.find(m => m?.id === MODEL) : null;
-    result.listed = Array.isArray(models?.data) && models.data.some(m => m?.id === MODEL);
+    if (!Array.isArray(models?.data) || !Array.isArray(capabilities?.models)) {
+      result.error = "B1_DISCOVERY_CONTRACT_MISMATCH";
+      return result;
+    }
+    const model = capabilities.models.find(m => m?.id === MODEL);
+    result.listed = models.data.some(m => m?.id === MODEL);
     result.declared = !!model;
     result.declaredMaxOutputTokens = Number.isInteger(model?.maxOutputTokens) ? model.maxOutputTokens : null;
     result.jsonObject = Array.isArray(model?.outputFormats) && model.outputFormats.includes("json_object");
