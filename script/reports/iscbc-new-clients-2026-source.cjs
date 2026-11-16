@@ -183,6 +183,12 @@ notes("Reward.ActRemarks", ["rar_id"], ["rar_remark"],
 function quotedTable(table) {
   return table.split(".").map(p => `[${p}]`).join(".");
 }
+// Explicitly verified source columns. ScheduledPayments has only spa_updated
+// and spa_updated_by; a common suffix does not prove inserted fields exist.
+const UPDATED_WITH_INSERTED = new Set([
+  "Clients", "PotentialClients", "Contracts", "ContractServices",
+  "ServiceCollections", "CollectionAnnouncements", "CollectionTransports", "Invoices",
+]);
 function noteQuery(spec, counts = false) {
   const active = spec.deleted ? `ISNULL(s.[${spec.deleted}],0)<>1` : "1=1";
   const nonempty = f => `s.[${f}] IS NOT NULL AND
@@ -195,7 +201,8 @@ function noteQuery(spec, counts = false) {
   }
   const columns = [...new Set([...spec.keys, ...spec.links])].map(k => id(`s.[${k}]`, k));
   columns.push(...spec.fields.map(f => `CONVERT(nvarchar(max),s.[${f}]) AS [${f}]`));
-  const fallback = spec.at?.endsWith("_updated") ? spec.at.replace(/_updated$/, "_inserted") : null;
+  const fallback = spec.at?.endsWith("_updated") && UPDATED_WITH_INSERTED.has(spec.table) ?
+    spec.at.replace(/_updated$/, "_inserted") : null;
   columns.push(spec.at ? date(fallback ?
     `COALESCE(s.[${spec.at}],s.[${fallback}])` : `s.[${spec.at}]`, "_at") :
     "CAST(NULL AS varchar(23)) AS _at");

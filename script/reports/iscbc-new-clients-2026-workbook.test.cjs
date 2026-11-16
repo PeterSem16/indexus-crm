@@ -164,6 +164,14 @@ test("source queries never write, fetch bank identities or join notes to install
   assert.match(remarks, /s\.\[rem_note\]/);
   assert.ok(COHORT.includes(">= '20260101'") && COHORT.includes("< '20270101'"));
 });
+test("scheduled-payment notes never assume nonexistent inserted columns", () => {
+  const query = noteQuery(NOTES.find(spec => spec.table === "ScheduledPayments"));
+  assert.match(query, /s\.\[spa_updated\]/);
+  assert.match(query, /s\.\[spa_updated_by\]/);
+  assert.doesNotMatch(query, /spa_inserted/);
+  const clientQuery = noteQuery(NOTES.find(spec => spec.table === "Clients"));
+  assert.match(clientQuery, /COALESCE\(s\.\[cli_updated\],s\.\[cli_inserted\]\)/);
+});
 test("source note count disagreement blocks export", async () => {
   let phase = 0;
   const pool = { request: () => ({ query: async () => {
