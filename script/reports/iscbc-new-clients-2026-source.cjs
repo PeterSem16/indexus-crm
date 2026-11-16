@@ -4,12 +4,13 @@
 const crypto = require("node:crypto");
 const { COHORT } = require("./iscbc-new-clients-2026.cjs");
 const { scopedQuery } = require("./iscbc-new-clients-2026-scope.cjs");
-const CTE = `WITH Cohort AS (
+const COHORT_CTE = `WITH Cohort AS (
   SELECT c.cli_id,c.per_id,c.pot_id,c.com_id,c.cli_inserted FROM dbo.Clients c WHERE ${COHORT}
 ), Con AS (
   SELECT con.con_id,con.cli_id,con.pot_id FROM dbo.Contracts con
   WHERE con.cli_id IN (SELECT cli_id FROM Cohort)
-), CS AS (
+)`;
+const CTE = `${COHORT_CTE}, CS AS (
   SELECT cs.cse_id,cs.con_id,cs.sin_id,cs.sco_id FROM dbo.ContractServices cs
   WHERE cs.con_id IN (SELECT con_id FROM Con)
 ), SC AS (
@@ -213,18 +214,43 @@ function clientScope(scope) {
   }
   return result;
 }
+// SQL Server 2008 can expand the collection cohort separately for each branch
+// of an OR over Remarks. Use equality joins and a set of (remark, client)
+// links instead. Potential ownership preserves all three original paths.
+const REMARK_CTE = `${COHORT_CTE}, PotentialOwners AS (
+  SELECT p.pot_id,p.cnt_id,c.cli_id FROM dbo.PotentialClients p
+    JOIN Cohort c ON c.cli_id=p.cli_id
+  UNION
+  SELECT p.pot_id,p.cnt_id,c.cli_id FROM dbo.PotentialClients p
+    JOIN Cohort c ON c.pot_id=p.pot_id
+  UNION
+  SELECT p.pot_id,p.cnt_id,co.cli_id FROM dbo.PotentialClients p
+    JOIN Con co ON co.pot_id=p.pot_id
+), RemarkClients AS (
+  SELECT r.rem_id,c.cli_id FROM dbo.Remarks r JOIN Cohort c ON c.cli_id=r.cli_id
+  UNION
+  SELECT r.rem_id,co.cli_id FROM dbo.Remarks r JOIN Con co ON co.con_id=r.con_id
+  UNION
+  SELECT r.rem_id,p.cli_id FROM dbo.Remarks r JOIN PotentialOwners p ON p.pot_id=r.pot_id
+  UNION
+  SELECT r.rem_id,p.cli_id FROM dbo.Remarks r JOIN PotentialOwners p ON p.cnt_id=r.cnt_id
+)`;
 function noteQuery(spec, counts = false) {
+  const remarks = spec.table === "Remarks";
+  const cte = remarks ? REMARK_CTE : CTE;
+  const scope = remarks ? "s.rem_id IN (SELECT rem_id FROM RemarkClients)" : spec.scope;
   const active = spec.deleted ? `ISNULL(s.[${spec.deleted}],0)<>1` : "1=1";
   const nonempty = f => `s.[${f}] IS NOT NULL AND
     LEN(LTRIM(RTRIM(CONVERT(nvarchar(max),s.[${f}]))))>0`;
   if (counts) {
-    return `${CTE} SELECT ${spec.fields.flatMap((f, i) => [
+    return `${cte} SELECT ${spec.fields.flatMap((f, i) => [
       `COALESCE(SUM(CONVERT(bigint,CASE WHEN (${nonempty(f)}) AND (${active}) THEN 1 ELSE 0 END)),0) AS n${i}`,
       `COALESCE(SUM(CONVERT(bigint,CASE WHEN (${nonempty(f)}) AND NOT (${active}) THEN 1 ELSE 0 END)),0) AS d${i}`,
-    ]).join(",")} FROM ${quotedTable(spec.table)} s WHERE ${spec.scope}`;
+    ]).join(",")} FROM ${quotedTable(spec.table)} s WHERE ${scope}`;
   }
   const columns = [...new Set([...spec.keys, ...spec.links])].map(k => id(`s.[${k}]`, k));
-  columns.push(`STUFF((SELECT ','+CONVERT(varchar(40),nc.cli_id) FROM Cohort nc
+  columns.push(remarks ? "CONVERT(varchar(40),rl.cli_id) AS _clients" :
+    `STUFF((SELECT ','+CONVERT(varchar(40),nc.cli_id) FROM Cohort nc
     WHERE (${clientScope(spec.scope)}) ORDER BY nc.cli_id
     FOR XML PATH(''),TYPE).value('.','varchar(max)'),1,1,'') AS _clients`);
   columns.push(...spec.fields.map(f => `CONVERT(nvarchar(max),s.[${f}]) AS [${f}]`));
@@ -240,9 +266,38 @@ function noteQuery(spec, counts = false) {
     `CASE WHEN s.[${spec.at}] IS NULL THEN s.[${spec.author.replace(/_updated_by$/, "_inserted_by")}]
       ELSE s.[${spec.author}] END AS _author` : `s.[${spec.author}] AS _author`) :
     "CAST(NULL AS varchar(80)) AS _author");
-  return `${CTE} SELECT ${columns.join(",")} FROM ${quotedTable(spec.table)} s
-    WHERE (${spec.scope}) AND (${active}) AND
+  return `${cte} SELECT ${columns.join(",")} FROM ${quotedTable(spec.table)} s
+    ${remarks ? "JOIN RemarkClients rl ON rl.rem_id=s.rem_id" : ""}
+    WHERE (${remarks ? "1=1" : scope}) AND (${active}) AND
     (${spec.fields.map(f => `(${nonempty(f)})`).join(" OR ")})`;
+}
+
+// Multiple proved clients may share a remark. Collapse only its ownership
+// rows, never different source IDs or text; independent counts remain per ID.
+function mergeRemarkOwners(rows) {
+  const byId = new Map();
+  for (const row of rows) {
+    if (!/^\d+$/.test(row.rem_id || "")) {
+      throw Object.assign(new Error(), { code: "INVALID_REMARK_ID", reportStage: "Remarks" });
+    }
+    const { _clients, ...content } = row;
+    const signature = JSON.stringify(Object.keys(content).sort().map(k => [k, content[k]]));
+    let entry = byId.get(row.rem_id);
+    if (!entry) {
+      entry = { content, signature, clients: new Set() };
+      byId.set(row.rem_id, entry);
+    } else if (entry.signature !== signature) {
+      throw Object.assign(new Error(), { code: "REMARK_CONTENT_CONFLICT", reportStage: "Remarks" });
+    }
+    const clients = String(_clients || "").split(",");
+    if (clients.some(value => !/^\d+$/.test(value))) {
+      throw Object.assign(new Error(), { code: "NOTE_CLIENT_LINK_MISSING", reportStage: "Remarks" });
+    }
+    clients.forEach(value => entry.clients.add(value));
+  }
+  return [...byId.values()].map(entry => ({
+    ...entry.content, _clients: [...entry.clients].sort().join(","),
+  }));
 }
 
 function digest(rows) {
@@ -269,7 +324,8 @@ async function readAll(pool, progress = () => {}, options = {}) {
   }
   for (const spec of NOTES) {
     const count = (await query(`count:${spec.table}`, noteQuery(spec, true)))[0];
-    const rows = await query(`notes:${spec.table}`, noteQuery(spec));
+    const sourceRows = await query(`notes:${spec.table}`, noteQuery(spec));
+    const rows = spec.table === "Remarks" ? mergeRemarkOwners(sourceRows) : sourceRows;
     spec.fields.forEach((field, i) => {
       const actual = rows.filter(row => hasNote(row[field])).length;
       if (actual !== Number(count[`n${i}`])) {
@@ -283,4 +339,4 @@ async function readAll(pool, progress = () => {}, options = {}) {
   return result;
 }
 
-module.exports = { CTE, DATA, NOTES, noteQuery, clientScope, hasNote, digest, readAll };
+module.exports = { CTE, DATA, NOTES, noteQuery, clientScope, mergeRemarkOwners, hasNote, digest, readAll };

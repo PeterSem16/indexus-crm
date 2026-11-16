@@ -14,6 +14,7 @@ spustenie pohyblivej vetvy. Nekontrolovať produkciu cez SSH z Replit.
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --inspect
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export-both
+nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export-collections
 ```
 
 Vedľa hlavného súboru musia byť súbory s príponami `-source.cjs`,
@@ -33,6 +34,8 @@ read-only intent; samotné dotazy sú výlučne SELECT, nie overenie práv role.
   `EXISTS` zachová jedinečný výber aj pri viacerých službách jedného odberu.
 - `--export-both` vytvorí oba súbory postupne s jedným databázovým spojením,
   s vlastnými extrakčnými oknami a nezávislými kontrolami pre každý report.
+- `--export-collections` zopakuje iba druhý report po jeho zlyhaní; už
+  vytvorený prvý report nemení ani neprepisuje.
 - Žiadny filter krajiny ani stavu klienta. Výber odberom patrí len do druhého reportu.
 - Soft-deleted klienti zostávajú osobitne označení. Poznámky označené ako
   odstránené v zdroji (vrátane priamych textov odstráneného rodiča) sa
@@ -76,7 +79,12 @@ rovnaké overené priame aj nepriame väzby ako výber zo zdroja; nepriraditeľn
 poznámka export zastaví. Zdieľaná poznámka je pri každom preukázane prepojenom
 klientovi, raz na klienta; zdrojový počet a počet klientskych väzieb sú oddelené.
 Poznámky sa vyberajú bez násobiacich joinov; prekrývajúce sa väzby Remarks
-nevytvárajú kópie. Dlhé texty sa rozdelia bez straty na číslované pokračovania.
+nevytvárajú kópie. Remarks používa oddelené rovnostné väzby cez klienta,
+zmluvu, záujemcu a kontakt, zjednotené cez UNION, namiesto nákladnej OR
+podmienky nad celou tabuľkou. Zdieľané vlastníctvo sa zlúči podľa rem_id;
+rozdielny obsah rovnakého ID zastaví export. Časový limit sa nezvyšuje
+a kontrolné počty ani druhé čítanie sa nevynechávajú.
+Dlhé texty sa rozdelia bez straty na číslované pokračovania.
 Všetky texty sa ukladajú ako textové bunky, nikdy nie ako vzorce.
 
 Dve úplné čítania musia mať zhodné odtlačky každého zdroja. Nezávislé

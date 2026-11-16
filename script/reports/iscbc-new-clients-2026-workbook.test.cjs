@@ -3,7 +3,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const XLSX = require("xlsx");
-const { DATA, NOTES, CTE, noteQuery, clientScope, readAll, hasNote } = require("./iscbc-new-clients-2026-source.cjs");
+const { DATA, NOTES, CTE, noteQuery, clientScope, mergeRemarkOwners, digest, readAll, hasNote } = require("./iscbc-new-clients-2026-source.cjs");
 const {
   buildModel, makeWorkbook, verifyWorkbook, billing, paymentFrequency, collectionStatus,
   splitText, excelDate,
@@ -242,6 +242,45 @@ test("scheduled-payment notes never assume nonexistent inserted columns", () => 
   const clientQuery = noteQuery(NOTES.find(spec => spec.table === "Clients"));
   assert.match(clientQuery, /COALESCE\(s\.\[cli_updated\],s\.\[cli_inserted\]\)/);
 });
+test("Remarks counts use four equality-link routes, without correlated OR or XML per note", () => {
+  const spec = NOTES.find(s => s.table === "Remarks");
+  for (const counts of [true, false]) {
+    const sql = noteQuery(spec, counts);
+    assert.match(sql, /JOIN Cohort c ON c\.cli_id=r\.cli_id/);
+    assert.match(sql, /JOIN Con co ON co\.con_id=r\.con_id/);
+    assert.match(sql, /JOIN PotentialOwners p ON p\.pot_id=r\.pot_id/);
+    assert.match(sql, /JOIN PotentialOwners p ON p\.cnt_id=r\.cnt_id/);
+    assert.match(sql, /JOIN Cohort c ON c\.cli_id=p\.cli_id/);
+    assert.match(sql, /JOIN Cohort c ON c\.pot_id=p\.pot_id/);
+    assert.match(sql, /JOIN Con co ON co\.pot_id=p\.pot_id/);
+    assert.equal((sql.match(/\bUNION\b/g) || []).length, 5);
+    assert.doesNotMatch(sql, /\bOR\b|FOR XML|UNION ALL/);
+    assert.match(sql, /ISNULL\(s\.\[rem_deleted\],0\)<>1/);
+    assert.match(scopedQuery(sql, "collection_clients"), /rsc\.sco_collection_made >= '20260101'/);
+  }
+  assert.match(noteQuery(spec, true), /s\.rem_id IN \(SELECT rem_id FROM RemarkClients\)/);
+  assert.match(noteQuery(spec), /JOIN RemarkClients rl ON rl\.rem_id=s\.rem_id/);
+});
+test("shared Remarks collapse by source ID with deterministic complete ownership", () => {
+  const rows = [
+    { rem_id: "1", rem_note: " =literal text\n", _clients: "2" },
+    { rem_id: "1", rem_note: " =literal text\n", _clients: "1" },
+    { rem_id: "1", rem_note: " =literal text\n", _clients: "2" },
+    { rem_id: "2", rem_note: " =literal text\n", _clients: "1" },
+  ];
+  const merged = mergeRemarkOwners(rows);
+  assert.deepEqual(merged, [
+    { rem_id: "1", rem_note: rows[0].rem_note, _clients: "1,2" },
+    { rem_id: "2", rem_note: rows[0].rem_note, _clients: "1" },
+  ]);
+  assert.equal(digest(merged), digest(mergeRemarkOwners([...rows].reverse())));
+  assert.throws(() => mergeRemarkOwners([rows[0], { ...rows[0], rem_note: "changed" }]),
+    { code: "REMARK_CONTENT_CONFLICT" });
+  assert.throws(() => mergeRemarkOwners([{ ...rows[0], _clients: "" }]),
+    { code: "NOTE_CLIENT_LINK_MISSING" });
+  assert.throws(() => mergeRemarkOwners([{ ...rows[0], rem_id: null }]),
+    { code: "INVALID_REMARK_ID" });
+});
 test("source note count disagreement blocks export", async () => {
   let phase = 0;
   const pool = { request: () => ({ query: async () => {
@@ -301,6 +340,25 @@ function fixturePool(changeDuringSecondRead = false, report = "new_clients", ext
     return { recordset: rows };
   } }) };
 }
+test("Remarks ownership expansion does not multiply independent source note counts", async () => {
+  const extraction = fixture();
+  extraction.notes[0].rows[0]._clients = "1,2";
+  const pool = fixturePool(false, "new_clients", extraction);
+  const sql = noteQuery(NOTES.find(s => s.table === "Remarks"));
+  const expanded = { request: () => ({ query: async query => {
+    const result = await pool.request().query(query);
+    if (query !== sql) return result;
+    return { recordset: result.recordset.flatMap(row => row._clients.split(",").map(client =>
+      ({ ...row, _clients: client }))) };
+  } }) };
+  const result = await readAll(expanded);
+  const notes = result.notes.find(n => n.spec.table === "Remarks");
+  assert.equal(notes.rows.length, 2);
+  assert.equal(notes.counts.n0, "2");
+  assert.equal(notes.counts.d0, "1");
+  assert.equal(notes.rows[0]._clients, "1,2");
+  assert.equal(buildModel(result).stats.notes, 2);
+});
 test("complete offline run creates a private validated workbook and aggregate-only output", async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "cbc-report-success-")), logs = [];
   try {
