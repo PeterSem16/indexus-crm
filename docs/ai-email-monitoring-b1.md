@@ -1,6 +1,40 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.5 — finálny regresný test
+## Aktuálne zadanie B1.6 — prísny regresný test
+
+B1.6 používa identickú zmrazenú sadu B1.5/B1.4: 35 vstupov a 280
+očakávaní, rovnaký systémový prompt, kanonické HTTPS, model a parametre.
+PASS už nesmie vychádzať z priemernej 90 % hranice: vyžaduje presne
+35/35 úspešných prípadov a 280/280 správnych klasifikačných polí.
+Aj jediná nekritická odchýlka (napríklad sentiment) je FAIL.
+Neúplný beh bez známeho porušenia je REVIEW_REQUIRED.
+Zostávajú zachované všetky technické, bezpečnostné a kritické brány.
+
+Porovnáva sa so skutočným dokončeným reportom B1.5, ktorý sa read-only
+vyhľadá v `/home/seman/INDEXUS-Email-Monitoring/B15-run-*/evidence.json`.
+Pred inferenciou sa overí zdrojový fingerprint, identický korpus/prompt/
+parametre, surový JSON, pôvodné skóre, nulové vedľajšie účinky, vlastníctvo,
+súkromné oprávnenia a nezmenená produkcia. Historický B1.5 sa prepočítava
+jeho vtedajšími pravidlami, nie spätne novou 100 % bránou. Klasifikačný
+FAIL B1.5 môže byť platný podklad; chýbajúci, technicky neoverený alebo
+nejednoznačný podklad zablokuje spustenie. B1.3/B1.4 sa nečítajú ani neopakujú.
+
+Spustenie: `prepare-console.cjs <PIN> --run-b16` bez ďalších argumentov.
+Príkaz vypíše `B16_B15_BASELINE` a potom `B16_PROGRESS`.
+Nový marker B1.6 nemení staré markery ani reporty. Najviac 35 postupných
+inferenčných pokusov bez retry/fallbacku; priebežné atómové ukladanie pred
+odoslaním a po každom výsledku.
+
+Kompletné `report.md` a `evidence.json` sa ukladajú do viditeľného
+`/home/seman/INDEXUS-Email-Monitoring/B16-run-*/`. Obsahujú všetkých 35
+porovnaní B1.5/B1.6, všetkých osem kontrol polí na prípad, opravy, nové
+regresie, pretrvávajúce odchýlky, kritické chyby, technické výsledky a
+produkčné snapshoty/hash porovnanie. Samostatne sa zvýraznia SYN-B13-28,
+SYN-B13-29, SYN-B14-31 a SYN-B14-32.
+Produkcia zostáva Gateway=false, 65 služieb OpenAI, modelOverrides=0
+a bez zápisov či notifikácií. Ani 100 % PASS neaktivuje produkčné smerovanie.
+
+## Predchádzajúce zadanie B1.5 — finálny regresný test
 
 Opakuje celú nemennú sadu B1.4: 35 identických objektov, 280 rovnakých
 klasifikačných očakávaní. Žiadne nové prípady, prepisy očakávaní, CRM promptu

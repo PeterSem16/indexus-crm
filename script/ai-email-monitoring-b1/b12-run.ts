@@ -14,8 +14,9 @@ import { B14_CORPUS_SHA256 } from "./b14-corpus";
 import { executeB14, renderB14, validateB14Baseline } from "./b14-pilot";
 import { executeB15, renderB15 } from "./b15-pilot";
 import { findB14Baseline } from "./b15-baseline-files";
+import { executeB16, renderB16, findB15Baseline } from "./b16-pilot";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
-declare const B1_PILOT_PHASE: "B12" | "B13" | "B14" | "B15";
+declare const B1_PILOT_PHASE: "B12" | "B13" | "B14" | "B15" | "B16";
 const APP = "/var/www/indexus-crm";
 const fail = (code: string): never => { throw Error(code); };
 async function main() {
@@ -27,26 +28,34 @@ async function main() {
   const b13 = B1_PILOT_PHASE === "B13";
   const b14 = B1_PILOT_PHASE === "B14";
   const b15 = B1_PILOT_PHASE === "B15";
-  const prefix = b15 ? "B15" : b14 ? "B14" : b13 ? "B13" : "B12";
-  if (process.argv.length !== 4 || process.argv[2] !== "--run-" + prefix.toLowerCase()) fail("B12_ARGUMENTS_INVALID");
+  const b16 = B1_PILOT_PHASE === "B16";
+  const modern = b14 || b15 || b16, batch = b13 || modern;
+  const prefix = b16 ? "B16" : b15 ? "B15" : b14 ? "B14" : b13 ? "B13" : "B12";
+  if (process.argv.length !== (b16 ? 3 : 4) || process.argv[2] !== "--run-" + prefix.toLowerCase()) fail("B12_ARGUMENTS_INVALID");
   const live = analyzeSource(path.join(APP, "server/lib/email-monitoring-service.ts"));
   if (live.requestSha256 !== B1_PREPARED_SOURCE.requestSha256) fail("B12_ORIGINAL_REQUEST_CHANGED");
-  const home = path.join(os.homedir(), b14 || b15 ? "INDEXUS-Email-Monitoring" : ".indexus-email-monitoring-b1");
-  if ((b14 || b15) && !fs.existsSync(home)) fs.mkdirSync(home, { mode: 0o700 });
+  const home = path.join(os.homedir(), modern ? "INDEXUS-Email-Monitoring" : ".indexus-email-monitoring-b1");
+  if (modern && !fs.existsSync(home)) fs.mkdirSync(home, { mode: 0o700 });
   const directory = fs.lstatSync(home);
   if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid?.() ||
     (directory.mode & 0o077)) fail("B12_PRIVATE_DIRECTORY_REQUIRED");
-  const baselinePath = fs.realpathSync(process.argv[3]);
-  if (!baselinePath.startsWith((b14 || b15 ? os.homedir() : home) + path.sep) || path.basename(baselinePath) !== "evidence.json")
-    fail("B12_ORIGINAL_REPORT_REQUIRED");
-  const baselineStat = fs.lstatSync(baselinePath);
-  if (!baselineStat.isFile() || baselineStat.uid !== process.getuid?.() || (baselineStat.mode & 0o077) ||
-    baselineStat.size > 2 * 1024 * 1024) fail("B12_ORIGINAL_REPORT_UNSAFE");
-  const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
-  const b14Baseline = b14 || b15 ? validateB14Baseline(baseline, B1_PREPARED_SOURCE) : null;
+  let baseline: any, b14Baseline: ReturnType<typeof validateB14Baseline> | null = null;
+  if (!b16) {
+    const baselinePath = fs.realpathSync(process.argv[3]);
+    if (!baselinePath.startsWith((modern ? os.homedir() : home) + path.sep) || path.basename(baselinePath) !== "evidence.json")
+      fail("B12_ORIGINAL_REPORT_REQUIRED");
+    const baselineStat = fs.lstatSync(baselinePath);
+    if (!baselineStat.isFile() || baselineStat.uid !== process.getuid?.() || (baselineStat.mode & 0o077) ||
+      baselineStat.size > 2 * 1024 * 1024) fail("B12_ORIGINAL_REPORT_UNSAFE");
+    baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+    b14Baseline = b14 || b15 ? validateB14Baseline(baseline, B1_PREPARED_SOURCE) : null;
+  }
   const previous = b15 ? findB14Baseline(home, process.getuid!(), baseline, B1_PREPARED_SOURCE) : null;
-  const reference = b15 ? previous!.validated.reference : b14 ? b14Baseline!.reference : originalReference(baseline);
+  const latest = b16 ? findB15Baseline(home, process.getuid!(), B1_PREPARED_SOURCE) : null;
+  const reference = b16 ? latest!.validated.reference :
+    b15 ? previous!.validated.reference : b14 ? b14Baseline!.reference : originalReference(baseline);
   if (previous) console.log("B15_B14_BASELINE " + previous.file);
+  if (latest) console.log("B16_B15_BASELINE " + latest.file);
   const env = parse(fs.readFileSync(path.join(APP, ".env")));
   if (process.env.DATABASE_URL && env.DATABASE_URL && process.env.DATABASE_URL !== env.DATABASE_URL)
     fail("B12_DATABASE_ENV_CONFLICT");
@@ -55,15 +64,17 @@ async function main() {
   const token: string = process.env.INDEXUS_AI_GATEWAY_TOKEN || fail("B12_EXISTING_RUNTIME_REQUIRED");
   const catalog = catalogFromSource(fs.readFileSync(path.join(APP, "server/lib/ai/service-catalog.ts"), "utf8"));
   const identity = crypto.createHash("sha256").update(JSON.stringify({
-    approval: b15 ? { phase: "B1.5", configuration: B12, corpusSha256: B14_CORPUS_SHA256,
+    approval: b16 ? { phase: "B1.6", configuration: B12, corpusSha256: B14_CORPUS_SHA256,
+      b15BaselineSha256: latest!.validated.sha256, requiredCases: 35, requiredFields: 280 } :
+      b15 ? { phase: "B1.5", configuration: B12, corpusSha256: B14_CORPUS_SHA256,
       b13BaselineSha256: b14Baseline!.sha256, b14BaselineSha256: previous!.validated.previous.sha256 } :
       b14 ? { phase: "B1.4", configuration: B12, corpusSha256: B14_CORPUS_SHA256,
       baselineSha256: b14Baseline!.sha256 } :
       b13 ? { phase: "B1.3", configuration: B12, corpusSha256: B13_CORPUS_SHA256 } : B12,
     originalRequest: B1_PREPARED_SOURCE.requestSha256,
   })).digest("hex");
-  const out = fs.mkdtempSync(path.join(home, b15 ? "B15-run-" : b14 ? "B14-run-" : b13 ? "b13-run-" : "b12-run-"));
-  const marker = path.join(home, (b15 ? "B15-batch-" : b14 ? "B14-batch-" : b13 ? "b13-batch-" : "b12-single-") + identity + ".started");
+  const out = fs.mkdtempSync(path.join(home, b16 ? "B16-run-" : b15 ? "B15-run-" : b14 ? "B14-run-" : b13 ? "b13-run-" : "b12-run-"));
+  const marker = path.join(home, (b16 ? "B16-batch-" : b15 ? "B15-batch-" : b14 ? "B14-batch-" : b13 ? "b13-batch-" : "b12-single-") + identity + ".started");
   const file = path.join(out, "evidence.json");
   const markdownFile = path.join(out, "report.md");
   const persist = (value: any) => {
@@ -71,14 +82,14 @@ async function main() {
     if (text.includes(token)) fail("B12_SECRET_ECHO");
     fs.writeFileSync(file + ".tmp", text + "\n", { mode: 0o600 });
     fs.renameSync(file + ".tmp", file);
-    if (b13 || b14 || b15) {
-      const md = b15 ? renderB15(value) : b14 ? renderB14(value) : renderB13(value);
+    if (batch) {
+      const md = b16 ? renderB16(value) : b15 ? renderB15(value) : b14 ? renderB14(value) : renderB13(value);
       if (md.includes(token)) fail("B12_SECRET_ECHO");
       fs.writeFileSync(markdownFile + ".tmp", md, { mode: 0o600 });
       fs.renameSync(markdownFile + ".tmp", markdownFile);
     }
   };
-  if (b14 || b15) console.log(prefix + "_PROGRESS " + file);
+  if (modern) console.log(prefix + "_PROGRESS " + file);
   const controller = new AbortController(), abort = () => controller.abort();
   process.on("SIGINT", abort); process.on("SIGTERM", abort);
   let report;
@@ -91,7 +102,9 @@ async function main() {
         catch (error: any) { fail(error.code === "EEXIST" ? "B12_RUN_ALREADY_STARTED" : "B12_MARKER_WRITE_FAILED"); }
       },
     };
-    report = b15 ? await executeB15({ ...options, baseline, previous: previous!.report, persist,
+    report = b16 ? await executeB16({ ...options, previous: latest!.report, persist,
+      progress(row: any, i: number) { console.log(`B16_CASE ${i + 1}/35 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
+    }) : b15 ? await executeB15({ ...options, baseline, previous: previous!.report, persist,
       progress(row: any, i: number) { console.log(`B15_CASE ${i + 1}/35 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
     }) : b14 ? await executeB14({ ...options, baseline, persist,
       progress(row: any, i: number) { console.log(`B14_CASE ${i + 1}/35 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
@@ -103,15 +116,15 @@ async function main() {
   }
   persist(report);
   console.log(prefix + "_RESULTS " + file);
-  if (b13 || b14 || b15) {
+  if (batch) {
     console.log(prefix + "_REPORT " + markdownFile);
     console.log(JSON.stringify({ phase: report.phase, complete: report.complete, error: report.error,
       summary: report.summary, production: report.production,
-      ...(b14 || b15 ? { comparison: report.comparison } : {}) }, null, 2));
+      ...(modern ? { comparison: report.comparison } : {}) }, null, 2));
   } else console.log(JSON.stringify(report, null, 2));
-  process.exitCode = (b13 || b14 || b15 ? report.summary.verdict : report.verdict) === "PASS" ? 0 : 2;
+  process.exitCode = (batch ? report.summary.verdict : report.verdict) === "PASS" ? 0 : 2;
 }
 main().catch((error: any) => {
-  console.error(/^B(?:1|11|12|13|14|15|4)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : "B12_LOCAL_SETUP_FAILED");
+  console.error(/^B(?:1|11|12|13|14|15|16|4)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : "B12_LOCAL_SETUP_FAILED");
   process.exitCode = 1;
 });

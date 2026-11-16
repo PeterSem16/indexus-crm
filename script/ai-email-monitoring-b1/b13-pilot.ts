@@ -146,7 +146,7 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
     }
     report.complete = report.rows.every((r: any) => r.verdict !== "NOT_RUN");
   } catch (error: any) {
-    report.error = /^B(?:12|13|14|15)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
+    report.error = /^B(?:12|13|14|15|16)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
   } finally {
     try {
       report.after = await options.readSnapshot();
