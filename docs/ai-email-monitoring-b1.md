@@ -1,6 +1,51 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.2
+## Aktuálne zadanie B1.3
+
+B1.3 je samostatne schválený izolovaný pilot 30 syntetických e-mailov cez
+rovnakú kanonickú HTTPS cestu, model, parametre a skutočný CRM prompt/router/
+adaptér/parser ako úspešný B1.2. Produkčné nastavenia ani aplikácia sa neprepínajú.
+
+`b13-corpus.ts` obsahuje presne päť prípadov v každej zo šiestich kategórií:
+neutrálne správy, výslovný súhlas, prijatie bez súhlasu, odmietnutie podmienok,
+zrušenie a sťažnosti/agresivita/nevhodný obsah. Každý prípad má vopred zmrazených
+všetkých osem klasifikačných hodnôt. Voľný text `note` sa validuje typom a limitom,
+nie doslovnou zhodou. Ide spolu o 240 nezávisle skórovaných očakávaní.
+
+`prepare-console.cjs <PIN> --run-b13 <pôvodný B1 evidence.json>` zostaví iba
+`run-b13.cjs`. Balík má pevne vloženú fázu; B1.2 balík nesmie spustiť B1.3.
+Nový batch marker sa viaže na presný korpus, očakávania, model a pôvodný request.
+Pôvodné markery sa nemenia. Žiadny automatický retry alebo obnovenie neistého behu.
+
+Prípady sa vykonávajú postupne, najviac jeden inferenčný pokus na prípad,
+najviac 30 celkovo. Klasifikačné, JSON a bežné HTTP chyby sa zaznamenajú a pilot
+pokračuje ďalším prípadom bez opakovania. Pri 401/403/429, zmene/neoverení
+produkcie, cloud fallbacku alebo prerušení sa zvyšok zastaví. Každý prípad má
+30-sekundový limit vrátane discovery. Konfigurácia sa read-only kontroluje pred
+pilotom, okolo každého prípadu a nakoniec voči pôvodnému B1 reportu.
+
+Pred prvou inferenciou sa uloží celý pevný korpus a očakávania. Počet pokusov
+a stav `INFERENCE_STARTED` sa zapíšu ešte pred odoslaním; výsledok sa atomicky
+uloží po každom prípade do súkromného `evidence.json` aj `report.md`.
+Pri násilnom prerušení je rozpracovaný pokus neistý, nie oprávnenie na retry.
+Nevytvárajú sa produkčné DB záznamy, dočasné tabuľky ani zákaznícke notifikácie.
+
+Skórovanie:
+- Jednotlivý prípad je PASS len pri HTTP 200, správnom modeli, úspešnom CRM
+  spracovaní, presne deväťpoložkovom surovom JSON a zhode všetkých ôsmich hodnôt.
+- Celkový PASS vyžaduje 30 dokončených prípadov/30 jednotlivých pokusov,
+  nulové HTTP/transportné/parserové/JSON/integračné chyby, nulový cloud fallback,
+  nulový falošný súhlas a nulové nerozpoznané explicitné zrušenie,
+  aspoň 216/240 správnych polí (90 %) a preukázateľne nezmenenú produkciu.
+- Úspešnosť celých prípadov a úspešnosť polí sa vykazujú oddelene, aj po kategóriách.
+  Chýbajúce či parserom odmietnuté hodnoty nedostávajú žiadny bod.
+- Potvrdené porušenie kritéria je FAIL; neúplný/neoverený beh bez potvrdeného
+  porušenia je REVIEW_REQUIRED. Neznámy stav produkcie sa neoznačí za zmenu.
+- Neoverený historický katalóg modelov sa nepridáva ako nové blokujúce kritérium.
+
+Výsledok pilotu nikdy neaktivuje produkčné smerovanie.
+
+## Predchádzajúce zadanie B1.2
 
 B1.2 je nový, samostatne schválený **jediný** syntetický integračný prípad.
 Používa výhradne `https://ai.cordbloodcenter.com/gateway/v1/chat/completions`,

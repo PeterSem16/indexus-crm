@@ -31,15 +31,22 @@ export async function executeB12(options: {
   token: string; source: ReturnType<typeof analyzeSource>; reference: any;
   readSnapshot: () => Promise<any>; claimOnce: () => void;
   fetch: typeof fetch; signal?: AbortSignal;
+  pilotCase?: { id: string; input: string; expected: Readonly<Record<string, string | boolean>> };
+  beforeInference?: () => void;
 }) {
+  const inputText = options.pilotCase?.input ?? B12.input;
+  const expected = options.pilotCase?.expected ?? {
+    wantsConsent: false, wantsToCancel: false, sentiment: "neutral", alertLevel: "none",
+  };
+  const phase = options.pilotCase ? "B1.3" : B12.phase;
   const report: any = {
-    phase: B12.phase, kind: "LIVE_ISOLATED_SINGLE_SYNTHETIC", request: B12,
+    phase, kind: "LIVE_ISOLATED_SINGLE_SYNTHETIC", request: { ...B12, phase, input: inputText },
     originalRequestSha256: options.source.requestSha256,
     startedAtUtc: new Date().toISOString(), before: null, after: null, production: null,
     inferenceAttempts: 0, cloudCalls: 0, transportTraces: [], httpStatus: null, usedModel: null,
-    result: null, integrationProcessed: false, semanticChecks: [], error: null,
+    result: null, modelJson: null, modelContent: null, integrationProcessed: false, semanticChecks: [], error: null,
     productionSettingsWrites: 0, productionRecordWrites: 0, customerNotifications: 0,
-    historicalModelInventory: "UNVERIFIED_NON_BLOCKING_PER_B12",
+    historicalModelInventory: options.pilotCase ? "UNVERIFIED_NON_BLOCKING_PER_B13" : "UNVERIFIED_NON_BLOCKING_PER_B12",
   };
   const abort = new AbortController();
   const forwardAbort = () => abort.abort();
@@ -74,8 +81,9 @@ export async function executeB12(options: {
             body.max_tokens !== B12.max_tokens || body.stream !== false ||
             body.response_format?.type !== "json_object" ||
             body.messages?.filter((m: any) => m.role === "user").length !== 1 ||
-            body.messages.find((m: any) => m.role === "user").content !== B12.input)
+            body.messages.find((m: any) => m.role === "user").content !== inputText)
             fail("B12_WIRE_REQUEST_MISMATCH");
+          options.beforeInference?.();
         }
         const response = await options.fetch(input, init);
         report.transportTraces.push({ stage: inference ? "INFERENCE" : "DISCOVERY", status: response.status });
@@ -84,8 +92,15 @@ export async function executeB12(options: {
           const text = await capture(response.clone(), options.token);
           if (response.status === 200) {
             try {
-              const model = JSON.parse(text).model;
+              const envelope = JSON.parse(text);
+              const model = envelope.model;
               report.usedModel = model === B12.model ? model : "UNEXPECTED_MODEL";
+              const content = envelope.choices?.[0]?.message?.content;
+              if (typeof content === "string") {
+                if (content.length > 16384) fail("B12_MODEL_CONTENT_TOO_LARGE");
+                report.modelContent = content;
+                try { report.modelJson = JSON.parse(content); } catch {}
+              }
             } catch { fail("B12_INVALID_GATEWAY_RESPONSE"); }
           }
         }
@@ -102,11 +117,10 @@ export async function executeB12(options: {
     const analyze = bindAnalyzer(options.source, () => ({
       chat: { completions: { create: (body: any) => client.chat.completions.create(body, { signal: abort.signal }) } },
     }), parseEmailMonitoringAnalysis);
-    report.result = await analyze(B12.input);
+    report.result = await analyze(inputText);
     report.integrationProcessed = true;
-    report.semanticChecks = Object.entries({
-      wantsConsent: false, wantsToCancel: false, sentiment: "neutral", alertLevel: "none",
-    }).map(([field, expected]) => ({ field, expected, actual: report.result[field], pass: report.result[field] === expected }));
+    report.semanticChecks = Object.entries(expected).map(([field, expected]) =>
+      ({ field, expected, actual: report.result[field], pass: report.result[field] === expected }));
     if (report.usedModel !== B12.model) fail("B12_MODEL_MISMATCH");
     if (report.httpStatus !== 200) fail("B12_HTTP_NOT_200");
     if (report.semanticChecks.some((s: any) => !s.pass)) fail("B12_SEMANTIC_MISMATCH");
@@ -128,7 +142,8 @@ export async function executeB12(options: {
   report.finishedAtUtc = new Date().toISOString();
   report.verdict = !report.error && report.inferenceAttempts === 1 && report.cloudCalls === 0 &&
     report.httpStatus === 200 && report.usedModel === B12.model && report.integrationProcessed &&
-    report.semanticChecks.length === 4 && report.semanticChecks.every((s: any) => s.pass) ? "PASS" : "FAIL";
+    report.semanticChecks.length === Object.keys(expected).length && report.semanticChecks.length > 0 &&
+    report.semanticChecks.every((s: any) => s.pass) ? "PASS" : "FAIL";
   if (JSON.stringify(report).includes(options.token)) fail("B12_SECRET_ECHO");
   return report;
 }

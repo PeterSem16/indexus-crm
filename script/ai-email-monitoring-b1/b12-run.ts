@@ -9,7 +9,9 @@ import { analyzeSource } from "./source.cjs";
 import { assertRuntime } from "./runtime.cjs";
 import { originalReference, readProductionSnapshot, catalogFromSource } from "./b11-check.cjs";
 import { B12, executeB12 } from "./b12-test";
+import { executeB13, B13_CORPUS_SHA256, renderB13 } from "./b13-pilot";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
+declare const B1_PILOT_PHASE: "B12" | "B13";
 const APP = "/var/www/indexus-crm";
 const fail = (code: string): never => { throw Error(code); };
 async function main() {
@@ -18,7 +20,8 @@ async function main() {
     fail("B12_CORPCRM01_AS_SEMAN_REQUIRED");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("B12_TLS_VERIFICATION_REQUIRED");
   assertRuntime(process.env);
-  if (process.argv.length !== 4 || process.argv[2] !== "--run-b12") fail("B12_ARGUMENTS_INVALID");
+  const b13 = B1_PILOT_PHASE === "B13";
+  if (process.argv.length !== 4 || process.argv[2] !== (b13 ? "--run-b13" : "--run-b12")) fail("B12_ARGUMENTS_INVALID");
   const live = analyzeSource(path.join(APP, "server/lib/email-monitoring-service.ts"));
   if (live.requestSha256 !== B1_PREPARED_SOURCE.requestSha256) fail("B12_ORIGINAL_REQUEST_CHANGED");
   const home = path.join(os.homedir(), ".indexus-email-monitoring-b1");
@@ -40,35 +43,53 @@ async function main() {
   const token: string = process.env.INDEXUS_AI_GATEWAY_TOKEN || fail("B12_EXISTING_RUNTIME_REQUIRED");
   const catalog = catalogFromSource(fs.readFileSync(path.join(APP, "server/lib/ai/service-catalog.ts"), "utf8"));
   const identity = crypto.createHash("sha256").update(JSON.stringify({
-    approval: B12, originalRequest: B1_PREPARED_SOURCE.requestSha256,
+    approval: b13 ? { phase: "B1.3", configuration: B12, corpusSha256: B13_CORPUS_SHA256 } : B12,
+    originalRequest: B1_PREPARED_SOURCE.requestSha256,
   })).digest("hex");
-  const out = fs.mkdtempSync(path.join(home, "b12-run-"));
-  const marker = path.join(home, "b12-single-" + identity + ".started");
+  const out = fs.mkdtempSync(path.join(home, b13 ? "b13-run-" : "b12-run-"));
+  const marker = path.join(home, (b13 ? "b13-batch-" : "b12-single-") + identity + ".started");
+  const file = path.join(out, "evidence.json");
+  const markdownFile = path.join(out, "report.md");
+  const persist = (value: any) => {
+    const text = JSON.stringify(value, null, 2);
+    if (text.includes(token)) fail("B12_SECRET_ECHO");
+    fs.writeFileSync(file + ".tmp", text + "\n", { mode: 0o600 });
+    fs.renameSync(file + ".tmp", file);
+    if (b13) {
+      const md = renderB13(value);
+      if (md.includes(token)) fail("B12_SECRET_ECHO");
+      fs.writeFileSync(markdownFile + ".tmp", md, { mode: 0o600 });
+      fs.renameSync(markdownFile + ".tmp", markdownFile);
+    }
+  };
   const controller = new AbortController(), abort = () => controller.abort();
   process.on("SIGINT", abort); process.on("SIGTERM", abort);
   let report;
   try {
-    report = await executeB12({ token, source: B1_PREPARED_SOURCE, reference, fetch,
+    const options = { token, source: B1_PREPARED_SOURCE, reference, fetch,
       signal: controller.signal,
       readSnapshot: () => readProductionSnapshot({ Client, connectionString, catalog }),
       claimOnce() {
         try { fs.writeFileSync(marker, new Date().toISOString(), { mode: 0o600, flag: "wx" }); }
         catch (error: any) { fail(error.code === "EEXIST" ? "B12_RUN_ALREADY_STARTED" : "B12_MARKER_WRITE_FAILED"); }
       },
-    });
+    };
+    report = b13 ? await executeB13({ ...options, persist,
+      progress(row: any, i: number) { console.log(`B13_CASE ${i + 1}/30 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
+    }) : await executeB12(options);
   } finally {
     process.removeListener("SIGINT", abort); process.removeListener("SIGTERM", abort);
   }
-  const text = JSON.stringify(report, null, 2);
-  if (text.includes(token)) fail("B12_SECRET_ECHO");
-  const file = path.join(out, "evidence.json");
-  fs.writeFileSync(file + ".tmp", text + "\n", { mode: 0o600, flag: "wx" });
-  fs.renameSync(file + ".tmp", file);
-  console.log("B12_RESULTS " + file);
-  console.log(text);
-  process.exitCode = report.verdict === "PASS" ? 0 : 2;
+  persist(report);
+  console.log((b13 ? "B13_RESULTS " : "B12_RESULTS ") + file);
+  if (b13) {
+    console.log("B13_REPORT " + markdownFile);
+    console.log(JSON.stringify({ phase: report.phase, complete: report.complete, error: report.error,
+      summary: report.summary, production: report.production }, null, 2));
+  } else console.log(JSON.stringify(report, null, 2));
+  process.exitCode = (b13 ? report.summary.verdict : report.verdict) === "PASS" ? 0 : 2;
 }
 main().catch((error: any) => {
-  console.error(/^B(?:1|11|12|4)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : "B12_LOCAL_SETUP_FAILED");
+  console.error(/^B(?:1|11|12|13|4)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : "B12_LOCAL_SETUP_FAILED");
   process.exitCode = 1;
 });
