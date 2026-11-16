@@ -112,9 +112,7 @@ const INSPECTION = [
     JOIN dbo.StorageCampaignServices s ON s.scs_id=cs.scs_id
     WHERE ${COHORT} ORDER BY s.scs_id`],
   ["MODULES_USING_PERIOD", `SELECT SCHEMA_NAME(o.schema_id) AS [schema],o.name,
-    o.type_desc, SUBSTRING(m.definition,
-      CASE WHEN CHARINDEX('sii_invoicing_period',m.definition)>250
-      THEN CHARINDEX('sii_invoicing_period',m.definition)-250 ELSE 1 END,1000) AS period_usage
+    o.type_desc
     FROM sys.sql_modules m JOIN sys.objects o ON o.object_id=m.object_id
     WHERE m.definition LIKE '%sii_invoicing_period%' ORDER BY [schema],o.name`],
   ["EXTRA_NOTE_METADATA", `SELECT t.name AS table_name,c.name AS column_name,
@@ -156,7 +154,7 @@ async function inspect(pool, root, output = console.log) {
 async function main() {
   let pool, stage = "ARGUMENTS";
   try {
-    if (process.argv.length !== 3 || process.argv[2] !== "--inspect") fail("USE_INSPECT");
+    if (process.argv.length !== 3 || !["--inspect", "--export"].includes(process.argv[2])) fail("USE_INSPECT_OR_EXPORT");
     const root = "/var/www/indexus-crm";
     stage = "OPERATOR_PATH";
     if (fs.realpathSync(process.cwd()) !== root) fail("WRONG_DIRECTORY");
@@ -166,12 +164,18 @@ async function main() {
     const cfg = loadConfig(root);
     stage = "CONNECTION";
     pool = await new sql.ConnectionPool(cfg).connect();
+    if (process.argv[2] === "--export") {
+      stage = "EXPORT";
+      await require("./iscbc-new-clients-2026-export.cjs").exportReport(pool, root);
+      return;
+    }
     stage = "INSPECTION";
     const failures = await inspect(pool, root);
     console.log(failures ? "CBC_INSPECTION_INCOMPLETE" : "CBC_INSPECTION_OK");
     if (failures) process.exitCode = 1;
   } catch (error) {
-    console.error(`CBC_REPORT_FAILED STAGE=${stage} ${safeError(error)}`);
+    const detail = /^[A-Za-z0-9_.:]+$/.test(error.reportStage || "") ? ` SECTION=${error.reportStage}` : "";
+    console.error(`CBC_REPORT_FAILED STAGE=${stage}${detail} ${safeError(error)}`);
     process.exitCode = 1;
   } finally {
     if (pool) await pool.close().catch(() => {});
