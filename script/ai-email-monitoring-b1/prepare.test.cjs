@@ -89,6 +89,8 @@ test("the corrected launch keeps production environment process-local and preloa
     ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/private/run-b16.cjs", "--run-b16"]);
   assert.deepEqual(launchArguments("/private/runtime.cjs", "/private/run-b17.cjs", undefined, "b17").run,
     ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/private/run-b17.cjs", "--run-b17"]);
+  assert.deepEqual(launchArguments("/private/runtime.cjs", "/private/run-b18.cjs", undefined, "b18").run,
+    ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/private/run-b18.cjs", "--run-b18"]);
 });
 test("private tooling is materialized before launch without touching live source files or requiring the missing home path", t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "b1-preparation-test-"));

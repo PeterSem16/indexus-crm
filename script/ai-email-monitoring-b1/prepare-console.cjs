@@ -24,7 +24,7 @@ function privateParent(home, uid) {
   return directory;
 }
 function prepareArtifacts({ app, home, uid, archive, build, runnerName = "run-b1.cjs" }) {
-  if (!["run-b1.cjs", "run-b12.cjs", "run-b13.cjs", "run-b14.cjs", "run-b15.cjs", "run-b16.cjs", "run-b17.cjs"].includes(runnerName)) fail("B1_RUNNER_NAME_INVALID");
+  if (!["run-b1.cjs", "run-b12.cjs", "run-b13.cjs", "run-b14.cjs", "run-b15.cjs", "run-b16.cjs", "run-b17.cjs", "run-b18.cjs"].includes(runnerName)) fail("B1_RUNNER_NAME_INVALID");
   const parent = privateParent(home, uid);
   const work = fs.mkdtempSync(path.join(parent, "prepared-"));
   const source = path.join(work, "source"), output = path.join(work, "bundle");
@@ -44,18 +44,18 @@ function prepareArtifacts({ app, home, uid, archive, build, runnerName = "run-b1
   return { source, runner };
 }
 function launchArguments(runtimeFile, runner, originalB12Report, phase = "b12") {
-  if (!["b12", "b13", "b14", "b15", "b16", "b17"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
+  if (!["b12", "b13", "b14", "b15", "b16", "b17", "b18"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
   const check = `try { require(${JSON.stringify(runtimeFile)}).assertRuntime(process.env); console.log("B1_RUNTIME_READY"); } catch { console.error("B1_EXISTING_RUNTIME_PRELOAD_REQUIRED"); process.exitCode=1; }`;
   return {
     preflight: ["--require", PRELOAD, "-e", check],
-    run: ["--require", PRELOAD, runner, ...(["b16", "b17"].includes(phase) ? ["--run-" + phase] :
+    run: ["--require", PRELOAD, runner, ...(["b16", "b17", "b18"].includes(phase) ? ["--run-" + phase] :
       originalB12Report ? ["--run-" + phase, originalB12Report] : ["--run-b1"])],
   };
 }
 const processEnvironment = env => ({ ...env, NODE_ENV: "production" });
 function main() {
   const pin = process.argv[2];
-  const automatic = ["--run-b16", "--run-b17"].includes(process.argv[3]) && process.argv.length === 4;
+  const automatic = ["--run-b16", "--run-b17", "--run-b18"].includes(process.argv[3]) && process.argv.length === 4;
   const pilot = automatic || ["--run-b12", "--run-b13", "--run-b14", "--run-b15"].includes(process.argv[3]) && process.argv.length === 5 && path.isAbsolute(process.argv[4]);
   const phase = pilot ? process.argv[3].slice("--run-".length) : "b1";
   if (!pilot && process.argv.length !== 3) fail("B1_PREPARATION_ARGUMENTS_INVALID");

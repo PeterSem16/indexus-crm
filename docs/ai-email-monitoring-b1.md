@@ -1,6 +1,48 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.7 — nezávislá validácia
+## Aktuálne zadanie B1.8 — párové regresné overenie
+
+Jeden izolovaný beh opakuje **100 pôvodných správ B1.7 a 35 správ B1.6**,
+v tomto poradí, bez zmeny vstupov, referencií, CRM promptu alebo parametrov.
+`prepare-console.cjs <PIN> --run-b18` automaticky a read-only vyhľadá skutočné
+historické reporty B1.6 a B1.7. Skontroluje identitu správ, surové odpovede,
+parser, pôvodné skóre, predinferenčné schválenie B1.7 a väzbu na presný
+historický B1.6 report. Chýbajúce, technicky neplatné alebo nejednoznačné
+podklady blokujú inferenciu. Historický klasifikačný FAIL neblokuje porovnanie.
+Žiadne staršie fázy sa automaticky neopakujú.
+
+Výstupy vo viditeľnom `/home/seman/INDEXUS-Email-Monitoring/B18-run-*/`:
+**`B18_report.md`, `B18_evidence.json`, `B18_failures.json`**.
+Všetkých 1080 polí má hodnotu pred/po a stav opravené, regresia, stále chybné,
+nezmenené správne, `REVIEW_REQUIRED` alebo technicky neporovnateľné.
+Osobitná sekcia zachová všetkých osem polí a poznámky prípadov **024, 025,
+052, 061, 071, 074, 077, 088 a 092**. Aj referencia 092 zostáva pôvodná.
+Všetkých 35 null referencií zostáva nerozhodnutých; nejde o automatický úspech
+ani chybu. Report rozlišuje všetky kritické chyby a nové kritické chyby oproti
+historickému výsledku. Technický výpadok sa nevydáva za klasifikačnú regresiu.
+
+Zachované sú pôvodné prahy B1.7 a prísna regresia B1.6 (280/280 a 35/35).
+Každá nová preukázaná regresia je FAIL aj pri dostatočnom priemere B1.7.
+Nerozhodnuté referencie a nezávisle neposúdený slovenský jazyk `note`
+zabraňujú finálnemu PASS. Následné posúdenie nemení zmrazené dôkazy.
+
+Najviac **135 postupných inferenčných pokusov**, bez retry, warmupu,
+cloud fallbacku či opráv výstupov; pokus sa uloží pred odoslaním a výstupy
+sa priebežne atómovo aktualizujú. Jednorazový marker je spoločný pre obe sady.
+Pri bezpečnostnom zlyhaní sa nespustí zvyšok ani druhá sada.
+Verzia B1.8 je operátorom oznámená oprava servera; samotný alias modelu
+nie je nezávislý dôkaz presných nasadených pravidiel.
+
+Žiadny checkout/pull/build živej aplikácie, PM2 reštart ani zásah do AI servera.
+Rovnaké kanonické HTTPS a súkromný existujúci runtime na CORPCRM01.
+Read-only snapshoty overujú Gateway=false, 65/65 OpenAI a modelOverrides=0
+pred, počas a po teste. Nulové produkčné zápisy a notifikácie.
+**Produkčné prepnutie nie je povolené ani pri PASS.**
+
+Príprava a offline testy nie sú vykonaný živý B1.8 test. Skutočné závery
+sa dajú urobiť až zo súborov vrátených z CORPCRM01.
+
+## Predchádzajúce zadanie B1.7 — nezávislá validácia
 
 100 nových zmrazených syntetických e-mailov, 10 kategórií po 10 prípadoch,
 slovenčina, čeština, angličtina a maďarčina. Žiadny vstup sa presne nezhoduje

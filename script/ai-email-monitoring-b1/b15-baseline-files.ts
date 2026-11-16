@@ -11,7 +11,7 @@ export function findB14Baseline(root: string, uid: number, b13: any, source: any
     } });
 }
 export function findVerifiedBaseline<T extends { sha256: string }>(root: string, uid: number, definition: {
-  phase: string; directoryPrefix: string; errorPrefix: string; validate: (report: any) => T;
+  phase: string; directoryPrefix: string; errorPrefix: string; filename?: string; validate: (report: any) => T;
 }) {
   const fail = (suffix: string): never => { throw Error(definition.errorPrefix + "_" + suffix); };
   const safe = (file: string, directory: boolean) => {
@@ -27,7 +27,7 @@ export function findVerifiedBaseline<T extends { sha256: string }>(root: string,
   if (names.length > 200) fail("TOO_MANY_REPORTS");
   const reports = new Map<string, { file: string; report: any; validated: T }>();
   for (const name of names.sort()) {
-    const dir = path.join(root, name), file = path.join(dir, "evidence.json");
+    const dir = path.join(root, name), file = path.join(dir, definition.filename ?? "evidence.json");
     safe(dir, true);
     if (!fs.existsSync(file)) continue;
     safe(file, false);
