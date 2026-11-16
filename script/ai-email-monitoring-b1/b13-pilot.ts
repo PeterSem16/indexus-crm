@@ -77,39 +77,50 @@ export function evaluateB13(rows: any[], productionUnchanged: boolean | null, in
     categories, falseConsents, missedCancellations, httpErrors, parserErrors, contractErrors,
     transportErrors, integrationErrors, inferenceAttempts: attempts, cloudCalls: cloud, productionUnchanged };
 }
-export async function executeB13(options: {
+export type EmailPilotOptions = {
   token: string; source: any; reference: any; readSnapshot: () => Promise<any>;
   claimOnce: () => void; fetch: typeof fetch; signal?: AbortSignal;
   persist: (report: any) => void; progress?: (row: any, index: number) => void;
-}) {
+};
+export function executeB13(options: EmailPilotOptions) {
   validateB13Corpus();
-  const report: any = { phase: "B1.3", kind: "LIVE_ISOLATED_30_SYNTHETIC_EMAILS",
-    startedAtUtc: new Date().toISOString(), request: { ...B12, phase: "B1.3", input: undefined },
-    corpusSha256: B13_CORPUS_SHA256, originalRequestSha256: options.source.requestSha256,
+  return executeEmailPilot(options, { phase: "B1.3", corpus: B13_CORPUS,
+    corpusSha256: B13_CORPUS_SHA256, evaluate: evaluateB13 });
+}
+export async function executeEmailPilot(options: EmailPilotOptions, definition: {
+  phase: string; corpus: readonly { id: string; category: string; input: string; expected: any }[];
+  corpusSha256: string; evaluate: typeof evaluateB13 | ((rows: any[], safe: boolean | null, interrupted: boolean) => any);
+  decorate?: (report: any) => void;
+}) {
+  const prefix = definition.phase.replace(".", "");
+  const report: any = { phase: definition.phase, kind: `LIVE_ISOLATED_${definition.corpus.length}_SYNTHETIC_EMAILS`,
+    startedAtUtc: new Date().toISOString(), request: { ...B12, phase: definition.phase, input: undefined },
+    corpusSha256: definition.corpusSha256, originalRequestSha256: options.source.requestSha256,
     before: null, after: null, production: null, error: null, complete: false,
     productionSettingsWrites: 0, productionRecordWrites: 0, customerNotifications: 0,
-    rows: B13_CORPUS.map(c => ({ id: c.id, category: c.category, input: c.input,
+    rows: definition.corpus.map(c => ({ id: c.id, category: c.category, input: c.input,
       expected: c.expected, actualJson: null, modelContent: null, state: "NOT_STARTED", verdict: "NOT_RUN", httpStatus: null,
       error: null, inferenceAttempts: 0, cloudCalls: 0, transportTraces: [], integrationProcessed: false })),
     summary: null };
   let productionUnchanged: boolean | null = null;
   const save = () => {
-    report.summary = evaluateB13(report.rows, productionUnchanged, !report.complete);
-    if (JSON.stringify(report).includes(options.token)) throw Error("B13_SECRET_ECHO");
+    report.summary = definition.evaluate(report.rows, productionUnchanged, !report.complete);
+    definition.decorate?.(report);
+    if (JSON.stringify(report).includes(options.token)) throw Error(prefix + "_SECRET_ECHO");
     options.persist(report);
   };
   try {
     report.before = await options.readSnapshot();
     if (!productionComparison(options.reference, report.before, report.before).beforeMatchesOriginal)
-      throw Error("B13_PRODUCTION_CHANGED_BEFORE_TEST");
+      throw Error(prefix + "_PRODUCTION_CHANGED_BEFORE_TEST");
     options.claimOnce();
     save(); // Publish fixed inputs/expectations before the first inference.
-    for (let i = 0; i < B13_CORPUS.length; i++) {
-      if (options.signal?.aborted) { report.error = "B13_CALLER_ABORT"; break; }
-      const c = B13_CORPUS[i];
+    for (let i = 0; i < definition.corpus.length; i++) {
+      if (options.signal?.aborted) { report.error = prefix + "_CALLER_ABORT"; break; }
+      const c = definition.corpus[i];
       report.rows[i].state = "RUNNING";
       save();
-      const single = await executeB12({ ...options, claimOnce() {}, pilotCase: c,
+      const single = await executeB12({ ...options, claimOnce() {}, pilotCase: { ...c, phase: definition.phase },
         beforeInference() {
           report.rows[i].state = "INFERENCE_STARTED";
           report.rows[i].inferenceAttempts = 1;
@@ -126,16 +137,16 @@ export async function executeB13(options: {
       };
       const safe = single.production?.beforeMatchesOriginal === true &&
         single.production?.afterMatchesOriginal === true && single.production?.unchangedDuringCheck === true;
-      if (!safe || single.cloudCalls) report.error = "B13_SAFETY_CHECK_FAILED";
+      if (!safe || single.cloudCalls) report.error = prefix + "_SAFETY_CHECK_FAILED";
       if (single.transportTraces.some((t: any) => [401, 403, 429].includes(t.status)))
-        report.error ||= "B13_AUTHORIZATION_OR_RATE_LIMIT_FAILURE";
+        report.error ||= prefix + "_AUTHORIZATION_OR_RATE_LIMIT_FAILURE";
       save();
       options.progress?.(report.rows[i], i);
       if (report.error) break;
     }
     report.complete = report.rows.every((r: any) => r.verdict !== "NOT_RUN");
   } catch (error: any) {
-    report.error = /^B(?:12|13)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : "B13_PILOT_FAILED";
+    report.error = /^B(?:12|13|14)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
   } finally {
     try {
       report.after = await options.readSnapshot();
@@ -145,7 +156,7 @@ export async function executeB13(options: {
         const values = comparisons.flatMap(c => c ? [c.beforeMatchesOriginal, c.unchangedDuringCheck, c.afterMatchesOriginal] : [null]);
         productionUnchanged = values.includes(false) ? false : values.every(v => v === true) ? true : null;
       }
-    } catch { report.error ||= "B13_FINAL_PRODUCTION_UNVERIFIED"; }
+    } catch { report.error ||= prefix + "_FINAL_PRODUCTION_UNVERIFIED"; }
     report.finishedAtUtc = new Date().toISOString();
     save();
     if (report.error && report.summary.verdict === "PASS") {

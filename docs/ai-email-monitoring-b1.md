@@ -1,6 +1,47 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.3
+## Aktuálne zadanie B1.4 — regresný test
+
+B1.4 opakuje presne pôvodných 30 vstupov a všetkých 240 očakávaní B1.3.
+Pridáva päť vopred definovaných hraničných prípadov (40 ďalších očakávaní);
+nemení prompt CRM, Gateway endpoint, model ID ani parametre B1.3.
+Nové pravidlá na AI serveri sa overujú cez skutočný CRM router/adaptér/parser,
+nie priamym volaním Ollama alebo obídením Gateway.
+
+Pôvodná sada sa porovnáva osobitne na menovateli 240, nové prípady na 40
+a celý beh na 280. Pôvodná hranica aspoň 216/240 zostáva zachovaná a nové
+prípady ju nemôžu zriediť. Nové tvrdé kritériá navyše vyžadujú nulové
+falošné súhlasy, nulové falošné zrušenia, rozpoznanie každého zrušenia
+a `critical` pre každé explicitné zrušenie alebo sťažnosť.
+Všetkých 35 odpovedí musí byť HTTP 200, mať presne deväť správne typovaných
+JSON polí a prejsť pôvodným parserom; žiadna programová oprava klasifikácie.
+
+Porovnávací podklad je pôvodný kompletný B1.3 `evidence.json` (225/240,
+22/30). Pred začiatkom sa nezávisle prepočíta, overí sa pevný korpus,
+surový modelový obsah, fingerprint promptu a nezmenená produkcia. B1.4
+odmietne zamenený podklad alebo očakávania. Report uvádza hash podkladu,
+opravené odchýlky, nové regresie, pretrvávajúce odchýlky a samostatné
+porovnanie prípadov 12, 17, 21–26 vrátane predikcií pred/po.
+
+Spustenie: `prepare-console.cjs <PIN> --run-b14 <B1.3 evidence.json>`.
+Použiť viditeľnú kópiu `/home/seman/B13-report-RCrLCU/evidence.json`.
+Nové súkromné adresáre nezačínajú bodkou:
+- nástroje: `/home/seman/INDEXUS-Email-Monitoring-Tools/`;
+- výsledky: `/home/seman/INDEXUS-Email-Monitoring/B14-run-*/`.
+
+Nový marker B1.4 nemení markery ani výsledky B1.3. Najviac 35 postupných
+inferenčných pokusov, bez retry/fallbacku; počet pokusov sa uloží pred
+odoslaním a výsledky atomicky po každom prípade. Prerušený beh sa automaticky
+neobnovuje. Bezpečnostné kontroly, zastavenie pri 401/403/429 a read-only
+porovnanie produkcie zostávajú rovnaké. Produkcia musí naďalej mať
+Gateway=false, 65 OpenAI služieb a žiadne model overrides.
+
+Výsledok je FAIL pri porušení tvrdého kritéria, REVIEW_REQUIRED pri
+neúplnom/neoverenom behu a PASS iba pri splnených kritériách s dokončeným
+overením. Aj pri PASS sa podrobne vypíšu ostatné klasifikačné odchýlky;
+PASS nikdy neaktivuje produkciu.
+
+## Predchádzajúce zadanie B1.3
 
 B1.3 je samostatne schválený izolovaný pilot 30 syntetických e-mailov cez
 rovnakú kanonickú HTTPS cestu, model, parametre a skutočný CRM prompt/router/

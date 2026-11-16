@@ -31,14 +31,14 @@ export async function executeB12(options: {
   token: string; source: ReturnType<typeof analyzeSource>; reference: any;
   readSnapshot: () => Promise<any>; claimOnce: () => void;
   fetch: typeof fetch; signal?: AbortSignal;
-  pilotCase?: { id: string; input: string; expected: Readonly<Record<string, string | boolean>> };
+  pilotCase?: { id: string; input: string; expected: Readonly<Record<string, string | boolean>>; phase?: string };
   beforeInference?: () => void;
 }) {
   const inputText = options.pilotCase?.input ?? B12.input;
   const expected = options.pilotCase?.expected ?? {
     wantsConsent: false, wantsToCancel: false, sentiment: "neutral", alertLevel: "none",
   };
-  const phase = options.pilotCase ? "B1.3" : B12.phase;
+  const phase = options.pilotCase?.phase ?? (options.pilotCase ? "B1.3" : B12.phase);
   const report: any = {
     phase, kind: "LIVE_ISOLATED_SINGLE_SYNTHETIC", request: { ...B12, phase, input: inputText },
     originalRequestSha256: options.source.requestSha256,

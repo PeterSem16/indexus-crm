@@ -16,7 +16,7 @@ const INPUTS = [
 ];
 const fail = code => { throw Error(code); };
 function privateParent(home, uid) {
-  const directory = path.join(home, ".indexus-email-monitoring-b1-tools");
+  const directory = path.join(home, "INDEXUS-Email-Monitoring-Tools");
   if (!fs.existsSync(directory)) fs.mkdirSync(directory, { mode: 0o700 });
   const st = fs.lstatSync(directory);
   if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== uid || (st.mode & 0o077))
@@ -24,7 +24,7 @@ function privateParent(home, uid) {
   return directory;
 }
 function prepareArtifacts({ app, home, uid, archive, build, runnerName = "run-b1.cjs" }) {
-  if (!["run-b1.cjs", "run-b12.cjs", "run-b13.cjs"].includes(runnerName)) fail("B1_RUNNER_NAME_INVALID");
+  if (!["run-b1.cjs", "run-b12.cjs", "run-b13.cjs", "run-b14.cjs"].includes(runnerName)) fail("B1_RUNNER_NAME_INVALID");
   const parent = privateParent(home, uid);
   const work = fs.mkdtempSync(path.join(parent, "prepared-"));
   const source = path.join(work, "source"), output = path.join(work, "bundle");
@@ -44,7 +44,7 @@ function prepareArtifacts({ app, home, uid, archive, build, runnerName = "run-b1
   return { source, runner };
 }
 function launchArguments(runtimeFile, runner, originalB12Report, phase = "b12") {
-  if (!["b12", "b13"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
+  if (!["b12", "b13", "b14"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
   const check = `try { require(${JSON.stringify(runtimeFile)}).assertRuntime(process.env); console.log("B1_RUNTIME_READY"); } catch { console.error("B1_EXISTING_RUNTIME_PRELOAD_REQUIRED"); process.exitCode=1; }`;
   return {
     preflight: ["--require", PRELOAD, "-e", check],
@@ -54,7 +54,7 @@ function launchArguments(runtimeFile, runner, originalB12Report, phase = "b12") 
 const processEnvironment = env => ({ ...env, NODE_ENV: "production" });
 function main() {
   const pin = process.argv[2];
-  const pilot = ["--run-b12", "--run-b13"].includes(process.argv[3]) && process.argv.length === 5 && path.isAbsolute(process.argv[4]);
+  const pilot = ["--run-b12", "--run-b13", "--run-b14"].includes(process.argv[3]) && process.argv.length === 5 && path.isAbsolute(process.argv[4]);
   const phase = pilot ? process.argv[3].slice("--run-".length) : "b1";
   if (!pilot && process.argv.length !== 3) fail("B1_PREPARATION_ARGUMENTS_INVALID");
   if (!/^[0-9a-f]{40}$/.test(pin || "")) fail("B1_PIN_REQUIRED");
@@ -80,7 +80,7 @@ function main() {
       if (result.status !== 0) fail("B1_PRIVATE_BUNDLE_BUILD_FAILED");
     },
   });
-  const args = launchArguments(path.join(prepared.source, "script/ai-email-monitoring-b1/runtime.cjs"), prepared.runner, pilot ? process.argv[4] : undefined, phase === "b13" ? "b13" : "b12");
+  const args = launchArguments(path.join(prepared.source, "script/ai-email-monitoring-b1/runtime.cjs"), prepared.runner, pilot ? process.argv[4] : undefined, pilot ? phase : "b12");
   const options = { cwd: APP, stdio: "inherit", env: processEnvironment(process.env) };
   // Check loader first; a blocked loader must never fall through to .env token.
   const preflight = cp.spawnSync(process.execPath, args.preflight, options);
