@@ -1,9 +1,33 @@
 "use strict";
 // Read-only diagnostic: three HTTPS GETs, no inference, DB, files or run marker.
 const os = require("node:os");
+const crypto = require("node:crypto");
 const { assertRuntime, classifyTarget } = require("./runtime.cjs");
 const MODEL = "indexus-email-monitoring:v1";
 const BASE = "https://ai.cordbloodcenter.com/gateway/";
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.keys(value).sort().map(k => [k, stable(value[k])]));
+}
+function inventorySummary(models, capabilities, token) {
+  const safeId = row => typeof row?.id === "string" && /^[A-Za-z0-9_.:/-]{1,160}$/.test(row.id) &&
+    !row.id.includes(token);
+  if (![...models, ...capabilities].every(safeId)) throw Error("B1_DISCOVERY_UNSAFE_INVENTORY");
+  const rows = value => value.filter(m => m.id !== MODEL).map(stable)
+    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const previousModels = rows(models), previousCapabilities = rows(capabilities);
+  return {
+    listed: previousModels.map(m => m.id), declared: previousCapabilities.map(m => m.id),
+    originalDocumentModelListed: previousModels.some(m => m.id === "indexus-document-audio:latest"),
+    originalDocumentModelDeclared: previousCapabilities.some(m => m.id === "indexus-document-audio:latest"),
+    inventorySha256: crypto.createHash("sha256").update(JSON.stringify({
+      models: previousModels, capabilities: previousCapabilities,
+    })).digest("hex"),
+    historicallyUnchanged: null,
+    comparison: "NO_PRE_REGISTRATION_MODEL_INVENTORY",
+  };
+}
 async function readJson(response) {
   const reader = response.body?.getReader();
   if (!reader) throw Error("B1_DISCOVERY_BODY_MISSING");
@@ -50,12 +74,16 @@ async function checkDiscovery({ fetch: transport, token }) {
       return result;
     }
     const model = capabilities.models.find(m => m?.id === MODEL);
+    try { result.existingModels = inventorySummary(models.data, capabilities.models, token); }
+    catch { result.error = "B1_DISCOVERY_UNSAFE_INVENTORY"; return result; }
     result.listed = models.data.some(m => m?.id === MODEL);
     result.declared = !!model;
     result.declaredMaxOutputTokens = Number.isInteger(model?.maxOutputTokens) ? model.maxOutputTokens : null;
     result.jsonObject = Array.isArray(model?.outputFormats) && model.outputFormats.includes("json_object");
     result.chatCompletions = Array.isArray(model?.operations) && model.operations.includes("chat.completions");
     result.textInput = Array.isArray(model?.inputModalities) && model.inputModalities.includes("text");
+    result.textOutput = Array.isArray(model?.outputFormats) && model.outputFormats.includes("text");
+    result.streaming = typeof model?.streaming === "boolean" ? model.streaming : null;
     result.apiVersion1 = capabilities?.apiVersion === "1";
     if (!result.listed || !result.declared) result.error = "B1_DISCOVERY_MODEL_UNAVAILABLE";
     else if (!result.apiVersion1 || !result.jsonObject || !result.chatCompletions || !result.textInput ||
@@ -64,7 +92,7 @@ async function checkDiscovery({ fetch: transport, token }) {
   }
   return result;
 }
-module.exports = { checkDiscovery };
+module.exports = { checkDiscovery, inventorySummary };
 if (require.main === module) (async () => {
   if (process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN || process.platform !== "linux" ||
       os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" || process.getuid?.() !== 1001)

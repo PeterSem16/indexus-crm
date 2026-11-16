@@ -130,6 +130,27 @@ odpovedí. Úspech tejto kontroly nie je úspech celého B1 ani dôkaz sémantik
 Pôvodný výsledok a jednorazový marker zachovať; príprava opravy neoprávňuje
 ich vymazanie ani automatické opakovanie celého testu.
 
+### B1.1 — registrácia a produkčné smerovanie
+
+`b11-check.cjs <pôvodný evidence.json>` použije existujúci preload a aplikáciou
+konfigurované DB spojenie. Pôvodný report aj marker iba číta; samostatný
+diagnostický výsledok uloží súkromne pod novým názvom.
+
+- Zopakuje tri HTTPS GET kontroly bez inferencie.
+- Pred nimi a po nich prečíta AI konfiguráciu v read-only transakcii, s read-only
+  nastavením už pri pripojení. Porovná verziu, routy, parametre Gateway aj hash
+  celého uloženého nastavenia s overeným pôvodným B1 reportom.
+- Vypíše aktuálne ID ostatných modelov a odtlačok ich katalógových záznamov
+  bez nového Email Monitoring modelu. Dostupnosť pôvodného dokumentového modelu
+  vykazuje oddelene od historickej zhody.
+- Pôvodný B1 zlyhal pred discovery, preto neobsahuje pôvodný inventár modelov.
+  Bez nezávislého predregistračného inventára zostáva historická zhoda modelov
+  `null` a `fullyVerified=false`, aj keď discovery a produkčné routy prejdú.
+
+Úspech lokálnych klasifikačných testov AI servera nevydávať za vykonaný
+integračný test z CORPCRM01. Ani úspech B1.1 automaticky nespúšťa B1 a
+neoprávňuje zapnutie produkčnej Gateway.
+
 Runner:
 
 1. Overí host, UID, pôvodný request/prompt a zakáže zníženie TLS ochrany.
