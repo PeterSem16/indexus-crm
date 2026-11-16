@@ -55,12 +55,16 @@ function validateReportScope(model, key) {
   if (report.key === "new_clients") check(model.stats.new_clients === model.stats.clients, "REPORT_COHORT_MISMATCH");
   else check(model.stats.period_clients === model.stats.clients, "REPORT_COHORT_MISMATCH");
 }
-function privateOutput(home = os.homedir(), filename = REPORTS.new_clients.filename) {
+function privateOutput(home = os.homedir(), filename = REPORTS.new_clients.filename, sharedDirectory) {
   check(Object.values(REPORTS).some(report => report.filename === filename), "INVALID_REPORT_FILENAME");
-  const dir = fs.mkdtempSync(path.join(home, "iscbc-clients-2026-"));
-  fs.chmodSync(dir, 0o700);
-  check((fs.statSync(dir).mode & 0o777) === 0o700, "PRIVATE_DIRECTORY_MODE");
-  return { dir, partial: path.join(dir, "report.partial.xlsx"), file: path.join(dir, filename) };
+  const dir = sharedDirectory || fs.mkdtempSync(path.join(home, "iscbc-clients-2026-"));
+  if (!sharedDirectory) fs.chmodSync(dir, 0o700);
+  const stat = fs.lstatSync(dir);
+  check(stat.isDirectory() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o700, "PRIVATE_DIRECTORY_MODE");
+  check(fs.realpathSync(path.dirname(dir)) === fs.realpathSync(home), "PRIVATE_DIRECTORY_LOCATION");
+  const files = { dir, partial: path.join(dir, filename + ".partial.xlsx"), file: path.join(dir, filename) };
+  check(!fs.existsSync(files.partial) && !fs.existsSync(files.file), "REPORT_OUTPUT_EXISTS");
+  return files;
 }
 async function exportReport(pool, root, output = console.log, options = {}) {
   const report = reportDefinition(options.report);
@@ -118,7 +122,7 @@ async function exportReport(pool, root, output = console.log, options = {}) {
     output("CBC_EXPORT_WORKBOOK_VALIDATING");
     const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx", compression: true });
     verifyWorkbook(XLSX, buffer, expected);
-    files = privateOutput(options.home, report.filename);
+    files = privateOutput(options.home, report.filename, options.sharedDirectory);
     const fd = fs.openSync(files.partial, "wx", 0o600);
     try { fs.writeFileSync(fd, buffer); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     check((fs.statSync(files.partial).mode & 0o777) === 0o600, "PRIVATE_FILE_MODE");
@@ -132,10 +136,11 @@ async function exportReport(pool, root, output = console.log, options = {}) {
     for (const control of model.controls) {
       output(`NOTE_COUNTS=${control.source}.${control.field}:source=${control.expected},exported=${control.exported},deleted_excluded=${control.excluded}`);
     }
-    output("SHA256=" + crypto.createHash("sha256").update(disk).digest("hex"));
+    const sha256 = crypto.createHash("sha256").update(disk).digest("hex");
+    output("SHA256=" + sha256);
     output("PRIVATE_FILE=" + files.file);
     output("CBC_REPORT_OK");
-    return { file: files.file, stats: model.stats };
+    return { report: report.key, file: files.file, sha256, stats: model.stats };
   } catch (error) {
     error.reportKey = report.key;
     if (files) {
@@ -149,13 +154,39 @@ async function exportReport(pool, root, output = console.log, options = {}) {
 }
 async function exportReports(pool, root, output = console.log, options = {}) {
   const reports = [];
+  const { dir } = privateOutput(options.home);
   // Sequential runs share the one-connection pool; each file has its own
-  // extraction window, stable-read checks, independent counts and private path.
-  for (const report of Object.keys(REPORTS)) {
-    reports.push(await exportReport(pool, root, output, { ...options, report }));
+  // extraction window and independent checks, but ONE shared private folder.
+  try {
+    output("EXPECTED_REPORTS=2");
+    for (const report of Object.keys(REPORTS)) {
+      reports.push(await exportReport(pool, root, output, { ...options, report, sharedDirectory: dir }));
+    }
+    check(reports.length === 2 && new Set(reports.map(r => r.report)).size === 2 &&
+      new Set(reports.map(r => r.file)).size === 2, "REPORT_PAIR_INCOMPLETE");
+    for (const report of reports) {
+      check(path.dirname(report.file) === dir && path.basename(report.file) === REPORTS[report.report].filename,
+        "REPORT_PAIR_PATH_MISMATCH");
+      const stat = fs.lstatSync(report.file);
+      check(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o777) === 0o600, "PRIVATE_FILE_MODE");
+      check(crypto.createHash("sha256").update(fs.readFileSync(report.file)).digest("hex") === report.sha256,
+        "REPORT_PAIR_CONTENT_CHANGED");
+    }
+    output("BOTH_REPORTS_DIRECTORY=" + dir);
+    for (const report of reports) {
+      output("REPORT_READY=" + JSON.stringify({
+        report: report.report, file: report.file, clients: report.stats.clients,
+        new_clients: report.stats.new_clients, older_clients: report.stats.older_clients,
+      }));
+    }
+    output("CBC_REPORTS_OK");
+    return reports;
+  } catch (error) {
+    output("CBC_REPORTS_INCOMPLETE");
+    for (const report of reports) output("PARTIAL_REPORT_FILE=" + report.file);
+    try { fs.rmdirSync(dir); } catch {}
+    throw error;
   }
-  output("CBC_REPORTS_OK");
-  return reports;
 }
 module.exports = { exportReport, exportReports, validateCounts, validateReportScope,
   privateOutput, equalCounts, COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES };

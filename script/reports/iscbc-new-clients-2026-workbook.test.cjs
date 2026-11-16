@@ -415,6 +415,9 @@ test("one run creates two distinct private workbooks with three sheets and truth
     const results = await exportReports(bothFixturePool(), process.cwd(), line => logs.push(line), { home });
     assert.deepEqual(results.map(r => path.basename(r.file)), ["novi-klienti-2026.xlsx", "klienti-s-odberom-2026.xlsx"]);
     assert.equal(new Set(results.map(r => r.file)).size, 2);
+    assert.equal(new Set(results.map(r => path.dirname(r.file))).size, 1);
+    assert.deepEqual(fs.readdirSync(path.dirname(results[0].file)).sort(),
+      ["klienti-s-odberom-2026.xlsx", "novi-klienti-2026.xlsx"]);
     assert.equal(results[0].stats.clients, 3);
     assert.equal(results[1].stats.clients, 2);
     assert.equal(results[1].stats.older_clients, 1);
@@ -426,6 +429,8 @@ test("one run creates two distinct private workbooks with three sheets and truth
       assert.match(wb.Sheets[SHEETS[0]].B4.v, i ? /sco_collection_made/ : /cli_inserted/);
     }
     assert.equal(logs.filter(l => l === "CBC_REPORT_OK").length, 2);
+    assert.equal(logs.filter(l => l.startsWith("REPORT_READY=")).length, 2);
+    assert.ok(logs.includes("BOTH_REPORTS_DIRECTORY=" + path.dirname(results[0].file)));
     assert.equal(logs.at(-1), "CBC_REPORTS_OK");
     assert.doesNotMatch(logs.join("\n"), /NOT_A_FORMULA|text with spaces|Saved old plan/);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
@@ -440,6 +445,23 @@ test("second-report instability retains the valid first report but never claims 
     assert.deepEqual(fs.readdirSync(path.join(home, dirs[0])), ["novi-klienti-2026.xlsx"]);
     assert.equal(logs.filter(l => l === "CBC_REPORT_OK").length, 1);
     assert.ok(!logs.includes("CBC_REPORTS_OK"));
+    assert.ok(logs.includes("CBC_REPORTS_INCOMPLETE"));
+    assert.ok(!logs.some(l => l.startsWith("REPORT_READY=")));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+test("a missing first workbook prevents pair success even after both individual exports passed", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cbc-both-missing-")), logs = [];
+  let first, completed = 0;
+  try {
+    await assert.rejects(exportReports(bothFixturePool(), process.cwd(), line => {
+      logs.push(line);
+      if (line.startsWith("PRIVATE_FILE=") && !first) first = line.slice("PRIVATE_FILE=".length);
+      if (line === "CBC_REPORT_OK" && ++completed === 2) fs.unlinkSync(first);
+    }, { home }), { code: "ENOENT" });
+    assert.equal(completed, 2);
+    assert.ok(logs.includes("CBC_REPORTS_INCOMPLETE"));
+    assert.ok(!logs.includes("CBC_REPORTS_OK"));
+    assert.ok(!logs.some(l => l.startsWith("REPORT_READY=")));
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 test("verification reads retain fingerprints, not a second copy of client data or notes", async () => {

@@ -14,7 +14,6 @@ spustenie pohyblivej vetvy. Nekontrolovať produkciu cez SSH z Replit.
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --inspect
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export
 nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export-both
-nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026.cjs --export-collections
 ```
 
 Vedľa hlavného súboru musia byť súbory s príponami `-source.cjs`,
@@ -26,7 +25,7 @@ read-only intent; samotné dotazy sú výlučne SELECT, nie overenie práv role.
 ## Presný výber a význam
 
 - **Noví klienti:** `Clients.cli_inserted >= '20260101' AND < '20270101'`.
-  Súbor `novi-klienti-2026.xlsx`; samostatné `--export` vytvorí len tento.
+  Súbor `novi-klienti-2026.xlsx`.
 - **Klienti s odberom:** klient má cez vlastnú zmluvu a službu aspoň jeden
   `ServiceCollections.sco_collection_made >= '20260101' AND < '20270101'`.
   Súbor `klienti-s-odberom-2026.xlsx`; zahŕňa nových aj starších klientov.
@@ -34,8 +33,10 @@ read-only intent; samotné dotazy sú výlučne SELECT, nie overenie práv role.
   `EXISTS` zachová jedinečný výber aj pri viacerých službách jedného odberu.
 - `--export-both` vytvorí oba súbory postupne s jedným databázovým spojením,
   s vlastnými extrakčnými oknami a nezávislými kontrolami pre každý report.
-- `--export-collections` zopakuje iba druhý report po jeho zlyhaní; už
-  vytvorený prvý report nemení ani neprepisuje.
+  Oba súbory uloží do JEDNÉHO nového súkromného priečinka.
+- `--export` je alias spoločného exportu OBOCH reportov. Voľba
+  `--export-collections` už nie je dostupná, aby príkaz určený pre toto
+  zadanie nemohol omylom vytvoriť iba druhý report.
 - Žiadny filter krajiny ani stavu klienta. Výber odberom patrí len do druhého reportu.
 - Soft-deleted klienti zostávajú osobitne označení. Poznámky označené ako
   odstránené v zdroji (vrátane priamych textov odstráneného rodiča) sa
@@ -98,7 +99,11 @@ Hotový zošit sa spätne načíta a overí po bunkách ešte pred uložením.
 Výstup vzniká v novom náhodnom adresári v domovskom priečinku operátora,
 s právami `0700`, súbor s právami `0600`. Čiastočný výstup sa pri chybe
 odstráni. `CBC_REPORT_OK` znamená úspech jedného súboru. `CBC_REPORTS_OK`
-sa vypíše len po úspešnom vytvorení oboch. Ak zlyhá druhý, prvý overený
+sa vypíše len po úspešnom vytvorení oboch a záverečnom overení existencie,
+práv a odtlačkov OBOCH súborov. Bezprostredne pred ním sú riadky
+`BOTH_REPORTS_DIRECTORY` a dva riadky `REPORT_READY` s názvom výberu,
+cestou a počtami klientov. Pri chybe je výslovne `CBC_REPORTS_INCOMPLETE`;
+čiastkový výsledok nikdy neznamená dokončenie zadania. Ak zlyhá druhý, prvý overený
 súbor zostáva dostupný, ale nástroj netvrdí, že sú hotové oba reporty.
 
 Operátor môže súbor stiahnuť svojím už existujúcim súkromným prístupom.

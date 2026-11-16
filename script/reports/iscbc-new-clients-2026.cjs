@@ -154,7 +154,7 @@ async function inspect(pool, root, output = console.log) {
 async function main() {
   let pool, stage = "ARGUMENTS";
   try {
-    if (process.argv.length !== 3 || !["--inspect", "--export", "--export-both", "--export-collections"].includes(process.argv[2])) fail("USE_INSPECT_OR_EXPORT");
+    if (process.argv.length !== 3 || !["--inspect", "--export", "--export-both"].includes(process.argv[2])) fail("USE_INSPECT_OR_EXPORT");
     const root = "/var/www/indexus-crm";
     stage = "OPERATOR_PATH";
     if (fs.realpathSync(process.cwd()) !== root) fail("WRONG_DIRECTORY");
@@ -164,13 +164,10 @@ async function main() {
     const cfg = loadConfig(root);
     stage = "CONNECTION";
     pool = await new sql.ConnectionPool(cfg).connect();
-    if (["--export", "--export-both", "--export-collections"].includes(process.argv[2])) {
+    if (["--export", "--export-both"].includes(process.argv[2])) {
       stage = "EXPORT";
       const exporter = require("./iscbc-new-clients-2026-export.cjs");
-      if (process.argv[2] === "--export-both") await exporter.exportReports(pool, root);
-      else await exporter.exportReport(pool, root, console.log, {
-        report: process.argv[2] === "--export-collections" ? "collection_clients" : "new_clients",
-      });
+      await exporter.exportReports(pool, root);
       return;
     }
     stage = "INSPECTION";
