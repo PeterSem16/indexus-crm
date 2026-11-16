@@ -23,10 +23,6 @@ function grouped(rows, key) {
 }
 const list = values => [...new Set(values.filter(v => v != null && v !== "").map(String))].sort().join("; ");
 const flag = value => value === true || value === 1;
-function initials(...parts) {
-  return parts.filter(Boolean).flatMap(v => String(v).trim().split(/\s+/u))
-    .filter(Boolean).map(v => [...v][0].toLocaleUpperCase("sk") + ".").join(" ");
-}
 function splitText(text, limit = 30000) {
   const value = String(text), result = [];
   for (let start = 0; start < value.length;) {
@@ -89,7 +85,7 @@ function collectionStatus(row) {
 }
 
 const MAIN = [
-  ["client", "ID klienta"], ["initials", "Iniciály"], ["first", "Meno"], ["middle", "Prostredné meno"],
+  ["client", "ID klienta"], ["first", "Meno"], ["middle", "Prostredné meno"],
   ["last", "Priezvisko"], ["created", "Založenie klienta", "date"], ["country", "Krajina klienta"],
   ["company", "Spoločnosť klienta"], ["deleted", "Klient označený ako odstránený"],
   ["contract", "ID zmluvy"], ["number", "Číslo zmluvy"], ["contractStatus", "Stav zmluvy – zdroj"],
@@ -140,7 +136,7 @@ function buildModel(extraction) {
   const required = (map, id) => { check(map.has(String(id)), "MISSING_PARENT"); return map.get(String(id)); };
   function mainRow(c, con, rows = [], sco = null, warning = "") {
     main.push({
-      client: c.cli_id, initials: initials(c.pda_first_name, c.pda_middle_name, c.pda_last_name),
+      client: c.cli_id,
       first: c.pda_first_name, middle: c.pda_middle_name, last: c.pda_last_name,
       created: c.cli_inserted, country: c.com_country_code || "Neurčená", company: c.com_name || "Neurčená",
       deleted: flag(c.cli_deleted) ? "Áno" : "Nie", contract: con?.con_id, number: con?.con_number,
@@ -225,6 +221,8 @@ function buildModel(extraction) {
     const occurrences = new Map();
     const ordered = [...rows].sort((a, b) => digest([a]).localeCompare(digest([b])));
     for (const row of ordered) {
+      const clientIds = [...new Set(String(row._clients || "").split(",").filter(Boolean))];
+      check(clientIds.length > 0 && clientIds.every(id => clients.has(id)), "NOTE_CLIENT_LINK_MISSING");
       const key = spec.keys.map(k => `${k}=${row[k] ?? "NULL"}`).join("; ");
       const occurrence = (occurrences.get(key) || 0) + 1;
       occurrences.set(key, occurrence);
@@ -239,7 +237,7 @@ function buildModel(extraction) {
           dateField.endsWith("_changed") ? "Čas udalosti" :
           spec.at === "rem_date" || spec.at === "rar_date" ? "Dátum poznámky" : "Dátum zdrojového záznamu";
         parts.forEach((text, n) => noteRows.push({
-          type: "Poznámka", source: spec.table, id: `${key}; výskyt=${occurrence}`, field,
+          type: "Poznámka", clientIds, source: spec.table, id: `${key}; výskyt=${occurrence}`, field,
           links: spec.links.map(k => `${k}=${row[k] ?? "NULL"}`).join("; "),
           at: row._at, dateMeaning, author: row._author,
           part: n + 1, parts: parts.length, text,
@@ -285,8 +283,10 @@ function textCell(value) {
 }
 function makeWorkbook(XLSX, model, metadata) {
   const wb = XLSX.utils.book_new();
+  const { columns: clientColumns, records: clientRecords } =
+    require("./iscbc-new-clients-2026-client-sheet.cjs").clientSheet(model);
   const shared = [
-    ["Report nových klientov ISCBC 2026", "Zdrojová databáza CBC; všetky spoločnosti a krajiny."],
+    ["Report nových klientov ISCBC 2026", "Jeden list; všetky spoločnosti a krajiny CBC. Pri klientovi sú spolu všetky zmluvy, odbery, platobné podmienky a poznámky. Texty nad limit bunky pokračujú v očíslovaných riadkoch toho istého klienta; nejde o ďalšieho klienta."],
     ["Extrakcia – UTC", metadata.utc],
     ["Extrakcia – Europe/Bratislava", metadata.bratislava],
     ["Rozsah", "Založenie klienta >= 01.01.2026 a < 01.01.2027. Rok ešte nie je uzavretý, ak čas extrakcie predchádza 01.01.2027."],
@@ -294,13 +294,12 @@ function makeWorkbook(XLSX, model, metadata) {
     ["Kontrola čítania", "Dve úplné čítania a nezávislé zdrojové počty súhlasili. Bez databázového snapshotu; údaje boli čítané postupne."],
     ["Dátumy", "Dátové polia zachovávajú zdrojový čas bez priradenia časového pásma. Založenie zmluvy/odberu nie je dátum objednania."],
     ["Platby", "Fakturačné obdobie nie je periodicita splátok ani potvrdenie úhrady. Historické plány sú oddelené; periodicita služby je aktuálny číselník."],
-    ["Poznámky", `Poznámky=${model.stats.notes}; časti=${model.stats.note_parts}; vylúčené odstránené=${model.stats.excluded_deleted_notes}. Kontroly podľa zdrojov sú na konci listu Poznámky.`],
+    ["Poznámky", `Zdrojové poznámky=${model.stats.notes}; väzby na klientov=${model.stats.client_note_links}; vylúčené odstránené=${model.stats.excluded_deleted_notes}. Zdieľaná poznámka je pri každom preukázane prepojenom klientovi. Kontroly sú na konci tohto listu.`],
     ["Obmedzenia", metadata.limitations],
     ["Krajiny a spoločnosti", metadata.countries],
     ["Kontrolné počty", JSON.stringify(model.stats)],
   ];
-  const definitions = [["Klienti a odbery", MAIN, model.main], ["Platobné podmienky", PAYMENT, model.payments],
-    ["Poznámky", NOTE, model.notes]];
+  const definitions = [["Klienti 2026", clientColumns, clientRecords]];
   const expected = [];
   for (const [title, columns, records] of definitions) {
     const top = shared.map(row => row.map(textCell));
@@ -310,11 +309,12 @@ function makeWorkbook(XLSX, model, metadata) {
       kind === "date" ? excelDate(record[key]) : textCell(record[key])));
     check(top.length <= 1048576, "EXCEL_ROW_LIMIT");
     const ws = XLSX.utils.aoa_to_sheet(top);
-    ws["!cols"] = columns.map(([key, name]) => ({ wch: key === "text" ? 90 :
+    ws["!cols"] = columns.map(([key, name]) => ({ wch: ["text", "details", "paymentDetails", "noteDetails"].includes(key) ? 90 :
       ["warning", "links", "serviceNames", "dateMeaning"].includes(key) ? 55 : Math.min(36, Math.max(16, name.length + 2)) }));
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: header, c: 0 },
       e: { r: top.length - 1, c: columns.length - 1 } }) };
-    ws["!rows"] = top.slice(0, header + 1).map((_, i) => ({ hpt: i === header ? 32 : 20 }));
+    ws["!rows"] = top.map((_, i) => ({ hpt: i === header ? 48 : i < header ? 20 :
+      records[i - header - 1]?.type === "Kontrola zdroja" ? 24 : 90 }));
     XLSX.utils.book_append_sheet(wb, ws, title);
     expected.push({ title, cells: top, header, columns: columns.length });
   }
@@ -338,5 +338,5 @@ function verifyWorkbook(XLSX, buffer, expected) {
 }
 module.exports = {
   buildModel, makeWorkbook, verifyWorkbook, billing, paymentFrequency, collectionStatus,
-  splitText, excelDate, initials, check, index, MAIN, PAYMENT, NOTE,
+  splitText, excelDate, check, index, MAIN, PAYMENT, NOTE,
 };

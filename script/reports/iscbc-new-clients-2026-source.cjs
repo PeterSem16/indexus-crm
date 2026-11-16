@@ -189,6 +189,29 @@ const UPDATED_WITH_INSERTED = new Set([
   "Clients", "PotentialClients", "Contracts", "ContractServices",
   "ServiceCollections", "CollectionAnnouncements", "CollectionTransports", "Invoices",
 ]);
+// Reuse the exact cohort scope for attribution, including indirect/shared
+// links. Do not infer ownership from a similarly named, unverified ID column.
+function clientScope(scope) {
+  const sources = {
+    Cohort: key => `SELECT nc.${key}`,
+    Con: key => `SELECT oc.${key} FROM dbo.Contracts oc WHERE oc.cli_id=nc.cli_id`,
+    CS: key => `SELECT os.${key} FROM dbo.ContractServices os
+      JOIN dbo.Contracts oc ON oc.con_id=os.con_id WHERE oc.cli_id=nc.cli_id`,
+    SC: key => `SELECT sc.${key} FROM dbo.ServiceCollections sc WHERE sc.sco_id IN (
+      SELECT os.sco_id FROM dbo.ContractServices os JOIN dbo.Contracts oc ON oc.con_id=os.con_id
+      WHERE oc.cli_id=nc.cli_id AND os.sco_id IS NOT NULL)`,
+    Pot: key => `SELECT op.${key} FROM dbo.PotentialClients op WHERE
+      (op.cli_id=nc.cli_id OR op.pot_id=nc.pot_id OR op.pot_id IN (
+        SELECT oc.pot_id FROM dbo.Contracts oc WHERE oc.cli_id=nc.cli_id AND oc.pot_id IS NOT NULL))`,
+  };
+  const result = scope.replace(/SELECT (\w+) FROM (Cohort|Con|CS|SC|Pot)\b(?: WHERE (\w+) IS NOT NULL)?/g,
+    (_, key, source, nonnull) => sources[source](key) +
+      (nonnull ? ` AND ${source === "Pot" ? "op" : "nc"}.${nonnull} IS NOT NULL` : ""));
+  if (/\bFROM (Cohort|Con|CS|SC|Pot)\b/.test(result)) {
+    throw Object.assign(new Error(), { code: "UNMAPPED_NOTE_CLIENT_SCOPE" });
+  }
+  return result;
+}
 function noteQuery(spec, counts = false) {
   const active = spec.deleted ? `ISNULL(s.[${spec.deleted}],0)<>1` : "1=1";
   const nonempty = f => `s.[${f}] IS NOT NULL AND
@@ -200,6 +223,9 @@ function noteQuery(spec, counts = false) {
     ]).join(",")} FROM ${quotedTable(spec.table)} s WHERE ${spec.scope}`;
   }
   const columns = [...new Set([...spec.keys, ...spec.links])].map(k => id(`s.[${k}]`, k));
+  columns.push(`STUFF((SELECT ','+CONVERT(varchar(40),nc.cli_id) FROM Cohort nc
+    WHERE (${clientScope(spec.scope)}) ORDER BY nc.cli_id
+    FOR XML PATH(''),TYPE).value('.','varchar(max)'),1,1,'') AS _clients`);
   columns.push(...spec.fields.map(f => `CONVERT(nvarchar(max),s.[${f}]) AS [${f}]`));
   const fallback = spec.at?.endsWith("_updated") && UPDATED_WITH_INSERTED.has(spec.table) ?
     spec.at.replace(/_updated$/, "_inserted") : null;
@@ -256,4 +282,4 @@ async function readAll(pool, progress = () => {}) {
   return result;
 }
 
-module.exports = { CTE, DATA, NOTES, noteQuery, hasNote, digest, readAll };
+module.exports = { CTE, DATA, NOTES, noteQuery, clientScope, hasNote, digest, readAll };

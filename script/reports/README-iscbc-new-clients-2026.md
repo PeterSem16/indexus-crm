@@ -16,7 +16,7 @@ nice -n 10 node --max-old-space-size=512 /sukromny/prenos/iscbc-new-clients-2026
 ```
 
 Vedľa hlavného súboru musia byť súbory s príponami `-source.cjs`,
-`-workbook.cjs` a `-export.cjs`. Existujúce konfiguračné súbory sa iba čítajú;
+`-workbook.cjs`, `-client-sheet.cjs` a `-export.cjs`. Existujúce konfiguračné súbory sa iba čítajú;
 ich telá sa nespúšťajú. Náhradné heslo sa použije len pri presnej zhode
 identity pripojenia. Pripojenie používa jednu session, časové limity a
 read-only intent; samotné dotazy sú výlučne SELECT, nie overenie práv role.
@@ -48,8 +48,18 @@ read-only intent; samotné dotazy sú výlučne SELECT, nie overenie práv role.
 
 ## Výstup a kontrola
 
-Tri listy: **Klienti a odbery**, **Platobné podmienky**, **Poznámky**.
+Jeden list **Klienti 2026**, bez iniciál. Jeden hlavný riadok na klienta obsahuje
+identitu a dátum založenia, prehľad počtov a fakturácie, všetky zmluvy a odbery,
+všetky platobné podmienky a úplné poznámky v samostatných stĺpcoch.
+Detailné texty zachovávajú identifikátory zmlúv, služieb, plánov a odberov,
+zdroje, dátumy a autorov. Nejde o násobiaci join odberov, plánov a poznámok.
+Pri prekročení limitu bunky sú očíslované pokračovania priamo pod tým istým
+klientom; počty sú iba v hlavnom riadku. Žiadny ďalší list nevzniká.
 Metadáta, filtre a zdrojové kontrolné počty sú priamo v zošite.
+Zdrojové kontroly sú na konci toho istého listu. Priradenie poznámok používa
+rovnaké overené priame aj nepriame väzby ako výber zo zdroja; nepriraditeľná
+poznámka export zastaví. Zdieľaná poznámka je pri každom preukázane prepojenom
+klientovi, raz na klienta; zdrojový počet a počet klientskych väzieb sú oddelené.
 Poznámky sa vyberajú bez násobiacich joinov; prekrývajúce sa väzby Remarks
 nevytvárajú kópie. Dlhé texty sa rozdelia bez straty na číslované pokračovania.
 Všetky texty sa ukladajú ako textové bunky, nikdy nie ako vzorce.

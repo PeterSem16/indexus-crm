@@ -73,7 +73,7 @@ async function exportReport(pool, root, output = console.log, options = {}) {
       countries.set(key, (countries.get(key) || 0) + 1);
     }
     const warnings = [
-      "Bez potvrdeného dátumu objednania; tento stĺpec je prázdny.",
+      "Bez potvrdeného dátumu objednania; dátum objednania sa neuvádza.",
       "Zrušená zmluva nie je sama osebe dôkazom zrušenia odberu.",
       "Očakávaný termín je zo zmluvy, nie samostatné plánovanie každého odberu.",
       "Nepriradené poznámky bez preukázanej väzby nemožno pripísať klientovi.",

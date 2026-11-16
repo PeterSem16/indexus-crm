@@ -3,11 +3,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const XLSX = require("xlsx");
-const { DATA, NOTES, CTE, noteQuery, readAll, hasNote } = require("./iscbc-new-clients-2026-source.cjs");
+const { DATA, NOTES, CTE, noteQuery, clientScope, readAll, hasNote } = require("./iscbc-new-clients-2026-source.cjs");
 const {
   buildModel, makeWorkbook, verifyWorkbook, billing, paymentFrequency, collectionStatus,
-  splitText, excelDate, initials,
+  splitText, excelDate,
 } = require("./iscbc-new-clients-2026-workbook.cjs");
+const { clientSheet } = require("./iscbc-new-clients-2026-client-sheet.cjs");
 const {
   validateCounts, privateOutput, equalCounts, exportReport, COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES,
 } = require("./iscbc-new-clients-2026-export.cjs");
@@ -59,8 +60,8 @@ function fixture() {
   const spec = NOTES.find(s => s.table === "Remarks");
   const long = "=literal\r\n" + "a".repeat(29988) + "😀" + "b".repeat(40000) + "\u0001";
   const rows = [
-    { rem_id: "1000", cli_id: "2", con_id: "10", rem_note: long, _at: "2026-03-29 09:30:00.000", _author: "fixture" },
-    { rem_id: "1001", cli_id: "2", con_id: "10", rem_note: "  text with spaces  " },
+    { rem_id: "1000", cli_id: "2", con_id: "10", _clients: "2", rem_note: long, _at: "2026-03-29 09:30:00.000", _author: "fixture" },
+    { rem_id: "1001", cli_id: "2", con_id: "10", _clients: "2", rem_note: "  text with spaces  " },
   ];
   return { data, notes: [{ spec, rows, counts: { n0: "2", d0: "1" } }], fingerprints: {} };
 }
@@ -104,7 +105,6 @@ test("unknown dates and states are not silently replaced", () => {
   assert.throws(() => excelDate("2026-02-30 00:00:00.000"), { code: "INVALID_SOURCE_DATE" });
   assert.equal(excelDate("2026-03-29 09:30:00.000").v,
     Date.UTC(2026, 2, 29, 9, 30) / 86400000 + 25569);
-  assert.equal(initials("Test", "Middle", "Fixture"), "T. M. F.");
 });
 test("overlapping note links export once, full long text survives numbered continuations", () => {
   const extraction = fixture(), model = buildModel(extraction);
@@ -116,17 +116,77 @@ test("overlapping note links export once, full long text survives numbered conti
   assert.ok(rows.every(r => r.text.length <= 30000 && !/[\ud800-\udbff]$/.test(r.text)));
   assert.equal(splitText("😀".repeat(20000)).join(""), "😀".repeat(20000));
 });
-test("workbook round-trip retains text, identifiers, dates and all three filters", () => {
+test("workbook round-trip retains all client-linked data in exactly one filtered sheet without initials", () => {
   const model = buildModel(fixture());
   const { wb, expected } = makeWorkbook(XLSX, model, { utc: "fixture", bratislava: "fixture",
     limitations: "synthetic fixture only", countries: "fixture" });
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx", compression: true });
   verifyWorkbook(XLSX, buffer, expected);
   const read = XLSX.read(buffer, { type: "buffer" });
+  assert.deepEqual(read.SheetNames, ["Klienti 2026"]);
+  const headers = XLSX.utils.sheet_to_json(read.Sheets["Klienti 2026"], { header: 1 })[13];
+  assert.ok(!headers.includes("Iniciály"));
+  assert.ok(headers.some(h => h.includes("platobné podmienky")));
+  assert.ok(headers.some(h => h.includes("poznámky")));
   for (const title of read.SheetNames) for (const [key, value] of Object.entries(read.Sheets[title])) {
     if (key.startsWith("!")) continue;
     assert.equal(value.f, undefined);
   }
+});
+test("one primary row per client keeps all contracts, collections, plans and complete note text together", () => {
+  const extraction = fixture(), model = buildModel(extraction);
+  const { records } = clientSheet(model);
+  assert.equal(records.filter(r => r.type === "Klient").length, 3);
+  const rows = records.filter(r => r.client === "2");
+  assert.ok(rows.length > 1, "long notes need explicit continuation rows");
+  assert.equal(rows[0].contracts, 1);
+  assert.equal(rows[0].collections, 2);
+  assert.equal(rows[0].years, "10");
+  assert.ok(rows.every((r, i) => r.part === i + 1 && r.parts === rows.length && r.last === "Two"));
+  const text = key => rows.map(r => r[key] || "").join("");
+  assert.match(text("details"), /ID odberu: 50/);
+  assert.match(text("details"), /ID odberu: 51/);
+  assert.match(text("details"), /29\.03\.2026 09:30:00/);
+  assert.match(text("paymentDetails"), /Saved old plan/);
+  assert.match(text("paymentDetails"), /Saved current plan/);
+  assert.match(text("paymentDetails"), /ID predpisu: 900/);
+  assert.match(text("paymentDetails"), /ID predpisu: 901/);
+  for (const row of extraction.notes[0].rows) assert.ok(text("noteDetails").includes(row.rem_note));
+  assert.equal((text("noteDetails").match(/ID zdrojového záznamu: rem_id=1000;/g) || []).length, 1);
+  const withoutContract = records.find(r => r.client === "1");
+  assert.equal(withoutContract.contracts, 0);
+  assert.doesNotMatch(withoutContract.noteDetails, /rem_id=1000/);
+  assert.equal(model.stats.client_note_links, 2);
+  assert.equal(records.filter(r => r.type === "Kontrola zdroja").length, model.controls.length);
+});
+test("a shared note is attributed once per proven client without multiplying other client details", () => {
+  const extraction = fixture();
+  extraction.notes[0].rows[0]._clients = "1,2";
+  const model = buildModel(extraction), { records } = clientSheet(model);
+  for (const id of ["1", "2"]) {
+    const text = records.filter(r => r.client === id).map(r => r.noteDetails || "").join("");
+    assert.ok(text.includes(extraction.notes[0].rows[0].rem_note));
+    assert.equal((text.match(/ID zdrojového záznamu: rem_id=1000;/g) || []).length, 1);
+  }
+  assert.equal(model.stats.notes, 2);
+  assert.equal(model.stats.client_note_links, 3);
+  extraction.notes[0].rows[0]._clients = "";
+  assert.throws(() => buildModel(extraction), { code: "NOTE_CLIENT_LINK_MISSING" });
+});
+test("note ownership reuses every original indirect scope and never guesses can_client_id", () => {
+  for (const spec of NOTES) {
+    const scoped = clientScope(spec.scope);
+    assert.doesNotMatch(scoped, /\bFROM (Cohort|Con|CS|SC|Pot)\b/);
+    assert.match(scoped, /nc\.(cli_id|per_id|pot_id)/);
+    assert.match(noteQuery(spec), /AS _clients/);
+  }
+  const remarks = clientScope(NOTES.find(s => s.table === "Remarks").scope);
+  assert.match(remarks, /oc\.cli_id=nc\.cli_id/);
+  assert.match(remarks, /op\.cnt_id/);
+  assert.match(remarks, /op\.cnt_id IS NOT NULL/);
+  const announcement = clientScope(NOTES.find(s => s.table === "CollectionAnnouncements").scope);
+  assert.doesNotMatch(announcement, /can_client_id/);
+  assert.match(announcement, /s\.sco_id/);
 });
 test("duplicate identity is rejected rather than arbitrarily choosing a person", () => {
   const extraction = fixture();
@@ -221,7 +281,7 @@ test("complete offline run creates a private validated workbook and aggregate-on
     assert.match(logs.join("\n"), /CBC_REPORT_OK/);
     assert.doesNotMatch(logs.join("\n"), /NOT_A_FORMULA|text with spaces|Saved old plan/);
     const wb = XLSX.readFile(result.file);
-    assert.equal(wb.SheetNames.length, 3);
+    assert.deepEqual(wb.SheetNames, ["Klienti 2026"]);
     assert.equal(fs.existsSync(path.join(path.dirname(result.file), "report.partial.xlsx")), false);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
