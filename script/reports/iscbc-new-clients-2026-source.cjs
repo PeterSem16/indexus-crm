@@ -3,8 +3,9 @@
 // SQL Server 2008 R2: SELECT-only CTEs, no temp tables or snapshot-setting changes.
 const crypto = require("node:crypto");
 const { COHORT } = require("./iscbc-new-clients-2026.cjs");
+const { scopedQuery } = require("./iscbc-new-clients-2026-scope.cjs");
 const CTE = `WITH Cohort AS (
-  SELECT c.cli_id,c.per_id,c.pot_id,c.com_id FROM dbo.Clients c WHERE ${COHORT}
+  SELECT c.cli_id,c.per_id,c.pot_id,c.com_id,c.cli_inserted FROM dbo.Clients c WHERE ${COHORT}
 ), Con AS (
   SELECT con.con_id,con.cli_id,con.pot_id FROM dbo.Contracts con
   WHERE con.cli_id IN (SELECT cli_id FROM Cohort)
@@ -254,16 +255,16 @@ function hasNote(text) {
   // Match SQL LEN/LTRIM/RTRIM semantics without trimming exported content.
   return text != null && String(text).replace(/^ +| +$/g, "").length > 0;
 }
-async function readAll(pool, progress = () => {}) {
+async function readAll(pool, progress = () => {}, options = {}) {
   const result = { data: {}, notes: [], fingerprints: {} };
   async function query(name, sql) {
     progress(name);
-    try { return (await pool.request().query(sql)).recordset; }
+    try { return (await pool.request().query(scopedQuery(sql, options.report))).recordset; }
     catch (error) { error.reportStage = name; throw error; }
   }
   for (const [name, sql] of DATA) {
     const rows = await query(name, `${CTE} ${sql}`);
-    result.data[name] = rows;
+    if (!options.fingerprintsOnly) result.data[name] = rows;
     result.fingerprints[name] = digest(rows);
   }
   for (const spec of NOTES) {
@@ -275,7 +276,7 @@ async function readAll(pool, progress = () => {}) {
         throw Object.assign(new Error(), { code: "NOTE_COUNT_MISMATCH", reportStage: spec.table });
       }
     });
-    result.notes.push({ spec, rows, counts: count });
+    if (!options.fingerprintsOnly) result.notes.push({ spec, rows, counts: count });
     result.fingerprints[`notes:${spec.table}`] = digest(rows);
     result.fingerprints[`counts:${spec.table}`] = digest([count]);
   }

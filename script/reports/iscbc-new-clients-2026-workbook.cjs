@@ -1,5 +1,6 @@
 "use strict";
 const { hasNote, digest } = require("./iscbc-new-clients-2026-source.cjs");
+const { inPeriod, reportDefinition } = require("./iscbc-new-clients-2026-scope.cjs");
 
 function check(condition, code) {
   if (!condition) throw Object.assign(new Error(code), { code });
@@ -115,7 +116,8 @@ const PAYMENT = [
   ["warning", "Význam a obmedzenia"],
 ];
 const NOTE = [
-  ["type", "Typ riadku"], ["source", "Zdroj"], ["id", "ID zdrojového záznamu"],
+  ["type", "Typ riadku"], ["client", "ID klienta"], ["first", "Meno"], ["last", "Priezvisko"],
+  ["source", "Zdroj"], ["id", "ID zdrojového záznamu"],
   ["field", "Zdrojové pole"], ["links", "Pôvodné väzby zdroja"], ["at", "Dostupný dátum", "date"],
   ["dateMeaning", "Význam dátumu"], ["author", "Dostupný autor"], ["part", "Časť textu"],
   ["parts", "Počet častí"], ["text", "Plný text poznámky / výsledok kontroly"],
@@ -254,6 +256,8 @@ function buildModel(extraction) {
   }
   const clientSet = new Set(main.map(r => r.client));
   const collectionSet = new Set(main.map(r => r.collection).filter(Boolean));
+  const collectionClients = new Set(main.filter(r => r.collection).map(r => r.client));
+  const periodClients = new Set(main.filter(r => inPeriod(r.actual)).map(r => r.client));
   check(clientSet.size === clients.size, "CLIENT_COVERAGE_MISMATCH");
   check(collectionSet.size === collections.size, "COLLECTION_COVERAGE_MISMATCH");
   const pairs = main.filter(r => r.collection).map(r => `${r.client}/${r.contract}/${r.collection}`);
@@ -262,7 +266,7 @@ function buildModel(extraction) {
   const stats = {
     clients: clients.size, marked_deleted: data.clients.filter(c => flag(c.cli_deleted)).length,
     no_contract: data.clients.filter(c => !contractGroups.has(c.cli_id)).length,
-    no_collection: data.clients.filter(c => !main.some(r => r.client === c.cli_id && r.collection)).length,
+    no_collection: data.clients.filter(c => !collectionClients.has(c.cli_id)).length,
     contracts: contracts.size, services: services.size, collections: collections.size,
     main_rows: main.length, payment_rows: payments.length, notes: noteCount,
     note_parts: noteRows.length, excluded_deleted_notes: excludedNotes,
@@ -271,6 +275,13 @@ function buildModel(extraction) {
     unknown_storage_period: data.services.filter(s => flag(s.ser_is_storable) &&
       billing(s, invoicing.get(s.sin_id) || []).years == null).length,
     missing_identity: data.clients.filter(c => !c.pda_id).length,
+    new_clients: data.clients.filter(c => inPeriod(c.cli_inserted)).length,
+    older_clients: data.clients.filter(c => c.cli_inserted && c.cli_inserted < "2026-01-01").length,
+    other_creation_clients: data.clients.filter(c => !c.cli_inserted || c.cli_inserted >= "2027-01-01").length,
+    period_clients: periodClients.size,
+    period_collections: data.collections.filter(c => inPeriod(c.sco_collection_made)).length,
+    outside_period_collections: data.collections.filter(c => c.sco_collection_made && !inPeriod(c.sco_collection_made)).length,
+    undated_collections: data.collections.filter(c => !c.sco_collection_made).length,
   };
   return { main, payments, notes: [...noteRows, ...controls], stats, controls };
 }
@@ -283,23 +294,26 @@ function textCell(value) {
 }
 function makeWorkbook(XLSX, model, metadata) {
   const wb = XLSX.utils.book_new();
-  const { columns: clientColumns, records: clientRecords } =
-    require("./iscbc-new-clients-2026-client-sheet.cjs").clientSheet(model);
+  const { clientOverview, clientNoteRows } = require("./iscbc-new-clients-2026-client-sheet.cjs");
+  const { columns: clientColumns, records: clientRecords } = clientOverview(model);
+  const noteRecords = clientNoteRows(model);
+  const report = reportDefinition(metadata.report);
   const shared = [
-    ["Report nových klientov ISCBC 2026", "Jeden list; všetky spoločnosti a krajiny CBC. Pri klientovi sú spolu všetky zmluvy, odbery, platobné podmienky a poznámky. Texty nad limit bunky pokračujú v očíslovaných riadkoch toho istého klienta; nejde o ďalšieho klienta."],
+    [report.title, "Tri listy: hlavný prehľad, platobné podmienky, poznámky. Všetky spoločnosti a krajiny CBC; bez iniciál."],
     ["Extrakcia – UTC", metadata.utc],
     ["Extrakcia – Europe/Bratislava", metadata.bratislava],
-    ["Rozsah", "Založenie klienta >= 01.01.2026 a < 01.01.2027. Rok ešte nie je uzavretý, ak čas extrakcie predchádza 01.01.2027."],
-    ["Úplnosť kohorty", `Klienti=${model.stats.clients}; bez zmluvy=${model.stats.no_contract}; bez odberu=${model.stats.no_collection}; označení odstránení=${model.stats.marked_deleted}.`],
+    ["Rozsah", report.selection + " Údaje dostupné v čase extrakcie; rok ešte nie je uzavretý, ak extrakcia predchádza 01.01.2027."],
+    ["Úplnosť kohorty", `Klienti=${model.stats.clients}; noví v roku 2026=${model.stats.new_clients}; starší=${model.stats.older_clients}; iné/chýbajúce založenie=${model.stats.other_creation_clients}; odbery v roku 2026=${model.stats.period_collections}; bez zmluvy=${model.stats.no_contract}; bez odberu=${model.stats.no_collection}; označení odstránení=${model.stats.marked_deleted}.`],
     ["Kontrola čítania", "Dve úplné čítania a nezávislé zdrojové počty súhlasili. Bez databázového snapshotu; údaje boli čítané postupne."],
-    ["Dátumy", "Dátové polia zachovávajú zdrojový čas bez priradenia časového pásma. Založenie zmluvy/odberu nie je dátum objednania."],
+    ["Dátumy a prehľad", "Zachované sú všetky väzby vybraného klienta vrátane histórie. Odbery mimo roku 2026 sú osobitne označené. Časť klienta = poradový detailný riadok klienta. Klientske súhrnné počty sa opakujú; nesčítavať ich cez detailné riadky. Dátumy zachovávajú zdrojový čas bez časového pásma; založenie záznamu nie je objednanie."],
     ["Platby", "Fakturačné obdobie nie je periodicita splátok ani potvrdenie úhrady. Historické plány sú oddelené; periodicita služby je aktuálny číselník."],
-    ["Poznámky", `Zdrojové poznámky=${model.stats.notes}; väzby na klientov=${model.stats.client_note_links}; vylúčené odstránené=${model.stats.excluded_deleted_notes}. Zdieľaná poznámka je pri každom preukázane prepojenom klientovi. Kontroly sú na konci tohto listu.`],
+    ["Poznámky", `Zdrojové poznámky=${model.stats.notes}; väzby na klientov=${model.stats.client_note_links}; vylúčené odstránené=${model.stats.excluded_deleted_notes}. Zdieľaná poznámka je pri každom preukázane prepojenom klientovi. Kontroly sú na konci listu Poznámky.`],
     ["Obmedzenia", metadata.limitations],
     ["Krajiny a spoločnosti", metadata.countries],
     ["Kontrolné počty", JSON.stringify(model.stats)],
   ];
-  const definitions = [["Klienti 2026", clientColumns, clientRecords]];
+  const definitions = [["Klienti a odbery", clientColumns, clientRecords],
+    ["Platobné podmienky", PAYMENT, model.payments], ["Poznámky", NOTE, noteRecords]];
   const expected = [];
   for (const [title, columns, records] of definitions) {
     const top = shared.map(row => row.map(textCell));
@@ -313,8 +327,7 @@ function makeWorkbook(XLSX, model, metadata) {
       ["warning", "links", "serviceNames", "dateMeaning"].includes(key) ? 55 : Math.min(36, Math.max(16, name.length + 2)) }));
     ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: header, c: 0 },
       e: { r: top.length - 1, c: columns.length - 1 } }) };
-    ws["!rows"] = top.map((_, i) => ({ hpt: i === header ? 48 : i < header ? 20 :
-      records[i - header - 1]?.type === "Kontrola zdroja" ? 24 : 90 }));
+    ws["!rows"] = top.slice(0, header + 1).map((_, i) => ({ hpt: i === header ? 48 : 20 }));
     XLSX.utils.book_append_sheet(wb, ws, title);
     expected.push({ title, cells: top, header, columns: columns.length });
   }

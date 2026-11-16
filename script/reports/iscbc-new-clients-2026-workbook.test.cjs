@@ -8,11 +8,14 @@ const {
   buildModel, makeWorkbook, verifyWorkbook, billing, paymentFrequency, collectionStatus,
   splitText, excelDate,
 } = require("./iscbc-new-clients-2026-workbook.cjs");
-const { clientSheet } = require("./iscbc-new-clients-2026-client-sheet.cjs");
+const { clientOverview, clientNoteRows } = require("./iscbc-new-clients-2026-client-sheet.cjs");
 const {
-  validateCounts, privateOutput, equalCounts, exportReport, COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES,
+  validateCounts, validateReportScope, privateOutput, equalCounts, exportReport, exportReports,
+  COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES,
 } = require("./iscbc-new-clients-2026-export.cjs");
 const { COHORT } = require("./iscbc-new-clients-2026.cjs");
+const { COLLECTION_COHORT, REPORTS, scopedQuery, inPeriod } = require("./iscbc-new-clients-2026-scope.cjs");
+const SHEETS = ["Klienti a odbery", "Platobné podmienky", "Poznámky"];
 
 function fixture() {
   const data = Object.fromEntries(DATA.map(([name]) => [name, []]));
@@ -116,57 +119,63 @@ test("overlapping note links export once, full long text survives numbered conti
   assert.ok(rows.every(r => r.text.length <= 30000 && !/[\ud800-\udbff]$/.test(r.text)));
   assert.equal(splitText("😀".repeat(20000)).join(""), "😀".repeat(20000));
 });
-test("workbook round-trip retains all client-linked data in exactly one filtered sheet without initials", () => {
+test("three filtered sheets retain typed dates, source detail and every requested overview column without initials", () => {
   const model = buildModel(fixture());
   const { wb, expected } = makeWorkbook(XLSX, model, { utc: "fixture", bratislava: "fixture",
     limitations: "synthetic fixture only", countries: "fixture" });
   const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx", compression: true });
   verifyWorkbook(XLSX, buffer, expected);
   const read = XLSX.read(buffer, { type: "buffer" });
-  assert.deepEqual(read.SheetNames, ["Klienti 2026"]);
-  const headers = XLSX.utils.sheet_to_json(read.Sheets["Klienti 2026"], { header: 1 })[13];
+  assert.deepEqual(read.SheetNames, SHEETS);
+  const headers = XLSX.utils.sheet_to_json(read.Sheets[SHEETS[0]], { header: 1 })[13];
   assert.ok(!headers.includes("Iniciály"));
-  assert.ok(headers.some(h => h.includes("platobné podmienky")));
-  assert.ok(headers.some(h => h.includes("poznámky")));
+  for (const label of ["Klient označený ako odstránený", "Časť klienta", "Počet častí klienta",
+    "Počet zmlúv", "Počet samostatných odberov", "Ročné / viacročné nastavenie",
+    "Roky fakturačného obdobia", "Periodicita splátok"]) assert.ok(headers.includes(label), label);
+  const dateColumn = headers.indexOf("Skutočný dátum odberu");
+  const date = Object.entries(read.Sheets[SHEETS[0]]).find(([address, cell]) =>
+    !address.startsWith("!") && XLSX.utils.decode_cell(address).r > 13 &&
+    XLSX.utils.decode_cell(address).c === dateColumn && cell.v != null)?.[1];
+  assert.equal(date.t, "n");
   for (const title of read.SheetNames) for (const [key, value] of Object.entries(read.Sheets[title])) {
     if (key.startsWith("!")) continue;
     assert.equal(value.f, undefined);
   }
 });
-test("one primary row per client keeps all contracts, collections, plans and complete note text together", () => {
+test("overview adds client summaries without letting notes or plans multiply collection rows", () => {
   const extraction = fixture(), model = buildModel(extraction);
-  const { records } = clientSheet(model);
-  assert.equal(records.filter(r => r.type === "Klient").length, 3);
+  const { records } = clientOverview(model);
+  assert.equal(records.filter(r => r.part === 1).length, 3);
+  assert.equal(records.length, model.main.length);
   const rows = records.filter(r => r.client === "2");
-  assert.ok(rows.length > 1, "long notes need explicit continuation rows");
   assert.equal(rows[0].contracts, 1);
   assert.equal(rows[0].collections, 2);
+  assert.equal(rows[0].periodCollections, 1);
   assert.equal(rows[0].years, "10");
   assert.ok(rows.every((r, i) => r.part === i + 1 && r.parts === rows.length && r.last === "Two"));
-  const text = key => rows.map(r => r[key] || "").join("");
-  assert.match(text("details"), /ID odberu: 50/);
-  assert.match(text("details"), /ID odberu: 51/);
-  assert.match(text("details"), /29\.03\.2026 09:30:00/);
-  assert.match(text("paymentDetails"), /Saved old plan/);
-  assert.match(text("paymentDetails"), /Saved current plan/);
-  assert.match(text("paymentDetails"), /ID predpisu: 900/);
-  assert.match(text("paymentDetails"), /ID predpisu: 901/);
-  for (const row of extraction.notes[0].rows) assert.ok(text("noteDetails").includes(row.rem_note));
-  assert.equal((text("noteDetails").match(/ID zdrojového záznamu: rem_id=1000;/g) || []).length, 1);
+  assert.equal(rows.filter(r => r.collection === "50").length, 1);
+  assert.equal(rows.find(r => r.collection === "50").inPeriod, "Áno");
+  assert.equal(rows.find(r => r.collection === "51").inPeriod, "Bez skutočného dátumu odberu");
+  assert.ok(rows.every(r => r.frequency.includes("Mesačné splátky")));
   const withoutContract = records.find(r => r.client === "1");
   assert.equal(withoutContract.contracts, 0);
-  assert.doesNotMatch(withoutContract.noteDetails, /rem_id=1000/);
+  assert.equal(withoutContract.parts, 1);
+  const noteRows = clientNoteRows(model);
+  for (const note of extraction.notes[0].rows) {
+    const parts = noteRows.filter(r => r.client === "2" && r.id?.startsWith(`rem_id=${note.rem_id};`));
+    assert.equal(parts.map(r => r.text).join(""), note.rem_note);
+  }
   assert.equal(model.stats.client_note_links, 2);
-  assert.equal(records.filter(r => r.type === "Kontrola zdroja").length, model.controls.length);
+  assert.equal(noteRows.filter(r => r.type === "Kontrola zdroja").length, model.controls.length);
 });
 test("a shared note is attributed once per proven client without multiplying other client details", () => {
   const extraction = fixture();
   extraction.notes[0].rows[0]._clients = "1,2";
-  const model = buildModel(extraction), { records } = clientSheet(model);
+  const model = buildModel(extraction), records = clientNoteRows(model);
   for (const id of ["1", "2"]) {
-    const text = records.filter(r => r.client === id).map(r => r.noteDetails || "").join("");
-    assert.ok(text.includes(extraction.notes[0].rows[0].rem_note));
-    assert.equal((text.match(/ID zdrojového záznamu: rem_id=1000;/g) || []).length, 1);
+    const parts = records.filter(r => r.client === id && r.id?.startsWith("rem_id=1000;"));
+    assert.equal(parts.map(r => r.text).join(""), extraction.notes[0].rows[0].rem_note);
+    assert.deepEqual(parts.map(r => r.part), [1, 2, 3]);
   }
   assert.equal(model.stats.notes, 2);
   assert.equal(model.stats.client_note_links, 3);
@@ -195,7 +204,8 @@ test("duplicate identity is rejected rather than arbitrarily choosing a person",
 });
 test("independent source counts and source stability must match", () => {
   const model = buildModel(fixture());
-  const counts = { clients: "3", contracts: "1", services: "4", collections: "2" };
+  const counts = { clients: "3", contracts: "1", services: "4", collections: "2",
+    new_clients: "3", older_clients: "0", other_creation_clients: "0", period_clients: "1", period_collections: "1" };
   const cohort = { clients: "3", marked_deleted: "1", no_contract: "2", no_collection: "2" };
   validateCounts(model, counts, cohort);
   assert.throws(() => validateCounts(model, { ...counts, clients: "4" }, cohort),
@@ -214,7 +224,7 @@ test("output lives in a fresh operator-private directory, with no static mount",
 test("source queries never write, fetch bank identities or join notes to installments", () => {
   const queries = [...DATA.map(([, sql]) => `${CTE} ${sql}`),
     ...NOTES.flatMap(spec => [noteQuery(spec), noteQuery(spec, true)])];
-  for (const sql of queries) {
+  for (const sql of queries.flatMap(sql => Object.keys(REPORTS).map(key => scopedQuery(sql, key)))) {
     assert.match(sql.trim(), /^WITH\b/);
     assert.doesNotMatch(sql, /\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP|EXEC|MERGE|TRUNCATE|INTO)\b/i);
     assert.doesNotMatch(sql, /\b(pda_id_number|pda_id_card|pda_IBAN|pda_birth_date|rpa_from_account_number)\b/i);
@@ -242,9 +252,27 @@ test("source note count disagreement blocks export", async () => {
   await assert.rejects(readAll(pool), { code: "NOTE_COUNT_MISMATCH" });
 });
 
-function fixturePool(changeDuringSecondRead = false) {
-  const extraction = fixture(), queries = new Map();
-  for (const [name, sql] of DATA) queries.set(`${CTE} ${sql}`, extraction.data[name]);
+function collectionFixture() {
+  const extraction = fixture(), d = extraction.data;
+  d.clients = d.clients.filter(c => c.cli_id !== "3");
+  d.clients[1].cli_inserted = "2025-12-31 23:59:59.997";
+  d.contracts.push({ con_id: "20", cli_id: "1", con_number: "000002", cur_code: "EUR" });
+  d.services.push(
+    { cse_id: "200", con_id: "20", sco_id: "52", sin_id: "5", ser_is_collectable: true },
+    { cse_id: "201", con_id: "10", sco_id: "53", sin_id: "5", ser_is_collectable: true },
+    { cse_id: "202", con_id: "10", sco_id: "54", sin_id: "5", ser_is_collectable: true },
+  );
+  d.collections.push(
+    { sco_id: "52", sco_collection_made: "2026-01-01 00:00:00.000" },
+    { sco_id: "53", sco_collection_made: "2025-12-31 23:59:59.997" },
+    { sco_id: "54", sco_collection_made: "2027-01-01 00:00:00.000" },
+  );
+  return extraction;
+}
+function fixturePool(changeDuringSecondRead = false, report = "new_clients", extraction = fixture()) {
+  const queries = new Map(), d = extraction.data, model = buildModel(extraction);
+  const put = (sql, rows) => queries.set(scopedQuery(sql, report), rows);
+  for (const [name, sql] of DATA) put(`${CTE} ${sql}`, extraction.data[name]);
   for (const spec of NOTES) {
     const present = extraction.notes.find(n => n.spec.table === spec.table);
     const rows = present?.rows || [], counts = {};
@@ -252,12 +280,14 @@ function fixturePool(changeDuringSecondRead = false) {
       counts[`n${i}`] = String(rows.filter(r => hasNote(r[f])).length);
       counts[`d${i}`] = present?.counts[`d${i}`] || "0";
     });
-    queries.set(noteQuery(spec), rows);
-    queries.set(noteQuery(spec, true), [counts]);
+    put(noteQuery(spec), rows);
+    put(noteQuery(spec, true), [counts]);
   }
-  queries.set(COUNTS, [{ clients: "3", contracts: "1", services: "4", collections: "2" }]);
-  queries.set(COHORT_COUNTS, [{ clients: "3", marked_deleted: "1", no_person: "0", no_contract: "2", no_collection: "2" }]);
-  queries.set(ANNOUNCEMENT_CANDIDATES, [{ unverified_note_links: "0" }]);
+  put(COUNTS, [Object.fromEntries(["clients", "contracts", "services", "collections", "new_clients",
+    "older_clients", "other_creation_clients", "period_clients", "period_collections"].map(k => [k, String(model.stats[k])]))]);
+  put(COHORT_COUNTS, [{ clients: String(d.clients.length), marked_deleted: String(model.stats.marked_deleted),
+    no_person: "0", no_contract: String(model.stats.no_contract), no_collection: String(model.stats.no_collection) }]);
+  put(ANNOUNCEMENT_CANDIDATES, [{ unverified_note_links: "0" }]);
   let clientReads = 0;
   return { request: () => ({ query: async sql => {
     if (sql.startsWith("SELECT CONVERT(varchar(23),GETUTCDATE(),121)")) {
@@ -265,7 +295,7 @@ function fixturePool(changeDuringSecondRead = false) {
     }
     assert.ok(queries.has(sql), "Unexpected synthetic query");
     let rows = queries.get(sql);
-    if (sql === `${CTE} ${DATA[0][1]}` && ++clientReads === 2 && changeDuringSecondRead) {
+    if (sql === scopedQuery(`${CTE} ${DATA[0][1]}`, report) && ++clientReads === 2 && changeDuringSecondRead) {
       rows = rows.map((r, i) => i === 0 ? { ...r, pda_first_name: "changed synthetic value" } : r);
     }
     return { recordset: rows };
@@ -281,9 +311,85 @@ test("complete offline run creates a private validated workbook and aggregate-on
     assert.match(logs.join("\n"), /CBC_REPORT_OK/);
     assert.doesNotMatch(logs.join("\n"), /NOT_A_FORMULA|text with spaces|Saved old plan/);
     const wb = XLSX.readFile(result.file);
-    assert.deepEqual(wb.SheetNames, ["Klienti 2026"]);
+    assert.deepEqual(wb.SheetNames, SHEETS);
+    assert.equal(path.basename(result.file), "novi-klienti-2026.xlsx");
     assert.equal(fs.existsSync(path.join(path.dirname(result.file), "report.partial.xlsx")), false);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+test("two cohort predicates use different verified dates without rewriting independent year counts", () => {
+  assert.match(COLLECTION_COHORT, /EXISTS/);
+  assert.match(COLLECTION_COHORT, /rsc\.sco_collection_made >= '20260101'/);
+  assert.match(COLLECTION_COHORT, /rsc\.sco_collection_made < '20270101'/);
+  assert.doesNotMatch(COLLECTION_COHORT, /cli_inserted|con_inserted|cancelled|deleted|country/i);
+  const sql = scopedQuery(COUNTS, "collection_clients");
+  assert.match(sql, /WHERE c\.cli_inserted >= '20260101'\s+AND c\.cli_inserted < '20270101'\) AS new_clients/);
+  assert.doesNotMatch(sql, /CBC_REPORT_COHORT/);
+  for (const value of ["2026-01-01 00:00:00.000", "2026-12-31 23:59:59.997"]) assert.ok(inPeriod(value));
+  for (const value of [null, "2025-12-31 23:59:59.997", "2027-01-01 00:00:00.000"]) assert.equal(inPeriod(value), false);
+  assert.throws(() => scopedQuery(COUNTS, "unknown"), { code: "UNKNOWN_REPORT_SCOPE" });
+  assert.throws(() => validateReportScope(buildModel(fixture()), "collection_clients"), { code: "REPORT_COHORT_MISMATCH" });
+  assert.throws(() => validateReportScope(buildModel(collectionFixture()), "new_clients"), { code: "REPORT_COHORT_MISMATCH" });
+});
+test("collection cohort includes older and new clients and labels historical collections separately", () => {
+  const model = buildModel(collectionFixture());
+  validateReportScope(model, "collection_clients");
+  assert.equal(model.stats.clients, 2);
+  assert.equal(model.stats.new_clients, 1);
+  assert.equal(model.stats.older_clients, 1);
+  assert.equal(model.stats.period_clients, 2);
+  assert.equal(model.stats.period_collections, 2);
+  assert.equal(model.stats.outside_period_collections, 2);
+  assert.equal(model.stats.undated_collections, 1);
+  const { records } = clientOverview(model);
+  assert.equal(records.find(r => r.client === "2").newClient, "Nie");
+  assert.equal(records.find(r => r.client === "1").newClient, "Áno");
+  assert.equal(records.find(r => r.collection === "52").inPeriod, "Áno");
+  assert.equal(records.find(r => r.collection === "53").inPeriod, "Nie – mimo roku 2026");
+  assert.equal(records.find(r => r.collection === "54").inPeriod, "Nie – mimo roku 2026");
+});
+function bothFixturePool(failSecond = false) {
+  const first = fixturePool(), second = fixturePool(failSecond, "collection_clients", collectionFixture());
+  return { request: () => ({ query: sql => (sql.includes("rsc.sco_collection_made") ? second : first).request().query(sql) }) };
+}
+test("one run creates two distinct private workbooks with three sheets and truthful cohort metadata", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cbc-both-success-")), logs = [];
+  try {
+    const results = await exportReports(bothFixturePool(), process.cwd(), line => logs.push(line), { home });
+    assert.deepEqual(results.map(r => path.basename(r.file)), ["novi-klienti-2026.xlsx", "klienti-s-odberom-2026.xlsx"]);
+    assert.equal(new Set(results.map(r => r.file)).size, 2);
+    assert.equal(results[0].stats.clients, 3);
+    assert.equal(results[1].stats.clients, 2);
+    assert.equal(results[1].stats.older_clients, 1);
+    for (const [i, result] of results.entries()) {
+      assert.equal(fs.statSync(result.file).mode & 0o777, 0o600);
+      assert.equal(fs.statSync(path.dirname(result.file)).mode & 0o777, 0o700);
+      const wb = XLSX.readFile(result.file);
+      assert.deepEqual(wb.SheetNames, SHEETS);
+      assert.match(wb.Sheets[SHEETS[0]].B4.v, i ? /sco_collection_made/ : /cli_inserted/);
+    }
+    assert.equal(logs.filter(l => l === "CBC_REPORT_OK").length, 2);
+    assert.equal(logs.at(-1), "CBC_REPORTS_OK");
+    assert.doesNotMatch(logs.join("\n"), /NOT_A_FORMULA|text with spaces|Saved old plan/);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+test("second-report instability retains the valid first report but never claims both succeeded", async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cbc-both-partial-")), logs = [];
+  try {
+    await assert.rejects(exportReports(bothFixturePool(true), process.cwd(), line => logs.push(line), { home }),
+      { code: "SOURCE_CHANGED_RETRY_EXPORT", reportKey: "collection_clients" });
+    const dirs = fs.readdirSync(home);
+    assert.equal(dirs.length, 1);
+    assert.deepEqual(fs.readdirSync(path.join(home, dirs[0])), ["novi-klienti-2026.xlsx"]);
+    assert.equal(logs.filter(l => l === "CBC_REPORT_OK").length, 1);
+    assert.ok(!logs.includes("CBC_REPORTS_OK"));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+test("verification reads retain fingerprints, not a second copy of client data or notes", async () => {
+  const result = await readAll(fixturePool(), () => {}, { fingerprintsOnly: true });
+  assert.deepEqual(result.data, {});
+  assert.deepEqual(result.notes, []);
+  assert.ok(result.fingerprints.clients);
+  assert.ok(result.fingerprints["notes:Remarks"]);
 });
 test("a source edit between reads produces no output file or success message", async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "cbc-report-change-")), logs = [];

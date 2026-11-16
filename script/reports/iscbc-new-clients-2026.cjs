@@ -4,6 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { COHORT } = require("./iscbc-new-clients-2026-scope.cjs");
 
 function fail(code) {
   throw Object.assign(new Error(code), { code });
@@ -40,7 +41,6 @@ function loadConfig(root, env = process.env, read = fs.readFileSync) {
   };
 }
 
-const COHORT = "c.cli_inserted >= '20260101' AND c.cli_inserted < '20270101'";
 const SERVICE_SCOPE = `FROM dbo.ContractServices cs
   JOIN dbo.Contracts con ON con.con_id=cs.con_id
   JOIN dbo.Clients c ON c.cli_id=con.cli_id`;
@@ -154,7 +154,7 @@ async function inspect(pool, root, output = console.log) {
 async function main() {
   let pool, stage = "ARGUMENTS";
   try {
-    if (process.argv.length !== 3 || !["--inspect", "--export"].includes(process.argv[2])) fail("USE_INSPECT_OR_EXPORT");
+    if (process.argv.length !== 3 || !["--inspect", "--export", "--export-both"].includes(process.argv[2])) fail("USE_INSPECT_OR_EXPORT");
     const root = "/var/www/indexus-crm";
     stage = "OPERATOR_PATH";
     if (fs.realpathSync(process.cwd()) !== root) fail("WRONG_DIRECTORY");
@@ -164,9 +164,11 @@ async function main() {
     const cfg = loadConfig(root);
     stage = "CONNECTION";
     pool = await new sql.ConnectionPool(cfg).connect();
-    if (process.argv[2] === "--export") {
+    if (process.argv[2] === "--export" || process.argv[2] === "--export-both") {
       stage = "EXPORT";
-      await require("./iscbc-new-clients-2026-export.cjs").exportReport(pool, root);
+      const exporter = require("./iscbc-new-clients-2026-export.cjs");
+      if (process.argv[2] === "--export-both") await exporter.exportReports(pool, root);
+      else await exporter.exportReport(pool, root);
       return;
     }
     stage = "INSPECTION";
@@ -175,7 +177,8 @@ async function main() {
     if (failures) process.exitCode = 1;
   } catch (error) {
     const detail = /^[A-Za-z0-9_.:]+$/.test(error.reportStage || "") ? ` SECTION=${error.reportStage}` : "";
-    console.error(`CBC_REPORT_FAILED STAGE=${stage}${detail} ${safeError(error)}`);
+    const report = /^[a-z_]+$/.test(error.reportKey || "") ? ` REPORT=${error.reportKey}` : "";
+    console.error(`CBC_REPORT_FAILED STAGE=${stage}${report}${detail} ${safeError(error)}`);
     process.exitCode = 1;
   } finally {
     if (pool) await pool.close().catch(() => {});

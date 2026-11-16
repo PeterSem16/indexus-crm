@@ -6,12 +6,25 @@ const crypto = require("node:crypto");
 const { CTE, readAll } = require("./iscbc-new-clients-2026-source.cjs");
 const { INSPECTION } = require("./iscbc-new-clients-2026.cjs");
 const { buildModel, makeWorkbook, verifyWorkbook, check } = require("./iscbc-new-clients-2026-workbook.cjs");
+const { REPORTS, reportDefinition, scopedQuery } = require("./iscbc-new-clients-2026-scope.cjs");
 
 const COUNTS = `${CTE} SELECT
   (SELECT COUNT_BIG(*) FROM Cohort) AS clients,
   (SELECT COUNT_BIG(*) FROM Con) AS contracts,
   (SELECT COUNT_BIG(*) FROM CS) AS services,
-  (SELECT COUNT_BIG(*) FROM SC) AS collections`;
+  (SELECT COUNT_BIG(*) FROM SC) AS collections,
+  (SELECT COUNT_BIG(*) FROM Cohort c WHERE c.cli_inserted >= '20260101'
+    AND c.cli_inserted < '20270101') AS new_clients,
+  (SELECT COUNT_BIG(*) FROM Cohort c WHERE c.cli_inserted < '20260101') AS older_clients,
+  (SELECT COUNT_BIG(*) FROM Cohort c WHERE c.cli_inserted IS NULL
+    OR c.cli_inserted >= '20270101') AS other_creation_clients,
+  (SELECT COUNT_BIG(*) FROM dbo.ServiceCollections pc WHERE pc.sco_id IN (SELECT sco_id FROM SC)
+    AND pc.sco_collection_made >= '20260101' AND pc.sco_collection_made < '20270101') AS period_collections,
+  (SELECT COUNT_BIG(*) FROM Cohort c WHERE EXISTS(
+    SELECT 1 FROM dbo.Contracts pc JOIN dbo.ContractServices ps ON ps.con_id=pc.con_id
+    JOIN dbo.ServiceCollections psc ON psc.sco_id=ps.sco_id
+    WHERE pc.cli_id=c.cli_id AND psc.sco_collection_made >= '20260101'
+      AND psc.sco_collection_made < '20270101')) AS period_clients`;
 const ANNOUNCEMENT_CANDIDATES = `${CTE} SELECT COUNT_BIG(*) AS unverified_note_links
   FROM dbo.CollectionAnnouncements s
   WHERE s.can_client_id IN (SELECT cli_id FROM Cohort)
@@ -27,37 +40,49 @@ function equalCounts(first, second) {
     Object.keys(first).every(k => String(first[k]) === String(second[k]));
 }
 function validateCounts(model, counts, cohort) {
-  for (const key of ["clients", "contracts", "services", "collections"]) {
+  for (const key of ["clients", "contracts", "services", "collections", "new_clients",
+    "older_clients", "other_creation_clients", "period_collections", "period_clients"]) {
     check(model.stats[key] === Number(counts[key]), "SOURCE_COUNT_MISMATCH");
   }
   for (const key of ["clients", "marked_deleted", "no_contract", "no_collection"]) {
     check(model.stats[key] === Number(cohort[key]), "COHORT_COUNT_MISMATCH");
   }
 }
-function privateOutput(home = os.homedir()) {
+function validateReportScope(model, key) {
+  const report = reportDefinition(key);
+  check(model.stats.new_clients + model.stats.older_clients + model.stats.other_creation_clients ===
+    model.stats.clients, "CREATION_YEAR_COUNT_MISMATCH");
+  if (report.key === "new_clients") check(model.stats.new_clients === model.stats.clients, "REPORT_COHORT_MISMATCH");
+  else check(model.stats.period_clients === model.stats.clients, "REPORT_COHORT_MISMATCH");
+}
+function privateOutput(home = os.homedir(), filename = REPORTS.new_clients.filename) {
+  check(Object.values(REPORTS).some(report => report.filename === filename), "INVALID_REPORT_FILENAME");
   const dir = fs.mkdtempSync(path.join(home, "iscbc-clients-2026-"));
   fs.chmodSync(dir, 0o700);
   check((fs.statSync(dir).mode & 0o777) === 0o700, "PRIVATE_DIRECTORY_MODE");
-  return { dir, partial: path.join(dir, "report.partial.xlsx"), file: path.join(dir, "klienti-2026.xlsx") };
+  return { dir, partial: path.join(dir, "report.partial.xlsx"), file: path.join(dir, filename) };
 }
 async function exportReport(pool, root, output = console.log, options = {}) {
+  const report = reportDefinition(options.report);
   const XLSX = require(require.resolve("xlsx", { paths: [root] }));
   let files;
   async function single(query, name) {
-    try { return (await pool.request().query(query)).recordset[0]; }
+    try { return (await pool.request().query(scopedQuery(query, report.key))).recordset[0]; }
     catch (error) { error.reportStage = name; throw error; }
   }
   try {
+    output("REPORT_START=" + report.key);
     const start = await single(SOURCE_TIME, "SOURCE_TIME");
     const counts = await single(COUNTS, "SOURCE_COUNTS");
     const cohort = await single(COHORT_COUNTS, "COHORT_COUNTS");
     const uncertain = await single(ANNOUNCEMENT_CANDIDATES, "UNVERIFIED_ANNOUNCEMENTS");
     output("CBC_EXPORT_READ_STARTED");
-    const extraction = await readAll(pool, name => output("READ=" + name));
+    const extraction = await readAll(pool, name => output("READ=" + name), { report: report.key });
     const model = buildModel(extraction);
     validateCounts(model, counts, cohort);
+    validateReportScope(model, report.key);
     output("CBC_EXPORT_SECOND_READ_STARTED");
-    const verification = await readAll(pool);
+    const verification = await readAll(pool, () => {}, { report: report.key, fingerprintsOnly: true });
     check(equalCounts(extraction.fingerprints, verification.fingerprints), "SOURCE_CHANGED_RETRY_EXPORT");
     const finalCounts = await single(COUNTS, "FINAL_COUNTS");
     const finalCohort = await single(COHORT_COUNTS, "FINAL_COHORT");
@@ -81,6 +106,7 @@ async function exportReport(pool, root, output = console.log, options = {}) {
       "Textové poznámky zostali úplné; môžu prirodzene obsahovať osobné údaje. Súbor uchovávajte súkromne.",
     ];
     const metadata = {
+      report: report.key,
       utc: `${start.utc_time} UTC až ${end.utc_time} UTC`,
       bratislava: new Intl.DateTimeFormat("sk-SK", {
         timeZone: "Europe/Bratislava", dateStyle: "medium", timeStyle: "long",
@@ -92,7 +118,7 @@ async function exportReport(pool, root, output = console.log, options = {}) {
     output("CBC_EXPORT_WORKBOOK_VALIDATING");
     const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx", compression: true });
     verifyWorkbook(XLSX, buffer, expected);
-    files = privateOutput(options.home);
+    files = privateOutput(options.home, report.filename);
     const fd = fs.openSync(files.partial, "wx", 0o600);
     try { fs.writeFileSync(fd, buffer); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
     check((fs.statSync(files.partial).mode & 0o777) === 0o600, "PRIVATE_FILE_MODE");
@@ -111,6 +137,7 @@ async function exportReport(pool, root, output = console.log, options = {}) {
     output("CBC_REPORT_OK");
     return { file: files.file, stats: model.stats };
   } catch (error) {
+    error.reportKey = report.key;
     if (files) {
       for (const file of [files.partial, files.file]) {
         try { fs.unlinkSync(file); } catch (e) { if (e.code !== "ENOENT") error.code = "PRIVATE_CLEANUP_FAILED"; }
@@ -120,4 +147,15 @@ async function exportReport(pool, root, output = console.log, options = {}) {
     throw error;
   }
 }
-module.exports = { exportReport, validateCounts, privateOutput, equalCounts, COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES };
+async function exportReports(pool, root, output = console.log, options = {}) {
+  const reports = [];
+  // Sequential runs share the one-connection pool; each file has its own
+  // extraction window, stable-read checks, independent counts and private path.
+  for (const report of Object.keys(REPORTS)) {
+    reports.push(await exportReport(pool, root, output, { ...options, report }));
+  }
+  output("CBC_REPORTS_OK");
+  return reports;
+}
+module.exports = { exportReport, exportReports, validateCounts, validateReportScope,
+  privateOutput, equalCounts, COUNTS, COHORT_COUNTS, ANNOUNCEMENT_CANDIDATES };
