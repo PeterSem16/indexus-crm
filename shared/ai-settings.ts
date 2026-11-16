@@ -1,4 +1,5 @@
 /** Public, secret-free AI administration contract. */
+export const EMAIL_MONITORING_MODEL = "indexus-email-monitoring:v1";
 export type AIProvider = "openai" | "internal";
 export type AIServiceRoute = { provider: AIProvider; model: string | null; enabled: boolean };
 export interface AIGatewaySettings {

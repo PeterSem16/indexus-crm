@@ -1,8 +1,14 @@
 /** Gateway v1 text contract. Never include provider payloads in error messages. */
+import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
 export class InternalAIError extends Error {
   constructor(readonly code: string, readonly status = 502) { super(code); }
 }
 export const INTERNAL_TEXT_MODELS = Object.freeze(["indexus-document-audio:latest"]);
+/** A service-scoped grant, never a global model allowlist expansion. */
+export function internalModelsForService(service?: string, baseline = INTERNAL_TEXT_MODELS): readonly string[] {
+  const original = baseline.filter(model => model !== EMAIL_MONITORING_MODEL);
+  return service === "email.monitoring" ? [...original, EMAIL_MONITORING_MODEL] : original;
+}
 export const INTERNAL_REQUEST_LIMIT = 512 * 1024;
 export const INTERNAL_RESPONSE_LIMIT = 2 * 1024 * 1024;
 const record = (value: any): value is Record<string, any> =>

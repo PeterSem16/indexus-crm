@@ -3,7 +3,8 @@ import type { AIClientOptions, AIProviderAdapter } from "./openai-adapter";
 import { aiAdminSnapshot } from "./admin-runtime";
 import type { AIGatewaySettings } from "../../../shared/ai-settings";
 import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
-  validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
+  internalModelsForService, validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
+import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -26,13 +27,15 @@ function environmentConfiguration(): InternalAIConfiguration {
     token: process.env.INDEXUS_AI_GATEWAY_TOKEN,
   };
 }
-function configuration(input: InternalAIConfiguration) {
+function configuration(input: InternalAIConfiguration, emailProfile = false) {
   if (input.replit || !input.production) throw new InternalAIError("ai_internal_production_only", 503);
   if (!input.enabled) throw new InternalAIError("ai_internal_disabled", 503);
   if (!input.baseURL || !input.token?.trim()) throw new InternalAIError("ai_internal_configuration_missing", 503);
   let base: URL;
   try { base = new URL(input.baseURL); } catch { throw new InternalAIError("ai_internal_invalid_url", 503); }
-  if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash ||
+  // The sole plaintext exception is the explicitly approved private Email Monitoring endpoint.
+  if ((base.protocol !== "https:" && !(emailProfile && base.href === EMAIL_MONITORING_PROFILE.baseURL)) ||
+    base.username || base.password || base.search || base.hash ||
     ["8765", "8766", "8780", "11434"].includes(base.port) ||
     input.token !== input.token.trim() || /\s/.test(input.token))
     throw new InternalAIError("ai_internal_invalid_configuration", 503);
@@ -102,11 +105,11 @@ export function createInternalAIAdapter(dependencies: {
       throw new InternalAIError("ai_internal_invalid_content_type", 502);
     try { return JSON.parse(text); } catch { throw new InternalAIError("ai_internal_invalid_json_response", 502); }
   }
-  async function discover(config: Configuration, signal?: AbortSignal | null) {
+  async function discover(config: Configuration, signal?: AbortSignal | null, permitted = allowed) {
     await request(config, "health/ready", signal);
     const models = await request(config, "v1/models", signal);
     const capabilities = await request(config, "indexus/v1/capabilities", signal);
-    return validateInternalDiscovery(models, capabilities, allowed);
+    return validateInternalDiscovery(models, capabilities, permitted);
   }
   const adapter: AIProviderAdapter & {
     runtimeStatus(): { production: boolean; replit: boolean; serverAllowed: boolean; tokenConfigured: boolean };
@@ -123,8 +126,9 @@ export function createInternalAIAdapter(dependencies: {
     isAvailable() {
       try { configuration(readConfiguration()); return true; } catch { return false; }
     },
-    createClient(options: AIClientOptions) {
+    createClient(options: AIClientOptions, context?: { service: import("./service-catalog").AIService }) {
       const config = configuration(readConfiguration());
+      const permitted = internalModelsForService(context?.service, allowed);
       const managed = dependencies.readSettings?.() ??
         (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
       const sdk = new OpenAI({
@@ -138,15 +142,18 @@ export function createInternalAIAdapter(dependencies: {
               init?.method !== "POST" || typeof init?.body !== "string")
               throw new InternalAIError("ai_internal_unsupported_operation", 422);
             const body = JSON.parse(init.body);
-            const spec = validateInternalRequest(body, allowed);
-            const models = await discover(config, init.signal);
+            const spec = validateInternalRequest(body, permitted);
+            const target = context?.service === EMAIL_MONITORING_PROFILE.service &&
+              spec.model === EMAIL_MONITORING_PROFILE.model
+              ? configuration({ ...readConfiguration(), baseURL: EMAIL_MONITORING_PROFILE.baseURL }, true) : config;
+            const models = await discover(target, init.signal, permitted);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
             if (!model.outputFormats.includes(spec.format))
               throw new InternalAIError("ai_internal_output_format_unavailable", 422);
             if (spec.maxTokens !== undefined && model.maxOutputTokens !== null && spec.maxTokens > model.maxOutputTokens)
               throw new InternalAIError("ai_internal_token_limit_exceeded", 422);
-            const result = await request(config, "v1/chat/completions", init.signal, init.body);
+            const result = await request(target, "v1/chat/completions", init.signal, init.body);
             return jsonResponse(validateInternalCompletion(result, spec));
           } catch (error) {
             if (init?.signal?.aborted) throw abortError();
@@ -157,12 +164,18 @@ export function createInternalAIAdapter(dependencies: {
       });
       const create = sdk.chat.completions.create.bind(sdk.chat.completions);
       sdk.chat.completions.create = ((body: unknown, options?: unknown) => {
-        if (managed && body && typeof body === "object") body = { ...body,
+        const dedicated = context?.service === EMAIL_MONITORING_PROFILE.service &&
+          (body as any)?.model === EMAIL_MONITORING_PROFILE.model;
+        if (dedicated) body = { ...(body as object),
+          temperature: EMAIL_MONITORING_PROFILE.temperature, max_tokens: EMAIL_MONITORING_PROFILE.max_tokens,
+          response_format: EMAIL_MONITORING_PROFILE.response_format, stream: EMAIL_MONITORING_PROFILE.stream,
+        };
+        else if (managed && body && typeof body === "object") body = { ...body,
           ...(managed.temperature !== null ? { temperature: managed.temperature } : {}),
           ...(managed.maxTokens !== null ? { max_tokens: managed.maxTokens } : {}),
         };
         // Synchronous capability rejection preserves the SDK APIPromise without wrapping it.
-        validateInternalRequest(body, allowed);
+        validateInternalRequest(body, permitted);
         return create(body as any, options as any);
       }) as typeof sdk.chat.completions.create;
       return sdk;

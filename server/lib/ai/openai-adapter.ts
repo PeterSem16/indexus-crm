@@ -1,10 +1,11 @@
 import OpenAI, { type ClientOptions } from "openai";
+import type { AIService } from "./service-catalog";
 
 export type AIClientOptions = Pick<ClientOptions, "timeout" | "maxRetries">;
 export interface AIProviderAdapter {
   readonly id: "openai" | "internal";
   isAvailable(): boolean;
-  createClient(options: AIClientOptions): OpenAI;
+  createClient(options: AIClientOptions, context?: { service: AIService }): OpenAI;
   chatProbe(body: Record<string, unknown>): Promise<Response>;
 }
 

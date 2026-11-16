@@ -67,7 +67,8 @@ export function registerAISettingsRoutes(app: Express, dependencies: Dependencie
       if (route.provider === "internal" && route.enabled) {
         assertInternalRuntime(internal);
         if (!state.value.gateway.enabled || req.body.confirmInternal !== true ||
-          !freshSmoke(state.gatewayCheck, state.version)) throw new AISettingsError("verification_required", 409);
+          !freshSmoke(state.gatewayCheck, state.version, Date.now(), route.model!))
+          throw new AISettingsError("verification_required", 409);
       }
       return { ...state.value, routes: { ...state.value.routes, [service]: route } };
     });

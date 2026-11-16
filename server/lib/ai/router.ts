@@ -127,7 +127,8 @@ export function createAIRouter(settings: {
       initialize();
       let sdk: OpenAI | undefined;
       const getSDK = (provider: "openai" | "internal" = "openai") =>
-        sdk ||= adapters.get(provider)!.createClient(options);
+        sdk ||= provider === "internal" ? adapters.get(provider)!.createClient(options, { service }) :
+          adapters.get(provider)!.createClient(options);
       // Rollback delegates straight to the original provider, without overrides or request telemetry.
       if (mode === "legacy") return getSDK();
       // A disabled globally-created client must not prevent unrelated services/server startup.
