@@ -1,0 +1,38 @@
+{
+  "decision": "APPROVED_FOR_ISOLATED_INFERENCE",
+  "reviewer": "Independent AI evaluator (not human)",
+  "corpusSha256": "2c2cd2d79198ab078492bf6e1bef9c1350f366b139ce37e1198abe1a5543915a",
+  "policySha256": "630bfecc94fd01a09fd2a55f019920ebe8415b6740908f34152c73cc8f0bc6d2",
+  "reviewedCases": 100,
+  "reviewedFields": 800,
+  "beforeInference": true,
+  "sourceRequestSha256": "b2bedf7cfecf6e23d6bac89fdd6cb899b0c93a0dba3ee36376d87d9323adcb2d",
+  "ambiguousIds": [
+    "SYN-B17-022",
+    "SYN-B17-025",
+    "SYN-B17-028",
+    "SYN-B17-030",
+    "SYN-B17-052",
+    "SYN-B17-053",
+    "SYN-B17-055",
+    "SYN-B17-056",
+    "SYN-B17-058",
+    "SYN-B17-060",
+    "SYN-B17-082",
+    "SYN-B17-084",
+    "SYN-B17-087",
+    "SYN-B17-090",
+    "SYN-B17-091",
+    "SYN-B17-094",
+    "SYN-B17-097",
+    "SYN-B17-099"
+  ],
+  "reviewedAtUtc": "2026-11-16T13:50:16Z",
+  "limitations": [
+    "18 cases contain 35 unresolved reference fields. Their null labels are retained; unresolved references preclude PASS under B17_POLICY.",
+    "The Slovak-language quality of generated notes cannot be reviewed before inference; it requires independent post-run linguistic assessment, not a heuristic.",
+    "B17 inputs are distinct from exact normalized B14 inputs, but some reuse the same broad intent scenarios by design.",
+    "No network access, model inference, or production operation was performed."
+  ],
+  "rationale": "Reviewed all 100 synthetic SK/CS/EN/HU cases and all 800 reference fields against the B1.7 brief, existing email-monitoring system prompt and eight-field contract, and inherited B1.6 distinctions. Explicit unconditional agreement is labeled as consent; conditional or context-dependent intent remains false only when the message clearly withholds present consent, and null where intent is genuinely ambiguous. Explicit current-service cancellation is labeled true with critical alert; information requests, quotations, and explicit negations are not cancellations, while indirect or contradictory intent remains null. Rejection of a new offer is distinguished from cancellation of an existing service and follows the inherited negative sentiment/warning convention. Objective complaints retain the inherited critical alert. Anger, rude/disrespectful language, and profanity are treated as distinct dimensions; quoted phrases are not attributed as the sender's intent. SYN-B17-092 now correctly has wantsConsent=true: it explicitly assents to the second item, while saying that assent is not to the contract; the system prompt defines consent broadly as agreeing to something. Ambiguity remains explicit, and the approval authorizes only isolated inference, not a PASS conclusion or production use."
+}

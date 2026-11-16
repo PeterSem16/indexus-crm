@@ -90,6 +90,7 @@ export function executeB13(options: EmailPilotOptions) {
 export async function executeEmailPilot(options: EmailPilotOptions, definition: {
   phase: string; corpus: readonly { id: string; category: string; input: string; expected: any }[];
   corpusSha256: string; evaluate: typeof evaluateB13 | ((rows: any[], safe: boolean | null, interrupted: boolean) => any);
+  recordTiming?: boolean;
   decorate?: (report: any) => void;
 }) {
   const prefix = definition.phase.replace(".", "");
@@ -120,7 +121,9 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       const c = definition.corpus[i];
       report.rows[i].state = "RUNNING";
       save();
-      const single = await executeB12({ ...options, claimOnce() {}, pilotCase: { ...c, phase: definition.phase },
+      const start = performance.now();
+      const single = await executeB12({ ...options, claimOnce() {}, pilotCase: { ...c, phase: definition.phase,
+        expected: Object.fromEntries(Object.entries(c.expected).filter(([, v]) => v !== null)) as any },
         beforeInference() {
           report.rows[i].state = "INFERENCE_STARTED";
           report.rows[i].inferenceAttempts = 1;
@@ -134,6 +137,7 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
         inferenceAttempts: single.inferenceAttempts, cloudCalls: single.cloudCalls,
         transportTraces: single.transportTraces, production: single.production,
         startedAtUtc: single.startedAtUtc, finishedAtUtc: single.finishedAtUtc,
+        ...(definition.recordTiming ? { processingMs: performance.now() - start } : {}),
       };
       const safe = single.production?.beforeMatchesOriginal === true &&
         single.production?.afterMatchesOriginal === true && single.production?.unchangedDuringCheck === true;
@@ -146,7 +150,7 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
     }
     report.complete = report.rows.every((r: any) => r.verdict !== "NOT_RUN");
   } catch (error: any) {
-    report.error = /^B(?:12|13|14|15|16)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
+    report.error = /^B(?:12|13|14|15|16|17)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
   } finally {
     try {
       report.after = await options.readSnapshot();

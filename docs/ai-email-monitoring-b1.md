@@ -1,6 +1,65 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.6 — prísny regresný test
+## Aktuálne zadanie B1.7 — nezávislá validácia
+
+100 nových zmrazených syntetických e-mailov, 10 kategórií po 10 prípadoch,
+slovenčina, čeština, angličtina a maďarčina. Žiadny vstup sa presne nezhoduje
+s normalizovaným historickým B1.3–B1.6 korpusom; scenáre sú zámerne z rovnakej
+domény. Nejde o dôkaz, že interný server nikdy nevidel podobný text zo svojho
+tréningu. Runner nevykonáva tréning ani neodosiela referenčné odpovede;
+z toho nevyplýva audit interných tréningových dát alebo logovania AI servera.
+
+Samostatný **AI hodnotiteľ, nie človek**, pred inferenciou skontroloval všetkých
+100 prípadov a 800 polí. Pred schválením opravil význam súhlasu v jednom
+prípade: pôvodný CRM prompt definuje `wantsConsent` ako súhlas s niečím, nielen
+so zmluvou. Žiadna oprava nevychádzala z odpovede testovaného modelu.
+Schválenie v `b17-review.json` viaže hash korpusu, politiky aj pôvodného CRM
+promptu; chýbajúca alebo nezhodná kontrola blokuje inferenciu.
+
+Korpus SHA-256:
+`2c2cd2d79198ab078492bf6e1bef9c1350f366b139ce37e1198abe1a5543915a`.
+Je v ňom **35 nerozhodnutých referenčných polí v 18 prípadoch**. Hodnota `null`
+neznamená ani úspech, ani chybu modelu. Vstupy a referencie zostávajú po behu
+nemenné. Automatický report uvádza správne/chybné/nerozhodnuté/nespustené
+polia, dolnú a hornú hranicu presnosti zo všetkých **800 polí / 100 prípadov**
+a osobitne presnosť rozhodnutých polí. Hodnotenie sa nesmie „zlepšiť“
+odstránením nejednoznačných prípadov z hlavného menovateľa.
+
+Akceptácia: ≥98 % polí, ≥95 % celých prípadov, žiadna zo štyroch kritických
+chýb, 100/100 technicky úspešných odpovedí a nulový cloud fallback.
+Známe porušenie je FAIL. Nevyhodnotené referencie, neúplné dôkazy alebo
+neschválená slovenčina poznámok vedú k REVIEW_REQUIRED, nie k PASS.
+`note` sa kontroluje na prítomnosť, neprázdny reťazec a limit 100 znakov
+vrátane prísnejšieho existujúceho limitu CRM v UTF-16. Slovenský jazyk musí
+po behu nezávisle posúdiť hodnotiteľ; nepoužíva sa heuristické automatické
+potvrdenie ani samohodnotenie testovaným modelom. Zatiaľ preto ani ideálny
+automatizovaný beh nie je finálnym PASS. Následné posúdenie patrí do oddeleného
+dôkazu, nikdy do prepísaného surového reportu či gold korpusu.
+
+Spustenie `prepare-console.cjs <PIN> --run-b17` nepotrebuje cestu ako parameter.
+Read-only vyhľadá skutočný dokončený report B1.6 v existujúcom viditeľnom
+adresári, nezávisle prepočíta jeho skóre a overí vstupy, výstupy, konfiguráciu
+a produkčné snapshoty. Historický klasifikačný FAIL je platným podkladom;
+technicky neoverený/chýbajúci/nejednoznačný podklad blokuje test.
+Predošlé fázy sa nikdy automaticky neopakujú.
+
+Nové súbory vo viditeľnom `/home/seman/INDEXUS-Email-Monitoring/B17-run-*/`:
+`B17_report.md`, `B17_evidence.json`, `B17_failures.json`. Všetky sa atómovo
+aktualizujú priebežne; pokus sa uloží pred odoslaním. Najviac 100 jednotlivých
+postupných inferencií bez retry, warmupu, fallbacku či úpravy modelovej odpovede.
+Každý prípad zachová surový JSON, výsledok skutočného parsera, osem kontrol,
+stav poznámky, HTTP/discovery/inferenčné dôkazy, pokusy, cloud volania a čas.
+Čas je end-to-end cez CRM vrátane discovery a read-only snapshotov, nie GPU-only.
+Súhrn uvádza priemer, medián, p95, minimum a maximum skutočne meraných prípadov.
+Porovnanie s B1.6 rozlišuje známy regresný a nový validačný korpus; netvrdí
+párové opravy/regresie na rozdielnych vstupoch.
+
+Rovnaký CRM prompt/router/adaptér/parser, kanonické HTTPS, model `v1`,
+temperature 0.1, max_tokens 200, json_object, stream=false.
+Gateway=false, 65 OpenAI služieb, modelOverrides=0, nulové produkčné zápisy,
+notifikácie aj zmeny AI servera. Žiadne prepnutie ani pri PASS.
+
+## Predchádzajúce zadanie B1.6 — prísny regresný test
 
 B1.6 používa identickú zmrazenú sadu B1.5/B1.4: 35 vstupov a 280
 očakávaní, rovnaký systémový prompt, kanonické HTTPS, model a parametre.
