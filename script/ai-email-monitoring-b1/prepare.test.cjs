@@ -5,11 +5,50 @@ const os = require("node:os");
 const path = require("node:path");
 const cp = require("node:child_process");
 const crypto = require("node:crypto");
-const { assertRuntime } = require("./runtime.cjs");
+const { assertRuntime, classifyTarget } = require("./runtime.cjs");
+const { checkDiscovery } = require("./discovery.cjs");
 const { prepareArtifacts, launchArguments, processEnvironment } = require("./prepare-console.cjs");
 const valid = () => ({ NODE_ENV: "production", INDEXUS_AI_GATEWAY_ENABLED: "true",
   INDEXUS_AI_ROUTER_MODE: "routed", INDEXUS_AI_GATEWAY_BASE_URL: "https://ai.cordbloodcenter.com/gateway/",
   INDEXUS_AI_GATEWAY_TOKEN: "SYNTHETIC_RUNTIME_TEST_TOKEN" });
+test("read-only discovery sends exactly three HTTPS GETs without model inference or credential output", async () => {
+  const calls = [], token = "SYNTHETIC_DISCOVERY_SECRET";
+  const result = await checkDiscovery({ token, fetch: async (url, init) => {
+    calls.push({ url, init });
+    if (url.endsWith("health/ready")) return new Response(null);
+    if (url.endsWith("v1/models")) return Response.json({ data: [{ id: "indexus-email-monitoring:v1" }], ignored: token });
+    return Response.json({ apiVersion: "1", models: [{ id: "indexus-email-monitoring:v1",
+      maxOutputTokens: 200, inputModalities: ["text"], operations: ["chat.completions"], outputFormats: ["json_object"] }] });
+  } });
+  assert.equal(calls.length, 3);
+  assert.ok(calls.every(c => c.url.startsWith("https://ai.cordbloodcenter.com/gateway/") &&
+    c.init.method === "GET" && c.init.redirect === "error" && c.init.body === undefined));
+  assert.equal(result.error, null); assert.equal(result.inferenceCalls, 0);
+  assert.equal(result.declaredMaxOutputTokens, 200);
+  assert.equal(JSON.stringify(result).includes(token), false);
+});
+test("read-only discovery stops on redirect and reports absent models rather than inventing capabilities", async () => {
+  let calls = 0;
+  const blocked = await checkDiscovery({ token: "SYNTHETIC", fetch: async () => {
+    calls++; return new Response(null, { status: 301 });
+  } });
+  assert.equal(calls, 1); assert.equal(blocked.error, "B1_DISCOVERY_HTTP_ERROR");
+  const missing = await checkDiscovery({ token: "SYNTHETIC", fetch: async url =>
+    url.endsWith("health/ready") ? new Response(null) : Response.json({ data: [], models: [] }) });
+  assert.equal(missing.error, "B1_DISCOVERY_MODEL_UNAVAILABLE");
+  assert.equal(missing.declaredMaxOutputTokens, null);
+});
+test("B1 permits exactly three canonical HTTPS checks and the single private HTTP inference URL", () => {
+  for (const p of ["health/ready", "v1/models", "indexus/v1/capabilities"])
+    assert.equal(classifyTarget("https://ai.cordbloodcenter.com/gateway/" + p), "DISCOVERY");
+  assert.equal(classifyTarget("http://10.9.2.140/gateway/v1/chat/completions"), "INFERENCE");
+  for (const url of ["http://10.9.2.140/gateway/health/ready",
+    "https://ai.cordbloodcenter.com/gateway/v1/chat/completions",
+    "http://10.9.2.140/gateway/v1/chat/completions?redirect=1",
+    "http://10.9.2.140/gateway/v1/models",
+    "https://example.org/gateway/health/ready"])
+    assert.throws(() => classifyTarget(url), /B1_UNEXPECTED_TARGET/);
+});
 test("valid existing preload output is checked without mutation or exposing a token", () => {
   const env = valid(), before = { ...env };
   assertRuntime(env);

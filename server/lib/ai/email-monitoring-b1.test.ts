@@ -20,7 +20,7 @@ const valid = { sentiment: "neutral", hasInappropriateContent: false, hasAngryTo
   hasRudeExpressions: false, wantsToCancel: false, wantsConsent: false,
   doesNotAcceptContract: false, alertLevel: "none", note: "Syntetická analýza." };
 function harness(options: { reply?: unknown; httpStatus?: number; noOverride?: boolean;
-  offline?: boolean; managed?: boolean; unavailableModel?: boolean; capTokens?: number } = {}) {
+  offline?: boolean; managed?: boolean; unavailableModel?: boolean; capTokens?: number; discoveryStatus?: number } = {}) {
   const calls: { url: string; init?: RequestInit }[] = [];
   const openaiRequests: any[] = [];
   const fakeOpenAI: any = { id: "openai", isAvailable: () => true,
@@ -36,7 +36,7 @@ function harness(options: { reply?: unknown; httpStatus?: number; noOverride?: b
       calls.push({ url: String(url), init });
       if (options.offline) throw Error("SYNTHETIC_PRIVATE_ERROR");
       const pathname = new URL(String(url)).pathname.replace("/gateway/", "");
-      if (pathname === "health/ready") return new Response(null);
+      if (pathname === "health/ready") return new Response(null, { status: options.discoveryStatus ?? 200 });
       if (pathname === "v1/models") return Response.json({ object: "list", data: options.unavailableModel ? [] : [{ id: profile.model }] });
       if (pathname === "indexus/v1/capabilities") return Response.json({ apiVersion: "1", models: [{
         id: profile.model, revision: "SYN-B1", operations: ["chat.completions"], inputModalities: ["text"],
@@ -60,7 +60,14 @@ test("isolated route uses the exact B1 endpoint/model/parameters and unchanged o
   assert.deepEqual(await h.analyze(B1_EMAIL_CASES[0].content), valid);
   assert.equal(h.openaiRequests.length, 0);
   assert.equal(h.calls.length, 4);
-  assert.ok(h.calls.every(call => call.url.startsWith(profile.baseURL) && call.init?.redirect === "error"));
+  assert.ok(h.calls.every(call => call.init?.redirect === "error"));
+  assert.deepEqual(h.calls.slice(0, 3).map(call => call.url), [
+    "https://ai.cordbloodcenter.com/gateway/health/ready",
+    "https://ai.cordbloodcenter.com/gateway/v1/models",
+    "https://ai.cordbloodcenter.com/gateway/indexus/v1/capabilities",
+  ]);
+  assert.ok(h.calls.slice(0, 3).every(call => call.init?.method === "GET"));
+  assert.equal(h.calls[3].init?.method, "POST");
   const sent = JSON.parse(String(h.calls.at(-1)!.init!.body));
   assert.equal(h.calls.at(-1)!.url, "http://10.9.2.140/gateway/v1/chat/completions");
   assert.equal(sent.model, profile.model);
@@ -69,6 +76,14 @@ test("isolated route uses the exact B1 endpoint/model/parameters and unchanged o
   const original = harness({ noOverride: true }); await original.analyze(B1_EMAIL_CASES[0].content);
   assert.equal(JSON.stringify(sent.messages), JSON.stringify(original.openaiRequests[0].messages));
   assert.ok(h.calls.every(call => new Headers(call.init?.headers).get("authorization") === `Bearer ${token}`));
+});
+test("a discovery redirect stops B1 before private inference and never enables cloud fallback", async () => {
+  const h = harness({ discoveryStatus: 301 });
+  await assert.rejects(h.analyze("SYNTHETIC EMAIL"));
+  assert.equal(h.calls.length, 1);
+  assert.equal(h.calls[0].url, "https://ai.cordbloodcenter.com/gateway/health/ready");
+  assert.equal(h.calls[0].init?.redirect, "error");
+  assert.equal(h.openaiRequests.length, 0);
 });
 test("production defaults remain OpenAI, Gateway remains off, all 64 other service routes stay unchanged", async () => {
   assert.deepEqual(AI_ROUTING_OVERRIDES, {});

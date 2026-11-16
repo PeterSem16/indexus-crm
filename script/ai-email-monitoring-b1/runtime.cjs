@@ -8,4 +8,11 @@ function assertRuntime(env) {
       !/^[\x21-\x7e]{16,8192}$/.test(env.INDEXUS_AI_GATEWAY_TOKEN))
     throw Error("B1_EXISTING_RUNTIME_PRELOAD_REQUIRED");
 }
-module.exports = { assertRuntime };
+function classifyTarget(input) {
+  const url = String(input);
+  if (url === "http://10.9.2.140/gateway/v1/chat/completions") return "INFERENCE";
+  if (["health/ready", "v1/models", "indexus/v1/capabilities"]
+    .some(p => url === "https://ai.cordbloodcenter.com/gateway/" + p)) return "DISCOVERY";
+  throw Error("B1_UNEXPECTED_TARGET");
+}
+module.exports = { assertRuntime, classifyTarget };

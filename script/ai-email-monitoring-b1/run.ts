@@ -18,7 +18,7 @@ import { diagnose, declarationsFrom, errorIdentity } from "../ai-gateway-c1/diag
 import { analyzeSource, bindAnalyzer } from "./source.cjs";
 import { B1_EMAIL_CASES } from "./corpus";
 import { createTestTable, verifyPersistence } from "./persistence";
-import { assertRuntime } from "./runtime.cjs";
+import { assertRuntime, classifyTarget } from "./runtime.cjs";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
 const ROOT = "/var/www/indexus-crm";
 const hash = (v: any) => crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
@@ -158,13 +158,14 @@ async function main() {
           baseURL: "https://ai.cordbloodcenter.com/gateway/" }),
         fetch: (async (input: any, init: any) => {
           const url = new URL(String(input));
-          if (!url.href.startsWith(profile.baseURL)) fail("B1_UNEXPECTED_TARGET");
-          const stage = url.pathname.endsWith("/chat/completions") ? "INFERENCE" : "DISCOVERY";
+          const stage = classifyTarget(url.href);
+          if (init.redirect !== "error" || init.method !== (stage === "INFERENCE" ? "POST" : "GET"))
+            fail("B1_UNEXPECTED_TRANSPORT_OPTIONS");
           if (stage === "INFERENCE") attempt.request = JSON.parse(init.body);
           let response: Response;
           try { response = await fetch(input, init); }
           catch (error) {
-            attempt.transportTraces.push({ stage, transportError: errorIdentity(error), aborted: !!init.signal?.aborted });
+             attempt.transportTraces.push({ stage, transportError: errorIdentity(error), aborted: !!init.signal?.aborted });
             throw error;
           }
           attempt.transportTraces.push({ stage, status: response.status });

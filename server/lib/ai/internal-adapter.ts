@@ -146,7 +146,9 @@ export function createInternalAIAdapter(dependencies: {
             const target = context?.service === EMAIL_MONITORING_PROFILE.service &&
               spec.model === EMAIL_MONITORING_PROFILE.model
               ? configuration({ ...readConfiguration(), baseURL: EMAIL_MONITORING_PROFILE.baseURL }, true) : config;
-            const models = await discover(target, init.signal, permitted);
+            // Discovery stays on the configured HTTPS Gateway. Only the
+            // dedicated model's inference uses the approved private HTTP path.
+            const models = await discover(config, init.signal, permitted);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
             if (!model.outputFormats.includes(spec.format))

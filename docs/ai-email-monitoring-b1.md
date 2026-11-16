@@ -29,11 +29,15 @@ injektovanom izolovanom routeri, nie v produkčnom singleton-e.
   overiteľný kontext služby priamo z routera. Nový model je v allowliste len
   pre `email.monitoring`, nie pre iné služby či neviazaný priamy klient.
 - Profil nastaví uvedený endpoint a wire parametre iba pre tento model
-  v tejto službe. Globálne parametre ani endpoint sa nemenia. Iné interné
+   v tejto službe. Globálne parametre ani endpoint sa nemenia. Iné interné
   služby zostávajú na pôvodnej HTTPS ceste a pôvodnom modeli.
 - HTTP je explicitná výnimka pre presný súkromný endpoint; prenos nie je
   šifrovaný. Redirecty sú zakázané. Nejde o všeobecné povolenie HTTP,
   vypnutie TLS kontroly ani prístup na Audio Analyzer/Ollama.
+- Kontroly `health/ready`, `v1/models` a `indexus/v1/capabilities` zostávajú
+  na existujúcej konfigurovanej HTTPS Gateway (v B1 na kanonickej doméne).
+  Iba `POST /gateway/v1/chat/completions` pre vyhradený model používa súkromné
+  HTTP. Runner povoľuje presne tieto štyri URL a zakazuje presmerovania na všetkých.
 - Pôvodný systémový prompt aj celý pôvodný SDK request v monitoringovej
   službe ostávajú bajtovo nezmenené. Wire JSON formát a model aplikuje iba
   interný adaptér; OpenAI request sa nemení.
@@ -118,6 +122,14 @@ existujúce `node_modules`. Nemení pracovnú kópiu CRM. Samostatný child proc
 nastaví `NODE_ENV=production`, overí preload a až potom spustí test.
 Blokovaný preload je tvrdý stop; runner nesmie použiť záložný token z `.env`.
 
+Pred novým živým behom možno samostatne spustiť `discovery.cjs` s rovnakým
+preloadom a vedľa uloženým `runtime.cjs`. Vykoná iba tri HTTPS GET kontroly.
+Nevytvára marker, nepristupuje do DB a neposiela inferenčný request.
+Výpis obsahuje iba stavy a deklarácie vyhradeného modelu, nie token ani obsah
+odpovedí. Úspech tejto kontroly nie je úspech celého B1 ani dôkaz sémantiky.
+Pôvodný výsledok a jednorazový marker zachovať; príprava opravy neoprávňuje
+ich vymazanie ani automatické opakovanie celého testu.
+
 Runner:
 
 1. Overí host, UID, pôvodný request/prompt a zakáže zníženie TLS ochrany.
@@ -128,8 +140,8 @@ Runner:
 4. Vykoná 8 anonymných syntetických prípadov. Rozlišuje žiadosť o potvrdenie
    prijatia, potvrdenie prijatia, skutočný súhlas, odmietnutie, zrušenie,
    odložené rozhodnutie a citovaný súhlas bez vlastného súhlasu.
-5. Použije dohodnuté readiness/models/capabilities kontrakty aj na tejto
-   Gateway ceste. Ak nový model nie je deklarovaný alebo limit nestačí,
+5. Použije dohodnuté readiness/models/capabilities kontrakty cez kanonické
+   HTTPS. Ak nový model nie je deklarovaný alebo limit nestačí,
    bezpečne zastaví pred inferenciou; nezníži 200 ani nezmení model.
 6. Uchová samostatne request, modelový obsah, adaptér, parser, deklarované
    limity a výsledky sémantických kontrol. Neukladá hlavičky ani raw výnimky.
