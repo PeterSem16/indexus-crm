@@ -99,7 +99,7 @@ existujúci používateľ `seman` na CORPCRM01:
 
 ```bash
 cd /var/www/indexus-crm
-node --require /etc/indexus-ai-runtime/preload.cjs \
+NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs \
   "$HOME/indexus-email-monitoring-b1/run-b1.cjs" --run-b1
 ```
 
@@ -109,6 +109,14 @@ neprepisovať `.env`, PM2 ani konfiguráciu Gateway. Výstup vráti iba
 Vrátiť tento JSON alebo súhrn, nie súbor s prihlasovacími údajmi.
 Ak preload chýba alebo token nie je dostupný, ide o blokátor; žiadny token
 negenerovať, neposielať do chatu ani obchádzať kontrolu.
+
+Pozor: doručenie ZIPu do chatu neznamená, že bol rozbalený na CORPCRM01.
+`MODULE_NOT_FOUND` na uvedenej ceste znamená, že treba najprv pripraviť súbor.
+Alternatívne `prepare-console.cjs <PIN_COMMITU>` načíta iba pripnuté testovacie
+zdroje cez `git archive`, zostaví ich v súkromnom domovskom adresári a použije
+existujúce `node_modules`. Nemení pracovnú kópiu CRM. Samostatný child proces
+nastaví `NODE_ENV=production`, overí preload a až potom spustí test.
+Blokovaný preload je tvrdý stop; runner nesmie použiť záložný token z `.env`.
 
 Runner:
 

@@ -18,6 +18,7 @@ import { diagnose, declarationsFrom, errorIdentity } from "../ai-gateway-c1/diag
 import { analyzeSource, bindAnalyzer } from "./source.cjs";
 import { B1_EMAIL_CASES } from "./corpus";
 import { createTestTable, verifyPersistence } from "./persistence";
+import { assertRuntime } from "./runtime.cjs";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
 const ROOT = "/var/www/indexus-crm";
 const hash = (v: any) => crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
@@ -76,12 +77,13 @@ async function main() {
       os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01") fail("B1_CORPCRM01_ONLY");
   if (process.getuid?.() !== 1001) fail("B1_RUN_AS_SEMAN");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("B1_TLS_VERIFICATION_REQUIRED");
+  assertRuntime(process.env);
   const liveSource = analyzeSource(path.join(ROOT, "server/lib/email-monitoring-service.ts"));
   if (liveSource.requestSha256 !== B1_PREPARED_SOURCE.requestSha256) fail("B1_ORIGINAL_REQUEST_CHANGED");
   const env = dotenvParse(fs.readFileSync(path.join(ROOT, ".env")));
   for (const key of ["DATABASE_URL", "INDEXUS_AI_GATEWAY_TOKEN"])
     if (process.env[key] && env[key] && process.env[key] !== env[key]) fail("B1_RUNTIME_ENV_CONFLICT");
-  const token = process.env.INDEXUS_AI_GATEWAY_TOKEN || env.INDEXUS_AI_GATEWAY_TOKEN;
+  const token: string = process.env.INDEXUS_AI_GATEWAY_TOKEN || fail("B1_EXISTING_TOKEN_REQUIRED");
   const connectionString = process.env.DATABASE_URL || env.DATABASE_URL;
   if (!token || /\s/.test(token)) fail("B1_EXISTING_TOKEN_REQUIRED");
   if (!connectionString) fail("B1_DATABASE_CONFIGURATION_REQUIRED");
