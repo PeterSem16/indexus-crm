@@ -1,6 +1,41 @@
 # B1 — izolovaná integrácia Email Monitoring
 
-## Aktuálne zadanie B1.4 — regresný test
+## Aktuálne zadanie B1.5 — finálny regresný test
+
+Opakuje celú nemennú sadu B1.4: 35 identických objektov, 280 rovnakých
+klasifikačných očakávaní. Žiadne nové prípady, prepisy očakávaní, CRM promptu
+alebo opravy výstupu. Zachováva kanonické HTTPS, model ID a parametre.
+Samostatne porovnáva SYN-B13-18, 20, 26, 28, 29, 30 a SYN-B14-32, 34.
+
+Pred prvou inferenciou potrebuje oba skutočné podklady. B1.3 sa načíta
+z argumentu `evidence.json`. Dokončený B1.4 sa read-only vyhľadá iba v
+`/home/seman/INDEXUS-Email-Monitoring/B14-run-*/evidence.json`. Overí sa
+vlastník, súkromné oprávnenia, neprítomnosť symlinkov, korpus, prompt,
+surové JSON odpovede, presnosť, bezpečnostné počítadlá a nadväznosť
+na pôvodný B1.3 hash aj produkčné snapshoty.
+Klasifikačný FAIL B1.4 je prípustný historický podklad; neúplný,
+technicky neoveriteľný, pozmenený alebo chýbajúci podklad nie.
+Viac odlišných dokončených B1.4 reportov znamená zastavenie, nie odhad
+podľa najnovšieho času. Zhodné kópie sa deduplikujú podľa obsahu.
+
+Spustenie: `prepare-console.cjs <PIN> --run-b15 <B1.3 evidence.json>`.
+Samostatný balík a nový marker B1.5 zachovajú všetky staré behy.
+Výstup je vo viditeľnom `/home/seman/INDEXUS-Email-Monitoring/B15-run-*/`.
+Príkaz nevykonáva opätovný B1.3/B1.4 test ani žiadnu doplnkovú inferenciu.
+
+Report obsahuje výsledky všetkých 35 prípadov, osem zvýraznených prípadov,
+celkovú aj oddelenú presnosť 240/40 polí, všetky zostávajúce odchýlky,
+opravy a regresie proti B1.3 (iba pôvodných 30) aj proti B1.4 (všetkých 35).
+Pre päť hraničných prípadov sa nevymýšľajú historické B1.3 odpovede.
+Kritické chyby sa porovnajú samostatne vo všetkých troch fázach.
+Nulové falošné súhlasy/zrušenia, rozpoznanie každého zrušenia, `critical`
+pri explicitných zrušeniach/sťažnostiach, 35 HTTP 200 a platných JSON
+odpovedí, nulový fallback a nezmenená produkcia zostávajú tvrdé podmienky.
+Pôvodná 90 % hranica sa naďalej kontroluje osobitne na 240 pôvodných poliach.
+Bez overiteľného dokončeného živého behu výsledok nie je PASS.
+Ani PASS neaktivuje produkčné smerovanie.
+
+## Predchádzajúce zadanie B1.4 — regresný test
 
 B1.4 opakuje presne pôvodných 30 vstupov a všetkých 240 očakávaní B1.3.
 Pridáva päť vopred definovaných hraničných prípadov (40 ďalších očakávaní);
