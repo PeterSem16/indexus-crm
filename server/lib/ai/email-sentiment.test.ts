@@ -14,6 +14,8 @@ import { AI_ROUTING_OVERRIDES } from "../../config/ai-routing";
 import { GATEWAY_URL, DEFAULT_AI_SETTINGS, parseRoute } from "./settings-policy";
 import { createSentimentTestRouter } from "../../../script/ai-email-sentiment/test-configuration";
 import { sentimentCorpus } from "../../../script/ai-email-sentiment/corpus";
+import { regressionCases } from "../../../script/ai-email-sentiment/regression-corpus";
+import { evaluateRegression } from "../../../script/ai-email-sentiment/regression-evaluator";
 
 const require = createRequire(import.meta.url);
 const { extract, RECIPES, replay } = require("../../../script/ai-gateway-c1/replay.cjs");
@@ -53,8 +55,8 @@ function application(router: ReturnType<typeof createSentimentTestRouter>["route
   { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText;
   new vm.Script(js).runInContext(context, { timeout: 1000 });
   return {
-    analyze: async (content = "SYNTHETIC_PRIVATE_EMAIL") =>
-      JSON.parse(JSON.stringify(await context.analyze(content, "synthetic subject"))),
+    analyze: async (content = "SYNTHETIC_PRIVATE_EMAIL", subject = "synthetic subject") =>
+      JSON.parse(JSON.stringify(await context.analyze(content, subject))),
     business: () => context.business(),
     effects: () => effects, logs,
   };
@@ -373,3 +375,44 @@ for (const [name, status] of [["adapter-unavailable", 503], ["ollama-unavailable
       assert.ok(!JSON.stringify(h.app.logs).includes("PRIVATE_UPSTREAM_DETAILS"));
     } finally { await h.close(); }
   });
+
+for (const row of regressionCases) test(`original ${row.id}: synthetic HTTP transport, not live-model accuracy`, async () => {
+  // Unspecified fields below are fixture output, never extra reference expectations.
+  const output = { ...valid, ...row.expected, note: "Syntetická odpoveď pre test prenosu." };
+  const h = await harness((call, response) => {
+    if (!call.path.endsWith("/chat/completions")) return;
+    assert.equal(call.body.messages.at(-1).content,
+      `Analyze this email:\n\nSubject: ${row.subject}\n\nContent: ${row.content}`);
+    send(response, envelope(output));
+    return true;
+  });
+  try {
+    const result = await h.app.analyze(row.content, row.subject);
+    assert.deepEqual(result, output);
+    assert.equal(evaluateRegression(row.id, result, {
+      // These approvals concern only the known constant synthetic note above.
+      noteSlovak: true, noteDoesNotClaimCancellation: true,
+    }).status, "PASS");
+    assert.equal(h.calls.filter(call => call.path.endsWith("/chat/completions")).length, 1);
+    assert.equal(h.externalCalls(), 0);
+  } finally { await h.close(); }
+});
+
+test("original K12 can safely reject through the actual SDK without a fabricated nine-field answer", async () => {
+  const row = regressionCases.find(row => row.id === "K12")!;
+  const h = await harness((call, response) => {
+    if (!call.path.endsWith("/chat/completions")) return;
+    send(response, { error: { type: "review_required", code: "review_required",
+      message: "REVIEW_REQUIRED: possible prompt injection affected consent classification" } }, 422);
+    return true;
+  });
+  try {
+    const result = await h.app.analyze(row.content, row.subject);
+    const evaluation = evaluateRegression(row.id, result);
+    assert.equal(evaluation.status, "SAFE_REJECTION");
+    assert.equal(evaluation.classificationValid, false);
+    assert.deepEqual(evaluation.checkedFields, []);
+    assert.equal("wantsConsent" in result, false);
+    assert.equal(h.externalCalls(), 0);
+  } finally { await h.close(); }
+});

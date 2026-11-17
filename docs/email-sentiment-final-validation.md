@@ -47,18 +47,33 @@ Aktuálny výsledok rozšírenej sady a merania sú odovzdané samostatne;
 - Žiadny test nenahrádza pôvodných 18 prípadov. Nevznikol nový referenčný
   korpus vydávaný za pôvodné prípady AI tímu.
 
+### Doplnenie po dodaní pôvodného korpusu
+
+Pôvodných 18 správ a čiastkové referencie už boli dodané a sú v
+`script/ai-email-sentiment/regression-corpus.ts`. Korpus preto už nie je
+blokátorom. Nová sada má **80 PASS / 0 FAIL / 0 SKIP**; zahŕňa pôvodných
+37 sentimentových kontrol a 43 nových kontrol. Nie je to ďalších
+80 testov pripočítateľných k historickým 136.
+
+Nové kontroly zahŕňajú všetkých 18 vstupov cez pôvodný CRM analyzátor,
+Router, SDK a lokálny HTTP fixture server, aj samostatnú bezpečnú vetvu K12.
+Sú to výsledky testovania kódu so syntetickými odpoveďami, nie výsledok
+18 živých modelových inferencií. Podrobnosti sú v
+`docs/email-sentiment-regression-results.md`; neschválené návrhy trasy a
+záťaže sú v `docs/email-sentiment-test-proposals.md`.
+
 ## Akceptačná tabuľka
 
 | Kritérium | Stav | Dôkaz / chýbajúci podklad |
 |---|---|---|
 | Kompletná cesta CRM → testovacia Gateway → adaptér → Ollama | NEOVERENÉ | Chýba schválená dosiahnuteľná testovacia trasa z CORPCRM01. |
-| Pôvodných 18 prípadov a referencií | NEOVERENÉ | Nie sú súčasťou odovzdaných súborov. Nenahrádzať ich vlastným korpusom. |
+| Pôvodných 18 prípadov a referencií | DODANÉ | Zachované pôvodné čiastkové referencie; živé modelové odpovede ešte nie sú namerané. |
 | Service-scoped model, pôvodný prompt, striktný parser | OVERENÉ IZOLovane | Existujúca integrácia a automatizované fixture testy. |
 | Zachovanie REVIEW_REQUIRED aj známeho dôvodu | OVERENÉ IZOLovane | Skutočný CRM analyzátor, Router, SDK a natívny lokálny HTTP transport. |
 | Zákaz obchodných akcií a cloud fallbacku pri chybe | OVERENÉ IZOLovane | Pôvodná obchodná vetva zo zdrojového kódu a zákaz externého adaptéra. |
 | Celkový CRM deadline 30 sekúnd | OVERENÉ IZOLovane | Spoločný SDK deadline zahŕňajúci discovery, inferenciu a čítanie odpovede. |
 | Prevádzková záťaž pri nezmenených ostatných službách | NEOVERENÉ | Chýba schválená súbežnosť, počet pokusov, kapacitný dôkaz a testovacie okno. |
-| Sémantika hasRudeExpressions a otázka verzus skutočná výpoveď | REVIEW_REQUIRED | Potrebný pôvodný text a vopred odsúhlasené referencie. |
+| Sémantika hnevu, hrubosti a otázky verzus výpoveď | REFERENCIE DODANÉ | K04–K11 majú dodané čiastkové referencie; nesmú sa dopĺňať podľa výstupov. Živá zhoda je neoverená. |
 | Slovenský jazyk skutočných poznámok | NEOVERENÉ | Vyžaduje kontrolu živých modelových výstupov. |
 | Spravovaný adaptér, interná autentifikácia, dohľad a rollback | NEOVERENÉ | Podklad stále uvádza adaptér ako testovací proces. |
 | Produkčné smerovanie email.sentiment | NEAKTIVOVANÉ | Nebol vykonaný žiadny produkčný zásah. |
@@ -74,9 +89,9 @@ Aktuálny výsledok rozšírenej sady a merania sú odovzdané samostatne;
 - Existujúci adaptér vyžaduje HTTPS. Ak navrhovaný tunel končí lokálnym
   HTTP, bez osobitne schváleného riešenia ho nemožno iba vložiť do
   konfigurácie alebo kvôli nemu rozvoľniť spoločné bezpečnostné pravidlá.
-- Nie je dodaný pôvodný 18-prípadový korpus vrátane referencií a identifikácie
-  jediného schváleného manuálneho posúdenia. Všetky očakávania musia byť
-  stanovené pred inferenciou.
+- Pôvodný 18-prípadový korpus a referencie už boli dodané. Chýbajú jeho
+  živé výsledky z CRM a následná kontrola poznámok. K12 povoľuje samostatné
+  bezpečné odmietnutie; nejde o platnú deväťpoľovú modelovú odpoveď.
 - Samostatná testovacia Gateway zdieľa s produkčnou cestou Ollama.
   Oddelenie portov samo osebe neznamená oddelenie výpočtovej kapacity.
   Záťažový profil a bezpečné okno musí potvrdiť AI tím.
@@ -95,10 +110,10 @@ Aktuálny výsledok rozšírenej sady a merania sú odovzdané samostatne;
 3. Dohodnúť limit poznámky. CRM vie prijať 100 znakov bez zmeny;
    testovanie musí odhaliť odmietnutie alebo skrátenie dlhšej poznámky
    na AI strane. Slovenský jazyk zostáva požiadavkou CRM.
-4. Doložiť presné znenie prípadu ANGRY. Existujúci CRM prompt oddeľuje hnev
-   od hrubých/nezdvorilých výrazov; samotná nespokojnosť tieto dva príznaky
-   automaticky nestotožňuje. Bez úplného textu nemožno tento konkrétny výsledok
-   vyhlásiť za správny ani svojvoľne zmeniť referenciu.
+4. Pri vyhodnocovaní použiť dodané K10/K11 a nezamieňať ich čiastkové
+   referencie. K10 predpisuje hnev, nie hodnotu hrubosti; K11 predpisuje
+   hrubosť a nevhodný obsah. Existujúci CRM prompt tieto príznaky oddeľuje.
+   Chýbajúce referencie sa nesmú dopĺňať podľa modelových odpovedí.
 5. Pred pilotom pripraviť spravovanú službu adaptéra, chránenú internú
    komunikáciu, readiness, bezpečné logovanie, alerty, obmedzenie súbežnosti
    a test obnovy/rollbacku. Nemerané hodnoty kapacity zostávajú neznáme.
