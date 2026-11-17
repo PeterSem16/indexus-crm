@@ -94,3 +94,30 @@ test("final run refuses unverified prior production configuration", () => finalF
   fs.writeFileSync(f.secondEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
   assert.throws(() => selectFinalPass(f.home), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
 }));
+function repeatFixture(run) {
+  finalFixture(f => {
+    const out = path.join(f.home, "Email-monitoring-final-run-fixture");
+    fs.mkdirSync(out, { mode: 0o700 });
+    const finalMarker = path.join(f.home, "Email-monitoring-final-seven.started");
+    const finalEvidence = path.join(out, "B112_evidence.json");
+    fs.writeFileSync(finalMarker, JSON.stringify({ out }), { mode: 0o600 });
+    fs.writeFileSync(finalEvidence, JSON.stringify(f.prior), { mode: 0o600 });
+    run({ ...f, finalMarker, finalEvidence });
+  });
+}
+test("authorized repeat preserves all THREE prior runs and uses its own one-shot marker", () => repeatFixture(f => {
+  const pass = selectFinalPass(f.home, process.getuid(), true);
+  assert.equal(pass.id, "EXPLICITLY_AUTHORIZED_REPEAT_SAME_SEVEN");
+  assert.equal(pass.marker, "Email-monitoring-repeat-seven.started");
+  assert.equal(pass.prefix, "Email-monitoring-repeat-run-");
+  assert.equal(pass.prior.preserved.length, 6);
+  pass.assertUnchanged();
+  fs.appendFileSync(f.finalEvidence, "\n");
+  assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));
+test("repeat refuses missing final evidence and changed latest production configuration", () => repeatFixture(f => {
+  fs.writeFileSync(f.finalEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), true), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
+  fs.unlinkSync(f.finalEvidence);
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), true));
+}));

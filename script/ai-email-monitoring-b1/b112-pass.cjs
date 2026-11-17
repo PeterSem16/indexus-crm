@@ -46,12 +46,14 @@ function selectPass(home, gatewaySha, uid = process.getuid()) {
       }
     } };
 }
-function selectFinalPass(home, uid = process.getuid()) {
+function selectFinalPass(home, uid = process.getuid(), repeat = false) {
   const originals = [];
-  for (const [markerName, prefix] of [
+  const runs = [
     ["B112-seven.started", "B112-run-"],
     ["B112-explicit-system-seven.started", "B112-explicit-system-run-"],
-  ]) {
+  ];
+  if (repeat) runs.push(["Email-monitoring-final-seven.started", "Email-monitoring-final-run-"]);
+  for (const [markerName, prefix] of runs) {
     const marker = fileSnapshot(path.join(home, markerName), uid);
     const out = marker.data.out;
     if (typeof out !== "string" || path.dirname(out) !== home ||
@@ -60,14 +62,15 @@ function selectFinalPass(home, uid = process.getuid()) {
     const evidence = fileSnapshot(path.join(out, "B112_evidence.json"), uid);
     originals.push(marker, evidence);
   }
-  const previous = originals[3].data;
+  const previous = originals[originals.length - 1].data;
   if (previous.after?.gatewayEnabled !== false || previous.after?.openai !== 65 ||
       previous.after?.internal !== 0 ||
       !/^[a-f0-9]{64}$/.test(previous.after?.fullConfigurationSha256 ?? ""))
     throw Error("B112_PRIOR_CONFIGURATION_UNVERIFIED");
   return {
-    id: "FINAL_CURRENT_MODEL_SEVEN", marker: "Email-monitoring-final-seven.started",
-    prefix: "Email-monitoring-final-run-",
+    id: repeat ? "EXPLICITLY_AUTHORIZED_REPEAT_SAME_SEVEN" : "FINAL_CURRENT_MODEL_SEVEN",
+    marker: repeat ? "Email-monitoring-repeat-seven.started" : "Email-monitoring-final-seven.started",
+    prefix: repeat ? "Email-monitoring-repeat-run-" : "Email-monitoring-final-run-",
     prior: { fullConfigurationSha256: previous.after.fullConfigurationSha256,
       preserved: originals.map(({ file, sha256 }) => ({ file, sha256 })) },
     assertUnchanged() {
