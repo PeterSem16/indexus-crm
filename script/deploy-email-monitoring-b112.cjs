@@ -114,14 +114,16 @@ async function main(args = process.argv.slice(2)) {
   const liveServer = ROOT + "/dist/index.cjs", liveIndex = ROOT + "/dist/public/index.html";
   const beforeSources = {};
   let originalProcess, pmBinary, originalEnvHash, originalConfigHash, originalRouting, queryRouting;
-  let builtHash, oldBackendProfile, promoted = false, daemon;
+  let builtHash, oldBackendProfile, promoted = false, daemon, daemonStart;
   function daemonProof() {
     const pid = Number(fs.readFileSync(PMHOME + "/pm2.pid", "utf8").trim());
     ensure(Number.isSafeInteger(pid) && pid > 1 && fs.statSync("/proc/" + pid).uid === 1001 &&
       fs.readFileSync("/proc/" + pid + "/comm", "utf8").startsWith("PM2") &&
       fs.statSync(PMHOME + "/rpc.sock").isSocket(), "B112_EXISTING_USER_PM2_REQUIRED");
-    if (daemon) ensure(pid === daemon, "B112_PM2_DAEMON_CHANGED");
-    daemon = pid;
+    const stat = fs.readFileSync("/proc/" + pid + "/stat", "utf8");
+    const start = stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19];
+    if (daemon) ensure(pid === daemon && start === daemonStart, "B112_PM2_DAEMON_CHANGED");
+    daemon = pid; daemonStart = start;
   }
   function pm2() {
     daemonProof();
@@ -254,6 +256,10 @@ async function main(args = process.argv.slice(2)) {
     sourceMatches(BASE);
     ensure(fingerprint(liveServer).hash === OLD_BACKEND && fingerprint(liveIndex).hash === OLD_INDEX,
       "B112_BUILD_CHANGED_DURING_PREPARATION");
+    const servingDisk = fs.statfsSync(ROOT + "/dist");
+    ensure(servingDisk.bavail * servingDisk.bsize >
+      2 * Math.max(fs.statSync(liveServer).size, fs.statSync(stage + "/dist/index.cjs").size) + 64 * 1024 ** 2,
+      "B112_SERVING_DISK_SPACE_LOW");
     ensure(unchangedConfiguration().pid === originalProcess.pid, "B112_PROCESS_CHANGED_DURING_BUILD");
     ensure(hash(JSON.stringify(stable(await queryRouting()))) === originalRouting, "B112_ROUTING_CHANGED_DURING_BUILD");
     await cutover({
