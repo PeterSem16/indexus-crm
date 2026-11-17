@@ -25,6 +25,7 @@ export async function executeB112(options: Omit<Parameters<typeof executeB12>[0]
   "pilotCase" | "requestTimeoutMs" | "beforeInference"> & {
     database: Parameters<typeof createTestTable>[0];
     save: (report: any) => void;
+    completeSeven?: boolean;
   }) {
   const report: any = { phase: "B1.12", verdict: "NOT_READY", complete: false, rows: [],
     inferenceAttempts: 0, productionRoutingWrites: 0, crmRecordWrites: 0,
@@ -48,17 +49,30 @@ export async function executeB112(options: Omit<Parameters<typeof executeB12>[0]
       });
       item.execution = execution;
       item.state = "COMPLETED";
-      if (execution.verdict !== "PASS") throw Error("B112_INTEGRATION_CASE_FAILED");
+      // The final authorized run completes all seven on classification mismatch,
+      // but still stops on transport/schema/configuration failure. Never retry.
+      if (execution.verdict !== "PASS" && !(options.completeSeven &&
+          execution.error === "B12_SEMANTIC_MISMATCH" &&
+          execution.production?.unchangedDuringCheck &&
+          execution.production?.beforeMatchesOriginal && execution.production?.afterMatchesOriginal))
+        throw Error("B112_INTEGRATION_CASE_FAILED");
       // Keep raw JSON and the application result distinct. No aliases/repair.
       assert.deepEqual(emailMonitoringSchema.parse(execution.modelJson), execution.result);
       item.rawMatchesParser = true;
       item.persistence = await verifyPersistence(options.database, row.id, execution.result);
+      if (options.completeSeven) item.additionalChecks = row.id === "B112-06"
+        ? [{ field: "doesNotAcceptContract", expected: false,
+            actual: execution.result.doesNotAcceptContract,
+            pass: execution.result.doesNotAcceptContract === false }]
+        : [];
       options.save(report);
     }
     report.persistence = "SEVEN_TEMP_TABLE_ROUNDTRIPS_VERIFIED";
     report.complete = true;
     // Language and actual signed-in CRM UI are separate acceptance gates.
-    report.verdict = "REVIEW_REQUIRED";
+    report.verdict = report.rows.some((item: any) => item.execution.verdict !== "PASS" ||
+      item.additionalChecks?.some((check: any) => !check.pass)) ? "NOT_READY" : "REVIEW_REQUIRED";
+    if (report.verdict === "NOT_READY") report.error = "B112_CLASSIFICATION_FAILED";
   } catch (error: any) {
     report.error = /^B(?:112|12|11)_[A-Z0-9_]+$/.test(error?.message || "")
       ? error.message : "B112_VERIFICATION_FAILED";

@@ -11,13 +11,15 @@ import { EMAIL_MONITORING_PROFILE as profile } from "../../server/lib/ai/email-m
 
 const reference = snapshot({ version: 1, value: DEFAULT_AI_SETTINGS }, Object.keys(AI_SERVICES));
 const source = analyzeSource(path.resolve("server/lib/email-monitoring-service.ts"));
-test("seven-case handoff preserves raw/parser identity and round-trips nine fields through PostgreSQL", async () => {
+for (const mode of ["original", "final", "final-mismatch", "final-supplement"] as const)
+test(`seven-case ${mode} preserves raw/parser identity and round-trips nine fields through PostgreSQL`, async () => {
   const db = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 8000 });
   let posts = 0, claimed = 0, saved: any;
   await db.connect();
   try {
     const report = await executeB112({ database: db, source, reference, token: "SYNTHETIC_B112_TOKEN",
       readSnapshot: async () => reference, claimOnce() { claimed++; }, save(r) { saved = r; },
+      completeSeven: mode !== "original",
       fetch: async (input) => {
         const url = String(input);
         if (url.endsWith("health/ready")) return new Response(null);
@@ -31,6 +33,8 @@ test("seven-case handoff preserves raw/parser identity and round-trips nine fiel
         const content = { sentiment: "neutral", hasInappropriateContent: false, hasAngryTone: false,
           hasRudeExpressions: false, wantsToCancel: false, wantsConsent: false, doesNotAcceptContract: false,
           alertLevel: "none", note: "Syntetický výsledok, nie výstup živého modelu.", ...row.expected };
+        if (mode === "final-mismatch" && row.id === "B112-01") content.alertLevel = "warning";
+        if (mode === "final-supplement" && row.id === "B112-06") content.doesNotAcceptContract = true;
         return Response.json({ id: row.id, object: "chat.completion", model: profile.model, choices: [{
           index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(content) },
         }] });
@@ -40,7 +44,8 @@ test("seven-case handoff preserves raw/parser identity and round-trips nine fiel
     assert.equal(report.complete, true);
     assert.equal(report.inferenceAttempts, 7);
     assert.equal(report.persistence, "SEVEN_TEMP_TABLE_ROUNDTRIPS_VERIFIED");
-    assert.equal(report.verdict, "REVIEW_REQUIRED"); // Never claims live-model/grammar/UI success.
+    assert.equal(report.verdict, mode.startsWith("final-") ? "NOT_READY" : "REVIEW_REQUIRED");
+    if (mode.startsWith("final-")) assert.equal(report.error, "B112_CLASSIFICATION_FAILED");
     assert.equal(report.productionActivation, "NOT_PERFORMED");
     assert.equal(saved, report);
     assert.ok(report.rows.every((row: any) => row.rawMatchesParser && row.persistence.nineFieldSnapshot));

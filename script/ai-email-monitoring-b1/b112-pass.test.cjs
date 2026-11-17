@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
-const { selectPass } = require("./b112-pass.cjs");
+const { selectPass, selectFinalPass } = require("./b112-pass.cjs");
 const gatewaySha = "b".repeat(64);
 function fixture(run) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "INDEXUS-B112-pass-"));
@@ -63,4 +63,34 @@ test("detects subsequent changes to the original evidence", () => fixture(f => {
 test("detects subsequent changes to the original marker", () => fixture(f => {
   const pass = selectPass(f.home, gatewaySha); fs.writeFileSync(f.marker, JSON.stringify({ out: f.out, changed: true }));
   assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));
+function finalFixture(run) {
+  fixture(f => {
+    const out = path.join(f.home, "B112-explicit-system-run-fixture");
+    fs.mkdirSync(out, { mode: 0o700 });
+    const secondMarker = path.join(f.home, "B112-explicit-system-seven.started");
+    const secondEvidence = path.join(out, "B112_evidence.json");
+    fs.writeFileSync(secondMarker, JSON.stringify({ out }), { mode: 0o600 });
+    fs.writeFileSync(secondEvidence, JSON.stringify(f.prior), { mode: 0o600 });
+    run({ ...f, secondMarker, secondEvidence });
+  });
+}
+test("final run uses a distinct marker, preserves BOTH prior runs and does not assume a Gateway hash", () =>
+  finalFixture(f => {
+    const pass = selectFinalPass(f.home);
+    assert.equal(pass.marker, "Email-monitoring-final-seven.started");
+    assert.equal(pass.prior.preserved.length, 4);
+    assert.equal(pass.gatewaySourceSha256OperatorAttested, undefined);
+    pass.assertUnchanged();
+    fs.appendFileSync(f.secondEvidence, "\n");
+    assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+  }));
+test("final run refuses missing prior evidence without touching the original", () => finalFixture(f => {
+  fs.unlinkSync(f.secondEvidence);
+  assert.throws(() => selectFinalPass(f.home));
+  assert.equal(selectPass(f.home, gatewaySha).marker, "B112-explicit-system-seven.started");
+}));
+test("final run refuses unverified prior production configuration", () => finalFixture(f => {
+  fs.writeFileSync(f.secondEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
+  assert.throws(() => selectFinalPass(f.home), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
 }));

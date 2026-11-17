@@ -10,7 +10,7 @@ import { analyzeSource } from "./source.cjs";
 import { assertRuntime } from "./runtime.cjs";
 import { readProductionSnapshot, productionComparison, catalogFromSource } from "./b11-check.cjs";
 import { createInternalAIAdapter } from "../../server/lib/ai/internal-adapter";
-import { selectPass } from "./b112-pass.cjs";
+import { selectPass, selectFinalPass } from "./b112-pass.cjs";
 declare const B112_SOURCE: ReturnType<typeof analyzeSource>;
 declare const B112_FILES: Record<string, string>;
 const APP = "/var/www/indexus-crm";
@@ -20,7 +20,8 @@ async function main() {
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" || process.getuid?.() !== 1001 ||
     process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) fail("B112_CORPCRM01_AS_SEMAN_REQUIRED");
   const explicitPass = process.argv[2] === "--run-seven-explicit-b112-system";
-  if (!(process.argv.length === 3 && process.argv[2] === "--run-seven") &&
+  const finalPass = process.argv[2] === "--run-final-seven";
+  if (!(process.argv.length === 3 && (process.argv[2] === "--run-seven" || finalPass)) &&
       !(process.argv.length === 4 && explicitPass)) fail("B112_ARGUMENT_REQUIRED");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("B112_TLS_REQUIRED");
   assertRuntime(process.env);
@@ -42,7 +43,7 @@ async function main() {
   if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== process.getuid!() || (st.mode & 0o077))
     fail("B112_PRIVATE_DIRECTORY_REQUIRED");
   // A new authorized pass has its own marker; the original failure is immutable.
-  const pass = selectPass(home, explicitPass ? process.argv[3] : undefined);
+  const pass = finalPass ? selectFinalPass(home) : selectPass(home, explicitPass ? process.argv[3] : undefined);
   const marker = path.join(home, pass.marker);
   if (fs.existsSync(marker)) fail("B112_THIS_PASS_ALREADY_STARTED_NO_AUTOMATIC_RETRY");
   const out = fs.mkdtempSync(path.join(home, pass.prefix));
@@ -77,7 +78,7 @@ async function main() {
       runtimePolicy: { candidateEmailMonitoringTimeoutMs: client.timeout,
         otherServiceManagedTimeoutMs: 30_000, productionRestartVerified: false },
       analyzerSha256: liveSource.sourceSha256, originalRequestSha256: liveSource.requestSha256,
-      candidateFiles: B112_FILES, operatorStatedVersion: "B1.12",
+      candidateFiles: B112_FILES, operatorStatedVersion: finalPass ? "CURRENT_ALIAS_NO_REVISION_ASSUMED" : "B1.12",
       effectiveServerRules: "REQUIRES_CURRENT_OPERATOR_ATTESTATION" };
     const text = JSON.stringify(finalReport, null, 2) + "\n";
     if (text.includes(token)) fail("B112_SECRET_ECHO_REFUSED");
@@ -89,7 +90,7 @@ async function main() {
   try {
     await db.connect();
     await executeB112({ token, source: liveSource, reference: before, readSnapshot: snapshot,
-      database: db, save, signal: controller.signal, fetch,
+      database: db, save, signal: controller.signal, fetch, completeSeven: finalPass,
       claimOnce() { pass.assertUnchanged(); fs.writeFileSync(marker, JSON.stringify({ out, pass: pass.id, at: new Date().toISOString() }),
         { flag: "wx", mode: 0o600 }); },
     });
@@ -111,6 +112,18 @@ async function main() {
     complete: finalReport?.complete ?? false, attempts: finalReport?.inferenceAttempts ?? 0,
     candidateDeployed, emailMonitoringTimeoutMs: client.timeout, error: finalReport?.error ?? null,
     productionActivation: "NOT_PERFORMED", results: file }, null, 2));
+  if (finalPass && finalReport) {
+    console.log("SEVEN_CASE_RESULTS");
+    for (const row of finalReport.rows) {
+      console.log(JSON.stringify({ id: row.id, classification: row.execution?.verdict,
+        error: row.execution?.error, http: row.execution?.httpStatus,
+        result: row.execution?.result, persistence: row.persistence?.state,
+        rawMatchesParser: row.rawMatchesParser, additionalChecks: row.additionalChecks }));
+    }
+    console.log("CLASSIFICATION " + finalReport.rows.filter((row: any) =>
+      row.execution?.verdict === "PASS" && row.additionalChecks?.every((c: any) => c.pass)).length + "/7");
+    console.log("SLOVAK_NOTES HUMAN_REVIEW_REQUIRED; UI NOT_VERIFIED; PROVIDER OPENAI; ACTIVATION NOT_PERFORMED");
+  }
   process.exitCode = finalReport?.error ? 2 : 0;
 }
 main().catch((error: any) => {

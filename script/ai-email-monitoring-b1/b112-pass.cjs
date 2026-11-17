@@ -46,4 +46,35 @@ function selectPass(home, gatewaySha, uid = process.getuid()) {
       }
     } };
 }
-module.exports = { selectPass };
+function selectFinalPass(home, uid = process.getuid()) {
+  const originals = [];
+  for (const [markerName, prefix] of [
+    ["B112-seven.started", "B112-run-"],
+    ["B112-explicit-system-seven.started", "B112-explicit-system-run-"],
+  ]) {
+    const marker = fileSnapshot(path.join(home, markerName), uid);
+    const out = marker.data.out;
+    if (typeof out !== "string" || path.dirname(out) !== home ||
+        !path.basename(out).startsWith(prefix) || !/^[\w-]+$/.test(path.basename(out)))
+      throw Error("B112_PRIOR_OUTPUT_PATH_UNSAFE");
+    const evidence = fileSnapshot(path.join(out, "B112_evidence.json"), uid);
+    originals.push(marker, evidence);
+  }
+  const previous = originals[3].data;
+  if (previous.after?.gatewayEnabled !== false || previous.after?.openai !== 65 ||
+      previous.after?.internal !== 0 ||
+      !/^[a-f0-9]{64}$/.test(previous.after?.fullConfigurationSha256 ?? ""))
+    throw Error("B112_PRIOR_CONFIGURATION_UNVERIFIED");
+  return {
+    id: "FINAL_CURRENT_MODEL_SEVEN", marker: "Email-monitoring-final-seven.started",
+    prefix: "Email-monitoring-final-run-",
+    prior: { fullConfigurationSha256: previous.after.fullConfigurationSha256,
+      preserved: originals.map(({ file, sha256 }) => ({ file, sha256 })) },
+    assertUnchanged() {
+      for (const original of originals)
+        if (fileSnapshot(original.file, uid).sha256 !== original.sha256)
+          throw Error("B112_PRIOR_EVIDENCE_CHANGED");
+    },
+  };
+}
+module.exports = { selectPass, selectFinalPass };
