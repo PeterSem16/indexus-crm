@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
 import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
 import { EmailMonitoringAnalysis } from "@/components/nexus/EmailMonitoringAnalysis";
+import { EmailNoteDraft } from "@/components/nexus/EmailNoteDraft";
 import { useTaskSettingsAccess } from "@/hooks/use-task-settings-access";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -8360,6 +8361,7 @@ export default function EmailClientPage() {
           )}
 
           {!detailError && <EmailMonitoringAnalysis result={emailDetail.emailMonitoringAnalysis} />}
+          {!detailError && <EmailNoteDraft key={`${user?.id ?? ""}:${emailDetail.id}:${emailDetailMailbox}`} userId={user?.id} emailId={emailDetail.id} mailbox={emailDetailMailbox} />}
           {!detailError && !emailDetail.emailMonitoringAnalysis && (emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
             <div
               className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
@@ -9011,6 +9013,9 @@ export default function EmailClientPage() {
     if (!modalEmail) return null;
 
     const detail = emailDetail?.id === modalEmail.id ? emailDetail : modalEmail;
+    const detailMailbox = detail._mailboxEmail
+      ? getMailboxParam(detail._mailboxEmail)
+      : emailDetail?.id === detail.id ? emailDetailMailbox : effectiveMailbox;
 
     return (
       <Dialog open={!!modalEmail} onOpenChange={(open) => { if (!open) setModalEmail(null); }}>
@@ -9125,6 +9130,7 @@ export default function EmailClientPage() {
 
             {detailError && <p role="alert" className="text-sm text-destructive">{t.emailMonitoringDetail.loadError}</p>}
             {!detailError && <EmailMonitoringAnalysis result={detail.emailMonitoringAnalysis} />}
+            {!detailError && <EmailNoteDraft key={`${user?.id ?? ""}:${detail.id}:${detailMailbox}`} userId={user?.id} emailId={detail.id} mailbox={detailMailbox} />}
             {!detailError && !detail.emailMonitoringAnalysis && (detail as any).aiAnalysis && (detail as any).aiAnalysis.alertLevel !== "none" && (
               <div
                 className={`flex items-start gap-3 p-3 rounded-md border ${

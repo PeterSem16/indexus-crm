@@ -5350,6 +5350,38 @@ export const emailMonitoringOwnerResults = pgTable("email_monitoring_owner_resul
   unique("email_monitoring_owner_results_identity").on(table.mailboxEmail, table.messageId, table.ownerKey),
 ]);
 
+// Supplemental, owner-private drafts. These never replace monitoring or sentiment.
+export const emailNoteJobs = pgTable("email_note_jobs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  ownerUserId: varchar("owner_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  mailboxEmail: text("mailbox_email").notNull(),
+  messageId: text("message_id").notNull(),
+  jobId: uuid("job_id").unique(),
+  status: text("status").notNull().default("pending"),
+  note: text("note"),
+  errorCode: text("error_code"),
+  approvedNote: text("approved_note"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  version: integer("version").notNull().default(0),
+  pollAttempts: integer("poll_attempts").notNull().default(0),
+  nextPollAt: timestamp("next_poll_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  unique().on(table.ownerUserId, table.mailboxEmail, table.messageId),
+  index("email_note_jobs_poll").on(table.nextPollAt).where(sql`${table.status} IN ('pending','processing')`),
+]);
+export const emailNoteJobAudit = pgTable("email_note_job_audit", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  noteId: uuid("note_id").notNull().references(() => emailNoteJobs.id, { onDelete: "cascade" }),
+  actorUserId: varchar("actor_user_id").notNull().references(() => users.id),
+  action: text("action").notNull(),
+  previousNote: text("previous_note"),
+  approvedNote: text("approved_note").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertEmailMetadataSchema = createInsertSchema(emailMetadata).omit({
   id: true, 
   createdAt: true,

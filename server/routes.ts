@@ -6149,6 +6149,8 @@ export async function registerRoutes(
   });
 
   registerOmniMailboxGroupRoutes(app, requireAuth, storage, pool);
+  const { startEmailNoteJobs } = await import("./lib/email-note-jobs-runtime");
+  startEmailNoteJobs(app, requireAuth);
   registerOmniSearchExport(app, requireAuth, createOmniExportDependencies(storage));
 
   // Get all available mailboxes for sending (user's own + shared)

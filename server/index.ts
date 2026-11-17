@@ -170,6 +170,7 @@ app.use((req, res, next) => {
   // Legal-registry responses can contain protected source data. Keep only
   // method/path/status/timing in access logs, never their JSON payload.
   const logResponseBody = path !== "/api/healthcare-legal-entities" &&
+    !/^\/api\/users\/[^/]+\/ms365-email\/[^/]+\/ai-note$/.test(path) &&
     !path.startsWith("/api/healthcare-legal-entities/") &&
     !path.startsWith("/api/provider-finder/") &&
     !/^\/api\/public\/web-form\/[^/]+\/providers(?:\/|$)/.test(path);
@@ -239,6 +240,10 @@ app.use((req, res, next) => {
     result jsonb NOT NULL, created_at timestamp NOT NULL DEFAULT now(),
     CONSTRAINT email_monitoring_owner_results_identity UNIQUE(mailbox_email,message_id,owner_key)
   )`);
+
+  // Additive supplemental notes only; this does not enable any AI provider.
+  const { EMAIL_NOTE_JOBS_SCHEMA } = await import("./lib/email-note-jobs-schema");
+  await pool.query(EMAIL_NOTE_JOBS_SCHEMA);
 
   // CORPCRM01 does not run db:push. Persisted defaults keep every service on OpenAI.
   try {
