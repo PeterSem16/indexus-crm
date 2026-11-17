@@ -1,0 +1,200 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import express from "express";
+import { serveStatic } from "../server/static";
+
+const script = path.join(path.dirname(fileURLToPath(import.meta.url)), "deploy-status-list-batch-frontend.sh");
+const q = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+function shell(body: string) {
+  return spawnSync("bash", ["-c", `source ${q(script)}\nsudo() { "$@"; }\nOWNER=${process.getuid!()}; GROUP=${process.getgid!()};\n${body}`], { encoding: "utf8" });
+}
+
+test("real EACCES becomes HTTP 500; privacy requires independent denial and a healthy app", {
+  skip: process.getuid?.() === 0,
+}, async () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"indexus-private-probe-"));
+  const privateDir=path.join(dir,"private"), file=path.join(privateDir,"privacy-check.txt");
+  const response=path.join(dir,"response.txt"), token="independent-private-canary";
+  fs.mkdirSync(privateDir);fs.writeFileSync(file,token);
+  fs.chmodSync(privateDir,0);
+  const app=express();
+  app.use("/data",express.static(dir));
+  app.use((err:any,_req:any,res:any,_next:any)=>res.status(err.status||err.statusCode||500).json({error:err.code}));
+  const server=app.listen(0,"127.0.0.1");
+  await new Promise<void>(resolve=>server.once("listening",resolve));
+  try {
+    const address=server.address() as {port:number};
+    const result=await fetch(`http://127.0.0.1:${address.port}/data/private/privacy-check.txt`);
+    assert.equal(result.status,500);
+    const body=await result.text();
+    assert.match(body,/EACCES/);
+    fs.writeFileSync(response,body);
+    const probe=(status:number,health=true,physical=file,pid=process.pid)=>
+      shell(`healthy() { return ${health?0:1}; }\nverify_stage_privacy ${status} ${q(response)} ${q(token)} ${q(physical)} ${pid}`);
+    assert.equal(probe(500).status,0,"a real permission denial plus health permits staging");
+    assert.notEqual(probe(500,false).status,0,"global server failure must not be accepted");
+    assert.notEqual(probe(502).status,0,"unexpected proxy failure stays blocked");
+    assert.notEqual(probe(500,true,response).status,0,"a readable directory is unsafe even with HTTP 500");
+    assert.notEqual(probe(404,true,response).status,0,"HTTP 404 alone is not privacy proof");
+    assert.notEqual(probe(500,true,path.join(dir,"absent")).status,0,"ENOENT is not EACCES");
+    assert.notEqual(probe(500,true,file,999999999).status,0,"unknown backend identity stays blocked");
+    fs.writeFileSync(response,token);
+    assert.notEqual(probe(500).status,0,"a leaked canary is always rejected");
+    assert.notEqual(probe(200).status,0);
+  } finally {
+    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+    fs.chmodSync(privateDir,0o700);
+    fs.rmSync(dir,{recursive:true,force:true});
+  }
+});
+
+test("operator requires explicit apply, valid syntax, and cannot restart or migrate the backend", () => {
+  assert.equal(spawnSync("bash", ["-n", script]).status, 0);
+  for (const args of [[], ["--prepare"], ["--apply", "--restart"]]) {
+    assert.equal(spawnSync("bash", [script, ...args]).status, 2);
+  }
+  const source = fs.readFileSync(script, "utf8");
+  assert.doesNotMatch(source, /\bpm2\s+(?:restart|reload|stop|start)\b|\bpg_dump\b|\bpg_restore\b|\bpsql\b|\bdb:push\b/);
+  assert.match(source, /\/dev\/sdb1/);
+  assert.match(source, /mktemp -d "\$ROOT\/data\/INDEXUS-ui-private-/);
+  assert.match(source, /sudo mount --bind "\$STAGE_STORAGE\/build" "\$STAGE"/);
+  assert.match(source, /findmnt -n -o MAJ:MIN --target "\$STAGE"/);
+  assert.match(source, /test "\$\(sudo stat -c '%u:%g:%a' "\$STAGE_STORAGE"\)" = 0:0:700/);
+  assert.match(source, /trap cleanup_stage_mount EXIT/);
+  assert.match(source, /\/data\/\$\{STAGE_STORAGE##\*\/\}\/build\/privacy-check\.txt/);
+  assert.match(source, /available_bytes.*needed_bytes/);
+  assert.match(source, /test "\$\(live_pid\)" = "\$OLD_PID"/);
+  assert.match(source, /test "\$\(file_hash dist\/index\.cjs\)" = "\$OLD_BACKEND"/);
+});
+
+test("Omni promotion only permits the three frontend paths on the confirmed production baseline", () => {
+  const source=fs.readFileSync(script,"utf8");
+  for (const args of [
+    ["--apply", "--omni-entry"],
+    ["--apply", "--omni-entry", "main"],
+    ["--apply", "--omni-entry", "1".repeat(40), "--restart"],
+  ]) assert.equal(spawnSync("bash",[script,...args]).status,2);
+  assert.match(source,/BASE=1a4f4bd1e15170de103523bf437e30df7949ae16/);
+  assert.match(source,/expected_files=3/);
+  assert.match(source,/OLD_BACKEND=2bef809aef7a9ab71c1d30babfce99411dc275e0abe10e97264d5cb86bbe9415/);
+  assert.match(source,/cd943bdc4812fb604f880d5b2af61a0e422559d218f7854f48e7f89b956fd003/);
+  assert.match(source,/client\/src\/components\/app-sidebar\.tsx\|client\/src\/pages\/email-client\.tsx\|e2e\/omni-entry-unread\.browser\.test\.mjs\)\s+test "\$omni_release" = true/);
+  assert.match(source,/APPLIED_OMNI_EMAIL_ENTRY_UNREAD_FRONTEND_ONLY/);
+  assert.doesNotMatch(source,/\b(?:npm|pnpm)\s+(?:install|ci)|\bpm2\s+(?:restart|reload)|\b(?:pg_dump|pg_restore|psql)\b/);
+});
+
+test("index recovery refuses to overwrite a different concurrently deployed frontend", () => {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"omni-index-recovery-"));
+  const current=path.join(dir,"public"), backup=path.join(dir,"backup");
+  fs.mkdirSync(current);fs.mkdirSync(backup);
+  fs.writeFileSync(path.join(backup,"index.html"),"old");
+  const restore=() => shell(`PUBLIC=${q(current)}; BACKUP=${q(backup)}; MODE=644; OLD_INDEX=${digest("old")}; NEW_INDEX=${digest("new")}; restore_index`);
+  try {
+    fs.writeFileSync(path.join(current,"index.html"),"foreign");
+    assert.notEqual(restore().status,0);
+    assert.equal(fs.readFileSync(path.join(current,"index.html"),"utf8"),"foreign");
+    fs.writeFileSync(path.join(current,"index.html"),"new");
+    assert.equal(restore().status,0);
+    assert.equal(fs.readFileSync(path.join(current,"index.html"),"utf8"),"old");
+  } finally { fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
+test("callback promotion is a separate, frontend-only phase pinned after the previous fix", () => {
+  const source=fs.readFileSync(script,"utf8");
+  assert.match(source,/BASE=ffeddd3a7e749232787067248f876781355458b7/);
+  assert.match(source,/FIX=0364e2bb907f0c265fd69d5a31f5bb32b19ce115/);
+  assert.match(source,/expected_files=4 callback_release=false/);
+  assert.match(source,/expected_files=7/);
+  assert.match(source,/test "\$callback_release" = true/);
+  const changed=spawnSync("git",["diff","--name-only","ffeddd3a7e749232787067248f876781355458b7",
+    "0364e2bb907f0c265fd69d5a31f5bb32b19ce115"],{encoding:"utf8"});
+  assert.equal(changed.status,0);
+  assert.deepEqual(changed.stdout.trim().split("\n"),[
+    "client/src/components/status-list-callback-reschedule-fields.tsx",
+    "client/src/components/status-list-manual-callback-button.tsx",
+    "client/src/components/status-list-recap-copy.ts",
+    "client/src/pages/agent-workspace.tsx",
+    "client/test-fixtures/status-list-manual-callback.html",
+    "client/test-fixtures/status-list-manual-callback.tsx",
+    "e2e/status-list-manual-callback.node.test.ts",
+  ]);
+  for(const file of changed.stdout.trim().split("\n"))assert.ok(source.includes(file),`operator must allow ${file}`);
+  const server=spawnSync("git",["diff","--name-only","ffeddd3a7e749232787067248f876781355458b7",
+    "0364e2bb907f0c265fd69d5a31f5bb32b19ce115","--","server","shared","package.json","package-lock.json"],{encoding:"utf8"});
+  assert.equal(server.status,0);
+  assert.equal(server.stdout,"");
+});
+
+test("different existing assets and symlinks are rejected before publication", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "batch-ui-collision-"));
+  try {
+    const live = path.join(dir, "live"), incoming = path.join(dir, "incoming");
+    fs.mkdirSync(live); fs.mkdirSync(incoming);
+    fs.writeFileSync(path.join(live, "logo.svg"), "original");
+    fs.writeFileSync(path.join(incoming, "logo.svg"), "different");
+    const result = shell(`validate_assets ${q(live)} ${q(incoming)}`);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /iny obsah/);
+    assert.equal(fs.readFileSync(path.join(live, "logo.svg"), "utf8"), "original");
+    fs.unlinkSync(path.join(incoming, "logo.svg"));
+    fs.symlinkSync(path.join(live, "logo.svg"), path.join(incoming, "alias.svg"));
+    assert.notEqual(shell(`validate_assets ${q(live)} ${q(incoming)}`).status, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("actual static server adopts new HTML without restart; old and new assets survive index rollback", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "batch-ui-static-"));
+  const previousCwd = process.cwd();
+  const live = path.join(dir, "dist", "public"), incoming = path.join(dir, "incoming");
+  const backup = path.join(dir, "backup");
+  fs.mkdirSync(path.join(live, "assets"), { recursive: true });
+  fs.mkdirSync(path.join(incoming, "assets"), { recursive: true });
+  fs.mkdirSync(backup);
+  const oldIndex = '<html><script src="/assets/old.js"></script></html>';
+  const newIndex = '<html><script src="/assets/new.js"></script></html>';
+  fs.writeFileSync(path.join(live, "index.html"), oldIndex);
+  fs.writeFileSync(path.join(live, "assets", "old.js"), "old bytes");
+  fs.writeFileSync(path.join(incoming, "index.html"), newIndex);
+  fs.writeFileSync(path.join(incoming, "assets", "new.js"), "new bytes");
+  fs.writeFileSync(path.join(backup, "index.html"), oldIndex);
+  process.chdir(dir);
+  const app = express();
+  serveStatic(app);
+  const server = app.listen(0, "127.0.0.1");
+  try {
+    if (!server.listening) await new Promise<void>(resolve => server.once("listening", resolve));
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const base = `http://127.0.0.1:${address.port}`;
+    const pid = process.pid;
+    assert.equal(await (await fetch(base)).text(), oldIndex);
+    const publication = shell(`validate_assets ${q(live)} ${q(incoming)}; publish_assets ${q(live)} ${q(incoming)}`);
+    assert.equal(publication.status, 0, publication.stderr);
+    assert.equal(await (await fetch(base)).text(), oldIndex, "publishing assets does not activate new HTML");
+    assert.equal(await (await fetch(`${base}/assets/old.js`)).text(), "old bytes");
+    assert.equal(await (await fetch(`${base}/assets/new.js`)).text(), "new bytes");
+    const next = path.join(live, ".index-next");
+    fs.copyFileSync(path.join(incoming, "index.html"), next);
+    fs.renameSync(next, path.join(live, "index.html"));
+    const response = await fetch(base);
+    assert.equal(await response.text(), newIndex);
+    assert.match(response.headers.get("cache-control") || "", /no-cache/);
+    assert.equal(process.pid, pid, "the same backend process serves the new document");
+    const rollback = shell(`PUBLIC=${q(live)}; BACKUP=${q(backup)}; MODE=644; OLD_INDEX=${digest(oldIndex)}; NEW_INDEX=${digest(newIndex)}; restore_index`);
+    assert.equal(rollback.status, 0, rollback.stderr);
+    assert.equal(await (await fetch(base)).text(), oldIndex);
+    assert.equal(await (await fetch(`${base}/assets/new.js`)).text(), "new bytes", "already opened new clients retain their dependencies");
+    assert.equal(await (await fetch(`${base}/assets/old.js`)).text(), "old bytes");
+  } finally {
+    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    process.chdir(previousCwd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
