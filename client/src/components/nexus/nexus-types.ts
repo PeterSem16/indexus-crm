@@ -1,3 +1,5 @@
+import type { EmailMonitoringDetail } from "@shared/email-monitoring-detail";
+
 export type NexusTab = "email" | "sms" | "tasks" | "chats" | "teams" | "calendar" | "nexuspoint" | "training-room";
 
 export interface Mailbox {
@@ -23,6 +25,7 @@ export interface MailFolder {
 }
 
 export interface EmailMessage {
+  emailMonitoringAnalysis?: EmailMonitoringDetail | null;
   id: string;
   subject: string;
   from: { emailAddress: { name: string; address: string } };

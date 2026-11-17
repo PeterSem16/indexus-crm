@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { useChatContext } from "@/contexts/chat-context";
 import { InternalChatPanel } from "@/components/chat/InternalChatPanel";
+import { EmailMonitoringAnalysis } from "@/components/nexus/EmailMonitoringAnalysis";
 import { useTaskSettingsAccess } from "@/hooks/use-task-settings-access";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -3661,11 +3662,16 @@ export default function EmailClientPage() {
     ? getMailboxParam(selectedEmail._mailboxEmail)
     : effectiveMailbox;
 
-  const { data: emailDetail, isLoading: detailLoading } = useQuery<EmailMessage>({
+  const { data: rawEmailDetail, isLoading: detailLoading, isError: detailError } = useQuery<EmailMessage>({
     queryKey: ["/api/users", user?.id, "ms365-email", selectedEmail?.id, emailDetailMailbox],
-    queryFn: () => fetch(`/api/users/${user?.id}/ms365-email/${selectedEmail?.id}?mailbox=${emailDetailMailbox}`).then(r => r.json()),
+    queryFn: async () => {
+      const response = await fetch(`/api/users/${user?.id}/ms365-email/${encodeURIComponent(selectedEmail!.id)}?mailbox=${encodeURIComponent(emailDetailMailbox)}`);
+      if (!response.ok) throw new Error(`email_detail_${response.status}`);
+      return response.json();
+    },
     enabled: !!user?.id && !!selectedEmail?.id,
   });
+  const emailDetail = detailError ? undefined : rawEmailDetail;
 
   const { data: signatureData } = useQuery<EmailSignature>({
     queryKey: ["/api/users", user?.id, "email-signatures", effectiveMailbox],
@@ -8241,6 +8247,7 @@ export default function EmailClientPage() {
     if (detailLoading) {
       return <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>;
     }
+    if (detailError) return <div role="alert" className="p-4 text-sm text-destructive">{t.emailMonitoringDetail.loadError}</div>;
     if (!emailDetail || !selectedEmail) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -8339,7 +8346,8 @@ export default function EmailClientPage() {
             </Link>
           )}
 
-          {(emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
+          {!detailError && <EmailMonitoringAnalysis result={emailDetail.emailMonitoringAnalysis} />}
+          {!detailError && !emailDetail.emailMonitoringAnalysis && (emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
             <div
               className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
                 (emailDetail as any).aiAnalysis.alertLevel === "critical"
@@ -9102,7 +9110,9 @@ export default function EmailClientPage() {
               </Link>
             )}
 
-            {(detail as any).aiAnalysis && (detail as any).aiAnalysis.alertLevel !== "none" && (
+            {detailError && <p role="alert" className="text-sm text-destructive">{t.emailMonitoringDetail.loadError}</p>}
+            {!detailError && <EmailMonitoringAnalysis result={detail.emailMonitoringAnalysis} />}
+            {!detailError && !detail.emailMonitoringAnalysis && (detail as any).aiAnalysis && (detail as any).aiAnalysis.alertLevel !== "none" && (
               <div
                 className={`flex items-start gap-3 p-3 rounded-md border ${
                   (detail as any).aiAnalysis.alertLevel === "critical"

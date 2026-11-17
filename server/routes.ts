@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerOmniMailboxGroupRoutes, availableOmniEmails } from "./lib/omni-mailbox-group-routes";
+import { resolveEmailMonitoringDetail } from "./lib/email-monitoring-detail";
 import { registerAIAdministration } from "./lib/ai-settings-bootstrap";
 import { registerOmniSearchExport, createOmniExportDependencies } from "./lib/omni-search-export";
 import { createCustomerEmailHandler } from "./lib/customer-email-handler";
@@ -7648,8 +7649,15 @@ Always respond with valid JSON only, no markdown.`
   // Get single email detail
   app.get("/api/users/:userId/ms365-email/:emailId", requireAuth, async (req, res) => {
     try {
+      res.setHeader("Cache-Control", "no-store");
       const { userId, emailId } = req.params;
+      if (userId !== req.session.user?.id) return res.status(403).json({ error: "Forbidden" });
+      if (req.query.mailbox !== undefined && typeof req.query.mailbox !== "string")
+        return res.status(400).json({ error: "Invalid mailbox" });
       const mailboxEmail = req.query.mailbox as string | undefined;
+      const allowedMailboxes = await availableOmniEmails(storage, userId);
+      if (mailboxEmail && mailboxEmail !== "personal" && !allowedMailboxes.has(mailboxEmail.toLowerCase()))
+        return res.status(403).json({ error: "Forbidden" });
       
       const ms365Connection = await storage.getUserMs365Connection(userId);
       if (!ms365Connection || !ms365Connection.isConnected) {
@@ -7684,6 +7692,24 @@ Always respond with valid JSON only, no markdown.`
         return res.status(404).json({ error: "Email not found" });
       }
       
+      // Only project already-saved monitoring output after Graph authorized this
+      // exact message in this user's permitted mailbox. No inference or mutation.
+      const monitoringRows = await db.select({
+        externalId: communicationMessages.externalId, type: communicationMessages.type,
+        direction: communicationMessages.direction, metadata: communicationMessages.metadata,
+        aiAnalyzed: communicationMessages.aiAnalyzed, aiSentiment: communicationMessages.aiSentiment,
+        aiAlertLevel: communicationMessages.aiAlertLevel, aiHasAngryTone: communicationMessages.aiHasAngryTone,
+        aiHasRudeExpressions: communicationMessages.aiHasRudeExpressions,
+        aiWantsToCancel: communicationMessages.aiWantsToCancel, aiWantsConsent: communicationMessages.aiWantsConsent,
+        aiDoesNotAcceptContract: communicationMessages.aiDoesNotAcceptContract,
+        aiAnalysisNote: communicationMessages.aiAnalysisNote, aiAnalyzedAt: communicationMessages.aiAnalyzedAt,
+      }).from(communicationMessages).where(and(eq(communicationMessages.externalId, emailId),
+        eq(communicationMessages.type, "email"), eq(communicationMessages.direction, "inbound"))).limit(101);
+      const emailMonitoringAnalysis = resolveEmailMonitoringDetail(monitoringRows, {
+        userId, externalId: emailId, personalMailbox: ms365Connection.email,
+        mailbox: !mailboxEmail || mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail,
+      });
+
       // Mark as read automatically
       if (!email.isRead) {
         await markEmailAsRead(tokenResult.accessToken, emailId, true, mailboxEmail === "personal" ? undefined : mailboxEmail);
@@ -7710,7 +7736,9 @@ Always respond with valid JSON only, no markdown.`
         const shouldAutoAssign = activeRules.length === 0 || activeRules.some(r => r.autoAssignCustomer !== false);
         
         // Check if AI analysis is enabled in any active rule
-        const shouldAnalyzeWithAI = activeRules.some(r => r.enableAiAnalysis === true);
+        // Opening an already monitored email displays the stored result; it must
+        // not replace it with a fresh, separately routed email.sentiment inference.
+        const shouldAnalyzeWithAI = !emailMonitoringAnalysis && activeRules.some(r => r.enableAiAnalysis === true);
         
         console.log(`[EmailRouter] shouldAutoAssign=${shouldAutoAssign}, shouldAnalyzeWithAI=${shouldAnalyzeWithAI}`);
         
@@ -8012,7 +8040,7 @@ Always respond with valid JSON only, no markdown.`
         }
       }
 
-      res.json({ ...email, linkedCustomer, aiAnalysis: existingAiAnalysis, attachmentsList });
+      res.json({ ...email, linkedCustomer, aiAnalysis: existingAiAnalysis, emailMonitoringAnalysis, attachmentsList });
     } catch (error) {
       console.error("Error fetching email:", error);
       res.status(500).json({ error: "Failed to fetch email" });
