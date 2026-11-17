@@ -137,7 +137,7 @@ async function main(args = process.argv.slice(2)) {
     } catch (error) {
       if (privateRoot) fs.writeFileSync(path.join(privateRoot, "command-failure.private.log"),
         Buffer.concat([Buffer.from(error.stdout || ""), Buffer.from(error.stderr || "")]), { mode: 0o600 });
-      throw Error("B112_COMMAND_FAILED_" + path.basename(bin).replace(/[^a-z0-9_-]/gi, "_"));
+      throw Error("B112_COMMAND_FAILED_" + path.basename(bin).replace(/[^a-z0-9_]/gi, "_").toUpperCase());
     }
   }
   const user = (bin, argv) => run("runuser", ["-u", "seman", "--", bin, ...argv],

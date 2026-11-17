@@ -3,6 +3,21 @@ const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const cp = require("node:child_process"), crypto = require("node:crypto");
 const deploy = require("./deploy-email-monitoring-b112.cjs");
+test("real command wrapper exposes safe uppercase failure codes instead of hiding dump errors", () => {
+  const source = fs.readFileSync("script/deploy-email-monitoring-b112.cjs", "utf8");
+  const start = source.indexOf("  function run(bin, argv, options = {}) {");
+  const end = source.indexOf("  const user =", start);
+  assert.ok(start > 0 && end > start);
+  const run = require("node:vm").runInNewContext("(" + source.slice(start, end).trim() + ")", {
+    ROOT: "/synthetic", env: {}, privateRoot: null, path,
+    cp: { execFileSync() { throw Error("SYNTHETIC_COMMAND_FAILURE"); } },
+  });
+  for (const name of ["pg_dump", "pg_restore", "/usr/bin/synthetic-command"]) {
+    assert.throws(() => run(name, []), error =>
+      error.message === "B112_COMMAND_FAILED_" + path.basename(name).replace(/[^a-z0-9_]/gi, "_").toUpperCase() &&
+      /^B112_[A-Z0-9_]+$/.test(error.message));
+  }
+});
 const hash = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
 function temp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "b112-deploy-test-"));

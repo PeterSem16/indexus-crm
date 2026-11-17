@@ -31,6 +31,51 @@ function releasePaths(actual) {
   if (JSON.stringify([...actual].sort()) !== JSON.stringify([...FILES].sort()))
     throw Error("B112_UNREVIEWED_RELEASE_PATHS");
 }
+function nativeDumpEnvironment(connectionString) {
+  try {
+    const url = new URL(connectionString), query = url.searchParams;
+    if (!["postgres:", "postgresql:"].includes(url.protocol)) throw Error();
+    const forwarded = {
+      sslrootcert: "PGSSLROOTCERT", sslcert: "PGSSLCERT", sslkey: "PGSSLKEY",
+      sslcrl: "PGSSLCRL", sslpassword: "PGSSLPASSWORD",
+      ssl_min_protocol_version: "PGSSLMINPROTOCOLVERSION", ssl_max_protocol_version: "PGSSLMAXPROTOCOLVERSION",
+      gssencmode: "PGGSSENCMODE", channel_binding: "PGCHANNELBINDING",
+      target_session_attrs: "PGTARGETSESSIONATTRS",
+      options: "PGOPTIONS", application_name: "PGAPPNAME",
+    };
+    const known = new Set(["host", "port", "user", "password", "dbname", "database", "sslmode", "ssl",
+      "connect_timeout", ...Object.keys(forwarded)]);
+    for (const [key] of query) if (!known.has(key) || query.getAll(key).length !== 1) throw Error();
+    if (query.has("ssl") && !["true", "false", "1", "0"].includes(query.get("ssl"))) throw Error();
+    // Reject conflicting identity selectors rather than interpreting them
+    // differently from the application's driver and backing up another target.
+    const identity = { host: url.hostname.replace(/^\[|\]$/g, ""), port: url.port,
+      user: decodeURIComponent(url.username), password: decodeURIComponent(url.password),
+      dbname: decodeURIComponent(url.pathname.slice(1)), database: decodeURIComponent(url.pathname.slice(1)) };
+    for (const [key, value] of Object.entries(identity))
+      if (value && query.has(key) && query.get(key) !== value) throw Error();
+    const env = {
+      PATH: process.env.PATH, HOME: "/root", LANG: "C.UTF-8", PGCONNECT_TIMEOUT: "8",
+      PGHOST: query.get("host") ?? url.hostname.replace(/^\[|\]$/g, ""),
+      PGPORT: query.get("port") ?? (url.port || "5432"),
+      PGUSER: query.get("user") ?? decodeURIComponent(url.username),
+      PGPASSWORD: query.get("password") ?? decodeURIComponent(url.password),
+      PGDATABASE: query.get("dbname") ?? query.get("database") ?? decodeURIComponent(url.pathname.slice(1)),
+      PGSSLMODE: query.get("sslmode") ?? (["true", "1"].includes(query.get("ssl")) ? "verify-full" : "disable"),
+    };
+    if (env.PGSSLMODE === "no-verify") env.PGSSLMODE = "require";
+    if (!identity.database || !env.PGHOST || !env.PGUSER || !env.PGDATABASE || !/^\d+$/.test(env.PGPORT) ||
+        +env.PGPORT < 1 || +env.PGPORT > 65535 ||
+        !["disable", "allow", "prefer", "require", "verify-ca", "verify-full"].includes(env.PGSSLMODE))
+      throw Error();
+    for (const [parameter, key] of Object.entries(forwarded))
+      if (query.has(parameter)) env[key] = query.get(parameter);
+    return env;
+  } catch {
+    // Never include the URI, password or parser error in an operator-facing error.
+    throw Error("B112_NATIVE_DATABASE_CONFIGURATION_INVALID");
+  }
+}
 async function checkBackupSpace(privateRoot, connectionString) {
   const { Client } = require("/var/www/indexus-crm/node_modules/pg");
   const client = new Client({ connectionString, connectionTimeoutMillis: 8000,
@@ -44,14 +89,14 @@ async function checkBackupSpace(privateRoot, connectionString) {
   } finally { await client.end(); }
 }
 async function beforePromotion({ privateRoot, run, connectionString, backupSafety = checkBackupSpace }) {
+  const dumpEnv = nativeDumpEnvironment(connectionString);
   await backupSafety(privateRoot, connectionString);
   const file = path.join(privateRoot, "database-before-monitoring-column.dump");
   // The shared installer already required private root ownership, mode 0700,
   // /dev/sdb1, free space and the pinned live application's DB configuration.
   // Keep credentials out of arguments and console output. Never restore here.
   run("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", "--file", file], {
-    timeout: 300000, env: { PATH: process.env.PATH, HOME: "/root", LANG: "C.UTF-8",
-      PGDATABASE: connectionString, PGCONNECT_TIMEOUT: "8" },
+    timeout: 300000, env: dumpEnv,
   });
   const listing = run("pg_restore", ["--list", file], { timeout: 60000 });
   if (!/TABLE DATA public email_metadata\s/.test(listing))
@@ -79,7 +124,7 @@ async function main(args = process.argv.slice(2)) {
     throw Error("B112_ROOT_AND_EXPLICIT_PINNED_RESTART_REQUIRED");
   await deploy.deploymentFor(profile())(args);
 }
-module.exports = { BASE, TARGET, FILES, assertRouting, releasePaths, profile, beforePromotion, main };
+module.exports = { BASE, TARGET, FILES, assertRouting, releasePaths, profile, beforePromotion, nativeDumpEnvironment, main };
 if (require.main === module) main().catch(() => {
   console.error("B112_SAVE_DEPLOY_REFUSED_NO_OPERATION"); process.exitCode = 1;
 });
