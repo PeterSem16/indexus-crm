@@ -85,9 +85,25 @@ test("Omni promotion only permits the three frontend paths on the confirmed prod
   assert.match(source,/expected_files=3/);
   assert.match(source,/OLD_BACKEND=2bef809aef7a9ab71c1d30babfce99411dc275e0abe10e97264d5cb86bbe9415/);
   assert.match(source,/cd943bdc4812fb604f880d5b2af61a0e422559d218f7854f48e7f89b956fd003/);
-  assert.match(source,/client\/src\/components\/app-sidebar\.tsx\|client\/src\/pages\/email-client\.tsx\|e2e\/omni-entry-unread\.browser\.test\.mjs\)\s+test "\$omni_release" = true/);
+  assert.match(source,/client\/src\/pages\/email-client\.tsx\|e2e\/omni-entry-unread\.browser\.test\.mjs\)\s+test "\$omni_release" = true/);
   assert.match(source,/APPLIED_OMNI_EMAIL_ENTRY_UNREAD_FRONTEND_ONLY/);
   assert.doesNotMatch(source,/\b(?:npm|pnpm)\s+(?:install|ci)|\bpm2\s+(?:restart|reload)|\b(?:pg_dump|pg_restore|psql)\b/);
+});
+
+test("scoped unread correction starts at the deployed Omni release and validates its private release record", () => {
+  const source=fs.readFileSync(script,"utf8");
+  for(const args of [
+    ["--apply","--omni-count"],
+    ["--apply","--omni-count","main"],
+    ["--apply","--omni-count","1".repeat(40),"--restart"],
+  ]) assert.equal(spawnSync("bash",[script,...args]).status,2);
+  assert.match(source,/BASE=a6f979ac5bb9376173b7926a3c80c051a9670fc9/);
+  assert.match(source,/expected_files=2/);
+  assert.match(source,/INDEXUS-ui-backup-20261117T145550Z-sYARbI/);
+  assert.match(source,/test "\$\{LAST_RELEASE\[1\]\}" = "\$BASE"/);
+  assert.match(source,/test "\$\{LAST_RELEASE\[2\]\}" = "\$OLD_BACKEND"/);
+  assert.match(source,/file_hash "\$PUBLIC\/index.html".*LAST_RELEASE\[5\]/);
+  assert.match(source,/APPLIED_OMNI_SCOPED_INBOX_UNREAD_FRONTEND_ONLY/);
 });
 
 test("index recovery refuses to overwrite a different concurrently deployed frontend", () => {

@@ -125,13 +125,15 @@ failed() {
   exit "$code"
 }
 main() {
-  local omni_release=false
-  if [ "$#" -eq 3 ] && [ "$1" = --apply ] && [ "$2" = --omni-entry ] &&
+  local omni_release=false omni_count_release=false
+  if [ "$#" -eq 3 ] && [ "$1" = --apply ] &&
+     { [ "$2" = --omni-entry ] || [ "$2" = --omni-count ]; } &&
      [[ "$3" =~ ^[0-9a-f]{40}$ ]]; then
     omni_release=true
+    if [ "$2" = --omni-count ]; then omni_count_release=true; fi
   elif { [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; } || [ "${1:-}" != --apply ] ||
        { [ "$#" -eq 2 ] && [ "${2:-}" != --callbacks ]; }; then
-    echo "Usage: bash deploy-status-list-batch-frontend.sh --apply [--callbacks | --omni-entry COMMIT]"
+    echo "Usage: bash deploy-status-list-batch-frontend.sh --apply [--callbacks | --omni-entry COMMIT | --omni-count COMMIT]"
     return 2
   fi
   ROOT=/var/www/indexus-crm
@@ -143,6 +145,10 @@ main() {
     BASE=1a4f4bd1e15170de103523bf437e30df7949ae16
     FIX=$3
     expected_files=3
+    if [ "$omni_count_release" = true ]; then
+      BASE=a6f979ac5bb9376173b7926a3c80c051a9670fc9
+      expected_files=2
+    fi
   elif [ "$#" -eq 2 ]; then
     BASE=ffeddd3a7e749232787067248f876781355458b7
     FIX=0364e2bb907f0c265fd69d5a31f5bb32b19ce115
@@ -189,7 +195,9 @@ main() {
         test "$omni_release" = false && test "$callback_release" = false ;;
       client/src/pages/agent-workspace.tsx|client/src/components/status-list-callback-reschedule-fields.tsx|client/src/components/status-list-manual-callback-button.tsx|client/src/components/status-list-recap-copy.ts|client/test-fixtures/status-list-manual-callback.html|client/test-fixtures/status-list-manual-callback.tsx|e2e/status-list-manual-callback.node.test.ts)
         test "$omni_release" = false && test "$callback_release" = true ;;
-      client/src/components/app-sidebar.tsx|client/src/pages/email-client.tsx|e2e/omni-entry-unread.browser.test.mjs)
+      client/src/components/app-sidebar.tsx)
+        test "$omni_release" = true && test "$omni_count_release" = false ;;
+      client/src/pages/email-client.tsx|e2e/omni-entry-unread.browser.test.mjs)
         test "$omni_release" = true ;;
       *) echo "STOP: neschvaleny zdroj $file"; false ;;
     esac
@@ -207,7 +215,19 @@ main() {
   if [ "$omni_release" = true ]; then
     # Pinned to the operator-confirmed owner-results release. Never rebuild it.
     OLD_BACKEND=2bef809aef7a9ab71c1d30babfce99411dc275e0abe10e97264d5cb86bbe9415
-    test "$(file_hash "$PUBLIC/index.html")" = cd943bdc4812fb604f880d5b2af61a0e422559d218f7854f48e7f89b956fd003
+    if [ "$omni_count_release" = true ]; then
+      local last_backup="$ROOT/data/INDEXUS-ui-backup-20261117T145550Z-sYARbI"
+      test "$(sudo stat -c '%u:%g:%a' "$last_backup")" = 0:0:700
+      mapfile -t LAST_RELEASE < <(sudo cat "$last_backup/release.txt")
+      test "${#LAST_RELEASE[@]}" -eq 6
+      test "${LAST_RELEASE[0]}" = 1a4f4bd1e15170de103523bf437e30df7949ae16
+      test "${LAST_RELEASE[1]}" = "$BASE"
+      test "${LAST_RELEASE[2]}" = "$OLD_BACKEND"
+      [[ "${LAST_RELEASE[5]}" =~ ^[0-9a-f]{64}$ ]]
+      test "$(file_hash "$PUBLIC/index.html")" = "${LAST_RELEASE[5]}"
+    else
+      test "$(file_hash "$PUBLIC/index.html")" = cd943bdc4812fb604f880d5b2af61a0e422559d218f7854f48e7f89b956fd003
+    fi
   else
     test "$(sudo stat -c '%u:%g:%a' "$ORIGINAL_BACKUP")" = 0:0:700
     mapfile -t RELEASE < <(sudo cat "$ORIGINAL_BACKUP/release.txt")
@@ -315,7 +335,9 @@ main() {
   test "$(git rev-parse HEAD)" = "$FIX"
   SWITCHED=0
   trap - ERR
-  if [ "$omni_release" = true ]; then
+  if [ "$omni_count_release" = true ]; then
+    echo "APPLIED_OMNI_SCOPED_INBOX_UNREAD_FRONTEND_ONLY: $FIX"
+  elif [ "$omni_release" = true ]; then
     echo "APPLIED_OMNI_EMAIL_ENTRY_UNREAD_FRONTEND_ONLY: $FIX"
   elif [ "$callback_release" = true ]; then
     echo "OKNA PREPLANOVANIA NASADENE OK: $FIX"

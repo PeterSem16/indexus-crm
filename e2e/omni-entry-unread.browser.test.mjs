@@ -22,7 +22,7 @@ const user = { id: "omni-entry-fixture", username: "fixture", fullName: "Test Op
   assignedCountries: ["SK"], language: "en" };
 const errors = [];
 page.on("pageerror", error => errors.push(error.message));
-let unread = 7, connected = true, unreadRequests = 0, readWrites = 0;
+let unread = 1, connected = true, unreadRequests = 0, readWrites = 0;
 const message = { id: "unread-fixture", subject: "Unread fixture", isRead: false,
   receivedDateTime: "2026-11-17T10:00:00Z", importance: "normal",
   from: { emailAddress: { name: "Synthetic Sender", address: "sender@example.test" } },
@@ -33,24 +33,37 @@ await page.route("**/api/**", async route => {
   if (path === "/api/auth/me") data = { user };
   else if (path.includes("ms365-available-mailboxes")) data = [
     { id: "personal", email: user.email, displayName: "Personal", type: "personal", isDefault: true },
+    { id: "support", email: "support@example.test", displayName: "Support", type: "shared" },
+    { id: "legacy", email: "legacy@example.test", displayName: "Legacy", type: "shared" },
   ];
   else if (path.includes("ms365-connection")) data = { connected: true, isConnected: true };
   else if (path.includes("ms365-unread-counts")) {
     unreadRequests++;
-    data = { connected, totalUnread: unread,
-      counts: [{ mailbox: user.email, unreadCount: unread }] };
-  } else if (path.includes("ms365-folders")) data = { connected: true, inboxId: "localized-inbox",
-    folders: [{ id: "localized-inbox", displayName: "Doručená pošta",
-      unreadItemCount: 2, totalItemCount: 200 }] };
+    data = { connected, totalUnread: 30783 + unread,
+      counts: [{ mailbox: "personal", unreadCount: unread },
+        { mailbox: "support@example.test", unreadCount: 2 },
+        { mailbox: "legacy@example.test", unreadCount: 30781 }] };
+  } else if (path.includes("ms365-folders")) {
+    const mailbox = new URL(req.url()).searchParams.get("mailbox") || "personal";
+    const folderCount = mailbox === "personal" ? unread : mailbox === "support@example.test" ? 2 : 30781;
+    const name = mailbox === "personal" ? "Doručená pošta" : mailbox === "support@example.test" ? "Posteingang" : "Inbox";
+    data = { connected, inboxId: `inbox-${mailbox}`, folders: connected ? [
+      { id: `inbox-${mailbox}`, displayName: name, unreadItemCount: folderCount, totalItemCount: 200 },
+      { id: `archive-${mailbox}`, displayName: "Archive", wellKnownName: "archive", unreadItemCount: 80, totalItemCount: 900 },
+    ] : [] };
+  }
   else if (path.includes("ms365-folder-messages")) data = { connected: true, emails: [message], totalCount: 1 };
   else if (path.endsWith("/read-status") && req.method() === "PATCH") {
     readWrites++;
     message.isRead = JSON.parse(req.postData() || "{}").isRead;
-    unread = message.isRead ? 6 : 7;
+    unread = message.isRead ? 0 : 1;
     data = { success: true };
   } else if (path === "/api/omni-sms/unread") data = { unread: 2 };
   else if (path === "/api/omni-sms/access") data = { isAdmin: false, grants: [], countries: [], gateways: [] };
-  else if (path === "/api/nexus/mailbox-groups") data = { groups: [], revision: 0 };
+  else if (path === "/api/nexus/mailbox-groups") data = { groups: [
+    { id: "care", name: "Care team", emails: [user.email, "support@example.test"] },
+    { id: "empty", name: "No accounts", emails: ["unavailable@example.test"] },
+  ], revision: 0 };
   else if (path === "/api/tasks/assignment-options") data = { users: [], groups: [], canResolve: true };
   else if (path === "/api/task-settings/access") data = { canManage: false };
   else if (path === "/api/task-settings/users") data = { configured: false, users: [], allowedUserIds: [] };
@@ -58,23 +71,25 @@ await page.route("**/api/**", async route => {
 });
 
 const count = () => page.getByTestId("tab-email").locator(".omni-tab-count");
-const waitCount = value => page.waitForFunction(expected =>
-  document.querySelector('[data-testid="tab-email"] .omni-tab-count')?.textContent === String(expected), value);
+const waitCount = value => page.waitForFunction(expected => {
+  const badge = document.querySelector('[data-testid="tab-email"] .omni-tab-count');
+  return expected === 0 ? !badge : badge?.textContent === String(expected);
+}, value);
 
 try {
   const base = `http://127.0.0.1:${server.address().port}`;
   await page.goto(`${base}/email?tab=sms`);
   await page.getByTestId("tab-sms").waitFor();
   await page.waitForFunction(() => document.querySelector('[data-testid="tab-sms"]')?.getAttribute("aria-selected") === "true");
-  await waitCount(7);
+  await waitCount(1);
   assert.equal(await page.getByTestId("nav-nexus-omni").getAttribute("href"), "/email?tab=email");
   assert.equal(await page.getByTestId("nexus-omni-unread-sms").getAttribute("href"), "/email?tab=sms");
   assert.equal(unreadRequests, 1, "all mounted consumers share one unread query");
 
   await page.getByTestId("nav-nexus-omni").click();
   await page.waitForFunction(() => document.querySelector('[data-testid="tab-email"]')?.getAttribute("aria-selected") === "true");
-  await waitCount(7);
-  console.log("PASS menu opens Email despite unread SMS; localized Inbox badge uses total across mailboxes");
+  await waitCount(30784);
+  console.log("PASS menu still opens Email; all-accounts scope sums only its inboxes");
 
   // A toolbar tab change does not remount the page. Main menu must still reset it.
   await page.getByTestId("tab-sms").click();
@@ -86,23 +101,42 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-testid="tab-email"]')?.getAttribute("aria-selected") === "true");
   console.log("PASS repeated main-menu entry and explicit SMS shortcut stay independent");
 
+  await page.getByTestId(`account-expanded-${user.email}`).click();
+  await waitCount(1);
+  console.log("PASS personal Inbox has 1 unread despite global 30784 and Archive 80");
+  await page.getByTestId("account-expanded-support@example.test").click();
+  await waitCount(2);
+  await page.getByTestId("omni-group-care").click();
+  await waitCount(3);
+  console.log("PASS group sums Slovak and German inbox IDs and excludes unrelated mailbox");
+  await page.getByTestId("omni-group-empty").click();
+  await waitCount(0);
+  await page.getByTestId(`account-expanded-${user.email}`).click();
+  await waitCount(1);
+
   assert.equal(readWrites, 0, "navigation never changes message read state");
   await page.getByTestId("email-item-unread-fixture").hover();
   await page.getByTestId("toggle-read-unread-fixture").click();
-  await waitCount(6);
-  assert.equal(await page.getByTestId("nexus-omni-unread-email").innerText(), "6");
+  await waitCount(0);
   await page.getByTestId("email-item-unread-fixture").hover();
   await page.getByTestId("toggle-read-unread-fixture").click();
-  await waitCount(7);
+  await waitCount(1);
   assert.equal(readWrites, 2, "read and unread mutations refresh the shared counter");
-  console.log("PASS mark read/unread immediately refreshes toolbar and sidebar together");
+  await page.getByTestId("omni-group-care").click();
+  await waitCount(3);
+  await page.getByTestId("email-item-unread-fixture").first().hover();
+  await page.getByTestId("toggle-read-unread-fixture").first().click();
+  await waitCount(2);
+  await page.getByTestId(`account-expanded-${user.email}`).click();
+  await waitCount(0);
+  console.log("PASS read/unread refreshes current Inbox and group counts");
   unread = 0;
   const zeroResponse = page.waitForResponse(r => r.url().includes("ms365-unread-counts"));
   await page.reload();
   await zeroResponse;
   await page.getByTestId("tab-email").waitFor();
-  await page.waitForFunction(() => !document.querySelector('[data-testid="nexus-omni-unread-email"]'));
-  assert.equal(await count().count(), 0, "no zero badge, even though folder reports unread messages");
+  await waitCount(0);
+  assert.equal(await count().count(), 0, "no zero badge, even though global count remains positive");
   unread = 9; connected = false;
   const disconnectedResponse = page.waitForResponse(r => r.url().includes("ms365-unread-counts"));
   await page.reload();
@@ -111,9 +145,9 @@ try {
   assert.equal(await count().count(), 0, "disconnected state never displays a stale count");
   assert.deepEqual(errors, []);
   await mkdir("generated-artifacts/omni-entry-unread", { recursive: true });
-  connected = true; unread = 7;
+  connected = true; unread = 1;
   await page.reload();
-  await waitCount(7);
+  await waitCount(1);
   await page.screenshot({ path: "generated-artifacts/omni-entry-unread/toolbar.jpg" });
   console.log("PASS zero and disconnected counts; no page errors");
 } finally {

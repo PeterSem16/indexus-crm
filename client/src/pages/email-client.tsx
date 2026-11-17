@@ -38,7 +38,6 @@ import { TaskDetailFullscreen } from "@/components/tasks/task-detail-fullscreen"
 import { TaskTimingStatus } from "@/components/tasks/task-timing";
 import { OmniSmsWorkspace } from "@/components/nexus/omni-sms/OmniSmsWorkspace";
 import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
-import { useOmniEmailUnread } from "@/hooks/use-omni-email-unread";
 import type { OmniSmsAccess } from "@shared/omni-sms";
 import type { TaskAttachment } from "@shared/task-attachments";
 import { chooseTaskGroupForSave, clampTaskPage, filterTasksByDate, getFreshTaskById, getTaskGroupId, isPulseNotificationTask, matchesTaskPeopleAndSearch, requiresPulseResolutionForCompletion, sortTasks, type DateRange, type TaskDateBasis, type TaskDatePreset, type TaskSortField } from "@/lib/task-query-controls";
@@ -3392,21 +3391,24 @@ export default function EmailClientPage() {
     refetchInterval: 30_000,
   });
 
-  const { data: allMailboxFoldersData } = useQuery<Record<string, MailFolder[]>>({
-    queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes", selectedMailbox, navigationMailboxes.map(m => m.email).join(",")],
+  const { data: allMailboxFoldersData } = useQuery<Record<string, { folders: MailFolder[]; inboxId?: string | null }>>({
+    queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes", "with-inbox-id", selectedMailbox, navigationMailboxes.map(m => m.email).join(",")],
     queryFn: async () => {
-      const result: Record<string, MailFolder[]> = {};
+      const result: Record<string, { folders: MailFolder[]; inboxId?: string | null }> = {};
       for (const mb of navigationMailboxes) {
         const mbKey = mb.type === "personal" ? "personal" : mb.email;
         try {
-          const data = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${mbKey}`).then(r => r.json());
-          result[mbKey] = data.folders || [];
-        } catch { result[mbKey] = []; }
+          const response = await fetch(`/api/users/${user?.id}/ms365-folders?mailbox=${encodeURIComponent(mbKey)}`);
+          if (!response.ok) throw new Error("Mailbox folders unavailable");
+          const data = await response.json();
+          result[mbKey] = { folders: data.connected !== false && Array.isArray(data.folders) ? data.folders : [], inboxId: data.inboxId };
+        } catch { result[mbKey] = { folders: [] }; }
       }
       return result;
     },
     enabled: !!user?.id && (selectedMailbox === "all" || selectedMailbox.startsWith("group:")) && navigationMailboxes.length > 0,
     staleTime: 60000,
+    refetchInterval: 30_000,
   });
 
   useEffect(() => {
@@ -4144,6 +4146,7 @@ export default function EmailClientPage() {
       }
       queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-email", variables.emailId] });
       refetchFolders();
+      void queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-folders-all-mailboxes"] });
       void queryClient.invalidateQueries({ queryKey: ["/api/users", user?.id, "ms365-unread-counts"] });
     },
     onError: () => {
@@ -4177,17 +4180,22 @@ export default function EmailClientPage() {
       "Archive": "archive", "Archív": "archive",
     };
     const getWK = (f: MailFolder) => f.wellKnownName || wkNameMap[f.displayName] || null;
-    const otherMbFolders = Object.entries(allMailboxFoldersData).filter(([k]) => k !== effectiveMailbox).flatMap(([, v]) => v);
+    const otherMailboxes = Object.entries(allMailboxFoldersData).filter(([k]) => k !== effectiveMailbox);
     return rawFolders.map(f => {
+      const isInbox = f.id === foldersData?.inboxId || f.wellKnownName === "inbox";
       const wk = getWK(f);
-      if (!wk) return f;
+      if (!wk && !isInbox) return f;
       let extraUnread = 0;
       let extraTotal = 0;
-      for (const of2 of otherMbFolders) {
-        const wk2 = getWK(of2);
-        if (wk2 === wk) {
-          extraUnread += of2.unreadItemCount || 0;
-          extraTotal += of2.totalItemCount || 0;
+      for (const [, mailbox] of otherMailboxes) {
+        for (const of2 of mailbox.folders) {
+          const sameFolder = isInbox
+            ? of2.id === mailbox.inboxId || of2.wellKnownName === "inbox"
+            : getWK(of2) === wk;
+          if (sameFolder) {
+            extraUnread += of2.unreadItemCount || 0;
+            extraTotal += of2.totalItemCount || 0;
+          }
         }
       }
       if (extraUnread === 0 && extraTotal === 0) return f;
@@ -4222,7 +4230,11 @@ export default function EmailClientPage() {
 
   const emails = accumulatedEmails;
   const totalCount = serverTotalCount;
-  const { unread: totalUnreadEmails } = useOmniEmailUnread();
+  // Same inbox and account/group scope as the folder sidebar, never the global
+  // count from every delegated mailbox or just the loaded message page.
+  const inboxFolder = folders.find(f => f.id === foldersData?.inboxId)
+    || folders.find(f => f.wellKnownName === "inbox");
+  const totalUnreadEmails = Math.max(0, Math.floor(inboxFolder?.unreadItemCount || 0));
 
   const { unread: smsInboundUnread } = useOmniSmsUnread();
   const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);
