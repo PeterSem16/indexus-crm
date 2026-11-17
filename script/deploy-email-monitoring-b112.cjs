@@ -74,6 +74,11 @@ async function cutover(actions) {
     throw Error("B112_NEW_RUNTIME_FAILED_ORIGINAL_RESTORED");
   }
 }
+// A pinned operator wrapper may reuse the same deployment protections for a
+// separately reviewed release. The original entry retains its original profile.
+function deploymentFor(profile) {
+  const { BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES,
+    assertRouting, releasePaths, resultOverrides = {} } = profile;
 async function main(args = process.argv.slice(2)) {
   ensure(args.length === 3 && args[0] === "--apply" && args[1] === TARGET &&
     args[2] === "--allow-restart", "B112_EXPLICIT_PINNED_APPLY_REQUIRED");
@@ -301,7 +306,8 @@ async function main(args = process.argv.slice(2)) {
       changedPaths: FILES, backendSha256: builtHash, frontendSha256: OLD_INDEX, frontendChanged: false,
       gatewayEnabled: false, openaiServices: 65, internalServices: 0, routingUnchanged: true,
       serviceTimeoutMs: 120000, productionModelCalls: 0, databaseRestored: false, backup: privateRoot,
-      next: "Run the approved seven synthetic cases; do not activate internal production routing." };
+      next: "Run the approved seven synthetic cases; do not activate internal production routing.",
+      ...resultOverrides };
     json(privateRoot + "/result.json", report);
     console.log(JSON.stringify(report, null, 2));
   } catch (error) {
@@ -313,5 +319,8 @@ async function main(args = process.argv.slice(2)) {
     console.error(JSON.stringify(report, null, 2)); process.exitCode = 1;
   } finally { if (locked) fs.rmdirSync(lock); }
 }
-module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main };
+  return main;
+}
+const main = deploymentFor({ BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES, assertRouting, releasePaths });
+module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main, deploymentFor };
 if (require.main === module) main().catch(() => { console.error("B112_DEPLOY_REFUSED_NO_OPERATION"); process.exitCode = 1; });

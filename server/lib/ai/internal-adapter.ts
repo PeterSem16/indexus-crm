@@ -115,7 +115,8 @@ export function createInternalAIAdapter(dependencies: {
   }
   const adapter: AIProviderAdapter & {
     runtimeStatus(): { production: boolean; replit: boolean; serverAllowed: boolean; tokenConfigured: boolean };
-    inspect(options?: { signal?: AbortSignal; timeoutMs?: number }): Promise<{
+    inspect(options?: { signal?: AbortSignal; timeoutMs?: number;
+      service?: import("./service-catalog").AIService }): Promise<{
       ready: true; apiVersion: "1"; models: ReturnType<typeof validateInternalDiscovery>;
     }>;
   } = {
@@ -196,7 +197,8 @@ export function createInternalAIAdapter(dependencies: {
       options.signal?.addEventListener("abort", abort, { once: true });
       const timer = setTimeout(abort, timeoutMs);
       try {
-        const models = await discover(config, controller.signal);
+        const models = await discover(config, controller.signal,
+          internalModelsForService(options.service, allowed));
         if (!models.length) throw new InternalAIError("ai_internal_model_unavailable", 503);
         return { ready: true, apiVersion: "1", models };
       } finally {
