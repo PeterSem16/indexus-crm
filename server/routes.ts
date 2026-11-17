@@ -248,6 +248,7 @@ import fs from "fs";
 import multer from "multer";
 import { toFile } from "openai";
 import { aiClient, isAIAvailable } from "./lib/ai-router";
+import { parseEmailSentimentAnalysis, emailSentimentFailure } from "./lib/ai/email-sentiment-contract";
 import { createStatusListLabelTranslationHandler } from "./lib/status-list-label-translation";
 import { statusListLabelTranslationsSchema } from "../shared/status-list-label-translations";
 import {
@@ -571,7 +572,8 @@ interface EmailAnalysisResult {
   doesNotAcceptContract: boolean; // Neakceptuje zmluvu
 }
 
-async function analyzeEmailContent(content: string, subject: string): Promise<EmailAnalysisResult | null> {
+async function analyzeEmailContent(content: string, subject: string): Promise<
+  EmailAnalysisResult | ReturnType<typeof emailSentimentFailure> | null> {
   if (!isAIAvailable("email.sentiment")) {
     console.log("[AI Analysis] OpenAI API key not configured, skipping analysis");
     return null;
@@ -623,21 +625,11 @@ Slovak profanity: check for vulgar words like "sakra", "do riti", "kurva" and si
     }
 
     // Parse JSON response
-    const parsed = JSON.parse(resultText);
-    return {
-      sentiment: parsed.sentiment || "neutral",
-      hasInappropriateContent: parsed.hasInappropriateContent === true,
-      alertLevel: parsed.alertLevel || "none",
-      note: parsed.note || "",
-      hasAngryTone: parsed.hasAngryTone === true,
-      hasRudeExpressions: parsed.hasRudeExpressions === true,
-      wantsToCancel: parsed.wantsToCancel === true,
-      wantsConsent: parsed.wantsConsent === true,
-      doesNotAcceptContract: parsed.doesNotAcceptContract === true,
-    };
+    return parseEmailSentimentAnalysis(resultText);
   } catch (error) {
-    console.error("[AI Analysis] Error analyzing email:", error);
-    return null;
+    const failure = emailSentimentFailure(error);
+    console.warn("[AI Analysis]", failure.status, failure.code);
+    return failure;
   }
 }
 
@@ -7791,7 +7783,7 @@ Always respond with valid JSON only, no markdown.`
             const emailContent = email.body?.content || email.bodyPreview || "";
             const analysisResult = await analyzeEmailContent(emailContent, email.subject || "");
             
-            if (analysisResult) {
+            if (analysisResult && !("status" in analysisResult)) {
               // Store AI analysis in email metadata with extended characteristics
               const existingMetadata = await storage.getEmailMetadataByMessageId(emailId, actualMailbox);
               const metadataData: any = {

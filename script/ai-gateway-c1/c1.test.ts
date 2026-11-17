@@ -124,7 +124,11 @@ sourceTest("unsupported request is rejected before transport; no inference time 
   assert.equal(result.inferenceMs, null);
 });
 sourceTest("all four dedicated parser replays run original application code", async () => {
-  const outputs: Record<string, string> = { "email.sentiment": '{"sentiment":"neutral"}',
+  const outputs: Record<string, string> = { "email.sentiment": JSON.stringify({
+    sentiment: "neutral", hasInappropriateContent: false, hasAngryTone: false,
+    hasRudeExpressions: false, wantsToCancel: false, wantsConsent: false,
+    doesNotAcceptContract: false, alertLevel: "none", note: "Syntetická informačná správa.",
+  }),
     "sms.sentiment": '{"sentiment":"neutral"}',
     "task.checklist": '{"steps":["Overiť prijatie správy","Zapísať výsledok overenia","Pripraviť stručnú odpoveď"]}',
     "task.resolution": '{"draft":"Prijatie syntetickej správy bolo overené."}' };

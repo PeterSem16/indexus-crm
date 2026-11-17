@@ -9,6 +9,8 @@ const { boundaryCode, BOUNDARIES } = require("./boundary-replay.cjs");
 const crypto = require("node:crypto");
 const RECIPES = {
   "email.sentiment": { file: "server/routes.ts", names: ["analyzeEmailContent"],
+    dependencies: [{ file: "server/lib/ai/email-sentiment-contract.ts",
+      names: ["parseEmailSentimentAnalysis", "emailSentimentFailure"] }],
     invoke: "analyzeEmailContent(seed.content, seed.subject)" },
   "sms.sentiment": { file: "server/routes.ts", names: ["analyzeSmsContent"],
     invoke: "analyzeSmsContent(seed.content)" },
@@ -42,7 +44,7 @@ function extract(recipe, root = ROOT) {
     }
   }
   if (recipe.names.some(name => !found.has(name))) throw Error("C1_PARSER_SOURCE_CHANGED");
-  return selected.join("\n");
+  return [...(recipe.dependencies || []).map(dependency => extract(dependency, root)), ...selected].join("\n");
 }
 function tailRecipe(variant, root = ROOT) {
   const file = path.resolve(root, variant.source.file);
@@ -155,7 +157,7 @@ async function replay(id, raw, seed, originalRequest, variant, options = {}) {
     const value = await context.__completion;
     if (JSON.stringify(captured) !== JSON.stringify(originalRequest.messages))
       return { state: "HARNESS_ERROR", value: null, validationError: "C1_REPLAY_REQUEST_MISMATCH" };
-    const rejected = value === null || value?.status === "failed" || value?.status === "unavailable";
+    const rejected = value === null || ["failed", "unavailable", "review_required"].includes(value?.status);
     return { state: rejected ? "REJECTED" : "ACCEPTED",
       value: JSON.parse(JSON.stringify(value)),
       validationError: rejected ? value?.errorCode || "C1_APPLICATION_REJECTED_OUTPUT" : null };
