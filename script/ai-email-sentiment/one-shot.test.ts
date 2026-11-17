@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createGatewayPilot } from "./gateway-client";
 import { regressionCases } from "./regression-corpus";
-import { runOneShot, main, RUN_FLAG, RISK_FLAG, EXPECTED_REVISION } from "./one-shot";
+import { runOneShot, main, RUN_FLAG, TARGETED_RUN_FLAG, RISK_FLAG, EXPECTED_REVISION } from "./one-shot";
 import { GATEWAY_URL } from "../../server/lib/ai/settings-policy";
 import { EMAIL_MONITORING_PROFILE } from "../../server/lib/ai/email-monitoring-profile";
 import { AI_ROUTING_OVERRIDES } from "../../server/config/ai-routing";
@@ -62,6 +62,7 @@ const base = () => ({ authorized: true, acknowledgeUnverifiedImpact: true,
 test("operator CLI cannot run from Replit or without both explicit acknowledgements", async () => {
   await assert.rejects(main([]), /explicit_flags/);
   await assert.rejects(main([RUN_FLAG, RISK_FLAG, "/tmp"]), /verified_CORPCRM01_runtime_required/);
+  await assert.rejects(main([TARGETED_RUN_FLAG, RISK_FLAG, "/tmp"]), /verified_CORPCRM01_runtime_required/);
 });
 test("no acknowledgement means zero network calls", async () => {
   for (const key of ["authorized", "acknowledgeUnverifiedImpact"] as const) {
@@ -126,4 +127,42 @@ test("Ctrl+C aborts an in-flight request and never starts the next input", async
     assert.equal(result.inferenceAttempts, 1);
     assert.equal(result.missing.length, 17);
   } finally { clearInterval(timer); }
+});
+test("targeted approval executes exactly K01 K02 K03 and never the remaining 15", async () => {
+  const f = fixture(), rows: any[] = [];
+  let waits = 0;
+  const result = await runOneShot({ ...base(), client: f.client, scope: "k01-k03",
+    wait: async () => { waits++; }, write: row => rows.push(row) });
+  assert.equal(result.expectedCases, 3);
+  assert.equal(result.evaluatedCases, 3);
+  assert.equal(result.inferenceAttempts, 3);
+  assert.equal(f.calls.filter(row => row.method === "POST").length, 3);
+  assert.equal(f.peak(), 1);
+  assert.equal(waits, 2);
+  assert.deepEqual(rows.filter(x => x.kind === "case").map(x => x.id), ["K01", "K02", "K03"]);
+  assert.deepEqual(result.missing, []);
+  assert.deepEqual(result.postponedNotAuthorized, regressionCases.slice(3).map(x => x.id));
+  assert.equal(result.classificationPass, 3);
+  assert.equal(result.referenceChecksAccepted, true);
+  assert.equal(result.completeAndAccepted, false);
+  assert.equal(result.manualNoteReviewRequired, true);
+  assert.equal(result.productionActivationAllowed, false);
+  assert.equal(rows[0].adapterSourceVerifiedByRunner, false);
+  assert.ok(!JSON.stringify(rows).includes(token));
+});
+test("targeted technical failure stops without consuming the rest of the authorization", async () => {
+  const f = fixture({ failure: 504 });
+  const result = await runOneShot({ ...base(), client: f.client, scope: "k01-k03", write() {} });
+  assert.equal(result.expectedCases, 3);
+  assert.equal(result.evaluatedCases, 1);
+  assert.equal(result.inferenceAttempts, 1);
+  assert.deepEqual(result.missing, ["K02", "K03"]);
+  assert.equal(result.postponedNotAuthorized.length, 15);
+  assert.equal(result.referenceChecksAccepted, false);
+});
+test("unrecognized test scope fails before any request", async () => {
+  const f = fixture();
+  await assert.rejects(runOneShot({ ...base(), client: f.client,
+    scope: "other" as any, write() {} }), /invalid_synthetic_test_scope/);
+  assert.equal(f.calls.length, 0);
 });
