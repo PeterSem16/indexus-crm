@@ -179,6 +179,52 @@ for (const row of sentimentCorpus) test(`synthetic contract fixture ${row.id} ($
   } finally { await h.close(); }
 });
 
+for (const status of [503, 504]) {
+  for (const source of ["header", "root", "error", "missing", "unsafe", "credential", "oversized"] as const) {
+    test(`sentiment HTTP ${status} preserves only safe Gateway request ID from ${source}`, async () => {
+      const id = `gateway-${status}-synthetic-42`;
+      const h = await harness((call, res) => {
+        if (!call.path.endsWith("/chat/completions")) return;
+        const candidate = source === "unsafe" ? "private@example.test" :
+          source === "credential" ? "SYNTHETIC_SENTIMENT_NOT_A_CREDENTIAL" : id;
+        if (source === "header" || source === "oversized") res.setHeader("x-request-id", id);
+        send(res, {
+          ...(source === "root" ? { request_id: candidate } : {}),
+          error: { message: "PRIVATE_VENDOR_TEXT",
+            ...(["error", "unsafe", "credential"].includes(source) ? { request_id: candidate } : {}),
+            ...(source === "oversized" ? { detail: "x".repeat(9000) } : {}) },
+        }, status);
+        return true;
+      });
+      try {
+        const result = await h.app.analyze();
+        assert.deepEqual(result, { status: "failed", code: "email_sentiment_unavailable",
+          httpStatus: status,
+          ...(["header", "root", "error", "oversized"].includes(source) ? { request_id: id } : {}) });
+        assert.equal(h.calls.filter(c => c.path.endsWith("/chat/completions")).length, 1);
+        assert.equal(h.externalCalls(), 0);
+        assert.equal(h.app.effects(), 0);
+        const recorded = JSON.stringify({ result, logs: h.app.logs });
+        for (const secret of ["PRIVATE_VENDOR_TEXT", "private@example.test", "SYNTHETIC_SENTIMENT_NOT_A_CREDENTIAL"])
+          assert.ok(!recorded.includes(secret));
+      } finally { await h.close(); }
+    });
+  }
+  test(`sentiment discovery HTTP ${status} preserves Gateway request ID without inference`, async () => {
+    const h = await harness((call, res) => {
+      if (!call.path.endsWith("/v1/models")) return;
+      send(res, { request_id: `discovery-${status}` }, status);
+      return true;
+    });
+    try {
+      assert.deepEqual(await h.app.analyze(), { status: "failed", code: "email_sentiment_unavailable",
+        httpStatus: status, request_id: `discovery-${status}` });
+      assert.equal(h.calls.filter(c => c.path.endsWith("/v1/models")).length, 1);
+      assert.equal(h.calls.filter(c => c.path.endsWith("/chat/completions")).length, 0);
+    } finally { await h.close(); }
+  });
+}
+
 const failures: Record<string, { status?: number; data: unknown; review?: boolean; path?: string }> = {
   review: { status: 422, data: { error: { type: "review_required", code: "review_required",
     message: "REVIEW_REQUIRED: possible prompt injection affected consent classification" } }, review: true },

@@ -47,9 +47,15 @@ export function emailSentimentReviewReason(error: unknown):
 }
 
 /** A safe, explicit failure identity; never a successful all-false classification. */
+export function emailSentimentRequestId(value: unknown): string | undefined {
+  return typeof value === "string" && /^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$/.test(value)
+    ? value : undefined;
+}
+
 export function emailSentimentFailure(error: unknown): {
   status: "review_required" | "failed"; code: string;
   reason?: ReturnType<typeof emailSentimentReviewReason>;
+  httpStatus?: number; request_id?: string;
 } {
   const value = error as {
     status?: unknown; code?: unknown; type?: unknown; message?: unknown; error?: unknown;
@@ -59,5 +65,11 @@ export function emailSentimentFailure(error: unknown): {
       reason: emailSentimentReviewReason(value.error) };
   if (value?.message === "email_sentiment_invalid_analysis")
     return { status: "failed", code: "email_sentiment_invalid_analysis" };
+  if (value?.status === 503 || value?.status === 504) {
+    const envelope = value.error as { request_id?: unknown } | null;
+    const requestId = emailSentimentRequestId(envelope?.request_id);
+    return { status: "failed", code: "email_sentiment_unavailable", httpStatus: value.status,
+      ...(requestId ? { request_id: requestId } : {}) };
+  }
   return { status: "failed", code: "email_sentiment_unavailable" };
 }

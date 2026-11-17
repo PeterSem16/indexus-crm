@@ -6,7 +6,7 @@ import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
   internalModelsForService, validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
 import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
 import { EMAIL_SENTIMENT_PROFILE } from "./email-sentiment-profile";
-import { emailSentimentReviewReason } from "./email-sentiment-contract";
+import { emailSentimentReviewReason, emailSentimentRequestId } from "./email-sentiment-contract";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -93,9 +93,23 @@ export function createInternalAIAdapter(dependencies: {
       throw new InternalAIError("ai_internal_transport_error", 502);
     }
     if (!response.ok || response.status !== 200) {
+      if (sentimentReview && (response.status === 503 || response.status === 504)) {
+        let requestId = emailSentimentRequestId(response.headers.get("x-request-id"));
+        try {
+          if (response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+            const value = JSON.parse(await readLimited(response, 8192, signal));
+            requestId ??= emailSentimentRequestId(value?.request_id) ??
+              emailSentimentRequestId(value?.error?.request_id);
+          }
+        } catch {
+          if (signal?.aborted) throw abortError();
+        } finally { await response.body?.cancel().catch(() => {}); }
+        if (requestId?.includes(config.token)) requestId = undefined;
+        throw new InternalAIError("ai_internal_http_error", response.status, undefined, requestId);
+      }
       // Read only a bounded error envelope for this service. Discard vendor text.
       // All other services retain their original HTTP-error behavior.
-      if (sentimentReview && response.status === 422 &&
+      if (sentimentReview && path === "v1/chat/completions" && response.status === 422 &&
         response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
         let review = false;
         let reason: ReturnType<typeof emailSentimentReviewReason> = "unspecified";
@@ -125,10 +139,11 @@ export function createInternalAIAdapter(dependencies: {
       throw new InternalAIError("ai_internal_invalid_content_type", 502);
     try { return JSON.parse(text); } catch { throw new InternalAIError("ai_internal_invalid_json_response", 502); }
   }
-  async function discover(config: Configuration, signal?: AbortSignal | null, permitted = allowed) {
-    await request(config, "health/ready", signal);
-    const models = await request(config, "v1/models", signal);
-    const capabilities = await request(config, "indexus/v1/capabilities", signal);
+  async function discover(config: Configuration, signal?: AbortSignal | null, permitted = allowed,
+    sentimentService = false) {
+    await request(config, "health/ready", signal, undefined, sentimentService);
+    const models = await request(config, "v1/models", signal, undefined, sentimentService);
+    const capabilities = await request(config, "indexus/v1/capabilities", signal, undefined, sentimentService);
     return validateInternalDiscovery(models, capabilities, permitted);
   }
   const adapter: AIProviderAdapter & {
@@ -175,7 +190,7 @@ export function createInternalAIAdapter(dependencies: {
             const spec = validateInternalRequest(body, permitted);
             // Use the existing configured HTTPS Gateway for inference as well
             // as discovery. Never silently substitute the old private HTTP URL.
-            const models = await discover(config, init.signal, permitted);
+            const models = await discover(config, init.signal, permitted, sentimentService);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
             if (!model.outputFormats.includes(spec.format))
@@ -190,7 +205,8 @@ export function createInternalAIAdapter(dependencies: {
             const safe = error instanceof InternalAIError ? error : new InternalAIError("ai_internal_request_failed");
             return jsonResponse({ error: { message: safe.code,
               type: safe.code === "review_required" ? "review_required" : "internal_gateway_error",
-              code: safe.code, ...(safe.code === "review_required" ? { reason_code: safe.reviewReason } : {}) } }, safe.status);
+              code: safe.code, ...(safe.code === "review_required" ? { reason_code: safe.reviewReason } : {}),
+              ...(sentimentService && safe.requestId ? { request_id: safe.requestId } : {}) } }, safe.status);
           }
         },
       });
@@ -240,7 +256,7 @@ export function createInternalAIAdapter(dependencies: {
       const timer = setTimeout(abort, timeoutMs);
       try {
         const models = await discover(config, controller.signal,
-          internalModelsForService(options.service, allowed));
+          internalModelsForService(options.service, allowed), options.service === EMAIL_SENTIMENT_PROFILE.service);
         if (!models.length) throw new InternalAIError("ai_internal_model_unavailable", 503);
         return { ready: true, apiVersion: "1", models };
       } finally {

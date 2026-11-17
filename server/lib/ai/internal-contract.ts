@@ -2,7 +2,8 @@
 import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
 import { EMAIL_SENTIMENT_MODEL } from "./email-sentiment-profile";
 export class InternalAIError extends Error {
-  constructor(readonly code: string, readonly status = 502, readonly reviewReason?: string) { super(code); }
+  constructor(readonly code: string, readonly status = 502, readonly reviewReason?: string,
+    readonly requestId?: string) { super(code); }
 }
 export const INTERNAL_TEXT_MODELS = Object.freeze(["indexus-document-audio:latest"]);
 /** A service-scoped grant, never a global model allowlist expansion. */

@@ -10,7 +10,7 @@ const crypto = require("node:crypto");
 const RECIPES = {
   "email.sentiment": { file: "server/routes.ts", names: ["analyzeEmailContent"],
     dependencies: [{ file: "server/lib/ai/email-sentiment-contract.ts",
-      names: ["parseEmailSentimentAnalysis", "emailSentimentReviewReason", "emailSentimentFailure"] }],
+      names: ["parseEmailSentimentAnalysis", "emailSentimentReviewReason", "emailSentimentRequestId", "emailSentimentFailure"] }],
     invoke: "analyzeEmailContent(seed.content, seed.subject)" },
   "sms.sentiment": { file: "server/routes.ts", names: ["analyzeSmsContent"],
     invoke: "analyzeSmsContent(seed.content)" },

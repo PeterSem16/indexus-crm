@@ -26,7 +26,8 @@ const preflight = () => makePreflight({ discovery: true, routingUnchanged: true,
 const defaults = () => ({ approved: true, preflight: preflight(), monitor: async () => telemetry(),
   readRoutingSnapshot: async () => ({ version: 1, routes: "SYNTHETIC_UNCHANGED" }),
   wait: async (_ms: number) => {}, onCase: async (_value: unknown) => {} });
-function fixture(options: { missingModel?: boolean; status?: number; note?: string; stall?: boolean } = {}) {
+function fixture(options: { missingModel?: boolean; status?: number; note?: string; stall?: boolean;
+  requestId?: string } = {}) {
   const calls: { url: string; init: RequestInit | undefined }[] = [];
   let active = 0, peak = 0;
   const fetch: typeof globalThis.fetch = async (input, init) => {
@@ -48,7 +49,8 @@ function fixture(options: { missingModel?: boolean; status?: number; note?: stri
           if (init?.signal?.aborted) abort(); else init?.signal?.addEventListener("abort", abort, { once: true });
         });
       }
-      if (options.status) return Response.json({ error: token }, { status: options.status });
+      if (options.status) return Response.json({ error: token,
+        ...(options.requestId ? { request_id: options.requestId } : {}) }, { status: options.status });
       const body = JSON.parse(String(init?.body));
       const row = regressionCases.find(row => body.messages.at(-1).content.endsWith(`Content: ${row.content}`));
       if (row?.id === "K12") return Response.json({ error: { code: "review_required", type: "review_required",
@@ -138,6 +140,19 @@ test("technical HTTP failure has exactly one attempt, no fallback and no vendor/
     onCase: async row => { rows.push(row); } });
   assert.equal(result.completedCases, 1); assert.equal(result.inferenceAttempts, 1);
   assert.equal(result.notExecuted.length, 17);
+  assert.ok(!f.client.stringifySafe(rows).includes(token));
+});
+for (const status of [503, 504]) test(`HTTP ${status} Gateway request ID reaches the isolated case report`, async () => {
+  const requestId = `gateway-report-${status}`, f = fixture({ status, requestId });
+  await f.client.inspect();
+  const rows: any[] = [];
+  const result = await runSequentialRegression({ ...defaults(), client: f.client,
+    onCase: async row => { rows.push(row); } });
+  assert.equal(result.inferenceAttempts, 1);
+  assert.equal(result.notExecuted.length, 17);
+  assert.deepEqual(rows[0].analysis, { status: "failed", code: "email_sentiment_unavailable",
+    httpStatus: status, request_id: requestId });
+  assert.equal(rows[0].businessEffects, 0);
   assert.ok(!f.client.stringifySafe(rows).includes(token));
 });
 test("configuration drift stops the corpus and does not change monitoring or global routing", async () => {
