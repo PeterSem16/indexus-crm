@@ -121,3 +121,35 @@ test("repeat refuses missing final evidence and changed latest production config
   fs.unlinkSync(f.finalEvidence);
   assert.throws(() => selectFinalPass(f.home, process.getuid(), true));
 }));
+function deployedFixFixture(run) {
+  repeatFixture(f => {
+    const out = path.join(f.home, "Email-monitoring-repeat-run-fixture");
+    fs.mkdirSync(out, { mode: 0o700 });
+    const repeatMarker = path.join(f.home, "Email-monitoring-repeat-seven.started");
+    const repeatEvidence = path.join(out, "B112_evidence.json");
+    fs.writeFileSync(repeatMarker, JSON.stringify({ out }), { mode: 0o600 });
+    fs.writeFileSync(repeatEvidence, JSON.stringify(f.prior), { mode: 0o600 });
+    run({ ...f, repeatMarker, repeatEvidence });
+  });
+}
+test("deployed-fix verification preserves all FOUR prior runs and has a distinct marker", () => deployedFixFixture(f => {
+  const pass = selectFinalPass(f.home, process.getuid(), false, true);
+  assert.equal(pass.id, "VERIFY_OPERATOR_REPORTED_DEPLOYED_FIX");
+  assert.equal(pass.marker, "Email-monitoring-deployed-fix-seven.started");
+  assert.equal(pass.prefix, "Email-monitoring-deployed-fix-run-");
+  assert.equal(pass.prior.preserved.length, 8);
+  pass.assertUnchanged();
+  fs.appendFileSync(f.repeatEvidence, "\n");
+  assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));
+test("deployed-fix verification refuses missing or unsafe latest evidence", () => deployedFixFixture(f => {
+  fs.chmodSync(f.repeatEvidence, 0o644);
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), false, true), /B112_PRIOR_FILE_UNSAFE/);
+  fs.unlinkSync(f.repeatEvidence);
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), false, true));
+}));
+test("deployed-fix verification checks the latest configuration, not an older successful snapshot", () =>
+  deployedFixFixture(f => {
+    fs.writeFileSync(f.repeatEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
+    assert.throws(() => selectFinalPass(f.home, process.getuid(), false, true), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
+  }));

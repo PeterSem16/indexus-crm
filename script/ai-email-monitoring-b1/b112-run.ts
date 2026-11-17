@@ -21,7 +21,8 @@ async function main() {
     process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) fail("B112_CORPCRM01_AS_SEMAN_REQUIRED");
   const explicitPass = process.argv[2] === "--run-seven-explicit-b112-system";
   const repeatPass = process.argv[2] === "--repeat-final-seven";
-  const finalPass = process.argv[2] === "--run-final-seven" || repeatPass;
+  const deployedFix = process.argv[2] === "--verify-deployed-fix";
+  const finalPass = process.argv[2] === "--run-final-seven" || repeatPass || deployedFix;
   if (!(process.argv.length === 3 && (process.argv[2] === "--run-seven" || finalPass)) &&
       !(process.argv.length === 4 && explicitPass)) fail("B112_ARGUMENT_REQUIRED");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("B112_TLS_REQUIRED");
@@ -44,7 +45,7 @@ async function main() {
   if (!st.isDirectory() || st.isSymbolicLink() || st.uid !== process.getuid!() || (st.mode & 0o077))
     fail("B112_PRIVATE_DIRECTORY_REQUIRED");
   // A new authorized pass has its own marker; the original failure is immutable.
-  const pass = finalPass ? selectFinalPass(home, process.getuid!(), repeatPass) :
+  const pass = finalPass ? selectFinalPass(home, process.getuid!(), repeatPass, deployedFix) :
     selectPass(home, explicitPass ? process.argv[3] : undefined);
   const marker = path.join(home, pass.marker);
   if (fs.existsSync(marker)) fail("B112_THIS_PASS_ALREADY_STARTED_NO_AUTOMATIC_RETRY");

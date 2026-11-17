@@ -46,13 +46,14 @@ function selectPass(home, gatewaySha, uid = process.getuid()) {
       }
     } };
 }
-function selectFinalPass(home, uid = process.getuid(), repeat = false) {
+function selectFinalPass(home, uid = process.getuid(), repeat = false, deployedFix = false) {
   const originals = [];
   const runs = [
     ["B112-seven.started", "B112-run-"],
     ["B112-explicit-system-seven.started", "B112-explicit-system-run-"],
   ];
-  if (repeat) runs.push(["Email-monitoring-final-seven.started", "Email-monitoring-final-run-"]);
+  if (repeat || deployedFix) runs.push(["Email-monitoring-final-seven.started", "Email-monitoring-final-run-"]);
+  if (deployedFix) runs.push(["Email-monitoring-repeat-seven.started", "Email-monitoring-repeat-run-"]);
   for (const [markerName, prefix] of runs) {
     const marker = fileSnapshot(path.join(home, markerName), uid);
     const out = marker.data.out;
@@ -68,9 +69,12 @@ function selectFinalPass(home, uid = process.getuid(), repeat = false) {
       !/^[a-f0-9]{64}$/.test(previous.after?.fullConfigurationSha256 ?? ""))
     throw Error("B112_PRIOR_CONFIGURATION_UNVERIFIED");
   return {
-    id: repeat ? "EXPLICITLY_AUTHORIZED_REPEAT_SAME_SEVEN" : "FINAL_CURRENT_MODEL_SEVEN",
-    marker: repeat ? "Email-monitoring-repeat-seven.started" : "Email-monitoring-final-seven.started",
-    prefix: repeat ? "Email-monitoring-repeat-run-" : "Email-monitoring-final-run-",
+    id: deployedFix ? "VERIFY_OPERATOR_REPORTED_DEPLOYED_FIX" :
+      repeat ? "EXPLICITLY_AUTHORIZED_REPEAT_SAME_SEVEN" : "FINAL_CURRENT_MODEL_SEVEN",
+    marker: deployedFix ? "Email-monitoring-deployed-fix-seven.started" :
+      repeat ? "Email-monitoring-repeat-seven.started" : "Email-monitoring-final-seven.started",
+    prefix: deployedFix ? "Email-monitoring-deployed-fix-run-" :
+      repeat ? "Email-monitoring-repeat-run-" : "Email-monitoring-final-run-",
     prior: { fullConfigurationSha256: previous.after.fullConfigurationSha256,
       preserved: originals.map(({ file, sha256 }) => ({ file, sha256 })) },
     assertUnchanged() {
