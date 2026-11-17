@@ -38,6 +38,7 @@ import { TaskDetailFullscreen } from "@/components/tasks/task-detail-fullscreen"
 import { TaskTimingStatus } from "@/components/tasks/task-timing";
 import { OmniSmsWorkspace } from "@/components/nexus/omni-sms/OmniSmsWorkspace";
 import { useOmniSmsUnread } from "@/hooks/use-omni-sms-unread";
+import { useOmniEmailUnread } from "@/hooks/use-omni-email-unread";
 import type { OmniSmsAccess } from "@shared/omni-sms";
 import type { TaskAttachment } from "@shared/task-attachments";
 import { chooseTaskGroupForSave, clampTaskPage, filterTasksByDate, getFreshTaskById, getTaskGroupId, isPulseNotificationTask, matchesTaskPeopleAndSearch, requiresPulseResolutionForCompletion, sortTasks, type DateRange, type TaskDateBasis, type TaskDatePreset, type TaskSortField } from "@/lib/task-query-controls";
@@ -4221,7 +4222,7 @@ export default function EmailClientPage() {
 
   const emails = accumulatedEmails;
   const totalCount = serverTotalCount;
-  const totalUnreadEmails = folders.find(f => f.wellKnownName === "inbox" || f.displayName === "Inbox")?.unreadItemCount || 0;
+  const { unread: totalUnreadEmails } = useOmniEmailUnread();
 
   const { unread: smsInboundUnread } = useOmniSmsUnread();
   const unreadChats = Array.from(sharedChat.unreadCounts.values()).reduce((sum, count) => sum + count, 0);

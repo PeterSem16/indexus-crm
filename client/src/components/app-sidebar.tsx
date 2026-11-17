@@ -77,7 +77,7 @@ export function AppSidebar() {
   const { unread: unreadSms } = useOmniSmsUnread();
   const { unread: unreadEmails } = useOmniEmailUnread(canAccessModule("email"));
   const emailUnreadLabel = `${t.nexusOmni.tabs.email} · ${t.nexusOmni.notificationCenter.unread}`;
-  const omniHref = unreadSms > 0 ? "/email?tab=sms" : unreadChats > 0 ? "/email?tab=chats" : "/email?tab=email";
+  const omniHref = "/email?tab=email";
   const omniCountLabel = [
     unreadSms > 0 ? `${t.omniSms.unread}: ${unreadSms}` : "",
     unreadChats > 0 ? `${t.taskCommunication.unreadChats}: ${unreadChats}` : "",
