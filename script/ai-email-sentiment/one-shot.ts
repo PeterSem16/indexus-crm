@@ -18,9 +18,12 @@ export async function runOneShot(options: {
   signal?: AbortSignal; write: (value: unknown) => void;
   wait?: (ms: number) => Promise<void>;
   scope?: "full" | "k01-k03";
+  adapterSourceSha256?: string;
 }) {
   if (!options.authorized || !options.acknowledgeUnverifiedImpact)
     throw new PilotError("explicit_one_shot_and_unverified_impact_acknowledgement_required");
+  if (options.adapterSourceSha256 !== undefined && !/^[a-f0-9]{64}$/i.test(options.adapterSourceSha256))
+    throw new PilotError("invalid_operator_reported_adapter_sha256");
   const { client } = options;
   const scope = options.scope ?? "full";
   if (scope !== "full" && scope !== "k01-k03") throw new PilotError("invalid_synthetic_test_scope");
@@ -48,7 +51,7 @@ export async function runOneShot(options: {
       scope, authorizedCaseIds: selectedIds, postponedNotAuthorized: postponed,
       selectedCorpusSha256: hash(JSON.stringify(selected)),
       ...(scope === "k01-k03" ? {
-        operatorReportedAdapterSourceSha256: "fc7edcf7a27c936a9ef289ce850914704bd35a40c5dece0772ce065618c88608",
+        operatorReportedAdapterSourceSha256: options.adapterSourceSha256?.toLowerCase() ?? null,
         adapterSourceVerifiedByRunner: false,
       } : {}),
       expectedCases: selected.length, concurrency: 1, retries: 0, fallback: false, syntheticOnly: true,
@@ -106,9 +109,11 @@ export async function runOneShot(options: {
 }
 
 export async function main(argv = process.argv.slice(2)) {
-  if (argv.length !== 3 || ![RUN_FLAG, TARGETED_RUN_FLAG].includes(argv[0]) ||
+  if (![3, 5].includes(argv.length) || ![RUN_FLAG, TARGETED_RUN_FLAG].includes(argv[0]) ||
     argv[1] !== RISK_FLAG || !path.isAbsolute(argv[2]))
     throw new PilotError("explicit_flags_and_absolute_private_output_directory_required");
+  if (argv.length === 5 && (argv[3] !== "--adapter-source-sha256" || !/^[a-f0-9]{64}$/i.test(argv[4])))
+    throw new PilotError("invalid_operator_reported_adapter_sha256");
   if (process.platform !== "linux" || os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
     process.getuid?.() !== 1001 || process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN ||
     process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0")
@@ -124,6 +129,7 @@ export async function main(argv = process.argv.slice(2)) {
   try {
     return await runOneShot({ client, authorized: true, acknowledgeUnverifiedImpact: true,
       scope: argv[0] === TARGETED_RUN_FLAG ? "k01-k03" : "full",
+      adapterSourceSha256: argv.length === 5 ? argv[4] : undefined,
       signal: controller.signal, write(value) {
         const text = client.stringifySafe(value);
         fs.writeSync(fd, text + "\n"); fs.fsyncSync(fd);

@@ -148,6 +148,7 @@ test("targeted approval executes exactly K01 K02 K03 and never the remaining 15"
   assert.equal(result.manualNoteReviewRequired, true);
   assert.equal(result.productionActivationAllowed, false);
   assert.equal(rows[0].adapterSourceVerifiedByRunner, false);
+  assert.equal(rows[0].operatorReportedAdapterSourceSha256, null);
   assert.ok(!JSON.stringify(rows).includes(token));
 });
 test("targeted technical failure stops without consuming the rest of the authorization", async () => {
@@ -165,4 +166,23 @@ test("unrecognized test scope fails before any request", async () => {
   await assert.rejects(runOneShot({ ...base(), client: f.client,
     scope: "other" as any, write() {} }), /invalid_synthetic_test_scope/);
   assert.equal(f.calls.length, 0);
+});
+test("targeted report records the provided adapter hash without claiming remote verification", async () => {
+  const sourceSha = "89cf5377bbedea86a1f8a7440d964ad1acbe2d145a1b98544fc4f086a916ec8a";
+  const f = fixture(), rows: any[] = [];
+  const result = await runOneShot({ ...base(), client: f.client, scope: "k01-k03",
+    adapterSourceSha256: sourceSha, write: row => rows.push(row) });
+  assert.equal(rows[0].operatorReportedAdapterSourceSha256, sourceSha);
+  assert.equal(rows[0].adapterSourceVerifiedByRunner, false);
+  assert.equal(result.inferenceAttempts, 3);
+  assert.deepEqual(result.postponedNotAuthorized, regressionCases.slice(3).map(x => x.id));
+});
+test("invalid adapter identity is rejected before network or output creation", async () => {
+  const f = fixture();
+  await assert.rejects(runOneShot({ ...base(), client: f.client, scope: "k01-k03",
+    adapterSourceSha256: "not-a-source-hash", write() { assert.fail("must not write"); } }),
+  /invalid_operator_reported_adapter_sha256/);
+  assert.equal(f.calls.length, 0);
+  await assert.rejects(main([TARGETED_RUN_FLAG, RISK_FLAG, "/tmp", "--adapter-source-sha256", "invalid"]),
+    /invalid_operator_reported_adapter_sha256/);
 });
