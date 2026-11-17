@@ -32,8 +32,38 @@ function tail(file) {
   } finally { fs.closeSync(fd); }
 }
 function ensure(ok) { if (!ok) throw Error("MONITOR_DIAGNOSTIC_CONFIGURATION_REVIEW_REQUIRED"); }
+async function persistenceReport(client, mailbox) {
+  const queries = {
+    metadata: `SELECT count(*)::int AS mailbox_rows,
+      count(*) FILTER (WHERE email_monitoring_result IS NOT NULL)::int AS saved_results,
+      max(email_monitoring_result->>'analyzedAt') AS latest_saved_at
+      FROM email_metadata WHERE lower(mailbox_email)=lower($1)`,
+    duplicates: `SELECT count(*)::int AS ambiguous_message_groups,
+      coalesce(sum(n),0)::int AS rows_in_ambiguous_groups
+      FROM (SELECT count(*) AS n FROM email_metadata
+        WHERE lower(mailbox_email)=lower($1) GROUP BY message_id HAVING count(*)>1) d`,
+    personalOwners: `SELECT count(*)::int AS connected_users
+      FROM user_ms365_connections WHERE is_connected=true AND lower(email)=lower($1)`,
+    ownerConflicts: `SELECT count(*)::int AS saved_result_owner_conflicts
+      FROM email_metadata m JOIN user_ms365_connections c ON lower(c.email)=lower(m.mailbox_email)
+      WHERE c.is_connected=true AND lower(m.mailbox_email)=lower($1)
+        AND m.email_monitoring_result->>'kind'='personal'
+        AND m.email_monitoring_result->>'ownerUserId' IS DISTINCT FROM c.user_id`,
+  };
+  const report = {};
+  for (const [label, sql] of Object.entries(queries)) {
+    try { report[label] = (await client.query(sql, [mailbox])).rows[0]; }
+    catch (error) {
+      report[label] = { unavailable: true,
+        sqlState: /^(?:08|22|23|25|28|40|42|53|54|55|57|58|XX)[A-Z0-9]{3}$/.test(error.code || "") ? error.code : null };
+    }
+  }
+  return report;
+}
 async function main(args = process.argv.slice(2)) {
-  ensure(args.length === 1 && args[0] === "--read-only" && process.getuid?.() === 0 &&
+  ensure([1,3].includes(args.length) && args[0] === "--read-only" &&
+    (args.length === 1 || args[1] === "--mailbox" && typeof args[2] === "string" &&
+      /^[^\s@]+@[^\s@]+$/.test(args[2]) && args[2].length <= 320) && process.getuid?.() === 0 &&
     os.hostname().split(".")[0].toUpperCase() === "CORPCRM01");
   const daemon = Number(fs.readFileSync(PMHOME + "/pm2.pid", "utf8").trim());
   ensure(Number.isSafeInteger(daemon) && daemon > 1 &&
@@ -70,6 +100,7 @@ async function main(args = process.argv.slice(2)) {
       emailEnabled: route?.enabled !== false,
       otherInternalOverrides: Object.entries(value.routes || {}).filter(([id, r]) =>
         id !== "email.monitoring" && r.provider === "internal" && r.enabled).length };
+    if (args.length === 3) report.persistence = await persistenceReport(client, args[2]);
   } finally { await client.end(); }
   const dump = JSON.parse(fs.readFileSync(PMHOME + "/dump.pm2", "utf8"));
   const matching = dump.filter(v => (v.pm_cwd || v.pm2_env?.pm_cwd) === ROOT);
@@ -86,7 +117,7 @@ async function main(args = process.argv.slice(2)) {
   }
   console.log(JSON.stringify(report, null, 2));
 }
-module.exports = { summarizeLogs, main };
+module.exports = { summarizeLogs, persistenceReport, main };
 if (require.main === module) main().catch(error => {
   const code = /^[A-Z0-9_]{2,75}$/.test(error.code || "") ? error.code : "MONITOR_DIAGNOSTIC_STOPPED";
   console.error(JSON.stringify({ status: "READ_ONLY_CHECK_FAILED", code, configurationChanged: false, aiRequests: 0 }));

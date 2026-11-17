@@ -1,6 +1,6 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict"), cp = require("node:child_process");
-const { summarizeLogs } = require("./diagnose-email-monitoring-runtime.cjs");
+const { summarizeLogs, persistenceReport } = require("./diagnose-email-monitoring-runtime.cjs");
 test("only allowlisted monitoring telemetry leaves the diagnostic, never raw messages, secrets or other services", () => {
   const log = '[AI Router] ' + JSON.stringify({ event: "ai.request", service: "email.monitoring",
     provider: "internal", outcome: "error", model: "indexus-email-monitoring:v1", durationMs: 120010,
@@ -29,4 +29,26 @@ test("operator uses read-only SQL, bounded logs and no inference, shell or PM2 c
   assert.match(source, /statement_timeout=8000/);
   assert.match(source, /256 \* 1024/);
   assert.doesNotMatch(source, /execFileSync|spawnSync|fetch\(|writeFile|appendFile|\.query\("(?:UPDATE|INSERT|DELETE|ALTER|CREATE)/);
+});
+test("persistence inspection is SELECT-only, scoped and parameterized; no mailbox, identifiers or content leave the report", async () => {
+  const calls = [];
+  const out = await persistenceReport({ query: async (sql, params) => {
+    calls.push({ sql, params }); return { rows: [{ synthetic_count: 1 }] };
+  } }, "synthetic-private@example.test");
+  assert.equal(calls.length, 4);
+  for (const c of calls) {
+    assert.match(c.sql, /^SELECT /);
+    assert.match(c.sql, /\$1/);
+    assert.deepEqual(c.params, ["synthetic-private@example.test"]);
+    assert.doesNotMatch(c.sql, /synthetic-private/);
+  }
+  assert.equal(Object.keys(out).length, 4);
+  assert.doesNotMatch(JSON.stringify(out), /synthetic-private|@/);
+});
+test("failed database sections report safe SQLSTATE without SQL, names, parameters or error text", async () => {
+  const out = await persistenceReport({ query: async () => {
+    throw Object.assign(Error("SYNTHETIC_PRIVATE_QUERY_AND_CONTENT"), { code: "42703" });
+  } }, "synthetic-private@example.test");
+  assert.equal(out.metadata.sqlState, "42703");
+  assert.doesNotMatch(JSON.stringify(out), /SYNTHETIC|synthetic-private|@/);
 });
