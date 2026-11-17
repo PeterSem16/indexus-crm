@@ -232,6 +232,13 @@ app.use((req, res, next) => {
 
   // Independent mailbox monitoring must not require a CRM contact.
   await pool.query("ALTER TABLE email_metadata ADD COLUMN IF NOT EXISTS email_monitoring_result jsonb");
+  await pool.query(`CREATE TABLE IF NOT EXISTS email_monitoring_owner_results (
+    id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id text NOT NULL, mailbox_email text NOT NULL, owner_key text NOT NULL,
+    owner_user_id varchar REFERENCES users(id) ON DELETE CASCADE,
+    result jsonb NOT NULL, created_at timestamp NOT NULL DEFAULT now(),
+    CONSTRAINT email_monitoring_owner_results_identity UNIQUE(mailbox_email,message_id,owner_key)
+  )`);
 
   // CORPCRM01 does not run db:push. Persisted defaults keep every service on OpenAI.
   try {

@@ -19,6 +19,18 @@ test("real command wrapper exposes safe uppercase failure codes instead of hidin
   }
 });
 const hash = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
+test("schema readiness runs after health and a failed readiness check rejects promotion", async () => {
+  const events = [];
+  await deploy.verifyPromotedRuntime(async changed => { assert.equal(changed, true); events.push("health"); },
+    async ({ connectionString }) => { assert.equal(connectionString, "SYNTHETIC"); events.push("schema"); }, "SYNTHETIC");
+  assert.deepEqual(events, ["health", "schema"]);
+  await assert.rejects(deploy.verifyPromotedRuntime(async () => {}, async () => { throw Error("SYNTHETIC_SCHEMA_NOT_READY"); }, ""), /SCHEMA_NOT_READY/);
+  let called = false;
+  await assert.rejects(deploy.verifyPromotedRuntime(async () => { throw Error("SYNTHETIC_HEALTH_FAILED"); },
+    async () => { called = true; }, ""), /HEALTH_FAILED/);
+  assert.equal(called, false);
+  await deploy.verifyPromotedRuntime(async () => {}, null, "");
+});
 function temp(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "b112-deploy-test-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));

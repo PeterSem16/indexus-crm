@@ -118,9 +118,14 @@ async function cutover(actions) {
 }
 // A pinned operator wrapper may reuse the same deployment protections for a
 // separately reviewed release. The original entry retains its original profile.
+async function verifyPromotedRuntime(health, verifyDeployment, connectionString) {
+  await health(true);
+  if (verifyDeployment) await verifyDeployment({ connectionString });
+}
 function deploymentFor(profile) {
   const { BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES,
-    assertRouting, releasePaths, resultOverrides = {}, frontend = false, beforePromotion = null } = profile;
+    assertRouting, releasePaths, resultOverrides = {}, frontend = false, beforePromotion = null,
+    verifyDeployment = null } = profile;
 async function main(args = process.argv.slice(2)) {
   ensure(args.length === 3 && args[0] === "--apply" && args[1] === TARGET &&
     args[2] === "--allow-restart", "B112_EXPLICIT_PINNED_APPLY_REQUIRED");
@@ -347,7 +352,7 @@ async function main(args = process.argv.slice(2)) {
         if (frontend) atomicCopy(stage + "/dist/public/index.html", liveIndex, builtIndexHash, oldIndexProfile);
       },
       restart() { mark("restart-existing-indexus-only"); daemonProof(); user(pmBinary, ["restart", String(originalProcess.pm_id)]); },
-      verify() { return health(true); },
+      verify() { return verifyPromotedRuntime(health, verifyDeployment, connectionString); },
       restore() {
         mark("guarded-code-recovery");
         ensure([BASE, TARGET].includes(git(["rev-parse", "HEAD"])), "B112_EXTERNAL_GIT_CHANGE");
@@ -400,5 +405,5 @@ async function main(args = process.argv.slice(2)) {
   return main;
 }
 const main = deploymentFor({ BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES, assertRouting, releasePaths });
-module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main, deploymentFor, publishPublicFiles };
+module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main, deploymentFor, publishPublicFiles, verifyPromotedRuntime };
 if (require.main === module) main().catch(() => { console.error("B112_DEPLOY_REFUSED_NO_OPERATION"); process.exitCode = 1; });
