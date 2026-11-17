@@ -8,6 +8,16 @@ const crypto = require("node:crypto");
 const { assertRuntime, classifyTarget } = require("./runtime.cjs");
 const { checkDiscovery } = require("./discovery.cjs");
 const { prepareArtifacts, launchArguments, processEnvironment } = require("./prepare-console.cjs");
+test("B1.9 uses the existing B1.8 bundle and explicitly forwards safe resume arguments", () => {
+  assert.deepEqual(launchArguments("/runtime.cjs", "/run-b18.cjs", undefined, "b19").run,
+    ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/run-b18.cjs", "--run-b19"]);
+  assert.deepEqual(launchArguments("/runtime.cjs", "/run-b18.cjs", undefined, "b19",
+    "/private/B18_evidence_final.json").run,
+    ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/run-b18.cjs", "--run-b19",
+      "--resume", "/private/B18_evidence_final.json"]);
+  assert.throws(() => launchArguments("/runtime.cjs", "/run-b18.cjs", undefined, "b19", "relative.json"));
+  assert.throws(() => launchArguments("/runtime.cjs", "/run-b18.cjs", undefined, "b18", "/private/file.json"));
+});
 const valid = () => ({ NODE_ENV: "production", INDEXUS_AI_GATEWAY_ENABLED: "true",
   INDEXUS_AI_ROUTER_MODE: "routed", INDEXUS_AI_GATEWAY_BASE_URL: "https://ai.cordbloodcenter.com/gateway/",
   INDEXUS_AI_GATEWAY_TOKEN: "SYNTHETIC_RUNTIME_TEST_TOKEN" });

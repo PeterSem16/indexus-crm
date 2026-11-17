@@ -81,6 +81,7 @@ export type EmailPilotOptions = {
   token: string; source: any; reference: any; readSnapshot: () => Promise<any>;
   claimOnce: () => void; fetch: typeof fetch; signal?: AbortSignal;
   persist: (report: any) => void; progress?: (row: any, index: number) => void;
+  resumeReport?: any;
 };
 export function executeB13(options: EmailPilotOptions) {
   validateB13Corpus();
@@ -96,7 +97,8 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
   decorate?: (report: any) => void;
 }) {
   const prefix = definition.phase.replace(".", "");
-  const report: any = { phase: definition.phase, kind: `LIVE_ISOLATED_${definition.corpus.length}_SYNTHETIC_EMAILS`,
+  const report: any = options.resumeReport ? structuredClone(options.resumeReport) : {
+    phase: definition.phase, kind: `LIVE_ISOLATED_${definition.corpus.length}_SYNTHETIC_EMAILS`,
     startedAtUtc: new Date().toISOString(), request: { ...B12, phase: definition.phase, input: undefined },
     corpusSha256: definition.corpusSha256, originalRequestSha256: options.source.requestSha256,
     before: null, after: null, production: null, error: null, complete: false,
@@ -105,10 +107,20 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       expected: c.expected, actualJson: null, modelContent: null, state: "NOT_STARTED", verdict: "NOT_RUN", httpStatus: null,
       error: null, inferenceAttempts: 0, cloudCalls: 0, transportTraces: [], integrationProcessed: false })),
     summary: null };
+  const previousElapsedMs = report.runtime?.elapsedMs ?? 0;
+  const previousError = report.error;
+  report.complete = false;
+  report.error = null;
+  delete report.finishedAtUtc;
+  report.executionProcess = { pid: process.pid };
+  report.segments ??= [];
+  const segment: any = { startedAtUtc: new Date().toISOString(), mode: options.resumeReport ? "RESUME" : "NEW",
+    previousError: previousError ?? null };
+  report.segments.push(segment);
   let productionUnchanged: boolean | null = null;
   const runStart = performance.now();
   const save = () => {
-    report.runtime = { elapsedMs: performance.now() - runStart, totalDeadlineMs: null,
+    report.runtime = { elapsedMs: previousElapsedMs + performance.now() - runStart, totalDeadlineMs: null,
       requestTimeoutMs: definition.requestTimeoutMs ?? 30_000,
       termination: options.signal?.aborted
         ? (["SIGINT", "SIGTERM", "RUN_DEADLINE"].includes(options.signal.reason) ? options.signal.reason : "CALLER_ABORT")
@@ -120,12 +132,16 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
     options.persist(report);
   };
   try {
-    report.before = await options.readSnapshot();
-    if (!productionComparison(options.reference, report.before, report.before).beforeMatchesOriginal)
+    const entrySnapshot = await options.readSnapshot();
+    segment.before = entrySnapshot;
+    if (!productionComparison(options.reference, entrySnapshot, entrySnapshot).beforeMatchesOriginal)
       throw Error(prefix + "_PRODUCTION_CHANGED_BEFORE_TEST");
+    if (!options.resumeReport) report.before = entrySnapshot;
     options.claimOnce();
     save(); // Publish fixed inputs/expectations before the first inference.
-    if (definition.warmup) {
+    if (options.resumeReport && report.warmup?.state === "RUNNING" && report.warmup.inferenceAttempts === 0)
+      delete report.warmup;
+    if (definition.warmup && !report.warmup) {
       report.warmup = { state: "RUNNING", inferenceAttempts: 0, excludedFromScores: true };
       save();
       const start = performance.now();
@@ -144,6 +160,14 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
     for (let i = 0; i < definition.corpus.length; i++) {
       if (options.signal?.aborted) { report.error = prefix + "_CALLER_ABORT"; break; }
       const c = definition.corpus[i];
+      // A durable pre-send claim with no response can never be safely re-sent.
+      if (report.rows[i].inferenceAttempts === 1 && report.rows[i].state !== "COMPLETED") {
+        Object.assign(report.rows[i], { state: "INFERENCE_UNCERTAIN", verdict: "FAIL",
+          error: prefix + "_INFERENCE_OUTCOME_UNCERTAIN" });
+        save();
+        continue;
+      }
+      if (report.rows[i].state === "COMPLETED") continue;
       report.rows[i].state = "RUNNING";
       save();
       const start = performance.now();
@@ -176,21 +200,27 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       options.progress?.(report.rows[i], i);
       if (report.error) break;
     }
-    report.complete = report.rows.every((r: any) => r.verdict !== "NOT_RUN");
+    report.complete = report.rows.every((r: any) => r.state === "COMPLETED" && r.inferenceAttempts === 1);
+    if (report.rows.some((r: any) => r.state === "INFERENCE_UNCERTAIN"))
+      report.error ||= prefix + "_INFERENCE_OUTCOME_UNCERTAIN";
   } catch (error: any) {
     report.error = /^B(?:12|13|14|15|16|17|18)_[A-Z0-9_]+$/.test(error?.message || "") ? error.message : prefix + "_PILOT_FAILED";
   } finally {
     try {
       report.after = await options.readSnapshot();
+      segment.after = report.after;
       if (report.before) {
         report.production = productionComparison(options.reference, report.before, report.after);
         const comparisons = [report.production, ...(report.warmup ? [report.warmup.production] : []),
+          ...report.segments.map((s: any, i: number) => s.before
+            ? productionComparison(options.reference, s.before, s.after ?? report.segments[i + 1]?.before ?? report.after) : null),
           ...report.rows.filter((r: any) => r.verdict !== "NOT_RUN").map((r: any) => r.production)];
         const values = comparisons.flatMap(c => c ? [c.beforeMatchesOriginal, c.unchangedDuringCheck, c.afterMatchesOriginal] : [null]);
         productionUnchanged = values.includes(false) ? false : values.every(v => v === true) ? true : null;
       }
     } catch { report.error ||= prefix + "_FINAL_PRODUCTION_UNVERIFIED"; }
     report.finishedAtUtc = new Date().toISOString();
+    segment.finishedAtUtc = report.finishedAtUtc;
     save();
     if (report.error && report.summary.verdict === "PASS") {
       report.summary.verdict = "REVIEW_REQUIRED"; report.summary.reasons.push(report.error); options.persist(report);

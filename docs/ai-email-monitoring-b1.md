@@ -2,6 +2,39 @@
 
 ## Aktuálne zadanie B1.8 — párové regresné overenie
 
+### Opakovanie na pravidlách B1.9
+
+`prepare-console.cjs <PIN> --run-b19` spustí **ten istý B1.8 runner**, nie novú
+testovaciu fázu, s nezmenenými 100 + 35 prípadmi a pravidlami B1.9 podľa zadania.
+Profil `B18-on-B19-resumable` má vlastný jednorazový marker, 120 s timeout,
+jedno zahriatie mimo skóre a žiadny celkový deadline, retry, fallback či ladenie.
+Zadanie potvrdzuje model `indexus-email-monitoring:v1`, ID `13d9728d42b6`,
+Keep Alive 30 min a aktívnu overenú infraštruktúru. Tieto údaje sú v reporte
+označené zdrojom **operatorAttestation**; krátke ID nie je vymyslený plný digest
+ani naše nezávislé meranie backendu. Nemení sa nginx, Ollama ani produkčné CRM.
+
+Priebežné aj finálne výstupy v `INDEXUS-Email-Monitoring/B18-B19-run-*/`:
+`B18_report_final.md`, `B18_evidence_final.json`, `B18_failures_final.json`.
+Názov `final` nie je tvrdením úspechu: rozhodujú `complete`, skóre a výslovné
+kritériá úplnosti, bezpečnosti, mapovania a posúdenia poznámok.
+
+Obnova po prerušení:
+`prepare-console.cjs <ROVNAKY_PIN> --run-b19 --resume /absolutna/cesta/B18_evidence_final.json`.
+Runner overí súkromný súbor, identitu profilov, korpusu, oboch pôvodných
+baseline reportov, run marker a to, že starý proces už nebeží.
+Rovnaký uložený snapshot môže prevziať iba jeden proces. Dokončené výsledky
+ani zahriatie sa neopakujú; pôvodný snapshot sa pred obnovou súkromne zachová.
+Obnova z B1.8 pred aktualizáciou na B1.9 je zakázaná, aby sa nemiešali modelové verzie.
+
+Pri neistom pokuse `INFERENCE_STARTED` bez odpovede nie je možné súčasne
+garantovať jeho opakovanie a presne jeden inferenčný pokus. Runner ho preto
+**neodošle znova**, označí `INFERENCE_UNCERTAIN`, dokončí iba nedotknuté prípady
+a celý výsledok zostane neúplný/FAIL. Nemožno ho označiť ako 135 potvrdených
+výsledkov. Rozbehnuté zahriatie s neistým odoslaním blokuje obnovu; neodoslané
+zahriatie s nulovým počtom pokusov je možné bezpečne vykonať.
+
+Pôvodné 120-sekundové technické nastavenie nižšie zostáva kompatibilné pre `--run-b18`.
+
 ### Technická oprava izolovaného klienta
 
 Aktuálny profil `B18-technical-120s-warmup` nastavuje **iba B1.8** na 120 s:

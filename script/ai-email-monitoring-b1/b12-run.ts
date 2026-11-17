@@ -17,7 +17,9 @@ import { findB14Baseline } from "./b15-baseline-files";
 import { executeB16, renderB16, findB15Baseline } from "./b16-pilot";
 import { executeB17, renderB17, findB16Baseline, validateB17Approval, failuresB17 } from "./b17-pilot";
 import { B17_CORPUS_SHA256, B17_POLICY_SHA256 } from "./b17-corpus";
-import { executeB18, renderB18, failuresB18, findB17Baseline, B18_CORPUS_SHA256, B18_EXECUTION_PROFILE } from "./b18-pilot";
+import { executeB18, renderB18, failuresB18, findB17Baseline, B18_CORPUS_SHA256,
+  B18_EXECUTION_PROFILE, B18_B19_PROFILE, validateB18Baselines, validateB18Resume } from "./b18-pilot";
+import { readResume, claimRun } from "./b18-state.cjs";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
 declare const B1_PILOT_PHASE: "B12" | "B13" | "B14" | "B15" | "B16" | "B17" | "B18";
 const APP = "/var/www/indexus-crm";
@@ -33,10 +35,13 @@ async function main() {
   const b15 = B1_PILOT_PHASE === "B15";
   const b16 = B1_PILOT_PHASE === "B16";
   const b18 = B1_PILOT_PHASE === "B18";
+  const b19 = b18 && process.argv[2] === "--run-b19";
+  const resumePath = b19 && process.argv[3] === "--resume" && process.argv.length === 5 ? process.argv[4] : null;
   const b17 = B1_PILOT_PHASE === "B17", automatic = b16 || b17 || b18;
   const modern = b14 || b15 || automatic, batch = b13 || modern;
   const prefix = b18 ? "B18" : b17 ? "B17" : b16 ? "B16" : b15 ? "B15" : b14 ? "B14" : b13 ? "B13" : "B12";
-  if (process.argv.length !== (automatic ? 3 : 4) || process.argv[2] !== "--run-" + prefix.toLowerCase()) fail("B12_ARGUMENTS_INVALID");
+  if (b19 ? process.argv.length !== (resumePath ? 5 : 3) || resumePath && !path.isAbsolute(resumePath) :
+    process.argv.length !== (automatic ? 3 : 4) || process.argv[2] !== "--run-" + prefix.toLowerCase()) fail("B12_ARGUMENTS_INVALID");
   const live = analyzeSource(path.join(APP, "server/lib/email-monitoring-service.ts"));
   if (live.requestSha256 !== B1_PREPARED_SOURCE.requestSha256) fail("B12_ORIGINAL_REQUEST_CHANGED");
   const home = path.join(os.homedir(), modern ? "INDEXUS-Email-Monitoring" : ".indexus-email-monitoring-b1");
@@ -44,6 +49,7 @@ async function main() {
   const directory = fs.lstatSync(home);
   if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid?.() ||
     (directory.mode & 0o077)) fail("B12_PRIVATE_DIRECTORY_REQUIRED");
+  const resume = resumePath ? readResume(resumePath, { home, uid: process.getuid!() }) : null;
   let baseline: any, b14Baseline: ReturnType<typeof validateB14Baseline> | null = null;
   if (b17 || b18) validateB17Approval(B1_PREPARED_SOURCE);
   if (!automatic) {
@@ -75,7 +81,7 @@ async function main() {
   const catalog = catalogFromSource(fs.readFileSync(path.join(APP, "server/lib/ai/service-catalog.ts"), "utf8"));
   const identity = crypto.createHash("sha256").update(JSON.stringify({
     approval: b18 ? { phase: "B1.8", configuration: B12, corpusSha256: B18_CORPUS_SHA256,
-      executionProfile: B18_EXECUTION_PROFILE,
+      executionProfile: b19 ? B18_B19_PROFILE : B18_EXECUTION_PROFILE,
       b17BaselineSha256: b17Evidence!.validated.sha256, b16BaselineSha256: b16Evidence!.validated.sha256 } :
       b17 ? { phase: "B1.7", configuration: B12, corpusSha256: B17_CORPUS_SHA256,
       policySha256: B17_POLICY_SHA256, referenceApproval: validateB17Approval(B1_PREPARED_SOURCE),
@@ -89,11 +95,24 @@ async function main() {
       b13 ? { phase: "B1.3", configuration: B12, corpusSha256: B13_CORPUS_SHA256 } : B12,
     originalRequest: B1_PREPARED_SOURCE.requestSha256,
   })).digest("hex");
-  const out = fs.mkdtempSync(path.join(home, b18 ? "B18-run-" : b17 ? "B17-run-" : b16 ? "B16-run-" : b15 ? "B15-run-" : b14 ? "B14-run-" : b13 ? "b13-run-" : "b12-run-"));
+  if (resume) {
+    if (resume.report.runIdentity !== identity) fail("B18_RESUME_RUN_IDENTITY_MISMATCH");
+    validateB18Resume(resume.report, B1_PREPARED_SOURCE,
+      validateB18Baselines(b17Evidence!.report, b16Evidence!.report, B1_PREPARED_SOURCE));
+  }
+  const out = resume ? path.dirname(resume.file) : fs.mkdtempSync(path.join(home,
+    b19 ? "B18-B19-run-" : b18 ? "B18-run-" : b17 ? "B17-run-" : b16 ? "B16-run-" : b15 ? "B15-run-" : b14 ? "B14-run-" : b13 ? "b13-run-" : "b12-run-"));
   const marker = path.join(home, (b18 ? "B18-batch-" : b17 ? "B17-batch-" : b16 ? "B16-batch-" : b15 ? "B15-batch-" : b14 ? "B14-batch-" : b13 ? "b13-batch-" : "b12-single-") + identity + ".started");
-  const file = path.join(out, b18 ? "B18_evidence.json" : b17 ? "B17_evidence.json" : "evidence.json");
-  const markdownFile = path.join(out, b18 ? "B18_report.md" : b17 ? "B17_report.md" : "report.md");
+  const file = path.join(out, b19 ? "B18_evidence_final.json" : b18 ? "B18_evidence.json" : b17 ? "B17_evidence.json" : "evidence.json");
+  const markdownFile = path.join(out, b19 ? "B18_report_final.md" : b18 ? "B18_report.md" : b17 ? "B17_report.md" : "report.md");
+  // Claim the exact persisted snapshot before entering an executor that may save
+  // in finally. A losing concurrent resume must never overwrite the winner.
+  if (resume) {
+    claimRun(marker, resume, process.getuid!());
+    fs.copyFileSync(file, path.join(out, "B18_before_resume_" + resume.sha256 + ".json"), fs.constants.COPYFILE_EXCL);
+  }
   const persist = (value: any) => {
+    value.runIdentity = identity;
     const text = JSON.stringify(value, null, 2);
     if (text.includes(token)) fail("B12_SECRET_ECHO");
     fs.writeFileSync(file + ".tmp", text + "\n", { mode: 0o600 });
@@ -104,7 +123,7 @@ async function main() {
       fs.writeFileSync(markdownFile + ".tmp", md, { mode: 0o600 });
       fs.renameSync(markdownFile + ".tmp", markdownFile);
       if (b17 || b18) {
-        const failureFile = path.join(out, b18 ? "B18_failures.json" : "B17_failures.json");
+        const failureFile = path.join(out, b19 ? "B18_failures_final.json" : b18 ? "B18_failures.json" : "B17_failures.json");
         const failures = JSON.stringify(b18 ? failuresB18(value) : failuresB17(value), null, 2);
         if (failures.includes(token)) fail("B12_SECRET_ECHO");
         fs.writeFileSync(failureFile + ".tmp", failures + "\n", { mode: 0o600 });
@@ -119,14 +138,15 @@ async function main() {
   let report;
   try {
     const options = { token, source: B1_PREPARED_SOURCE, reference, fetch,
+      resumeReport: resume?.report,
       signal: controller.signal,
       readSnapshot: () => readProductionSnapshot({ Client, connectionString, catalog }),
       claimOnce() {
-        try { fs.writeFileSync(marker, new Date().toISOString(), { mode: 0o600, flag: "wx" }); }
-        catch (error: any) { fail(error.code === "EEXIST" ? "B12_RUN_ALREADY_STARTED" : "B12_MARKER_WRITE_FAILED"); }
+        if (!resume) claimRun(marker, null, process.getuid!());
       },
     };
-    report = b18 ? await executeB18({ ...options, b17: b17Evidence!.report, b16: b16Evidence!.report, persist,
+    report = b18 ? await executeB18({ ...options, rulesB19: b19,
+      b17: b17Evidence!.report, b16: b16Evidence!.report, persist,
       progress(row: any, i: number) { console.log(`B18_CASE ${i + 1}/135 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
     }) : b17 ? await executeB17({ ...options, previous: b16Evidence!.report, persist,
       progress(row: any, i: number) { console.log(`B17_CASE ${i + 1}/100 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },

@@ -107,7 +107,8 @@ export async function executeB12(options: {
             ?.find((m: any) => m?.id === B12.model);
           // Retain only public, bounded catalog declarations. They do not prove Ollama routing.
           trace.modelDeclaration = row ? Object.fromEntries(
-            ["id", "revision", "owned_by", "maxInputTokens", "maxOutputTokens"].flatMap(key => {
+            ["id", "revision", "owned_by", "maxInputTokens", "maxOutputTokens",
+              "ollamaModel", "ollamaDigest", "rulesVersion", "rulesSha256"].flatMap(key => {
               const value = row[key];
               return typeof value === "number" || typeof value === "string" && value.length <= 200
                 ? [[key, value]] : [];

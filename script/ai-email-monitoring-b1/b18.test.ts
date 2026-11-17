@@ -14,7 +14,7 @@ import { B16_CORPUS, evaluateB16 } from "./b16-pilot";
 import { B17_CORPUS, B17_CORPUS_SHA256 } from "./b17-corpus";
 import { evaluateB17, validateB17Approval } from "./b17-pilot";
 import { B18_CORPUS, B18_SPECIAL_IDS, evaluateB18, executeB18, validateB18Baselines,
-  findB17Baseline, failuresB18, renderB18 } from "./b18-pilot";
+  findB17Baseline, failuresB18, renderB18, B18_B19_PROFILE } from "./b18-pilot";
 
 const source = analyzeSource(path.resolve("server/lib/email-monitoring-service.ts"));
 const token = "SYNTHETIC_B18_CREDENTIAL";
@@ -58,11 +58,13 @@ function baselines(failed = false) {
 }
 async function run(opts: { regressionAt?: number; criticalAt?: number; httpAt?: number;
   schemaAt?: number; abortAt?: number; changeAt?: number; finalError?: boolean; duplicate?: boolean;
-  wrongModel?: boolean; failedBaseline?: boolean; warmupHttp?: boolean } = {}) {
-  const old = baselines(opts.failedBaseline), controller = new AbortController(), saved: any[] = [];
+  wrongModel?: boolean; failedBaseline?: boolean; warmupHttp?: boolean;
+  rulesB19?: boolean; resumeReport?: any; baselineFixture?: any } = {}) {
+  const old = opts.baselineFixture ?? baselines(opts.failedBaseline), controller = new AbortController(), saved: any[] = [];
   let calls = 0, requests = 0, reads = 0, claims = 0;
   const expected = rows();
   const report = await executeB18({ ...old, reference: old.b17.after, source, token,
+    rulesB19: opts.rulesB19, resumeReport: opts.resumeReport,
     signal: controller.signal,
     readSnapshot: async () => {
       reads++; if (opts.finalError && reads === 274) throw Error("PRIVATE_DATABASE_ERROR");
@@ -82,16 +84,15 @@ async function run(opts: { regressionAt?: number; criticalAt?: number; httpAt?: 
         maxInputTokens: 8192, maxOutputTokens: 200,
       }] });
       calls++;
-      if (calls === 1) {
-        const body = JSON.parse(String(init?.body));
+      const body = JSON.parse(String(init?.body));
+      if (body.messages[1].content === B12.input) {
         assert.equal(body.messages[1].content, B12.input);
         if (opts.warmupHttp) return new Response(null, { status: 503 });
         return Response.json({ id: "WARMUP", object: "chat.completion", model: B12.model,
           choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant",
             content: JSON.stringify(expected[0].actualJson) } }] });
       }
-      const scored = calls - 1;
-      const body = JSON.parse(String(init?.body));
+      const scored = B18_CORPUS.findIndex(c => c.input === body.messages[1].content) + 1;
       assert.equal(String(url), B12.endpoint); assert.equal(body.model, B12.model);
       assert.equal(body.max_tokens, 200); assert.equal(body.temperature, .1);
       assert.equal(body.stream, false); assert.deepEqual(body.response_format, { type: "json_object" });
@@ -106,7 +107,7 @@ async function run(opts: { regressionAt?: number; criticalAt?: number; httpAt?: 
       return Response.json({ id: "SYNTHETIC_B18", object: "chat.completion", model: opts.wrongModel && scored === 1 ? "WRONG" : B12.model,
         choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(actual) } }] });
     }) as typeof fetch });
-  return { report, calls, requests, reads, claims, saved };
+  return { report, calls, requests, reads, claims, saved, old };
 }
 test("reuses both original corpora without changing any reference, including 092 and all 35 nulls", () => {
   assert.deepEqual(B18_CORPUS.slice(0, 100), B17_CORPUS);
@@ -116,6 +117,64 @@ test("reuses both original corpora without changing any reference, including 092
   assert.equal(B18_CORPUS.flatMap(c => Object.values(c.expected)).filter(v => v === null).length, 35);
   assert.equal(B17_CORPUS[91].expected.wantsConsent, true);
   assert.deepEqual(B18_SPECIAL_IDS.map(id => id.slice(-3)), ["024", "025", "052", "061", "071", "074", "077", "088", "092"]);
+});
+test("B1.8 runs on operator-declared B1.9 without mixing the original B1.8 model version", async () => {
+  const h = await run({ rulesB19: true, abortAt: 3 });
+  assert.deepEqual(h.report.executionProfile, B18_B19_PROFILE);
+  assert.equal(h.report.serverRuleVersion.requested, "B1.9");
+  assert.equal(h.report.modelMapping.operatorAttestation.modelId, "13d9728d42b6");
+  assert.equal(h.report.modelMapping.operatorAttestation.independentlyVerified, false);
+  assert.equal(h.report.modelMapping.status, "REVIEW_REQUIRED");
+  assert.equal(h.calls, 4);
+  const old = await run({ abortAt: 2 });
+  await assert.rejects(() => run({ rulesB19: true, resumeReport: old.report }), /RESUME_IDENTITY_INVALID/);
+});
+test("resumption preserves completed responses and one warmup, sends only the 132 untouched cases", async () => {
+  const first = await run({ rulesB19: true, abortAt: 3 });
+  const previous = structuredClone(first.report);
+  const next = await run({ rulesB19: true, resumeReport: first.report, baselineFixture: first.old });
+  assert.equal(next.calls, 132);
+  assert.equal(next.report.complete, true);
+  assert.equal(next.report.totalInferenceAttempts, 136);
+  assert.equal(next.report.summary.technicalSuccesses, 135);
+  assert.deepEqual(next.report.warmup, previous.warmup);
+  assert.deepEqual(next.report.rows.slice(0, 3), previous.rows.slice(0, 3));
+  assert.equal(next.report.segments.length, 2);
+  assert.equal(next.report.segments[1].mode, "RESUME");
+  assert.equal(next.report.executionCounts.uncertain, 0);
+  assert.equal(next.report.runtime.elapsedMs >= previous.runtime.elapsedMs, true);
+  assert.equal(next.report.summary.verdict, "REVIEW_REQUIRED");
+});
+test("an interrupted in-flight attempt is never resent or reported as a completed 135-case measurement", async () => {
+  const first = await run({ rulesB19: true, abortAt: 3 });
+  Object.assign(first.report.rows[3], { state: "INFERENCE_STARTED", inferenceAttempts: 1 });
+  const next = await run({ rulesB19: true, resumeReport: first.report, baselineFixture: first.old });
+  assert.equal(next.calls, 131);
+  assert.equal(next.report.rows[3].state, "INFERENCE_UNCERTAIN");
+  assert.equal(next.report.rows[3].error, "B18_INFERENCE_OUTCOME_UNCERTAIN");
+  assert.equal(next.report.complete, false);
+  assert.equal(next.report.executionCounts.completed, 134);
+  assert.equal(next.report.executionCounts.uncertain, 1);
+  assert.equal(next.report.totalInferenceAttempts, 136);
+  assert.equal(next.report.summary.verdict, "FAIL");
+  assert.match(next.report.recommendation, /^NOT_READY/);
+});
+test("changed corpus, inference profile, warmup outcome and attempted duplicates block resume before network", async () => {
+  const first = await run({ rulesB19: true, abortAt: 1 });
+  for (const mutate of [
+    (r: any) => r.rows[1].input += "changed",
+    (r: any) => r.rows[24].expected.wantsConsent = false,
+    (r: any) => r.executionProfile.requestTimeoutMs = 30000,
+    (r: any) => r.baselines.b17.sha256 = "changed",
+    (r: any) => r.rows[0].inferenceAttempts = 2,
+    (r: any) => r.warmup.state = "RUNNING",
+    (r: any) => r.productionRecordWrites = 1,
+    (r: any) => r.summary.productionUnchanged = false,
+    (r: any) => r.complete = true,
+  ]) {
+    const changed = structuredClone(first.report); mutate(changed);
+    await assert.rejects(() => run({ rulesB19: true, resumeReport: changed, baselineFixture: first.old }), /B18_RESUME_/);
+  }
 });
 test("independently rescored historical classification FAIL is accepted, tampering blocks before inference", () => {
   const old = baselines(true);

@@ -17,6 +17,8 @@ export const B18_EXECUTION_PROFILE = Object.freeze({
   id: "B18-technical-120s-warmup", requestTimeoutMs: 120_000, totalDeadlineMs: null,
   warmupAttempts: 1, scoredAttempts: 135, maxTotalAttempts: 136, retries: 0,
 });
+export const B18_B19_PROFILE = Object.freeze({ ...B18_EXECUTION_PROFILE,
+  id: "B18-on-B19-resumable", rulesVersion: "B1.9", operatorModelId: "13d9728d42b6" });
 export const B18_SPECIAL_IDS = Object.freeze(["024", "025", "052", "061", "071", "074", "077", "088", "092"]
   .map(id => "SYN-B17-" + id));
 const hash = (value: any) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -131,20 +133,65 @@ export function compareB18(b17: any, b16: any, rows: any[]) {
     specialCases: B18_SPECIAL_IDS.map(id => cases.find(c => c.id === id)),
     interpretation: "Same frozen inputs and references. Null gold is neither correct nor wrong. Technical failures are not asserted to be model regressions." };
 }
-export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) {
+export function validateB18Resume(report: any, source: any, baselines: any) {
+  const { input: _, ...configuration } = B12;
+  if (report?.phase !== "B1.8" || report.kind !== "LIVE_ISOLATED_135_SYNTHETIC_EMAILS" ||
+    report.complete === true || report.corpusSha256 !== B18_CORPUS_SHA256 ||
+    report.originalRequestSha256 !== source.requestSha256 ||
+    !isDeepStrictEqual(report.executionProfile, B18_B19_PROFILE) ||
+    !isDeepStrictEqual(JSON.parse(JSON.stringify(report.request)), { ...configuration, phase: "B1.8" }) ||
+    report.baselines?.b17.sha256 !== baselines.b17.sha256 ||
+    report.baselines?.b16.sha256 !== baselines.b16.sha256 || report.rows?.length !== 135 ||
+    report.productionSettingsWrites !== 0 || report.productionRecordWrites !== 0 || report.customerNotifications !== 0 ||
+    report.summary?.productionUnchanged === false ||
+    !productionComparison(baselines.reference, report.before, report.before).beforeMatchesOriginal)
+    throw Error("B18_RESUME_IDENTITY_INVALID");
+  for (let i = 0; i < 135; i++) {
+    const row = report.rows[i], c = B18_CORPUS[i];
+    if (row.id !== c.id || row.input !== c.input || row.category !== c.category ||
+      !isDeepStrictEqual(row.expected, c.expected) || ![0, 1].includes(row.inferenceAttempts) || row.cloudCalls !== 0 ||
+      !["NOT_STARTED", "RUNNING", "INFERENCE_STARTED", "INFERENCE_UNCERTAIN", "COMPLETED"].includes(row.state) ||
+      row.state === "INFERENCE_STARTED" && row.inferenceAttempts !== 1 ||
+      row.state === "INFERENCE_UNCERTAIN" && row.inferenceAttempts !== 1 ||
+      ["NOT_STARTED", "RUNNING"].includes(row.state) && (row.inferenceAttempts !== 0 || row.verdict !== "NOT_RUN") ||
+      row.state !== "COMPLETED" && (row.actualJson !== null || row.modelContent !== null || row.httpStatus !== null || row.integrationProcessed !== false) ||
+      row.state === "COMPLETED" && row.verdict === "NOT_RUN" ||
+      row.production && (!row.production.beforeMatchesOriginal || !row.production.afterMatchesOriginal || !row.production.unchangedDuringCheck))
+      throw Error("B18_RESUME_ROW_INVALID");
+  }
+  if (report.warmup) {
+    const w = report.warmup;
+    if (w.state === "RUNNING" && w.inferenceAttempts === 0 &&
+      report.rows.every((r: any) => r.state === "NOT_STARTED")) return;
+    if (w.state !== "COMPLETED" || w.inferenceAttempts !== 1 || w.cloudCalls !== 0 ||
+      w.integrationProcessed !== true || w.usedModel !== B12.model || w.httpStatus !== 200 ||
+      w.error && w.error !== "B12_SEMANTIC_MISMATCH" ||
+      !w.production?.beforeMatchesOriginal || !w.production.afterMatchesOriginal || !w.production.unchangedDuringCheck)
+      throw Error("B18_RESUME_WARMUP_UNSAFE");
+  } else if (report.rows.some((r: any) => r.state !== "NOT_STARTED")) throw Error("B18_RESUME_WARMUP_REQUIRED");
+}
+export function executeB18(options: EmailPilotOptions & { b17: any; b16: any; rulesB19?: boolean }) {
   const baselines = validateB18Baselines(options.b17, options.b16, options.source);
+  const profile = options.rulesB19 ? B18_B19_PROFILE : B18_EXECUTION_PROFILE;
+  if (options.resumeReport) {
+    if (!options.rulesB19) throw Error("B18_RESUME_REQUIRES_B19_PROFILE");
+    validateB18Resume(options.resumeReport, options.source, baselines);
+  }
   if (!productionComparison(baselines.reference, options.reference, options.reference).beforeMatchesOriginal)
     throw Error("B18_REFERENCE_MISMATCH");
   return executeEmailPilot(options, { phase: "B1.8", corpus: B18_CORPUS,
     corpusSha256: B18_CORPUS_SHA256, recordTiming: true, evaluate: evaluateB18,
     requestTimeoutMs: B18_EXECUTION_PROFILE.requestTimeoutMs, warmup: true,
     decorate(report) {
-      report.executionProfile = B18_EXECUTION_PROFILE;
+      report.executionProfile = profile;
       report.modelMapping = { status: "REVIEW_REQUIRED",
         crmService: "email.monitoring", requestedAlias: B12.model,
         gatewayDeclarations: report.warmup?.transportTraces?.filter((t: any) => t.modelDeclaration)
           .map((t: any) => ({ route: t.route, ...t.modelDeclaration })) ?? [],
         ollamaModel: null, ollamaDigest: null, classificationRulesSha256: null,
+        operatorAttestation: options.rulesB19 ? { model: B12.model, modelId: "13d9728d42b6",
+          rulesVersion: "B1.9", keepAliveMinutes: 30, source: "User-supplied B1.9 execution brief",
+          independentlyVerified: false } : null,
         explanation: "CRM request and Gateway declarations are observed. Backend alias mapping and deployed classification rules require independent AI-server evidence; response model alias is not proof." };
       report.performance = performanceMetrics(report.rows.filter((r: any) => r.verdict !== "NOT_RUN").map((r: any) => r.processingMs));
       report.successfulPerformance = performanceMetrics(report.rows.filter((r: any) => r.technical?.success === true).map((r: any) => r.processingMs));
@@ -157,7 +204,13 @@ export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) 
       }
       report.baselines = { b17: baselines.b17, b16: { sha256: baselines.b16.sha256, summary: baselines.b16.summary } };
       report.corpora = { b17: B17_CORPUS_SHA256, b16: B14_CORPUS_SHA256 };
-      report.serverRuleVersion = { requested: "B1.8", source: "Operator-declared server update; model alias alone does not independently attest deployed rule bytes." };
+      report.serverRuleVersion = { requested: options.rulesB19 ? "B1.9" : "B1.8",
+        source: "Operator-declared server update; model alias alone does not independently attest deployed rule bytes." };
+      report.executionCounts = { completed: report.rows.filter((r: any) => r.state === "COMPLETED").length,
+        uncertain: report.rows.filter((r: any) => r.state === "INFERENCE_UNCERTAIN").length,
+        unstarted: report.rows.filter((r: any) => r.state === "NOT_STARTED").length };
+      for (const row of report.rows) if (row.noteChecks) Object.assign(row.noteChecks, {
+        slovakGrammar: "REVIEW_REQUIRED", clarity: "REVIEW_REQUIRED" });
       report.comparison = compareB18(options.b17, options.b16, report.rows);
       const oldCritical = [...baselines.b17.summary.criticalErrors, ...baselines.b16.summary.criticalErrors];
       report.comparison.newCriticalErrors = report.summary.criticalErrors.filter((e: any) =>
@@ -165,6 +218,15 @@ export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) 
       if (report.comparison.regressions.length) {
         report.summary.verdict = "FAIL"; report.summary.reasons.push("NEW_FIELD_REGRESSION");
       }
+      report.recommendation = report.complete && report.summary.verdict !== "FAIL" && report.summary.technicalSuccesses === 135
+        ? "REVIEW_REQUIRED: assess all notes and unresolved references; independently attest backend mapping before any controlled activation."
+        : "NOT_READY: incomplete, technically unsuccessful or classification failure; do not activate production routing.";
+      report.completionCriteria = { all135Results: report.complete && report.executionCounts.completed === 135,
+        oneAttemptPerCase: report.rows.every((r: any) => r.inferenceAttempts === 1),
+        productionIdentical: report.summary.productionUnchanged === true,
+        backendMappingIndependentlyConfirmed: false, noteLanguageGrammarClarityReviewed: false,
+        noProductionWritesOrNotifications: report.productionSettingsWrites === 0 &&
+          report.productionRecordWrites === 0 && report.customerNotifications === 0 };
       report.acceptance = { b17: "Original 98% fields / 95% cases, uncertainty bounds preserved",
         b16: "Original strict 280/280 fields and 35/35 cases", newRegressions: 0, criticalErrors: 0,
         unresolvedReferences: "REVIEW_REQUIRED", noteLanguage: "Independent post-run review required",
@@ -174,6 +236,7 @@ export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) 
 export function failuresB18(report: any) {
   return { phase: "B1.8", verdict: report.summary.verdict, reasons: report.summary.reasons,
     warmup: report.warmup ?? null, runtime: report.runtime ?? null, modelMapping: report.modelMapping,
+    executionCounts: report.executionCounts, recommendation: report.recommendation,
     newRegressions: report.comparison.regressions, repaired: report.comparison.repaired,
     stillWrong: report.comparison.stillWrong, criticalErrors: report.summary.criticalErrors,
     newCriticalErrors: report.comparison.newCriticalErrors,
@@ -188,6 +251,7 @@ export function renderB18(report: any) {
   const s = report.summary, cmp = report.comparison;
   const pretty = (v: any) => JSON.stringify(v, null, 2).replace(/`/g, "\\u0060").replace(/</g, "\\u003c");
   const lines = ["# B1.8 — izolované regresné overenie", `Výsledok: **${s.verdict}**`,
+    `Požadované pravidlá: ${report.serverRuleVersion.requested}; odporúčanie: ${report.recommendation}`,
     `Vykonané: ${s.executedCases}/135; inferenčné pokusy: ${s.inferenceAttempts}/135; cloud: ${s.cloudCalls}.`,
     "Nezmenené vstupy a referencie: 100 správ B1.7 + 35 správ B1.6. Žiadne automatické opakovanie ani oprava výstupu.",
     `B1.7 sada: ${s.b17.correctExpectations}/800 správnych, ${s.b17.wrongExpectations} chybných, ${s.b17.unresolvedExpectations} nerozhodnutých polí.`,
@@ -204,6 +268,8 @@ export function renderB18(report: any) {
        warmup: report.warmup ?? null, totalInferenceAttempts: report.totalInferenceAttempts,
        performance: report.performance, successfulPerformance: report.successfulPerformance,
        modelMapping: report.modelMapping }), "```",
+     "Pokračovanie neopakuje dokončené ani neisto odoslané pokusy. Neznámy výsledok zostáva technicky neúplný, nikdy PASS.",
+     "```json", pretty({ counts: report.executionCounts, criteria: report.completionCriteria, segments: report.segments ?? [] }), "```",
      "Pôvodný snapshot pri 79/135 s rozbehnutým 80. pokusom sám nepreukazuje ukončenie procesu. Príčina prípadného ukončenia vyžaduje procesný log.",
      "Runner ani jeho spúšťač nemajú celkový deadline regresie. Externý timeout alebo SIGKILL tým nie je vylúčený.",
     "", "## Osobitne požadované prípady", "```json", pretty(cmp.specialCases), "```",

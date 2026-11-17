@@ -43,19 +43,24 @@ function prepareArtifacts({ app, home, uid, archive, build, runnerName = "run-b1
   fs.chmodSync(runner, 0o600);
   return { source, runner };
 }
-function launchArguments(runtimeFile, runner, originalB12Report, phase = "b12") {
-  if (!["b12", "b13", "b14", "b15", "b16", "b17", "b18"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
+function launchArguments(runtimeFile, runner, originalB12Report, phase = "b12", resumeFile) {
+  if (!["b12", "b13", "b14", "b15", "b16", "b17", "b18", "b19"].includes(phase)) fail("B1_PILOT_PHASE_INVALID");
+  if (resumeFile && (phase !== "b19" || !path.isAbsolute(resumeFile))) fail("B1_RESUME_ARGUMENT_INVALID");
   const check = `try { require(${JSON.stringify(runtimeFile)}).assertRuntime(process.env); console.log("B1_RUNTIME_READY"); } catch { console.error("B1_EXISTING_RUNTIME_PRELOAD_REQUIRED"); process.exitCode=1; }`;
   return {
     preflight: ["--require", PRELOAD, "-e", check],
-    run: ["--require", PRELOAD, runner, ...(["b16", "b17", "b18"].includes(phase) ? ["--run-" + phase] :
-      originalB12Report ? ["--run-" + phase, originalB12Report] : ["--run-b1"])],
+    run: ["--require", PRELOAD, runner, ...(["b16", "b17", "b18", "b19"].includes(phase) ? ["--run-" + phase] :
+      originalB12Report ? ["--run-" + phase, originalB12Report] : ["--run-b1"]),
+      ...(resumeFile ? ["--resume", resumeFile] : [])],
   };
 }
 const processEnvironment = env => ({ ...env, NODE_ENV: "production" });
 function main() {
   const pin = process.argv[2];
-  const automatic = ["--run-b16", "--run-b17", "--run-b18"].includes(process.argv[3]) && process.argv.length === 4;
+  const resumeFile = process.argv[3] === "--run-b19" && process.argv[4] === "--resume" &&
+    process.argv.length === 6 && path.isAbsolute(process.argv[5]) ? process.argv[5] : undefined;
+  const automatic = ["--run-b16", "--run-b17", "--run-b18", "--run-b19"].includes(process.argv[3]) &&
+    process.argv.length === (resumeFile ? 6 : 4);
   const pilot = automatic || ["--run-b12", "--run-b13", "--run-b14", "--run-b15"].includes(process.argv[3]) && process.argv.length === 5 && path.isAbsolute(process.argv[4]);
   const phase = pilot ? process.argv[3].slice("--run-".length) : "b1";
   if (!pilot && process.argv.length !== 3) fail("B1_PREPARATION_ARGUMENTS_INVALID");
@@ -74,15 +79,17 @@ function main() {
   } catch { fail("B1_PINNED_TOOLS_UNAVAILABLE"); }
   const prepared = prepareArtifacts({
     app: APP, home: os.homedir(), uid: process.getuid(), archive,
-    runnerName: "run-" + phase + ".cjs",
+    runnerName: "run-" + (phase === "b19" ? "b18" : phase) + ".cjs",
     build(source, output) {
-      const result = cp.spawnSync(process.execPath, ["script/ai-email-monitoring-b1/package.cjs", output, ...(pilot ? ["--" + phase] : [])], {
+      const result = cp.spawnSync(process.execPath, ["script/ai-email-monitoring-b1/package.cjs", output,
+        ...(pilot ? ["--" + (phase === "b19" ? "b18" : phase)] : [])], {
         cwd: source, stdio: "inherit",
       });
       if (result.status !== 0) fail("B1_PRIVATE_BUNDLE_BUILD_FAILED");
     },
   });
-  const args = launchArguments(path.join(prepared.source, "script/ai-email-monitoring-b1/runtime.cjs"), prepared.runner, pilot ? process.argv[4] : undefined, pilot ? phase : "b12");
+  const args = launchArguments(path.join(prepared.source, "script/ai-email-monitoring-b1/runtime.cjs"), prepared.runner,
+    pilot ? process.argv[4] : undefined, pilot ? phase : "b12", resumeFile);
   const options = { cwd: APP, stdio: "inherit", env: processEnvironment(process.env) };
   // Check loader first; a blocked loader must never fall through to .env token.
   const preflight = cp.spawnSync(process.execPath, args.preflight, options);
