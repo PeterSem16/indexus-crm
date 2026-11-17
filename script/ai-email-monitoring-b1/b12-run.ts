@@ -17,7 +17,7 @@ import { findB14Baseline } from "./b15-baseline-files";
 import { executeB16, renderB16, findB15Baseline } from "./b16-pilot";
 import { executeB17, renderB17, findB16Baseline, validateB17Approval, failuresB17 } from "./b17-pilot";
 import { B17_CORPUS_SHA256, B17_POLICY_SHA256 } from "./b17-corpus";
-import { executeB18, renderB18, failuresB18, findB17Baseline, B18_CORPUS_SHA256 } from "./b18-pilot";
+import { executeB18, renderB18, failuresB18, findB17Baseline, B18_CORPUS_SHA256, B18_EXECUTION_PROFILE } from "./b18-pilot";
 declare const B1_PREPARED_SOURCE: ReturnType<typeof analyzeSource>;
 declare const B1_PILOT_PHASE: "B12" | "B13" | "B14" | "B15" | "B16" | "B17" | "B18";
 const APP = "/var/www/indexus-crm";
@@ -75,6 +75,7 @@ async function main() {
   const catalog = catalogFromSource(fs.readFileSync(path.join(APP, "server/lib/ai/service-catalog.ts"), "utf8"));
   const identity = crypto.createHash("sha256").update(JSON.stringify({
     approval: b18 ? { phase: "B1.8", configuration: B12, corpusSha256: B18_CORPUS_SHA256,
+      executionProfile: B18_EXECUTION_PROFILE,
       b17BaselineSha256: b17Evidence!.validated.sha256, b16BaselineSha256: b16Evidence!.validated.sha256 } :
       b17 ? { phase: "B1.7", configuration: B12, corpusSha256: B17_CORPUS_SHA256,
       policySha256: B17_POLICY_SHA256, referenceApproval: validateB17Approval(B1_PREPARED_SOURCE),
@@ -112,8 +113,9 @@ async function main() {
     }
   };
   if (modern) console.log(prefix + "_PROGRESS " + file);
-  const controller = new AbortController(), abort = () => controller.abort();
-  process.on("SIGINT", abort); process.on("SIGTERM", abort);
+  const controller = new AbortController();
+  const interrupt = () => controller.abort("SIGINT"), terminate = () => controller.abort("SIGTERM");
+  process.on("SIGINT", interrupt); process.on("SIGTERM", terminate);
   let report;
   try {
     const options = { token, source: B1_PREPARED_SOURCE, reference, fetch,
@@ -138,7 +140,7 @@ async function main() {
       progress(row: any, i: number) { console.log(`B13_CASE ${i + 1}/30 ${row.id} ${row.verdict} HTTP=${row.httpStatus ?? "NONE"}`); },
     }) : await executeB12(options);
   } finally {
-    process.removeListener("SIGINT", abort); process.removeListener("SIGTERM", abort);
+    process.removeListener("SIGINT", interrupt); process.removeListener("SIGTERM", terminate);
   }
   persist(report);
   console.log(prefix + "_RESULTS " + file);

@@ -7,12 +7,16 @@ import { B14_CORPUS_SHA256 } from "./b14-corpus";
 import { executeEmailPilot, type EmailPilotOptions } from "./b13-pilot";
 import { B16_CORPUS, evaluateB16 } from "./b16-pilot";
 import { B17_CORPUS, B17_CORPUS_SHA256 } from "./b17-corpus";
-import { evaluateB17, validateB17Approval, validateB17Baseline } from "./b17-pilot";
+import { evaluateB17, validateB17Approval, validateB17Baseline, performanceMetrics } from "./b17-pilot";
 import { findVerifiedBaseline } from "./b15-baseline-files";
 import { productionComparison } from "./b11-check.cjs";
 
 export const B18_CORPUS = Object.freeze([...B17_CORPUS, ...B16_CORPUS]);
 export const B18_CORPUS_SHA256 = crypto.createHash("sha256").update(JSON.stringify(B18_CORPUS)).digest("hex");
+export const B18_EXECUTION_PROFILE = Object.freeze({
+  id: "B18-technical-120s-warmup", requestTimeoutMs: 120_000, totalDeadlineMs: null,
+  warmupAttempts: 1, scoredAttempts: 135, maxTotalAttempts: 136, retries: 0,
+});
 export const B18_SPECIAL_IDS = Object.freeze(["024", "025", "052", "061", "071", "074", "077", "088", "092"]
   .map(id => "SYN-B17-" + id));
 const hash = (value: any) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -133,7 +137,24 @@ export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) 
     throw Error("B18_REFERENCE_MISMATCH");
   return executeEmailPilot(options, { phase: "B1.8", corpus: B18_CORPUS,
     corpusSha256: B18_CORPUS_SHA256, recordTiming: true, evaluate: evaluateB18,
+    requestTimeoutMs: B18_EXECUTION_PROFILE.requestTimeoutMs, warmup: true,
     decorate(report) {
+      report.executionProfile = B18_EXECUTION_PROFILE;
+      report.modelMapping = { status: "REVIEW_REQUIRED",
+        crmService: "email.monitoring", requestedAlias: B12.model,
+        gatewayDeclarations: report.warmup?.transportTraces?.filter((t: any) => t.modelDeclaration)
+          .map((t: any) => ({ route: t.route, ...t.modelDeclaration })) ?? [],
+        ollamaModel: null, ollamaDigest: null, classificationRulesSha256: null,
+        explanation: "CRM request and Gateway declarations are observed. Backend alias mapping and deployed classification rules require independent AI-server evidence; response model alias is not proof." };
+      report.performance = performanceMetrics(report.rows.filter((r: any) => r.verdict !== "NOT_RUN").map((r: any) => r.processingMs));
+      report.successfulPerformance = performanceMetrics(report.rows.filter((r: any) => r.technical?.success === true).map((r: any) => r.processingMs));
+      report.totalInferenceAttempts = report.summary.inferenceAttempts + (report.warmup?.inferenceAttempts ?? 0);
+      if (report.warmup?.state === "COMPLETED" && (report.warmup.error && report.warmup.error !== "B12_SEMANTIC_MISMATCH" ||
+        report.warmup.integrationProcessed !== true || report.warmup.httpStatus !== 200 ||
+        report.warmup.usedModel !== B12.model || report.warmup.cloudCalls !== 0)) {
+        report.summary.verdict = "FAIL";
+        report.summary.reasons.push("WARMUP_TECHNICAL_FAILURE");
+      }
       report.baselines = { b17: baselines.b17, b16: { sha256: baselines.b16.sha256, summary: baselines.b16.summary } };
       report.corpora = { b17: B17_CORPUS_SHA256, b16: B14_CORPUS_SHA256 };
       report.serverRuleVersion = { requested: "B1.8", source: "Operator-declared server update; model alias alone does not independently attest deployed rule bytes." };
@@ -147,11 +168,12 @@ export function executeB18(options: EmailPilotOptions & { b17: any; b16: any }) 
       report.acceptance = { b17: "Original 98% fields / 95% cases, uncertainty bounds preserved",
         b16: "Original strict 280/280 fields and 35/35 cases", newRegressions: 0, criticalErrors: 0,
         unresolvedReferences: "REVIEW_REQUIRED", noteLanguage: "Independent post-run review required",
-        maxAttempts: 135, retries: 0, productionActivation: false };
+        maxAttempts: 135, warmupAttempts: 1, maxTotalAttempts: 136, retries: 0, productionActivation: false };
     } });
 }
 export function failuresB18(report: any) {
   return { phase: "B1.8", verdict: report.summary.verdict, reasons: report.summary.reasons,
+    warmup: report.warmup ?? null, runtime: report.runtime ?? null, modelMapping: report.modelMapping,
     newRegressions: report.comparison.regressions, repaired: report.comparison.repaired,
     stillWrong: report.comparison.stillWrong, criticalErrors: report.summary.criticalErrors,
     newCriticalErrors: report.comparison.newCriticalErrors,
@@ -175,6 +197,15 @@ export function renderB18(report: any) {
     `Opravené polia: ${cmp.repaired.length}; nové regresie: ${cmp.regressions.length}; pretrvávajúce chyby: ${cmp.stillWrong.length}.`,
     "Null referencie sú vždy REVIEW_REQUIRED, nikdy automatický úspech alebo chyba. Slovenčina všetkých note potrebuje nezávislé posúdenie.",
     "Ide o regresiu známych sád, nie o novú nezávislú validáciu zovšeobecnenia.",
+     "", "## Technické nastavenie a zahriatie",
+     "Timeout 120 s je iba v izolovanom klientovi (SDK aj časovač); produkčné nastavenie sa nemení.",
+     "Jedna zahrievacia požiadavka je mimo skóre aj regresných latencií. Bez retries, fallbacku a opráv klasifikácie.",
+     "```json", pretty({ profile: report.executionProfile, runtime: report.runtime ?? null,
+       warmup: report.warmup ?? null, totalInferenceAttempts: report.totalInferenceAttempts,
+       performance: report.performance, successfulPerformance: report.successfulPerformance,
+       modelMapping: report.modelMapping }), "```",
+     "Pôvodný snapshot pri 79/135 s rozbehnutým 80. pokusom sám nepreukazuje ukončenie procesu. Príčina prípadného ukončenia vyžaduje procesný log.",
+     "Runner ani jeho spúšťač nemajú celkový deadline regresie. Externý timeout alebo SIGKILL tým nie je vylúčený.",
     "", "## Osobitne požadované prípady", "```json", pretty(cmp.specialCases), "```",
     "", "## Nové regresie", "```json", pretty(cmp.regressions), "```",
     "", "## Kritické chyby", "```json", pretty({ all: s.criticalErrors, new: cmp.newCriticalErrors }), "```",
@@ -196,6 +227,7 @@ export function renderB18(report: any) {
       verdict: r.verdict, error: r.error, httpStatus: r.httpStatus, usedModel: r.usedModel,
       crmResult: r.crmResult, technical: r.technical, noteChecks: r.noteChecks,
       processingMs: r.processingMs, inferenceAttempts: r.inferenceAttempts, cloudCalls: r.cloudCalls,
-      transportTraces: r.transportTraces, production: r.production }), "```");
+       timeout: r.timeout, errorIdentity: r.errorIdentity,
+       transportTraces: r.transportTraces, production: r.production }), "```");
   return lines.join("\n") + "\n";
 }

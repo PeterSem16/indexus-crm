@@ -89,6 +89,10 @@ function main() {
   if (preflight.status !== 0) fail("B1_RUNTIME_PREFLIGHT_FAILED");
   console.log(phase.toUpperCase() + "_PREPARED_RUNNER " + prepared.runner);
   const run = cp.spawnSync(process.execPath, args.run, options);
+  console.log(phase.toUpperCase() + "_PROCESS_EXIT " + JSON.stringify({
+    status: run.status, signal: run.signal, launcherDeadlineMs: null,
+    error: run.error ? "CHILD_PROCESS_ERROR" : null,
+  }));
   process.exitCode = run.status ?? 1;
 }
 module.exports = { prepareArtifacts, launchArguments, processEnvironment };

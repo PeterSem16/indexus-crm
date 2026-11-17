@@ -58,14 +58,14 @@ function baselines(failed = false) {
 }
 async function run(opts: { regressionAt?: number; criticalAt?: number; httpAt?: number;
   schemaAt?: number; abortAt?: number; changeAt?: number; finalError?: boolean; duplicate?: boolean;
-  wrongModel?: boolean; failedBaseline?: boolean } = {}) {
+  wrongModel?: boolean; failedBaseline?: boolean; warmupHttp?: boolean } = {}) {
   const old = baselines(opts.failedBaseline), controller = new AbortController(), saved: any[] = [];
   let calls = 0, requests = 0, reads = 0, claims = 0;
   const expected = rows();
   const report = await executeB18({ ...old, reference: old.b17.after, source, token,
     signal: controller.signal,
     readSnapshot: async () => {
-      reads++; if (opts.finalError && reads === 272) throw Error("PRIVATE_DATABASE_ERROR");
+      reads++; if (opts.finalError && reads === 274) throw Error("PRIVATE_DATABASE_ERROR");
       return current(opts.changeAt && reads >= opts.changeAt ? 8 : 7);
     },
     claimOnce() { claims++; if (opts.duplicate) throw Error("B12_RUN_ALREADY_STARTED"); },
@@ -82,19 +82,28 @@ async function run(opts: { regressionAt?: number; criticalAt?: number; httpAt?: 
         maxInputTokens: 8192, maxOutputTokens: 200,
       }] });
       calls++;
+      if (calls === 1) {
+        const body = JSON.parse(String(init?.body));
+        assert.equal(body.messages[1].content, B12.input);
+        if (opts.warmupHttp) return new Response(null, { status: 503 });
+        return Response.json({ id: "WARMUP", object: "chat.completion", model: B12.model,
+          choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant",
+            content: JSON.stringify(expected[0].actualJson) } }] });
+      }
+      const scored = calls - 1;
       const body = JSON.parse(String(init?.body));
       assert.equal(String(url), B12.endpoint); assert.equal(body.model, B12.model);
       assert.equal(body.max_tokens, 200); assert.equal(body.temperature, .1);
       assert.equal(body.stream, false); assert.deepEqual(body.response_format, { type: "json_object" });
       assert.equal(body.messages.length, 2);
-      assert.equal(body.messages[1].content, B18_CORPUS[calls - 1].input);
+      assert.equal(body.messages[1].content, B18_CORPUS[scored - 1].input);
       assert.equal(body.expected, undefined); assert.equal(body.messages[0].content.includes("SYN-B17"), false);
-      if (opts.httpAt === calls) return new Response(null, { status: 403 });
-      const actual = { ...expected[calls - 1].actualJson };
-      if (opts.regressionAt === calls) actual.sentiment = actual.sentiment === "negative" ? "neutral" : "negative";
-      if (opts.criticalAt === calls) actual.wantsConsent = true;
-      if (opts.schemaAt === calls) actual.wantsConsent = "false";
-      return Response.json({ id: "SYNTHETIC_B18", object: "chat.completion", model: opts.wrongModel && calls === 1 ? "WRONG" : B12.model,
+      if (opts.httpAt === scored) return new Response(null, { status: 403 });
+      const actual = { ...expected[scored - 1].actualJson };
+      if (opts.regressionAt === scored) actual.sentiment = actual.sentiment === "negative" ? "neutral" : "negative";
+      if (opts.criticalAt === scored) actual.wantsConsent = true;
+      if (opts.schemaAt === scored) actual.wantsConsent = "false";
+      return Response.json({ id: "SYNTHETIC_B18", object: "chat.completion", model: opts.wrongModel && scored === 1 ? "WRONG" : B12.model,
         choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(actual) } }] });
     }) as typeof fetch });
   return { report, calls, requests, reads, claims, saved };
@@ -129,7 +138,7 @@ test("independently rescored historical classification FAIL is accepted, tamperi
 });
 test("exactly 135 sequential CRM calls, durable pre-send attempts, full field comparison and nine highlighted cases", async () => {
   const h = await run({ failedBaseline: true }), r = h.report;
-  assert.equal(h.calls, 135); assert.equal(h.requests, 540); assert.equal(h.reads, 272); assert.equal(h.claims, 1);
+  assert.equal(h.calls, 136); assert.equal(h.requests, 544); assert.equal(h.reads, 274); assert.equal(h.claims, 1);
   assert.equal(r.complete, true); assert.equal(r.summary.technicalSuccesses, 135);
   assert.equal(r.summary.b17.correctExpectations, 765); assert.equal(r.summary.b16.correctExpectations, 280);
   assert.equal(r.summary.verdict, "REVIEW_REQUIRED");
@@ -142,7 +151,18 @@ test("exactly 135 sequential CRM calls, durable pre-send attempts, full field co
   assert.equal(r.rows[24].checks.find((c: any) => c.field === "wantsConsent").status, "REVIEW_REQUIRED");
   assert.equal(r.summary.productionUnchanged, true); assert.equal(r.summary.cloudCalls, 0);
   assert.equal(r.productionSettingsWrites + r.productionRecordWrites + r.customerNotifications, 0);
-  assert.ok(h.saved.some(s => s.calls === 0 && s.attempts === 1 && s.first === "INFERENCE_STARTED"));
+  assert.ok(h.saved.some(s => s.calls === 1 && s.attempts === 1 && s.first === "INFERENCE_STARTED"));
+  assert.equal(r.totalInferenceAttempts, 136);
+  assert.equal(r.warmup.excludedFromScores, true);
+  assert.equal(r.warmup.inferenceAttempts, 1);
+  assert.equal(r.performance.measuredCases, 135);
+  assert.equal(r.executionProfile.requestTimeoutMs, 120000);
+  assert.equal(r.runtime.totalDeadlineMs, null);
+  assert.equal(r.runtime.termination, "FINISHED");
+  assert.ok(r.rows.every((r: any) => r.timeout.requestMs === 120000));
+  assert.equal(r.modelMapping.status, "REVIEW_REQUIRED");
+  assert.equal(r.modelMapping.gatewayDeclarations[1].revision, "SYNTHETIC_B18");
+  assert.equal(r.modelMapping.ollamaModel, null);
   assert.equal(JSON.stringify(r).includes(token), false);
   const failed = failuresB18(r);
   assert.equal(failed.noteReviews.length, 135); assert.equal(failed.reviewRequired.length, 35);
@@ -159,22 +179,22 @@ test("one noncritical new B1.7 regression fails even when average accuracy remai
 });
 test("last B1.6 case is executed and covered by strict regression and critical tracking", async () => {
   const h = await run({ criticalAt: 135 });
-  assert.equal(h.calls, 135); assert.equal(h.report.summary.verdict, "FAIL");
+  assert.equal(h.calls, 136); assert.equal(h.report.summary.verdict, "FAIL");
   assert.equal(h.report.comparison.regressions[0].id, B16_CORPUS[34].id);
   assert.ok(h.report.summary.criticalErrors.some((e: any) => e.id === B16_CORPUS[34].id));
   assert.ok(failuresB18(h.report).newCriticalErrors.length > 0);
 });
 test("authorization or production safety failures stop the combined run without starting the second set", async () => {
   const http = await run({ httpAt: 2 });
-  assert.equal(http.calls, 2); assert.equal(http.report.complete, false); assert.equal(http.report.summary.verdict, "FAIL");
+  assert.equal(http.calls, 3); assert.equal(http.report.complete, false); assert.equal(http.report.summary.verdict, "FAIL");
   assert.equal(http.report.comparison.regressions.length, 0);
   assert.ok(http.report.comparison.notComparable.length > 0);
   const changed = await run({ changeAt: 4 });
-  assert.equal(changed.calls, 1); assert.equal(changed.report.summary.verdict, "FAIL");
+  assert.equal(changed.calls, 1); assert.equal(changed.report.summary.productionUnchanged, false);
 });
 test("invalid schema and wrong model are technical failures, not invented paired model regressions", async () => {
   const schema = await run({ schemaAt: 101 });
-  assert.equal(schema.calls, 135); assert.equal(schema.report.summary.technicalSuccesses, 134);
+  assert.equal(schema.calls, 136); assert.equal(schema.report.summary.technicalSuccesses, 134);
   assert.equal(schema.report.summary.verdict, "FAIL");
   assert.ok(failuresB18(schema.report).technicalFailures.some((r: any) => r.id === B16_CORPUS[0].id));
   const wrong = await run({ wrongModel: true });
@@ -183,13 +203,24 @@ test("invalid schema and wrong model are technical failures, not invented paired
 });
 test("interruption, duplicate invocation and missing final snapshot cannot produce PASS", async () => {
   const abort = await run({ abortAt: 100 });
-  assert.equal(abort.calls, 100); assert.equal(abort.report.summary.verdict, "REVIEW_REQUIRED");
+  assert.equal(abort.calls, 101); assert.equal(abort.report.summary.verdict, "REVIEW_REQUIRED");
   assert.equal(failuresB18(abort.report).notRunIds.length, 35);
   const duplicate = await run({ duplicate: true });
   assert.equal(duplicate.calls, 0); assert.equal(duplicate.report.error, "B12_RUN_ALREADY_STARTED");
   const final = await run({ finalError: true });
   assert.equal(final.report.summary.productionUnchanged, null);
   assert.equal(final.report.summary.verdict, "REVIEW_REQUIRED");
+});
+test("failed isolated warmup stops before scored inference, preserves evidence and never retries", async () => {
+  const h = await run({ warmupHttp: true });
+  assert.equal(h.calls, 1);
+  assert.equal(h.report.error, "B18_WARMUP_FAILED");
+  assert.equal(h.report.warmup.httpStatus, 503);
+  assert.equal(h.report.summary.inferenceAttempts, 0);
+  assert.equal(h.report.totalInferenceAttempts, 1);
+  assert.equal(h.report.summary.executedCases, 0);
+  assert.equal(h.report.complete, false);
+  assert.equal(h.report.runtime.termination, "ERROR");
 });
 test("raw equality and all four critical error types remain checked without treating nulls as errors", () => {
   for (const [i, key, value, code] of [

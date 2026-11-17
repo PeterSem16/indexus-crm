@@ -91,6 +91,8 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
   phase: string; corpus: readonly { id: string; category: string; input: string; expected: any }[];
   corpusSha256: string; evaluate: typeof evaluateB13 | ((rows: any[], safe: boolean | null, interrupted: boolean) => any);
   recordTiming?: boolean;
+  requestTimeoutMs?: number;
+  warmup?: boolean;
   decorate?: (report: any) => void;
 }) {
   const prefix = definition.phase.replace(".", "");
@@ -104,7 +106,14 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       error: null, inferenceAttempts: 0, cloudCalls: 0, transportTraces: [], integrationProcessed: false })),
     summary: null };
   let productionUnchanged: boolean | null = null;
+  const runStart = performance.now();
   const save = () => {
+    report.runtime = { elapsedMs: performance.now() - runStart, totalDeadlineMs: null,
+      requestTimeoutMs: definition.requestTimeoutMs ?? 30_000,
+      termination: options.signal?.aborted
+        ? (["SIGINT", "SIGTERM", "RUN_DEADLINE"].includes(options.signal.reason) ? options.signal.reason : "CALLER_ABORT")
+        : report.finishedAtUtc ? report.error ? "ERROR" : "FINISHED" : "RUNNING",
+      limitation: "No in-process total deadline. External shell, session, proxy and service deadlines are not controlled here; SIGKILL cannot be recorded." };
     report.summary = definition.evaluate(report.rows, productionUnchanged, !report.complete);
     definition.decorate?.(report);
     if (JSON.stringify(report).includes(options.token)) throw Error(prefix + "_SECRET_ECHO");
@@ -116,13 +125,30 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       throw Error(prefix + "_PRODUCTION_CHANGED_BEFORE_TEST");
     options.claimOnce();
     save(); // Publish fixed inputs/expectations before the first inference.
+    if (definition.warmup) {
+      report.warmup = { state: "RUNNING", inferenceAttempts: 0, excludedFromScores: true };
+      save();
+      const start = performance.now();
+      const warmup = await executeB12({ ...options, claimOnce() {},
+        pilotCase: undefined, requestTimeoutMs: definition.requestTimeoutMs,
+        beforeInference() { report.warmup.inferenceAttempts = 1; save(); } });
+      report.warmup = { ...warmup, state: "COMPLETED", excludedFromScores: true,
+        processingMs: performance.now() - start };
+      save();
+      if (!warmup.integrationProcessed || warmup.httpStatus !== 200 || warmup.usedModel !== B12.model ||
+        warmup.inferenceAttempts !== 1 || warmup.cloudCalls !== 0 ||
+        warmup.error && warmup.error !== "B12_SEMANTIC_MISMATCH" ||
+        !warmup.production?.beforeMatchesOriginal || !warmup.production?.afterMatchesOriginal ||
+        !warmup.production?.unchangedDuringCheck) throw Error(prefix + "_WARMUP_FAILED");
+    }
     for (let i = 0; i < definition.corpus.length; i++) {
       if (options.signal?.aborted) { report.error = prefix + "_CALLER_ABORT"; break; }
       const c = definition.corpus[i];
       report.rows[i].state = "RUNNING";
       save();
       const start = performance.now();
-      const single = await executeB12({ ...options, claimOnce() {}, pilotCase: { ...c, phase: definition.phase,
+      const single = await executeB12({ ...options, claimOnce() {}, requestTimeoutMs: definition.requestTimeoutMs,
+        pilotCase: { ...c, phase: definition.phase,
         expected: Object.fromEntries(Object.entries(c.expected).filter(([, v]) => v !== null)) as any },
         beforeInference() {
           report.rows[i].state = "INFERENCE_STARTED";
@@ -136,6 +162,8 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
         integrationProcessed: single.integrationProcessed, error: single.error,
         inferenceAttempts: single.inferenceAttempts, cloudCalls: single.cloudCalls,
         transportTraces: single.transportTraces, production: single.production,
+        timeout: single.timeout,
+        errorIdentity: single.errorIdentity ?? null,
         startedAtUtc: single.startedAtUtc, finishedAtUtc: single.finishedAtUtc,
         ...(definition.recordTiming ? { processingMs: performance.now() - start } : {}),
       };
@@ -156,7 +184,8 @@ export async function executeEmailPilot(options: EmailPilotOptions, definition: 
       report.after = await options.readSnapshot();
       if (report.before) {
         report.production = productionComparison(options.reference, report.before, report.after);
-        const comparisons = [report.production, ...report.rows.filter((r: any) => r.verdict !== "NOT_RUN").map((r: any) => r.production)];
+        const comparisons = [report.production, ...(report.warmup ? [report.warmup.production] : []),
+          ...report.rows.filter((r: any) => r.verdict !== "NOT_RUN").map((r: any) => r.production)];
         const values = comparisons.flatMap(c => c ? [c.beforeMatchesOriginal, c.unchangedDuringCheck, c.afterMatchesOriginal] : [null]);
         productionUnchanged = values.includes(false) ? false : values.every(v => v === true) ? true : null;
       }

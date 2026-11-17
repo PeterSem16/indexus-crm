@@ -33,7 +33,10 @@ export async function executeB12(options: {
   fetch: typeof fetch; signal?: AbortSignal;
   pilotCase?: { id: string; input: string; expected: Readonly<Record<string, string | boolean>>; phase?: string };
   beforeInference?: () => void;
+  requestTimeoutMs?: number;
 }) {
+  const timeoutMs = options.requestTimeoutMs ?? 30_000;
+  if (![30_000, 120_000].includes(timeoutMs)) fail("B12_INVALID_TEST_TIMEOUT");
   const inputText = options.pilotCase?.input ?? B12.input;
   const expected = options.pilotCase?.expected ?? {
     wantsConsent: false, wantsToCancel: false, sentiment: "neutral", alertLevel: "none",
@@ -49,7 +52,8 @@ export async function executeB12(options: {
     historicalModelInventory: options.pilotCase ? "UNVERIFIED_NON_BLOCKING_PER_B13" : "UNVERIFIED_NON_BLOCKING_PER_B12",
   };
   const abort = new AbortController();
-  const forwardAbort = () => abort.abort();
+  let abortSource: string | null = null;
+  const forwardAbort = () => { abortSource = "CALLER_SIGNAL"; abort.abort(); };
   if (options.signal?.aborted) forwardAbort();
   options.signal?.addEventListener("abort", forwardAbort, { once: true });
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -60,7 +64,7 @@ export async function executeB12(options: {
       fail("B12_PRODUCTION_CHANGED_BEFORE_TEST");
     options.claimOnce();
     if (abort.signal.aborted) fail("B12_CALLER_ABORT");
-    timer = setTimeout(() => abort.abort(), 30_000);
+    timer = setTimeout(() => { abortSource = "REQUEST_DEADLINE"; abort.abort(); }, timeoutMs);
     const adapter = createInternalAIAdapter({
       emailMonitoringTransport: "canonical-https",
       readConfiguration: () => ({ production: true, replit: false, enabled: true,
@@ -85,8 +89,30 @@ export async function executeB12(options: {
             fail("B12_WIRE_REQUEST_MISMATCH");
           options.beforeInference?.();
         }
-        const response = await options.fetch(input, init);
-        report.transportTraces.push({ stage: inference ? "INFERENCE" : "DISCOVERY", status: response.status });
+        const transportStart = performance.now();
+        let response: Response;
+        try { response = await options.fetch(input, init); }
+        catch (error: any) {
+          report.transportTraces.push({ stage: inference ? "INFERENCE" : "DISCOVERY", status: null,
+            route: new URL(url).pathname, elapsedMs: performance.now() - transportStart,
+            failure: abort.signal.aborted ? "ABORTED" : "TRANSPORT_REJECTED" });
+          throw error;
+        }
+        const trace: any = { stage: inference ? "INFERENCE" : "DISCOVERY", status: response.status,
+          route: new URL(url).pathname, responseHeadersMs: performance.now() - transportStart };
+        report.transportTraces.push(trace);
+        if (!inference && response.status === 200 && url !== BASE + "health/ready") {
+          const document = JSON.parse(await capture(response.clone(), options.token));
+          const row = (url.endsWith("v1/models") ? document.data : document.models)
+            ?.find((m: any) => m?.id === B12.model);
+          // Retain only public, bounded catalog declarations. They do not prove Ollama routing.
+          trace.modelDeclaration = row ? Object.fromEntries(
+            ["id", "revision", "owned_by", "maxInputTokens", "maxOutputTokens"].flatMap(key => {
+              const value = row[key];
+              return typeof value === "number" || typeof value === "string" && value.length <= 200
+                ? [[key, value]] : [];
+            })) : null;
+        }
         if (inference) {
           report.httpStatus = response.status;
           const text = await capture(response.clone(), options.token);
@@ -113,7 +139,7 @@ export async function executeB12(options: {
     const router = createAIRouter({ adapter: cloud, adapters: [adapter], mode: "routed",
       overrides: { "email.monitoring": { provider: "internal", model: B12.model, enabled: true } },
       revision: "B12_ISOLATED_SINGLE_TEST_NOT_PRODUCTION_ROUTING", emit() {} });
-    const client = router.client("email.monitoring", { timeout: 30000, maxRetries: 0 });
+    const client = router.client("email.monitoring", { timeout: timeoutMs, maxRetries: 0 });
     const analyze = bindAnalyzer(options.source, () => ({
       chat: { completions: { create: (body: any) => client.chat.completions.create(body, { signal: abort.signal }) } },
     }), parseEmailMonitoringAnalysis);
@@ -125,6 +151,13 @@ export async function executeB12(options: {
     if (report.httpStatus !== 200) fail("B12_HTTP_NOT_200");
     if (report.semanticChecks.some((s: any) => !s.pass)) fail("B12_SEMANTIC_MISMATCH");
   } catch (error: any) {
+    report.errorIdentity = {
+      name: ["AbortError", "TimeoutError", "APIConnectionTimeoutError", "APIConnectionError",
+        "InternalServerError", "AuthenticationError", "RateLimitError", "Error"].includes(error?.name)
+        ? error.name : "OTHER",
+      status: Number.isInteger(error?.status) ? error.status : null,
+      aborted: abort.signal.aborted,
+    };
     report.error = /^B12_[A-Z0-9_]+$/.test(error?.message || "") ? error.message :
       /^ai_internal_[a-z_]+$/.test(error?.code || "") ? error.code :
       /^email_monitoring_[a-z_]+$/.test(error?.message || "") ? error.message :
@@ -139,6 +172,9 @@ export async function executeB12(options: {
         !report.production?.afterMatchesOriginal) report.error ||= "B12_PRODUCTION_CHANGED_OR_UNVERIFIED";
     } catch { report.error ||= "B12_FINAL_PRODUCTION_UNVERIFIED"; }
   }
+  report.timeout = { requestMs: timeoutMs, abortSource, callerReason:
+    options.signal?.aborted && ["SIGINT", "SIGTERM", "RUN_DEADLINE"].includes(options.signal.reason)
+      ? options.signal.reason : options.signal?.aborted ? "OTHER_CALLER_ABORT" : null };
   report.finishedAtUtc = new Date().toISOString();
   report.verdict = !report.error && report.inferenceAttempts === 1 && report.cloudCalls === 0 &&
     report.httpStatus === 200 && report.usedModel === B12.model && report.integrationProcessed &&

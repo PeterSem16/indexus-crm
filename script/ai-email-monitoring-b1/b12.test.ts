@@ -17,9 +17,11 @@ function current() {
   } } }, Object.keys(AI_SERVICES));
 }
 async function run(options: { reply?: unknown; status?: number; model?: string; claimError?: boolean;
-  finalError?: boolean; changedBefore?: boolean; changedAfter?: boolean; unavailable?: boolean } = {}) {
+  finalError?: boolean; changedBefore?: boolean; changedAfter?: boolean; unavailable?: boolean;
+  requestTimeoutMs?: number; stall?: () => void; signal?: AbortSignal } = {}) {
   const calls: any[] = []; let claims = 0, reads = 0;
   const result = await executeB12({ source, token, reference: current(),
+    requestTimeoutMs: options.requestTimeoutMs, signal: options.signal,
     readSnapshot: async () => {
       reads++;
       if (reads === 2 && options.finalError) throw Error("SYNTHETIC_PRIVATE_DB_ERROR");
@@ -35,6 +37,14 @@ async function run(options: { reply?: unknown; status?: number; model?: string; 
         inputModalities: ["text"], outputFormats: ["text", "json_object"], streaming: false,
         maxInputTokens: 8192, maxOutputTokens: 200,
       }] });
+      if (options.stall) {
+        options.stall();
+        return new Promise<Response>((_, reject) => {
+          const abort = () => reject(new DOMException("Aborted", "AbortError"));
+          if (init?.signal?.aborted) abort();
+          else init?.signal?.addEventListener("abort", abort, { once: true });
+        });
+      }
       if (options.status && options.status !== 200) return new Response(null, { status: options.status });
       return Response.json({ id: "SYNTHETIC_B12_COMPLETION", object: "chat.completion",
         model: options.model ?? B12.model, choices: [{ index: 0,
@@ -65,6 +75,36 @@ test("B1.2 executes exactly one canonical HTTPS inference using the real CRM lay
   assert.equal(body.max_tokens, 200); assert.equal(body.temperature, 0.1);
   assert.deepEqual(body.response_format, { type: "json_object" }); assert.equal(body.stream, false);
   assert.equal(JSON.stringify(h.result).includes(token), false);
+});
+test("test-only 120-second deadline survives 30 seconds and records its abort without retries", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let started!: () => void, finished = false;
+  const ready = new Promise<void>(resolve => { started = resolve; });
+  const pending = run({ requestTimeoutMs: 120000, stall: started }).then(h => { finished = true; return h; });
+  await ready;
+  t.mock.timers.tick(30001);
+  await Promise.resolve();
+  assert.equal(finished, false);
+  t.mock.timers.tick(89999);
+  const h = await pending;
+  assert.equal(h.result.timeout.requestMs, 120000);
+  assert.equal(h.result.timeout.abortSource, "REQUEST_DEADLINE");
+  assert.equal(h.result.error, "B12_ABORT_OR_TIMEOUT");
+  assert.equal(h.result.inferenceAttempts, 1);
+  assert.equal(h.result.cloudCalls, 0);
+  assert.equal(h.calls.length, 4);
+  assert.equal(h.result.transportTraces.at(-1).failure, "ABORTED");
+  assert.equal(current().gatewayParametersSha256, h.result.before.gatewayParametersSha256);
+});
+test("external SIGTERM is distinct from a request deadline and still reads the final production snapshot", async () => {
+  const controller = new AbortController();
+  const h = await run({ requestTimeoutMs: 120000, signal: controller.signal,
+    stall() { controller.abort("SIGTERM"); } });
+  assert.equal(h.result.timeout.abortSource, "CALLER_SIGNAL");
+  assert.equal(h.result.timeout.callerReason, "SIGTERM");
+  assert.equal(h.result.production.unchangedDuringCheck, true);
+  assert.equal(h.reads, 2);
+  assert.equal(h.result.inferenceAttempts, 1);
 });
 for (const status of [301, 401, 500, 504]) test(`B1.2 HTTP ${status} fails without retry, redirect follow or cloud fallback`, async () => {
   const h = await run({ status });

@@ -2,6 +2,35 @@
 
 ## Aktuálne zadanie B1.8 — párové regresné overenie
 
+### Technická oprava izolovaného klienta
+
+Aktuálny profil `B18-technical-120s-warmup` nastavuje **iba B1.8** na 120 s:
+SDK aj vonkajší časovač jedného spracovania (discovery + inferencia).
+Ostatné historické piloty aj produkčné CRM nastavenia zostávajú bez zmeny.
+Pred celou sadou vykoná jednu izolovanú požiadavku s pôvodným neutrálnym
+vstupom B1.2; je uložená samostatne ako `warmup`, mimo klasifikačného skóre
+aj distribúcie latencií 135 správ. Maximum je **1 + 135 = 136** inferencií,
+bez retry, cloud fallbacku či opráv klasifikácie. Neúspešné zahriatie blokuje sadu.
+Nový profil má samostatný jednorazový marker; staré markery ani výsledky sa nemažú.
+Opakovať sa musí celých 135 správ, nejde o pokračovanie od prípadu 080.
+
+Runner ani jeho rodičovský spúšťač nemajú celkový časový limit regresie.
+30 s pri `git archive` a rozbalení sa týka iba prípravy, nie živého behu.
+Report priebežne ukladá celkové trvanie, rozlišuje deadline požiadavky od
+SIGINT/SIGTERM a spúšťač vypíše exit status/signál. Externé limity shellu,
+hostiteľa či proxy to nevylučuje; SIGKILL nemôže zapísať finálny report.
+Samotných 136 požiadaviek môže pri 120 s trvať až 4 h 32 min, navyše lokálne
+kontroly a ukladanie. Celkový čas nie je ohraničený 30 ani 60 minútami.
+Spúšťať oddelene od životnosti terminálu (`nohup`, privátny log, žiadny shell `timeout`);
+predtým overiť, že pôvodný B1.8 proces už nebeží. Žiadny proces automaticky neukončovať.
+
+Alias v CRM požiadavke, odpovedi a Gateway discovery je kontrolovaný a
+deklarovaná revision sa zaznamená. **Nie je to dôkaz mapovania na Ollama ani
+obsahu serverových pravidiel.** `modelMapping` zostáva `REVIEW_REQUIRED`,
+kým nie je samostatne doložené efektívne mapovanie aliasu na backend,
+Ollama model/digest a hash klasifikačných pravidiel z AI servera.
+Výsledky prípravy sa nesmú vydávať za živú kompletnú regresiu.
+
 Jeden izolovaný beh opakuje **100 pôvodných správ B1.7 a 35 správ B1.6**,
 v tomto poradí, bez zmeny vstupov, referencií, CRM promptu alebo parametrov.
 `prepare-console.cjs <PIN> --run-b18` automaticky a read-only vyhľadá skutočné
