@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, Clock3, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type { AISettingsView, AIGatewaySettings, AIServiceRoute } from "@shared/ai-settings";
+import { EMAIL_MONITORING_MODEL } from "@shared/ai-settings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
 import type { AISettingsCopy } from "@/i18n/ai-settings-translations";
@@ -219,7 +220,9 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
   }, [service.route, baseline, dirty, view.version]);
   const smoke = view.gatewayCheck;
   const smokeFresh = !!smoke && smoke.kind === "smoke" && smoke.state === "ready" &&
-    smoke.settingsVersion === view.version && smoke.textVerified && smoke.jsonVerified &&
+    smoke.settingsVersion === view.version && (route.model === EMAIL_MONITORING_MODEL || smoke.textVerified) && smoke.jsonVerified &&
+    smoke.models.some(model => model.id === route.model && model.outputFormats.includes("json_object") &&
+      (route.model === EMAIL_MONITORING_MODEL || model.outputFormats.includes("text"))) &&
     Date.now() - new Date(smoke.checkedAt).getTime() <= staleMs;
   const canInternal = service.internalEligible &&
     view.runtime.production && !view.runtime.replit && view.runtime.serverAllowed && smokeFresh;
@@ -243,7 +246,8 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
     <div className="space-y-1.5"><Label htmlFor={`provider-${service.id}`} className="text-xs">{copy.provider}</Label>
       <select id={`provider-${service.id}`} value={route.provider} onChange={e => {
         const provider = e.target.value as AIServiceRoute["provider"];
-        setRoute({ ...route, provider, model: provider === "internal" ? internalModel : null });
+        setRoute({ ...route, provider, model: provider === "internal" ?
+          (service.id === "email.monitoring" ? EMAIL_MONITORING_MODEL : internalModel) : null });
       }} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
         <option value="openai">{copy.openai}</option>
         <option value="internal" disabled={!service.internalEligible || view.runtime.replit || !view.runtime.production || !view.runtime.serverAllowed}>{copy.internal}</option>
@@ -252,7 +256,8 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
     <div className="space-y-1.5"><Label htmlFor={`model-${service.id}`} className="text-xs">{copy.model}</Label>
       {route.provider === "internal" ? <select id={`model-${service.id}`} value={route.model || internalModel}
         onChange={e => setRoute({ ...route, model: e.target.value })} className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-xs">
-        <option value={internalModel}>{internalModel}</option></select> :
+        <option value={internalModel}>{internalModel}</option>
+        {service.id === "email.monitoring" && <option value={EMAIL_MONITORING_MODEL}>{EMAIL_MONITORING_MODEL}</option>}</select> :
         <div className="flex gap-1.5"><Input id={`model-${service.id}`} value={route.model || ""} placeholder={copy.originalModel}
           onChange={e => setRoute({ ...route, model: e.target.value || null })} className="font-mono text-xs" />
           {route.model !== null && <Button type="button" variant="outline" size="sm" title={copy.originalModel} onClick={() => setRoute({ ...route, model: null })}>{copy.originalModel}</Button>}</div>}

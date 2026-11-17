@@ -34,7 +34,7 @@ const { chromium } = require("playwright");
   let view = {
     version: 1, gateway: { enabled: true, baseURL: "https://ai.cordbloodcenter.com/gateway/",
       timeoutMs: 30000, maxRetries: 0, temperature: null, maxTokens: null },
-    services: ["email.summary", "email.reply"].map(id => ({ id, operation: "chat", internalEligible: true,
+    services: ["email.summary", "email.reply", "email.monitoring"].map(id => ({ id, operation: "chat", internalEligible: true,
       route: { provider: "openai", model: null, enabled: true } })),
     runtime: { production: true, replit: false, serverAllowed: true, tokenConfigured: true, openaiConfigured: true, mode: "routed" },
     gatewayCheck: null, openaiCheck: null, audit: [],
@@ -54,7 +54,9 @@ const { chromium } = require("playwright");
           const result = { state: "ready", kind: body.kind, settingsVersion: view.version, checkedAt: new Date().toISOString(),
             durationMs: 5, textVerified: body.kind !== "connectivity", jsonVerified: body.kind === "smoke",
             models: [{ id: "indexus-document-audio:latest", revision: "ui-unit", outputFormats: ["text", "json_object"],
-              maxInputTokens: 4096, maxOutputTokens: 1024 }] };
+              maxInputTokens: 4096, maxOutputTokens: 1024 },
+              { id: "indexus-email-monitoring:v1", revision: "ui-unit", outputFormats: ["json_object"],
+                maxInputTokens: 8192, maxOutputTokens: 200 }] };
           view[body.kind === "openai" ? "openaiCheck" : "gatewayCheck"] = result;
         } else {
           puts++; view.version++;
@@ -101,6 +103,13 @@ const { chromium } = require("playwright");
     await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
     assert.equal(puts, 1);
     assert.equal(view.services[0].route.provider, "internal");
+    const emailRow = page.locator("article").filter({ has: page.getByText("email.monitoring", { exact: true }) });
+    await emailRow.getByLabel("Provider", { exact: true }).selectOption("internal");
+    assert.equal(await emailRow.getByLabel("Model", { exact: true }).inputValue(), "indexus-email-monitoring:v1");
+    assert.equal(await emailRow.getByRole("button", { name: "Save route", exact: true }).isEnabled(), true);
+    assert.deepEqual(await row.getByLabel("Model", { exact: true }).locator("option").evaluateAll(
+      options => options.map(option => option.value)), ["indexus-document-audio:latest"]);
+    assert.equal(puts, 1, "selecting the email model must not activate a service");
     await row.getByLabel("Provider", { exact: true }).selectOption("openai");
     assert.equal(await row.getByLabel("Model", { exact: true }).inputValue(), "");
     await row.getByLabel("Model", { exact: true }).fill("gpt-4o-mini");
@@ -113,6 +122,7 @@ const { chromium } = require("playwright");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: path.join(out, "mobile.jpg"), fullPage: true });
     statuses.push("native fetch", "no automatic tests", "discovery not inference", "text/JSON activation gate",
+      "email model selection without activation", "email-only model option",
       "Escape/confirmation", "provider reset", "dirty edit retention", "390px bounds", "dark render");
     assert.deepEqual(errors, []);
     assert.equal(posts, 2);

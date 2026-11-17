@@ -37,7 +37,10 @@ export async function checkAIProvider(kind: AIVerification["kind"], version: num
       result.textVerified = true;
     } else {
       assertInternalRuntime(internal); // Must run before *any* network request.
-      const discovery = await internal.inspect({ signal: controller.signal, timeoutMs: 15_000 });
+      // Include the service-scoped email alias in administration metadata only.
+      // Inference grants remain enforced separately by createClient(service).
+      const discovery = await internal.inspect({ signal: controller.signal, timeoutMs: 15_000,
+        service: "email.monitoring" });
       result.models = discovery.models;
       if (kind === "smoke") {
         const client = internal.createClient({ timeout: 30_000, maxRetries: 0 });
