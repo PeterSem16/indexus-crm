@@ -28,6 +28,11 @@ export function monitoringSnapshot(scope: EmailMonitoringScope, analysis: EmailM
   return snapshotSchema.parse({ source: "email.monitoring", mailbox: value.mailbox, kind: value.kind,
     ownerUserId: value.ownerUserId, analyzedAt: now.toISOString(), analysis });
 }
+/** Separate storage keys, even when several accounts connect the same mailbox. */
+export function monitoringOwnerKey(scope: EmailMonitoringScope) {
+  const value = monitoringScope(scope);
+  return value.kind === "system" ? "system" : `personal:${value.ownerUserId}`;
+}
 export function readMonitoringSnapshot(value: unknown, scope: EmailMonitoringScope): EmailMonitoringDetail | null {
   const expected = monitoringScope(scope);
   if (value == null) return null;

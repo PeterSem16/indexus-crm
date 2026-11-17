@@ -1,12 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createEmailMonitoringRecorder, monitoringSnapshot, readMonitoringSnapshot,
+import { createEmailMonitoringRecorder, monitoringSnapshot, monitoringOwnerKey, readMonitoringSnapshot,
   type EmailMonitoringScope } from "./email-monitoring-record";
 const scope: EmailMonitoringScope = { externalId: "synthetic-message", mailbox: "agent@example.test",
   kind: "personal", ownerUserId: "synthetic-owner" };
 const analysis = { sentiment: "neutral" as const, hasInappropriateContent: false, hasAngryTone: false,
   hasRudeExpressions: false, wantsToCancel: false, wantsConsent: false, doesNotAcceptContract: true,
   alertLevel: "none" as const, note: "Zákazník odmieta ponuku, existujúcu službu ponecháva." };
+test("personal owners and system monitoring have distinct immutable storage namespaces", () => {
+  assert.equal(monitoringOwnerKey(scope), "personal:synthetic-owner");
+  assert.notEqual(monitoringOwnerKey(scope), monitoringOwnerKey({ ...scope, ownerUserId: "another" }));
+  assert.notEqual(monitoringOwnerKey(scope), monitoringOwnerKey({ ...scope, kind: "system", ownerUserId: null }));
+  assert.throws(() => monitoringOwnerKey({ ...scope, ownerUserId: null }), /scope_required/);
+});
 test("an unlinked mailbox result retains nine exact fields and is isolated from other users and mailboxes", () => {
   const saved = monitoringSnapshot(scope, analysis);
   assert.deepEqual(readMonitoringSnapshot(saved, scope)?.analysis, analysis);

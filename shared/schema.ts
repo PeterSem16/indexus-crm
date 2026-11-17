@@ -5336,7 +5336,21 @@ export const emailMetadata = pgTable("email_metadata", {
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
-export const insertEmailMetadataSchema = createInsertSchema(emailMetadata).omit({ 
+// Private results for independently authorized users of the same physical
+// mailbox. Legacy single-owner snapshots remain unchanged in email_metadata.
+export const emailMonitoringOwnerResults = pgTable("email_monitoring_owner_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: text("message_id").notNull(),
+  mailboxEmail: text("mailbox_email").notNull(),
+  ownerKey: text("owner_key").notNull(),
+  ownerUserId: varchar("owner_user_id").references(() => users.id, { onDelete: "cascade" }),
+  result: jsonb("result").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, table => [
+  unique("email_monitoring_owner_results_identity").on(table.mailboxEmail, table.messageId, table.ownerKey),
+]);
+
+export const insertEmailMetadataSchema = createInsertSchema(emailMetadata).omit({
   id: true, 
   createdAt: true,
   updatedAt: true 
