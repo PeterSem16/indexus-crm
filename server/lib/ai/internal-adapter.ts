@@ -6,6 +6,7 @@ import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
   internalModelsForService, validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
 import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
 import { EMAIL_SENTIMENT_PROFILE } from "./email-sentiment-profile";
+import { emailSentimentReviewReason } from "./email-sentiment-contract";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -97,13 +98,15 @@ export function createInternalAIAdapter(dependencies: {
       if (sentimentReview && response.status === 422 &&
         response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
         let review = false;
+        let reason: ReturnType<typeof emailSentimentReviewReason> = "unspecified";
         try {
           const value = JSON.parse(await readLimited(response, 8192, signal));
           review = value?.error?.code === "review_required" && value?.error?.type === "review_required";
+          if (review) reason = emailSentimentReviewReason(value.error);
         } catch {
           if (signal?.aborted) throw abortError();
         }
-        if (review) throw new InternalAIError("review_required", 422);
+        if (review) throw new InternalAIError("review_required", 422, reason);
       }
       await response.body?.cancel().catch(() => {});
       throw new InternalAIError("ai_internal_http_error",
@@ -187,7 +190,7 @@ export function createInternalAIAdapter(dependencies: {
             const safe = error instanceof InternalAIError ? error : new InternalAIError("ai_internal_request_failed");
             return jsonResponse({ error: { message: safe.code,
               type: safe.code === "review_required" ? "review_required" : "internal_gateway_error",
-              code: safe.code } }, safe.status);
+              code: safe.code, ...(safe.code === "review_required" ? { reason_code: safe.reviewReason } : {}) } }, safe.status);
           }
         },
       });

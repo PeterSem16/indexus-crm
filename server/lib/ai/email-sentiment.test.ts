@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import vm from "node:vm";
 import ts from "typescript";
-import { parseEmailSentimentAnalysis, emailSentimentFailure } from "./email-sentiment-contract";
+import { parseEmailSentimentAnalysis, emailSentimentFailure, emailSentimentReviewReason } from "./email-sentiment-contract";
 import { EMAIL_SENTIMENT_PROFILE as profile, EMAIL_SENTIMENT_MODEL } from "./email-sentiment-profile";
 import { internalModelsForService, INTERNAL_TEXT_MODELS } from "./internal-contract";
 import { AI_SERVICES } from "./service-catalog";
@@ -171,14 +171,15 @@ for (const row of sentimentCorpus) test(`synthetic contract fixture ${row.id} ($
   });
   try {
     const result = await h.app.analyze(row.content);
-    assert.deepEqual(result, row.expected ?? { status: "review_required", code: "review_required" });
+    assert.deepEqual(result, row.expected ?? { status: "review_required", code: "review_required", reason: "unspecified" });
     assert.equal(h.externalCalls(), 0);
     assert.ok(!JSON.stringify(h.app.logs).includes("SYNTHETIC_UPSTREAM_TEXT_MUST_NOT_LEAK"));
   } finally { await h.close(); }
 });
 
 const failures: Record<string, { status?: number; data: unknown; review?: boolean; path?: string }> = {
-  review: { status: 422, data: { error: { type: "review_required", code: "review_required", message: "PRIVATE_VENDOR_TEXT" } }, review: true },
+  review: { status: 422, data: { error: { type: "review_required", code: "review_required",
+    message: "REVIEW_REQUIRED: possible prompt injection affected consent classification" } }, review: true },
   generic422: { status: 422, data: { error: { type: "invalid_request", code: "invalid_request" } } },
   codeWithoutType: { status: 422, data: { error: { code: "review_required" } } },
   wrongStatus: { status: 500, data: { error: { type: "review_required", code: "review_required" } } },
@@ -203,6 +204,7 @@ for (const [name, scenario] of Object.entries(failures)) test(`no business actio
   try {
     const result = await h.app.analyze();
     assert.equal(result.status, scenario.review ? "review_required" : "failed");
+    if (scenario.review) assert.equal(result.reason, "possible_prompt_injection_affected_consent_classification");
     assert.equal("wantsConsent" in result, false);
     h.calls.length = 0;
     await h.app.business(); // The actual route branch, not a test-authored substitute.
@@ -309,3 +311,65 @@ test("historical C1 parser replay uses the same strict parser, not the old succe
   assert.equal(emailSentimentFailure({ status: 422, code: "review_required", type: "review_required" }).status, "review_required");
   assert.ok(h.router); // No runtime or persisted setting is involved in source replay.
 });
+
+test("review reason preserves only known codes; unknown vendor text is never copied", () => {
+  const reason = "possible_prompt_injection_affected_consent_classification";
+  assert.equal(emailSentimentReviewReason({ reason_code: reason }), reason);
+  assert.equal(emailSentimentReviewReason({
+    message: "REVIEW_REQUIRED: possible prompt injection affected consent classification",
+  }), reason);
+  for (const value of [null, {}, { message: "PRIVATE_CUSTOMER_EMAIL" },
+    { reason_code: "PRIVATE_CUSTOMER_EMAIL" }, { message: "x".repeat(9000) }])
+    assert.equal(emailSentimentReviewReason(value), "unspecified");
+  assert.deepEqual(emailSentimentFailure({ status: 422, code: "review_required", type: "review_required",
+    error: { reason_code: reason } }), { status: "review_required", code: "review_required", reason });
+});
+
+test("CRM accepts Gateway's 100-character subset without silently tightening its own 1000-character contract", () => {
+  for (const length of [100, 101, 1000])
+    assert.equal(parseEmailSentimentAnalysis(JSON.stringify({ ...valid, note: "á".repeat(length) })).note.length, length);
+  assert.throws(() => parseEmailSentimentAnalysis(JSON.stringify({ ...valid, note: "á".repeat(1001) })));
+});
+
+test("concurrent fixture requests keep successful and review-required outcomes isolated", async () => {
+  let active = 0, peak = 0;
+  const h = await harness(async (call, response) => {
+    if (!call.path.endsWith("/chat/completions")) return;
+    active++; peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 40));
+    const input = call.body.messages.at(-1).content;
+    if (input.includes("REVIEW_CASE"))
+      send(response, { error: { type: "review_required", code: "review_required",
+        message: "REVIEW_REQUIRED: possible prompt injection affected consent classification" } }, 422);
+    else send(response, envelope({ ...valid, wantsConsent: input.includes("CONSENT_CASE") }));
+    active--;
+    return true;
+  });
+  try {
+    const results = await Promise.all([
+      h.app.analyze("CONSENT_CASE"), h.app.analyze("REVIEW_CASE"), h.app.analyze("NEUTRAL_CASE"),
+    ]);
+    assert.equal(results[0].wantsConsent, true);
+    assert.equal(results[1].status, "review_required");
+    assert.equal("wantsConsent" in results[1], false);
+    assert.equal(results[2].wantsConsent, false);
+    assert.ok(peak > 1, "fixture requests actually overlapped");
+    assert.equal(h.calls.filter(call => call.path.endsWith("/chat/completions")).length, 3);
+    assert.equal(h.externalCalls(), 0);
+  } finally { await h.close(); }
+});
+
+for (const [name, status] of [["adapter-unavailable", 503], ["ollama-unavailable", 502]] as const)
+  test(`${name} synthetic Gateway error cannot trigger business actions or retry`, async () => {
+    const h = await harness((call, response) => {
+      if (!call.path.endsWith("/chat/completions")) return;
+      send(response, { error: { code: name, message: "PRIVATE_UPSTREAM_DETAILS" } }, status); return true;
+    });
+    try {
+      await h.app.business();
+      assert.equal(h.app.effects(), 0);
+      assert.equal(h.calls.filter(call => call.path.endsWith("/chat/completions")).length, 1);
+      assert.equal(h.externalCalls(), 0);
+      assert.ok(!JSON.stringify(h.app.logs).includes("PRIVATE_UPSTREAM_DETAILS"));
+    } finally { await h.close(); }
+  });

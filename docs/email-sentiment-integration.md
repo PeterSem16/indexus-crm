@@ -77,10 +77,14 @@ oboma položkami `error.code` a `error.type` presne `review_required`
 sa mapuje na:
 
 ```json
-{"status":"review_required","code":"review_required"}
+{"status":"review_required","code":"review_required","reason":"possible_prompt_injection_affected_consent_classification"}
 ```
 
-Upstream `message` sa zahodí. Telo je ohraničené na 8192 bajtov. Všeobecná
+Známy dôvod sa zachováva bezpečným strojovým kódom. Pripravená kompatibilita
+rozpozná presnú správu z odovzdania aj rovnaký explicitný `reason_code`.
+Neznámy dôvod má hodnotu `unspecified`; nesmie sa vymyslieť ani preniesť
+surový upstream text, ktorý môže obsahovať zákaznícke údaje.
+Telo je ohraničené na 8192 bajtov. Všeobecná
 422, chýbajúci typ, chyba discovery alebo rovnaký text pri inom HTTP stave
 nie sú týmto výsledkom. Ostatné služby zachovávajú pôvodné spracovanie chýb.
 
@@ -111,6 +115,10 @@ Testy zahŕňajú všetkých deväť polí, viacjazyčný osempoložkový korpus
 a obal, skrátenú odpoveď, sieťové zlyhanie, presmerovanie, prekročenie limitu,
 izoláciu modelov a zachovanie historického čistého parser replay.
 **Korpus overuje integračný kontrakt, nie presnosť živého modelu.**
+
+Súbežný fixture test overuje oddelenie úspechu, súhlasu a manuálneho posúdenia,
+nie kapacitu zdieľaného živého Ollama. Simulácie výpadku adaptéra a Ollama
+nemenia dostupnosť skutočných služieb.
 
 Samostatný reálny časový test zdrží readiness o 8 sekúnd a potom inferenciu
 o 25 sekúnd. Klient musí skončiť pri jednom spoločnom 30-sekundovom deadline,

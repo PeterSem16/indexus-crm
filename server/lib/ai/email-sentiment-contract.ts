@@ -36,13 +36,27 @@ export function parseEmailSentimentAnalysis(content: string): EmailSentimentAnal
   }
 }
 
+/** Preserve a machine-readable reason without echoing a vendor message or email. */
+export function emailSentimentReviewReason(error: unknown):
+  "possible_prompt_injection_affected_consent_classification" | "unspecified" {
+  const value = error as { reason_code?: unknown; message?: unknown } | null;
+  if (value?.reason_code === "possible_prompt_injection_affected_consent_classification" ||
+    value?.message === "REVIEW_REQUIRED: possible prompt injection affected consent classification")
+    return "possible_prompt_injection_affected_consent_classification";
+  return "unspecified";
+}
+
 /** A safe, explicit failure identity; never a successful all-false classification. */
 export function emailSentimentFailure(error: unknown): {
   status: "review_required" | "failed"; code: string;
+  reason?: ReturnType<typeof emailSentimentReviewReason>;
 } {
-  const value = error as { status?: unknown; code?: unknown; type?: unknown; message?: unknown } | null;
+  const value = error as {
+    status?: unknown; code?: unknown; type?: unknown; message?: unknown; error?: unknown;
+  } | null;
   if (value?.status === 422 && value.code === "review_required" && value.type === "review_required")
-    return { status: "review_required", code: "review_required" };
+    return { status: "review_required", code: "review_required",
+      reason: emailSentimentReviewReason(value.error) };
   if (value?.message === "email_sentiment_invalid_analysis")
     return { status: "failed", code: "email_sentiment_invalid_analysis" };
   return { status: "failed", code: "email_sentiment_unavailable" };
