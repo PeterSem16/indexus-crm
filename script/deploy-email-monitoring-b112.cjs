@@ -1,6 +1,7 @@
 "use strict";
-// Approved, backend-only operator release. No install, frontend build, model
-// invocation, schema migration, routing write, PM2 environment change or DB restore.
+// Original entry is backend-only. A pinned wrapper can opt into isolated UI
+// building and non-destructive asset publication. No install, model invocation,
+// schema migration, routing write, PM2 environment change or DB restore.
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os");
 const cp = require("node:child_process"), crypto = require("node:crypto");
 const ROOT = "/var/www/indexus-crm", DATA = ROOT + "/data", PMHOME = "/home/seman/.pm2";
@@ -66,6 +67,47 @@ function releasePaths(actual) {
   ensure(JSON.stringify([...actual].sort()) === JSON.stringify([...FILES].sort()),
     "B112_UNREVIEWED_RELEASE_PATHS");
 }
+function publishPublicFiles(source, destination, profile) {
+  noLinks(source); noLinks(destination);
+  const entries = [];
+  function visit(dir, relative = "") {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const name = path.join(relative, entry.name), file = path.join(dir, entry.name);
+      noLinks(file);
+      if (entry.isDirectory()) visit(file, name);
+      else {
+        ensure(entry.isFile(), "B112_PUBLIC_NON_FILE_REFUSED");
+        if (name !== "index.html") entries.push({ name, file, hash: fingerprint(file).hash });
+      }
+    }
+  }
+  visit(source);
+  // Validate every collision BEFORE publishing any bytes. Retain all old assets.
+  for (const entry of entries) {
+    const current = fingerprint(path.join(destination, entry.name)).hash;
+    ensure(current === "missing" || current === entry.hash, "B112_PUBLIC_ASSET_COLLISION");
+  }
+  for (const entry of entries) {
+    const target = path.join(destination, entry.name);
+    if (fingerprint(target).hash === entry.hash) continue;
+    noLinks(target);
+    const missing = [];
+    for (let dir = path.dirname(target); !fs.existsSync(dir); dir = path.dirname(dir)) missing.push(dir);
+    for (const dir of missing.reverse()) {
+      fs.mkdirSync(dir, { mode: 0o755 }); fs.chownSync(dir, profile.uid, profile.gid);
+    }
+    const temporary = path.join(path.dirname(target), "B112-asset-" + crypto.randomUUID());
+    try {
+      fs.copyFileSync(entry.file, temporary, fs.constants.COPYFILE_EXCL);
+      fs.chownSync(temporary, profile.uid, profile.gid); fs.chmodSync(temporary, 0o644);
+      ensure(fingerprint(temporary).hash === entry.hash, "B112_PUBLIC_ASSET_CHANGED");
+      const fd = fs.openSync(temporary, "r");
+      try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+      fs.linkSync(temporary, target); // Never overwrite a concurrently created asset.
+    } finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
+  }
+  return entries.length;
+}
 async function cutover(actions) {
   try { await actions.install(); await actions.restart(); await actions.verify(); }
   catch (error) {
@@ -78,7 +120,7 @@ async function cutover(actions) {
 // separately reviewed release. The original entry retains its original profile.
 function deploymentFor(profile) {
   const { BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES,
-    assertRouting, releasePaths, resultOverrides = {} } = profile;
+    assertRouting, releasePaths, resultOverrides = {}, frontend = false } = profile;
 async function main(args = process.argv.slice(2)) {
   ensure(args.length === 3 && args[0] === "--apply" && args[1] === TARGET &&
     args[2] === "--allow-restart", "B112_EXPLICIT_PINNED_APPLY_REQUIRED");
@@ -119,7 +161,7 @@ async function main(args = process.argv.slice(2)) {
   const liveServer = ROOT + "/dist/index.cjs", liveIndex = ROOT + "/dist/public/index.html";
   const beforeSources = {};
   let originalProcess, pmBinary, originalEnvHash, originalConfigHash, originalRouting, queryRouting;
-  let builtHash, oldBackendProfile, promoted = false, daemon, daemonStart;
+  let builtHash, builtIndexHash, oldIndexProfile, oldBackendProfile, promoted = false, daemon, daemonStart;
   function daemonProof() {
     const pid = Number(fs.readFileSync(PMHOME + "/pm2.pid", "utf8").trim());
     ensure(Number.isSafeInteger(pid) && pid > 1 && fs.statSync("/proc/" + pid).uid === 1001 &&
@@ -160,7 +202,8 @@ async function main(args = process.argv.slice(2)) {
         for (const [route, code] of [["/", "200"], ["/api/users", "401"]])
           ensure(run("curl", ["-sS", "--max-time", "5", "-o", "/dev/null", "-w", "%{http_code}",
             "http://127.0.0.1:" + port + route]) === code, "B112_RUNTIME_NOT_HEALTHY");
-        ensure(fingerprint(liveIndex).hash === OLD_INDEX, "B112_FRONTEND_CHANGED");
+        ensure(fingerprint(liveIndex).hash === (candidate && frontend ? builtIndexHash : OLD_INDEX),
+          "B112_FRONTEND_CHANGED");
         if (candidate) ensure(fingerprint(liveServer).hash === builtHash, "B112_BACKEND_CHANGED");
         const state = await queryRouting();
         assertRouting(state);
@@ -193,6 +236,7 @@ async function main(args = process.argv.slice(2)) {
     originalProcess = pm2(); originalConfigHash = configHash(originalProcess);
     originalEnvHash = fingerprint(ROOT + "/.env").hash;
     oldBackendProfile = fingerprint(liveServer);
+    oldIndexProfile = fingerprint(liveIndex);
     const dotenv = require(ROOT + "/node_modules/dotenv").parse(fs.readFileSync(ROOT + "/.env"));
     const runtime = originalProcess.pm2_env;
     const connectionString = runtime.env?.DATABASE_URL || runtime.DATABASE_URL || dotenv.DATABASE_URL;
@@ -228,9 +272,13 @@ async function main(args = process.argv.slice(2)) {
     }
     fs.copyFileSync(liveServer, backup + "/index.cjs"); fs.chmodSync(backup + "/index.cjs", 0o600);
     ensure(fingerprint(backup + "/index.cjs").hash === OLD_BACKEND, "B112_BACKEND_BACKUP_INVALID");
+    if (frontend) {
+      fs.copyFileSync(liveIndex, backup + "/index.html"); fs.chmodSync(backup + "/index.html", 0o600);
+      ensure(fingerprint(backup + "/index.html").hash === OLD_INDEX, "B112_FRONTEND_BACKUP_INVALID");
+    }
     json(backup + "/manifest.json", { base: BASE, target: TARGET, beforeSources, backend: oldBackendProfile,
       frontend: OLD_INDEX, routingSha256: originalRouting, runtimeConfigurationSha256: originalConfigHash });
-    mark("isolated-backend-build");
+    mark(frontend ? "isolated-ui-and-backend-build" : "isolated-backend-build");
     const archive = privateRoot + "/source.tar";
     run("git", ["-c", "safe.directory=" + ROOT, "-C", ROOT, "archive", "--format=tar", "--output=" + archive, TARGET],
       { timeout: 300000 });
@@ -249,9 +297,17 @@ async function main(args = process.argv.slice(2)) {
     const pkg = JSON.parse(fs.readFileSync(stage + "/package.json", "utf8"));
     const external = [...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.devDependencies || {})]
       .filter(name => !allowlist.includes(name));
-    require(ROOT + "/node_modules/esbuild").buildSync({ absWorkingDir: stage, entryPoints: ["server/index.ts"],
-      platform: "node", bundle: true, format: "cjs", outfile: "dist/index.cjs",
-      define: { "process.env.NODE_ENV": '"production"' }, minify: true, external, logLevel: "silent" });
+    if (frontend) {
+      // The pinned normal build may delete ONLY the private staging dist.
+      run(process.execPath, [ROOT + "/node_modules/tsx/dist/cli.mjs", stage + "/script/build.ts"],
+        { cwd: stage, timeout: 300000 });
+      builtIndexHash = fingerprint(stage + "/dist/public/index.html").hash;
+      ensure(builtIndexHash !== "missing", "B112_FRONTEND_NOT_BUILT");
+    } else {
+      require(ROOT + "/node_modules/esbuild").buildSync({ absWorkingDir: stage, entryPoints: ["server/index.ts"],
+        platform: "node", bundle: true, format: "cjs", outfile: "dist/index.cjs",
+        define: { "process.env.NODE_ENV": '"production"' }, minify: true, external, logLevel: "silent" });
+    }
     builtHash = fingerprint(stage + "/dist/index.cjs").hash;
     ensure(builtHash !== "missing", "B112_BACKEND_NOT_BUILT");
     run(process.execPath, ["--check", stage + "/dist/index.cjs"]);
@@ -262,16 +318,21 @@ async function main(args = process.argv.slice(2)) {
     ensure(fingerprint(liveServer).hash === OLD_BACKEND && fingerprint(liveIndex).hash === OLD_INDEX,
       "B112_BUILD_CHANGED_DURING_PREPARATION");
     const servingDisk = fs.statfsSync(ROOT + "/dist");
+    const publicBytes = frontend ? Number(run("du", ["-sb", stage + "/dist/public"]).split(/\s+/)[0]) : 0;
+    ensure(Number.isSafeInteger(publicBytes) && publicBytes >= 0, "B112_INVALID_FRONTEND_SIZE");
     ensure(servingDisk.bavail * servingDisk.bsize >
-      2 * Math.max(fs.statSync(liveServer).size, fs.statSync(stage + "/dist/index.cjs").size) + 64 * 1024 ** 2,
+      2 * Math.max(fs.statSync(liveServer).size, fs.statSync(stage + "/dist/index.cjs").size) +
+      2 * publicBytes + 64 * 1024 ** 2,
       "B112_SERVING_DISK_SPACE_LOW");
     ensure(unchangedConfiguration().pid === originalProcess.pid, "B112_PROCESS_CHANGED_DURING_BUILD");
     ensure(hash(JSON.stringify(stable(await queryRouting()))) === originalRouting, "B112_ROUTING_CHANGED_DURING_BUILD");
     await cutover({
       install() {
-        changed = true; mark("promote-backend-only");
+        changed = true; mark(frontend ? "promote-ui-and-backend" : "promote-backend-only");
         git(["merge", "--ff-only", TARGET]); promoted = true; sourceMatches(TARGET);
+        if (frontend) publishPublicFiles(stage + "/dist/public", ROOT + "/dist/public", oldIndexProfile);
         atomicCopy(stage + "/dist/index.cjs", liveServer, builtHash, oldBackendProfile);
+        if (frontend) atomicCopy(stage + "/dist/public/index.html", liveIndex, builtIndexHash, oldIndexProfile);
       },
       restart() { mark("restart-existing-indexus-only"); daemonProof(); user(pmBinary, ["restart", String(originalProcess.pm_id)]); },
       verify() { return health(true); },
@@ -283,6 +344,8 @@ async function main(args = process.argv.slice(2)) {
         ensure([...worktreeChanges, ...indexChanges].every(file => FILES.includes(file)),
           "B112_EXTERNAL_INDEX_OR_SOURCE_CHANGE");
         ensure([OLD_BACKEND, builtHash].includes(fingerprint(liveServer).hash), "B112_EXTERNAL_BACKEND_CHANGE");
+        if (frontend) ensure([OLD_INDEX, builtIndexHash].includes(fingerprint(liveIndex).hash),
+          "B112_EXTERNAL_FRONTEND_CHANGE");
         for (const file of FILES) {
           const now = fingerprint(path.join(ROOT, file)).hash;
           ensure(now === beforeSources[file].hash || now === fingerprint(path.join(stage, file)).hash,
@@ -290,6 +353,8 @@ async function main(args = process.argv.slice(2)) {
         }
         if (fingerprint(liveServer).hash !== OLD_BACKEND)
           atomicCopy(backup + "/index.cjs", liveServer, OLD_BACKEND, oldBackendProfile);
+        if (frontend && fingerprint(liveIndex).hash !== OLD_INDEX)
+          atomicCopy(backup + "/index.html", liveIndex, OLD_INDEX, oldIndexProfile);
         for (const file of FILES) {
           if (fingerprint(path.join(ROOT, file)).hash === beforeSources[file].hash) continue;
           if (beforeSources[file].hash === "missing") fs.unlinkSync(path.join(ROOT, file));
@@ -303,7 +368,8 @@ async function main(args = process.argv.slice(2)) {
     });
     mark("verify-complete");
     const report = { status: "APPLIED_GATEWAY_OFF_NOT_FUNCTIONALLY_VERIFIED", base: BASE, target: TARGET,
-      changedPaths: FILES, backendSha256: builtHash, frontendSha256: OLD_INDEX, frontendChanged: false,
+      changedPaths: FILES, backendSha256: builtHash,
+      frontendSha256: frontend ? builtIndexHash : OLD_INDEX, frontendChanged: frontend,
       gatewayEnabled: false, openaiServices: 65, internalServices: 0, routingUnchanged: true,
       serviceTimeoutMs: 120000, productionModelCalls: 0, databaseRestored: false, backup: privateRoot,
       next: "Run the approved seven synthetic cases; do not activate internal production routing.",
@@ -322,5 +388,5 @@ async function main(args = process.argv.slice(2)) {
   return main;
 }
 const main = deploymentFor({ BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES, assertRouting, releasePaths });
-module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main, deploymentFor };
+module.exports = { BASE, TARGET, FILES, fingerprint, atomicCopy, configHash, assertRouting, releasePaths, cutover, main, deploymentFor, publishPublicFiles };
 if (require.main === module) main().catch(() => { console.error("B112_DEPLOY_REFUSED_NO_OPERATION"); process.exitCode = 1; });

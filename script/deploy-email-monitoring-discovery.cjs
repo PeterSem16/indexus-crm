@@ -1,12 +1,15 @@
 "use strict";
-// Operator-only, selective BACKEND correction. No inference or routing writes.
-const fs = require("node:fs"), os = require("node:os");
+// Operator-only discovery and model-picker correction. No inference or routing writes.
+const os = require("node:os");
 const deploy = require("./deploy-email-monitoring-b112.cjs");
 const BASE = "742888533f9fbb802c7c619dee77c8b56dcb770d";
-const TARGET = "936ed8a9924b28ce49e30fa5bc0226e25202c3e9";
+const TARGET = "d87b92b6ec748fa5195825d7de7dca2b98efb18f";
 const ROOT = "/var/www/indexus-crm";
 const FILES = Object.freeze([
+  "client/src/components/configurator/AISettingsTab.tsx",
   "script/deploy-email-monitoring-b112.cjs",
+  "script/deploy-email-monitoring-b112.test.cjs",
+  "script/test-ai-settings-ui.cjs",
   "server/lib/ai/admin-email-discovery.test.ts",
   "server/lib/ai/internal-adapter.ts",
   "server/lib/ai/settings-check.ts",
@@ -26,14 +29,14 @@ function releasePaths(actual) {
     throw Error("B112_UNREVIEWED_RELEASE_PATHS");
 }
 function profile(read = deploy.fingerprint) {
-  return { BASE, TARGET, FILES, assertRouting, releasePaths,
+  return { BASE, TARGET, FILES, assertRouting, releasePaths, frontend: true,
     // Capture the currently serving bytes once, then the shared installer
     // rechecks them before backup, build, promotion and guarded recovery.
     OLD_BACKEND: read(ROOT + "/dist/index.cjs").hash,
     OLD_INDEX: read(ROOT + "/dist/public/index.html").hash,
     BUILD_CONFIG: "35df8bf9d4c1aad8cdff54df8108bbc964a853bbc29538ec0ec6e1b1a9b0d54f",
     resultOverrides: {
-      status: "APPLIED_ADMIN_DISCOVERY_ROUTING_UNCHANGED",
+      status: "APPLIED_EMAIL_MODEL_DISCOVERY_UI_ROUTING_UNCHANGED",
       gatewayEnabled: true, openaiServices: 65, internalServices: 0,
       productionActivation: "NOT_PERFORMED", routingUnchanged: true,
       emailModelInferenceCalls: 0, otherServiceInferenceGrantsChanged: false,

@@ -18,9 +18,9 @@ test("deployment holds enabled Gateway, 65 default routes and every shared param
   snapshot.state.value.routes["email.monitoring"] = { provider: "internal" };
   assert.throws(() => deploy.assertRouting(snapshot), /ROUTING_HOLD_CHANGED/);
 });
-test("the selective release allows only the two backend sources, their test and the shared deployment helper", () => {
+test("the selective release allows only discovery sources, the model picker and their deployment/tests", () => {
   deploy.releasePaths([...deploy.FILES].reverse());
-  assert.equal(deploy.FILES.length, 4);
+  assert.equal(deploy.FILES.length, 7);
   for (const extra of ["client/src/pages/email-client.tsx", "server/routes.ts", ".env", "package.json"])
     assert.throws(() => deploy.releasePaths([...deploy.FILES, extra]), /UNREVIEWED_RELEASE_PATHS/);
   assert.throws(() => deploy.releasePaths(deploy.FILES.slice(1)), /UNREVIEWED_RELEASE_PATHS/);
@@ -32,6 +32,7 @@ test("the new profile captures current runtime bytes and never falsely reports G
   assert.equal(profile.TARGET, deploy.TARGET);
   assert.equal(profile.OLD_BACKEND, "a".repeat(64));
   assert.equal(profile.OLD_INDEX, "b".repeat(64));
+  assert.equal(profile.frontend, true);
   assert.equal(seen.length, 2);
   assert.equal(profile.resultOverrides.gatewayEnabled, true);
   assert.equal(profile.resultOverrides.productionActivation, "NOT_PERFORMED");

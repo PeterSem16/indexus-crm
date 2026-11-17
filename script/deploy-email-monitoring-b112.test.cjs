@@ -93,3 +93,36 @@ test("script has no package install, frontend build, database restore or Gateway
   assert.match(source, /"--output=" \+ archive/);
   assert.match(source, /default_transaction_read_only=on/);
 });
+test("frontend promotion retains old assets, publishes new assets and leaves index unchanged until cutover", t => {
+  const dir = temp(t), source = path.join(dir, "source"), dest = path.join(dir, "dest");
+  fs.mkdirSync(source); fs.mkdirSync(dest);
+  fs.writeFileSync(path.join(source, "index.html"), "new-index");
+  fs.writeFileSync(path.join(dest, "index.html"), "old-index");
+  fs.writeFileSync(path.join(dest, "old-hash.js"), "old-asset");
+  fs.writeFileSync(path.join(source, "new-hash.js"), "new-asset");
+  const profile = deploy.fingerprint(path.join(dest, "index.html"));
+  assert.equal(deploy.publishPublicFiles(source, dest, profile), 1);
+  assert.equal(fs.readFileSync(path.join(dest, "index.html"), "utf8"), "old-index");
+  assert.equal(fs.readFileSync(path.join(dest, "old-hash.js"), "utf8"), "old-asset");
+  assert.equal(fs.readFileSync(path.join(dest, "new-hash.js"), "utf8"), "new-asset");
+  assert.equal(deploy.publishPublicFiles(source, dest, profile), 1);
+});
+test("a different existing asset is rejected before any other asset is published", t => {
+  const dir = temp(t), source = path.join(dir, "source"), dest = path.join(dir, "dest");
+  fs.mkdirSync(source); fs.mkdirSync(dest);
+  fs.writeFileSync(path.join(source, "a-new.js"), "new");
+  fs.writeFileSync(path.join(source, "z-existing.js"), "different");
+  fs.writeFileSync(path.join(dest, "z-existing.js"), "old");
+  const st = fs.statSync(dest), profile = { uid: st.uid, gid: st.gid };
+  assert.throws(() => deploy.publishPublicFiles(source, dest, profile), /PUBLIC_ASSET_COLLISION/);
+  assert.deepEqual(fs.readdirSync(dest), ["z-existing.js"]);
+});
+test("public asset promotion rejects symlinked source entries", t => {
+  const dir = temp(t), source = path.join(dir, "source"), dest = path.join(dir, "dest");
+  fs.mkdirSync(source); fs.mkdirSync(dest);
+  fs.writeFileSync(path.join(dir, "private"), "private");
+  fs.symlinkSync(path.join(dir, "private"), path.join(source, "link"));
+  const st = fs.statSync(dest);
+  assert.throws(() => deploy.publishPublicFiles(source, dest, { uid: st.uid, gid: st.gid }), /SYMLINK_PATH_REFUSED/);
+  assert.deepEqual(fs.readdirSync(dest), []);
+});
