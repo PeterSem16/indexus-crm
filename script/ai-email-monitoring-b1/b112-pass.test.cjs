@@ -1,0 +1,66 @@
+"use strict";
+const test = require("node:test"), assert = require("node:assert/strict");
+const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
+const { selectPass } = require("./b112-pass.cjs");
+const gatewaySha = "b".repeat(64);
+function fixture(run) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "INDEXUS-B112-pass-"));
+  const out = path.join(home, "B112-run-fixture");
+  fs.mkdirSync(out, { mode: 0o700 });
+  const marker = path.join(home, "B112-seven.started"), evidence = path.join(out, "B112_evidence.json");
+  const prior = { verdict: "NOT_READY", inferenceAttempts: 1, complete: false, candidateDeployed: true,
+    error: "B112_INTEGRATION_CASE_FAILED", after: { gatewayEnabled: false, openai: 65, internal: 0,
+      fullConfigurationSha256: "a".repeat(64) },
+    rows: [{ execution: { error: "B12_SEMANTIC_MISMATCH", result: { wantsToCancel: true, alertLevel: "warning" } } }] };
+  const write = () => fs.writeFileSync(evidence, JSON.stringify(prior), { mode: 0o600 });
+  fs.writeFileSync(marker, JSON.stringify({ out }), { mode: 0o600 }); write();
+  try { run({ home, out, marker, evidence, prior, write }); }
+  finally { fs.rmSync(home, { recursive: true, force: true }); }
+}
+test("original invocation keeps the original one-shot marker", () => {
+  const pass = selectPass("/does-not-need-to-exist");
+  assert.equal(pass.marker, "B112-seven.started"); assert.equal(pass.prior, null);
+});
+test("authorized second pass preserves the original marker and evidence bytes", () => fixture(f => {
+  const before = [f.marker, f.evidence].map(p => fs.readFileSync(p));
+  const pass = selectPass(f.home, gatewaySha);
+  assert.equal(pass.marker, "B112-explicit-system-seven.started");
+  assert.equal(pass.prefix, "B112-explicit-system-run-");
+  assert.equal(pass.gatewaySourceSha256OperatorAttested, gatewaySha);
+  pass.assertUnchanged();
+  [f.marker, f.evidence].forEach((p, i) => assert.deepEqual(fs.readFileSync(p), before[i]));
+}));
+test("rejects absent or non-new operator-attested Gateway hashes", () => {
+  for (const sha of ["bad", "406d1adf3b415d5cf3efbbaf2b9bb7eb8ae545811b7def0db63475c7a8345b6b"])
+    assert.throws(() => selectPass("/unused", sha), /B112_NEW_GATEWAY_HASH_REQUIRED/);
+});
+test("refuses a completed old pass rather than pretending it was the failed attempt", () => fixture(f => {
+  f.prior.complete = true; f.write();
+  assert.throws(() => selectPass(f.home, gatewaySha), /B112_PRIOR_FAILURE_DIFFERS/);
+}));
+test("refuses changed error, deployed state, configuration or inference count", () => {
+  for (const field of ["error", "candidateDeployed", "inferenceAttempts", "after"]) fixture(f => {
+    f.prior[field] = null; f.write();
+    assert.throws(() => selectPass(f.home, gatewaySha), /B112_PRIOR_FAILURE_DIFFERS/);
+  });
+});
+test("refuses prior marker paths outside the private pilot directory", () => fixture(f => {
+  fs.writeFileSync(f.marker, JSON.stringify({ out: "/tmp/B112-run-other" }));
+  assert.throws(() => selectPass(f.home, gatewaySha), /B112_PRIOR_OUTPUT_PATH_UNSAFE/);
+}));
+test("refuses symlinked prior evidence", () => fixture(f => {
+  const other = path.join(f.out, "other.json"); fs.renameSync(f.evidence, other); fs.symlinkSync(other, f.evidence);
+  assert.throws(() => selectPass(f.home, gatewaySha), /B112_PRIOR_SYMLINK_REFUSED/);
+}));
+test("refuses public-readable prior evidence", () => fixture(f => {
+  fs.chmodSync(f.evidence, 0o644);
+  assert.throws(() => selectPass(f.home, gatewaySha), /B112_PRIOR_FILE_UNSAFE/);
+}));
+test("detects subsequent changes to the original evidence", () => fixture(f => {
+  const pass = selectPass(f.home, gatewaySha); f.prior.rows[0].execution.result.alertLevel = "critical"; f.write();
+  assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));
+test("detects subsequent changes to the original marker", () => fixture(f => {
+  const pass = selectPass(f.home, gatewaySha); fs.writeFileSync(f.marker, JSON.stringify({ out: f.out, changed: true }));
+  assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));

@@ -57,3 +57,41 @@ test("failed one-shot marker stops before a database write or inference", async 
   assert.equal(result.verdict, "NOT_READY"); assert.equal(result.error, "B112_ALREADY_STARTED");
   assert.equal(queries, 0); assert.equal(fetches, 0);
 });
+
+for (const invalid of ["semantic", "missing-field"] as const) {
+  test(`a ${invalid} failure stops after the first simulated inference and rolls back PostgreSQL`, async () => {
+    const db = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 8000 });
+    let posts = 0;
+    await db.connect();
+    try {
+      const report = await executeB112({ database: db, source, reference, token: "SYNTHETIC_B112_TOKEN",
+        readSnapshot: async () => reference, claimOnce() {}, save() {},
+        fetch: async (input) => {
+          const url = String(input);
+          if (url.endsWith("health/ready")) return new Response(null);
+          if (url.endsWith("v1/models")) return Response.json({ object: "list", data: [{ id: profile.model }] });
+          if (url.endsWith("indexus/v1/capabilities")) return Response.json({ apiVersion: "1", models: [{
+            id: profile.model, revision: "SYNTHETIC", operations: ["chat.completions"], inputModalities: ["text"],
+            outputFormats: ["json_object"], streaming: false, maxInputTokens: 8192, maxOutputTokens: 200,
+          }] });
+          posts++;
+          const content: any = { sentiment: "neutral", hasInappropriateContent: false, hasAngryTone: false,
+            hasRudeExpressions: false, wantsToCancel: true, wantsConsent: false, doesNotAcceptContract: false,
+            alertLevel: invalid === "semantic" ? "warning" : "critical", note: "Syntetická odpoveď." };
+          if (invalid === "missing-field") delete content.wantsConsent;
+          return Response.json({ id: "SYNTHETIC", object: "chat.completion", model: profile.model, choices: [{
+            index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify(content) },
+          }] });
+        },
+      });
+      assert.equal(posts, 1);
+      assert.equal(report.inferenceAttempts, 1);
+      assert.equal(report.verdict, "NOT_READY");
+      assert.equal(report.complete, false);
+      assert.equal(report.rows.length, 1);
+      assert.equal(report.persistence, "NOT_VERIFIED");
+      assert.equal(report.productionActivation, "NOT_PERFORMED");
+      assert.equal((await db.query("SELECT to_regclass('pg_temp.indexus_email_monitoring_b1') AS name")).rows[0].name, null);
+    } finally { await db.end(); }
+  });
+}
