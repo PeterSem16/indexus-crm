@@ -55,7 +55,7 @@ function harness(options: { reply?: unknown; httpStatus?: number; noOverride?: b
     parseEmailMonitoringAnalysis);
   return { router, analyze, adapter, calls, openaiRequests };
 }
-test("isolated route uses the exact B1 endpoint/model/parameters and unchanged original system prompt", async () => {
+test("email monitoring uses configured HTTPS/model/parameters and unchanged original system prompt", async () => {
   const h = harness({ managed: true });
   assert.deepEqual(await h.analyze(B1_EMAIL_CASES[0].content), valid);
   assert.equal(h.openaiRequests.length, 0);
@@ -69,7 +69,7 @@ test("isolated route uses the exact B1 endpoint/model/parameters and unchanged o
   assert.ok(h.calls.slice(0, 3).every(call => call.init?.method === "GET"));
   assert.equal(h.calls[3].init?.method, "POST");
   const sent = JSON.parse(String(h.calls.at(-1)!.init!.body));
-  assert.equal(h.calls.at(-1)!.url, "http://10.9.2.140/gateway/v1/chat/completions");
+  assert.equal(h.calls.at(-1)!.url, "https://ai.cordbloodcenter.com/gateway/v1/chat/completions");
   assert.equal(sent.model, profile.model);
   assert.equal(sent.temperature, 0.1); assert.equal(sent.max_tokens, 200);
   assert.equal(sent.stream, false); assert.deepEqual(sent.response_format, { type: "json_object" });
@@ -131,7 +131,7 @@ for (const [label, reply] of Object.entries({
   await assert.rejects(h.analyze("SYNTHETIC EMAIL"));
   assert.equal(h.openaiRequests.length, 0);
 });
-for (const status of [401, 403, 429, 500, 504])
+for (const status of [401, 403, 429, 500, 503, 504])
   test(`Gateway HTTP ${status} fails safely without retry, fabricated analysis or OpenAI fallback`, async () => {
     const h = harness({ httpStatus: status });
     await assert.rejects(h.analyze("SYNTHETIC EMAIL"), (e: any) => {
@@ -163,6 +163,21 @@ test("receipt and consent booleans are preserved, never repaired by a text heuri
     assert.equal((await h.analyze("SYNTHETIC EMAIL")).wantsConsent, wantsConsent);
   }
   assert.equal(Object.keys(emailMonitoringSchema.shape).length, 9);
+});
+for (const field of Object.keys(emailMonitoringSchema.shape)) {
+  test(`missing required ${field} is rejected, never supplied by a parser repair`, async () => {
+    const reply: Record<string, unknown> = { ...valid };
+    delete reply[field];
+    const h = harness({ reply });
+    await assert.rejects(h.analyze("SYNTHETIC EMAIL"), /email_monitoring_invalid_analysis/);
+    assert.equal(h.openaiRequests.length, 0);
+  });
+}
+test("wantsCancel alias cannot replace wantsToCancel", async () => {
+  const { wantsToCancel, ...rest } = valid;
+  const h = harness({ reply: { ...rest, wantsCancel: wantsToCancel } });
+  await assert.rejects(h.analyze("SYNTHETIC EMAIL"), /email_monitoring_invalid_analysis/);
+  assert.equal(h.openaiRequests.length, 0);
 });
 test("actual PostgreSQL persistence stores all nine fields without touching CRM rows", async () => {
   const db = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 8000 });

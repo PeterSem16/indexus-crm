@@ -135,7 +135,10 @@ export function createInternalAIAdapter(dependencies: {
         (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
       const sdk = new OpenAI({
         baseURL: new URL("v1", config.base).href, apiKey: config.token,
-        timeout: managed?.timeoutMs ?? options.timeout ?? 30_000,
+        // Service policy takes precedence over the shared 30-second setting.
+        // Other internal services and all OpenAI clients retain their own policy.
+        timeout: context?.service === EMAIL_MONITORING_PROFILE.service
+          ? EMAIL_MONITORING_PROFILE.timeoutMs : managed?.timeoutMs ?? options.timeout ?? 30_000,
         maxRetries: managed?.maxRetries ?? options.maxRetries ?? 0,
         fetch: async (input, init) => {
           try {
@@ -145,11 +148,8 @@ export function createInternalAIAdapter(dependencies: {
               throw new InternalAIError("ai_internal_unsupported_operation", 422);
             const body = JSON.parse(init.body);
             const spec = validateInternalRequest(body, permitted);
-            const target = context?.service === EMAIL_MONITORING_PROFILE.service &&
-              spec.model === EMAIL_MONITORING_PROFILE.model && dependencies.emailMonitoringTransport !== "canonical-https"
-              ? configuration({ ...readConfiguration(), baseURL: EMAIL_MONITORING_PROFILE.baseURL }, true) : config;
-            // Discovery stays on HTTPS. The historical dedicated HTTP inference
-            // path is unchanged unless this instance explicitly selects B1.2 HTTPS.
+            // Use the existing configured HTTPS Gateway for inference as well
+            // as discovery. Never silently substitute the old private HTTP URL.
             const models = await discover(config, init.signal, permitted);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
@@ -157,7 +157,7 @@ export function createInternalAIAdapter(dependencies: {
               throw new InternalAIError("ai_internal_output_format_unavailable", 422);
             if (spec.maxTokens !== undefined && model.maxOutputTokens !== null && spec.maxTokens > model.maxOutputTokens)
               throw new InternalAIError("ai_internal_token_limit_exceeded", 422);
-            const result = await request(target, "v1/chat/completions", init.signal, init.body);
+            const result = await request(config, "v1/chat/completions", init.signal, init.body);
             return jsonResponse(validateInternalCompletion(result, spec));
           } catch (error) {
             if (init?.signal?.aborted) throw abortError();
