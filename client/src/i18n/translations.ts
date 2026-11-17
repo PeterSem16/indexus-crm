@@ -28,6 +28,7 @@ import automationEditorHelpTranslations, { type AutomationEditorCopy } from "./a
 import { taskCommunicationTranslations, type TaskCommunicationCopy } from "./task-communication-translations";
 import systemMailboxCheckTranslations from "./system-mailbox-check-translations";
 import { aiSettingsTranslations, type AISettingsCopy } from "./ai-settings-translations";
+import { emailMonitoringDetailTranslations, type EmailMonitoringDetailCopy } from "./email-monitoring-detail-translations";
 import omniSmsTranslations from "./omni-sms-translations";
 import omniGroupTranslations from "./omni-group-translations";
 import { contactLoadTranslations } from "@/components/campaigns/contact-load-translations";
@@ -149,6 +150,7 @@ export interface Translations {
   };
   systemMailboxCheck: typeof systemMailboxCheckTranslations.en;
   aiSettings: AISettingsCopy;
+  emailMonitoringDetail: EmailMonitoringDetailCopy;
   omniSms: typeof omniSmsTranslations.en;
   omniGroups: typeof omniGroupTranslations.en;
   contactLoads: typeof contactLoadTranslations.en;
@@ -9329,6 +9331,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.en,
     systemMailboxCheck: systemMailboxCheckTranslations.en,
     aiSettings: aiSettingsTranslations.en,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.en,
     automationOverview: automationOverviewTranslations.en,
     omniSms: omniSmsTranslations.en,
     omniGroups: omniGroupTranslations.en,
@@ -17204,6 +17207,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.sk,
     systemMailboxCheck: systemMailboxCheckTranslations.sk,
     aiSettings: aiSettingsTranslations.sk,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
     omniSms: omniSmsTranslations.sk,
     omniGroups: omniGroupTranslations.sk,
@@ -25075,6 +25079,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.cs,
     systemMailboxCheck: systemMailboxCheckTranslations.cs,
     aiSettings: aiSettingsTranslations.cs,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
     omniSms: omniSmsTranslations.cs,
     omniGroups: omniGroupTranslations.cs,
@@ -32905,6 +32910,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.hu,
     systemMailboxCheck: systemMailboxCheckTranslations.hu,
     aiSettings: aiSettingsTranslations.hu,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
     omniSms: omniSmsTranslations.hu,
     omniGroups: omniGroupTranslations.hu,
@@ -40733,6 +40739,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.ro,
     systemMailboxCheck: systemMailboxCheckTranslations.ro,
     aiSettings: aiSettingsTranslations.ro,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
     omniSms: omniSmsTranslations.ro,
     omniGroups: omniGroupTranslations.ro,
@@ -48569,6 +48576,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.it,
     systemMailboxCheck: systemMailboxCheckTranslations.it,
     aiSettings: aiSettingsTranslations.it,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.it,
     automationOverview: automationOverviewTranslations.it,
     omniSms: omniSmsTranslations.it,
     omniGroups: omniGroupTranslations.it,
@@ -56396,6 +56404,7 @@ export const translations = {
     providerFinder: providerFinderTranslations.de,
     systemMailboxCheck: systemMailboxCheckTranslations.de,
     aiSettings: aiSettingsTranslations.de,
+    emailMonitoringDetail: emailMonitoringDetailTranslations.de,
     automationOverview: automationOverviewTranslations.de,
     omniSms: omniSmsTranslations.de,
     omniGroups: omniGroupTranslations.de,
