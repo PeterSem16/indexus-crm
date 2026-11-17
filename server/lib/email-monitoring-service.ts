@@ -5,6 +5,7 @@ import { db } from "../db";
 import { communicationMessages, clinics, hospitals, collaborators, systemMs365Connections } from "../../shared/schema";
 import { sql, and, eq, desc } from "drizzle-orm";
 import { storeInboundEmailOnce } from "./inbound-email";
+import { parseEmailMonitoringAnalysis, emailMonitoringFields, emailMonitoringMetadata } from "./ai/email-monitoring-contract";
 
 interface ProcessedEmail {
   emailId: string;
@@ -71,19 +72,7 @@ Example: {"sentiment":"neutral","hasInappropriateContent":false,"hasAngryTone":f
   });
   
   const responseText = response.choices[0]?.message?.content || "{}";
-  const parsed = JSON.parse(responseText.replace(/```json\n?|\n?```/g, "").trim());
-  
-  return {
-    sentiment: parsed.sentiment || "neutral",
-    hasInappropriateContent: parsed.hasInappropriateContent || false,
-    hasAngryTone: parsed.hasAngryTone || false,
-    hasRudeExpressions: parsed.hasRudeExpressions || false,
-    wantsToCancel: parsed.wantsToCancel || false,
-    wantsConsent: parsed.wantsConsent || false,
-    doesNotAcceptContract: parsed.doesNotAcceptContract || false,
-    alertLevel: parsed.alertLevel || "none",
-    note: parsed.note || "",
-  };
+  return parseEmailMonitoringAnalysis(responseText);
 }
 
 async function checkUserEmails(userId: string, connection: any) {
@@ -255,18 +244,7 @@ async function checkUserEmails(userId: string, connection: any) {
                 content: (email.body?.content || email.bodyPreview || content).substring(0, 100000),
                 status: "received",
                 externalId: emailId,
-                ...(emailAnalysis ? {
-                  aiAnalyzed: true,
-                  aiSentiment: emailAnalysis.sentiment,
-                  aiAlertLevel: emailAnalysis.alertLevel,
-                  aiHasAngryTone: emailAnalysis.hasAngryTone,
-                  aiHasRudeExpressions: emailAnalysis.hasRudeExpressions,
-                  aiWantsToCancel: emailAnalysis.wantsToCancel,
-                  aiWantsConsent: emailAnalysis.wantsConsent,
-                  aiDoesNotAcceptContract: emailAnalysis.doesNotAcceptContract,
-                  aiAnalysisNote: emailAnalysis.note,
-                  aiAnalyzedAt: new Date(),
-                } : {}),
+                ...(emailAnalysis ? emailMonitoringFields(emailAnalysis) : {}),
                 metadata: JSON.stringify({
                   from: senderEmail,
                   senderName,
@@ -274,6 +252,7 @@ async function checkUserEmails(userId: string, connection: any) {
                   contactType: linkedType,
                   isHtml: email.body?.contentType?.toLowerCase().includes("html") ?? false,
                   mailboxSource: { kind: "personal", ownerUserId: userId },
+                  ...(emailAnalysis ? { emailMonitoringAnalysis: emailAnalysis } : {}),
                 }),
               });
               if (storedMessage) {
@@ -431,18 +410,10 @@ async function checkSystemMailboxEmails() {
             try {
               const analysis = await analyzeEmailContent(content);
               try {
-                const persistedAnalysis = await storage.updateCommunicationMessage(linked.messageId, {
-                  aiAnalyzed: true,
-                  aiSentiment: analysis.sentiment,
-                  aiAlertLevel: analysis.alertLevel,
-                  aiHasAngryTone: analysis.hasAngryTone,
-                  aiHasRudeExpressions: analysis.hasRudeExpressions,
-                  aiWantsToCancel: analysis.wantsToCancel,
-                  aiWantsConsent: analysis.wantsConsent,
-                  aiDoesNotAcceptContract: analysis.doesNotAcceptContract,
-                  aiAnalysisNote: analysis.note,
-                  aiAnalyzedAt: new Date(),
-                });
+                const [persistedAnalysis] = await db.update(communicationMessages).set({
+                  ...emailMonitoringFields(analysis),
+                  metadata: emailMonitoringMetadata(communicationMessages.metadata, analysis),
+                }).where(eq(communicationMessages.id, linked.messageId)).returning();
                 if (persistedAnalysis) {
                   await emitInboundEmailEvents(persistedAnalysis, linked.linkedType, analysis.sentiment, false);
                 }

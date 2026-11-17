@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { AI_SERVICES } from "./service-catalog";
+import { internalModelsForService } from "./internal-contract";
 import type { AIPersistedSettings, AIVerification } from "../../../shared/ai-settings";
+import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
 
 export const GATEWAY_URL = "https://ai.cordbloodcenter.com/gateway/";
 export const DEFAULT_AI_SETTINGS: AIPersistedSettings = {
@@ -41,7 +43,7 @@ export function parseRoute(service: string, value: unknown) {
   if (!Object.hasOwn(AI_SERVICES, service) || !result.success) throw new AISettingsError("route_invalid");
   const route = result.data;
   if (route.provider === "internal" && (!internalEligible(service) ||
-    route.model !== "indexus-document-audio:latest")) throw new AISettingsError("route_invalid");
+    !internalModelsForService(service).includes(route.model!))) throw new AISettingsError("route_invalid");
   return route;
 }
 export function parseSettings(value: any): AIPersistedSettings {
@@ -54,11 +56,13 @@ export function parseSettings(value: any): AIPersistedSettings {
 export function assertVersion(value: unknown): asserts value is number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) throw new AISettingsError("version_conflict", 409);
 }
-export function freshSmoke(check: AIVerification | null, version: number, now = Date.now()) {
+export function freshSmoke(check: AIVerification | null, version: number, now = Date.now(),
+  modelId = "indexus-document-audio:latest") {
+  const jsonOnly = modelId === EMAIL_MONITORING_MODEL;
   if (!check || check.kind !== "smoke" || check.state !== "ready" || check.settingsVersion !== version ||
-    !check.textVerified || !check.jsonVerified) return false;
+    (!jsonOnly && !check.textVerified) || !check.jsonVerified) return false;
   const elapsed = now - Date.parse(check.checkedAt);
   return Number.isFinite(elapsed) && elapsed >= 0 && elapsed < 15 * 60_000 &&
-    check.models.some(model => model.id === "indexus-document-audio:latest" &&
-      model.outputFormats.includes("text") && model.outputFormats.includes("json_object"));
+    check.models.some(model => model.id === modelId &&
+      (jsonOnly || model.outputFormats.includes("text")) && model.outputFormats.includes("json_object"));
 }
