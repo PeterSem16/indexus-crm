@@ -8,7 +8,8 @@ function main() {
   const explicit = process.argv[3] === "--explicit-b112-system";
   const repeat = process.argv[3] === "--repeat-final-seven";
   const deployedFix = process.argv[3] === "--verify-deployed-fix";
-  const final = process.argv[3] === "--final-seven" || repeat || deployedFix;
+  const presentTense = process.argv[3] === "--verify-present-tense";
+  const final = process.argv[3] === "--final-seven" || repeat || deployedFix || presentTense;
   if (!(process.argv.length === 3 || process.argv.length === 4 && final ||
       process.argv.length === 5 && explicit && /^[a-f0-9]{64}$/.test(process.argv[4])) ||
       !/^[a-f0-9]{40}$/.test(pin || "")) throw Error("B112_PIN_AND_VALID_PASS_ARGUMENTS_REQUIRED");
@@ -33,7 +34,8 @@ function main() {
   if (build.status !== 0) throw Error("B112_BUILD_FAILED");
   const run = cp.spawnSync(process.execPath, ["--require", "/etc/indexus-ai-runtime/preload.cjs",
     path.join(output, "run-b112.cjs"),
-    ...(final ? [deployedFix ? "--verify-deployed-fix" : repeat ? "--repeat-final-seven" : "--run-final-seven"] :
+    ...(final ? [presentTense ? "--verify-present-tense" :
+      deployedFix ? "--verify-deployed-fix" : repeat ? "--repeat-final-seven" : "--run-final-seven"] :
       explicit ? ["--run-seven-explicit-b112-system", process.argv[4]] : ["--run-seven"])],
     { cwd: app, stdio: "inherit", env: { ...process.env, NODE_ENV: "production" } });
   process.exitCode = run.status ?? 1;

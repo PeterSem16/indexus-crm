@@ -46,14 +46,15 @@ function selectPass(home, gatewaySha, uid = process.getuid()) {
       }
     } };
 }
-function selectFinalPass(home, uid = process.getuid(), repeat = false, deployedFix = false) {
+function selectFinalPass(home, uid = process.getuid(), repeat = false, deployedFix = false, presentTense = false) {
   const originals = [];
   const runs = [
     ["B112-seven.started", "B112-run-"],
     ["B112-explicit-system-seven.started", "B112-explicit-system-run-"],
   ];
-  if (repeat || deployedFix) runs.push(["Email-monitoring-final-seven.started", "Email-monitoring-final-run-"]);
-  if (deployedFix) runs.push(["Email-monitoring-repeat-seven.started", "Email-monitoring-repeat-run-"]);
+  if (repeat || deployedFix || presentTense) runs.push(["Email-monitoring-final-seven.started", "Email-monitoring-final-run-"]);
+  if (deployedFix || presentTense) runs.push(["Email-monitoring-repeat-seven.started", "Email-monitoring-repeat-run-"]);
+  if (presentTense) runs.push(["Email-monitoring-deployed-fix-seven.started", "Email-monitoring-deployed-fix-run-"]);
   for (const [markerName, prefix] of runs) {
     const marker = fileSnapshot(path.join(home, markerName), uid);
     const out = marker.data.out;
@@ -69,11 +70,14 @@ function selectFinalPass(home, uid = process.getuid(), repeat = false, deployedF
       !/^[a-f0-9]{64}$/.test(previous.after?.fullConfigurationSha256 ?? ""))
     throw Error("B112_PRIOR_CONFIGURATION_UNVERIFIED");
   return {
-    id: deployedFix ? "VERIFY_OPERATOR_REPORTED_DEPLOYED_FIX" :
+    id: presentTense ? "VERIFY_OPERATOR_REPORTED_PRESENT_TENSE_FIX" :
+      deployedFix ? "VERIFY_OPERATOR_REPORTED_DEPLOYED_FIX" :
       repeat ? "EXPLICITLY_AUTHORIZED_REPEAT_SAME_SEVEN" : "FINAL_CURRENT_MODEL_SEVEN",
-    marker: deployedFix ? "Email-monitoring-deployed-fix-seven.started" :
+    marker: presentTense ? "Email-monitoring-present-tense-seven.started" :
+      deployedFix ? "Email-monitoring-deployed-fix-seven.started" :
       repeat ? "Email-monitoring-repeat-seven.started" : "Email-monitoring-final-seven.started",
-    prefix: deployedFix ? "Email-monitoring-deployed-fix-run-" :
+    prefix: presentTense ? "Email-monitoring-present-tense-run-" :
+      deployedFix ? "Email-monitoring-deployed-fix-run-" :
       repeat ? "Email-monitoring-repeat-run-" : "Email-monitoring-final-run-",
     prior: { fullConfigurationSha256: previous.after.fullConfigurationSha256,
       preserved: originals.map(({ file, sha256 }) => ({ file, sha256 })) },

@@ -153,3 +153,34 @@ test("deployed-fix verification checks the latest configuration, not an older su
     fs.writeFileSync(f.repeatEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
     assert.throws(() => selectFinalPass(f.home, process.getuid(), false, true), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
   }));
+function presentTenseFixture(run) {
+  deployedFixFixture(f => {
+    const out = path.join(f.home, "Email-monitoring-deployed-fix-run-fixture");
+    fs.mkdirSync(out, { mode: 0o700 });
+    const fixMarker = path.join(f.home, "Email-monitoring-deployed-fix-seven.started");
+    const fixEvidence = path.join(out, "B112_evidence.json");
+    fs.writeFileSync(fixMarker, JSON.stringify({ out }), { mode: 0o600 });
+    fs.writeFileSync(fixEvidence, JSON.stringify(f.prior), { mode: 0o600 });
+    run({ ...f, fixMarker, fixEvidence });
+  });
+}
+test("present-tense check preserves all FIVE prior runs without resetting any marker", () => presentTenseFixture(f => {
+  const pass = selectFinalPass(f.home, process.getuid(), false, false, true);
+  assert.equal(pass.id, "VERIFY_OPERATOR_REPORTED_PRESENT_TENSE_FIX");
+  assert.equal(pass.marker, "Email-monitoring-present-tense-seven.started");
+  assert.equal(pass.prefix, "Email-monitoring-present-tense-run-");
+  assert.equal(pass.prior.preserved.length, 10);
+  pass.assertUnchanged();
+  fs.appendFileSync(f.fixEvidence, "\n");
+  assert.throws(() => pass.assertUnchanged(), /B112_PRIOR_EVIDENCE_CHANGED/);
+}));
+test("present-tense check requires safe latest evidence", () => presentTenseFixture(f => {
+  fs.chmodSync(f.fixEvidence, 0o644);
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), false, false, true), /B112_PRIOR_FILE_UNSAFE/);
+  fs.unlinkSync(f.fixEvidence);
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), false, false, true));
+}));
+test("present-tense check uses the latest production snapshot", () => presentTenseFixture(f => {
+  fs.writeFileSync(f.fixEvidence, JSON.stringify({ after: { gatewayEnabled: true } }));
+  assert.throws(() => selectFinalPass(f.home, process.getuid(), false, false, true), /B112_PRIOR_CONFIGURATION_UNVERIFIED/);
+}));
