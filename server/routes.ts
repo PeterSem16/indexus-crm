@@ -1,6 +1,7 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { registerOmniMailboxGroupRoutes, availableOmniEmails } from "./lib/omni-mailbox-group-routes";
 import { resolveEmailMonitoringDetail } from "./lib/email-monitoring-detail";
+import { loadStoredEmailMonitoring } from "./lib/email-monitoring-store";
 import { registerAIAdministration } from "./lib/ai-settings-bootstrap";
 import { registerOmniSearchExport, createOmniExportDependencies } from "./lib/omni-search-export";
 import { createCustomerEmailHandler } from "./lib/customer-email-handler";
@@ -7705,7 +7706,12 @@ Always respond with valid JSON only, no markdown.`
         aiAnalysisNote: communicationMessages.aiAnalysisNote, aiAnalyzedAt: communicationMessages.aiAnalyzedAt,
       }).from(communicationMessages).where(and(eq(communicationMessages.externalId, emailId),
         eq(communicationMessages.type, "email"), eq(communicationMessages.direction, "inbound"))).limit(101);
-      const emailMonitoringAnalysis = resolveEmailMonitoringDetail(monitoringRows, {
+      const detailMailbox = !mailboxEmail || mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail;
+      const isPersonalMailbox = detailMailbox.trim().toLowerCase() === ms365Connection.email.trim().toLowerCase();
+      const emailMonitoringAnalysis = await loadStoredEmailMonitoring({
+        externalId: emailId, mailbox: detailMailbox,
+        kind: isPersonalMailbox ? "personal" : "system", ownerUserId: isPersonalMailbox ? userId : null,
+      }) ?? resolveEmailMonitoringDetail(monitoringRows, {
         userId, externalId: emailId, personalMailbox: ms365Connection.email,
         mailbox: !mailboxEmail || mailboxEmail === "personal" ? ms365Connection.email : mailboxEmail,
       });

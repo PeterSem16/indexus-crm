@@ -8,6 +8,7 @@ import { communicationMessages } from "../../shared/schema";
 import { availableOmniEmails } from "./omni-mailbox-group-routes";
 import { resolveEmailMonitoringDetail } from "./email-monitoring-detail";
 import { emailMonitoringFields } from "./ai/email-monitoring-contract";
+import { monitoringSnapshot, readMonitoringSnapshot } from "./email-monitoring-record";
 
 const analysis = { sentiment: "neutral" as const, hasInappropriateContent: false, hasAngryTone: false,
   hasRudeExpressions: false, wantsToCancel: false, wantsConsent: false, doesNotAcceptContract: true,
@@ -21,8 +22,8 @@ const source = fs.readFileSync("server/routes.ts", "utf8");
 const begin = source.indexOf('  app.get("/api/users/:userId/ms365-email/:emailId",');
 const end = source.indexOf('  app.get("/api/users/:userId/ms365-email/:emailId/attachments/', begin);
 assert.ok(begin > 0 && end > begin);
-function harness(rows = [saved()], activeRule = true) {
-  const calls = { inventory: 0, graph: 0, candidates: 0, inference: 0, writes: 0 };
+function harness(rows = [saved()], activeRule = true, snapshot: unknown = null) {
+  const calls = { inventory: 0, graph: 0, candidates: 0, inference: 0, writes: 0, stored: 0 };
   let handler: any;
   let revoked = false;
   const storage = {
@@ -34,6 +35,7 @@ function harness(rows = [saved()], activeRule = true) {
   };
   const context = { app: { get: (_path: string, _auth: unknown, fn: unknown) => { handler = fn; } },
     requireAuth() {}, storage, availableOmniEmails, resolveEmailMonitoringDetail, communicationMessages, and, eq,
+    loadStoredEmailMonitoring: async (scope: any) => { calls.stored++; return readMonitoringSnapshot(snapshot, scope); },
     db: { select: () => ({ from: () => ({ where: () => ({ limit: async (n: number) => {
       assert.equal(n, 101); calls.candidates++; return rows;
     } }) }) }) },
@@ -70,6 +72,17 @@ test("real detail handler returns stored monitoring independently of legacy sent
   assert.equal(response.data.aiAnalysis, null);
   assert.equal(h.calls.inference, 0);
   assert.equal(h.calls.writes, 0);
+});
+test("the real handler reads an unlinked mailbox snapshot without a CRM row, model call or write", async () => {
+  const h = harness([], true, monitoringSnapshot({ externalId: "message-a", mailbox: "agent@example.test",
+    kind: "personal", ownerUserId: "agent-a" }, analysis));
+  const response = await h.call();
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.data.emailMonitoringAnalysis.analysis, analysis);
+  assert.equal(response.data.linkedCustomer, null);
+  assert.equal(h.calls.inference, 0); assert.equal(h.calls.writes, 0);
+  assert.equal((await h.call({ owner: "another-user" })).status, 403);
+  assert.equal(h.calls.stored, 1);
 });
 test("cross-user, ungranted and malformed mailbox requests stop before message or result reads", async () => {
   for (const input of [{ owner: "other" }, { mailbox: "foreign@example.test" }, { mailbox: ["personal"] }]) {

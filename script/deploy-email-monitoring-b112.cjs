@@ -120,7 +120,7 @@ async function cutover(actions) {
 // separately reviewed release. The original entry retains its original profile.
 function deploymentFor(profile) {
   const { BASE, TARGET, OLD_BACKEND, OLD_INDEX, BUILD_CONFIG, FILES,
-    assertRouting, releasePaths, resultOverrides = {}, frontend = false } = profile;
+    assertRouting, releasePaths, resultOverrides = {}, frontend = false, beforePromotion = null } = profile;
 async function main(args = process.argv.slice(2)) {
   ensure(args.length === 3 && args[0] === "--apply" && args[1] === TARGET &&
     args[2] === "--allow-restart", "B112_EXPLICIT_PINNED_APPLY_REQUIRED");
@@ -326,6 +326,18 @@ async function main(args = process.argv.slice(2)) {
       "B112_SERVING_DISK_SPACE_LOW");
     ensure(unchangedConfiguration().pid === originalProcess.pid, "B112_PROCESS_CHANGED_DURING_BUILD");
     ensure(hash(JSON.stringify(stable(await queryRouting()))) === originalRouting, "B112_ROUTING_CHANGED_DURING_BUILD");
+    if (beforePromotion) {
+      mark("private-database-backup");
+      await beforePromotion({ privateRoot, run, connectionString });
+      // A database dump can take time; pin everything again before any live change.
+      ensure(git(["rev-parse", "HEAD"]) === BASE && !git(["status", "--porcelain", "--untracked-files=no"]),
+        "B112_SOURCE_CHANGED_DURING_BACKUP");
+      sourceMatches(BASE);
+      ensure(fingerprint(liveServer).hash === OLD_BACKEND && fingerprint(liveIndex).hash === OLD_INDEX,
+        "B112_BUILD_CHANGED_DURING_BACKUP");
+      ensure(unchangedConfiguration().pid === originalProcess.pid, "B112_PROCESS_CHANGED_DURING_BACKUP");
+      ensure(hash(JSON.stringify(stable(await queryRouting()))) === originalRouting, "B112_ROUTING_CHANGED_DURING_BACKUP");
+    }
     await cutover({
       install() {
         changed = true; mark(frontend ? "promote-ui-and-backend" : "promote-backend-only");

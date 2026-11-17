@@ -6,6 +6,7 @@ import { communicationMessages, clinics, hospitals, collaborators, systemMs365Co
 import { sql, and, eq, desc } from "drizzle-orm";
 import { storeInboundEmailOnce } from "./inbound-email";
 import { parseEmailMonitoringAnalysis, emailMonitoringFields, emailMonitoringMetadata } from "./ai/email-monitoring-contract";
+import { emailMonitoringRecorder } from "./email-monitoring-store";
 
 interface ProcessedEmail {
   emailId: string;
@@ -113,12 +114,11 @@ async function checkUserEmails(userId: string, connection: any) {
     
     for (const email of emails) {
       const emailId = email.id;
+      const processedKey = JSON.stringify(["personal", userId, connection.email, emailId]);
       
-      if (processedEmailsMap[emailId]) {
+      if (processedEmailsMap[processedKey]) {
         continue;
       }
-      
-      processedEmailsMap[emailId] = { emailId, processedAt: new Date() };
       
       const content = email.bodyPreview || email.body?.content || "";
       if (!content || content.length < 10) {
@@ -135,12 +135,16 @@ async function checkUserEmails(userId: string, connection: any) {
 
       // ── Sentiment analysis ──────────────────────────────────────────
       try {
-        const analysis = await analyzeEmailContent(content);
+        const stored = await emailMonitoringRecorder.obtain({
+          externalId: emailId, mailbox: connection.email, kind: "personal", ownerUserId: userId,
+        }, () => analyzeEmailContent(content));
+        const analysis = stored.detail.analysis;
         emailAnalysis = analysis;
+        processedEmailsMap[processedKey] = { emailId, processedAt: new Date() };
         
         console.log(`[EmailMonitor] Email ${emailId}: sentiment=${analysis.sentiment}, alert=${analysis.alertLevel}`);
         
-        if (analysis.sentiment === "negative" || analysis.sentiment === "angry" || analysis.hasAngryTone) {
+        if (stored.created && (analysis.sentiment === "negative" || analysis.sentiment === "angry" || analysis.hasAngryTone)) {
           console.log(`[EmailMonitor] Creating notification for negative email from ${senderEmail}`);
           
           const notification = await storage.createNotification({
@@ -165,7 +169,8 @@ async function checkUserEmails(userId: string, connection: any) {
           console.log(`[EmailMonitor] Notification sent for negative email ${emailId}`);
         }
       } catch (analysisError) {
-        console.error(`[EmailMonitor] Failed to analyze email ${emailId}:`, analysisError);
+        console.error("[EmailMonitor] Personal monitoring result unavailable");
+        continue; // Do not treat a failed save as successfully processed.
       }
 
       // ── Link inbound email to CRM contact ───────────────────────────
