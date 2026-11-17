@@ -6,6 +6,11 @@ Dátum: 17. 11. 2026. Pokračovanie existujúcej integrácie, nie nová implemen
 
 **REVIEW_REQUIRED – zatiaľ nie READY_FOR_PILOT.**
 
+Používateľ prijal **80 PASS / 0 FAIL / 0 SKIP** nezávislých kontrol.
+Aktuálne sa odovzdáva iba technický návrh HTTPS prístupu a plán
+sekvenčnej regresie. Pripojenie, preflight ani živé inferencie sa
+nevykonali. Fáza B a produkčné zapnutie nie sú schválené.
+
 Podklad AI tímu dokladá podľa jeho vyjadrenia tri úspešné lokálne scenáre
 NORMAL, ANGRY a INJECTION cez testovaciu Gateway. Nedokladá kompletný beh
 z CRM, pôvodných 18 prípadov cez CRM ani kapacitu pri súbežnej záťaži.
@@ -25,10 +30,12 @@ Tieto výsledky sa nesmú zlúčiť so syntetickými CRM testmi do jedného
 3. **Výpadkové odpovede.** Osobitné syntetické odpovede pre nedostupný
    adaptér a Ollama preverujú pôvodnú obchodnú vetvu bez obchodných účinkov,
    retries alebo externého fallbacku. Skutočné služby sa nevypínajú.
-4. **Hranica poznámky.** Testy pokrývajú 100, 101 a 1000 znakov a odmietnutie
-   1001 znakov. CRM limit zostáva 1000; Gateway limit 100 je jeho podmnožina.
-   Platná odpoveď do 100 znakov je kompatibilná. Rozdiel však treba pred
-   pilotom výslovne dohodnúť, nie skryť orezaním textu alebo zmenou pravidiel.
+4. **Kontrakt poznámky.** Pôvodný email.sentiment nemá limit 100 znakov:
+   Gateway sa musí zosúladiť s pôvodným kontraktom, nie orezávať poznámky.
+   Historické testy 100, 101, 1000 a odmietnutia 1001 opisujú aktuálny
+   CRM validátor, nie schválenie nového limitu na Gateway. Existujúca
+   ochrana CRM 1000 sa v tejto dokumentačnej úlohe nemení a nevydáva
+   sa automaticky za pôvodnú obchodnú požiadavku.
 
 Historický výsledok 131 PASS patrí predchádzajúcemu izolovanému vydaniu.
 Aktuálny výsledok rozšírenej sady a merania sú odovzdané samostatne;
@@ -59,8 +66,9 @@ Nové kontroly zahŕňajú všetkých 18 vstupov cez pôvodný CRM analyzátor,
 Router, SDK a lokálny HTTP fixture server, aj samostatnú bezpečnú vetvu K12.
 Sú to výsledky testovania kódu so syntetickými odpoveďami, nie výsledok
 18 živých modelových inferencií. Podrobnosti sú v
-`docs/email-sentiment-regression-results.md`; neschválené návrhy trasy a
-záťaže sú v `docs/email-sentiment-test-proposals.md`.
+`docs/email-sentiment-regression-results.md`; aktuálny technický návrh
+trasy a plán iba sekvenčných 18 prípadov je v
+`docs/email-sentiment-test-proposals.md`. Nejde o vykonané živé testy.
 
 ## Akceptačná tabuľka
 
@@ -68,11 +76,14 @@ záťaže sú v `docs/email-sentiment-test-proposals.md`.
 |---|---|---|
 | Kompletná cesta CRM → testovacia Gateway → adaptér → Ollama | NEOVERENÉ | Chýba schválená dosiahnuteľná testovacia trasa z CORPCRM01. |
 | Pôvodných 18 prípadov a referencií | DODANÉ | Zachované pôvodné čiastkové referencie; živé modelové odpovede ešte nie sú namerané. |
-| Service-scoped model, pôvodný prompt, striktný parser | OVERENÉ IZOLovane | Existujúca integrácia a automatizované fixture testy. |
-| Zachovanie REVIEW_REQUIRED aj známeho dôvodu | OVERENÉ IZOLovane | Skutočný CRM analyzátor, Router, SDK a natívny lokálny HTTP transport. |
-| Zákaz obchodných akcií a cloud fallbacku pri chybe | OVERENÉ IZOLovane | Pôvodná obchodná vetva zo zdrojového kódu a zákaz externého adaptéra. |
-| Celkový CRM deadline 30 sekúnd | OVERENÉ IZOLovane | Spoločný SDK deadline zahŕňajúci discovery, inferenciu a čítanie odpovede. |
-| Prevádzková záťaž pri nezmenených ostatných službách | NEOVERENÉ | Chýba schválená súbežnosť, počet pokusov, kapacitný dôkaz a testovacie okno. |
+| Service-scoped model, pôvodný prompt, striktný parser | OVERENÉ IZOLOVANE | Existujúca integrácia a prijaté fixture testy. |
+| Zachovanie REVIEW_REQUIRED aj známeho dôvodu | OVERENÉ IZOLOVANE | Skutočný CRM analyzátor, Router, SDK a natívny lokálny HTTP transport. |
+| Zákaz obchodných akcií a cloud fallbacku pri chybe | OVERENÉ IZOLOVANE | Pôvodná obchodná vetva zo zdrojového kódu a zákaz externého adaptéra. |
+| Celkový CRM deadline 30 sekúnd | OVERENÉ IZOLOVANE | Spoločný SDK deadline zahŕňajúci discovery, inferenciu a čítanie odpovede. |
+| Návrh testovacej HTTPS trasy | PRIPRAVENÝ NÁVRH | Loopback SSH 28443 → samostatný TLS vstup 18443 → testovacia Gateway 8771; porty/certifikát/autentifikácia ešte nepotvrdené. |
+| Kontrakt note bez nového limitu 100 | POTVRDENÁ POŽIADAVKA | Gateway musí doložiť zachovanie poznámok nad 100 bez orezania pred živým behom. |
+| Dopad sekvenčnej regresie na produkčné služby | NEOVERENÉ | Plán 5 min východisko + najviac 10 min/18 pokusov + 5 min následné pozorovanie; chýbajú živé dôkazy a konkrétna telemetria. |
+| Fáza B / súbežná záťaž | NEPOVOLENÁ | Nevykonáva sa ani automaticky po úspešnom sekvenčnom behu. |
 | Sémantika hnevu, hrubosti a otázky verzus výpoveď | REFERENCIE DODANÉ | K04–K11 majú dodané čiastkové referencie; nesmú sa dopĺňať podľa výstupov. Živá zhoda je neoverená. |
 | Slovenský jazyk skutočných poznámok | NEOVERENÉ | Vyžaduje kontrolu živých modelových výstupov. |
 | Spravovaný adaptér, interná autentifikácia, dohľad a rollback | NEOVERENÉ | Podklad stále uvádza adaptér ako testovací proces. |
@@ -94,7 +105,10 @@ záťaže sú v `docs/email-sentiment-test-proposals.md`.
   bezpečné odmietnutie; nejde o platnú deväťpoľovú modelovú odpoveď.
 - Samostatná testovacia Gateway zdieľa s produkčnou cestou Ollama.
   Oddelenie portov samo osebe neznamená oddelenie výpočtovej kapacity.
-  Záťažový profil a bezpečné okno musí potvrdiť AI tím.
+  Aj sekvenčný profil potrebuje bezpečné okno a meranie vplyvu.
+  Fáza B nie je súčasťou aktuálneho postupu.
+- Gateway musí doložiť zhodu s pôvodným note kontraktom bez nového
+  100-znakového limitu. Bez tohto dôkazu sekvenčný beh nezačať.
 - Nové odovzdanie neznamená povolenie vypnúť adaptér/Ollama používané
   produkciou kvôli fault testu. Ostré výpadkové scenáre vyžadujú izolovaný
   upstream alebo osobitne schválený postup bez zásahu do iných služieb.
@@ -107,9 +121,10 @@ záťaže sú v `docs/email-sentiment-test-proposals.md`.
 2. Potvrdiť pevný slovník `reason_code`. Súčasný dokumentovaný dôvod je
    podporený aj spätne kompatibilným presným mapovaním správy; nové dôvody
    sa nesmú preberať ako ľubovoľný zákaznícky text.
-3. Dohodnúť limit poznámky. CRM vie prijať 100 znakov bez zmeny;
-   testovanie musí odhaliť odmietnutie alebo skrátenie dlhšej poznámky
-   na AI strane. Slovenský jazyk zostáva požiadavkou CRM.
+3. Zosúladiť Gateway s pôvodným kontraktom bez nového limitu 100 znakov
+   a doložiť zachovanie dlhšej poznámky deterministickým kontraktovým
+   testom. Žiadne tiché skrátenie, domyslená referencia ani nový limit
+   bez dohody; slovenský jazyk zostáva požiadavkou.
 4. Pri vyhodnocovaní použiť dodané K10/K11 a nezamieňať ich čiastkové
    referencie. K10 predpisuje hnev, nie hodnotu hrubosti; K11 predpisuje
    hrubosť a nevhodný obsah. Existujúci CRM prompt tieto príznaky oddeľuje.
@@ -118,30 +133,25 @@ záťaže sú v `docs/email-sentiment-test-proposals.md`.
    komunikáciu, readiness, bezpečné logovanie, alerty, obmedzenie súbežnosti
    a test obnovy/rollbacku. Nemerané hodnoty kapacity zostávajú neznáme.
 
-## Návrh bezpečného pilotu po splnení kritérií
+## Ďalší postup: iba sekvenčná regresia po schválení trasy
 
-1. Najprv jeden osobitne schválený, operátorsky spustený syntetický test
-   z CORPCRM01 s izolovaným Routerom. Nemeniť uložené routy alebo
-   administratívne nastavenia Gateway.
-2. Spustiť nezmenených 18 referenčných prípadov, uložiť oddelene surovú
-   klasifikáciu a výsledok CRM parsera, HTTP stav, trvanie, známy dôvod
-   manuálneho posúdenia a technické zlyhania. Záznamy chrániť pred
-   neoprávneným čítaním; tokeny ani hlavičky do reportu nepatria.
-3. Až po úspešnom jednovláknovom teste vykonať dohodnutý konečný záťažový
-   profil. Nepridávať retries, automatický cloud fallback ani svojvoľné
-   zahriatie modelu. Pozorovanie ostatných služieb musí mať reálny dôkaz,
-   nestačí tvrdenie o samostatnom porte.
-4. V izolovanej testovacej infraštruktúre overiť neplatný token, nepovolený
-   model, timeout, chybný/neúplný JSON a schválené výpadkové scenáre.
-   V každom rizikovom stave sa musia zablokovať závislé obchodné akcie.
-5. Výsledky vyhodnotiť voči referenciám vrátane manuálneho posúdenia
-   slovenských poznámok a citlivých klasifikácií. Až potom možno predložiť
-   nový verdikt READY_FOR_PILOT používateľovi.
-6. Produkčný pilot nie je týmto povolený. Jeho budúci postup musí presne
-   uviesť service-only zmenu a návrat na pôvodný route snapshot bez zmeny
-   `email.monitoring`, spoločného endpointu alebo tokenu. Existujúci Router
-   má service-level smerovanie; bez ďalšej implementácie nesľubovať
-   percentuálny canary alebo per-mailbox rozdelenie.
+1. Schváliť konkrétny loopback SSH/TLS návrh a až potom vykonať technické
+   overenie bez inferencie. Potvrdiť Gateway kontrakt note a autentifikáciu.
+2. Pred prvou inferenciou mať pripravený izolovaný živý klient, schválené
+   okno a dôkaz pozorovateľnosti/bezpečnej kapacity produkcie. Nemeniť
+   uložené routy alebo administratívne nastavenia.
+3. Vykonať presne pôvodných 18 prípadov sekvenčne, jeden pokus na prípad.
+   Žiadny dodatočný warmup, retry, fallback alebo modelový preflight.
+   Bezpečnostná alebo prevádzková stop podmienka má prednosť pred dokončením;
+   nevykonané prípady sa explicitne uvedú.
+4. Vyhodnotiť HTTP, JSON, čiastkové referencie, K12 oddelene, časy,
+   slovenčinu poznámok a produkčnú telemetriu. Bez meraní netvrdiť nulový
+   dopad; timeout klienta nepreukazuje dokončenie upstream inferencie.
+5. Po sekvenčnom behu nenadväzuje súbeh. Fáza B aj produkčný pilot sú
+   samostatné budúce rozhodnutia, nie súčasť tejto dokumentačnej úlohy.
+
+Podrobný preflight, profil, záznam výsledkov a stop podmienky:
+`docs/email-sentiment-test-proposals.md`.
 
 **Nezmenené hranice:** žiadna zmena produkčného `main.py`, reštart 8770,
 úprava tokenu, modelu `email.monitoring`, smerovania iných služieb alebo

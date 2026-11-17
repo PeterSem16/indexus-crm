@@ -56,5 +56,17 @@ Nejde o živé hodnotenie presnosti modelu ani záťažový test Ollama.
    nie verdikt READY_FOR_PILOT. Nezahŕňa sieť, prevádzku, celkovú kvalitu
    poznámok ani vplyv na ostatné služby.
 
-Sieťový a záťažový návrh: `docs/email-sentiment-test-proposals.md`.
-Žiadny z návrhov nie je povolenie na jeho vykonanie.
+Používateľ prijal nezávislé kontroly 80 PASS / 0 FAIL / 0 SKIP.
+Aktuálny technický návrh a plán sekvenčnej regresie:
+`docs/email-sentiment-test-proposals.md`. Ide o 18 prípadov, súbežnosť
+1, žiadne opakovania, warmup ani fallback, až po schválení a overení trasy.
+Fáza B a produkčné zapnutie nie sú povolené. Existujúca fixture konfigurácia
+nie je živý klient a nesmie sa zameniť za skutočné HTTPS overenie.
+
+Pôvodný kontrakt note neobsahuje nový 100-znakový limit. Gateway musí
+zachovať platné dlhšie poznámky bez orezania; nový limit sa nedohaduje
+zmenou očakávaní ani parsera. Aktuálny parser má vlastnú ochranu 1000,
+ktorá sa v tejto dokumentačnej úlohe nemení.
+
+Žiadny dokument ani prijaté fixture testy nie sú povolením vytvoriť
+tunel, meniť produkciu alebo vykonať živú inferenciu bez schválenej trasy.

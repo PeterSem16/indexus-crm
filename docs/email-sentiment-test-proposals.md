@@ -1,152 +1,283 @@
-# email.sentiment – návrh testovacej trasy a záťaže
+# email.sentiment – HTTPS pripojenie a sekvenčná regresia
 
-**Len návrh na technické overenie a schválenie. Nič z tohto dokumentu nebolo
-vykonané.** Produkčná Gateway, Ollama, tokeny, routy a `email.monitoring`
-zostávajú bez zmeny.
+**Stav: návrh, nie vykonané pripojenie.** Používateľ prijal nezávislé
+kontroly **80 PASS / 0 FAIL / 0 SKIP**. V tejto dokumentačnej príprave
+sa nespustil tunel, kontrola vzdialených portov ani živá inferencia.
+Produkčné zapnutie nie je schválené. Celkový verdikt ostáva **REVIEW_REQUIRED**.
 
-## 1. Aktuálny stav
+Tento postup nahrádza starší návrh 24 pokusov vrátane súbežnej fázy B.
+**Aktuálny plán obsahuje iba 18 sekvenčných pokusov. Fáza B je zakázaná**
+a nenadväzuje automaticky ani po úspešnej regresii.
 
-AI tím potvrdil funkčnosť testovacej Gateway na loopback porte 8771,
-adaptéra 8792 a modelu `indexus-email-sentiment:4b`. Tri lokálne scenáre
-majú podľa dodaného podkladu výsledok 3 PASS / 0 FAIL. Vzdialená testovacia
-trasa z CORPCRM01 zatiaľ nie je schválená.
+## 1. Čo je potvrdené a čo nie
 
-Pôvodných 18 správ a ich čiastkové referencie sú už súčasťou regresného
-balíka. Netreba ich opakovane vyžadovať. Pôvodný Python `SYSTEM_PROMPT`
-nie je v podkladoch; CRM testy používajú existujúci CRM prompt, nie jeho
-domyslenú kópiu z AI servera.
+- Zdroj CRM potvrdzuje požiadavku HTTPS pre `email.sentiment`, Bearer
+  autentifikáciu, zákaz presmerovaní a spoločný deadline najviac 30 sekúnd.
+  Existujúca osobitná HTTP výnimka pre `email.monitoring` sa nerozširuje.
+- AI tím hlási testovaciu Gateway `127.0.0.1:8771`, adaptér 8792, Ollama
+  11434 a lokálny výsledok troch scenárov 3 PASS / 0 FAIL. Nie je to dôkaz
+  dostupnosti z CORPCRM01 ani výsledok 18-prípadového CRM behu.
+- Pôvodných 18 správ a čiastkové referencie už sú v regresnom balíku.
+  Používa sa existujúci CRM prompt; Python prompt AI servera sa nevymýšľa.
+- Pripravená je architektúra pripojenia, nie živý spúšťač. Existujúci
+  `test-configuration.ts` je fixture pomôcka so syntetickým transportom,
+  nie príkaz na pripojenie k AI serveru.
+- Konkrétny SSH host/port/účet, host key, dostupnosť nových portov,
+  certifikát, testovacie oprávnenia a telemetriu treba potvrdiť.
+  Žiadne kľúče, heslá alebo tokeny sa nežiadajú cez chat.
 
-## 2. Návrh SSH trasy
+## 2. Konkrétne navrhované zapojenie
 
-### Preferovaná architektúra
+```text
+CORPCRM01: oddelený testovací proces
+  HTTPS https://127.0.0.1:28443/
+    → lokálny SSH forward 127.0.0.1:28443
+    → AI server: samostatný TLS vstup 127.0.0.1:18443
+    → AI server: testovacia Gateway http://127.0.0.1:8771/
+    → existujúci testovací adaptér 127.0.0.1:8792
+    → existujúce Ollama 127.0.0.1:11434
+```
 
-Izolovaný testovací klient na CORPCRM01 → HTTPS so zachovanou validáciou
-certifikátu → lokálne viazaný SSH forward → osobitný testovací TLS vstup
-na AI serveri → testovacia Gateway HTTP 8771 → adaptér 8792 → Ollama.
+Porty **18443 a 28443 sú návrh novej alokácie**, nie overené voľné porty
+alebo už existujúce služby. Priama HTTP base URL cez SSH by v CRM
+neprešla kontrolou protokolu: SSH nepretvorí HTTP na HTTPS.
+Gateway 8771, adaptér a Ollama sa nesprístupnia na LAN.
 
-Existujúci CRM Gateway adaptér vyžaduje HTTPS. Priame vloženie
-`http://127.0.0.1:<forwarded-port>` do jeho konfigurácie teda nie je
-schváleným ani technicky kompatibilným riešením. Šifrovaný SSH tunel sám
-osebe nemení protokol, ktorý vidí HTTP klient.
+### Rozdelenie zodpovedností
 
-Preferujeme zachovať existujúcu HTTPS ochranu a pripraviť osobitný
-testovací TLS vstup, nie povoľovať HTTP pre spoločný adaptér.
-Jeho vytvorenie alebo zmena testovacej služby **vyžaduje ďalšie schválenie**;
-nejde o už existujúci endpoint. Konkrétne porty, meno certifikátu a
-spôsob tunelovania musí potvrdiť AI tím.
+| Vlastník | Podmienky a budúce overenie po súhlase |
+|---|---|
+| AI tím / správca AI servera | Potvrdiť SSH cieľ, port, účet, host key a voľný loopback port 18443; navrhnutý TLS vstup smeruje iba na 8771, nikdy na 8770. |
+| Správca PKI | Schváliť certifikát so SAN `IP:127.0.0.1`, platnosť, serverové použitie a reťaz dôveryhodnej súkromnej CA. Certifikát sa teraz nevydáva. |
+| Správca CORPCRM01 | Potvrdiť port 28443 a izolovaný SSH proces, oprávnenia na načítanie testovacej CA a autentifikácie; produkčný proces sa nemení. |
+| Prevádzkový vlastník email.monitoring | Schváliť okno, existujúce pasívne metriky, porovnateľné východisko a konkrétne stop hranice. |
+| Používateľ / schvaľovateľ | Schváliť konkrétnu trasu a jej vytvorenie; následne sa postupuje iba v rámci sekvenčnej regresie. Produkčný pilot a fáza B sú osobitné rozhodnutia. |
 
-### Požadované ochrany
+### TLS a SSH ochrany
 
-- SSH spojenie iniciovať len z CORPCRM01 cez existujúci schválený účet
-  a správu kľúčov. Nežiadať kľúč ani token cez chat.
-- Overiť a pripnúť host key. Žiadne `StrictHostKeyChecking=no`,
-  agent forwarding alebo verejne viazaný forward.
-- Forward viazať výhradne na loopback a serverové oprávnenie obmedziť
-  na konkrétny testovací cieľ; žiadny dynamický alebo reverzný verejný proxy.
-- Nepovoliť listener 8771 na LAN a nemeniť firewall bez osobitného súhlasu.
-- TLS musí overovať schválené meno certifikátu a dôveryhodnú CA.
-  Žiadne `rejectUnauthorized=false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`
-  alebo `curl -k`. Nedomýšľať certifikát ani DNS meno.
-- Ak je potrebné lokálne mapovanie mena na tunel, navrhnúť ho len pre
-  testovací proces, so zachovaným SNI a validáciou mena. Nemeniť globálny
-  DNS alebo `/etc/hosts` produkčného servera.
-- Zachovať Bearer autentifikáciu testovacej Gateway. Platnosť produkčného
-  tokenu na testovacej Gateway sa nesmie predpokladať a produkčný token
-  sa nemení. Poverenia sa neposielajú do Replitu a nezapisujú do reportu.
-- Použiť iba in-memory konfiguráciu izolovaného Routera, nikdy uložený
-  produkčný route alebo globálnu base URL.
+1. TLS vstup 18443 musí predložiť správny certifikát aj bez DNS SNI:
+   klient sa pripája na IP a kontroluje IP SAN. Samotné CN nestačí.
+   Samostatný listener sa nesmie spoliehať na DNS virtuálny host.
+2. Schválenú CA načíta iba oddelený testovací proces pred štartom.
+   Nemení sa systémový trust store, globálne DNS, `/etc/hosts`, PM2
+   ani prostredie produkčného CRM. Ak PKI nevie vydať tento IP SAN,
+   predložiť nový DNS/SNI variant na schválenie, nie obísť validáciu.
+3. Žiadne `rejectUnauthorized=false`, `NODE_TLS_REJECT_UNAUTHORIZED=0`,
+   `curl -k`, presmerovanie na iný endpoint alebo plaintext výnimka.
+4. SSH iniciuje CORPCRM01. Overiť pripnutý host key, iba loopback forwarding,
+   serverové obmedzenie povoleného cieľa a vlastníctvo samostatného procesu.
+   Nepoužiť agent forwarding, verejný, dynamický ani reverzný proxy.
+5. Nemení sa produkčný token. Testovacia Gateway musí potvrdiť vlastné
+   oprávnenia a bezpečný serverový loader; zhodu s produkčným tokenom
+   nemožno predpokladať. Token nie je argument príkazu, obsah reportu,
+   HTTP access log ani diagnostická hlavička.
+6. Testovací TLS vstup má byť bez prepisovania JSON alebo orezávania note,
+   bez retries a bez ukladania autorizácie či tiel. Overiť aj to,
+   že proxy/Gateway neopakuje upstream inferenciu po zlyhaní klienta.
 
-### Poradie budúceho technického overenia
+Šablóna transportu **iba na kontrolu a budúce schválenie**, nie vykonaný
+príkaz; hodnoty v zátvorkách musí potvrdiť správca:
 
-1. Schváliť konkrétnu trasu, TLS riešenie, účty, ciele a spôsob ukončenia.
-2. Po súhlase overiť SSH host key, viazanie iba na loopback, TLS meno/CA
-   a jednoznačné smerovanie výhradne na testovaciu službu.
-3. Bez inferencie overiť readiness, models a capabilities a odmietnutie
-   neplatnej autentifikácie; pri žiadnom teste nesmie uniknúť token.
-4. V izolovanom Routeri vykonať schválený sériový regresný profil.
-5. Ukončiť dočasný tunel/TLS wrapper podľa schváleného vlastníctva,
-   potvrdiť zánik iba jeho listenerov a porovnať produkčné nastavenia.
+```text
+ssh -N -T -p <schválený-SSH-port>
+  -o BatchMode=yes -o StrictHostKeyChecking=yes
+  -o ExitOnForwardFailure=yes -o ForwardAgent=no
+  -o ControlMaster=no -o ControlPath=none
+  -o ServerAliveInterval=15 -o ServerAliveCountMax=2
+  -L 127.0.0.1:28443:127.0.0.1:18443
+  <schválený-účet>@<schválený-AI-host>
+```
 
-Alternatívou pri neuskutočniteľnom TLS riešení by bola explicitne schválená,
-úzko ohraničená zmena iba testovacieho klienta. Taká výnimka sa teraz
-neimplementuje a nesmie rozvoľniť spoločný runtime alebo `email.monitoring`.
+Ide o jeden navrhovaný príkaz zalomený pre čitateľnosť, nie spustiteľný
+skript. Nezakladať SSH prístup, nemeníť firewall ani nereštartovať služby
+na základe samotného dokumentu.
 
-## 3. Návrh konečného testovacieho profilu
+## 3. Kontrakt note: žiadny nový limit 100
 
-**Nejde o súhlas na vykonanie. Žiadne súbežné modelové volania sa teraz
-nespúšťajú.** Aj po schválení trasy musí AI tím osobitne schváliť tento
-profil alebo jeho presnú upravenú verziu.
+**Pôvodný `email.sentiment` neobsahuje 100-znakový limit note.
+Gateway sa musí zosúladiť s kontraktom; CRM sa nesmie prispôsobiť
+skracovaním poznámok alebo zavedením tohto limitu.**
 
-| Fáza | Súbežnosť | Požiadavky | Intervaly | Maximálne trvanie |
-|---|---:|---:|---|---:|
-| Pasívna východisková kontrola | 0 testovacích inferencií | 0 | existujúca telemetria každých 5 s | 5 min |
-| A: pôvodný regresný korpus | 1 | presne 18 | min. 1 s po ukončení predchádzajúcej | 10 min |
-| Kontrola pred zvýšením záťaže | 0 | 0 | vyhodnotenie A a telemetrie | 1 min |
-| B: obmedzený súbeh | najviac 2 | presne 6 v troch dvojiciach | min. 2 s po ukončení celej dvojice | 2 min |
-| Pasívna následná kontrola | 0 | 0 | existujúca telemetria každých 5 s | 5 min |
+Zostáva presných deväť polí: `sentiment`, `hasInappropriateContent`,
+`hasAngryTone`, `hasRudeExpressions`, `wantsToCancel`, `wantsConsent`,
+`doesNotAcceptContract`, `alertLevel`, `note`. Správne typy a povolené
+hodnoty sú v integračnom dokumente. Žiadne dopĺňanie predvolených hodnôt.
 
-Celý profil má pevný strop **25 minút**, z toho najviac **24 modelových
-pokusov**. Discovery/auth kontroly sú samostatne evidované HTTP operácie,
-nie inferencie. Neexistujú dodatočné zahrievacie požiadavky ani retries.
+Aktuálny CRM parser má ochrannú hranicu **1000 znakov** pre note a
+32768 znakov na vstupný klasifikačný text. To je opis existujúceho
+validátora, nie nová schválená obchodná požiadavka ani oprávnenie preniesť
+rovnaké čísla na Gateway. V tejto úlohe sa parser nemení.
 
-Pre fázu B navrhujeme dvojice K01/EN, K03/K06 a K09/K12. Sú to osobitne
-plánované záťažové pokusy s vlastnými identifikátormi, nie automatické
-opakovanie nepodarenej regresie. Ich odpovede sa nemiešajú s pôvodným
-18-prípadovým regresným výsledkom.
+Pred prvou inferenciou AI tím doloží kontrolu Gateway/adaptéra a
+deterministický kontraktový test zachovania platnej poznámky **nad 100
+znakov bez skrátenia**. Zahŕňa to chyby na dlhších poznámkach, skryté
+orezávanie aj správne UTF-8/JSON spracovanie. Nepotrebuje to novú modelovú
+požiadavku mimo pôvodných 18 prípadov. Ak dôkaz chýba, živý beh nezačať.
+Nový limit sa nezavádza bez dohody; slovenčina sa hodnotí na skutočnom texte.
 
-Každá inferencia má jeden celkový deadline **30 000 ms** od vstupu
-izolovaného CRM klienta do request cesty vrátane discovery a čítania
-odpovede. Plán meria aj pozorovanú réžiu návratu po abort; nepovolí nový
-30-sekundový limit na každý endpoint.
+## 4. Technické overenie bez inferencie
 
-### Stop podmienky
+**Vykonáva sa až po výslovnom schválení konkrétnej trasy.** V tejto úlohe
+sa nevykonalo. Každá kontrola má vlastný záznam PASS/FAIL/NEOVERENÉ;
+nepatrí medzi 18 inferencií.
 
-- Akákoľvek nečakaná produkčná chyba, timeout alebo zmena dostupnosti
-  `email.monitoring`: okamžite zastaviť spúšťanie ďalších pokusov.
-- Ak nie je možné sledovať vplyv na `email.monitoring`, fázu B nezačať.
-- Nárast jeho porovnateľnej P95 latencie o viac než 20 % oproti vopred
-  uloženému východisku, ak je dostupných aspoň 20 relevantných meraní.
-  Pri nedostatočných dátach nezamieňať neznámy dopad za nulový; B nepovoliť
-  bez iného vopred schváleného dôkazu izolovanej kapacity.
-- Akékoľvek nové OOM, kritický zdrojový alarm alebo neobvyklý nárast
-  produkčného backlogu oproti vopred zdokumentovanej hranici: stop.
-- Akýkoľvek timeout, transportná chyba, 5xx, neplatný JSON alebo nečakaná
-  klasifikačná odchýlka vo fáze A: B nezačať.
-- Falošný súhlas, falošná výpoveď alebo obchodný účinok pri chybe:
-  okamžitý stop bez ďalšej inferencie.
-- K12 REVIEW_REQUIRED je povolené bezpečné odmietnutie, nie technický
-  úspech deväťpoľovej odpovede ani automatická stop príčina.
-- Pri stop nevykonávať retries. Už rozbehnuté požiadavky zrušiť alebo
-  ohraničiť ich zostávajúcim deadline, zaznamenať neisté upstream dokončenie
-  a nespúšťať nový pokus za účelom získania chýbajúceho výsledku.
-- Ak sa prekročí časový alebo početný strop fázy/profilu, ďalšie prípady
-  ostávajú nevykonané a výsledok nie je úplný.
+1. Potvrdiť host key, vlastníka procesov, dostupnosť navrhnutých portov,
+   viazanie len na loopback a skutočný proxy cieľ 8771.
+2. Overiť TLS reťaz, platnosť a SAN proti schválenej CA z CORPCRM01.
+   Neplatný certifikát alebo iná CA nesmú byť prijaté. Neukladať ani
+   neodosielať súkromný certifikačný kľúč do CRM alebo Replitu.
+3. S platnou testovacou autentifikáciou overiť tieto URL:
+   - `https://127.0.0.1:28443/health/ready`
+   - `https://127.0.0.1:28443/v1/models`
+   - `https://127.0.0.1:28443/indexus/v1/capabilities`
+4. Overiť odmietnutie chýbajúcej/neplatnej autentifikácie na dohodnutých
+   ne-inferenčných chránených endpointoch. Verejný health endpoint sám
+   nepreukazuje ochranu inferencie; AI tím musí doložiť aj jej vynútenie
+   bez odoslania ďalšej modelovej požiadavky.
+5. Overiť service-scoped model `indexus-email-sentiment:4b`, `apiVersion: "1"`,
+   `chat.completions`, textový vstup, `json_object`, neskrátený výstup a
+   podporu požadovaných 300 výstupných tokenov. Parametre zostávajú
+   temperature 0.1, stream false a thinking vypnuté na AI strane.
+6. Doložiť note kontrakt, nulové upstream retries, 422 obal s oboma
+   `error.type`/`error.code = review_required`, bezpečný reason_code
+   a prevádzkový dohľad. Generická 422 nie je bezpečné odmietnutie.
+7. Doložiť, že testovací klient používa skutočný Router/SDK a validujúce
+   HTTPS, nie fixture transport presmerúvajúci HTTPS na lokálne HTTP.
+   Použiť len in-memory konfiguráciu pre email.sentiment a loader na
+   CORPCRM01, bez zápisu DB, importu štartu CRM alebo schedulerov.
+8. Potvrdiť pozorovateľnosť produkcie a možnosť bezpečne ukončiť iba
+   testovacie procesy. Až úspešný preflight odblokuje schválený sériový beh.
 
-### Monitoring vplyvu
+## 5. Sekvenčný regresný profil
 
-Pasívne zaznamenávať iba už dostupné a schválené metriky: úspešnosť,
-timeouty a end-to-end trvanie `email.monitoring`, backlog/pending prácu,
-latencie a frontu Gateway/Ollama a pamäť/akcelerátor podľa dostupnej
-telemetrie. Uchovať časové okná a východisko, nie obsah e-mailov alebo tokeny.
+| Fáza | Súbežnosť inferencií | Počet | Interval / maximálne trvanie |
+|---|---:|---:|---|
+| Pasívne východisko | 0 | 0 | existujúca telemetria každých 5 s / 5 min |
+| A: pôvodná regresia | **1** | **18** | min. 1 s po dokončení predchádzajúceho / 10 min |
+| Pasívna následná kontrola | 0 | 0 | existujúca telemetria každých 5 s / 5 min |
 
-Nevytvárať kontrolné zákaznícke inferencie na `email.monitoring` a nemeniť
-jeho intervaly kvôli benchmarku. Ak v okne nie je relevantná aktivita
-alebo pozorovateľnosť, vplyv ostáva **NEOVERENÝ**, nie „bez dopadu“.
+Pevný strop pozorovania je **20 minút**, aktívnej fázy **10 minút** a
+modelových pokusov **18**. Preflight sa vykonáva oddelene pred týmto oknom.
+Po stop alebo uplynutí času sa pozorovanie nesmie potichu predlžovať
+a chýbajúce výsledky sa nesmú dopĺňať opakovaním.
 
-Oddelená Gateway zdieľa Ollama a nezaručuje nezmenenú produkčnú odozvu.
-Ak AI tím nevie zaručiť bezpečný kapacitný profil, súbeh sa môže testovať
-iba na samostatných schválených výpočtových zdrojoch; inak fázu B nevykonať.
+- Presné poradie: **K01–K12, EN, CS, HU, RO, IT, DE**; predmet a správy
+  z nemenného pôvodného korpusu, existujúci CRM prompt a predspracovanie.
+- Jeden pokus na prípad, bez retries, fallbacku, zahrievacieho volania,
+  súbehu, náhradného modelu alebo zmeny referencií podľa odpovedí.
+- Spoločný deadline **30 000 ms** od vstupu do CRM request cesty vrátane
+  discovery, inferencie a čítania odpovede. Meriať aj réžiu návratu po abort.
+- Klientsky abort nepreukazuje ukončenie inferencie v Ollama. Pri timeoute
+  zastaviť ďalšie spúšťanie, kým vlastník nepotvrdí ukončenie/bezpečný
+  stav upstreamu; bez tohto potvrdenia už nepokračovať v danom behu.
+  Syntetický „jeden pokus“ nie je dôkaz absencie skrytých upstream retries.
+- Neplatný JSON, nesúhlas referenčných polí alebo nečakané manuálne
+  posúdenie sa zaznamenajú bez opravy či zopakovania. Pokračovať iba ak
+  je dokázané ukončenie pokusu, nulové obchodné účinky a bezpečnosť produkcie.
+- Falošný súhlas/výpoveď v dodanom referenčnom poli, únik do obchodných
+  akcií alebo prevádzková stop podmienka znamená okamžitý stop.
+  Po zastavení uviesť nevykonané prípady a neoznačiť beh za úplný.
+- **Fáza B sa nevykonáva.** Ani bezchybných 18 odpovedí ju neaktivuje.
 
-## 4. Zostávajúce blokátory
+## 6. Výsledky jednotlivých prípadov a presnosť
 
-1. Technicky overená a výslovne schválená sieťová/TLS trasa.
-2. Potvrdená autentifikácia testovacej Gateway a spôsob bezpečného načítania
-   poverení bez zmeny produkčného tokenu.
-3. Schválený záťažový profil, okno, telemetria a stop hranice.
-4. Skutočný 18-prípadový výsledok z CRM a manuálne posúdenie potrebných
-   poznámok; tieto odpovede zatiaľ nie sú k dispozícii.
-5. Dohoda o poznámke (Gateway 100, CRM 1000), prevádzkové zabezpečenie
-   adaptéra a rollback pred budúcim pilotom.
+Budúci chránený záznam má obsahovať nasledujúce polia; teraz neexistujú
+žiadne namerané hodnoty zo živej CRM regresie:
 
-Korpus už **nie je blokátorom**. Sieťový návrh a záťažový návrh zostávajú
-neschválené; aktuálny verdikt naďalej **REVIEW_REQUIRED**.
+| Skupina | Povinný obsah |
+|---|---|
+| Pôvod | run ID, case ID, hash predmetu/tela a promptu, verzia zdroja, model, označenie LIVE alebo SYNTHETIC; nemiešať ich |
+| Čas | UTC štart/koniec, monotónne celkové trvanie, prípadne časy discovery a inferencie, deadline/abort |
+| Transport | Skutočný HTTP stav inferencie, oddelené stavy discovery, alebo explicitné „bez HTTP odpovede“; nikdy nevymýšľať 200 či 422 z aplikačného stavu |
+| Klasifikácia | Chránený raw modelový text, finish_reason, výsledok striktnej validácie všetkých deviatich polí a bezpečný kód chyby |
+| Referencie | Iba pôvodne určené polia, očakávanie/skutočnosť/zhoda; nevypĺňať neznáme hodnoty |
+| Poznámky | Zachovanie bez orezania, manuálne posúdenie slovenčiny všetkých skutočných poznámok, osobitne význam K09 a záznam hodnotiteľa bez osobných údajov v zdieľanom reporte |
+| Bezpečnosť | REVIEW_REQUIRED osobitne, bezpečný známy dôvod alebo unspecified, 0 obchodných účinkov, počet pokusov a potvrdená absencia fallbacku |
+
+Budúci živý spúšťač potrebuje priehľadný pozorovací obal nad natívnym
+HTTPS transportom: musí zachovať URL, hlavičky, signál, validáciu TLS
+a pôvodnú odpoveď pre SDK, nie ich zameniť ako fixture transport.
+HTTP stavy treba zaznamenať pred normalizáciou SDK; raw text len ohraničene
+v rámci existujúcich bezpečnostných limitov a spoločného deadline.
+Získanie diagnostiky nesmie vyvolať druhú požiadavku ani predĺžiť deadline.
+Samotný finálny stav analyzátora tieto transportné dôkazy nenahrádza.
+
+Diagnostika neobsahuje tokeny, autorizačné hlavičky ani zákaznícke e-maily.
+Vstupy sú pôvodné syntetické prípady. Raw text nepatrí do spoločných logov
+produkcie; chránené podklady majú prístup iba pre schválených hodnotiteľov.
+
+Report uvedie počet pokusov z **18**, platné JSON klasifikácie, zhodné
+a nezhodné prípady, bezpečné odmietnutia, technické chyby a nevykonané
+prípady osobitne. Pri každom dodanom poli uvedie počet správnych/vyhodnotených
+hodnôt aj chýbajúce výsledky; tieto menovatele nesmú zamlčať timeouty.
+
+K12 môže byť platná klasifikácia s `wantsConsent=false` alebo
+**SAFE_REJECTION**, `classificationValid=false`, nula hodnotených
+klasifikačných polí. Napríklad 17 platných klasifikácií + jedno bezpečné
+odmietnutie nie je 18 úspešných deväťpoľových JSON odpovedí.
+`review_required` pri inom prípade nie je automaticky úspech.
+Ručné hodnotenie prirodzeného jazyka zostáva oddelené od čiastkových gold polí.
+
+## 7. Pasívna ochrana produkčných služieb
+
+Samostatný port/Gateway zdieľa Ollama s produkčnou cestou: nejde o dôkaz
+izolácie výpočtu. Už sekvenčná inferencia môže ovplyvniť email.monitoring.
+
+Pred štartom schváliť konkrétny zdroj a dostupnosť metrík: úspešnosť,
+nové timeouty/5xx, end-to-end latenciu, pending/backlog a dostupnú frontu
+Gateway/Ollama, pamäť a kritické zdrojové alarmy. Nevyhlasovať metriku za
+existujúcu bez dôkazu. Existujúce metriky možno čítať; nevyvolávať kontrolné
+produkčné inferencie a nemeniť intervaly email.monitoring.
+
+**Podmienky štartu:** potvrdené východisko a dostupná pozorovateľnosť
+alebo osobitne schválený dôkaz bezpečne oddelenej kapacity. Pri chýbajúcich
+dátach bez takého dôkazu test nezačať.
+
+**Stop podmienky:**
+
+- nová produkčná chyba, timeout alebo zmena dostupnosti email.monitoring;
+- viac než **20 %** nárast porovnateľnej P95 oproti východisku pri aspoň
+  **20 relevantných meraniach v každom porovnávanom okne**;
+- backlog nad konkrétnu vopred dohodnutú hranicu, nové OOM alebo kritický
+  zdrojový alarm; hranicu backlogu nevymýšľať až po výsledku;
+- strata dohodnutej telemetrie, nesprávny cieľ/model, chyba TLS/autorizácie,
+  presmerovanie alebo pokus o obchodný účinok;
+- neisté upstream dokončenie po timeoute, prekročenie časového/početného
+  stropu alebo ďalšia kritická bezpečnostná odchýlka.
+
+Nedostatok meraní alebo nulová aktivita produkcie nepreukazujú nulový
+dopad. Report musí uviesť **DOPAD NEOVERENÝ**, ak nemožno urobiť spoľahlivé
+porovnanie; nesmie vyhlásiť „bez dopadu“. Fáza B zostáva aj tak zakázaná.
+
+Pri stop nespúšťať ďalší prípad, neuskutočniť retry a nevypínať zdieľané
+Ollama. Bezpečne zrušiť iba vlastný request; upstream ukončenie potvrdzuje
+AI tím. Porovnať produkčné nastavenia pred/po bez výpisu tajomstiev.
+
+## 8. Ukončenie a schvaľovacie body
+
+1. **Pred vytvorením trasy:** schváliť porty, SSH identitu/host key, TLS/CA,
+   vlastníkov a bezpečnú testovaciu autentifikáciu. Teraz sa nič nevytvára.
+2. **Pred prvou inferenciou:** úspešný technický preflight, zosúladená note,
+   pripravený izolovaný živý klient, schválené okno a produkčná telemetria.
+3. **Po 18 prípadoch alebo po stop:** ukončiť iba vlastný SSH proces a
+   testovací klient; o osude samostatného TLS vstupu rozhodne jeho vlastník.
+   Potvrdiť zánik dočasného listenera, prázdne vlastné pending požiadavky
+   a nezmenenú konfiguráciu produkcie. Nepoužívať globálne kill/restart.
+4. **Výsledok:** predložiť raw/parsované výsledky, manuálne posúdenie,
+   telemetriu a zoznam neoverených kritérií. Produkčný pilot a prípadný
+   súbeh vyžadujú nové samostatné rozhodnutia.
+
+## 9. Zostávajúce blokátory živého testu
+
+1. Schválená konkrétna trasa a následne technicky overené SSH/TLS spojenie.
+2. Potvrdené testovacie oprávnenia a serverové načítanie autentifikácie.
+3. Gateway zosúladená s pôvodným note kontraktom bez nového limitu 100.
+4. Pripravený a schválený izolovaný živý spúšťač na CORPCRM01; fixture
+   konfigurácia nie je jeho náhrada.
+5. Dostupná a schválená pasívna telemetria, bezpečné kapacitné podmienky,
+   okno a stop hranice.
+6. Skutočné odpovede 18 prípadov a manuálne posúdenie poznámok po behu.
+
+Korpus už nie je blokátorom. Akceptovaných 80 kontrol sa v tejto
+dokumentačnej úlohe neoznačuje za nové meranie. **REVIEW_REQUIRED** označuje
+pripravenosť živého overenia, nie nesplnenie tejto dokumentačnej prípravy.

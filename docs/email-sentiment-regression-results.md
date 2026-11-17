@@ -2,6 +2,11 @@
 
 Dátum: 17. 11. 2026. Pokračovanie existujúcej úlohy.
 
+**Používateľ prijal 80 PASS / 0 FAIL / 0 SKIP.** Nasledujúce čísla sú
+pôvodné namerané výsledky nezávislých kontrol, nie nové merania pri
+dokumentačnej príprave. Aktuálny ďalší postup je výhradne sekvenčná
+regresia po schválení trasy; fáza B nie je povolená.
+
 ## Výsledok
 
 **REVIEW_REQUIRED.** Regresné podklady sú doplnené a nezávislé kontroly prešli.
@@ -20,8 +25,8 @@ sieťová konfigurácia sa nemenila.
   cesty, Routera, SDK, parsera, mapovania a bezpečnostných vetiev.
 - `script/ai-email-sentiment/README.md`: spustenie, obmedzenia a význam
   jednotlivých výsledkov.
-- `docs/email-sentiment-test-proposals.md`: neschválený návrh testovacej
-  trasy, konečný záťažový profil a zostávajúce blokátory.
+- `docs/email-sentiment-test-proposals.md`: aktuálny návrh konkrétnej
+  SSH/TLS trasy, preflight bez inferencie, sekvenčný profil a blokátory.
 
 ## Namerané nezávislé kontroly
 
@@ -80,8 +85,10 @@ Nie je nameraná presnosť živého modelu na 18 prípadoch, slovenský jazyk je
 poznámok, P95/P99 inferencie, bezpečná kapacita spoločného Ollama ani nulový
 dopad na `email.monitoring`.
 
-Korpus už nechýba. Živý beh čaká na schválenú trasu a autentifikáciu,
-záťaž čaká aj na profil, kapacitné podmienky a pozorovateľnosť.
+Korpus už nechýba. Živý beh čaká na schválenú trasu, autentifikáciu,
+zhodu Gateway s pôvodným note kontraktom, pripravený izolovaný živý klient
+a produkčnú pozorovateľnosť/bezpečnú kapacitu. Nový limit 100 znakov
+pre note nie je schválený. Fáza B je vyradená z aktuálneho postupu.
 Navrhnuté SSH/TLS riešenie sa neimplementovalo a pôvodné Python testy
 na AI serveri sa nečítali ani nespúšťali.
 

@@ -10,6 +10,12 @@ schému ani model, prompt alebo 120-sekundový profil `email.monitoring`.
 Hlásené výsledky AI tímu (17 PASS, 1 REVIEW_REQUIRED, 0 FAIL) sú výsledky
 lokálneho adaptéra na AI serveri. Nie sú výsledkom živého testu cez INDEXUS.
 
+Používateľ prijal následný regresný balík **80 PASS / 0 FAIL / 0 SKIP**.
+Aktuálny ďalší krok je iba návrh izolovaného HTTPS pripojenia a
+sekvenčnej regresie; konkrétna trasa ešte nie je schválená ani vytvorená.
+Fáza B a produkčná aktivácia nie sú povolené. Úplný aktuálny postup je v
+`docs/email-sentiment-test-proposals.md`.
+
 ## Komunikačná cesta
 
 Existujúci CRM analyzátor → AI Router (`email.sentiment`) → interný SDK
@@ -21,6 +27,11 @@ Existujúci adaptér overuje `health/ready`, `v1/models` a
 `indexus/v1/capabilities` pred odoslaním `v1/chat/completions`. Lokálne
 `http://127.0.0.1:8792` a `/health` patria výhradne AI serveru; nie sú novou
 adresou ani readiness kontraktom CRM.
+
+Pre izolovaný budúci test je navrhnutá samostatná in-memory base URL
+`https://127.0.0.1:28443/` na CORPCRM01 cez SSH k loopback TLS vstupu
+18443 pred testovacou Gateway 8771 na AI serveri. Ide o návrh, nie
+existujúci endpoint alebo zmenu kanonickej produkčnej base URL.
 
 Prístup používa existujúcu serverovú Bearer autentifikáciu. Presmerovania sa
 nesmú nasledovať. Token, obsah správ a surové chybové odpovede sa nezapisujú
@@ -58,7 +69,14 @@ do nových diagnostík. Interné zlyhanie nevyvolá externý cloud fallback.
 | wantsConsent | boolean |
 | doesNotAcceptContract | boolean |
 | alertLevel | none, warning, critical |
-| note | neprázdny text, najviac 1000 znakov, požadovaný slovenský jazyk |
+| note | neprázdny text, požadovaný slovenský jazyk; pôvodný kontrakt neobsahuje nový 100-znakový limit |
+
+Gateway sa musí zosúladiť s pôvodným kontraktom bez orezávania poznámok.
+Aktuálny CRM validátor má ochrannú hranicu 1000 znakov a vstupný limit
+32768 znakov; ide o existujúce správanie parsera, nie o novo schválené
+obchodné obmedzenie Gateway. V tejto dokumentačnej úlohe sa nemení.
+Nový limit sa nezavádza bez dohody. Pred živým testom AI tím doloží
+zachovanie platnej poznámky nad 100 znakov bez skrátenia.
 
 Chýbajúce polia, polia navyše, alias `wantsCancel`, nesprávne typy,
 neplatné hodnoty a neplatný JSON sa odmietajú. Nepridávajú sa predvolené
@@ -110,8 +128,9 @@ Vymenený je len sieťový transport do syntetickej Gateway a modelové odpovede
 Nevykonáva požiadavky na živú Gateway/Ollama, nepoužíva skutočné tokeny
 a nespúšťa obchodné zápisy.
 
-Testy zahŕňajú všetkých deväť polí, viacjazyčný osempoložkový korpus
-(SK/EN/CS/HU/RO/IT/DE), REVIEW_REQUIRED, chyby autentifikácie, nesprávny JSON
+Testy zahŕňajú všetkých deväť polí, starší osempoložkový fixture korpus
+aj pôvodných 18 dodaných prípadov s čiastkovými referenciami,
+REVIEW_REQUIRED, chyby autentifikácie, nesprávny JSON
 a obal, skrátenú odpoveď, sieťové zlyhanie, presmerovanie, prekročenie limitu,
 izoláciu modelov a zachovanie historického čistého parser replay.
 **Korpus overuje integračný kontrakt, nie presnosť živého modelu.**
@@ -127,20 +146,21 @@ Obmedzenie klienta samo osebe nepreukazuje ukončenie výpočtu v Ollama.
 
 ## Podmienky živého overenia a prevádzky
 
-1. AI tím musí vystaviť nový model cez existujúcu autentifikovanú Gateway,
-   doložiť jeho discovery/capabilities, mapovanie na lokálny adaptér,
-   vypnuté thinking a nezmenené správanie ostatných modelov. Nepridávať
-   priamy prístup z CRM na port 8792 alebo Ollama.
+1. AI tím musí doložiť nový model cez schválenú izolovanú testovaciu
+   Gateway vrátane discovery/capabilities, autentifikácie, note kontraktu,
+   vypnutého thinking a nulových upstream retries. Nevystavovať ho kvôli
+   testu na produkčnej Gateway 8770 a neotvárať CRM priamy port 8792/Ollama.
 2. Na AI serveri pripraviť samostatnú spravovanú službu s obmedzenými
    oprávneniami, chráneným naslúchaním, riadeným reštartom, readiness,
    bezpečnými logmi a alertmi. Ručne spustený Python nie je tento dôkaz.
-3. Po osobitne potvrdenom postupe vykonať syntetický test z CORPCRM01 cez
-   existujúci serverový credential loader. Token neposielať do Replitu,
-   nevypisovať a nemeníť produkčné `.env`, PM2 ani uložené routy.
-4. Použiť izolovanú inštanciu Routera s presným profilom tejto služby;
-   porovnať raw modelový JSON a výsledok parsera, manuálne posúdiť slovenské
-   poznámky a zaznamenať celkové trvanie vrátane discovery. Nemeniť
-   očakávania podľa získaných odpovedí.
+3. Po schválení konkrétnej trasy vykonať technický preflight bez inferencie
+   z CORPCRM01 cez schválený serverový credential loader. Token neposielať
+   do Replitu, nevypisovať a nemeniť produkčné `.env`, PM2 ani uložené routy.
+4. Po preflight a splnení produkčných bezpečnostných podmienok použiť
+   izolovanú inštanciu Routera na presne 18 sekvenčných prípadov, bez
+   opakovaní, zahrievacích volaní, fallbacku alebo fázy B. Porovnať raw
+   JSON a parser, manuálne posúdiť slovenské poznámky a časy vrátane
+   discovery; nemenia sa očakávania podľa odpovedí.
 5. Osobitne doložiť nulové obchodné akcie pri REVIEW_REQUIRED a chybách,
    žiadne retries/fallback a nezmenené produkčné nastavenia pred a po teste.
 6. Živý výsledok a prevádzkovú pripravenosť predložiť používateľovi.
