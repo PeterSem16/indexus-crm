@@ -230,6 +230,9 @@ app.use((req, res, next) => {
     process.exit(1);
   }
 
+  // Independent mailbox monitoring must not require a CRM contact.
+  await pool.query("ALTER TABLE email_metadata ADD COLUMN IF NOT EXISTS email_monitoring_result jsonb");
+
   // CORPCRM01 does not run db:push. Persisted defaults keep every service on OpenAI.
   try {
     await initializeAIAdministration();

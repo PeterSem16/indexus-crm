@@ -5301,6 +5301,8 @@ export const emailMetadata = pgTable("email_metadata", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   messageId: text("message_id").notNull(), // MS Graph message ID
   mailboxEmail: text("mailbox_email").notNull(),
+  // Mailbox-scoped monitoring snapshot, separate from email.sentiment and CRM history.
+  emailMonitoringResult: jsonb("email_monitoring_result"),
   priority: text("priority").default("normal"), // low, normal, high, urgent
   importance: text("importance").default("normal"), // low, normal, high
   tags: text("tags").array().default(sql`ARRAY[]::text[]`), // Array of tag names

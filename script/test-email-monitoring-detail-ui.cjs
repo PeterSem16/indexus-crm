@@ -45,6 +45,12 @@ async function main() {
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.waitForFunction(() => typeof window.setResult === "function");
     assert.equal(await page.getByTestId("email-monitoring-analysis").count(), 0);
+    await page.getByTestId("email-monitoring-empty").waitFor();
+    await page.evaluate(() => window.setLanguage("sk"));
+    await page.waitForFunction(() => window.uiLocale === "sk");
+    assert.match(await page.getByTestId("email-monitoring-empty").innerText(), /nie je uložený výsledok/);
+    assert.equal(await page.getByTestId("email-monitoring-note").count(), 0);
+    await page.screenshot({ path: path.join(out, "no-saved-result.jpg") });
     const result = { source: "email.monitoring", analyzedAt: "2026-11-17T11:00:00.000Z", analysis: {
       sentiment: "neutral", hasInappropriateContent: false, hasAngryTone: false, hasRudeExpressions: false,
       wantsToCancel: false, wantsConsent: false, doesNotAcceptContract: true, alertLevel: "none",

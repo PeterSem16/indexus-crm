@@ -7,8 +7,13 @@ const flags = ["hasInappropriateContent", "hasAngryTone", "hasRudeExpressions",
 
 export function EmailMonitoringAnalysis({ result }: { result: EmailMonitoringDetail | null | undefined }) {
   const { t, locale } = useI18n();
-  if (!result || result.source !== "email.monitoring") return null;
   const copy = getCommunicationAnalysisCopy(locale), text = t.emailMonitoringDetail;
+  if (!result) return <section className="rounded-md border border-border bg-muted/30 p-3"
+    aria-label={text.title} data-testid="email-monitoring-empty">
+    <h3 className="text-sm font-semibold">{text.title}</h3>
+    <p className="mt-1 text-xs text-muted-foreground">{text.empty}</p>
+  </section>;
+  if (result.source !== "email.monitoring") return null;
   const analysis = result.analysis;
   const tone = analysis.alertLevel === "critical"
     ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950"
