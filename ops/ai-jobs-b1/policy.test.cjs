@@ -79,6 +79,9 @@ test("symlink and world-readable configuration cannot become a test environment"
     const link=path.join(base,"link");fs.symlinkSync(root,link);
     assert.throws(()=>policy.privateDirectory(link),/B1_PRIVATE_DIRECTORY/);
     fs.writeFileSync(path.join(root,"private.json"),"{}",{mode:0o644});
+    // Creation modes are masked by the operator's umask (077 in our runbook).
+    // Explicitly make this negative fixture unsafe before testing the guard.
+    fs.chmodSync(path.join(root,"private.json"),0o644);
     assert.throws(()=>policy.readPrivate(root),/B1_PRIVATE_CONFIG/);
   }finally{fs.rmSync(base,{recursive:true,force:true});}
 });
