@@ -222,3 +222,32 @@ test("approved smoke profile makes exactly one original request per service, not
   }
   assert.equal(report.verdict, "NOT_READY");
 });
+test("checklist Slovak retest sends only the original failed case and preserves its exact request and 15-second deadline", async () => {
+  const h = harness();
+  const original = acceptanceCorpus().find(item => item.id === "task.checklist-SK-1")!;
+  const reference = harness();
+  await boundary.execute(original.service, original.input,
+    (service: any, options: any) => reference.router.client(service, options));
+  const originalRequest = JSON.parse(reference.calls.at(-1).init.body);
+  const report = await runAcceptance({
+    root: process.cwd(), adapter: h.adapter, profile: "checklist-sk-retest",
+    readSnapshot: async () => ({ version: 9, fullConfigurationSha256: "synthetic-unchanged" }),
+    save() {},
+  });
+  assert.equal(report.planned, 1); assert.equal(report.results.length, 1);
+  const result = report.results[0];
+  assert.equal(result.id, "task.checklist-SK-1");
+  assert.equal(result.service, "task.checklist");
+  assert.deepEqual(result.input, original.input);
+  const posts = h.calls.filter(c => c.url.endsWith("chat/completions"));
+  assert.equal(posts.length, 1);
+  assert.deepEqual(JSON.parse(posts[0].init.body), originalRequest);
+  assert.ok(originalRequest.messages[1].content.includes("Supported language: Slovak."));
+  assert.equal(h.adapter.createClient({}, { service: "task.checklist" }).timeout, 15000);
+  assert.equal(h.adapter.createClient({}, { service: "task.checklist" }).maxRetries, 0);
+  assert.equal(h.cloud.length, 0);
+  assert.equal(report.productionUnchanged, true);
+  assert.equal(report.summary["email.summary"].planned, 0);
+  assert.equal(report.summary["task.resolution"].planned, 0);
+  assert.equal(report.kind, "LIVE_ISOLATED_CHECKLIST_SK_RETEST");
+});

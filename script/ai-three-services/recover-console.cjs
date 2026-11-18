@@ -8,7 +8,7 @@ const INPUTS = ["package.json", "tsconfig.json", "server/lib/ai",
   "script/ai-email-monitoring-b1/runtime.cjs"];
 function prepareRecovery({ app, home, archive, originalReport, execute, env = process.env,
     mode = "--recover-before-first-case" }) {
-  if (!["--recover-before-first-case", "--smoke-three"].includes(mode))
+  if (!["--recover-before-first-case", "--smoke-three", "--checklist-sk-retest"].includes(mode))
     throw Error("THREE_CONSOLE_MODE_INVALID");
   const work = fs.mkdtempSync(path.join(home, "INDEXUS-AI-Three-Services-Recovery-"));
   fs.chmodSync(work, 0o700);
@@ -20,8 +20,11 @@ function prepareRecovery({ app, home, archive, originalReport, execute, env = pr
   const runner = path.join(source, "script/ai-three-services/run.ts");
   for (const file of [runner, path.join(source, "script/ai-three-services/run-safety.ts")])
     if (!fs.statSync(file).isFile()) throw Error("THREE_RECOVERY_RUNNER_MISSING");
-  const report = mode === "--smoke-three" ? path.join(work, "three-services-smoke.json") : originalReport;
-  console.log(mode === "--smoke-three"
+  const report = mode === "--checklist-sk-retest" ? path.join(work, "task-checklist-sk-retest.json")
+    : mode === "--smoke-three" ? path.join(work, "three-services-smoke.json") : originalReport;
+  console.log(mode === "--checklist-sk-retest"
+    ? "Opakujem iba povodny slovensky test task.checklist: limit 15 sekund, bez retries."
+    : mode === "--smoke-three"
     ? "Spustam presne 3 synteticke AI poziadavky cez povodny CRM router a parser."
     : "Spustam overene pokracovanie pred prvou AI poziadavkou.");
   console.log("Povodne markery a reporty zostavaju zachovane. Report: " + report);
@@ -32,9 +35,9 @@ function prepareRecovery({ app, home, archive, originalReport, execute, env = pr
 }
 function main() {
   const pin = process.argv[2], originalReport = process.argv[3];
-  const smoke = originalReport === "--smoke-three";
+  const selectedTest = ["--smoke-three", "--checklist-sk-retest"].includes(originalReport);
   if (process.argv.length !== 4 || !/^[a-f0-9]{40}$/.test(pin || "") ||
-      !originalReport || (!smoke && !path.isAbsolute(originalReport)))
+      !originalReport || (!selectedTest && !path.isAbsolute(originalReport)))
     throw Error("THREE_RECOVERY_PIN_AND_ORIGINAL_REPORT_REQUIRED");
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
       process.getuid?.() !== 1001 || process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN)
@@ -46,7 +49,7 @@ function main() {
     cwd: app, timeout: 30000, maxBuffer: 32 * 1024 * 1024,
   });
   const run = prepareRecovery({ app, home: os.homedir(), archive, originalReport,
-    ...(smoke ? { mode: "--smoke-three" } : {}),
+    ...(selectedTest ? { mode: originalReport } : {}),
     execute: (...args) => cp.spawnSync(...args) });
   if (run.error) throw run.error;
   process.exitCode = run.status ?? 1;

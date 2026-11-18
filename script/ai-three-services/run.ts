@@ -30,23 +30,28 @@ export async function runAcceptance(options: {
   root: string; adapter: ReturnType<typeof createInternalAIAdapter>;
   readSnapshot: () => Promise<any>; save: (report: any) => void; signal?: AbortSignal;
   initialSnapshot?: any; recovery?: unknown;
-  profile?: "smoke-three";
+  profile?: "smoke-three" | "checklist-sk-retest";
 }) {
   const source = originalBoundaries(options.root);
   const allCases = acceptanceCorpus();
-  const corpus = options.profile === "smoke-three"
+  const checklistOnly = options.profile === "checklist-sk-retest";
+  const corpus = checklistOnly
+    ? allCases.filter(item => item.id === "task.checklist-SK-1")
+    : options.profile === "smoke-three"
     ? Object.keys(THREE_SERVICE_PROFILES).map(service =>
       allCases.find(item => item.service === service && item.language === "SK" && item.scenario === "missing_document")!)
     : allCases;
+  if (checklistOnly && corpus.length !== 1) fail("THREE_ORIGINAL_CHECKLIST_CASE_MISSING");
   const denyCloud: any = { id: "openai", isAvailable: () => false,
     createClient() { throw Error("THREE_CLOUD_FALLBACK_FORBIDDEN"); },
     chatProbe() { throw Error("THREE_CLOUD_FALLBACK_FORBIDDEN"); } };
   const router = createAIRouter({ adapter: denyCloud, adapters: [options.adapter],
     overrides: THREE_SERVICE_CANDIDATE_ROUTES, mode: "routed", revision: "isolated-three-services", emit() {} });
   const report: any = {
-    kind: options.profile === "smoke-three" ? "LIVE_ISOLATED_SMOKE_THREE_SERVICES"
+    kind: checklistOnly ? "LIVE_ISOLATED_CHECKLIST_SK_RETEST"
+      : options.profile === "smoke-three" ? "LIVE_ISOLATED_SMOKE_THREE_SERVICES"
       : "LIVE_ISOLATED_SYNTHETIC_THREE_SERVICES", startedAt: new Date().toISOString(),
-    languageCoverage: options.profile === "smoke-three" ? ["SK"] : ["SK", "CZ", "RO", "ENG", "DE", "IT", "HU"],
+    languageCoverage: options.profile ? ["SK"] : ["SK", "CZ", "RO", "ENG", "DE", "IT", "HU"],
     verdict: "NOT_READY", planned: corpus.length, sourceHashes: source.hashes,
     corpusHash: sha256(JSON.stringify(corpus)), productionActivation: false,
     originalPromptsAndParsers: true, openaiComparison: "NOT_EXECUTED",
@@ -153,8 +158,9 @@ let startupStage = "arguments";
 async function main() {
   const recoveryMode = process.argv[2] === "--recover-before-first-case";
   const smokeMode = process.argv[2] === "--smoke-three";
-  const planned = smokeMode ? 3 : 81;
-  if (process.argv.length !== 4 || (!recoveryMode && !smokeMode && process.argv[2] !== "--run-81"))
+  const checklistMode = process.argv[2] === "--checklist-sk-retest";
+  const planned = checklistMode ? 1 : smokeMode ? 3 : 81;
+  if (process.argv.length !== 4 || (!recoveryMode && !smokeMode && !checklistMode && process.argv[2] !== "--run-81"))
     fail("THREE_EXPLICIT_RUN_AND_OUTPUT_REQUIRED");
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
       process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) fail("THREE_CORPCRM01_ONLY");
@@ -167,7 +173,8 @@ async function main() {
   if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid?.() ||
       (parent.mode & 0o077)) fail("THREE_EXISTING_PRIVATE_OUTPUT_DIRECTORY_REQUIRED");
   // This fixed one-time marker blocks accidental second runs under a different output name.
-  const marker = path.join(ROOT, "data", smokeMode
+  const marker = path.join(ROOT, "data", checklistMode
+    ? "internal-ai-task-checklist-sk-language-retest.started" : smokeMode
     ? "internal-ai-three-services-smoke-after-discovery.started"
     : "internal-ai-three-services-81.started");
   startupStage = "database_configuration";
@@ -230,7 +237,8 @@ async function main() {
   startupStage = "acceptance";
   const report = await runAcceptance({
     root: ROOT, readSnapshot: snapshot, initialSnapshot, recovery, signal: controller.signal, save,
-    ...(smokeMode ? { profile: "smoke-three" as const } : {}),
+    ...(checklistMode ? { profile: "checklist-sk-retest" as const }
+      : smokeMode ? { profile: "smoke-three" as const } : {}),
     adapter: createInternalAIAdapter({
       readConfiguration: () => ({ enabled: true, production: true, replit: false,
         baseURL: process.env.INDEXUS_AI_GATEWAY_BASE_URL, token: process.env.INDEXUS_AI_GATEWAY_TOKEN }),
@@ -238,8 +246,8 @@ async function main() {
       readSettings: () => ({ ...gateway, maxRetries: 0 }),
     }),
   });
-  if (smokeMode) for (const row of report.results) {
-    console.log("THREE_SMOKE_RESULT " + JSON.stringify({
+  if (smokeMode || checklistMode) for (const row of report.results) {
+    console.log((checklistMode ? "CHECKLIST_SK_RESULT " : "THREE_SMOKE_RESULT ") + JSON.stringify({
       service: row.service, model: row.model, httpStatus: row.httpStatus ?? null,
       status: row.status, elapsedMs: row.elapsedMs, rawOutput: row.rawOutput ?? null,
       parsedResult: row.result ?? null, errors: row.errors ?? [],
