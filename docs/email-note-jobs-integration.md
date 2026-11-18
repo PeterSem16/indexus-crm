@@ -2,6 +2,12 @@
 
 ## Stav a hranice
 
+Aktuálny výsledok CRM a celej obrazovky Nexus Omni → E-mail z 18. 11. 2026:
+**PASS v izolovanom PostgreSQL clustri**, vrátane explicitného schválenia,
+auditu a oprávnení. Podrobný rozsah, reprodukcia, pripravený selektívny balík
+a rollback: [CRM akceptácia](email-notes-crm-acceptance.md).
+Historické výsledky nižšie opisujú pôvodné odovzdanie zo 17. 11. 2026.
+
 Implementácia je pripravená v pracovnom projekte. Predvolený stav:
 
 ```text
