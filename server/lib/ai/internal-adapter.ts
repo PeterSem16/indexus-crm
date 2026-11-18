@@ -8,6 +8,7 @@ import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
 import { EMAIL_SENTIMENT_PROFILE } from "./email-sentiment-profile";
 import { emailSentimentReviewReason, emailSentimentRequestId } from "./email-sentiment-contract";
 import { threeServiceProfile } from "./three-services-profile";
+import { backgroundDeadline } from "./background-context";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -170,8 +171,9 @@ export function createInternalAIAdapter(dependencies: {
         (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
       const sentimentService = context?.service === EMAIL_SENTIMENT_PROFILE.service;
       const threeProfile = threeServiceProfile(context?.service);
-      const deadlineService = sentimentService || threeProfile?.timeoutMs != null;
-      const deadline = threeProfile?.timeoutMs ?? EMAIL_SENTIMENT_PROFILE.timeoutMs;
+      const background = backgroundDeadline(context?.service);
+      const deadlineService = background !== undefined || sentimentService || threeProfile?.timeoutMs != null;
+      const deadline = background ?? threeProfile?.timeoutMs ?? EMAIL_SENTIMENT_PROFILE.timeoutMs;
       if (deadlineService && options.timeout !== undefined &&
         (!Number.isFinite(options.timeout) || options.timeout <= 0))
         throw new InternalAIError("ai_internal_invalid_timeout", 422);

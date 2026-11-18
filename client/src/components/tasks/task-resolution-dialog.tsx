@@ -9,6 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { isPulseNotificationTask, isPulseStatusListTask } from "@/lib/task-query-controls";
 import { TaskModalArtwork } from "./task-modal-artwork";
+import { useAuth } from "@/contexts/auth-context";
+import { findAIJob, waitForAIJob } from "@/hooks/use-ai-job";
+import { AIJobStatus } from "./ai-job-status";
+import type { AIJobView } from "@shared/ai-jobs";
 import "./task-resolution-dialog.css";
 
 export interface TaskResolutionDialogTask {
@@ -40,6 +44,7 @@ export function TaskResolutionDialog({
   resolutionTestId = "input-resolve-resolution", notifyAgent, onNotifyAgentChange,
 }: Props) {
   const { locale, t } = useI18n();
+  const { user } = useAuth();
   const copy = t.tasks.resolutionDialog;
   const taskId = task?.id;
   const pulse = isPulseStatusListTask(task || {});
@@ -52,6 +57,8 @@ export function TaskResolutionDialog({
   const draftController = useRef<AbortController | null>(null);
   const editedByUser = useRef(false);
   const draftPrefilled = useRef(false);
+  const [draftJob, setDraftJob] = useState<AIJobView | null>(null);
+  const draftJobRef = useRef<AIJobView | null>(null);
   const checklistQuery = useQuery<ChecklistItem[]>({
     queryKey: ["/api/tasks", taskId, "checklist"],
     enabled: open && taskId != null,
@@ -67,6 +74,8 @@ export function TaskResolutionDialog({
   });
 
   useEffect(() => {
+    setDraftJob(null);
+    draftJobRef.current = null;
     if (!open) {
       generation.current++;
       draftController.current?.abort();
@@ -86,7 +95,9 @@ export function TaskResolutionDialog({
     if (open && taskId != null) void checklistQuery.refetch();
     // Refresh persisted evidence for ordinary and Pulse tasks before drafting.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, taskId, pulse]);
+  }, [open, taskId, pulse, locale, user?.id]);
+
+  useEffect(() => () => { generation.current++; draftController.current?.abort(); }, []);
 
   const items = checklistQuery.data ?? [];
   const checklistLoading = open && taskId != null && (checklistQuery.isLoading || checklistQuery.isFetching);
@@ -96,7 +107,7 @@ export function TaskResolutionDialog({
   const gateLoaded = !checklistLoading && !checklistError;
   const gatePasses = !pulse || (gateLoaded && items.length > 0 && remaining === 0);
   const canDraft = open && taskId != null && gateLoaded && doneCount > 0 && (!pulse || gatePasses);
-  const requestDraft = useCallback(async () => {
+  const requestDraft = useCallback(async (retry = false) => {
     if (!task || !canDraft || draftController.current) return;
     const id = generation.current;
     const controller = new AbortController();
@@ -104,13 +115,33 @@ export function TaskResolutionDialog({
     setDraftState("loading");
     setDraftRequested(true);
     try {
-      const response = await fetch(`/api/tasks/${encodeURIComponent(String(task.id))}/resolution-draft`, {
-        method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale }), signal: controller.signal,
-      });
+      let existing = retry ? draftJobRef.current : await findAIJob({
+        service: "task.resolution", entityId: String(task.id), locale,
+      }, controller.signal);
       if (id !== generation.current || controller.signal.aborted) return;
-      if (!response.ok) { setDraftState("failed"); return; }
-      const result = await response.json() as { status?: string; draft?: string };
+      let result: { status?: string; draft?: string; job?: AIJobView };
+      if (existing && !retry) result = { job: existing };
+      else {
+        const retrying = retry && existing?.status === "failed";
+        const response = await fetch(retrying ? `/api/ai/jobs/${existing!.id}/retry` :
+          `/api/tasks/${encodeURIComponent(String(task.id))}/resolution-draft`, {
+          method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(retrying ? {} : { locale }), signal: controller.signal,
+        });
+        if (id !== generation.current || controller.signal.aborted) return;
+        if (!response.ok) { setDraftState("failed"); return; }
+        result = await response.json();
+      }
+      if (result.job) {
+        if (result.job.service !== "task.resolution" || result.job.entityId !== String(task.id))
+          throw new Error("ai_job_identity_changed");
+        result = await waitForAIJob(result.job, controller.signal, job => {
+          if (id === generation.current && !controller.signal.aborted) {
+            draftJobRef.current = job;
+            setDraftJob(job);
+          }
+        }) as { status?: string; draft?: string };
+      }
       if (id !== generation.current || controller.signal.aborted) return;
       if (result.status === "generated" && typeof result.draft === "string") {
         if (!editedByUser.current && !draftPrefilled.current) {
@@ -123,11 +154,17 @@ export function TaskResolutionDialog({
       } else if (result.status === "unavailable") setDraftState("unavailable");
       else setDraftState("failed");
     } catch {
-      if (id === generation.current && !controller.signal.aborted) setDraftState("failed");
+      if (id === generation.current && !controller.signal.aborted) {
+        if (draftJobRef.current?.status !== "failed") {
+          draftJobRef.current = null;
+          setDraftJob(null);
+        }
+        setDraftState("failed");
+      }
     } finally {
       if (draftController.current === controller) draftController.current = null;
     }
-  }, [task, canDraft, locale, onResolutionChange]);
+  }, [task, canDraft, locale, onResolutionChange, user?.id]);
 
   useEffect(() => {
     if (!open || taskId == null || checklistLoading || draftRequested) return;
@@ -222,10 +259,11 @@ export function TaskResolutionDialog({
                   </p>
                   {draftState === "loading" && <p className="task-resolution-ai-status__hint">{copy.draftingHint}</p>}
                   {draftState === "loading" && <div className="task-resolution-ai-status__rail" aria-hidden="true"><span /></div>}
+                  <AIJobStatus job={draftJob} />
                 </div>
               </div>
               {(draftState === "failed" || draftState === "unavailable") &&
-                <Button type="button" variant="outline" size="sm" data-testid="button-resolution-draft-retry" onClick={() => void requestDraft()} disabled={saving}>
+                <Button type="button" variant="outline" size="sm" data-testid="button-resolution-draft-retry" onClick={() => void requestDraft(true)} disabled={saving || !!draftJob && draftJob.attempts >= draftJob.maxAttempts}>
                   <Sparkles className="mr-2 h-4 w-4" />{copy.retry}
                 </Button>}
               {draftState === "checklist-error" && !pulse &&
