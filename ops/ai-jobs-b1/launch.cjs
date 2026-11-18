@@ -33,7 +33,7 @@ try {
   url.pathname="/"+config.database;
   process.env.DATABASE_URL=url.href;
   // The unchanged, root-controlled loader is the only Gateway credential source.
-  require(path.join(policy.APPLICATION,"ops/ai-gateway/preload.cjs"));
+  require("/etc/indexus-ai-runtime/preload.cjs");
   policy.assert(process.env.INDEXUS_AI_GATEWAY_ENABLED==="true" &&
     process.env.INDEXUS_AI_ROUTER_MODE==="routed","B1_EXISTING_GATEWAY_LOADER_REQUIRED");
   require(entry);

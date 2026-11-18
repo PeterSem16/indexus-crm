@@ -126,6 +126,11 @@ AI router settings. It stats but never reads the secret Gateway file. Listener
 PIDs are recorded when observable. `--compare` reports changes without exposing
 configuration values. Runtime admission flags are explicitly **not inspected**;
 missing PID evidence is unknown, not a claim of unchanged process continuity.
+Both the baseline and B1 launcher use the installed runtime loader at
+`/etc/indexus-ai-runtime/preload.cjs`, not its source copy under the live checkout.
+The source copy need not exist on CORPCRM01. The installed loader is never
+created, replaced or modified by this procedure; only its non-secret code is
+hashed during baseline capture.
 
 The isolated build rejects live/unapproved directories and writes paired
 frontend/backend hashes. The launcher requires the pinned-source marker, matching

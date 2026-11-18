@@ -8,8 +8,10 @@ function capture({envText,admin=adminSQL,read=fs.readFileSync,stat=fs.statSync,r
   const target=policy.applicationTarget(envText),app=policy.APPLICATION;
   const head=()=>String(run("git",["-C",app,"rev-parse","HEAD"],{encoding:"utf8"})).trim();
   const source=head(),files={};
-  for(const name of [".env","start.sh","package.json","package-lock.json","dist/index.cjs","ops/ai-gateway/preload.cjs"])
+  for(const name of [".env","start.sh","package.json","package-lock.json","dist/index.cjs"])
     files[name]=crypto.createHash("sha256").update(read(path.join(app,name))).digest("hex");
+  const loader="/etc/indexus-ai-runtime/preload.cjs";
+  files[loader]=crypto.createHash("sha256").update(read(loader)).digest("hex");
   // The secret Gateway file is never read outside the approved runtime loader.
   const gateway=stat("/etc/indexus-ai-runtime/gateway.json");
   const gatewayMetadata={ino:gateway.ino,size:gateway.size,mtime:gateway.mtimeMs,ctime:gateway.ctimeMs,mode:gateway.mode};
