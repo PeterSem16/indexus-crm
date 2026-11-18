@@ -5,7 +5,61 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const toolPath = path.resolve("generated-artifacts/email-notes-acceptance.cjs");
-const { parseConfig, readPrivateConfig, validateTestDatabase, probeGatewayHttps } = require(toolPath);
+const { parseConfig, readPrivateConfig, validateTestDatabase, probeGatewayHttps,
+  createObservedGatewayTransport, appendMissingGatewayResults } = require(toolPath);
+
+test("failed POST retains HTTP metadata, never bodies/headers/tokens, and is not repeated", async () => {
+  let calls = 0;
+  const observed = createObservedGatewayTransport(async () => {
+    calls++;
+    return new Response("PRIVATE RESPONSE BODY", { status: 422, headers: {
+      "x-request-id": "synthetic-request-42", "x-private": "PRIVATE HEADER",
+    } });
+  }, () => "PRIVATE TOKEN");
+  const response = await observed.fetch("https://example.invalid", { method: "POST",
+    headers: { Authorization: "Bearer PRIVATE TOKEN" }, body: "PRIVATE EMAIL" });
+  assert.equal(response.bodyUsed, false);
+  assert.equal(calls, 1);
+  assert.equal(observed.events[0].http_status, 422);
+  assert.equal(observed.events[0].request_id, "synthetic-request-42");
+  assert.match(observed.events[0].started_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.doesNotMatch(JSON.stringify(observed.events), /PRIVATE/);
+  const rows = [];
+  appendMissingGatewayResults(rows, observed.events);
+  assert.equal(rows.find(row => row.test === "gateway_post").status, "FAIL");
+  assert.equal(rows.find(row => row.test === "gateway_get").status, "BLOCKED");
+  await response.body.cancel();
+});
+test("safe transport code is retained without raw exception or any automatic retry", async () => {
+  let calls = 0;
+  const observed = createObservedGatewayTransport(async () => {
+    calls++;
+    throw Object.assign(Error("PRIVATE URL AND TOKEN"), { cause: { code: "ECONNRESET" } });
+  });
+  await assert.rejects(observed.fetch("https://example.invalid", { method: "POST" }));
+  assert.equal(calls, 1);
+  assert.equal(observed.events[0].transport_error, "ECONNRESET");
+  assert.doesNotMatch(JSON.stringify(observed.events), /PRIVATE/);
+});
+test("unknown transport details and token-bearing request identifiers are never reported", async () => {
+  const hidden = createObservedGatewayTransport(async () =>
+    new Response(null, { headers: { "x-request-id": "SECRET-SYNTHETIC-TOKEN" } }), () => "SYNTHETIC-TOKEN");
+  await hidden.fetch("https://example.invalid", { method: "GET" });
+  assert.equal(hidden.events[0].request_id, undefined);
+  const failed = createObservedGatewayTransport(async () => {
+    throw { message: "PRIVATE", cause: { code: "PRIVATE" } };
+  });
+  await assert.rejects(failed.fetch("https://example.invalid", { method: "GET" }));
+  assert.equal(failed.events[0].transport_error, "transport_failed");
+  assert.doesNotMatch(JSON.stringify(failed.events), /PRIVATE/);
+});
+test("missing prerequisites and already successful phases retain their actual outcomes", () => {
+  const rows = [{ test: "gateway_post", status: "PASS", detail: "HTTP 202" }];
+  appendMissingGatewayResults(rows, []);
+  assert.equal(rows[0].status, "PASS");
+  assert.equal(rows.filter(row => row.test === "gateway_post").length, 1);
+  assert.equal(rows.find(row => row.test === "gateway_get").status, "BLOCKED");
+});
 
 test("a root 404 is HTTPS reachability, not a failure of the separately authenticated jobs API", async () => {
   for (const status of [200, 401, 404, 405, 503]) {

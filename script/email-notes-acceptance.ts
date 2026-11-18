@@ -19,8 +19,51 @@ const TEXT = "Predmet: Syntetický integračný test – nejde o zákazníka\n\n
   "Dobrý deň, toto je výhradne vymyslený testovací e-mail. Prosím o vysvetlenie " +
   "postupu doručenia informačných materiálov. Neobsahuje osobné ani zákaznícke údaje.";
 type Row = { test: string; status: "PASS" | "FAIL" | "BLOCKED"; detail: string };
+type JobHttpEvent = {
+  method: "POST" | "GET"; started_at: string; http_status?: number;
+  request_id?: string; transport_error?: string;
+};
 const inspectableKeys = ["INDEXUS_AI_EMAIL_NOTES_ENABLED",
   "EMAIL_NOTES_TEST_DATABASE_URL"] as const;
+
+/** Observe safe response metadata before the unchanged client validates it. */
+export function createObservedGatewayTransport(transport: typeof fetch = fetch, token = () => "") {
+  const events: JobHttpEvent[] = [];
+  const observed: typeof fetch = async (url, init) => {
+    if (init?.method !== "POST" && init?.method !== "GET") throw Error("unsupported_job_method");
+    const event: JobHttpEvent = { method: init.method, started_at: new Date().toISOString() };
+    events.push(event); // A started request must never be reported as "not executed".
+    try {
+      const response = await transport(url, init);
+      event.http_status = response.status;
+      const id = response.headers.get("x-request-id");
+      const secret = token();
+      if (id && /^[A-Za-z0-9_.:-]{1,96}$/.test(id) && !(secret && id.includes(secret)))
+        event.request_id = id;
+      return response; // Do not read/clone/log request or response bodies.
+    } catch (error: any) {
+      const code = error?.cause?.code;
+      const allowed = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT",
+        "UND_ERR_CONNECT_TIMEOUT", "CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"];
+      event.transport_error = init.signal?.aborted ? "aborted" :
+        allowed.includes(code) ? code : "transport_failed";
+      throw error; // The existing client converts this into its safe error code.
+    }
+  };
+  return { fetch: observed, events };
+}
+
+export function appendMissingGatewayResults(rows: Row[], events: JobHttpEvent[]) {
+  for (const method of ["POST", "GET"] as const) {
+    const test = method === "POST" ? "gateway_post" : "gateway_get";
+    if (rows.some(row => row.test === test)) continue;
+    const attempts = events.filter(event => event.method === method);
+    rows.push({ test, status: attempts.length ? "FAIL" : "BLOCKED",
+      detail: attempts.length ?
+        `Attempted ${attempts.length} time(s); successful result not confirmed. See gateway_http metadata; do not blindly repeat POST.` :
+        "Not attempted; prerequisite unavailable." });
+  }
+}
 
 export function parseConfig(text: string) {
   const result: Record<string, string> = {};
@@ -115,6 +158,8 @@ export async function run(args = process.argv.slice(2)) {
   let baseline: ReturnType<typeof snapshot> | undefined;
   let originalPid: number | undefined;
   const stop = new AbortController();
+  const observed = createObservedGatewayTransport((url, init) =>
+    fetch(url, { ...init, signal: AbortSignal.any([stop.signal, init!.signal!]) }), () => token);
   const interrupt = () => stop.abort();
   process.once("SIGINT", interrupt);
   process.once("SIGTERM", interrupt);
@@ -196,8 +241,7 @@ export async function run(args = process.argv.slice(2)) {
       await db.query("INSERT INTO users VALUES('synthetic-operator')");
       add("test_database", "PASS", "Separate allowlisted test database; random private schema, no public fallback.");
     } else add("test_database", "BLOCKED", "EMAIL_NOTES_TEST_DATABASE_URL absent; production database will NOT be used.");
-    const gateway = createEmailNoteJobsClient({ token: () => token, fetch: (url, init) =>
-      fetch(url, { ...init, signal: AbortSignal.any([stop.signal, init!.signal!]) }) });
+    const gateway = createEmailNoteJobsClient({ token: () => token, fetch: observed.fetch });
     const scope = { userId: "synthetic-operator", mailbox: "synthetic@example.test",
       messageId: "SYNTHETIC-" + crypto.randomUUID() };
     const service = db ? createEmailNoteService(db, { enabled: () => true, client: gateway }) : null;
@@ -270,7 +314,8 @@ export async function run(args = process.argv.slice(2)) {
       catch { add("test_cleanup", "FAIL", `Remove only test schema ${schema} from the separate test database.`); }
       try { await db.end(); } catch { /* Never print a raw database error. */ }
     }
-    for (const test of ["gateway_post", "gateway_get", "postgres_email_binding", "unapproved_draft",
+    appendMissingGatewayResults(rows, observed.events);
+    for (const test of ["postgres_email_binding", "unapproved_draft",
       "manual_approval_and_audit", "signed_in_crm_ui"])
       if (!rows.some(row => row.test === test)) add(test, "BLOCKED", "Prerequisite unavailable; not executed.");
     if (baseline) {
@@ -283,6 +328,7 @@ export async function run(args = process.argv.slice(2)) {
     }
     add("scope", "PASS", "No production SQL, deployment, restart, flag change, AI router change or customer data.");
     console.log(JSON.stringify({ host: os.hostname(), integration_base: BASE, results: rows,
+      gateway_http: observed.events,
       overall: rows.some(r => r.status === "FAIL") ? "FAIL" : rows.some(r => r.status === "BLOCKED") ? "BLOCKED" : "PASS" }, null, 2));
     token = "";
   }

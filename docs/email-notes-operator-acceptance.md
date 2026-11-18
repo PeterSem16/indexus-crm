@@ -1,5 +1,32 @@
 # Záverečné overenie AI Email Notes na CORPCRM01
 
+## Aktuálny blokujúci bod: výsledok pokusu o POST
+
+Spustenie cez spoločný preload potvrdilo dostupnosť tokenu pre test.
+Vytvorenie úlohy však skončilo všeobecným `gateway_unavailable`; pôvodný
+nástroj nezachoval HTTP status. Preto nemožno potvrdiť, či úloha vznikla.
+Riadok „POST nevykonaný“ v tomto staršom výstupe bol chybný: pokus už nastal.
+
+Následné čítacie kontroly vrátili GET kolekcie jobs **405** a OpenAPI **404**.
+To nepreukazuje príčinu zlyhania POST, jeho autentifikáciu ani neprítomnosť úlohy.
+Ďalšie alternatívne URL ani nový POST sa bez dohody neskúšajú.
+
+Na spätné určenie príčiny je potrebný redigovaný serverový záznam pôvodného
+`POST /gateway/v1/email-notes/jobs`: čas, HTTP status, request_id (ak existuje)
+a bezpečný technický kód chyby. Neposielať Authorization, tokeny, konfiguráciu,
+obsah e-mailov, celé telá odpovedí ani celé zákaznícke logy.
+
+Opravený nástroj pri budúcom výslovne schválenom teste zachová v `gateway_http`
+metódu, UTC čas pokusu, HTTP status a bezpečný `x-request-id`; pri sieťovej chybe
+iba kód zo zoznamu povolených hodnôt. Nečíta ani neloguje telá požiadaviek
+a odpovedí. Začatú, ale neúspešnú fázu vykáže FAIL, nie „nevykonané“.
+Táto oprava neobnoví stratený status predchádzajúceho behu a neopakuje ho.
+
+Overenie opravy: **106/106** testov nástroja/inštalátora/preloadu,
+**4/4** testov nezmeneného klienta a cielená prísna TypeScript kontrola PASS.
+Existujúci CRM runtime, monitoring, klient jobs API, smerovanie a feature flag
+sa nemenili; živá Gateway nebola týmto znovu kontaktovaná.
+
 ## Jednotné pripojenie interných AI služieb
 
 Nové služby aj ich operátorské testy používajú **existujúce pripojenie
@@ -67,7 +94,7 @@ Inštalátor:
 - umožňuje `--install-only`, ak administrátor chce iba prípravu bez živého POST.
 
 SHA-256 inštalátora:
-`33a41b580a7a0d23b3f9484dfd441b9aac3290f8c79509d2cb540d0fe28723d7`.
+`d24fa96f962410f99814fbe26833ed7132b1e34bf54e95e45fa1b70a75bfa284`.
 
 **Výstup lokálnej kompilácie sa už neporovnáva s hashom buildu z iného
 prostredia.** Ten môže závisieť od verzie kompilátora. Integrita nie je vypnutá:

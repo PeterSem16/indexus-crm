@@ -16,7 +16,7 @@ function gatewayInvocation(destination, env = process.env) {
 }
 
 const FILES = Object.freeze({
-  "script/email-notes-acceptance.ts": "ea3d4954410d56770d9926a52e6209a6e7ba3205",
+  "script/email-notes-acceptance.ts": "03a5f672c35f6e69897b041a6a0f9e0e019c7bf2",
   "server/lib/email-note-jobs-client.ts": "176b5aa1fdb7ecb7b9ae991966843566ed3e9867",
   "server/lib/email-note-jobs-service.ts": "f3156f1273d591ccd6de414b4ae0de0e21b5880c",
   "server/lib/email-note-jobs-schema.ts": "fb8365d3da407605937fce4980c284457671410f",
