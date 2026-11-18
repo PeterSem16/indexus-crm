@@ -1,5 +1,36 @@
 # Záverečné overenie AI Email Notes na CORPCRM01
 
+## Opravený prenos a zostavenie nástroja
+
+Na server nevkladať dlhý JavaScriptový blok z chatu. Použiť samostatný
+`script/install-email-notes-acceptance.cjs` z presne pripnutého Git commitu.
+Krátky spúšťací príkaz najprv overí SHA-256 tohto **nezmeneného CJS zdroja**
+a až potom ho spustí ako súbor, nie cez `node -`.
+
+Inštalátor:
+- vyžaduje už dostupný pripnutý zdrojový commit a existujúci `esbuild` aplikácie;
+  nič neinštaluje, nefetchuje, neprepína vetvu a nespúšťa CRM;
+- pred kompiláciou kontroluje presné Git blob identity všetkých štyroch vstupov;
+- zostavuje iba v súkromnom adresári mimo aplikácie a overí syntax aj `--help`;
+- výsledok uloží atomicky s oprávneniami 0600 a spustí existujúci akceptačný
+  nástroj s interaktívnym terminálom;
+- nevypisuje ani nenačítava tokeny; konfiguráciu rieši až samotný akceptačný nástroj;
+- umožňuje `--install-only`, ak administrátor chce iba prípravu bez živého POST.
+
+SHA-256 inštalátora:
+`1bb059e62a4052fcb26257eeed4e2ff743e2cc9ab6c4a3ec5a7b2019bb7b5e10`.
+
+**Výstup lokálnej kompilácie sa už neporovnáva s hashom buildu z iného
+prostredia.** Ten môže závisieť od verzie kompilátora. Integrita nie je vypnutá:
+overuje sa inštalátor pred spustením a presné nemenné vstupy pred kompiláciou.
+Nameraný hash výsledku slúži na identifikáciu konkrétneho serverového buildu.
+Pôvodný hash nižšie platí iba pre priamy prenos už zostaveného pôvodného súboru.
+
+Testy inštalátora: **6/6 PASS**, vrátane rozdielneho formátovania výstupu pri
+rovnakých vstupoch, odmietnutia poškodeného zdroja pred kompiláciou a zachovania
+už existujúceho súboru pri chybe. Živý integračný test na CORPCRM01 zostáva
+nevykonaný, kým administrátor nespustí nástroj.
+
 ## Skutočný stav odovzdania
 
 Z Replitu nie je oprávnený SSH prístup na CORPCRM01. Aktuálny produkčný
