@@ -2,7 +2,9 @@
 
 ## Rozhodnutie a presný rozsah
 
-Navrhnutá trojica na otestovanie a následné prepnutie z OpenAI na internú AI:
+Záväzným podkladom je dodané zadanie „Požiadavka pre INDEXUS Team —
+Integrácia troch AI služieb cez existujúcu INDEXUS AI Gateway“.
+Potvrdená trojica na otestovanie a následné samostatne schválené prepnutie:
 
 | Service ID | Existujúca funkcia | Dôvod výberu |
 |---|---|---|
@@ -10,9 +12,36 @@ Navrhnutá trojica na otestovanie a následné prepnutie z OpenAI na internú AI
 | `task.checklist` | Návrh 3–5 krokov úlohy | Malý, presne validovateľný JSON; zachovať ochranu už existujúcich krokov. |
 | `task.resolution` | Editovateľný návrh textu o vykonanej práci | Malý JSON založený na dokončených krokoch; nesmie sám uzatvoriť úlohu. |
 
-Ide o **nový konkrétny návrh**, nie tvrdenie, že sa podarilo spätne obnoviť pôvodný zoznam.
-Všetky tri identifikátory boli overené v `server/lib/ai/service-catalog.ts`
-a ich existujúce volania v aplikačnom kóde.
+Trojicu ani spôsob spojenia nemeníme. Všetky tri identifikátory boli
+overené v katalógu a ich existujúcich volaniach.
+
+## Záväzné spojenie a dodané modely
+
+Kopírovať existujúce spojenie **`email.monitoring`**: spoločný AI Router,
+`createInternalAIAdapter`, HTTPS base URL
+`https://ai.cordbloodcenter.com/gateway/`, existujúca Bearer autentifikácia
+a existujúci serverový preload `/etc/indexus-ai-runtime/preload.cjs`.
+Inferencia používa presne
+`https://ai.cordbloodcenter.com/gateway/v1/chat/completions`.
+Nevytvárať nový transport, API, worker, token, službový tokenový súbor ani
+priame CRM volanie Ollamy.
+
+| Service ID | Dodaný Gateway model ID | Mapovanie hlásené AI tímom |
+|---|---|---|
+| `email.summary` | `indexus-email-summary:v1` | `qwen2.5-coder:7b` |
+| `task.checklist` | `indexus-task-checklist:v1` | `qwen3:4b` |
+| `task.resolution` | `indexus-task-resolution:v1` | `qwen3:4b` |
+
+AI tím v dodanom zadaní hlási jednotlivé HTTP 200 testy s časmi 9,28 s,
+12,58 s a 2,68 s v poradí tabuľky. Sú to **prevzaté údaje AI tímu**,
+nie naše nové merania ani dôkaz výsledku 81-prípadovej akceptácie.
+Mapovanie základných modelov takisto nie je v tomto pracovnom prostredí
+nezávisle overené. Nepožadujeme nové modelové aliasy.
+
+**Povinné jazyky pre KAŽDÚ službu:** SK, CZ, RO, ENG, DE, IT, HU.
+Existujúce locale kódy sú `sk`, **`cs` pre CZ**, `ro`,
+**`en` pre ENG**, `de`, `it`, `hu`. Nepridávať namiesto nich neexistujúce
+locale `cz` alebo `eng`. Platný formát v nesprávnom jazyku znamená FAIL.
 
 **Cieľ:** najprv preukázať kvalitu a kompatibilitu každej služby na internej AI,
 potom overiť celý jej existujúci tok cez INDEXUS a následne vykonať schválené
@@ -25,10 +54,11 @@ Gateway, HTTPS ani tokenov. Použiť existujúcu integračnú cestu.
 
 ## Rozdelenie zodpovednosti
 
-**Interný AI tím:** vybrať vhodný existujúci interný model pre každý service ID,
-zabezpečiť jeho kompatibilitu s nižšie uvedenými kontraktmi, vykonať skutočné
-modelové testy so syntetickými vstupmi a odovzdať merané výsledky aj presné
-identifikátory modelov. Nevymýšľať nové modelové aliasy ako už dostupné.
+**Interný AI tím:** zachovať uvedené dodané modelové identifikátory,
+zabezpečiť kompatibilitu a jazykovú kvalitu vo všetkých siedmich jazykoch.
+Vykonať skutočné modelové testy so syntetickými vstupmi a odovzdať merané
+výsledky aj presné verzie. Prípadnú potrebu iného modelu iba oznámiť,
+nie ju potichu realizovať.
 
 **INDEXUS tím:** prevziať presné modelové identifikátory, použiť existujúci
 service-specific router, overiť pôvodný parser, oprávnenia, uloženie a skutočné UI,
@@ -188,7 +218,8 @@ Ani pri všetkých dokončených krokoch neignorovať poznámku o nevyriešenom 
 
 Použiť len syntetické údaje. Rovnaký vstup, pôvodný prompt a pravidlá
 vyhodnotenia zachovať pre interný model aj referenčné OpenAI porovnanie.
-Nasledujúci počet je **návrh testov, nie už dosiahnutý výsledok**:
+Nasledujúci počet je **záväzné zadanie, nie už dosiahnutý výsledok**.
+Konkrétne vstupy a očakávania sú v `script/ai-three-services/corpus.ts`:
 
 **27 prípadov na službu, spolu 81**:
 
@@ -263,8 +294,72 @@ No-inference prípad nepočítať medzi úspešné modelové odpovede ani do lat
    Pri chybe vrátiť iba dotknutý route na jeho zachytenú predchádzajúcu hodnotu
    a overiť obnovu. Nerobiť automatický restore databázy ani mazať výsledky.
 
+## Pripravená implementácia a spustenie akceptácie
+
+- `server/lib/ai/three-services-profile.ts`: presné dodané modely a neaktívne
+  kandidátske routy. Import nemení produkčnú konfiguráciu.
+- Existujúci `internal-contract.ts` povoľuje každý nový model iba jeho
+  vlastnej službe, nie ostatným službám ani bez service kontextu.
+- Existujúci `internal-adapter.ts` zachováva pôvodné parametre tejto trojice.
+  Spoločné nastavenie nesmie prepísať ich teplotu ani tokenový rozpočet.
+  Úlohy majú deadline najviac 15 000 ms cez discovery, inferenciu aj čítanie
+  odpovede a nula retries, aj pri pokuse predĺžiť ich v request options.
+  Monitoring si zachováva vlastných 120 000 ms; jeho nastavenia sa nekopírujú
+  do nových služieb. Kopíruje sa spojenie, nie jeho klasifikačný kontrakt.
+- `script/ai-three-services/source.ts`: načíta a vykoná pôvodný summary handler,
+  checklist generátor a resolution generátor vrátane parserov zo zdroja.
+  Neimportuje server, mailbox polling ani DB zapisovače.
+- `script/ai-three-services/run.ts`: rovnaký izolovaný operátorský testovací
+  spôsob ako pri monitoringu. Len procesové kandidátske routy, syntetické vstupy,
+  existujúci preload a spoločný adaptér. Žiadne produkčné prekonfigurovanie.
+  Stav DB číta read-only pred behom, priebežne a na konci; **nevyžaduje
+  vypnutie už aktívneho monitoringu ani jeho návrat na OpenAI**.
+
+Lokálne overenie bez siete:
+
+```sh
+npx tsc --noEmit -p script/ai-three-services/tsconfig.json
+npx tsx --test server/lib/ai/three-services.test.ts
+```
+
+Živý beh sa vykonáva **iba na CORPCRM01**, z presnej skontrolovanej kópie
+pripravených zdrojov s dostupnými existujúcimi `node_modules`. Nie z Replitu,
+nie priamym volaním modelu na AI serveri a nie cez browser console.
+Nepoužiť na prenos celú rozpracovanú vetvu, plošný `git pull`, reštart PM2
+ani aktiváciu routov. Najprv musí byť pripravená konkrétna overená kópia.
+Nasledujúci príkaz opisuje spustenie z tejto kópie, nie jej nasadenie:
+
+```sh
+NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs \
+  --import tsx script/ai-three-services/run.ts --run-81 \
+  /ABSOLUTNA/EXISTUJUCA/SUKROMNA/CESTA/three-services-evidence.json
+```
+
+Výstupný súbor nesmie existovať; rodičovský adresár musí byť súkromný
+a vlastnený operátorom. Runner používa jednorazový marker v existujúcom
+aplikačnom `data` adresári. Po prerušení alebo neistom POST sa automaticky
+neopakuje. Marker nemažte kvôli slepému opakovaniu; najprv vyhodnotiť evidenciu.
+Zapisuje sa iba syntetická evidencia a marker, nie zákaznícke alebo
+konfiguračné DB záznamy. Aktívne routy troch cieľových služieb musia zostať OpenAI.
+
+**81 prípadov neznamená 81 inferencií:** resolution bez dokončených krokov
+musí prejsť bez volania modelu; pri dokončenom behu sa očakáva najviac 80
+modelových pokusov. Žiadny retry ani skrytý OpenAI fallback.
+Každý prípad má vopred uložený jazyk a významové očakávanie.
+Výstup obsahuje surovú odpoveď, pôvodný aj kandidátsky request, hashe,
+čas a aplikačný výsledok; počíta medián/P95 a oddeľuje no-inference.
+Neznáma revízia modelu a nerozlíšené studené/teplé volania ostávajú otvorene
+neoverené, nie doplnené odhadom.
+
+Jazyk, význam, odolnosť proti injection a limit dvoch viet musí potvrdiť
+hodnotiteľ podľa uložených očakávaní. Runner ich nepovažuje za PASS na základe
+regexu alebo platného JSON. Bez tejto kontroly, chýbajúcich živých dôkazov
+a potrebného CRM overenia vydáva **NOT READY**.
+
 ## Stav tohto odovzdania
 
-Pripravený technický návrh na základe existujúceho kódu.
-**Živé modelové testy tejto novej trojice týmto dokumentom neboli vykonané
-a produkčné prepnutie neprebehlo.**
+Pripravená podpora presnej trojice v existujúcom adaptéri, sedemjazyčný
+81-prípadový korpus a izolovaný runner. Lokálne stubované overenie nie je
+živá akceptácia modelu.
+**Živých 81 prípadov z CORPCRM01 zatiaľ nebolo v tomto odovzdaní vykonaných.
+Produkčné prepnutie neprebehlo. Stanovisko na aktiváciu: NOT READY.**

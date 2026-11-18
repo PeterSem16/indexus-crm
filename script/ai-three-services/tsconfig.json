@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "../../server/lib/ai/*.ts",
+    "./*.ts",
+    "../../shared/ai-settings.ts"
+  ],
+  "exclude": ["../../node_modules", "../../dist", "../../**/*.test.ts"],
+  "compilerOptions": {
+    "incremental": false,
+    "target": "ES2022",
+    "types": ["node", "vite/client", "express-session"]
+  }
+}

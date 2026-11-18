@@ -20,12 +20,13 @@ function adapter(fetch?: typeof globalThis.fetch) {
     fetch,
   });
 }
-test("only email.monitoring overrides managed/client timeout, without mutating configuration", () => {
+test("monitoring retains 120 seconds, selected task services retain 15 seconds, shared configuration is unchanged", () => {
   const internal = adapter();
   assert.equal(internal.createClient({ timeout: 1000 }, { service: "email.monitoring" }).timeout, 120_000);
   assert.equal(internal.createClient({}).timeout, 30_000);
   for (const service of Object.keys(AI_SERVICES).filter(s => s !== profile.service)) {
-    assert.equal(internal.createClient({}, { service: service as keyof typeof AI_SERVICES }).timeout, 30_000);
+    assert.equal(internal.createClient({}, { service: service as keyof typeof AI_SERVICES }).timeout,
+      service === "task.checklist" || service === "task.resolution" ? 15_000 : 30_000);
   }
   assert.equal(DEFAULT_AI_SETTINGS.gateway.timeoutMs, 30_000);
   assert.equal(DEFAULT_AI_SETTINGS.gateway.enabled, false);

@@ -1,6 +1,7 @@
 /** Gateway v1 text contract. Never include provider payloads in error messages. */
 import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
 import { EMAIL_SENTIMENT_MODEL } from "./email-sentiment-profile";
+import { THREE_SERVICE_PROFILES, threeServiceProfile } from "./three-services-profile";
 export class InternalAIError extends Error {
   constructor(readonly code: string, readonly status = 502, readonly reviewReason?: string,
     readonly requestId?: string) { super(code); }
@@ -8,9 +9,13 @@ export class InternalAIError extends Error {
 export const INTERNAL_TEXT_MODELS = Object.freeze(["indexus-document-audio:latest"]);
 /** A service-scoped grant, never a global model allowlist expansion. */
 export function internalModelsForService(service?: string, baseline = INTERNAL_TEXT_MODELS): readonly string[] {
-  const original = baseline.filter(model => model !== EMAIL_MONITORING_MODEL && model !== EMAIL_SENTIMENT_MODEL);
+  const scopedModels: readonly string[] = Object.values(THREE_SERVICE_PROFILES).map(profile => profile.model);
+  const original = baseline.filter(model => model !== EMAIL_MONITORING_MODEL &&
+    model !== EMAIL_SENTIMENT_MODEL && !scopedModels.includes(model));
   if (service === "email.monitoring") return [...original, EMAIL_MONITORING_MODEL];
   if (service === "email.sentiment") return [...original, EMAIL_SENTIMENT_MODEL];
+  const profile = threeServiceProfile(service);
+  if (profile) return [...original, profile.model];
   return original;
 }
 export const INTERNAL_REQUEST_LIMIT = 512 * 1024;

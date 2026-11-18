@@ -7,6 +7,7 @@ import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
 import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
 import { EMAIL_SENTIMENT_PROFILE } from "./email-sentiment-profile";
 import { emailSentimentReviewReason, emailSentimentRequestId } from "./email-sentiment-contract";
+import { threeServiceProfile } from "./three-services-profile";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -168,7 +169,10 @@ export function createInternalAIAdapter(dependencies: {
       const managed = dependencies.readSettings?.() ??
         (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
       const sentimentService = context?.service === EMAIL_SENTIMENT_PROFILE.service;
-      if (sentimentService && options.timeout !== undefined &&
+      const threeProfile = threeServiceProfile(context?.service);
+      const deadlineService = sentimentService || threeProfile?.timeoutMs != null;
+      const deadline = threeProfile?.timeoutMs ?? EMAIL_SENTIMENT_PROFILE.timeoutMs;
+      if (deadlineService && options.timeout !== undefined &&
         (!Number.isFinite(options.timeout) || options.timeout <= 0))
         throw new InternalAIError("ai_internal_invalid_timeout", 422);
       const sdk = new OpenAI({
@@ -176,10 +180,10 @@ export function createInternalAIAdapter(dependencies: {
         // Service policy takes precedence over the shared 30-second setting.
         // Other internal services and all OpenAI clients retain their own policy.
         timeout: context?.service === EMAIL_MONITORING_PROFILE.service
-          ? EMAIL_MONITORING_PROFILE.timeoutMs : sentimentService
-            ? Math.min(options.timeout ?? EMAIL_SENTIMENT_PROFILE.timeoutMs, EMAIL_SENTIMENT_PROFILE.timeoutMs)
+          ? EMAIL_MONITORING_PROFILE.timeoutMs : deadlineService
+            ? Math.min(options.timeout ?? deadline, deadline)
             : managed?.timeoutMs ?? options.timeout ?? 30_000,
-        maxRetries: sentimentService ? 0 : managed?.maxRetries ?? options.maxRetries ?? 0,
+        maxRetries: deadlineService ? 0 : managed?.maxRetries ?? options.maxRetries ?? 0,
         fetch: async (input, init) => {
           try {
             const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -223,13 +227,15 @@ export function createInternalAIAdapter(dependencies: {
           temperature: EMAIL_SENTIMENT_PROFILE.temperature, max_tokens: EMAIL_SENTIMENT_PROFILE.max_tokens,
           response_format: EMAIL_SENTIMENT_PROFILE.response_format, stream: EMAIL_SENTIMENT_PROFILE.stream,
         };
-        else if (managed && body && typeof body === "object") body = { ...body,
+        // These three services retain their original request parameters.
+        // Shared administrator defaults must not rewrite their prompts/budgets.
+        else if (!threeProfile && managed && body && typeof body === "object") body = { ...body,
           ...(managed.temperature !== null ? { temperature: managed.temperature } : {}),
           ...(managed.maxTokens !== null ? { max_tokens: managed.maxTokens } : {}),
         };
         // Synchronous capability rejection preserves the SDK APIPromise without wrapping it.
         validateInternalRequest(body, permitted);
-        if (sentimentService) {
+        if (deadlineService) {
           const requestOptions = (options ?? {}) as Record<string, unknown>;
           const requested = requestOptions.timeout;
           if (requested !== undefined && (typeof requested !== "number" || !Number.isFinite(requested) || requested <= 0))
