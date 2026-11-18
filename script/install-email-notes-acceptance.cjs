@@ -5,8 +5,18 @@ const crypto = require("node:crypto");
 const { createRequire } = require("node:module");
 const { execFileSync, spawnSync } = require("node:child_process");
 
+// Same installed runtime used by email.monitoring and the existing AI pilots.
+const SHARED_PRELOAD = "/etc/indexus-ai-runtime/preload.cjs";
+function gatewayInvocation(destination, env = process.env) {
+  return {
+    args: ["--require", SHARED_PRELOAD, destination],
+    options: { stdio: "inherit", env: { ...env, NODE_ENV: "production",
+      EMAIL_NOTES_APP_ROOT: "/var/www/indexus-crm" } },
+  };
+}
+
 const FILES = Object.freeze({
-  "script/email-notes-acceptance.ts": "b29243deaed09a0f46683964a4c398589b90ae37",
+  "script/email-notes-acceptance.ts": "ea3d4954410d56770d9926a52e6209a6e7ba3205",
   "server/lib/email-note-jobs-client.ts": "176b5aa1fdb7ecb7b9ae991966843566ed3e9867",
   "server/lib/email-note-jobs-service.ts": "f3156f1273d591ccd6de414b4ae0de0e21b5880c",
   "server/lib/email-note-jobs-schema.ts": "fb8365d3da407605937fce4980c284457671410f",
@@ -83,15 +93,15 @@ function main(args = process.argv.slice(2)) {
     console.log("PASS: verified immutable sources; standalone script installed.");
     console.log(JSON.stringify(result));
     if (args.includes("--install-only")) return 0;
-    const config = "/home/seman/indexus-private/email-notes.env";
-    const childArgs = [result.destination, ...(fs.existsSync(config) ? ["--config", config] : [])];
-    const resultChild = spawnSync(process.execPath, childArgs, { stdio: "inherit",
-      env: { ...process.env, EMAIL_NOTES_APP_ROOT: "/var/www/indexus-crm" } });
+    // No service-specific token file and no PM2 /proc credential scraping.
+    // The existing loader enforces its existing ownership/permissions/config policy.
+    const invocation = gatewayInvocation(result.destination);
+    const resultChild = spawnSync(process.execPath, invocation.args, invocation.options);
     return resultChild.status ?? 1;
   } catch (error) {
     console.error("BLOCKED: " + (error.safeCode || "installer_failed_no_test_started"));
     return 2;
   }
 }
-module.exports = { FILES, gitBlobId, install, main };
+module.exports = { FILES, SHARED_PRELOAD, gatewayInvocation, gitBlobId, install, main };
 if (require.main === module) process.exitCode = main();

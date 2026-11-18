@@ -28,7 +28,8 @@ test("configuration whitelist never executes shell or expands secrets", () => {
   const config = parseConfig('OTHER=ignored\nINDEXUS_AI_GATEWAY_TOKEN="synthetic-placeholder"\n' +
     "EMAIL_NOTES_TEST_DATABASE_URL='$(must-not-run)'\nINDEXUS_AI_EMAIL_NOTES_ENABLED=false");
   assert.deepEqual(Object.keys(config).sort(), [
-    "EMAIL_NOTES_TEST_DATABASE_URL", "INDEXUS_AI_EMAIL_NOTES_ENABLED", "INDEXUS_AI_GATEWAY_TOKEN"]);
+    "EMAIL_NOTES_TEST_DATABASE_URL", "INDEXUS_AI_EMAIL_NOTES_ENABLED"]);
+  assert.equal(config.INDEXUS_AI_GATEWAY_TOKEN, undefined);
   assert.equal(config.EMAIL_NOTES_TEST_DATABASE_URL, "$(must-not-run)");
   assert.equal(config.INDEXUS_AI_EMAIL_NOTES_ENABLED, "false");
 });
@@ -43,7 +44,7 @@ test("private configuration rejects public permissions and symbolic links", () =
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "email-notes-tool-"));
   const file = path.join(dir, "secrets.env");
   try {
-    fs.writeFileSync(file, "INDEXUS_AI_GATEWAY_TOKEN=synthetic-placeholder\n", { mode: 0o600 });
+    fs.writeFileSync(file, "EMAIL_NOTES_TEST_DATABASE_URL=synthetic-placeholder\n", { mode: 0o600 });
     assert.equal(Object.keys(readPrivateConfig(file)).length, 1);
     fs.symlinkSync(file, path.join(dir, "link.env"));
     assert.throws(() => readPrivateConfig(path.join(dir, "link.env")));

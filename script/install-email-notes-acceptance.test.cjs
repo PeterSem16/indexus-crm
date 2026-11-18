@@ -5,7 +5,22 @@ const os = require("node:os");
 const path = require("node:path");
 const cp = require("node:child_process");
 const esbuild = require("esbuild");
-const { FILES, gitBlobId, install } = require("./install-email-notes-acceptance.cjs");
+const { FILES, SHARED_PRELOAD, gatewayInvocation, gitBlobId, install } = require("./install-email-notes-acceptance.cjs");
+
+test("notes use the same shared Gateway preload as email.monitoring, without a private token config", () => {
+  const env = { INDEXUS_AI_EMAIL_NOTES_ENABLED: "false", UNRELATED: "preserved" };
+  const original = { ...env };
+  const invocation = gatewayInvocation("/private/acceptance.cjs", env);
+  assert.deepEqual(invocation.args, ["--require", "/etc/indexus-ai-runtime/preload.cjs", "/private/acceptance.cjs"]);
+  assert.equal(SHARED_PRELOAD, "/etc/indexus-ai-runtime/preload.cjs");
+  assert.equal(invocation.options.env.NODE_ENV, "production");
+  assert.equal(invocation.options.env.INDEXUS_AI_EMAIL_NOTES_ENABLED, "false");
+  assert.equal(invocation.options.env.UNRELATED, "preserved");
+  assert.equal(invocation.options.env.INDEXUS_AI_GATEWAY_TOKEN, undefined);
+  assert.equal(invocation.options.env.INDEXUS_AI_GATEWAY_ENABLED, undefined);
+  assert.equal(invocation.options.env.INDEXUS_AI_ROUTER_MODE, undefined);
+  assert.deepEqual(env, original); // Only the child receives environment additions.
+});
 
 function fixture(fn) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "email-notes-installer-"));

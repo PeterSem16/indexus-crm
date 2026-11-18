@@ -19,14 +19,14 @@ const TEXT = "Predmet: Syntetický integračný test – nejde o zákazníka\n\n
   "Dobrý deň, toto je výhradne vymyslený testovací e-mail. Prosím o vysvetlenie " +
   "postupu doručenia informačných materiálov. Neobsahuje osobné ani zákaznícke údaje.";
 type Row = { test: string; status: "PASS" | "FAIL" | "BLOCKED"; detail: string };
-const sensitiveKeys = ["INDEXUS_AI_GATEWAY_TOKEN", "INDEXUS_AI_EMAIL_NOTES_ENABLED",
+const inspectableKeys = ["INDEXUS_AI_EMAIL_NOTES_ENABLED",
   "EMAIL_NOTES_TEST_DATABASE_URL"] as const;
 
 export function parseConfig(text: string) {
   const result: Record<string, string> = {};
   for (const line of text.split(/\r?\n/)) {
     const match = line.match(/^(?:export\s+)?([A-Z_]+)=(.*)$/);
-    if (!match || !(sensitiveKeys as readonly string[]).includes(match[1])) continue;
+    if (!match || !(inspectableKeys as readonly string[]).includes(match[1])) continue;
     let value = match[2].trim();
     if ((value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))) value = value.slice(1, -1);
@@ -77,7 +77,7 @@ function liveProcess(root: string) {
       const env: Record<string, string> = {};
       for (const part of fs.readFileSync(`${proc}/environ`, "utf8").split("\0")) {
         const i = part.indexOf("=");
-        if (i > 0 && (sensitiveKeys as readonly string[]).includes(part.slice(0, i)))
+        if (i > 0 && part.slice(0, i) === "INDEXUS_AI_EMAIL_NOTES_ENABLED")
           env[part.slice(0, i)] = part.slice(i + 1);
       }
       matches.push({ pid, env });
@@ -99,7 +99,8 @@ function snapshot(root: string) {
 
 export async function run(args = process.argv.slice(2)) {
   if (args.includes("--help")) {
-    console.log("node email-notes-acceptance.cjs [--config /private/email-notes.env]\n" +
+    console.log("NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs email-notes-acceptance.cjs\n" +
+      "Optional --config /private/test-database.env supplies only isolated test database settings.\n" +
       "Read-only production inspection; one synthetic Gateway job. Optional separate test DB;\n" +
       "approval requires interactive SCHVALUJEM. No production DB connection or PM2 commands.");
     return 0;
@@ -160,11 +161,12 @@ export async function run(args = process.argv.slice(2)) {
           "Off or absent in verified process initial environment and .env; unchanged.");
       if (active) return 1;
     } catch { add("production_flag", "BLOCKED", "Cannot verify live process; no PM2 daemon was started."); return 2; }
-    token = config.INDEXUS_AI_GATEWAY_TOKEN || runtime.env.INDEXUS_AI_GATEWAY_TOKEN ||
-      process.env.INDEXUS_AI_GATEWAY_TOKEN || "";
-    add("backend_token", runtime.env.INDEXUS_AI_GATEWAY_TOKEN ? "PASS" : "BLOCKED",
-      runtime.env.INDEXUS_AI_GATEWAY_TOKEN ? "Present in verified CRM environment; value hidden." :
-        "Absent from initial process environment; a dotenv-loaded runtime secret cannot be verified here. Runner-only token does not configure CRM.");
+    // Identical credential source to email.monitoring: the existing shared Node
+    // preload supplies process.env. Never introduce a separate notes credential.
+    token = process.env.INDEXUS_AI_GATEWAY_TOKEN || "";
+    add("gateway_runtime_configuration", token ? "PASS" : "BLOCKED",
+      token ? "Gateway token supplied by this Node runtime; value hidden. This does not prove production build deployment." :
+        "Shared Gateway runtime did not supply a token. Launch through /etc/indexus-ai-runtime/preload.cjs as for email.monitoring; no separate token file is needed.");
     try {
       const status = await probeGatewayHttps(stop.signal);
       add("https_unauthenticated", "PASS",

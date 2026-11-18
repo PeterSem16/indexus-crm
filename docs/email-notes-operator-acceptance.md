@@ -1,5 +1,31 @@
 # Záverečné overenie AI Email Notes na CORPCRM01
 
+## Jednotné pripojenie interných AI služieb
+
+Nové služby aj ich operátorské testy používajú **existujúce pripojenie
+`email.monitoring`**, nie vlastný spôsob získavania tokenu:
+
+- nainštalovaný loader: `/etc/indexus-ai-runtime/preload.cjs`;
+- jeho existujúca spoločná konfigurácia: `/etc/indexus-ai-runtime/gateway.json`;
+- serverové premenné dodané loaderom: `INDEXUS_AI_GATEWAY_TOKEN`,
+  `INDEXUS_AI_GATEWAY_BASE_URL`, `INDEXUS_AI_GATEWAY_ENABLED`, `INDEXUS_AI_ROUTER_MODE`.
+
+Test Notes sa predtým spúšťal obyčajným `node`, bez spoločného preloadu.
+`/proc/PID/environ` nie je náhradou tohto loadera: nezobrazuje spoľahlivo token
+načítaný neskôr v Node procese. Preto report opakovane uvádzal chýbajúci token.
+To nepreukazuje chýbajúcu konfiguráciu fungujúceho monitoringu.
+
+Inštalátor teraz spúšťa nástroj cez rovnaký `node --require` ako monitoring.
+Token do Notes nevkladá do nového súboru ani ho nepreberá z `/proc`.
+Pôvodný riadok `backend_token` nahrádza pravdivá kontrola konfigurácie
+testovacieho runtime; nie je to dôkaz nasadenia nového backendového buildu.
+
+Pravidlo pre ďalšiu službu: zachovať spoločný preload, konfiguráciu a spôsob
+autentifikácie; doplniť iba vlastný API kontrakt, spracovanie výsledku a testy.
+Asynchrónny jobs endpoint nemusí napodobňovať chat completions.
+Existujúci loader, monitoring, sentiment, ich smerovanie a produkčný proces
+sa touto opravou nemenia.
+
 ## Zistenie z dodaného serverového reportu
 
 Inštalátor na CORPCRM01 úspešne overil nemenné zdroje a vytvoril skript.
@@ -37,11 +63,11 @@ Inštalátor:
 - zostavuje iba v súkromnom adresári mimo aplikácie a overí syntax aj `--help`;
 - výsledok uloží atomicky s oprávneniami 0600 a spustí existujúci akceptačný
   nástroj s interaktívnym terminálom;
-- nevypisuje ani nenačítava tokeny; konfiguráciu rieši až samotný akceptačný nástroj;
+- nevypisuje tokeny; pri spustení testu použije existujúci spoločný Gateway preload;
 - umožňuje `--install-only`, ak administrátor chce iba prípravu bez živého POST.
 
 SHA-256 inštalátora:
-`7e8cddbd2d29f381091fd53d9f062b8d1502044daef043633fe4fc95507beca3`.
+`33a41b580a7a0d23b3f9484dfd441b9aac3290f8c79509d2cb540d0fe28723d7`.
 
 **Výstup lokálnej kompilácie sa už neporovnáva s hashom buildu z iného
 prostredia.** Ten môže závisieť od verzie kompilátora. Integrita nie je vypnutá:
@@ -49,10 +75,16 @@ overuje sa inštalátor pred spustením a presné nemenné vstupy pred kompilác
 Nameraný hash výsledku slúži na identifikáciu konkrétneho serverového buildu.
 Pôvodný hash nižšie platí iba pre priamy prenos už zostaveného pôvodného súboru.
 
-Testy inštalátora: **6/6 PASS**, vrátane rozdielneho formátovania výstupu pri
+Testy inštalátora pred zjednotením: **6/6 PASS**, vrátane rozdielneho formátovania výstupu pri
 rovnakých vstupoch, odmietnutia poškodeného zdroja pred kompiláciou a zachovania
 už existujúceho súboru pri chybe. Živý integračný test na CORPCRM01 zostáva
 nevykonaný, kým administrátor nespustí nástroj.
+
+Po zjednotení runtime prešlo spolu **102/102** testov nástroja, inštalátora
+a existujúceho Gateway preloadu, navyše **4/4** testov jobs klienta a cielená
+prísna TypeScript kontrola. Nová regresia kontroluje rovnaký `--require` ako
+pri monitoringu, zachovanie vypnutého Notes flagu a nezmenené prostredie rodiča.
+Nanovo prešlo aj **81/81** regresií pôvodného sentimentu a monitoringu.
 
 ## Skutočný stav odovzdania
 
@@ -100,39 +132,27 @@ Gateway URL je v pôvodnom klientovi pevná:
 `https://ai.cordbloodcenter.com/gateway/`. Nie je na ňu ďalšia env premenná.
 `INDEXUS_AI_GATEWAY_ENABLED` sa kvôli tejto funkcii **nemení**.
 
-## Bezpečná príprava tokenu
+## Bezpečné použitie existujúceho tokenu
 
-Skript nemení prostredie bežiaceho backendu. Ak token už existuje v overenom
-PM2 procese, použije ho bez vypísania. Alternatívou je súkromný súbor
-`/home/seman/indexus-private/email-notes.env` vlastnený používateľom `seman`,
-s oprávneniami **0600**, v súkromnom adresári **0700** mimo aplikácie.
-Skript odmietne verejne čitateľný súbor, symlink a cudzie vlastníctvo.
+Používa sa iba `INDEXUS_AI_GATEWAY_TOKEN` dodaný spoločným runtime ako pri
+monitoringu. **Nevytvárať nový token ani `email-notes.env` pre Gateway.**
+Konfiguráciu `/etc/indexus-ai-runtime/gateway.json` nástroj nemení. Existujúci
+preload zachováva svoje kontroly prostredia, vlastníctva, oprávnení a obsahu.
 
-Administrátor súbor vytvorí súkromným editorom alebo z existujúceho správcu
-tajomstiev; token nevkladá do príkazového riadka, histórie, chatu ani Git repozitára.
-Formát je jednoduchý `KEY=value`, bez shell expanzie. Súbor môže obsahovať iba
-potrebný token a voliteľné pripojenie testovacej DB.
-
-**Dôležité:** súbor odovzdaný pomocou `--config` načítava iba tento skript.
-Existujúce CRM ho samo nenačítava. Na prípadné neskoršie nastavenie backendu treba
-po schválení doplniť token do existujúceho bezpečného zdroja prostredia procesu
-`seman`/`indexus-crm`. Bez schválenia sa PM2 nereštartuje a backendová konfigurácia
-sa nemení. Nástroj oddelene vykazuje `backend_token` a `gateway_token`.
+Prípadné `--config` slúži iba na nastavenia izolovanej testovacej databázy,
+nie ako zdroj Gateway tokenu; tokenové kľúče parser ignoruje.
+Bez schválenia sa PM2 nereštartuje ani nemení prostredie bežiaceho backendu.
 
 ## Jedno spustenie administrátorom
 
-Preniesť samostatný `.cjs` súbor do `/home/seman/indexus-private/`, nie do
-verejného adresára aplikácie. Porovnať SHA-256 s hodnotou odovzdanou v reporte.
-Spustiť ako používateľ `seman` v interaktívnom termináli:
+Už nainštalovaný samostatný `.cjs` súbor spustiť ako `seman` v interaktívnom
+termináli, **rovnakým spôsobom ako `email.monitoring`**:
 
 ```bash
-cd /var/www/indexus-crm
-sha256sum /home/seman/indexus-private/email-notes-acceptance.cjs
-node /home/seman/indexus-private/email-notes-acceptance.cjs \
-  --config /home/seman/indexus-private/email-notes.env
+NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs \
+  /home/seman/indexus-private/email-notes-acceptance.cjs
 ```
 
-Ak token už patrí prostrediu overeného procesu, `--config` možno vynechať.
 Žiadne `pm2 env`, `pm2 jlist`, `set -x`, export tokenu do príkazu ani výpis `.env`.
 Skript nevolá ani samotný príkaz PM2, aby nespustil nesprávny/root daemon.
 
@@ -192,8 +212,8 @@ Zobrazená syntetická poznámka slúži len na interaktívnu ľudskú kontrolu.
    možno bezpečne checkoutnúť namiesto novšieho produkčného vydania.
 3. Podľa existujúceho schváleného postupu pripraviť samostatný build mimo živého
    `dist`, overiť zálohu a startup migrácie; nemení sa databázový engine.
-4. Token pridať iba do existujúceho serverového tajného prostredia CRM.
-   Ponechať `INDEXUS_AI_EMAIL_NOTES_ENABLED=false`. Až po samostatnom schválení
+4. Overiť použitie existujúceho spoločného Gateway preloadu; nezavádzať nový
+   zdroj tokenu. Ponechať `INDEXUS_AI_EMAIL_NOTES_ENABLED=false`. Až po samostatnom schválení
    povoliť výmenu artefaktu a reštart správneho PM2 procesu ako `seman`.
 5. Nové tabuľky vytvorí idempotentná startup migrácia. Nespúšťať náhodné
    `db:push`, nepridávať verejný tokenový endpoint.
