@@ -13,18 +13,15 @@ import { Client } from "pg";
 import { parse } from "dotenv";
 import { createInternalAIAdapter } from "../../server/lib/ai/internal-adapter";
 import { createAIRouter } from "../../server/lib/ai/router";
-import { AI_SERVICES } from "../../server/lib/ai/service-catalog";
 import { THREE_SERVICE_CANDIDATE_ROUTES, THREE_SERVICE_PROFILES } from "../../server/lib/ai/three-services-profile";
 import { originalBoundaries, sha256 } from "./source";
 import { acceptanceCorpus } from "./corpus";
 import { acceptanceContract, latencyStats } from "./evaluate";
+import { configurationSnapshot, readCurrentSnapshot, reserveKnownPreInferenceRecovery, safeFailureCode } from "./run-safety";
 
 const require = createRequire(import.meta.url);
 const { assertRuntime } = require("../ai-email-monitoring-b1/runtime.cjs") as {
   assertRuntime(env: NodeJS.ProcessEnv): void;
-};
-const { readProductionSnapshot } = require("../ai-email-monitoring-b1/b11-check.cjs") as {
-  readProductionSnapshot(input: { Client: typeof Client; connectionString: string | undefined; catalog: string[] }): Promise<any>;
 };
 const ROOT = "/var/www/indexus-crm";
 const BASE = "https://ai.cordbloodcenter.com/gateway/";
@@ -32,6 +29,7 @@ const fail = (code: string): never => { throw Error(code); };
 export async function runAcceptance(options: {
   root: string; adapter: ReturnType<typeof createInternalAIAdapter>;
   readSnapshot: () => Promise<any>; save: (report: any) => void; signal?: AbortSignal;
+  initialSnapshot?: any; recovery?: unknown;
 }) {
   const source = originalBoundaries(options.root);
   const corpus = acceptanceCorpus();
@@ -47,12 +45,14 @@ export async function runAcceptance(options: {
     originalPromptsAndParsers: true, openaiComparison: "NOT_EXECUTED",
     authenticatedUI: "NOT_VERIFIED", persistenceAndPermissions: "EXISTING_REGRESSIONS_REQUIRED",
     latencyScope: "Sequential original CRM prompt/router/HTTPS discovery/inference/parser; not GPU-only.",
-    before: await options.readSnapshot(), after: null, results: [],
+    before: options.initialSnapshot ?? null, after: null, results: [], recovery: options.recovery ?? null,
   };
   const sameSources = () => Object.entries(source.hashes).every(([file, hash]) =>
     sha256(fs.readFileSync(path.join(options.root, file), "utf8")) === hash);
   options.save(report);
   try {
+    report.before ??= await options.readSnapshot();
+    options.save(report);
     for (const item of corpus) {
       if (options.signal?.aborted) fail("THREE_INTERRUPTED_NO_AUTOMATIC_RETRY");
       if (!sameSources()) fail("THREE_SOURCE_CHANGED_DURING_RUN");
@@ -117,14 +117,15 @@ export async function runAcceptance(options: {
       }
     }
   } catch (error: any) {
-    report.blocker = /^THREE_[A-Z_]+$/.test(error?.message) ? error.message : "THREE_RUN_ABORTED";
+    report.blocker = safeFailureCode(error);
   } finally {
     try {
       report.after = await options.readSnapshot();
-      report.productionUnchanged = report.before.fullConfigurationSha256 === report.after.fullConfigurationSha256 &&
+      report.productionUnchanged = !!report.before && report.before.fullConfigurationSha256 === report.after.fullConfigurationSha256 &&
         report.before.version === report.after.version;
     } catch { report.productionUnchanged = false; report.snapshotError = "THREE_FINAL_SNAPSHOT_UNAVAILABLE"; }
-    report.sourcesUnchanged = sameSources();
+    try { report.sourcesUnchanged = sameSources(); }
+    catch { report.sourcesUnchanged = false; }
     report.finishedAt = new Date().toISOString();
     report.summary = Object.fromEntries(Object.keys(THREE_SERVICE_PROFILES).map(service => {
       const rows = report.results.filter((r: any) => r.service === service);
@@ -141,33 +142,41 @@ export async function runAcceptance(options: {
   return report;
 }
 
+let startupStage = "arguments";
 async function main() {
-  if (process.argv.length !== 4 || process.argv[2] !== "--run-81") fail("THREE_EXPLICIT_RUN_AND_OUTPUT_REQUIRED");
+  const recoveryMode = process.argv[2] === "--recover-before-first-case";
+  if (process.argv.length !== 4 || (!recoveryMode && process.argv[2] !== "--run-81"))
+    fail("THREE_EXPLICIT_RUN_AND_OUTPUT_REQUIRED");
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
       process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) fail("THREE_CORPCRM01_ONLY");
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") fail("THREE_TLS_REQUIRED");
+  startupStage = "existing_runtime";
   assertRuntime(process.env); // Exact existing monitoring preload; no new credential handling.
+  startupStage = "output_permissions";
   const output = path.resolve(process.argv[3]);
   const parent = fs.lstatSync(path.dirname(output));
   if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid?.() ||
       (parent.mode & 0o077)) fail("THREE_EXISTING_PRIVATE_OUTPUT_DIRECTORY_REQUIRED");
   // This fixed one-time marker blocks accidental second runs under a different output name.
   const marker = path.join(ROOT, "data", "internal-ai-three-services-81.started");
+  startupStage = "database_configuration";
   const env = parse(fs.readFileSync(path.join(ROOT, ".env")));
   if (process.env.DATABASE_URL && env.DATABASE_URL && process.env.DATABASE_URL !== env.DATABASE_URL)
     fail("THREE_DATABASE_CONFIGURATION_CONFLICT");
   const connectionString = process.env.DATABASE_URL || env.DATABASE_URL;
   if (!connectionString) fail("THREE_DATABASE_CONFIGURATION_REQUIRED");
-  const snapshot = () => readProductionSnapshot({ Client, connectionString, catalog: Object.keys(AI_SERVICES) });
+  const snapshot = () => readCurrentSnapshot(connectionString);
   // Check ONLY the three target routes; do not require monitoring to return to OpenAI.
   const db = new Client({ connectionString, connectionTimeoutMillis: 8000,
     options: "-c default_transaction_read_only=on -c statement_timeout=8000" });
-  let gateway: any;
+  let gateway: any, loadedSnapshot: any;
+  startupStage = "read_only_configuration";
   try {
     await db.connect();
-    const rows = await db.query("SELECT value FROM ai_router_configuration WHERE singleton=true");
+    const rows = await db.query("SELECT version,value FROM ai_router_configuration WHERE singleton=true");
     if (rows.rows.length !== 1) fail("THREE_CONFIGURATION_UNAVAILABLE");
     const value = rows.rows[0].value;
+    loadedSnapshot = configurationSnapshot(rows.rows[0]);
     gateway = value.gateway;
     if (gateway.baseURL !== BASE) fail("THREE_EXISTING_CANONICAL_GATEWAY_REQUIRED");
     for (const service of Object.keys(THREE_SERVICE_PROFILES)) {
@@ -175,22 +184,41 @@ async function main() {
       if (route && (route.provider !== "openai" || !route.enabled))
         fail("THREE_TARGET_MUST_REMAIN_OPENAI");
     }
-  } finally { await db.end(); }
-  const reservedOutput = fs.openSync(output, "wx", 0o600);
-  fs.closeSync(reservedOutput);
-  const fd = fs.openSync(marker, "wx", 0o600);
-  fs.writeFileSync(fd, JSON.stringify({ startedAt: new Date().toISOString(), output }));
-  fs.closeSync(fd);
+  } finally { await db.end().catch(() => {}); }
+  startupStage = "original_crm_sources";
+  originalBoundaries(ROOT);
+  startupStage = "initial_configuration_snapshot";
+  const initialSnapshot = await snapshot();
+  if (loadedSnapshot.fullConfigurationSha256 !== initialSnapshot.fullConfigurationSha256 ||
+      loadedSnapshot.version !== initialSnapshot.version) fail("THREE_PRODUCTION_CONFIGURATION_CHANGED");
+  startupStage = recoveryMode ? "verified_pre_inference_recovery" : "reserve_first_run";
+  let recovery: unknown;
+  if (recoveryMode) recovery = reserveKnownPreInferenceRecovery(ROOT, output, process.getuid!());
+  else {
+    if (fs.existsSync(marker)) fail("THREE_RUN_ALREADY_RESERVED_NO_AUTOMATIC_RETRY");
+    const reservedOutput = fs.openSync(output, "wx", 0o600);
+    fs.closeSync(reservedOutput);
+    const fd = fs.openSync(marker, "wx", 0o600);
+    fs.writeFileSync(fd, JSON.stringify({ startedAt: new Date().toISOString(), output }));
+    fs.closeSync(fd);
+  }
+  console.log("THREE_PREFLIGHT_OK_TARGETS_OPENAI_EXISTING_SERVICES_PRESERVED");
   const controller = new AbortController();
   process.once("SIGINT", () => controller.abort());
   process.once("SIGTERM", () => controller.abort());
-  const report = await runAcceptance({
-    root: ROOT, readSnapshot: snapshot, signal: controller.signal,
-    save: value => {
+  let lastCompleted = -1;
+  const save = (value: any) => {
       const temporary = output + ".pending";
       fs.writeFileSync(temporary, JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
       fs.renameSync(temporary, output);
-    },
+      const completed = value.results.filter((row: any) => row.status !== "IN_PROGRESS").length;
+      if (completed !== lastCompleted) { console.log(`THREE_PROGRESS ${completed}/81`); lastCompleted = completed; }
+    };
+  // Keep a useful receipt even if original-source binding fails after reservation.
+  save({ kind: "THREE_RESERVED_BEFORE_FIRST_CASE", results: [], before: initialSnapshot, recovery: recovery ?? null });
+  startupStage = "acceptance";
+  const report = await runAcceptance({
+    root: ROOT, readSnapshot: snapshot, initialSnapshot, recovery, signal: controller.signal, save,
     adapter: createInternalAIAdapter({
       readConfiguration: () => ({ enabled: true, production: true, replit: false,
         baseURL: process.env.INDEXUS_AI_GATEWAY_BASE_URL, token: process.env.INDEXUS_AI_GATEWAY_TOKEN }),
@@ -202,4 +230,8 @@ async function main() {
     productionUnchanged: report.productionUnchanged }));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-  main().catch(() => { console.error("THREE_ACCEPTANCE_STOPPED_NOT_READY"); process.exitCode = 1; });
+  main().catch(error => {
+    console.error(JSON.stringify({ event: "THREE_ACCEPTANCE_STOPPED_NOT_READY",
+      stage: startupStage, code: safeFailureCode(error) }));
+    process.exitCode = 1;
+  });

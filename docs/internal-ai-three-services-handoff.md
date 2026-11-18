@@ -363,3 +363,25 @@ Pripravená podpora presnej trojice v existujúcom adaptéri, sedemjazyčný
 živá akceptácia modelu.
 **Živých 81 prípadov z CORPCRM01 zatiaľ nebolo v tomto odovzdaní vykonaných.
 Produkčné prepnutie neprebehlo. Stanovisko na aktiváciu: NOT READY.**
+
+### Oprava vstupnej kontroly pri už aktívnom monitoringu
+
+Pôvodný runner chybne preberal historický B4 snapshot, ktorý vyžadoval
+vypnutú Gateway a 65 predvolených OpenAI routov. Táto podmienka sa na túto
+akceptáciu nevzťahuje. Nový `run-safety.ts` číta aktuálnu konfiguráciu v read-only
+transakcii, zachová interné routy monitoringu/sentimentu a kontroluje iba to,
+že tri testované produkčné routy zostávajú aktívne na OpenAI. Pred/po porovnáva
+hash úplnej aktuálnej konfigurácie aj verziu; neobnovuje historický snapshot.
+
+Pre známy pôvodný runner je pripravené `--recover-before-first-case`.
+Povoľuje pokračovanie výhradne pri nulovej dĺžke pôvodného reportu, bez
+pending súboru, pri presnom naviazaní markeru na report a overených pôvodných
+zdrojoch. Pôvodný runner ukladal neprázdny report synchronne pred každou
+Gateway požiadavkou. Pôvodný marker sa nemaže; zachová sa aj prázdny report
+a vznikne samostatná atómová rezervácia pokračovania. Neprázdny, neistý,
+zmenený alebo už obnovovaný beh sa nesmie automaticky opakovať.
+
+Spúšťač `recover-console.cjs` používa presne existujúci monitoring preload
+a izolovanú kópiu pripnutého kódu. Nevykonáva checkout, inštaláciu, reštart,
+zmenu prihlasovania ani konfigurácie. Chyby runnera teraz uvádzajú konkrétnu
+fázu a bezpečný technický kód, nie surovú správu obsahujúcu súkromné údaje.
