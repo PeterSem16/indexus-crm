@@ -44,6 +44,12 @@ the failing phase, an allowlisted failure category and SQLSTATE when available,
 and reports whether the private configuration already exists without reading it.
 Never request or paste raw psql stderr: it can echo a credential statement.
 
+Catalog ACL checks use CASE guards, not assumed left-to-right AND evaluation.
+PostgreSQL may evaluate a sequence privilege function before a relation-kind
+filter and return 42809 for a table/index. Testing the privilege target as a
+superuser can conceal this failure; the development-only catalog regression
+uses the predefined restricted `pg_monitor` target without changing any role.
+
 Approved invocation after extracting the verified helper files together:
 
 ```sh

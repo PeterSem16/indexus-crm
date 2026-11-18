@@ -33,15 +33,18 @@ const PRODUCTION_PRIVILEGES = `BEGIN READ ONLY;
 SELECT json_build_object(
  'dataAccess', EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-   AND c.relkind IN ('r','p','v','m','f') AND
+   AND CASE WHEN c.relkind IN ('r','p','v','m','f') THEN
      (has_table_privilege('indexus_ai_b1',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
-      OR has_any_column_privilege('indexus_ai_b1',c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))),
+      OR has_any_column_privilege('indexus_ai_b1',c.oid,'SELECT,INSERT,UPDATE,REFERENCES'))
+     ELSE false END),
  'sequenceAccess', EXISTS(SELECT FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
    WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-   AND c.relkind='S' AND has_sequence_privilege('indexus_ai_b1',c.oid,'USAGE,SELECT,UPDATE')),
+   AND CASE WHEN c.relkind='S' THEN
+     has_sequence_privilege('indexus_ai_b1',c.oid,'USAGE,SELECT,UPDATE') ELSE false END),
  'definerAccess', EXISTS(SELECT FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'
-   AND p.prosecdef AND has_function_privilege('indexus_ai_b1',p.oid,'EXECUTE')));
+   AND CASE WHEN p.prosecdef THEN
+     has_function_privilege('indexus_ai_b1',p.oid,'EXECUTE') ELSE false END));
 ROLLBACK;`;
 const ROLE_IDENTITY = `BEGIN READ ONLY;
 SELECT json_build_object('owner',pg_get_userbyid(d.datdba),
