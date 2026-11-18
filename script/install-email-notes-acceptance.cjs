@@ -5,9 +5,8 @@ const crypto = require("node:crypto");
 const { createRequire } = require("node:module");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const PIN = "fdc8a3f345d22d59d90fa2e8d7e13f67accd0318";
 const FILES = Object.freeze({
-  "script/email-notes-acceptance.ts": "a5feed7f05a907a8c06412c4206976fb4a933b06",
+  "script/email-notes-acceptance.ts": "b29243deaed09a0f46683964a4c398589b90ae37",
   "server/lib/email-note-jobs-client.ts": "176b5aa1fdb7ecb7b9ae991966843566ed3e9867",
   "server/lib/email-note-jobs-service.ts": "f3156f1273d591ccd6de414b4ae0de0e21b5880c",
   "server/lib/email-note-jobs-schema.ts": "fb8365d3da407605937fce4980c284457671410f",
@@ -25,9 +24,12 @@ function install({ appRoot, destination, getBlob, builder } = {}) {
   if (Number(process.versions.node.split(".")[0]) < 20 || typeof AbortSignal.any !== "function")
     blocked("node20_with_abortsignal_any_required");
   if (!getBlob) {
-    try { git("cat-file", "-e", `${PIN}^{commit}`); }
-    catch { blocked("pinned_commit_not_fetched"); }
-    getBlob = file => git("show", `${PIN}:${file}`);
+    // The checksum-verified installer pins every blob directly. Fetching its
+    // enclosing commit supplies these objects without requiring a second commit pin.
+    getBlob = file => {
+      try { return git("cat-file", "blob", FILES[file]); }
+      catch { blocked("pinned_source_object_not_fetched"); }
+    };
   }
   if (!builder) {
     try { builder = createRequire(path.join(appRoot, "package.json"))("esbuild"); }
@@ -70,7 +72,7 @@ function install({ appRoot, destination, getBlob, builder } = {}) {
     if (!help.includes("No production DB connection") || help.includes('"results"'))
       blocked("compiler_launch_check_failed");
     fs.renameSync(staged, destination);
-    return { destination, sourcePin: PIN, compiler: builder.version || "unknown",
+    return { destination, sourceBlobs: FILES, compiler: builder.version || "unknown",
       sha256: crypto.createHash("sha256").update(data).digest("hex") };
   } finally { fs.rmSync(temp, { recursive: true, force: true }); }
 }
@@ -91,5 +93,5 @@ function main(args = process.argv.slice(2)) {
     return 2;
   }
 }
-module.exports = { PIN, FILES, gitBlobId, install, main };
+module.exports = { FILES, gitBlobId, install, main };
 if (require.main === module) process.exitCode = main();

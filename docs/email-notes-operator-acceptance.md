@@ -1,5 +1,28 @@
 # Záverečné overenie AI Email Notes na CORPCRM01
 
+## Zistenie z dodaného serverového reportu
+
+Inštalátor na CORPCRM01 úspešne overil nemenné zdroje a vytvoril skript.
+Source HEAD bol nahlásený ako `0ee328b123a33014fab7380210ac7ee158b14085`.
+Kontroly ancestry a statických markerov nepotvrdili začlenenie integrácie;
+nejde o dôkaz presnej verzie už načítaného backendu.
+
+Živá požiadavka na `/gateway/` vrátila **HTTP 404 cez overené HTTPS**.
+Pôvodná podmienka očakávajúca 401 na tomto koreni bola chybná: koreň nie je
+súčasťou kontraktu `/v1/email-notes/jobs`. Nový nástroj vykazuje ľubovoľnú
+prijatú HTTP odpoveď ako úspešné spojenie, nie ako úspešnú autentifikáciu/API.
+DNS/TLS/sieťové zlyhanie zostáva FAIL; presmerovania zostávajú zakázané.
+Samotný klient bez zmeny vyžaduje Bearer token, POST 202 a GET 200 aj platný JSON.
+
+Dodaný beh sa zastavil pred vyhodnotením tokenu pre samostatný runner.
+Neprítomnosť tokenu v počiatočnom prostredí procesu preto **nepreukazuje**,
+že token nie je dostupný v súkromnom konfiguračnom súbore alebo cez dotenv.
+POST/GET, uloženie, kontrola návrhu a schválenie zostali nevykonané.
+Súbory, PID procesu a vypnutý/neprítomný flag podľa reportu zostali nezmenené.
+
+Regresia tejto opravy: **13/13** testov nástroja/inštalátora a **4/4** testov
+pôvodného Gateway klienta PASS; cielená prísna TypeScript kontrola PASS.
+
 ## Opravený prenos a zostavenie nástroja
 
 Na server nevkladať dlhý JavaScriptový blok z chatu. Použiť samostatný
@@ -8,7 +31,7 @@ Krátky spúšťací príkaz najprv overí SHA-256 tohto **nezmeneného CJS zdro
 a až potom ho spustí ako súbor, nie cez `node -`.
 
 Inštalátor:
-- vyžaduje už dostupný pripnutý zdrojový commit a existujúci `esbuild` aplikácie;
+- vyžaduje Git objekty dodané fetchom presného commitu a existujúci `esbuild` aplikácie;
   nič neinštaluje, nefetchuje, neprepína vetvu a nespúšťa CRM;
 - pred kompiláciou kontroluje presné Git blob identity všetkých štyroch vstupov;
 - zostavuje iba v súkromnom adresári mimo aplikácie a overí syntax aj `--help`;
@@ -18,7 +41,7 @@ Inštalátor:
 - umožňuje `--install-only`, ak administrátor chce iba prípravu bez živého POST.
 
 SHA-256 inštalátora:
-`1bb059e62a4052fcb26257eeed4e2ff743e2cc9ab6c4a3ec5a7b2019bb7b5e10`.
+`7e8cddbd2d29f381091fd53d9f062b8d1502044daef043633fe4fc95507beca3`.
 
 **Výstup lokálnej kompilácie sa už neporovnáva s hashom buildu z iného
 prostredia.** Ten môže závisieť od verzie kompilátora. Integrita nie je vypnutá:
@@ -33,10 +56,10 @@ nevykonaný, kým administrátor nespustí nástroj.
 
 ## Skutočný stav odovzdania
 
-Z Replitu nie je oprávnený SSH prístup na CORPCRM01. Aktuálny produkčný
-HEAD ani obsah bežiaceho procesu preto **neboli overené**. Údaj, že na serveri
-funguje DNS a HTTPS, pochádza od administrátora, nie z nového merania tímto nástrojom.
-Neopakujeme neúspešné pripojenia z nesprávneho prostredia.
+Z Replitu nie je oprávnený SSH prístup na CORPCRM01. Vyhodnotenie produkčného
+HEAD a HTTPS teraz vychádza z administrátorom dodaného výstupu nástroja vyššie,
+nie z priameho spojenia z Replitu. Neopakujeme neúspešné pripojenia z nesprávneho
+prostredia a nepotvrdzujeme zatiaľ nevykonané živé generovanie.
 
 Bol pripravený jeden samostatný súbor
 `generated-artifacts/email-notes-acceptance.cjs`. Obsahuje pôvodný Gateway klient,
@@ -46,16 +69,17 @@ Voliteľná testovacia PostgreSQL vetva používa iba existujúci balík `pg` ap
 
 **Produkcia nebola nasadená, reštartovaná, prekonfigurovaná ani dátovo zmenená.**
 
-Overené pri tomto odovzdaní:
+Historické overenie pri pôvodnom odovzdaní (aktuálne serverové zistenia sú vyššie):
 - Bezpečnostné testy operátorského nástroja: **5/5 PASS**.
 - Cielená prísna TypeScript kontrola a kontrola syntaxe výsledného CJS: **PASS**.
 - Nanovo spustené regresie pôvodného sentimentu/monitoringu: **81/81 PASS**.
 - Tri pribalené backendové moduly boli porovnané s obsahom commitu `1e80ffa8`
   cez autorizované GitHub API: **bajtová zhoda PASS**.
-- Skutočný produkčný HEAD, živý POST/GET a schválenie: **BLOCKED** do
-  spustenia administrátorom. Tieto kontroly nie sú nahradené lokálnymi testami.
+- Pred prvým spustením administrátorom boli produkčný HEAD, živý POST/GET
+  a schválenie **BLOCKED**. Aktuálny report už identifikoval HEAD, nie však
+  živé generovanie. Lokálne testy nenahrádzajú tieto kontroly.
 
-SHA-256 odovzdaného samostatného CJS súboru:
+Historický SHA-256 pôvodného priamo prenášaného CJS súboru (nie nového serverového buildu):
 
 ```text
 4f3dc34b083db4b69359dd9c686ae3f0611e1ede1b2251d2f52c88394a6133ef
@@ -120,7 +144,8 @@ Skript nevolá ani samotný príkaz PM2, aby nespustil nesprávny/root daemon.
 2. Z PID súboru `seman` overí jediný CRM proces, jeho pracovný adresár a príkaz.
    Skontroluje počiatočné prostredie aj `.env`: `/proc` samo osebe nepreukazuje
    hodnoty neskôr načítané cez dotenv. Pri náleze zapnutého prepínača zastaví test.
-3. Overí HTTPS bez tokenu: očakáva 401, platné TLS, žiadne presmerovanie.
+3. Overí HTTPS bez tokenu: prijatá HTTP odpoveď potvrdí spojenie cez platné TLS,
+   bez presmerovania. Stav koreňa je informatívny, nie test autentifikácie jobs API.
 4. Vytvorí **práve jednu** úlohu so zabudovaným vymysleným slovenským textom.
    Nikdy nečíta Graph ani skutočné e-maily. Token ide len v Authorization hlavičke
    na pevnú HTTPS adresu. Nejednoznačný POST sa neopakuje.

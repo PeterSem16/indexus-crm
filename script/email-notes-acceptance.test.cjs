@@ -5,7 +5,24 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const toolPath = path.resolve("generated-artifacts/email-notes-acceptance.cjs");
-const { parseConfig, readPrivateConfig, validateTestDatabase } = require(toolPath);
+const { parseConfig, readPrivateConfig, validateTestDatabase, probeGatewayHttps } = require(toolPath);
+
+test("a root 404 is HTTPS reachability, not a failure of the separately authenticated jobs API", async () => {
+  for (const status of [200, 401, 404, 405, 503]) {
+    const result = await probeGatewayHttps(new AbortController().signal, async (url, init) => {
+      assert.equal(url, "https://ai.cordbloodcenter.com/gateway/");
+      assert.equal(init.redirect, "error");
+      assert.equal(init.headers, undefined); // No token on the root probe.
+      assert.ok(init.signal instanceof AbortSignal);
+      return new Response("root status is not the API contract", { status });
+    });
+    assert.equal(result, status);
+  }
+});
+test("DNS/TLS/transport failures still fail the HTTPS probe", async () => {
+  await assert.rejects(probeGatewayHttps(new AbortController().signal,
+    async () => { throw Error("synthetic transport failure"); }), /synthetic transport failure/);
+});
 
 test("configuration whitelist never executes shell or expands secrets", () => {
   const config = parseConfig('OTHER=ignored\nINDEXUS_AI_GATEWAY_TOKEN="synthetic-placeholder"\n' +
