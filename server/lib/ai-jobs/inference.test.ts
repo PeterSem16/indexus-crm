@@ -21,6 +21,7 @@ test("Configuration selects asynchronous tasks without a separate flag, and Open
       process.env[keys[["task.checklist", "task.resolution", "email.summary"].indexOf(service)]] = "false";
       assert.equal(aiJobEnabled(service), true);
       applyAIAdminSnapshot(2, { ...value, routes: { [service]: { ...value.routes[service], provider: "openai" } } });
+      process.env[keys[["task.checklist", "task.resolution", "email.summary"].indexOf(service)]] = "true";
       assert.equal(aiJobEnabled(service), false);
       applyAIAdminSnapshot(3, { ...value, routes: { [service]: { ...value.routes[service], enabled: false } } });
       assert.equal(aiJobEnabled(service), false);

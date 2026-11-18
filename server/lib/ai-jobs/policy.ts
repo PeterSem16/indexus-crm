@@ -13,10 +13,11 @@ export function aiJobEnabled(service: AIJobService): boolean {
   if (process.env.INDEXUS_AI_ROUTER_MODE === "legacy") return false;
   const override = process.env[switches[service]];
   const settings = aiAdminSnapshot()?.value, route = settings?.routes[service];
-  // Configuration is authoritative. The old true flag remains a development
-  // pilot opt-in; a leftover false flag cannot silently undo an admin's choice.
-  return override === "true" ||
-    settings?.gateway.enabled === true && route?.enabled === true && route.provider === "internal";
+  // Once initialized, Configuration is authoritative in BOTH directions.
+  // A leftover true flag must not undo switching a service back to OpenAI.
+  if (settings) return settings.gateway.enabled === true && route?.enabled === true && route.provider === "internal";
+  // Isolated development fixtures without an administration snapshot only.
+  return process.env.NODE_ENV !== "production" && override === "true";
 }
 export function aiJobTimeout(): number {
   const value = Number(process.env.AI_JOBS_GATEWAY_TIMEOUT_MS ?? 120000);
