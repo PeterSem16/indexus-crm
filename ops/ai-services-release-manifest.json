@@ -1,0 +1,404 @@
+{
+  "format": 1,
+  "sourceCommit": "5c7c1f9e065f255d5b300cd503417766f0f81b29",
+  "sourceTree": "7c7e449313b5848af3517695b2877c73fb51a2b1",
+  "baseCommit": "2464decc180187d1edc9742a4d07f04f918c4660",
+  "dependenciesSha256": "9d19b8531bd931e7a6b51b5a4c639634c332926596c3bd650478dcb971928614",
+  "patchSha256": "d5cc5d6fe8fbcaca1b6577a0d1528ef20f585d8b1053260ee8f92369ba632169",
+  "patchBytes": 205388,
+  "productionActivated": false,
+  "files": [
+    {
+      "path": "client/src/components/configurator/AISettingsTab.tsx",
+      "baseBlob": "55474fca81d8875e1501a4fe6271e8555bd94030",
+      "blob": "7e062350c67f0a2868b3b2b20a9c0b2ec86c4003",
+      "sha256": "cd1d8f330949ec39918a20be9ef7a0fe3fb41adda19d84795429da194dfbae07",
+      "bytes": 26692
+    },
+    {
+      "path": "client/src/components/nexus/EmailSummaryJob.tsx",
+      "baseBlob": null,
+      "blob": "2a65ac599c49e100c3baf3801365b6e0f10778ce",
+      "sha256": "3286f4c755c5620c1ae9f31dd4095935950578902d654599ce9df250f80a3840",
+      "bytes": 995
+    },
+    {
+      "path": "client/src/components/tasks/ai-job-status.tsx",
+      "baseBlob": null,
+      "blob": "47d4b04cd595038b2385ec8d0753fc4b87781976",
+      "sha256": "f1f952827327ee2d0b73a1f3fef98569fe10f32cc3a311ccf54668f9b7a71196",
+      "bytes": 745
+    },
+    {
+      "path": "client/src/components/tasks/task-resolution-dialog.tsx",
+      "baseBlob": "fe670984a28a450e439c64abf282ac5516110921",
+      "blob": "365afbf0eabcfa6f61f05acf92cd90ac40e288b1",
+      "sha256": "4241026aead390908d7134318560290c7bbebe9a1b6aa1262c6fad9a3c329dc5",
+      "bytes": 16762
+    },
+    {
+      "path": "client/src/hooks/use-ai-job.ts",
+      "baseBlob": null,
+      "blob": "4b7237fc152f98d8bb25fa310651d8883795c5d4",
+      "sha256": "5b0f1d808355d884f86ba386ad3d944fa1eb670ebdd27347ff0dcdf56afd6a78",
+      "bytes": 3652
+    },
+    {
+      "path": "client/src/i18n/ai-execution-translations.ts",
+      "baseBlob": null,
+      "blob": "8301f1177d905319503a485ad58b752b9fbb00f5",
+      "sha256": "f18ecb3827110dcdd9d7fd84805d74b0ea0f35ce5a4bbc3df5195f23dbf201f4",
+      "bytes": 3679
+    },
+    {
+      "path": "client/src/i18n/ai-job-translations.ts",
+      "baseBlob": null,
+      "blob": "e80a2a4c4d5354f4970ca8f1c51fd53403ec74b2",
+      "sha256": "dc16141319a9dd138c7aeb1053faaf593cc120b22541228eec4bd312d66d4ee4",
+      "bytes": 1842
+    },
+    {
+      "path": "client/src/i18n/ai-settings-translations.ts",
+      "baseBlob": "817defccfb75b824233384a22c29658c225c7741",
+      "blob": "9a001f7e096683fed3eeed39f34e2aab8edabe8e",
+      "sha256": "be2ffcd3c22f5dd40b0513538f2a261532ca15b1f574d5812d4e771dbbf4788e",
+      "bytes": 51084
+    },
+    {
+      "path": "client/src/i18n/translations.ts",
+      "baseBlob": "b68365de260a4eb8ef25d285e21634f3f3c0b180",
+      "blob": "84126b82247829eb7259b024e4626e73160639a3",
+      "sha256": "44d4ff8473ebedba778c6541598e8c9d51dfd00d43ca44e4d4a1079dda38c581",
+      "bytes": 3152793
+    },
+    {
+      "path": "client/src/pages/email-client.tsx",
+      "baseBlob": "8ed2dd9fb9087b9ae9940026705b878f316c8695",
+      "blob": "96fc944482a3d1a7b67782b3673df518ec072bb3",
+      "sha256": "7068cd5d8127b69b012cc1ae0cf6431e67cb3a1d90c2c985548e090b24b84264",
+      "bytes": 563933
+    },
+    {
+      "path": "client/src/pages/tasks.tsx",
+      "baseBlob": "41aa46fb6f9be9263003c39df1c558c2ac032203",
+      "blob": "fac614e055019ad34fdb5b76338c2b72f2b5f33b",
+      "sha256": "c39f5644ffe881d6d000c8258a602cfea71ec0c58cbbeec835ca8a59b95e67b0",
+      "bytes": 76416
+    },
+    {
+      "path": "docs/ai-jobs-pilot.md",
+      "baseBlob": null,
+      "blob": "b2663ecb006b8f1d5b4a67c5deb07d7a02452638",
+      "sha256": "a0b546c4eb59a20b954b2050a853a816a497f6736f571518b32b814c059e4853",
+      "bytes": 8828
+    },
+    {
+      "path": "docs/ai-services-asynchronous.md",
+      "baseBlob": null,
+      "blob": "4c1fb05171d701ce13de2375ee59d72e2aa0a061",
+      "sha256": "85f8dcc0417604e7398b49469063949f305ba30dda7e67e8850eae6e38b11dbb",
+      "bytes": 5352
+    },
+    {
+      "path": "package.json",
+      "baseBlob": "83cad080c13961b6e374031883bf77abaa10d655",
+      "blob": "ab5be27bf2700bf7c9346f7c22c45c8d3cd8d416",
+      "sha256": "c5900df82220b0ec603e95c69622d5242d6d689089d5be0b044556511f30ba95",
+      "bytes": 8037
+    },
+    {
+      "path": "script/ai-jobs/tsconfig.json",
+      "baseBlob": null,
+      "blob": "1861a028434f6bccc00e4eee840fb58c62f91e06",
+      "sha256": "c2d387823b25dadac2132403378512f0c10db6a7154d1fa84fce86e546b4e564",
+      "bytes": 306
+    },
+    {
+      "path": "script/ai-three-services/source.ts",
+      "baseBlob": "a238253885ba3c83e7d9f904d533473b8befda39",
+      "blob": "95b1134a11d86d1cad68cde269715b433b08481a",
+      "sha256": "1e0982d9b08a600c91000cbfa574f41ac3976fb774e5804d803093a716133e30",
+      "bytes": 3984
+    },
+    {
+      "path": "script/build.ts",
+      "baseBlob": "8279abb6d6e2cb13ca8d06813ff5550dd0edfca1",
+      "blob": "f36e1bab62e963477bfc6e2cbdd6feb3edcd0881",
+      "sha256": "2ebf7fafc03268383c8b3da8086d1b6d1720367e0ed4a60f3d14d50670697df3",
+      "bytes": 1698
+    },
+    {
+      "path": "script/test-ai-settings-ui.cjs",
+      "baseBlob": "523f8de2f1cfd84171f019dac5802ec08c25dabe",
+      "blob": "1c54510e0b33daa47dfee14b7d73556f0dc6c4ea",
+      "sha256": "9759d6d87b37049fd99a5781d716729c73ef34e3ce9a948a1bbc44f87e8cf78e",
+      "bytes": 10377
+    },
+    {
+      "path": "script/test-ai-summary-job-browser.cjs",
+      "baseBlob": null,
+      "blob": "101083e8a393ee203b9220bbd0a6bbe726302a14",
+      "sha256": "ff52e1d43ab776322ed25905561f438d5385559d4b5aec667b2f48c5b461e61f",
+      "bytes": 6000
+    },
+    {
+      "path": "script/test-task-resolution-dialog-browser.cjs",
+      "baseBlob": "b3ef2b5b921a4917f14c3d23be84469c8ff89649",
+      "blob": "873993748d0bdf42240826933849ddff2ba23440",
+      "sha256": "ec420237233ee825fbf187a9736df6a350376908a0ff9560a4582268d4f69c5e",
+      "bytes": 21650
+    },
+    {
+      "path": "server/ai-worker.ts",
+      "baseBlob": null,
+      "blob": "879a3b5e755c02625917235425d08512f6bf95c3",
+      "sha256": "43c5f85acc7397a3cf2890429fb265c2207a2c090a3cda163a10dda417e835cd",
+      "bytes": 3247
+    },
+    {
+      "path": "server/index.ts",
+      "baseBlob": "d3b5549439c5f1aa61de6e8c3fc02cc853f3b8b4",
+      "blob": "887f27d3c7f6893b8644a5ea8aca3a6a6a06bf7a",
+      "sha256": "ec5b26242410dc339134393e94b67b0e8302f3b304dc171932aee898c995b1ac",
+      "bytes": 79098
+    },
+    {
+      "path": "server/lib/ai-jobs/context.ts",
+      "baseBlob": null,
+      "blob": "5206f930e0560ba143e69fa719cd1e68d9753a4d",
+      "sha256": "42473174896f5363fe965c88e490a7ab89fa0e13aae94f5685bbfcaccc961202",
+      "bytes": 6145
+    },
+    {
+      "path": "server/lib/ai-jobs/handlers.ts",
+      "baseBlob": null,
+      "blob": "39abbe4cba4fea217b1dc67ab6a5cb46b9f8fcdf",
+      "sha256": "99244e467b470ae3d00cd8144c3b40636626e060ea9ef26c476f796f4ca2e690",
+      "bytes": 3846
+    },
+    {
+      "path": "server/lib/ai-jobs/inference-live.ts",
+      "baseBlob": null,
+      "blob": "315ac89b5b34114333598af2a3aa1df9d68bff72",
+      "sha256": "2499ae40bed28a920d45c5fbc11b71b127cdbe997641c56aeb23e8ca8532c0a7",
+      "bytes": 204
+    },
+    {
+      "path": "server/lib/ai-jobs/inference-runtime.ts",
+      "baseBlob": null,
+      "blob": "b9d9ed8953061c99612164773ab7282a3796c9ff",
+      "sha256": "30aec240f68abeeaf24097d57e0ef584bedcca3f0d349fc59b9123dffba65ec7",
+      "bytes": 2343
+    },
+    {
+      "path": "server/lib/ai-jobs/inference-schema.ts",
+      "baseBlob": null,
+      "blob": "181a4b84f00aa20b9040f5bbdd66e9f9567dea4c",
+      "sha256": "a99970273e7f04e845c18ae78be6324b86f93c8e126d96fc43e8f20374701a72",
+      "bytes": 1177
+    },
+    {
+      "path": "server/lib/ai-jobs/inference-store.ts",
+      "baseBlob": null,
+      "blob": "f32e9400443cc53c1de9ad826e5a78d40a079fee",
+      "sha256": "cdbaf013f2d7bc6f074cc0990612b27ce6338b6cc03606d2f039d1dba1badd26",
+      "bytes": 4929
+    },
+    {
+      "path": "server/lib/ai-jobs/inference-worker.ts",
+      "baseBlob": null,
+      "blob": "eb244b8b58d71c787e26626e1e258ac488574bfa",
+      "sha256": "0dc53dfdc1b4567a54085021e932561ebd1f0a97ad5594779a53cd9dee9ca4af",
+      "bytes": 3714
+    },
+    {
+      "path": "server/lib/ai-jobs/inference.db.test.ts",
+      "baseBlob": null,
+      "blob": "5bcd1e4be2b6ea2f7fad2396b62d6197676159ce",
+      "sha256": "51f899aba61ac4ecd2255bef8e72f98e8b6da0f4e8d383a08a5ef1a4ebf0a86a",
+      "bytes": 10641
+    },
+    {
+      "path": "server/lib/ai-jobs/inference.test.ts",
+      "baseBlob": null,
+      "blob": "ad0a3dc156fe1ba0fd2d001301a1542ca77a2045",
+      "sha256": "286481c02d70ca27c0644f569264b0a6ccfdbafa5c1a8b4e7dbeae3e7f5a706e",
+      "bytes": 5709
+    },
+    {
+      "path": "server/lib/ai-jobs/jobs.db.test.ts",
+      "baseBlob": null,
+      "blob": "980252a7d888bb5908b2fcc4fb1eed387402d303",
+      "sha256": "52155e849cc20c333e39e211aa0287b9d84e899990a04c200b381e036b2ff176",
+      "bytes": 15181
+    },
+    {
+      "path": "server/lib/ai-jobs/jobs.test.ts",
+      "baseBlob": null,
+      "blob": "851c9347d5cdc1bde4d350c34628b61bad4e869a",
+      "sha256": "57d72fd42320c28a9554dac81872e45f57dbad222c674591303ed0dfacd90ba6",
+      "bytes": 6284
+    },
+    {
+      "path": "server/lib/ai-jobs/mailbox.ts",
+      "baseBlob": null,
+      "blob": "443ac34f8a43d3ae472eaac582ee963427d2e61e",
+      "sha256": "4c6c9b4a553db1af2a3d58e94cab265c81203e953af35fac071c6e8d96f72a04",
+      "bytes": 1818
+    },
+    {
+      "path": "server/lib/ai-jobs/policy.ts",
+      "baseBlob": null,
+      "blob": "0dea5abe0f8920f838c45ed363e1b77affd18fbf",
+      "sha256": "048658c66043d943871f9e77ff92ecc6db28401462fe989e6f07d8bb8e824f66",
+      "bytes": 2517
+    },
+    {
+      "path": "server/lib/ai-jobs/readiness.ts",
+      "baseBlob": null,
+      "blob": "9f371e067ed30f927678aad88d5e34e899595063",
+      "sha256": "6df1601e29af96ebbe54246e99254dd17f85f7c58c1754887c4b021c661f58ae",
+      "bytes": 1518
+    },
+    {
+      "path": "server/lib/ai-jobs/register.ts",
+      "baseBlob": null,
+      "blob": "510bb696ee0ee7955f607b514e76b2edf7b45150",
+      "sha256": "af468d040a05102db30a5a1159b02f3fed009e7773f8a00e3228bf42326ecc4e",
+      "bytes": 944
+    },
+    {
+      "path": "server/lib/ai-jobs/routes.ts",
+      "baseBlob": null,
+      "blob": "769a3d1c8b5391919760a9996c72881bf0452ced",
+      "sha256": "cf2c329cb0098d4d1837194d76e4919e77653f8a2d9667f58b32d9e8ef0787ee",
+      "bytes": 4471
+    },
+    {
+      "path": "server/lib/ai-jobs/runtime.ts",
+      "baseBlob": null,
+      "blob": "5bb68e84bac6f9172261a08e840824863b4025e6",
+      "sha256": "e88bb6a3ffb9ca4d8ac2d4bb54ee0c9c22eb8d5ab2264033e6d8ea6b07223cc7",
+      "bytes": 8085
+    },
+    {
+      "path": "server/lib/ai-jobs/schema-migration.ts",
+      "baseBlob": null,
+      "blob": "ab770a02acc445bd16dfd71811f85177cb873a1d",
+      "sha256": "37e9d10bb581f5a31622fc741b86a80cc2568bfcc6506d55626a8b0480f5f2df",
+      "bytes": 1755
+    },
+    {
+      "path": "server/lib/ai-jobs/store.ts",
+      "baseBlob": null,
+      "blob": "616bbc37991e43a6af74412d09b2f7bb78fdee61",
+      "sha256": "d7e03c35fd598c582ff89895fa82353fe8ca4f895b28959790a4cd6bb97eb8ec",
+      "bytes": 8889
+    },
+    {
+      "path": "server/lib/ai-jobs/summary.ts",
+      "baseBlob": null,
+      "blob": "6c2154fdef6bf56e974893c8fe811df36132ea12",
+      "sha256": "9c223ba7aeb11149b692e82114c4668448a0ed235fe222efc46d2c8b625bd6be",
+      "bytes": 2246
+    },
+    {
+      "path": "server/lib/ai-jobs/worker.ts",
+      "baseBlob": null,
+      "blob": "b53cd4b4c2db25064a8df0e3969e119dbb52330c",
+      "sha256": "2171472bbf9174ec4f3195514675b97ad03b268a70280ab9f0a3063735d4c4cb",
+      "bytes": 2090
+    },
+    {
+      "path": "server/lib/ai-router.ts",
+      "baseBlob": "599ac231ee152d28bafb676dd0e94d61cb35c3cb",
+      "blob": "38cc62b22de10d8a6e644f0e0b88acebfc8595cd",
+      "sha256": "6df4ae480b484160d3459b39681cba2ecda2aaabc6b102598d53554b4c3f7596",
+      "bytes": 1628
+    },
+    {
+      "path": "server/lib/ai-settings-bootstrap.ts",
+      "baseBlob": "6d88e7593dd2137d184b702f2c8c8afad753ac2c",
+      "blob": "7192b2ead13b112f6b5662809682b03c35c07a32",
+      "sha256": "4633581e756bd26707ec25d087ed8b13a2a3c4f3d3d947ba075667ae922ec936",
+      "bytes": 1204
+    },
+    {
+      "path": "server/lib/ai/admin-router.ts",
+      "baseBlob": "0155a4ba4ed7ca00db0e39a52e527989550e1294",
+      "blob": "09f73c2b7008dbe7f9a13fe44b943157f36a8b73",
+      "sha256": "731a6d6d96399d979e8071db3668c510e5eb58103ec77fc25cf2a3989487c1e9",
+      "bytes": 3441
+    },
+    {
+      "path": "server/lib/ai/background-context.ts",
+      "baseBlob": null,
+      "blob": "642aac4aa6001ca00f9c2fdf9dd55a2da9196139",
+      "sha256": "06cebc6aa90e0079058ef60bae4bf781da581108849b8561deff6edffc079622",
+      "bytes": 1352
+    },
+    {
+      "path": "server/lib/ai/internal-adapter.ts",
+      "baseBlob": "556302499fe0e70317d49612d974dbe057383079",
+      "blob": "ecc6d33f790b3241c1a10647ae3b81ca85f076d7",
+      "sha256": "8cc205b409d52d75d854e850cdf9dd150c782e6a73aff377310a317f8342e20d",
+      "bytes": 16229
+    },
+    {
+      "path": "server/lib/ai/settings-controller.ts",
+      "baseBlob": "4c2837a0cad55cb0c5dde390f5d6e2fe9c6e6ba7",
+      "blob": "5d3cbae24e1b6f28dfb00a3968cba631d16bd7ab",
+      "sha256": "0a651722edec34b497d92b31a43338e133e839c15f6613602021f35988020b14",
+      "bytes": 6634
+    },
+    {
+      "path": "server/lib/ai/settings-routes.db.test.ts",
+      "baseBlob": "55058edbb0c43968045a66b99db648795d45f883",
+      "blob": "f994e69e50c06550a7259f339a03fa37fa4f8ca0",
+      "sha256": "ce3ad5e4354f76a5bed90aa3873058b4c9271936f5b104fa2c7d115fe36ec6d3",
+      "bytes": 11830
+    },
+    {
+      "path": "server/lib/task-ai-checklist.ts",
+      "baseBlob": "663370cebb6389410c89d3b5f00e755648bffae7",
+      "blob": "506154b7078c44599210c935e9af03b88d926027",
+      "sha256": "247caeb616f3ecc57e25c959b46394ea68500458eb2828430999d3a585d621a2",
+      "bytes": 20848
+    },
+    {
+      "path": "server/lib/task-resolution-draft-route.ts",
+      "baseBlob": "95a27e960c1eaf7ca4532d5d8f114415c2a8ed04",
+      "blob": "a33b21e012230980f1adb7d34a342f627c24958a",
+      "sha256": "6ab21feb89fc9aea89c3d3ec9d8ceefbd482197daecb633a8ff343e330deb29a",
+      "bytes": 4577
+    },
+    {
+      "path": "server/routes.ts",
+      "baseBlob": "0515d0443734fb1718477480fcdfa2a486093d5a",
+      "blob": "563ebea76bad1318c1a861870435b95ae0522cea",
+      "sha256": "d6403fad082afe378b93b9593afd7ca472119105d5172f957d5bdf45c49fe724",
+      "bytes": 2949488
+    },
+    {
+      "path": "shared/ai-jobs.ts",
+      "baseBlob": null,
+      "blob": "baba45f09b0243925560001ef759ad1d9f903f8b",
+      "sha256": "8c2bb6dbd85b9803ca415b6e06eb5b1fa778acd8ac8e4077bc4d262fa5b7b73d",
+      "bytes": 715
+    },
+    {
+      "path": "shared/ai-settings.ts",
+      "baseBlob": "1dad43900d316d713543caf779452cc00b08a9cb",
+      "blob": "6967c31b410307b8c49bce03e5e1be0b4bfa5187",
+      "sha256": "ffefc19107ebc716942d04c61020de8992177040afd49efb73f251ab746b0f18",
+      "bytes": 1584
+    },
+    {
+      "path": "shared/schema.ts",
+      "baseBlob": "f9588066b20441143e5dcb2ebb3142aa34723f5d",
+      "blob": "72eeaf33619b771d06542b78a079beae4e152a2d",
+      "sha256": "58e832218886cfef227447ee96c7d72ace861d3d2630b5a744e58b5d0c2f18c0",
+      "bytes": 443169
+    }
+  ]
+}
