@@ -158,8 +158,9 @@ let startupStage = "arguments";
 async function main() {
   const recoveryMode = process.argv[2] === "--recover-before-first-case";
   const smokeMode = process.argv[2] === "--smoke-three";
+  const checklistFidelityMode = process.argv[2] === "--checklist-sk-fidelity-retest";
   const checklistContentMode = process.argv[2] === "--checklist-sk-content-retest";
-  const checklistMode = process.argv[2] === "--checklist-sk-retest" || checklistContentMode;
+  const checklistMode = process.argv[2] === "--checklist-sk-retest" || checklistContentMode || checklistFidelityMode;
   const planned = checklistMode ? 1 : smokeMode ? 3 : 81;
   if (process.argv.length !== 4 || (!recoveryMode && !smokeMode && !checklistMode && process.argv[2] !== "--run-81"))
     fail("THREE_EXPLICIT_RUN_AND_OUTPUT_REQUIRED");
@@ -174,7 +175,8 @@ async function main() {
   if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid?.() ||
       (parent.mode & 0o077)) fail("THREE_EXISTING_PRIVATE_OUTPUT_DIRECTORY_REQUIRED");
   // This fixed one-time marker blocks accidental second runs under a different output name.
-  const marker = path.join(ROOT, "data", checklistContentMode
+  const marker = path.join(ROOT, "data", checklistFidelityMode
+    ? "internal-ai-task-checklist-sk-fidelity-retest.started" : checklistContentMode
     ? "internal-ai-task-checklist-sk-content-retest.started" : checklistMode
     ? "internal-ai-task-checklist-sk-language-retest.started" : smokeMode
     ? "internal-ai-three-services-smoke-after-discovery.started"
