@@ -38,6 +38,12 @@ test data, unexpected role privilege, membership or production access stops it.
 If a later step fails, retain the private file: do not delete it to make a retry
 pass, rotate credentials blindly, drop the database or modify production grants.
 
+After a preparation error, use the same verified helper with `--diagnose`, not
+another `--prepare`. This mode performs only read-only catalog checks, reports
+the failing phase, an allowlisted failure category and SQLSTATE when available,
+and reports whether the private configuration already exists without reading it.
+Never request or paste raw psql stderr: it can echo a credential statement.
+
 Approved invocation after extracting the verified helper files together:
 
 ```sh

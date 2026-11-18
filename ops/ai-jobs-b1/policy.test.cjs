@@ -2,7 +2,7 @@
 const { test } = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), path = require("node:path"), os = require("node:os"), crypto = require("node:crypto");
 const policy = require("./policy.cjs");
-const { prepare, adminSQL } = require("./prepare-db.cjs");
+const { prepare, adminSQL, diagnose } = require("./prepare-db.cjs");
 const envText = "DATABASE_URL='postgresql://app:synthetic@127.0.0.1:5543/indexus_crm'\n";
 const freshRole = { owner: policy.DATABASE, memberships: 0,
   login:false,superuser:false,createdb:false,createrole:false,replication:false,bypass:false,inherit:false,passwordSet:false };
@@ -26,6 +26,35 @@ test("administrator calls send SQL over stdin, not arguments, and redact failure
   }),"{}");
   assert.throws(() => adminSQL(5543,"postgres",secret,()=>({status:1,stderr:secret})),error=>
     error.message==="B1_ADMIN_OPERATION_FAILED" && !error.message.includes(secret));
+});
+test("diagnostic reports phase and SQLSTATE without exposing SQL, credentials or raw stderr", () => {
+  const root=path.join(os.tmpdir(),"b1-nonexistent-"+crypto.randomUUID());
+  for(const failure of [
+    {stderr:"sudo: a password is required; sensitive-verifier",kind:"sudo_authentication_required",state:null},
+    {stderr:"psql:<stdin>:9: ERROR:  42809\nsensitive-verifier",kind:"sql_failed",state:"42809"},
+  ]){
+    let calls=0;
+    const result=diagnose({root,envText,admin:(port,db,sql)=>{
+      calls++;
+      assert(sql.includes("BEGIN READ ONLY")); assert(!sql.includes("ALTER ROLE"));
+      if(calls===1)return JSON.stringify({admin:true,port});
+      return adminSQL(port,db,sql,()=>({status:1,stderr:failure.stderr}));
+    }});
+    assert.equal(result.ok,false); assert.equal(result.phases[1].phase,"testRole");
+    assert.equal(result.phases[1].kind,failure.kind);assert.equal(result.phases[1].sqlstate,failure.state);
+    assert.equal(result.privateConfigExists,false);assert(!JSON.stringify(result).includes("sensitive"));
+    assert.equal(fs.existsSync(root),false);assert.equal(calls,2);
+  }
+});
+test("read-only diagnostics preserve an existing private configuration without reading or replacing it", () => {
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),"b1-diag-"));
+  const file=path.join(root,"private.json");fs.writeFileSync(file,"do-not-read-or-rotate",{mode:0o600});
+  try {
+    const result=diagnose({root,envText,admin:()=>JSON.stringify({checked:true})});
+    assert.equal(result.ok,true);assert.equal(result.phases.length,4);assert.equal(result.privateConfigExists,true);
+    assert.equal(fs.readFileSync(file,"utf8"),"do-not-read-or-rotate");
+    assert(!JSON.stringify(result).includes("do-not-read"));
+  }finally{fs.rmSync(root,{recursive:true,force:true});}
 });
 test("private credentials, target marker and no re-run rotation", async () => {
   const root=path.join(fs.mkdtempSync(path.join(os.tmpdir(),"b1-policy-")),"private");
