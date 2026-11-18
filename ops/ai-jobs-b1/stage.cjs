@@ -1,6 +1,15 @@
 "use strict";
 const fs=require("node:fs"),path=require("node:path"),os=require("node:os"),cp=require("node:child_process");
 const policy=require("./policy.cjs");
+const {assertPrivateSpace}=require("./space-policy.cjs");
+function archiveToDisk(app,pin,files,source,run=cp.execFileSync) {
+  const archive=path.join(source,"B1-source.tar");
+  fs.writeFileSync(archive,"",{flag:"wx",mode:0o600});
+  run("git",["-C",app,"archive","--format=tar","--output="+archive,pin,"--",...files],
+    {timeout:60000,stdio:["ignore","ignore","pipe"]});
+  fs.chmodSync(archive,0o600);
+  run("tar",["-xf",archive,"-C",source],{timeout:60000,stdio:["ignore","ignore","pipe"]});
+}
 function sourcePathAllowed(name) {
   if(name.startsWith("/")||name.split("/").some(p=>p===".."||p.startsWith(".env"))||
     /(^|\/)(uploads?|backups?|dumps?)(\/|$)/i.test(name))return false;
@@ -29,18 +38,23 @@ function main() {
   policy.assert(process.argv[2]==="--stage"&&/^[a-f0-9]{40}$/.test(pin),"B1_PINNED_SOURCE_REQUIRED");
   const root=path.join(os.homedir(),"INDEXUS-AI-B1");
   policy.readPrivate(root);
-  const source=path.join(root,"source");
-  policy.assert(!fs.existsSync(source),"B1_SOURCE_EXISTS_STOP");
+  const source=assertPrivateSpace(root).source;
+  policy.assert(fs.readdirSync(source).every(name=>name==="B1-HTTP-CANARY.txt"),"B1_SOURCE_EXISTS_STOP");
   const git=args=>cp.execFileSync("git",["-C",policy.APPLICATION,...args],
-    {encoding:"utf8",maxBuffer:1024*1024,timeout:15000});
+    {encoding:"utf8",maxBuffer:4*1024*1024,timeout:15000});
   policy.assert(git(["rev-parse",`${pin}^{commit}`]).trim()===pin,"B1_COMMIT_NOT_AVAILABLE");
-  const files=git(["ls-tree","-r","--name-only",pin]).trim().split("\n").filter(sourcePathAllowed);
+  const entries=git(["ls-tree","-rzl",pin]).split("\0").filter(Boolean).map(line=>{
+    const tab=line.indexOf("\t"),info=line.slice(0,tab).trim().split(/\s+/);
+    return {name:line.slice(tab+1),mode:info[0],size:Number(info[3])};
+  }).filter(entry=>sourcePathAllowed(entry.name));
+  policy.assert(entries.every(e=>["100644","100755"].includes(e.mode)&&Number.isSafeInteger(e.size)&&e.size>=0),
+    "B1_REGULAR_SOURCE_FILES_REQUIRED");
+  const files=entries.map(e=>e.name),capacity=fs.statfsSync(source);
+  policy.assert(capacity.bavail*capacity.bsize>2*1024**3+6*entries.reduce((sum,e)=>sum+e.size,0),
+    "B1_DATA_CAPACITY_REQUIRED");
   for(const required of ["server/ai-b1.ts","script/ai-jobs-b1/build.ts","ops/ai-jobs-b1/launch.cjs","client/src/pages/tasks.tsx"])
     policy.assert(files.includes(required),"B1_SOURCE_INCOMPLETE");
-  fs.mkdirSync(source,{mode:0o700});
-  const archive=cp.execFileSync("git",["-C",policy.APPLICATION,"archive",pin,"--",...files],
-    {maxBuffer:128*1024*1024,timeout:30000});
-  cp.execFileSync("tar",["-x","-C",source],{input:archive,timeout:30000,stdio:["pipe","pipe","pipe"]});
+  archiveToDisk(policy.APPLICATION,pin,files,source);
   for(const file of files) {
     const st=fs.lstatSync(path.join(source,file));
     policy.assert(st.isFile()&&!st.isSymbolicLink(),"B1_REGULAR_SOURCE_FILES_REQUIRED");
@@ -50,5 +64,5 @@ function main() {
     {flag:"wx",mode:0o600});
   console.log(JSON.stringify({staged:true,sourceCommit:pin,sourceFiles:files.length,workerStarted:false}));
 }
-module.exports={sourcePathAllowed,linkDependencies};
+module.exports={sourcePathAllowed,linkDependencies,archiveToDisk};
 if(require.main===module)try{main();}catch(error){console.error(policy.safeError(error));process.exitCode=1;}

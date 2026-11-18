@@ -4,6 +4,7 @@ import path from "node:path";
 import os from "node:os";
 import pg from "pg";
 import policy from "../ops/ai-jobs-b1/policy.cjs";
+import { assertPrivateSpace } from "../ops/ai-jobs-b1/space-policy.cjs";
 
 async function main() {
   const root = process.env.INDEXUS_B1_ROOT;
@@ -15,6 +16,7 @@ async function main() {
     process.env.INDEXUS_AI_ROUTER_MODE === "routed" &&
     process.env.INDEXUS_AI_GATEWAY_ENABLED === "true", "B1_LAUNCHER_REQUIRED");
   const config = policy.readPrivate(root);
+  assertPrivateSpace(root);
   const probe = new pg.Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
   try { await probe.connect(); await policy.assertDatabase(probe, config); } finally { await probe.end(); }
   // No application modules/pools are loaded until the actual DB identity passes.

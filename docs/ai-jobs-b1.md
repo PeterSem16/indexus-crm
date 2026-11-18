@@ -27,8 +27,9 @@ verification passed login, original Quick Create, HTTP 202, one job and the
 visible pending checklist. No mailbox was connected or simulated.
 
 The queue/API/resolution, route-adapter and initialization regression run passed
-25 tests. Another 14 operator-tool tests passed, including a real development
-catalog check. The latter is deliberately skipped outside Replit development.
+25 tests. Operator-tool regressions additionally cover a real development
+catalog check and a real archive larger than the old Node buffer limit. Those
+two checks are deliberately skipped outside Replit development.
 A scoped TypeScript run still reported diagnostics in imported dependencies;
 it is not a clean typecheck.
 
@@ -101,9 +102,18 @@ Local fixture tests are never a substitute for any of these live gates.
 ## Isolated source, build and first internal readiness
 
 The operator fetches a pinned commit on a separate B1 branch, not main.
-`stage.cjs --stage <commit>` archives only allowed source and UI assets into
-`~/INDEXUS-AI-B1/source`. It excludes .env files, dumps, uploads and unrelated
-scripts. Existing source directories are never replaced automatically.
+After capturing the baseline, `build-space.cjs --prepare` verifies `/dev/sdb1`
+at the approved data mount, free capacity and the actual non-root production
+Node UID. It creates a root-owned mode-700 backing parent and a private bind view
+at `~/INDEXUS-AI-B1/source`, outside the web namespace. Direct EACCES under the
+real Node UID, a healthy public login response and an unreadable HTTP canary
+are mandatory. A 500 alone is not accepted. No fallback to the system disk/tmp.
+
+`stage.cjs --stage <commit>` archives only allowed source and UI assets into that
+verified data-backed view. Git writes the archive directly to a private file;
+tar reads that file, never a Node buffer. Capacity covers source, archive and
+build with a reserved margin. It excludes .env files, dumps, uploads and unrelated
+scripts. Existing source content is never replaced automatically.
 
 Dependencies use per-package links inside a **private node_modules directory**.
 Never symlink the entire live node_modules directory: Vite writes temporary
@@ -124,7 +134,7 @@ environment values and loads Gateway credentials only through the existing
 production runtime loader. Database identity, restricted role and environment
 nonce are checked before importing application modules.
 
-After the pinned source has been staged and the baseline captured:
+After the baseline, private data view and pinned source have been prepared:
 
 ```sh
 cd "$HOME/INDEXUS-AI-B1/source" || exit 1
@@ -162,6 +172,10 @@ No automatic retry is offered. Do not approve a failed language/factual check.
 
 Stop only the two B1 foreground processes with Ctrl+C. The worker drains its
 current request, with a bounded shutdown deadline; keep its console open.
+After reporting, leave the source directory in both consoles (`cd "$HOME"`),
+then invoke `build-space.cjs --unmount` from outside the view. It refuses forced/
+lazy unmounting and retains the private backing artifacts and test database.
+Preparation errors attempt to unmount their own view without deleting artifacts.
 Before allowing resolution, review checklist language and facts, then use the
 explicit `accept-checklist --reviewed-language-and-facts` command and restart only
 the B1 processes. Email summary remains disabled until a separately authorized

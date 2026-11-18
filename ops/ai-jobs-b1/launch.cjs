@@ -2,6 +2,7 @@
 // A separate operator process, never sourced by the live app or shell.
 const fs=require("node:fs"),path=require("node:path"),os=require("node:os");
 const {verifyBuild}=require("./build-policy.cjs");
+const {assertPrivateSpace}=require("./space-policy.cjs");
 const policy=require("./policy.cjs");
 try {
   policy.assert(os.hostname().split(".")[0].toUpperCase()==="CORPCRM01" &&
@@ -14,6 +15,7 @@ try {
   policy.assert(fs.realpathSync(process.cwd())===source &&
     fs.realpathSync(source)===source && source!==policy.APPLICATION,
   "B1_ISOLATED_SOURCE_REQUIRED");
+  assertPrivateSpace(root);
   const {entry,release}=verifyBuild(source);
   const baseline=fs.lstatSync(path.join(root,"production-baseline.json"));
   policy.assert(baseline.isFile()&&!baseline.isSymbolicLink()&&baseline.uid===process.getuid()&&

@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import { createHash } from "node:crypto";
 import { isolatedTasksRoute } from "./client-route";
+import { assertPrivateSpace } from "../../ops/ai-jobs-b1/space-policy.cjs";
 
 // Run only from an isolated source directory. No live dist deletion or backend
 // entry import. Existing dependencies are sufficient; no npm install required.
@@ -14,6 +15,7 @@ if (internal ? cwd !== path.join(os.homedir(), "INDEXUS-AI-B1/source") :
   !(process.env.REPLIT_DEV_DOMAIN || process.env.REPL_ID) ||
     !cwd.startsWith("/home/runner/workspace/generated-artifacts/"))
   throw Error("B1_ISOLATED_BUILD_DIRECTORY_REQUIRED");
+if (internal) assertPrivateSpace(path.join(os.homedir(), "INDEXUS-AI-B1"));
 await fs.rm("dist/B1-BUILD.json", { force: true });
 process.env.NODE_ENV = "production";
 await buildClient({ plugins: [{
