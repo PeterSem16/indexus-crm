@@ -68,6 +68,15 @@ test("isolated recovery launches the original report with the exact existing pre
         assert.equal(fs.existsSync(args.at(-1)), false);
         return { status: 0 };
       } });
+    prepareRecovery({ app, home, archive, mode: "--checklist-sk-validation-retest",
+      execute: (_node, args, options) => {
+        assert.equal(args.at(-2), "--checklist-sk-validation-retest");
+        assert.equal(args.at(-1), path.join(path.dirname(options.cwd), "task-checklist-sk-validation-retest.json"));
+        assert.equal(args.includes("--smoke-three"), false);
+        assert.equal(args.includes("--run-81"), false);
+        assert.equal(fs.existsSync(args.at(-1)), false);
+        return { status: 0 };
+      } });
     assert.throws(() => prepareRecovery({ app, home, archive, mode: "--run-81", execute() {} }),
       /THREE_CONSOLE_MODE_INVALID/);
     assert.equal(fs.statSync(originalReport).size, 0);

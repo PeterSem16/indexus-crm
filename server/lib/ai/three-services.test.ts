@@ -251,3 +251,22 @@ test("checklist Slovak retest sends only the original failed case and preserves 
   assert.equal(report.summary["task.resolution"].planned, 0);
   assert.equal(report.kind, "LIVE_ISOLATED_CHECKLIST_SK_RETEST");
 });
+test("checklist Gateway HTTP 503 is a failed single attempt, never a valid or repaired checklist", async () => {
+  const h = harness({ httpStatus: 503 });
+  const report = await runAcceptance({
+    root: process.cwd(), adapter: h.adapter, profile: "checklist-sk-retest",
+    readSnapshot: async () => ({ version: 9, fullConfigurationSha256: "synthetic-unchanged" }),
+    save() {},
+  });
+  assert.equal(report.results.length, 1);
+  const row = report.results[0];
+  assert.equal(row.status, "FAIL");
+  assert.equal(row.httpStatus, 503);
+  assert.equal(row.transportError, "ai_internal_http_error");
+  assert.equal(row.rawOutput, undefined);
+  assert.equal(row.result, undefined);
+  assert.equal(h.calls.filter(c => c.url.endsWith("chat/completions")).length, 1);
+  assert.equal(h.cloud.length, 0);
+  assert.equal(report.productionUnchanged, true);
+  assert.equal(report.verdict, "NOT_READY");
+});

@@ -9,7 +9,8 @@ const INPUTS = ["package.json", "tsconfig.json", "server/lib/ai",
 function prepareRecovery({ app, home, archive, originalReport, execute, env = process.env,
     mode = "--recover-before-first-case" }) {
   if (!["--recover-before-first-case", "--smoke-three", "--checklist-sk-retest",
-      "--checklist-sk-content-retest", "--checklist-sk-fidelity-retest"].includes(mode))
+      "--checklist-sk-content-retest", "--checklist-sk-fidelity-retest",
+      "--checklist-sk-validation-retest"].includes(mode))
     throw Error("THREE_CONSOLE_MODE_INVALID");
   const work = fs.mkdtempSync(path.join(home, "INDEXUS-AI-Three-Services-Recovery-"));
   fs.chmodSync(work, 0o700);
@@ -22,8 +23,9 @@ function prepareRecovery({ app, home, archive, originalReport, execute, env = pr
   for (const file of [runner, path.join(source, "script/ai-three-services/run-safety.ts")])
     if (!fs.statSync(file).isFile()) throw Error("THREE_RECOVERY_RUNNER_MISSING");
   const checklist = ["--checklist-sk-retest", "--checklist-sk-content-retest",
-    "--checklist-sk-fidelity-retest"].includes(mode);
-  const report = mode === "--checklist-sk-fidelity-retest" ? path.join(work, "task-checklist-sk-fidelity-retest.json")
+    "--checklist-sk-fidelity-retest", "--checklist-sk-validation-retest"].includes(mode);
+  const report = mode === "--checklist-sk-validation-retest" ? path.join(work, "task-checklist-sk-validation-retest.json")
+    : mode === "--checklist-sk-fidelity-retest" ? path.join(work, "task-checklist-sk-fidelity-retest.json")
     : mode === "--checklist-sk-content-retest" ? path.join(work, "task-checklist-sk-content-retest.json")
     : mode === "--checklist-sk-retest" ? path.join(work, "task-checklist-sk-retest.json")
     : mode === "--smoke-three" ? path.join(work, "three-services-smoke.json") : originalReport;
@@ -41,7 +43,8 @@ function prepareRecovery({ app, home, archive, originalReport, execute, env = pr
 function main() {
   const pin = process.argv[2], originalReport = process.argv[3];
   const selectedTest = ["--smoke-three", "--checklist-sk-retest",
-    "--checklist-sk-content-retest", "--checklist-sk-fidelity-retest"].includes(originalReport);
+    "--checklist-sk-content-retest", "--checklist-sk-fidelity-retest",
+    "--checklist-sk-validation-retest"].includes(originalReport);
   if (process.argv.length !== 4 || !/^[a-f0-9]{40}$/.test(pin || "") ||
       !originalReport || (!selectedTest && !path.isAbsolute(originalReport)))
     throw Error("THREE_RECOVERY_PIN_AND_ORIGINAL_REPORT_REQUIRED");
