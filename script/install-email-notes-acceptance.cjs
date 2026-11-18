@@ -7,16 +7,17 @@ const { execFileSync, spawnSync } = require("node:child_process");
 
 // Same installed runtime used by email.monitoring and the existing AI pilots.
 const SHARED_PRELOAD = "/etc/indexus-ai-runtime/preload.cjs";
-function gatewayInvocation(destination, env = process.env) {
+function gatewayInvocation(destination, env = process.env, args = []) {
   return {
-    args: ["--require", SHARED_PRELOAD, destination],
+    args: ["--require", SHARED_PRELOAD, destination, ...args],
     options: { stdio: "inherit", env: { ...env, NODE_ENV: "production",
       EMAIL_NOTES_APP_ROOT: "/var/www/indexus-crm" } },
   };
 }
 
 const FILES = Object.freeze({
-  "script/email-notes-acceptance.ts": "03a5f672c35f6e69897b041a6a0f9e0e019c7bf2",
+  "script/email-notes-acceptance.ts": "990d7bd232a790e713642452b5c4db706e907ce0",
+  "script/email-notes-acceptance-report.ts": "7d0c9ca05be84b9f9efe22e2492e84611a12388d",
   "server/lib/email-note-jobs-client.ts": "176b5aa1fdb7ecb7b9ae991966843566ed3e9867",
   "server/lib/email-note-jobs-service.ts": "f3156f1273d591ccd6de414b4ae0de0e21b5880c",
   "server/lib/email-note-jobs-schema.ts": "fb8365d3da407605937fce4980c284457671410f",
@@ -92,10 +93,16 @@ function main(args = process.argv.slice(2)) {
     const result = install();
     console.log("PASS: verified immutable sources; standalone script installed.");
     console.log(JSON.stringify(result));
-    if (args.includes("--install-only")) return 0;
+    if (args.includes("--install-only") || !args.includes("--run-controlled")) {
+      console.log("No POST sent. Use --run-controlled to authorize one new synthetic test.");
+      return 0;
+    }
     // No service-specific token file and no PM2 /proc credential scraping.
     // The existing loader enforces its existing ownership/permissions/config policy.
-    const invocation = gatewayInvocation(result.destination);
+    const runArgs = ["--run-controlled"];
+    const configIndex = args.indexOf("--config");
+    if (configIndex >= 0 && args[configIndex + 1]) runArgs.push("--config", args[configIndex + 1]);
+    const invocation = gatewayInvocation(result.destination, process.env, runArgs);
     const resultChild = spawnSync(process.execPath, invocation.args, invocation.options);
     return resultChild.status ?? 1;
   } catch (error) {

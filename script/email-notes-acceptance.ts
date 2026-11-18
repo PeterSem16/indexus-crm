@@ -6,23 +6,18 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import crypto from "node:crypto";
-import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { createEmailNoteJobsClient } from "../server/lib/email-note-jobs-client";
 import { createEmailNoteService } from "../server/lib/email-note-jobs-service";
+import { buildControlledReport, captureSafeFailureMetadata,
+  type EvidenceRow as Row, type GatewayHttpEvent as JobHttpEvent } from "./email-notes-acceptance-report";
+export { buildControlledReport } from "./email-notes-acceptance-report";
 
-const BASE = "1e80ffa816ece4465c39b42a31ab7a7515dad59f";
-const ORIGIN = "https://ai.cordbloodcenter.com/gateway/";
 const TEXT = "Predmet: Syntetický integračný test – nejde o zákazníka\n\n" +
   "Dobrý deň, toto je výhradne vymyslený testovací e-mail. Prosím o vysvetlenie " +
   "postupu doručenia informačných materiálov. Neobsahuje osobné ani zákaznícke údaje.";
-type Row = { test: string; status: "PASS" | "FAIL" | "BLOCKED"; detail: string };
-type JobHttpEvent = {
-  method: "POST" | "GET"; started_at: string; http_status?: number;
-  request_id?: string; transport_error?: string;
-};
 const inspectableKeys = ["INDEXUS_AI_EMAIL_NOTES_ENABLED",
   "EMAIL_NOTES_TEST_DATABASE_URL"] as const;
 
@@ -31,6 +26,8 @@ export function createObservedGatewayTransport(transport: typeof fetch = fetch, 
   const events: JobHttpEvent[] = [];
   const observed: typeof fetch = async (url, init) => {
     if (init?.method !== "POST" && init?.method !== "GET") throw Error("unsupported_job_method");
+    if (init.method === "POST" && events.some(event => event.method === "POST"))
+      throw Error("second_post_blocked");
     const event: JobHttpEvent = { method: init.method, started_at: new Date().toISOString() };
     events.push(event); // A started request must never be reported as "not executed".
     try {
@@ -40,7 +37,9 @@ export function createObservedGatewayTransport(transport: typeof fetch = fetch, 
       const secret = token();
       if (id && /^[A-Za-z0-9_.:-]{1,96}$/.test(id) && !(secret && id.includes(secret)))
         event.request_id = id;
-      return response; // Do not read/clone/log request or response bodies.
+      if (response.status !== (init.method === "POST" ? 202 : 200))
+        await captureSafeFailureMetadata(response, event, secret);
+      return response;
     } catch (error: any) {
       const code = error?.cause?.code;
       const allowed = ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT",
@@ -60,7 +59,7 @@ export function appendMissingGatewayResults(rows: Row[], events: JobHttpEvent[])
     const attempts = events.filter(event => event.method === method);
     rows.push({ test, status: attempts.length ? "FAIL" : "BLOCKED",
       detail: attempts.length ?
-        `Attempted ${attempts.length} time(s); successful result not confirmed. See gateway_http metadata; do not blindly repeat POST.` :
+        `Attempted ${attempts.length} time(s); successful result not confirmed. See post.requests/get.requests; do not blindly repeat POST.` :
         "Not attempted; prerequisite unavailable." });
   }
 }
@@ -96,14 +95,6 @@ export function validateTestDatabase(url: string) {
     !/^indexus_email_notes_test_[a-z0-9_]+$/.test(name))
     throw Error("separate_test_database_required");
   return name;
-}
-
-/** Transport reachability only; the root path is not part of the jobs API contract. */
-export async function probeGatewayHttps(signal: AbortSignal, transport: typeof fetch = fetch) {
-  const response = await transport(ORIGIN, { redirect: "error",
-    signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
-  await response.body?.cancel();
-  return response.status;
 }
 
 function liveProcess(root: string) {
@@ -143,10 +134,16 @@ function snapshot(root: string) {
 export async function run(args = process.argv.slice(2)) {
   if (args.includes("--help")) {
     console.log("NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs email-notes-acceptance.cjs\n" +
+      "--run-controlled explicitly authorizes exactly one new synthetic POST; no root/OpenAPI/discovery requests.\n" +
       "Optional --config /private/test-database.env supplies only isolated test database settings.\n" +
       "Read-only production inspection; one synthetic Gateway job. Optional separate test DB;\n" +
       "approval requires interactive SCHVALUJEM. No production DB connection or PM2 commands.");
     return 0;
+  }
+  if (!args.includes("--run-controlled")) {
+    console.log(JSON.stringify(buildControlledReport([{ test: "authorization", status: "BLOCKED",
+      detail: "Explicit --run-controlled required; no request sent." }], []), null, 2));
+    return 2;
   }
   const rows: Row[] = [];
   const add = (test: string, status: Row["status"], detail: string) => rows.push({ test, status, detail });
@@ -157,6 +154,7 @@ export async function run(args = process.argv.slice(2)) {
   let schema = "";
   let baseline: ReturnType<typeof snapshot> | undefined;
   let originalPid: number | undefined;
+  let syntheticNote: string | undefined;
   const stop = new AbortController();
   const observed = createObservedGatewayTransport((url, init) =>
     fetch(url, { ...init, signal: AbortSignal.any([stop.signal, init!.signal!]) }), () => token);
@@ -166,7 +164,9 @@ export async function run(args = process.argv.slice(2)) {
   const safeCodes = new Set(["gateway_not_configured", "gateway_authentication_failed",
     "gateway_unavailable", "gateway_timeout", "invalid_gateway_response", "invalid_gateway_note",
     "unsafe_secret_file", "separate_test_database_required", "runtime_identity_unverified",
-    "job_timeout", "generation_failed", "submission_uncertain", "approval_conflict"]);
+    "job_timeout", "generation_failed", "submission_uncertain", "approval_conflict",
+    "persistence_assertion", "review_assertion", "audit_assertion",
+    "28P01", "3D000", "42501", "3F000", "42P01", "23505", "57014", "53300", "08001", "08006", "57P01"]);
   const code = (error: any) => safeCodes.has(error?.code) ? error.code :
     safeCodes.has(error?.message) ? error.message : "operator_step_failed";
   try {
@@ -174,24 +174,15 @@ export async function run(args = process.argv.slice(2)) {
       add("node_runtime", "BLOCKED", "Node.js 20 or newer is required; production was not inspected.");
       return 2;
     }
+    if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01") {
+      add("target_host", "BLOCKED", "Run this controlled test on CORPCRM01; no request sent.");
+      return 2;
+    }
     if (!fs.existsSync(path.join(root, "dist/index.cjs"))) {
       add("production_version", "BLOCKED", "Application runtime file not found; nothing executed.");
       return 2;
     }
     baseline = snapshot(root);
-    const git = (...a: string[]) => execFileSync("git", ["--no-optional-locks", "-C", root, ...a],
-      { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "ignore"] }).trim();
-    try {
-      const head = git("rev-parse", "HEAD");
-      add("source_version", "PASS", /^[0-9a-f]{40}$/.test(head) ? head : "unknown");
-      try { git("merge-base", "--is-ancestor", BASE, "HEAD");
-        add("integration_ancestry", "PASS", "Integration commit is an ancestor of source HEAD.");
-      } catch { add("integration_ancestry", "BLOCKED", "Commit absent, history shallow, or selective copy; not proof of runtime absence."); }
-    } catch { add("source_version", "BLOCKED", "Source Git revision unavailable."); }
-    const bundle = fs.readFileSync(path.join(root, "dist/index.cjs"), "utf8");
-    add("built_integration_markers", bundle.includes("INDEXUS_AI_EMAIL_NOTES_ENABLED") &&
-      bundle.includes("email_note_job_audit") ? "PASS" : "BLOCKED",
-    "Static bundle markers only; running build-to-source parity is not proven.");
     const config = configIndex >= 0 ? readPrivateConfig(args[configIndex + 1] || "") : {};
     let runtime: ReturnType<typeof liveProcess> | undefined;
     try {
@@ -212,11 +203,6 @@ export async function run(args = process.argv.slice(2)) {
     add("gateway_runtime_configuration", token ? "PASS" : "BLOCKED",
       token ? "Gateway token supplied by this Node runtime; value hidden. This does not prove production build deployment." :
         "Shared Gateway runtime did not supply a token. Launch through /etc/indexus-ai-runtime/preload.cjs as for email.monitoring; no separate token file is needed.");
-    try {
-      const status = await probeGatewayHttps(stop.signal);
-      add("https_unauthenticated", "PASS",
-        `HTTP ${status}; HTTPS response received with default TLS verification, no redirects. Root status is informational; jobs API/authentication are tested separately.`);
-    } catch { add("https_unauthenticated", "FAIL", "DNS/TLS/transport failure; no authenticated POST sent."); return 1; }
     if (!token || token !== token.trim() || /\s/.test(token)) {
       add("gateway_token", "BLOCKED", "INDEXUS_AI_GATEWAY_TOKEN missing or malformed; no POST sent.");
       return 2;
@@ -242,14 +228,16 @@ export async function run(args = process.argv.slice(2)) {
       add("test_database", "PASS", "Separate allowlisted test database; random private schema, no public fallback.");
     } else add("test_database", "BLOCKED", "EMAIL_NOTES_TEST_DATABASE_URL absent; production database will NOT be used.");
     const gateway = createEmailNoteJobsClient({ token: () => token, fetch: observed.fetch });
+    const runId = crypto.randomUUID();
     const scope = { userId: "synthetic-operator", mailbox: "synthetic@example.test",
-      messageId: "SYNTHETIC-" + crypto.randomUUID() };
+      messageId: "SYNTHETIC-" + runId };
+    const text = TEXT + "\nIdentifikátor nového syntetického testu: " + runId;
     const service = db ? createEmailNoteService(db, { enabled: () => true, client: gateway }) : null;
     if (service) await service.ensureSchema();
-    const record = service ? await service.submit(scope, TEXT) : null;
+    const record = service ? await service.submit(scope, text) : null;
     if (record?.status === "failed") throw { code: record.error_code };
     // Exactly one upstream POST. Never resubmit an ambiguous failure.
-    const jobId = record ? record.job_id : (await gateway.submit(TEXT)).job_id;
+    const jobId = record ? record.job_id : (await gateway.submit(text)).job_id;
     add("gateway_post", "PASS", `HTTP 202; synthetic job ${jobId}`);
     const deadline = Date.now() + 540000;
     let note = "";
@@ -267,6 +255,7 @@ export async function run(args = process.argv.slice(2)) {
       }
     }
     if (!note) throw { code: "job_timeout" };
+    syntheticNote = note.split(token).join("[REDACTED]");
     add("gateway_get", "PASS", "HTTP 200; completed note passed the existing CRM client contract.");
     if (service) {
       // A fresh service reads committed state, not an in-memory result.
@@ -287,6 +276,7 @@ export async function run(args = process.argv.slice(2)) {
         try { answer = await rl.question("Skontrolujte slovenčinu a obsah. Pre schválenie LEN V TESTOVACEJ DB napíšte SCHVALUJEM: ", { signal: stop.signal }); }
         finally { rl.close(); }
         if (answer === "SCHVALUJEM") {
+          add("language_review", "PASS", "Operator confirmed Slovak language and factual content of the synthetic draft.");
           await fresh.approve(scope, note, saved.version);
           const approved = await fresh.get(scope);
           const audit = (await db.query("SELECT * FROM email_note_job_audit WHERE note_id=$1", [saved.id])).rows;
@@ -299,7 +289,6 @@ export async function run(args = process.argv.slice(2)) {
         } else add("manual_approval_and_audit", "BLOCKED", "Operator did not approve; no automatic approval.");
       } else add("manual_approval_and_audit", "BLOCKED", "Interactive terminal required; no automatic approval.");
     }
-    add("signed_in_crm_ui", "BLOCKED", "Not tested: production remains disabled. No real Graph email or login bypass.");
   } catch (error) { add("execution", "FAIL", code(error)); }
   finally {
     process.removeListener("SIGINT", interrupt);
@@ -316,7 +305,7 @@ export async function run(args = process.argv.slice(2)) {
     }
     appendMissingGatewayResults(rows, observed.events);
     for (const test of ["postgres_email_binding", "unapproved_draft",
-      "manual_approval_and_audit", "signed_in_crm_ui"])
+      "language_review", "manual_approval_and_audit"])
       if (!rows.some(row => row.test === test)) add(test, "BLOCKED", "Prerequisite unavailable; not executed.");
     if (baseline) {
       const same = JSON.stringify(baseline) === JSON.stringify(snapshot(root));
@@ -327,12 +316,10 @@ export async function run(args = process.argv.slice(2)) {
       catch { add("production_process", "BLOCKED", "Final process identity unavailable."); }
     }
     add("scope", "PASS", "No production SQL, deployment, restart, flag change, AI router change or customer data.");
-    console.log(JSON.stringify({ host: os.hostname(), integration_base: BASE, results: rows,
-      gateway_http: observed.events,
-      overall: rows.some(r => r.status === "FAIL") ? "FAIL" : rows.some(r => r.status === "BLOCKED") ? "BLOCKED" : "PASS" }, null, 2));
+    console.log(JSON.stringify(buildControlledReport(rows, observed.events, syntheticNote), null, 2));
     token = "";
   }
-  return rows.some(row => row.status === "FAIL") ? 1 : rows.some(row => row.status === "BLOCKED") ? 2 : 0;
+  return buildControlledReport(rows, observed.events).end_to_end.status === "PASS" ? 0 : 1;
 }
 
 if (require.main === module) {

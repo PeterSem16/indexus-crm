@@ -30,9 +30,16 @@ function fixture(fn) {
     getBlob: file => fs.readFileSync(path.resolve(file)), builder: esbuild }); }
   finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
-test("all four frozen source identities match verified inputs", () => {
+test("all frozen source identities match verified inputs", () => {
   for (const [file, expected] of Object.entries(FILES))
     assert.equal(gitBlobId(fs.readFileSync(file)), expected);
+});
+test("explicit run permission and a private test DB config reach the same shared runtime", () => {
+  const args = ["--run-controlled", "--config", "/private/test-database.env"];
+  const invocation = gatewayInvocation("/private/acceptance.cjs", {}, args);
+  assert.deepEqual(invocation.args.slice(3), args);
+  assert.equal(invocation.options.env.NODE_ENV, "production");
+  assert.equal(invocation.options.env.INDEXUS_AI_GATEWAY_TOKEN, undefined);
 });
 test("verified sources compile and install an executable standalone script", () => fixture(options => {
   const result = install(options);

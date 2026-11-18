@@ -1,31 +1,33 @@
 # Záverečné overenie AI Email Notes na CORPCRM01
 
-## Aktuálny blokujúci bod: výsledok pokusu o POST
+## Aktuálny režim: jeden výslovne schválený kontrolovaný POST
 
-Spustenie cez spoločný preload potvrdilo dostupnosť tokenu pre test.
-Vytvorenie úlohy však skončilo všeobecným `gateway_unavailable`; pôvodný
-nástroj nezachoval HTTP status. Preto nemožno potvrdiť, či úloha vznikla.
-Riadok „POST nevykonaný“ v tomto staršom výstupe bol chybný: pokus už nastal.
+Používateľ povolil jeden nový syntetický test. Starý POST nemá zachovaný HTTP
+výsledok; jeho serverový záznam nie je tomuto runneru dostupný. To už nie je
+predpokladom nového testu. Neopakujú sa kontroly koreňa, OpenAPI, Git ancestry
+ani statických markerov. Neposielajú sa ďalšie alternatívne URL.
 
-Následné čítacie kontroly vrátili GET kolekcie jobs **405** a OpenAPI **404**.
-To nepreukazuje príčinu zlyhania POST, jeho autentifikáciu ani neprítomnosť úlohy.
-Ďalšie alternatívne URL ani nový POST sa bez dohody neskúšajú.
+Bez `--run-controlled` sa žiadna živá požiadavka nevykoná. Po jeho zadaní
+nástroj dovolí najviac jeden POST aj pri nejednoznačnej chybe; ďalší POST
+zastaví ešte pred sieťou. Každý vedome spustený test má novú syntetickú identitu.
+Používa sa výlučne pôvodný klient, pevná HTTPS URL, existujúci preload a token.
 
-Na spätné určenie príčiny je potrebný redigovaný serverový záznam pôvodného
-`POST /gateway/v1/email-notes/jobs`: čas, HTTP status, request_id (ak existuje)
-a bezpečný technický kód chyby. Neposielať Authorization, tokeny, konfiguráciu,
-obsah e-mailov, celé telá odpovedí ani celé zákaznícke logy.
+Report má päť skupín: `post`, `get`, `end_to_end`, `error_and_fix`,
+`production_crm`. Obsahuje UTC čas, HTTP status, bezpečný request_id a technický
+kód chyby. Pri neočakávanom HTTP stave sa z najviac 32 KiB chybového JSON vyberú
+iba technický kód, request_id, prípadné UUID úlohy a názvy validačných polí.
+Surové telá, validačný vstup, tokeny ani Authorization sa nevypisujú.
 
-Opravený nástroj pri budúcom výslovne schválenom teste zachová v `gateway_http`
-metódu, UTC čas pokusu, HTTP status a bezpečný `x-request-id`; pri sieťovej chybe
-iba kód zo zoznamu povolených hodnôt. Nečíta ani neloguje telá požiadaviek
-a odpovedí. Začatú, ale neúspešnú fázu vykáže FAIL, nie „nevykonané“.
-Táto oprava neobnoví stratený status predchádzajúceho behu a neopakuje ho.
+E2E PASS vyžaduje POST 202, GET 200 s dokončením, skutočnú perzistenciu
+v samostatnej testovacej DB, stav `review_required`, ľudské potvrdenie
+slovenčiny a obsahu, schválenie a audit, nezmenené súbory/PID a vypnutý flag.
+Bez testovacej DB alebo interaktívneho schválenia je E2E FAIL, nie falošný PASS.
+Ide o izolovaný backendový tok, nie o nasadené prihlásené UI či Graph schránku.
 
-Overenie opravy: **106/106** testov nástroja/inštalátora/preloadu,
-**4/4** testov nezmeneného klienta a cielená prísna TypeScript kontrola PASS.
-Existujúci CRM runtime, monitoring, klient jobs API, smerovanie a feature flag
-sa nemenili; živá Gateway nebola týmto znovu kontaktovaná.
+Lokálne overenie: **23/23** testov nástroja/inštalátora, **88/88** testov
+existujúceho preloadu a **13/13** testov klienta a izolovaného PostgreSQL toku;
+prísna cielená TypeScript kontrola PASS. PostgreSQL test používal syntetickú
+Gateway náhradu, nie živú Gateway/Ollama. Živý výsledok sa tým nenahrádza.
 
 ## Jednotné pripojenie interných AI služieb
 
@@ -53,7 +55,10 @@ Asynchrónny jobs endpoint nemusí napodobňovať chat completions.
 Existujúci loader, monitoring, sentiment, ich smerovanie a produkčný proces
 sa touto opravou nemenia.
 
-## Zistenie z dodaného serverového reportu
+## Historické zistenia zo starších serverových reportov
+
+Nasledujúce záznamy opisujú staršie verzie. Aktuálny riadený režim už tieto
+diagnostické kontroly neopakuje; rozhodujúci je kontrakt jediného POST/GET.
 
 Inštalátor na CORPCRM01 úspešne overil nemenné zdroje a vytvoril skript.
 Source HEAD bol nahlásený ako `0ee328b123a33014fab7380210ac7ee158b14085`.
@@ -86,15 +91,15 @@ a až potom ho spustí ako súbor, nie cez `node -`.
 Inštalátor:
 - vyžaduje Git objekty dodané fetchom presného commitu a existujúci `esbuild` aplikácie;
   nič neinštaluje, nefetchuje, neprepína vetvu a nespúšťa CRM;
-- pred kompiláciou kontroluje presné Git blob identity všetkých štyroch vstupov;
+- pred kompiláciou kontroluje presné Git blob identity všetkých piatich vstupov;
 - zostavuje iba v súkromnom adresári mimo aplikácie a overí syntax aj `--help`;
 - výsledok uloží atomicky s oprávneniami 0600 a spustí existujúci akceptačný
   nástroj s interaktívnym terminálom;
 - nevypisuje tokeny; pri spustení testu použije existujúci spoločný Gateway preload;
-- umožňuje `--install-only`, ak administrátor chce iba prípravu bez živého POST.
+- bez `--run-controlled` iba pripraví skript; `--install-only` vždy zakáže živý beh.
 
 SHA-256 inštalátora:
-`d24fa96f962410f99814fbe26833ed7132b1e34bf54e95e45fa1b70a75bfa284`.
+`49e097d6e1f0e04d293bdad249eeea5b15c4526b8776c7c0d5675c3d441bd5ad`.
 
 **Výstup lokálnej kompilácie sa už neporovnáva s hashom buildu z iného
 prostredia.** Ten môže závisieť od verzie kompilátora. Integrita nie je vypnutá:
@@ -172,12 +177,13 @@ Bez schválenia sa PM2 nereštartuje ani nemení prostredie bežiaceho backendu.
 
 ## Jedno spustenie administrátorom
 
-Už nainštalovaný samostatný `.cjs` súbor spustiť ako `seman` v interaktívnom
-termináli, **rovnakým spôsobom ako `email.monitoring`**:
+Aktuálny `.cjs` súbor vytvorený novým overeným inštalátorom spustiť ako `seman`
+v interaktívnom termináli, **rovnakým spôsobom ako `email.monitoring`**.
+Nepoužiť starý nainštalovaný súbor z predchádzajúcich diagnostických behov:
 
 ```bash
 NODE_ENV=production node --require /etc/indexus-ai-runtime/preload.cjs \
-  /home/seman/indexus-private/email-notes-acceptance.cjs
+  /home/seman/indexus-private/email-notes-acceptance.cjs --run-controlled
 ```
 
 Žiadne `pm2 env`, `pm2 jlist`, `set -x`, export tokenu do príkazu ani výpis `.env`.
@@ -185,14 +191,13 @@ Skript nevolá ani samotný príkaz PM2, aby nespustil nesprávny/root daemon.
 
 ### Čo sa vykoná
 
-1. Prečíta lokálny source HEAD a prítomnosť integračného commitu. Stopy v
-   `dist/index.cjs` označí iba ako statické stopy, nie ako dôkaz verzie už
-   načítaného procesu. Sám nenahradí build ani nič nefetchuje.
+1. Vyžiada explicitné `--run-controlled`; bez neho nečíta produkčné súbory
+   ani neposiela požiadavky. Nerobí ďalšie zisťovanie URL ani Git ancestry.
 2. Z PID súboru `seman` overí jediný CRM proces, jeho pracovný adresár a príkaz.
    Skontroluje počiatočné prostredie aj `.env`: `/proc` samo osebe nepreukazuje
    hodnoty neskôr načítané cez dotenv. Pri náleze zapnutého prepínača zastaví test.
-3. Overí HTTPS bez tokenu: prijatá HTTP odpoveď potvrdí spojenie cez platné TLS,
-   bez presmerovania. Stav koreňa je informatívny, nie test autentifikácie jobs API.
+3. Použije existujúci spoločný preload a token. Platné TLS a zákaz
+   presmerovania zachováva pôvodný jobs klient; samostatný HTTPS probe sa neopakuje.
 4. Vytvorí **práve jednu** úlohu so zabudovaným vymysleným slovenským textom.
    Nikdy nečíta Graph ani skutočné e-maily. Token ide len v Authorization hlavičke
    na pevnú HTTPS adresu. Nejednoznačný POST sa neopakuje.
@@ -223,13 +228,13 @@ Všetky identity sú syntetické; po teste sa schéma odstráni.
 **Prihlásené UI CRM a reálna Graph väzba sa týmto neoverujú.** Plný test v
 existujúcom produkčnom UI je nezlučiteľný s vypnutým flagom a zákazom produkčných
 DB zápisov. Pre túto časť je potrebné samostatné schválené testovacie nasadenie,
-testovací účet a testovacia schránka. Skript to vždy uvedie ako BLOCKED,
-nie ako úspešné end-to-end overenie.
+testovací účet a testovacia schránka. Report výslovne ohraničuje E2E na
+izolovaný backendový tok; netvrdí úspech týchto neoverených častí.
 
 Výstupný kód: `0` všetko vykonané PASS, `1` chyba, `2` blokujúci predpoklad.
-Celkový výsledok zostáva BLOCKED aj pri úspešnej Gateway, kým nie je overené UI.
+E2E je PASS iba po všetkých kontrolách izolovaného toku; inak FAIL.
 Hodnoty tokenov, DB URL ani surové odpovede poskytovateľa nie sú v reporte.
-Zobrazená syntetická poznámka slúži len na interaktívnu ľudskú kontrolu.
+Syntetická poznámka je zobrazená na ľudskú kontrolu a v skupine `get`.
 
 ## Nasadenie a rollback — iba po schválení
 
