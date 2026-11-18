@@ -50,7 +50,8 @@ export function originalBoundaries(root: string) {
   if (handlers.length !== 1) throw Error("THREE_SUMMARY_HANDLER_CHANGED");
   function bind(code: string, entry: string, aiClient: any) {
     const context = vm.createContext({
-      exports: {}, z, aiClient, isAIAvailable: () => true,
+      exports: {}, z, aiClient, isAIAvailable: () => true, aiJobEnabled: () => false,
+      refreshAIAdminSnapshot: async () => {},
       console: { error() {} },
     }, { codeGeneration: { strings: false, wasm: false } });
     new vm.Script(ts.transpileModule(code + `\nglobalThis.entry = ${entry};`, {

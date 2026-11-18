@@ -4,9 +4,12 @@ import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "../db";
 import { taskAiChecklistGenerations, taskChecklistItems, tasks } from "@shared/schema";
+import { aiJobEnabled, JobError } from "./ai-jobs/policy";
+import { refreshAIAdminSnapshot } from "./ai/admin-runtime";
+import type { AIJobView } from "../../shared/ai-jobs";
 
 export type TaskAiChecklistStatus = "idle" | "generating" | "generated" | "preserved" | "failed" | "unavailable";
-export type TaskAiChecklistState = { status: TaskAiChecklistStatus; errorCode?: string };
+export type TaskAiChecklistState = { status: TaskAiChecklistStatus; errorCode?: string; job?: AIJobView; jobId?: string };
 
 const MAX_ATTEMPTS = 3;
 const STALE_CLAIM_MS = 60_000;
@@ -381,11 +384,22 @@ async function runClaim(claim: NonNullable<ClaimResult["claim"]>): Promise<void>
   }
 }
 
-export async function getTaskAiChecklistState(taskId: string): Promise<TaskAiChecklistState> {
+export async function getTaskAiChecklistState(taskId: string, actorId?: string): Promise<TaskAiChecklistState> {
   const [[generation], items] = await Promise.all([
     db.select().from(taskAiChecklistGenerations).where(eq(taskAiChecklistGenerations.taskId, taskId)).limit(1),
     db.select({ id: taskChecklistItems.id }).from(taskChecklistItems).where(eq(taskChecklistItems.taskId, taskId)).limit(1),
   ]);
+  if (generation?.aiJobId) {
+    try {
+      const state = await (await import("./ai-jobs/runtime")).queuedChecklistState(taskId, { readOnly: true, actorId });
+      if (state) return items.length && state.status !== "generated" ? { status: "preserved", job: state.job } : state;
+    } catch (error) {
+      if (generation.status === "generated") return { status: "generated" };
+      if (generation.status === "preserved" || items.length) return { status: "preserved" };
+      if (error instanceof JobError) return { status: "failed", errorCode: error.code };
+      throw error;
+    }
+  }
   if (generation?.status === "generated") return { status: "generated" };
   if (items.length) return { status: "preserved" };
   if (!generation) return { status: "idle" };
@@ -401,9 +415,17 @@ export async function getTaskAiChecklistState(taskId: string): Promise<TaskAiChe
 
 export async function ensureTaskAiChecklist(
   taskId: string,
-  options: { retry?: boolean } = {},
+  options: { retry?: boolean; actorId?: string } = {},
 ): Promise<TaskAiChecklistState> {
   try {
+    // Includes automatic task creation, Status List and automation callers.
+    await refreshAIAdminSnapshot();
+    const [linked] = await db.select({ aiJobId: taskAiChecklistGenerations.aiJobId })
+      .from(taskAiChecklistGenerations).where(eq(taskAiChecklistGenerations.taskId, taskId)).limit(1);
+    if (aiJobEnabled("task.checklist") || linked?.aiJobId) {
+      const state = await (await import("./ai-jobs/runtime")).queuedChecklistState(taskId, options);
+      if (state) return state;
+    }
     const result = await claimGeneration(taskId, options.retry === true);
     if (!result.claim) return result.state;
     if (!isAIAvailable("task.checklist")) {
@@ -412,7 +434,8 @@ export async function ensureTaskAiChecklist(
     }
     void runClaim(result.claim);
     return { status: "generating" };
-  } catch {
+  } catch (error) {
+    if (error instanceof JobError) return { status: "failed", errorCode: error.code };
     return { status: "failed", errorCode: "internal_error" };
   }
 }

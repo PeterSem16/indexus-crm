@@ -1,3 +1,4 @@
+import { AI_JOBS_SCHEMA } from "./lib/ai-jobs/schema-migration";
 import { RECORD_ENTRY_SCHEMA } from "./lib/automation-record-entry";
 import { initializeAIRouter } from "./lib/ai-router";
 import { initializeAIAdministration } from "./lib/ai-settings-bootstrap";
@@ -863,6 +864,8 @@ app.use((req, res, next) => {
       WHERE h.upload_id = u.id;
   `);
   console.log('[migration] private task attachment storage ensured');
+  await pool.query(AI_JOBS_SCHEMA);
+  console.log('[migration] persistent AI jobs ensured');
   await pool.query(CLINIC_AGREEMENTS_MIGRATION);
   await pool.query(HOSPITAL_AGREEMENTS_MIGRATION);
   await pool.query(AGREEMENT_WORKSPACE_MIGRATION);

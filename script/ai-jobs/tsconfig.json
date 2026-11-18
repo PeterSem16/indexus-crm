@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": [
+    "../../server/lib/ai-jobs/**/*.ts",
+    "../../server/lib/ai/background-context.ts",
+    "../../server/ai-worker.ts"
+  ],
+  "exclude": ["../../node_modules", "../../**/*.test.ts"],
+  "compilerOptions": { "incremental": false, "target": "ES2022" }
+}

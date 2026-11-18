@@ -30,6 +30,7 @@ import systemMailboxCheckTranslations from "./system-mailbox-check-translations"
 import { aiSettingsTranslations, type AISettingsCopy } from "./ai-settings-translations";
 import { emailMonitoringDetailTranslations, type EmailMonitoringDetailCopy } from "./email-monitoring-detail-translations";
 import { emailNoteDraftTranslations, type EmailNoteDraftCopy } from "./email-note-draft-copy";
+import { aiJobTranslations, type AIJobCopy } from "./ai-job-translations";
 import omniSmsTranslations from "./omni-sms-translations";
 import omniGroupTranslations from "./omni-group-translations";
 import { contactLoadTranslations } from "@/components/campaigns/contact-load-translations";
@@ -153,6 +154,7 @@ export interface Translations {
   aiSettings: AISettingsCopy;
   emailMonitoringDetail: EmailMonitoringDetailCopy;
   emailNoteDraft: EmailNoteDraftCopy;
+  aiJobs: AIJobCopy;
   omniSms: typeof omniSmsTranslations.en;
   omniGroups: typeof omniGroupTranslations.en;
   contactLoads: typeof contactLoadTranslations.en;
@@ -9335,6 +9337,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.en,
     emailMonitoringDetail: emailMonitoringDetailTranslations.en,
     emailNoteDraft: emailNoteDraftTranslations.en,
+    aiJobs: aiJobTranslations.en,
     automationOverview: automationOverviewTranslations.en,
     omniSms: omniSmsTranslations.en,
     omniGroups: omniGroupTranslations.en,
@@ -17212,6 +17215,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.sk,
     emailMonitoringDetail: emailMonitoringDetailTranslations.sk,
     emailNoteDraft: emailNoteDraftTranslations.sk,
+    aiJobs: aiJobTranslations.sk,
     automationOverview: automationOverviewTranslations.sk,
     omniSms: omniSmsTranslations.sk,
     omniGroups: omniGroupTranslations.sk,
@@ -25085,6 +25089,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.cs,
     emailMonitoringDetail: emailMonitoringDetailTranslations.cs,
     emailNoteDraft: emailNoteDraftTranslations.cs,
+    aiJobs: aiJobTranslations.cs,
     automationOverview: automationOverviewTranslations.cs,
     omniSms: omniSmsTranslations.cs,
     omniGroups: omniGroupTranslations.cs,
@@ -32917,6 +32922,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.hu,
     emailMonitoringDetail: emailMonitoringDetailTranslations.hu,
     emailNoteDraft: emailNoteDraftTranslations.hu,
+    aiJobs: aiJobTranslations.hu,
     automationOverview: automationOverviewTranslations.hu,
     omniSms: omniSmsTranslations.hu,
     omniGroups: omniGroupTranslations.hu,
@@ -40747,6 +40753,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.ro,
     emailMonitoringDetail: emailMonitoringDetailTranslations.ro,
     emailNoteDraft: emailNoteDraftTranslations.ro,
+    aiJobs: aiJobTranslations.ro,
     automationOverview: automationOverviewTranslations.ro,
     omniSms: omniSmsTranslations.ro,
     omniGroups: omniGroupTranslations.ro,
@@ -48585,6 +48592,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.it,
     emailMonitoringDetail: emailMonitoringDetailTranslations.it,
     emailNoteDraft: emailNoteDraftTranslations.it,
+    aiJobs: aiJobTranslations.it,
     automationOverview: automationOverviewTranslations.it,
     omniSms: omniSmsTranslations.it,
     omniGroups: omniGroupTranslations.it,
@@ -56414,6 +56422,7 @@ export const translations = {
     aiSettings: aiSettingsTranslations.de,
     emailMonitoringDetail: emailMonitoringDetailTranslations.de,
     emailNoteDraft: emailNoteDraftTranslations.de,
+    aiJobs: aiJobTranslations.de,
     automationOverview: automationOverviewTranslations.de,
     omniSms: omniSmsTranslations.de,
     omniGroups: omniGroupTranslations.de,

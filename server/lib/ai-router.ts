@@ -12,7 +12,19 @@ const router = createAdminAIRouter({
   revision: AI_ROUTING_REVISION,
   mode: parseAIRouterMode(process.env.INDEXUS_AI_ROUTER_MODE),
   emit: event => console.info("[AI Router]", JSON.stringify(event)),
-}, { snapshot: aiAdminSnapshot, reload: refreshAIAdminSnapshot });
+}, { snapshot: aiAdminSnapshot, reload: refreshAIAdminSnapshot,
+  enqueue: (service, model, body, options) => {
+    // Lazy import: router construction and readiness never connect to the DB.
+    const received = import("./ai-jobs/inference-live").then(({ inferenceStore, queuedInference }) => ({
+      request: queuedInference(inferenceStore, service, model, body, { signal: options?.signal }),
+    }));
+    const data = received.then(({ request }) => request);
+    void data.catch(() => {});
+    return { then: data.then.bind(data), catch: data.catch.bind(data), finally: data.finally.bind(data),
+      asResponse: () => received.then(({ request }) => request.asResponse()),
+      withResponse: () => received.then(({ request }) => request.withResponse()) };
+  },
+});
 export const aiClient = router.client;
 export const isAIAvailable = router.available;
 export const aiChatProbe = router.chatProbe;

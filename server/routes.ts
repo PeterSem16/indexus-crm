@@ -248,6 +248,8 @@ import fs from "fs";
 import multer from "multer";
 import { toFile } from "openai";
 import { aiClient, isAIAvailable } from "./lib/ai-router";
+import { aiJobEnabled } from "./lib/ai-jobs/policy";
+import { refreshAIAdminSnapshot } from "./lib/ai/admin-runtime";
 import { parseEmailSentimentAnalysis, emailSentimentFailure } from "./lib/ai/email-sentiment-contract";
 import { createStatusListLabelTranslationHandler } from "./lib/status-list-label-translation";
 import { statusListLabelTranslationsSchema } from "../shared/status-list-label-translations";
@@ -8494,6 +8496,34 @@ Always respond with valid JSON only, no markdown.`
     try {
       const { userId } = req.params;
       const { emailSubject, emailBody, emailFrom, language } = req.body;
+      await refreshAIAdminSnapshot();
+      if (!aiJobEnabled("email.summary") && req.session?.user?.id) {
+        const { drainingJob } = await import("./lib/ai-jobs/runtime");
+        const { JobError } = await import("./lib/ai-jobs/policy");
+        try {
+          const job = await drainingJob(req.session.user.id, "email.summary", req.body.emailId, language || "sk", req.body.mailbox);
+          if (job) {
+            const { jobView } = await import("./lib/ai-jobs/store");
+            return res.status(202).json({ job: jobView(job), jobId: job.id });
+          }
+        } catch (error) {
+          const safe = error instanceof JobError ? error : new JobError("jobs_unavailable", 503);
+          return res.status(safe.status).json({ errorCode: safe.code });
+        }
+      }
+      if (aiJobEnabled("email.summary")) {
+        const { JobError } = await import("./lib/ai-jobs/policy");
+        try {
+          if (userId !== req.session.user!.id) return res.status(403).json({ errorCode: "forbidden" });
+          const { enqueueEmailJob } = await import("./lib/ai-jobs/runtime");
+          const { jobView } = await import("./lib/ai-jobs/store");
+          const job = await enqueueEmailJob(userId, req.body.emailId, req.body.mailbox, language || "sk");
+          return res.status(202).json({ job: jobView(job), jobId: job.id });
+        } catch (error) {
+          const safe = error instanceof JobError ? error : new JobError("jobs_unavailable", 503);
+          return res.status(safe.status).json({ errorCode: safe.code });
+        }
+      }
 
       if (!emailBody && !emailSubject) {
         return res.status(400).json({ error: "Email content is required" });
@@ -10547,6 +10577,9 @@ Return ONLY valid JSON, no markdown code blocks.`,
     }).from(taskChecklistItems).where(eq(taskChecklistItems.taskId, taskId))
       .orderBy(taskChecklistItems.position),
   });
+
+  const { registerAIJobs } = await import("./lib/ai-jobs/register");
+  registerAIJobs(app, requireAuth);
 
   app.get("/api/tasks/:taskId/checklist/ai", requireAuth, async (req, res) => {
     try {

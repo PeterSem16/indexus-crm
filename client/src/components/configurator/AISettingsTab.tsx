@@ -225,7 +225,8 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
       (route.model === EMAIL_MONITORING_MODEL || model.outputFormats.includes("text"))) &&
     Date.now() - new Date(smoke.checkedAt).getTime() <= staleMs;
   const canInternal = service.internalEligible &&
-    view.runtime.production && !view.runtime.replit && view.runtime.serverAllowed && smokeFresh;
+    view.runtime.production && !view.runtime.replit && view.runtime.serverAllowed && smokeFresh &&
+    view.queue?.ready === true;
   const canSaveInternal = canInternal || !route.enabled;
   const save = useMutation({
     mutationFn: async (args: { value: AIServiceRoute; confirm: boolean }) =>
@@ -242,7 +243,9 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
   };
   const operation = copy.operations[service.operation.toLowerCase()] || service.operation;
   return <article className="grid gap-4 border-b p-4 last:border-b-0 lg:grid-cols-[minmax(0,1fr)_minmax(210px,1fr)_minmax(240px,1fr)_auto] lg:items-center">
-    <div className="min-w-0"><p className="truncate font-mono text-sm font-semibold" title={service.id}>{service.id}</p><p className="mt-1 text-xs text-muted-foreground">{operation}</p></div>
+    <div className="min-w-0"><p className="truncate font-mono text-sm font-semibold" title={service.id}>{service.id}</p><p className="mt-1 text-xs text-muted-foreground">{operation}</p>
+      <p className="mt-1 text-xs text-muted-foreground" data-testid={`execution-${service.id}`}>
+        {route.provider === "internal" ? copy.asyncMode : copy.syncMode}</p></div>
     <div className="space-y-1.5"><Label htmlFor={`provider-${service.id}`} className="text-xs">{copy.provider}</Label>
       <select id={`provider-${service.id}`} value={route.provider} onChange={e => {
         const provider = e.target.value as AIServiceRoute["provider"];
@@ -256,8 +259,8 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
     <div className="space-y-1.5"><Label htmlFor={`model-${service.id}`} className="text-xs">{copy.model}</Label>
       {route.provider === "internal" ? <select id={`model-${service.id}`} value={route.model || internalModel}
         onChange={e => setRoute({ ...route, model: e.target.value })} className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-xs">
-        <option value={internalModel}>{internalModel}</option>
-        {service.id === "email.monitoring" && <option value={EMAIL_MONITORING_MODEL}>{EMAIL_MONITORING_MODEL}</option>}</select> :
+        {(service.models ?? [internalModel, ...(service.id === "email.monitoring" ? [EMAIL_MONITORING_MODEL] : [])])
+          .map(model => <option key={model} value={model}>{model}</option>)}</select> :
         <div className="flex gap-1.5"><Input id={`model-${service.id}`} value={route.model || ""} placeholder={copy.originalModel}
           onChange={e => setRoute({ ...route, model: e.target.value || null })} className="font-mono text-xs" />
           {route.model !== null && <Button type="button" variant="outline" size="sm" title={copy.originalModel} onClick={() => setRoute({ ...route, model: null })}>{copy.originalModel}</Button>}</div>}
@@ -268,7 +271,8 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
       <Button size="sm" onClick={submit} disabled={save.isPending || (route.provider === "internal" && !canSaveInternal)}>
         {save.isPending ? copy.savingRoute : copy.saveRoute}</Button>
     </div>
-    {route.provider === "internal" && route.enabled && !canInternal && <p className="text-xs text-amber-800 lg:col-span-4">{copy.verificationRequired} {copy.internalUnavailable}</p>}
+    {route.provider === "internal" && route.enabled && !canInternal && <p className="text-xs text-amber-800 lg:col-span-4">
+      {view.queue?.ready !== true ? copy.async_worker_unavailable : `${copy.verificationRequired} ${copy.internalUnavailable}`}</p>}
     {!!error && <div role="alert" className="flex flex-wrap items-center gap-2 text-xs text-destructive lg:col-span-4">
       <span>{localizedError(copy, error)}</span>
       {errorCode(error) === "version_conflict" && <Button size="sm" variant="outline" onClick={() => {
@@ -316,6 +320,11 @@ export function AISettingsTab() {
       <Badge variant="outline" className="font-mono">v{view.version}</Badge>
     </div>
     <GatewayEditor view={view} onUpdated={onUpdated} />
+    <div className="flex flex-wrap items-center gap-3 rounded-md border p-3" data-testid="ai-worker-status">
+      <StatusPill state={view.queue ? (view.queue.ready ? "ready" : "blocked") : "unknown"}
+        label={view.queue ? (view.queue.ready ? copy.workerReady : copy.workerOffline) : copy.workerUnknown} />
+      <p className="flex-1 text-xs text-muted-foreground">{copy.asyncHelp}</p>
+    </div>
     <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{copy.services}</CardTitle><CardDescription className="mt-1">{copy.servicesDescription}</CardDescription></div>

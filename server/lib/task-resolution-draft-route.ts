@@ -6,6 +6,9 @@ import {
   type TaskResolutionDraftResult,
 } from "./task-resolution-draft";
 import { assertPulseTaskChecklistComplete, PulseChecklistCompletionError } from "./task-completion";
+import { aiJobEnabled, JobError } from "./ai-jobs/policy";
+import { refreshAIAdminSnapshot } from "./ai/admin-runtime";
+import type { AIJobView } from "../../shared/ai-jobs";
 
 type DraftTask = {
   id: string;
@@ -23,6 +26,7 @@ export type TaskResolutionDraftRouteDependencies = {
   canAccessTask: (user: any, taskId: string) => Promise<boolean>;
   getChecklist: (taskId: string) => Promise<DraftChecklistItem[]>;
   generate?: (input: TaskResolutionDraftInput) => Promise<TaskResolutionDraftResult>;
+  drainingJob?: (userId: string, taskId: string, locale?: string) => Promise<AIJobView | null>;
 };
 
 /** A private preview only: this endpoint never changes the task or resolution. */
@@ -53,6 +57,17 @@ export function registerTaskResolutionDraftRoute(
       }
       const items = await dependencies.getChecklist(task.id);
       assertPulseTaskChecklistComplete(task, items);
+      await refreshAIAdminSnapshot();
+      if (!aiJobEnabled("task.resolution") && dependencies.drainingJob) {
+        const job = await dependencies.drainingJob(user.id, task.id, body.locale);
+        if (job) return res.status(202).json({ job, jobId: job.id });
+      }
+      if (aiJobEnabled("task.resolution")) {
+        const { enqueueTaskJob } = await import("./ai-jobs/runtime");
+        const { jobView } = await import("./ai-jobs/store");
+        const job = await enqueueTaskJob("task.resolution", task.id, user.id, body.locale);
+        return res.status(202).json({ job: jobView(job), jobId: job.id });
+      }
       const key = `${user.id}:${task.id}`;
       if (inFlight.has(key)) {
         return res.status(409).json({ status: "failed", errorCode: "draft_in_progress" });
@@ -72,6 +87,7 @@ export function registerTaskResolutionDraftRoute(
       });
       return res.json(result);
     } catch (error) {
+      if (error instanceof JobError) return res.status(error.status).json({ status: "failed", errorCode: error.code });
       if (error instanceof PulseChecklistCompletionError) {
         return res.status(409).json({
           status: "failed",

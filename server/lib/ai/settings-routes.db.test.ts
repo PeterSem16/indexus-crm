@@ -20,6 +20,7 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
     const database = new pg.Pool({ ...pool.options, max: 5, options: `-c search_path=${schema}` });
     const store = new AISettingsStore(database);
     let authorized = true, checks = 0, providerCalls = 0, authReads = 0;
+    let workerOnline = true;
     let releaseCheck: (() => void) | undefined, blocking = false;
     const runtime = { enabled: true, production: true, replit: false,
       baseURL: DEFAULT_AI_SETTINGS.gateway.baseURL, token: "synthetic-test-placeholder" };
@@ -36,6 +37,7 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
     } } as any, requireAuth);
     const app = express(); app.use(express.json());
     registerAISettingsRoutes(app, { store, requireAdmin: guard, internal,
+      queueStatus: async () => ({ ready: workerOnline, counts: {} }),
       openai: { id: "openai", isAvailable: () => true, createClient() { throw new Error("No provider calls"); },
         chatProbe() { throw new Error("No provider calls"); } },
       check: async (kind, version) => {
@@ -66,9 +68,20 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
       await t.test("startup is idempotent and every service defaults to unchanged OpenAI", async () => {
         assert.equal(view.version, 1); assert.equal(view.gateway.enabled, false);
         assert.equal(view.services.length, 65);
+        assert.equal(view.services.filter((s: any) => s.internalEligible).length, 50);
+        assert(view.services.find((s: any) => s.id === "task.checklist").models.includes("indexus-task-checklist:v1"));
+        assert.equal(view.queue.ready, true);
         assert(view.services.every((s: any) => s.route.provider === "openai" && s.route.model === null && s.route.enabled));
         assert.equal(providerCalls, 0);
         assert.equal((await call()).response.headers.get("cache-control"), "no-store");
+      });
+      await t.test("Configuration refuses an internal activation without a live worker and changes no route", async () => {
+        workerOnline = false;
+        const result = await call("/route", "PUT", { expectedVersion: 1, service: "email.summary",
+          route: { provider: "internal", model: "indexus-document-audio:latest", enabled: true }, confirmInternal: true });
+        assert.equal(result.status, 503); assert.equal(result.body.code, "async_worker_unavailable");
+        assert.deepEqual((await store.read()).value.routes, {});
+        workerOnline = true;
       });
       await t.test("unauthenticated and revoked/inactive administrators cannot read or mutate settings", async () => {
         assert.equal((await call("", "GET", undefined, { "x-unit-user": "" })).status, 401);

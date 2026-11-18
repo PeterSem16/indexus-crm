@@ -7,11 +7,13 @@ import { AISettingsError, assertVersion, freshSmoke, internalEligible, parseGate
 import { assertInternalRuntime, checkAIProvider } from "./settings-check";
 import { parseAIRouterMode } from "./router";
 import type { AISettingsView, AIVerification } from "../../../shared/ai-settings";
+import { internalModelsForService } from "./internal-contract";
 
 type Dependencies = {
   store: AISettingsStore; requireAdmin: RequestHandler;
   internal?: typeof internalAIAdapter; openai?: typeof openAIAdapter;
   check?: typeof checkAIProvider;
+  queueStatus?: () => Promise<NonNullable<AISettingsView["queue"]>>;
 };
 export function registerAISettingsRoutes(app: Express, dependencies: Dependencies) {
   const { store, requireAdmin } = dependencies;
@@ -23,10 +25,12 @@ export function registerAISettingsRoutes(app: Express, dependencies: Dependencie
       services: Object.entries(AI_SERVICES).map(([id, operation]) => ({
         id, operation, route: state.value.routes[id] ?? { provider: "openai", model: null, enabled: true },
         internalEligible: internalEligible(id),
+        models: internalEligible(id) ? internalModelsForService(id) : [],
       })),
       runtime: { ...internal.runtimeStatus(), openaiConfigured: openai.isAvailable(),
         mode: parseAIRouterMode(process.env.INDEXUS_AI_ROUTER_MODE) },
-      gatewayCheck: state.gatewayCheck, openaiCheck: state.openaiCheck, audit: await store.audit() };
+      gatewayCheck: state.gatewayCheck, openaiCheck: state.openaiCheck, audit: await store.audit(),
+      queue: dependencies.queueStatus ? await dependencies.queueStatus() : null };
   };
   const wrap = (handler: (req: Request, res: Response) => Promise<unknown>): RequestHandler =>
     async (req, res) => {
@@ -63,6 +67,9 @@ export function registerAISettingsRoutes(app: Express, dependencies: Dependencie
     if (!req.body || Object.keys(req.body).some(key => !["expectedVersion", "service", "route", "confirmInternal"].includes(key)) ||
       typeof req.body.service !== "string") throw new AISettingsError("route_invalid");
     const service = req.body.service, route = parseRoute(service, req.body.route);
+    if (route.provider === "internal" && route.enabled && dependencies.queueStatus &&
+      !(await dependencies.queueStatus()).ready)
+      throw new AISettingsError("async_worker_unavailable", 503);
     await store.mutate(req.body.expectedVersion, actor(req), "route", state => {
       if (route.provider === "internal" && route.enabled) {
         assertInternalRuntime(internal);

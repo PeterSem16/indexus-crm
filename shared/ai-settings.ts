@@ -29,7 +29,8 @@ export interface AIPersistedSettings {
 export interface AISettingsView {
   version: number;
   gateway: AIGatewaySettings;
-  services: { id: string; operation: string; route: AIServiceRoute; internalEligible: boolean }[];
+  services: { id: string; operation: string; route: AIServiceRoute; internalEligible: boolean; models?: readonly string[] }[];
+  queue?: { ready: boolean; counts: Record<string, number> } | null;
   runtime: { production: boolean; replit: boolean; serverAllowed: boolean;
     tokenConfigured: boolean; openaiConfigured: boolean; mode: "routed" | "legacy" };
   gatewayCheck: AIVerification | null;
