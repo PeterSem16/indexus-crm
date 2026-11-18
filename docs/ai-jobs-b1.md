@@ -3,13 +3,30 @@
 ## Current evidence
 
 The operator created `indexus_ai_b1` on CORPCRM01 from `template0`, owned by
-the equally named **NOLOGIN** role. The role is not a superuser and has neither
-CREATEDB nor CREATEROLE. PUBLIC database access was revoked. No worker ran.
-This proves database creation, not application readiness or AI acceptance.
+the equally named initially **NOLOGIN** role. The operator subsequently completed
+private connection preparation: only this test role received LOGIN and a private
+SCRAM credential. The nonce marker was created and authenticated access verified.
+The role has no elevated rights or memberships; production table/column,
+sequence and security-definer checks all returned false. PUBLIC database access
+was revoked. No worker ran. This is not application readiness or AI acceptance.
 
 The original application must **not** be started as a second test instance:
 its ordinary startup also starts email monitors, automation and telephony.
 An isolated UI/API entry and its guarded worker launch are still required.
+
+The separate B1 entry/API/launcher have now been drafted locally. API fixture
+tests verify authentication, loopback Host/origin restrictions, one synthetic
+task and pending/processing/completed persistence. The selectively based client
+and B1 backend build succeeded. These are not live Gateway acceptance.
+
+Full-browser verification found that production `/tasks` redirects to
+`/email?tab=tasks`, whose Omni shell hides content without a connected mailbox.
+The private pilot deliberately reports disconnected/empty mailbox metadata;
+it must never pretend a mailbox is connected to get past this gate. Original
+standalone Tasks-page routing versus a separately authorized test mailbox
+needs resolution before the UI/worker toolkit is ready for operator use.
+The queue/API/resolution regression run passed 23 tests. A scoped TypeScript run
+still reported diagnostics in imported dependencies; it is not a clean typecheck.
 
 ## Private connection preparation
 
@@ -65,8 +82,8 @@ The helper deliberately refuses non-CORPCRM01 hosts and other Unix users.
 
 | Gate | Evidence |
 |---|---|
-| Dedicated DB and restricted NOLOGIN role | Confirmed by operator |
-| Private connection and production privilege checks | Awaiting operator execution |
+| Dedicated DB and restricted test role | Confirmed by operator; LOGIN enabled only by preparation |
+| Private connection and production privilege checks | Confirmed; nonce verified, no production object privileges |
 | Isolated original UI/API, authenticated private access | Not yet prepared |
 | Guarded worker readiness with existing Gateway preload | Not yet executed |
 | One real Slovak checklist through the original UI | Not yet executed |
