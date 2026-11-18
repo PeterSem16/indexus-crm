@@ -6,7 +6,10 @@ const cp = require("node:child_process");
 const INPUTS = ["package.json", "tsconfig.json", "server/lib/ai",
   "server/config/ai-routing.ts", "shared/ai-settings.ts", "script/ai-three-services",
   "script/ai-email-monitoring-b1/runtime.cjs"];
-function prepareRecovery({ app, home, archive, originalReport, execute, env = process.env }) {
+function prepareRecovery({ app, home, archive, originalReport, execute, env = process.env,
+    mode = "--recover-before-first-case" }) {
+  if (!["--recover-before-first-case", "--smoke-three"].includes(mode))
+    throw Error("THREE_CONSOLE_MODE_INVALID");
   const work = fs.mkdtempSync(path.join(home, "INDEXUS-AI-Three-Services-Recovery-"));
   fs.chmodSync(work, 0o700);
   const source = path.join(work, "source");
@@ -17,17 +20,21 @@ function prepareRecovery({ app, home, archive, originalReport, execute, env = pr
   const runner = path.join(source, "script/ai-three-services/run.ts");
   for (const file of [runner, path.join(source, "script/ai-three-services/run-safety.ts")])
     if (!fs.statSync(file).isFile()) throw Error("THREE_RECOVERY_RUNNER_MISSING");
-  console.log("Spustam overene pokracovanie pred prvou AI poziadavkou.");
-  console.log("Povodny marker zostava zachovany. Report: " + originalReport);
+  const report = mode === "--smoke-three" ? path.join(work, "three-services-smoke.json") : originalReport;
+  console.log(mode === "--smoke-three"
+    ? "Spustam presne 3 synteticke AI poziadavky cez povodny CRM router a parser."
+    : "Spustam overene pokracovanie pred prvou AI poziadavkou.");
+  console.log("Povodne markery a reporty zostavaju zachovane. Report: " + report);
   return execute(process.execPath, ["--require", "/etc/indexus-ai-runtime/preload.cjs",
-    "--import", "tsx", runner, "--recover-before-first-case", originalReport], {
+    "--import", "tsx", runner, mode, report], {
     cwd: source, stdio: "inherit", env: { ...env, NODE_ENV: "production" },
   });
 }
 function main() {
   const pin = process.argv[2], originalReport = process.argv[3];
+  const smoke = originalReport === "--smoke-three";
   if (process.argv.length !== 4 || !/^[a-f0-9]{40}$/.test(pin || "") ||
-      !originalReport || !path.isAbsolute(originalReport))
+      !originalReport || (!smoke && !path.isAbsolute(originalReport)))
     throw Error("THREE_RECOVERY_PIN_AND_ORIGINAL_REPORT_REQUIRED");
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
       process.getuid?.() !== 1001 || process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN)
@@ -39,6 +46,7 @@ function main() {
     cwd: app, timeout: 30000, maxBuffer: 32 * 1024 * 1024,
   });
   const run = prepareRecovery({ app, home: os.homedir(), archive, originalReport,
+    ...(smoke ? { mode: "--smoke-three" } : {}),
     execute: (...args) => cp.spawnSync(...args) });
   if (run.error) throw run.error;
   process.exitCode = run.status ?? 1;

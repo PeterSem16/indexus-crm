@@ -385,3 +385,11 @@ Spúšťač `recover-console.cjs` používa presne existujúci monitoring preloa
 a izolovanú kópiu pripnutého kódu. Nevykonáva checkout, inštaláciu, reštart,
 zmenu prihlasovania ani konfigurácie. Chyby runnera teraz uvádzajú konkrétnu
 fázu a bezpečný technický kód, nie surovú správu obsahujúcu súkromné údaje.
+
+Po potvrdení discovery z CORPCRM01 je samostatne podporovaný schválený
+`--smoke-three`: presne jeden pôvodný slovenský syntetický prípad na každú
+službu, nie opakovanie celej sady. Používa ten istý runner, router, adaptér,
+prompty a parsery. Má vlastný jednorazový marker a nový súkromný report;
+pôvodnú evidenciu nemení. V konzole vypíše všetky tri výsledky vrátane surového
+syntetického výstupu, aplikačného výsledku a času. Nepotvrdzuje sedemjazyčnú
+akceptáciu ani oprávnenie na aktiváciu produkčných routov.

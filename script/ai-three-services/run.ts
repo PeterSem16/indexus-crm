@@ -30,16 +30,23 @@ export async function runAcceptance(options: {
   root: string; adapter: ReturnType<typeof createInternalAIAdapter>;
   readSnapshot: () => Promise<any>; save: (report: any) => void; signal?: AbortSignal;
   initialSnapshot?: any; recovery?: unknown;
+  profile?: "smoke-three";
 }) {
   const source = originalBoundaries(options.root);
-  const corpus = acceptanceCorpus();
+  const allCases = acceptanceCorpus();
+  const corpus = options.profile === "smoke-three"
+    ? Object.keys(THREE_SERVICE_PROFILES).map(service =>
+      allCases.find(item => item.service === service && item.language === "SK" && item.scenario === "missing_document")!)
+    : allCases;
   const denyCloud: any = { id: "openai", isAvailable: () => false,
     createClient() { throw Error("THREE_CLOUD_FALLBACK_FORBIDDEN"); },
     chatProbe() { throw Error("THREE_CLOUD_FALLBACK_FORBIDDEN"); } };
   const router = createAIRouter({ adapter: denyCloud, adapters: [options.adapter],
     overrides: THREE_SERVICE_CANDIDATE_ROUTES, mode: "routed", revision: "isolated-three-services", emit() {} });
   const report: any = {
-    kind: "LIVE_ISOLATED_SYNTHETIC_THREE_SERVICES", startedAt: new Date().toISOString(),
+    kind: options.profile === "smoke-three" ? "LIVE_ISOLATED_SMOKE_THREE_SERVICES"
+      : "LIVE_ISOLATED_SYNTHETIC_THREE_SERVICES", startedAt: new Date().toISOString(),
+    languageCoverage: options.profile === "smoke-three" ? ["SK"] : ["SK", "CZ", "RO", "ENG", "DE", "IT", "HU"],
     verdict: "NOT_READY", planned: corpus.length, sourceHashes: source.hashes,
     corpusHash: sha256(JSON.stringify(corpus)), productionActivation: false,
     originalPromptsAndParsers: true, openaiComparison: "NOT_EXECUTED",
@@ -129,7 +136,7 @@ export async function runAcceptance(options: {
     report.finishedAt = new Date().toISOString();
     report.summary = Object.fromEntries(Object.keys(THREE_SERVICE_PROFILES).map(service => {
       const rows = report.results.filter((r: any) => r.service === service);
-      return [service, { planned: 27, evaluated: rows.length,
+      return [service, { planned: corpus.filter(item => item.service === service).length, evaluated: rows.length,
         fail: rows.filter((r: any) => r.status === "FAIL").length,
         reviewRequired: rows.filter((r: any) => r.status === "REVIEW_REQUIRED").length,
         noInference: rows.filter((r: any) => r.status === "PASS_NO_INFERENCE").length,
@@ -145,7 +152,9 @@ export async function runAcceptance(options: {
 let startupStage = "arguments";
 async function main() {
   const recoveryMode = process.argv[2] === "--recover-before-first-case";
-  if (process.argv.length !== 4 || (!recoveryMode && process.argv[2] !== "--run-81"))
+  const smokeMode = process.argv[2] === "--smoke-three";
+  const planned = smokeMode ? 3 : 81;
+  if (process.argv.length !== 4 || (!recoveryMode && !smokeMode && process.argv[2] !== "--run-81"))
     fail("THREE_EXPLICIT_RUN_AND_OUTPUT_REQUIRED");
   if (os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01" ||
       process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN) fail("THREE_CORPCRM01_ONLY");
@@ -158,7 +167,9 @@ async function main() {
   if (!parent.isDirectory() || parent.isSymbolicLink() || parent.uid !== process.getuid?.() ||
       (parent.mode & 0o077)) fail("THREE_EXISTING_PRIVATE_OUTPUT_DIRECTORY_REQUIRED");
   // This fixed one-time marker blocks accidental second runs under a different output name.
-  const marker = path.join(ROOT, "data", "internal-ai-three-services-81.started");
+  const marker = path.join(ROOT, "data", smokeMode
+    ? "internal-ai-three-services-smoke-after-discovery.started"
+    : "internal-ai-three-services-81.started");
   startupStage = "database_configuration";
   const env = parse(fs.readFileSync(path.join(ROOT, ".env")));
   if (process.env.DATABASE_URL && env.DATABASE_URL && process.env.DATABASE_URL !== env.DATABASE_URL)
@@ -212,13 +223,14 @@ async function main() {
       fs.writeFileSync(temporary, JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
       fs.renameSync(temporary, output);
       const completed = value.results.filter((row: any) => row.status !== "IN_PROGRESS").length;
-      if (completed !== lastCompleted) { console.log(`THREE_PROGRESS ${completed}/81`); lastCompleted = completed; }
+      if (completed !== lastCompleted) { console.log(`THREE_PROGRESS ${completed}/${planned}`); lastCompleted = completed; }
     };
   // Keep a useful receipt even if original-source binding fails after reservation.
   save({ kind: "THREE_RESERVED_BEFORE_FIRST_CASE", results: [], before: initialSnapshot, recovery: recovery ?? null });
   startupStage = "acceptance";
   const report = await runAcceptance({
     root: ROOT, readSnapshot: snapshot, initialSnapshot, recovery, signal: controller.signal, save,
+    ...(smokeMode ? { profile: "smoke-three" as const } : {}),
     adapter: createInternalAIAdapter({
       readConfiguration: () => ({ enabled: true, production: true, replit: false,
         baseURL: process.env.INDEXUS_AI_GATEWAY_BASE_URL, token: process.env.INDEXUS_AI_GATEWAY_TOKEN }),
@@ -226,8 +238,16 @@ async function main() {
       readSettings: () => ({ ...gateway, maxRetries: 0 }),
     }),
   });
+  if (smokeMode) for (const row of report.results) {
+    console.log("THREE_SMOKE_RESULT " + JSON.stringify({
+      service: row.service, model: row.model, httpStatus: row.httpStatus ?? null,
+      status: row.status, elapsedMs: row.elapsedMs, rawOutput: row.rawOutput ?? null,
+      parsedResult: row.result ?? null, errors: row.errors ?? [],
+      transportError: row.transportError ?? null,
+    }));
+  }
   console.log(JSON.stringify({ verdict: report.verdict, evaluated: report.results.length,
-    productionUnchanged: report.productionUnchanged }));
+    productionUnchanged: report.productionUnchanged, report: output }));
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
   main().catch(error => {

@@ -31,6 +31,19 @@ test("isolated recovery launches the original report with the exact existing pre
         return { status: 0 };
       } });
     assert.equal(invoked, true); assert.equal(result.status, 0);
+    let smokeReport;
+    prepareRecovery({ app, home, archive, mode: "--smoke-three",
+      execute: (_node, args, options) => {
+        assert.equal(args.at(-2), "--smoke-three");
+        smokeReport = args.at(-1);
+        assert.equal(smokeReport, path.join(path.dirname(options.cwd), "three-services-smoke.json"));
+        assert.notEqual(smokeReport, originalReport);
+        assert.equal(fs.existsSync(smokeReport), false);
+        return { status: 0 };
+      } });
+    assert.ok(smokeReport);
+    assert.throws(() => prepareRecovery({ app, home, archive, mode: "--run-81", execute() {} }),
+      /THREE_CONSOLE_MODE_INVALID/);
     assert.equal(fs.statSync(originalReport).size, 0);
     assert.ok(INPUTS.includes("script/ai-email-monitoring-b1/runtime.cjs"));
     assert.equal(INPUTS.includes("script/ai-email-monitoring-b1/b11-check.cjs"), false);

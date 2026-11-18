@@ -199,3 +199,26 @@ test("full offline 81-case rehearsal never claims multilingual AI quality or cha
     r.languageReview === "REVIEW_REQUIRED" && r.rawOutput && r.promptHash));
   assert.equal(saved, report); assert.equal(h.cloud.length, 0);
 });
+test("approved smoke profile makes exactly one original request per service, not the full acceptance suite", async () => {
+  const h = harness();
+  const report = await runAcceptance({
+    root: process.cwd(), adapter: h.adapter, profile: "smoke-three",
+    readSnapshot: async () => ({ version: 9, fullConfigurationSha256: "synthetic-unchanged" }),
+    save() {},
+  });
+  assert.equal(report.planned, 3);
+  assert.equal(report.results.length, 3);
+  assert.equal(report.kind, "LIVE_ISOLATED_SMOKE_THREE_SERVICES");
+  assert.deepEqual(report.languageCoverage, ["SK"]);
+  assert.deepEqual(report.results.map((row: any) => row.service), Object.keys(profiles));
+  assert.equal(h.calls.filter(c => c.url.endsWith("chat/completions")).length, 3);
+  assert.equal(h.cloud.length, 0);
+  assert.equal(report.productionUnchanged, true);
+  for (const row of report.results) {
+    assert.equal(row.status, "REVIEW_REQUIRED");
+    assert.equal(row.httpStatus, 200);
+    assert.ok(row.rawOutput);
+    assert.equal(report.summary[row.service].planned, 1);
+  }
+  assert.equal(report.verdict, "NOT_READY");
+});
