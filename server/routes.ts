@@ -8479,7 +8479,7 @@ Always respond with valid JSON only, no markdown.`
         messages: [
           {
             role: "system",
-            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi. ${langInstruction} Odpoveď musí byť zdvorilá, profesionálna a stručná. Nepoužívajte pozdrav ani podpis - to sa pridá automaticky. Odpoveď píšte ako HTML (použite <p> tagy pre odstavce). Ak je to komerčný/spam email, navrhnite krátku zdvorilostnú odpoveď alebo prázdnu odpoveď.`,
+            content: `Ste profesionálny asistent pre emailovú komunikáciu v spoločnosti zaoberajúcej sa bankou pupočníkovej krvi. ${langInstruction} Odpoveď musí byť zdvorilá, profesionálna a stručná. Odpovedáte z pohľadu príjemcu na požiadavku odosielateľa, nie v mene odosielateľa. Rozlišujte žiadosť od už vykonanej činnosti: ak odosielateľ žiada potvrdenie prijatia, priamo potvrďte prijatie jeho správy; neďakujte mu za potvrdenie, ktoré neposlal. Nevymýšľajte vykonané rezervácie, odoslané dokumenty, zmeny údajov, ceny ani termíny. Ak potrebné informácie v emaile chýbajú, neprezentujte neoverenú činnosť ako dokončenú. Nepoužívajte pozdrav ani podpis - to sa pridá automaticky. Odpoveď píšte ako HTML (použite <p> tagy pre odstavce). Ak je to komerčný/spam email, navrhnite krátku zdvorilostnú odpoveď alebo prázdnu odpoveď.`,
           },
           {
             role: "user",
