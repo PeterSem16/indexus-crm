@@ -15,7 +15,8 @@ režimom bez workera a naďalej bezpečne odmietne aktívny interný monitoring.
 - Overený serverový staging:
   `/var/www/indexus-crm/data/ai-services-stage-aBwcWg`.
 - Produkčný PM2: používateľ `seman`, existujúci daemon PID `22545`,
-  aplikácia `indexus-crm`, ID `4`, pôvodný proces `958103`.
+  aplikácia `indexus-crm`, ID `4`. PID aplikácie sa načíta po overení identity;
+  úspešný návrat pôvodnej aplikácie ho zmení. Počas zálohy sa meniť nesmie.
 - Živý backend: `/var/www/indexus-crm/dist/index.cjs`.
 
 Nástroj používa presne tie tri runtime SHA-256, ktoré vrátil úspešný
@@ -77,12 +78,20 @@ aktuálny stav. Predošlé ani čiastočné zálohy sa automaticky nemažú.
 
 ## Overenie nástroja
 
-- 19 jednotkových a bezpečnostných testov.
-- 11 scenárov skutočnej operačnej implementácie nad dočasným súborovým systémom:
+- 25 jednotkových, bezpečnostných a reálnych podprocesových testov.
+- 13 scenárov skutočnej operačnej implementácie nad dočasným súborovým systémom:
   úspech, neúspešná záloha, nesúkromné úložisko, aktívna interná služba,
   neúspešný HTTP štart a neúplná schéma; navyše schválený worker, odmietnutý
   worker check, čiastočný štart, chýbajúci heartbeat a návrat s odstránením workera.
   Návrat zachováva údaje a oba asset sety.
+- Regresia prázdneho stdin je reprodukovaná reálnym Node podprocesom:
+  `stdio[0]="ignore"` zahodí `input` aj pri jeho explicitnom nastavení.
+  Súčasný runner pri `input` vždy otvorí rúru. Podprocesové testy spúšťajú
+  skutočný kontrolný wrapper so syntetickou konfiguráciou, bez databázy a AI.
+  Rozlišujú prázdny vstup, neplatný JSON, blokovaný loader, chybu modulu,
+  chýbajúci interpret a ukončenie kontroly. Testy nikdy nevypisujú konfiguráciu.
+- Opakované nasadenie po overenom návrate prijme nový PID pôvodnej aplikácie,
+  ale naďalej odmietne jej súbežný reštart počas zálohy.
 - Skutočný schema-only native PostgreSQL dump vo vývojovom prostredí,
   `pg_restore --list` aj úplné dekódovanie prešli. Nejde o produkčnú zálohu.
 

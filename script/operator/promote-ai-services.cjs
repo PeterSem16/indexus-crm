@@ -99,8 +99,26 @@ function workerSpecification(environment, interpreter) {
 }
 function run(bin, args, opts = {}) {
   return cp.execFileSync(bin, args, { encoding: "utf8", timeout: 30000,
-    maxBuffer: 16 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 16 * 1024 * 1024,
+    stdio: [opts.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     env: cleanEnv(process.env), ...opts });
+}
+function workerCheckProgram() {
+  return `/* INDEXUS_WORKER_CHECK */
+let input="";process.stdin.on("data",b=>input+=b);process.stdin.on("end",()=>{
+if(!input){process.exitCode=60;return;}
+let s;try{s=JSON.parse(input);}catch{process.exitCode=61;return;}
+try{const r=require("node:child_process").spawnSync(s.interpreter,
+[...s.node_args,"-e",s.check,s.script],{cwd:s.cwd,env:s.env,timeout:30000,stdio:["ignore","pipe","pipe"]});
+process.exitCode=r.error?(r.error.code==="ETIMEDOUT"?65:66):
+r.signal?65:r.status===0?0:r.status===3?63:64;}catch{process.exitCode=67;}});`;
+}
+function workerGatewayCheckProgram() {
+  return `const e=process.env;
+if(e.NODE_ENV!=="production"||e.INDEXUS_AI_GATEWAY_ENABLED!=="true"||
+e.INDEXUS_AI_ROUTER_MODE!=="routed"||!e.INDEXUS_AI_GATEWAY_TOKEN||
+e.INDEXUS_AI_GATEWAY_BASE_URL!=="https://ai.cordbloodcenter.com/gateway/")process.exit(3);
+const file=process.argv[1];process.argv=[process.execPath,file,"--check"];require(file);`;
 }
 function regular(root, relative) {
   let current = root;
@@ -266,20 +284,17 @@ function productionOperations(manifest, { workerApproved = false } = {}) {
     const spec = workerSpecification(workerEnv, process.execPath);
     // Configuration, including credentials, travels only over a private stdin pipe.
     // The child logs neither the configuration nor raw exceptions.
-    const checkCode = `/* INDEXUS_WORKER_CHECK */
-let input="";process.stdin.on("data",b=>input+=b);process.stdin.on("end",()=>{
-try{const s=JSON.parse(input);const r=require("node:child_process").spawnSync(s.interpreter,
-[...s.node_args,"-e",s.check,s.script],{cwd:s.cwd,env:s.env,timeout:30000,stdio:["ignore","pipe","pipe"]});
-process.exitCode=r.status===0?0:2;}catch{process.exitCode=2;}});`;
-    const check = `const e=process.env;
-if(e.NODE_ENV!=="production"||e.INDEXUS_AI_GATEWAY_ENABLED!=="true"||
-e.INDEXUS_AI_ROUTER_MODE!=="routed"||!e.INDEXUS_AI_GATEWAY_TOKEN||
-e.INDEXUS_AI_GATEWAY_BASE_URL!=="https://ai.cordbloodcenter.com/gateway/")process.exit(3);
-const file=process.argv[1];process.argv=[process.execPath,file,"--check"];require(file);`;
+    const checkCode = workerCheckProgram(), check = workerGatewayCheckProgram();
     setPhase("worker_check");
     try {
       asUser(process.execPath, ["-e", checkCode], { input: JSON.stringify({ ...spec, check }), timeout: 40000 });
-    } catch { fail("worker_schema_or_gateway_loader_check_failed"); }
+    } catch (error) {
+      const codes = { 60: "worker_check_stdin_empty", 61: "worker_check_configuration_invalid",
+        63: "worker_gateway_loader_not_ready", 64: "worker_schema_or_module_check_failed",
+        65: "worker_check_timed_out_or_terminated", 66: "worker_check_launch_failed",
+        67: "worker_check_wrapper_failed" };
+      fail(codes[error.status] || "worker_schema_or_gateway_loader_check_failed");
+    }
     const startCode = `/* INDEXUS_WORKER_START */
 let input="";process.stdin.on("data",b=>input+=b);process.stdin.on("end",()=>{
 try{const v=JSON.parse(input),pm=require(v.module);pm.connect(e=>{
@@ -430,7 +445,9 @@ if(e){process.exitCode=2;return;}pm.start(v.spec,e=>{pm.disconnect();if(e)proces
       if (user.uid !== 1001 || !user.home?.startsWith("/")) fail("application_account_changed");
       pm2 = run("runuser", ["-l", "seman", "-c", "command -v pm2"]).trim();
       if (!pm2.startsWith("/") || pm2.includes("\n")) fail("pm2_command_unavailable");
-      oldPid = processInfo(958103).pid;
+      // A successful rollback restarts the same verified application with a new PID.
+      // Capture that PID now and require it to remain unchanged at recheck.
+      oldPid = processInfo().pid;
       sources(BASE, false); protectedRuntime(OLD);
       await healthy(OLD["dist/public/index.html"]);
       const inherited = fs.readFileSync(`/proc/${oldPid}/environ`, "utf8").split("\0");
@@ -623,6 +640,7 @@ async function main(args) {
 }
 module.exports = { BASE, TARGET, TREE, BUILT, OLD, nativeEnvironment, canonical,
   settingsHash, assertOfflineSafe, assertWorkerCutover, workerEnvironment, workerSpecification,
+  run, workerCheckProgram, workerGatewayCheckProgram,
   validatePrepared, orchestrate, productionOperations, main };
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   console.log(JSON.stringify({ mode: "deployment_refused", code: error.safeCode || "operator_unavailable",

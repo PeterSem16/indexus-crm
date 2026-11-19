@@ -2,6 +2,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const op = require("./promote-ai-services.cjs");
 test("native backup uses explicit application identity, not root or ambient PG settings", () => {
@@ -142,4 +144,50 @@ test("one worker inherits existing configuration without inheriting PM2 process 
   assert.deepEqual(spec.args, ["--run"]);
   assert.deepEqual(spec.node_args, ["--require", "/etc/indexus-ai-runtime/preload.cjs"]);
   assert.equal(spec.env, env);
+});
+function checkFixture(t, body = "") {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "indexus-worker-stdin-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const script = path.join(dir, "worker.cjs");
+  fs.writeFileSync(script, `if(process.argv[2]!=="--check")throw Error("wrong_mode");${body}`);
+  return { interpreter: process.execPath, node_args: [], check: op.workerGatewayCheckProgram(),
+    cwd: dir, script, env: { NODE_ENV: "production", INDEXUS_AI_GATEWAY_ENABLED: "true",
+      INDEXUS_AI_ROUTER_MODE: "routed", INDEXUS_AI_GATEWAY_TOKEN: "synthetic-not-a-real-credential",
+      INDEXUS_AI_GATEWAY_BASE_URL: "https://ai.cordbloodcenter.com/gateway/" } };
+}
+test("real subprocess receives private JSON stdin and executes the actual worker-check wrapper", t => {
+  const spec = checkFixture(t);
+  const result = op.run(process.execPath, ["-e", op.workerCheckProgram()], { input: JSON.stringify(spec) });
+  assert.equal(result, "");
+});
+test("real subprocess reproduces the closed-stdin production failure without exposing configuration", t => {
+  const spec = checkFixture(t);
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], {
+    input: JSON.stringify(spec), stdio: ["ignore", "pipe", "pipe"],
+  }), error => error.status === 60 && !String(error).includes(spec.env.INDEXUS_AI_GATEWAY_TOKEN));
+});
+test("real worker check distinguishes malformed input from a loader failure", () => {
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], { input: "invalid-json" }),
+    error => error.status === 61);
+});
+test("real worker check distinguishes loader failure without running the worker module", t => {
+  const spec = checkFixture(t, 'require("node:fs").writeFileSync("must-not-execute","bad");');
+  spec.env.INDEXUS_AI_GATEWAY_ENABLED = "false";
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], { input: JSON.stringify(spec) }),
+    error => error.status === 63);
+  assert.equal(fs.existsSync(path.join(spec.cwd, "must-not-execute")), false);
+});
+test("real worker check distinguishes schema/module startup failure without printing a raw stack", t => {
+  const spec = checkFixture(t, 'throw Error("synthetic-private-failure");');
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], { input: JSON.stringify(spec) }),
+    error => error.status === 64 && error.stdout === "" && error.stderr === "");
+});
+test("real worker check distinguishes missing interpreter and terminated check", t => {
+  const spec = checkFixture(t);
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], {
+    input: JSON.stringify({ ...spec, interpreter: path.join(spec.cwd, "absent-node") }),
+  }), error => error.status === 66);
+  assert.throws(() => op.run(process.execPath, ["-e", op.workerCheckProgram()], {
+    input: JSON.stringify({ ...spec, check: 'process.kill(process.pid,"SIGTERM")' }),
+  }), error => error.status === 65);
 });

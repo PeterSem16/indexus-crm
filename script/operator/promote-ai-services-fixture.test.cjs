@@ -31,7 +31,7 @@ function fixture(t, options = {}) {
   for (const [name, bytes] of Object.entries(prior)) write(app + "/" + name, bytes);
   for (const [name, bytes] of Object.entries(next)) write(stage + "/source/" + name, bytes);
   fs.chmodSync(stage, 0o700);
-  let head = real.BASE, pid = 958103, worker = null;
+  let head = real.BASE, pid = options.initialPid || 958103, worker = null;
   const calls = [], messages = [], queries = [];
   const files = Array.from({ length: 70 }, (_, i) => ({ path: `server/source-${i}.ts`,
     baseSha256: sha("old-" + i), sha256: sha("new-" + i) }));
@@ -137,6 +137,7 @@ function fixture(t, options = {}) {
           }
         }
         if (command === process.execPath && parameters[0] === "-e") {
+          assert.equal(opts.stdio[0], "pipe", "private worker JSON requires an actual stdin pipe");
           const code = parameters[1], input = JSON.parse(opts.input);
           assert(!parameters.some(p => p.includes("postgresql://")), "credentials must never be command arguments");
           if (code.includes("INDEXUS_WORKER_CHECK")) {
@@ -223,7 +224,7 @@ function fixture(t, options = {}) {
   });
   const operations = loaded.exports.productionOperations(manifest, { workerApproved: !!options.workerApproved });
   return { root, app, stage, calls, messages, queries, operations, loaded: loaded.exports,
-    head: () => head, pid: () => pid, worker: () => worker, prior };
+    head: () => head, pid: () => pid, worker: () => worker, restartExternally: () => pid++, prior };
 }
 test("approved worker path checks schema, starts exactly one worker over stdin and verifies heartbeat and persistence", async t => {
   const f = fixture(t, { workerApproved: true, activeInternal: true });
@@ -235,6 +236,20 @@ test("approved worker path checks schema, starts exactly one worker over stdin a
   assert.equal(fs.readFileSync(path.dirname(f.app) + "/home/.pm2/dump.pm2", "utf8"), "saved with worker");
   assert.equal(fs.statSync(path.dirname(f.app) + "/home/.pm2/dump.pm2").mode & 0o777, 0o600);
   assert(f.queries.every(q => q.startsWith("SELECT")));
+});
+test("a verified prior rollback may have a new PID without weakening the deployment identity checks", async t => {
+  const f = fixture(t, { workerApproved: true, activeInternal: true, initialPid: 968003 });
+  try { await f.loaded.orchestrate(f.operations); } finally { await f.operations.close(); }
+  assert.equal(f.operations.state.mode, "deployed_worker_ready");
+  assert.equal(f.pid(), 968004);
+});
+test("a concurrent application restart during backup still stops promotion before source changes", async t => {
+  const f = fixture(t, { initialPid: 968003 });
+  try {
+    await f.operations.preflight(); await f.operations.backup(); f.restartExternally();
+    await assert.rejects(f.operations.recheck(), /application_process_changed/);
+    assert.equal(f.head(), real.BASE); assert.equal(f.worker(), null);
+  } finally { await f.operations.close(); }
 });
 for (const failure of ["badWorkerCheck", "badWorkerStart", "badHeartbeat", "badHealth"]) {
   test("approved worker path safely restores original app and removes its own worker after " + failure, async t => {
