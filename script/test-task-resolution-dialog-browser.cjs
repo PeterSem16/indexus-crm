@@ -48,6 +48,22 @@ root.render(<TestHarness />);
 const nativeFetch = window.fetch.bind(window);
 window.fetch = (input, init = {}) => {
   const url = typeof input === "string" ? input : input.url;
+  if (url.startsWith("/api/ai/jobs?")) {
+    const entity = new URL(url, "https://fixture.invalid").searchParams.get("entityId");
+    return Promise.resolve(Response.json({ jobs: Object.values(window.__resolutionTest.jobs || {}).filter(j => j.entityId === entity) }));
+  }
+  const jobMatch = url.match(/^\\/api\\/ai\\/jobs\\/([^/]+)$/);
+  if (jobMatch) {
+    window.__resolutionTest.jobPolls = (window.__resolutionTest.jobPolls || 0) + 1;
+    return Promise.resolve(Response.json({ job: window.__resolutionTest.jobs[jobMatch[1]] }, { status: window.__resolutionTest.jobHttpStatus || 200 }));
+  }
+  const retryMatch = url.match(/^\\/api\\/ai\\/jobs\\/([^/]+)\\/retry$/);
+  if (retryMatch) {
+    const state = window.__resolutionTest;
+    state.retries = (state.retries || 0) + 1;
+    state.jobs[retryMatch[1]] = { ...state.jobs[retryMatch[1]], status: "pending", errorCode: null };
+    return Promise.resolve(Response.json({ job: state.jobs[retryMatch[1]] }, { status: 202 }));
+  }
   const checklistMatch = url.match(/^\\/api\\/tasks\\/([^/]+)\\/checklist$/);
   if (checklistMatch && (!init.method || init.method === "GET")) {
     const id = decodeURIComponent(checklistMatch[1]);
@@ -75,7 +91,7 @@ window.fetch = (input, init = {}) => {
 };
 `;
 
-async function newFixture(browser, task, checklists, draftResponses = [], initialResolution = "") {
+async function newFixture(browser, task, checklists, draftResponses = [], initialResolution = "", controlledClock = false) {
   const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
   page.on("pageerror", error => console.error("Task resolution browser render error:", error.message));
   await page.setContent("<!doctype html><html><body><div id='root'></div></body></html>");
@@ -90,6 +106,7 @@ async function newFixture(browser, task, checklists, draftResponses = [], initia
       },
     };
   }, { task, checklists, draftResponses, initialResolution });
+  if (controlledClock) await page.clock.install();
   await page.addScriptTag({ content: newFixture.bundle });
   const resolution = page.getByTestId("input-resolve-resolution");
   await resolution.waitFor();
@@ -116,6 +133,9 @@ async function main() {
       name: "ignore-component-css",
       setup(build) {
         build.onLoad({ filter: /\.css$/ }, async () => ({ contents: "", loader: "text" }));
+        build.onLoad({ filter: /contexts\/auth-context\.tsx$/ }, async () => ({
+          contents: 'export function useAuth() { return { user: { id: "synthetic-browser-user" } }; }', loader: "tsx",
+        }));
       },
     }],
   });
@@ -282,13 +302,69 @@ async function main() {
       assert.equal(await page.getByTestId("resolve-confirm").isDisabled(), false);
       await page.close();
     }
+    // Durable queue recovery is read-only. Closing aborts only the observer;
+    // the private job survives, resumes without another POST and cannot overwrite typing.
+    {
+      const job = { id: "11111111-1111-4111-8111-111111111111", service: "task.resolution",
+        entityType: "task", entityId: "async-recovery", status: "pending", attempts: 0, maxAttempts: 3,
+        result: null, errorCode: null, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null };
+      const { page, resolution } = await newFixture(browser,
+        { id: job.entityId, title: "Synthetic asynchronous request", tags: [] },
+        { [job.entityId]: [{ label: "Verified persisted evidence", doneAt: "2026-11-01T10:00:00Z", position: 0 }] },
+        [{ status: 202, body: { job } }], "", true);
+      await page.locator('[data-job-state="pending"]').waitFor();
+      assert.equal(await resolution.isEnabled(), true);
+      await page.evaluate(job => { window.__resolutionTest.jobs = { [job.id]: { ...job, status: "processing", attempts: 1 } }; window.__resolutionTest.closeDialog(); }, job);
+      await page.getByTestId("dialog-task-resolution").waitFor({ state: "hidden" });
+      await page.evaluate(() => window.__resolutionTest.reopenDialog());
+      await page.locator('[data-job-state="processing"]').waitFor();
+      assert.equal(await page.evaluate(() => window.__resolutionTest.requests.length), 1);
+      await resolution.fill("Manually checked while the background job was running.");
+      await page.evaluate(id => {
+        window.__resolutionTest.jobs[id].status = "completed";
+        window.__resolutionTest.jobs[id].result = { status: "generated", draft: "Late synthetic draft." };
+      }, job.id);
+      await page.clock.fastForward(5100);
+      await page.locator('[data-job-state="completed"]').waitFor();
+      assert.equal(await resolution.inputValue(), "Manually checked while the background job was running.");
+      assert.equal(await page.evaluate(() => window.__resolutionTest.confirmed), false);
+      const polls = await page.evaluate(() => window.__resolutionTest.jobPolls);
+      await page.clock.fastForward(16000);
+      assert.equal(await page.evaluate(() => window.__resolutionTest.jobPolls), polls);
+      await page.close();
+    }
+    {
+      const job = { id: "22222222-2222-4222-8222-222222222222", service: "task.resolution",
+        entityType: "task", entityId: "async-retry", status: "pending", attempts: 1, maxAttempts: 3,
+        result: null, errorCode: null, createdAt: new Date().toISOString(), startedAt: null, finishedAt: null };
+      const { page, resolution } = await newFixture(browser,
+        { id: job.entityId, title: "Synthetic retry request", tags: [] },
+        { [job.entityId]: [{ label: "Verified evidence", doneAt: "2026-11-01T10:00:00Z", position: 0 }] },
+        [{ status: 202, body: { job } }], "", true);
+      await page.locator('[data-job-state="pending"]').waitFor();
+      await page.evaluate(job => { window.__resolutionTest.jobs = { [job.id]: { ...job, status: "failed", errorCode: "timeout_outcome_unknown" } }; }, job);
+      await page.clock.fastForward(5100);
+      await page.locator('[data-job-state="failed"]').waitFor();
+      await page.getByTestId("button-resolution-draft-retry").click();
+      await page.locator('[data-job-state="pending"]').waitFor();
+      assert.equal(await page.evaluate(() => window.__resolutionTest.retries), 1);
+      assert.equal(await page.evaluate(() => window.__resolutionTest.requests.length), 1);
+      await page.evaluate(id => {
+        window.__resolutionTest.jobs[id] = { ...window.__resolutionTest.jobs[id], status: "completed",
+          result: { status: "generated", draft: "Synthetic completed job result." } };
+      }, job.id);
+      await page.clock.fastForward(5100);
+      await page.locator('[data-job-state="completed"]').waitFor();
+      assert.equal(await resolution.inputValue(), "Synthetic completed job result.");
+      await page.close();
+    }
   } catch (error) {
     errors.push(error);
   } finally {
     await browser.close();
   }
   if (errors.length) throw errors[0];
-  console.log("Task resolution browser checks passed: ordinary and Pulse auto-drafts, checked evidence, accessible indeterminate animation with reduced-motion support, no-steps manual fallback, edit/retry/late-result safety, dialog-close and task-switch races, checklist-load error, and strict Pulse closure gate.");
+  console.log("Task resolution browser checks passed: legacy ordinary/Pulse flows, all four queued-job states, read-only close/reopen recovery, explicit queue retry, stopped terminal polling, protected manual edits, late-result races and strict Pulse closure gate.");
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

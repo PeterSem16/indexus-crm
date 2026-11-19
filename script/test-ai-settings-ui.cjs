@@ -37,7 +37,7 @@ const { chromium } = require("playwright");
     services: ["email.summary", "email.reply", "email.monitoring"].map(id => ({ id, operation: "chat", internalEligible: true,
       route: { provider: "openai", model: null, enabled: true } })),
     runtime: { production: true, replit: false, serverAllowed: true, tokenConfigured: true, openaiConfigured: true, mode: "routed" },
-    gatewayCheck: null, openaiCheck: null, audit: [],
+    gatewayCheck: null, openaiCheck: null, audit: [], queue: { ready: true, counts: {} },
   };
   const server = http.createServer(async (req, res) => {
     if (req.url === "/ui.js") { res.setHeader("Content-Type", "application/javascript"); return res.end(fs.readFileSync(path.join(out, "ui.js"))); }
@@ -103,6 +103,8 @@ const { chromium } = require("playwright");
     await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
     assert.equal(puts, 1);
     assert.equal(view.services[0].route.provider, "internal");
+    assert.match(await row.getByTestId("execution-email.summary").innerText(), /Asynchronous/);
+    assert.match(await page.getByTestId("ai-worker-status").innerText(), /AI worker ready/);
     const emailRow = page.locator("article").filter({ has: page.getByText("email.monitoring", { exact: true }) });
     await emailRow.getByLabel("Provider", { exact: true }).selectOption("internal");
     assert.equal(await emailRow.getByLabel("Model", { exact: true }).inputValue(), "indexus-email-monitoring:v1");
@@ -115,6 +117,14 @@ const { chromium } = require("playwright");
     await row.getByLabel("Model", { exact: true }).fill("gpt-4o-mini");
     await page.evaluate(() => window.__aiQueries.invalidateQueries({ queryKey: ["/api/configurator/ai"] }));
     assert.equal(await row.getByLabel("Model", { exact: true }).inputValue(), "gpt-4o-mini", "GET refresh must preserve unsaved edits");
+    view.queue.ready = false;
+    await page.reload();
+    await page.getByText("AI worker is offline", { exact: true }).waitFor();
+    assert.equal(await row.getByRole("button", { name: "Save route", exact: true }).isDisabled(), true);
+    await row.getByLabel("Provider", { exact: true }).selectOption("openai");
+    assert.equal(await row.getByRole("button", { name: "Save route", exact: true }).isEnabled(), true);
+    assert.match(await row.getByTestId("execution-email.summary").innerText(), /Direct provider request/);
+    view.queue.ready = true;
     await page.screenshot({ path: path.join(out, "desktop.jpg"), fullPage: true });
     await page.evaluate(() => document.documentElement.classList.add("dark"));
     await page.screenshot({ path: path.join(out, "dark.jpg"), fullPage: true });
@@ -122,6 +132,7 @@ const { chromium } = require("playwright");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: path.join(out, "mobile.jpg"), fullPage: true });
     statuses.push("native fetch", "no automatic tests", "discovery not inference", "text/JSON activation gate",
+      "asynchronous route labels", "worker-offline activation guard", "OpenAI remains selectable offline",
       "email model selection without activation", "email-only model option",
       "Escape/confirmation", "provider reset", "dirty edit retention", "390px bounds", "dark render");
     assert.deepEqual(errors, []);

@@ -74,7 +74,7 @@ test("all other 64 services still reject email model inference before any networ
     assert.throws(() => client.chat.completions.create({ model: EMAIL_MONITORING_MODEL,
       messages: [{ role: "user", content: "SYNTHETIC" }], response_format: { type: "json_object" } }),
     (error: any) => error.code === "ai_internal_model_not_allowed");
-    assert.equal(client.timeout, 30000);
+    assert.equal(client.timeout, service === "task.checklist" || service === "task.resolution" ? 15000 : 30000);
   }
   assert.deepEqual(h.posts, []);
   assert.deepEqual(h.gets, []);

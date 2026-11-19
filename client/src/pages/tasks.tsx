@@ -1,3 +1,5 @@
+import { AIJobStatus } from "@/components/tasks/ai-job-status";
+import type { AIJobView } from "@shared/ai-jobs";
 import { RecordTagsBadges } from "@/components/record-tags-badges";
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
@@ -1257,7 +1259,7 @@ export default function TasksPage() {
 export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit: boolean }) {
   const { t } = useI18n();
   type ChecklistItem = { id: string; label: string; required: boolean; doneAt: string | null; doneByUserId: string | null; position: number; note?: string | null };
-  type AiChecklistStatus = { status: "idle" | "generating" | "generated" | "preserved" | "failed" | "unavailable"; errorCode?: string };
+  type AiChecklistStatus = { status: "idle" | "generating" | "generated" | "preserved" | "failed" | "unavailable"; errorCode?: string; job?: AIJobView };
   const [newLabelState, setNewLabelState] = useState<{ taskId: string; value: string }>({ taskId, value: "" });
   const [editingState, setEditingState] = useState<{ taskId: string; itemId: string; value: string } | null>(null);
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
@@ -1291,7 +1293,8 @@ export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit:
       if (!res.ok) throw new Error(`AI checklist status request failed (${res.status})`);
       return res.json();
     },
-    refetchInterval: (query) => query.state.data?.status === "generating" ? 1500 : false,
+    retry: false,
+    refetchInterval: (query) => !query.state.error && query.state.data?.status === "generating" ? (query.state.data.job ? 5000 : 1500) : false,
   });
 
   const toggleMut = useMutation({
@@ -1404,7 +1407,8 @@ export function ChecklistSection({ taskId, canEdit }: { taskId: string; canEdit:
           {t.tasks.checklistAiLoadError}
         </p>
       )}
-      {aiStatus === "generating" && (
+      <AIJobStatus job={aiStatusQuery.isError ? null : aiStatusQuery.data?.job} />
+      {aiStatus === "generating" && !aiStatusQuery.data?.job && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status" data-testid={`checklist-ai-status-${taskId}`}>
           <Loader2 className="h-3 w-3 animate-spin" />{t.tasks.checklistAiGenerating}
         </div>

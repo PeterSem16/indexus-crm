@@ -5,6 +5,10 @@ import type { AIGatewaySettings } from "../../../shared/ai-settings";
 import { INTERNAL_TEXT_MODELS, INTERNAL_RESPONSE_LIMIT, InternalAIError,
   internalModelsForService, validateInternalRequest, validateInternalDiscovery, validateInternalCompletion } from "./internal-contract";
 import { EMAIL_MONITORING_PROFILE } from "./email-monitoring-profile";
+import { EMAIL_SENTIMENT_PROFILE } from "./email-sentiment-profile";
+import { emailSentimentReviewReason, emailSentimentRequestId } from "./email-sentiment-contract";
+import { threeServiceProfile } from "./three-services-profile";
+import { backgroundDeadline } from "./background-context";
 
 export interface InternalAIConfiguration {
   enabled: boolean;
@@ -75,7 +79,8 @@ export function createInternalAIAdapter(dependencies: {
   const transport = dependencies.fetch ?? globalThis.fetch;
   const allowed = dependencies.allowedModels ?? INTERNAL_TEXT_MODELS;
   type Configuration = ReturnType<typeof configuration>;
-  async function request(config: Configuration, path: string, signal?: AbortSignal | null, body?: string) {
+  async function request(config: Configuration, path: string, signal?: AbortSignal | null, body?: string,
+    sentimentReview = false) {
     if (signal?.aborted) throw abortError();
     let response: Response;
     try {
@@ -90,6 +95,35 @@ export function createInternalAIAdapter(dependencies: {
       throw new InternalAIError("ai_internal_transport_error", 502);
     }
     if (!response.ok || response.status !== 200) {
+      if (sentimentReview && (response.status === 503 || response.status === 504)) {
+        let requestId = emailSentimentRequestId(response.headers.get("x-request-id"));
+        try {
+          if (response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+            const value = JSON.parse(await readLimited(response, 8192, signal));
+            requestId ??= emailSentimentRequestId(value?.request_id) ??
+              emailSentimentRequestId(value?.error?.request_id);
+          }
+        } catch {
+          if (signal?.aborted) throw abortError();
+        } finally { await response.body?.cancel().catch(() => {}); }
+        if (requestId?.includes(config.token)) requestId = undefined;
+        throw new InternalAIError("ai_internal_http_error", response.status, undefined, requestId);
+      }
+      // Read only a bounded error envelope for this service. Discard vendor text.
+      // All other services retain their original HTTP-error behavior.
+      if (sentimentReview && path === "v1/chat/completions" && response.status === 422 &&
+        response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+        let review = false;
+        let reason: ReturnType<typeof emailSentimentReviewReason> = "unspecified";
+        try {
+          const value = JSON.parse(await readLimited(response, 8192, signal));
+          review = value?.error?.code === "review_required" && value?.error?.type === "review_required";
+          if (review) reason = emailSentimentReviewReason(value.error);
+        } catch {
+          if (signal?.aborted) throw abortError();
+        }
+        if (review) throw new InternalAIError("review_required", 422, reason);
+      }
       await response.body?.cancel().catch(() => {});
       throw new InternalAIError("ai_internal_http_error",
         response.status >= 400 && response.status <= 599 ? response.status : 502);
@@ -107,10 +141,11 @@ export function createInternalAIAdapter(dependencies: {
       throw new InternalAIError("ai_internal_invalid_content_type", 502);
     try { return JSON.parse(text); } catch { throw new InternalAIError("ai_internal_invalid_json_response", 502); }
   }
-  async function discover(config: Configuration, signal?: AbortSignal | null, permitted = allowed) {
-    await request(config, "health/ready", signal);
-    const models = await request(config, "v1/models", signal);
-    const capabilities = await request(config, "indexus/v1/capabilities", signal);
+  async function discover(config: Configuration, signal?: AbortSignal | null, permitted = allowed,
+    sentimentService = false) {
+    await request(config, "health/ready", signal, undefined, sentimentService);
+    const models = await request(config, "v1/models", signal, undefined, sentimentService);
+    const capabilities = await request(config, "indexus/v1/capabilities", signal, undefined, sentimentService);
     return validateInternalDiscovery(models, capabilities, permitted);
   }
   const adapter: AIProviderAdapter & {
@@ -134,13 +169,23 @@ export function createInternalAIAdapter(dependencies: {
       const permitted = internalModelsForService(context?.service, allowed);
       const managed = dependencies.readSettings?.() ??
         (dependencies.readConfiguration ? undefined : aiAdminSnapshot()?.value.gateway);
+      const sentimentService = context?.service === EMAIL_SENTIMENT_PROFILE.service;
+      const threeProfile = threeServiceProfile(context?.service);
+      const background = backgroundDeadline(context?.service);
+      const deadlineService = background !== undefined || sentimentService || threeProfile?.timeoutMs != null;
+      const deadline = background ?? threeProfile?.timeoutMs ?? EMAIL_SENTIMENT_PROFILE.timeoutMs;
+      if (deadlineService && options.timeout !== undefined &&
+        (!Number.isFinite(options.timeout) || options.timeout <= 0))
+        throw new InternalAIError("ai_internal_invalid_timeout", 422);
       const sdk = new OpenAI({
         baseURL: new URL("v1", config.base).href, apiKey: config.token,
         // Service policy takes precedence over the shared 30-second setting.
         // Other internal services and all OpenAI clients retain their own policy.
         timeout: context?.service === EMAIL_MONITORING_PROFILE.service
-          ? EMAIL_MONITORING_PROFILE.timeoutMs : managed?.timeoutMs ?? options.timeout ?? 30_000,
-        maxRetries: managed?.maxRetries ?? options.maxRetries ?? 0,
+          ? EMAIL_MONITORING_PROFILE.timeoutMs : deadlineService
+            ? Math.min(options.timeout ?? deadline, deadline)
+            : managed?.timeoutMs ?? options.timeout ?? 30_000,
+        maxRetries: deadlineService ? 0 : managed?.maxRetries ?? options.maxRetries ?? 0,
         fetch: async (input, init) => {
           try {
             const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -151,36 +196,57 @@ export function createInternalAIAdapter(dependencies: {
             const spec = validateInternalRequest(body, permitted);
             // Use the existing configured HTTPS Gateway for inference as well
             // as discovery. Never silently substitute the old private HTTP URL.
-            const models = await discover(config, init.signal, permitted);
+            const models = await discover(config, init.signal, permitted, sentimentService);
             const model = models.find(model => model.id === spec.model);
             if (!model) throw new InternalAIError("ai_internal_model_unavailable", 503);
             if (!model.outputFormats.includes(spec.format))
               throw new InternalAIError("ai_internal_output_format_unavailable", 422);
             if (spec.maxTokens !== undefined && model.maxOutputTokens !== null && spec.maxTokens > model.maxOutputTokens)
               throw new InternalAIError("ai_internal_token_limit_exceeded", 422);
-            const result = await request(config, "v1/chat/completions", init.signal, init.body);
+            const result = await request(config, "v1/chat/completions", init.signal, init.body,
+              sentimentService && spec.model === EMAIL_SENTIMENT_PROFILE.model);
             return jsonResponse(validateInternalCompletion(result, spec));
           } catch (error) {
             if (init?.signal?.aborted) throw abortError();
             const safe = error instanceof InternalAIError ? error : new InternalAIError("ai_internal_request_failed");
-            return jsonResponse({ error: { message: safe.code, type: "internal_gateway_error", code: safe.code } }, safe.status);
+            return jsonResponse({ error: { message: safe.code,
+              type: safe.code === "review_required" ? "review_required" : "internal_gateway_error",
+              code: safe.code, ...(safe.code === "review_required" ? { reason_code: safe.reviewReason } : {}),
+              ...(sentimentService && safe.requestId ? { request_id: safe.requestId } : {}) } }, safe.status);
           }
         },
       });
       const create = sdk.chat.completions.create.bind(sdk.chat.completions);
       sdk.chat.completions.create = ((body: unknown, options?: unknown) => {
+        const sentimentModel = sentimentService && (body as any)?.model === EMAIL_SENTIMENT_PROFILE.model;
         const dedicated = context?.service === EMAIL_MONITORING_PROFILE.service &&
           (body as any)?.model === EMAIL_MONITORING_PROFILE.model;
         if (dedicated) body = { ...(body as object),
           temperature: EMAIL_MONITORING_PROFILE.temperature, max_tokens: EMAIL_MONITORING_PROFILE.max_tokens,
           response_format: EMAIL_MONITORING_PROFILE.response_format, stream: EMAIL_MONITORING_PROFILE.stream,
         };
-        else if (managed && body && typeof body === "object") body = { ...body,
+        else if (sentimentModel) body = { ...(body as object),
+          temperature: EMAIL_SENTIMENT_PROFILE.temperature, max_tokens: EMAIL_SENTIMENT_PROFILE.max_tokens,
+          response_format: EMAIL_SENTIMENT_PROFILE.response_format, stream: EMAIL_SENTIMENT_PROFILE.stream,
+        };
+        // These three services retain their original request parameters.
+        // Shared administrator defaults must not rewrite their prompts/budgets.
+        else if (!threeProfile && managed && body && typeof body === "object") body = { ...body,
           ...(managed.temperature !== null ? { temperature: managed.temperature } : {}),
           ...(managed.maxTokens !== null ? { max_tokens: managed.maxTokens } : {}),
         };
         // Synchronous capability rejection preserves the SDK APIPromise without wrapping it.
         validateInternalRequest(body, permitted);
+        if (deadlineService) {
+          const requestOptions = (options ?? {}) as Record<string, unknown>;
+          const requested = requestOptions.timeout;
+          if (requested !== undefined && (typeof requested !== "number" || !Number.isFinite(requested) || requested <= 0))
+            throw new InternalAIError("ai_internal_invalid_timeout", 422);
+          // One SDK deadline spans readiness, discovery, inference and body reads.
+          // Do not permit per-request options to re-enable retries or extend it.
+          options = { ...requestOptions, maxRetries: 0,
+            timeout: Math.min(sdk.timeout, typeof requested === "number" ? requested : sdk.timeout) };
+        }
         return create(body as any, options as any);
       }) as typeof sdk.chat.completions.create;
       return sdk;
@@ -198,7 +264,7 @@ export function createInternalAIAdapter(dependencies: {
       const timer = setTimeout(abort, timeoutMs);
       try {
         const models = await discover(config, controller.signal,
-          internalModelsForService(options.service, allowed));
+          internalModelsForService(options.service, allowed), options.service === EMAIL_SENTIMENT_PROFILE.service);
         if (!models.length) throw new InternalAIError("ai_internal_model_unavailable", 503);
         return { ready: true, apiVersion: "1", models };
       } finally {

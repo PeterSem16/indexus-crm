@@ -1,4 +1,7 @@
+import { aiExecutionTranslations } from "./ai-execution-translations";
 export interface AISettingsCopy {
+  asyncMode: string; syncMode: string; workerReady: string; workerOffline: string; workerUnknown: string;
+  async_worker_unavailable: string; asyncHelp: string;
   title: string; description: string; gateway: string; gatewayDescription: string; gatewayEnabled: string;
   baseUrl: string; timeout: string; retries: string; temperature: string; maxTokens: string; useDefault: string;
   save: string; saving: string; saved: string; token: string; tokenReady: string; tokenMissing: string;
@@ -27,6 +30,7 @@ export interface AISettingsCopy {
 }
 
 const en: AISettingsCopy = {
+  ...aiExecutionTranslations.en,
   title: "AI control", description: "Manage the gateway and service routing. Configuration never exposes credentials or customer content.",
   gateway: "Gateway", gatewayDescription: "The approved production gateway endpoint. No token can be entered or displayed here.",
   gatewayEnabled: "Gateway enabled", baseUrl: "Canonical gateway URL", timeout: "Request timeout (ms)", retries: "Retries",
@@ -341,4 +345,9 @@ Object.assign(de, {
   ai_internal_json_smoke_failed: "Synthetische JSON-Prüfung fehlgeschlagen.",
 });
 
-export const aiSettingsTranslations = { en, sk, cs, hu, ro, it, de } as const;
+export const aiSettingsTranslations = {
+  en: { ...en, ...aiExecutionTranslations.en }, sk: { ...sk, ...aiExecutionTranslations.sk },
+  cs: { ...cs, ...aiExecutionTranslations.cs }, hu: { ...hu, ...aiExecutionTranslations.hu },
+  ro: { ...ro, ...aiExecutionTranslations.ro }, it: { ...it, ...aiExecutionTranslations.it },
+  de: { ...de, ...aiExecutionTranslations.de },
+} as const;

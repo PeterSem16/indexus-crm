@@ -1,3 +1,5 @@
+import { useAIJobHistory, activeAIJob } from "@/hooks/use-ai-job";
+import { EmailSummaryJob } from "@/components/nexus/EmailSummaryJob";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
@@ -3664,6 +3666,20 @@ export default function EmailClientPage() {
   const emailDetailMailbox = selectedEmail?._mailboxEmail
     ? getMailboxParam(selectedEmail._mailboxEmail)
     : effectiveMailbox;
+  const summaryLanguage = emailPrefs.aiLanguageMode === "user" ? emailPrefs.aiUserLanguage || "sk" : "auto";
+  const summaryJobs = useAIJobHistory({ service: "email.summary",
+    entityId: selectedEmail?.id, ownerId: emailPrefs.aiEnabled ? user?.id : undefined,
+    mailbox: emailDetailMailbox, locale: summaryLanguage });
+  const summaryJob = summaryJobs.isError ? null : summaryJobs.data?.jobs[0];
+  const summaryContext = JSON.stringify([user?.id, selectedEmail?.id, emailDetailMailbox, summaryLanguage]);
+  const summaryContextRef = useRef(summaryContext);
+  summaryContextRef.current = summaryContext;
+  const summarySubmitting = useRef<string | null>(null);
+  useEffect(() => {
+    setAiSummaryLoading(false);
+    setAiModalOpen(false);
+    setAiModalContent("");
+  }, [summaryContext]);
 
   const { data: rawEmailDetail, isLoading: detailLoading, isError: detailError } = useQuery<EmailMessage>({
     queryKey: ["/api/users", user?.id, "ms365-email", selectedEmail?.id, emailDetailMailbox],
@@ -5157,25 +5173,39 @@ export default function EmailClientPage() {
 
   const handleAiSummary = async () => {
     if (!selectedEmail || !emailDetail || !emailPrefs.aiEnabled) return;
+    const context = summaryContext;
+    if (summarySubmitting.current === context || activeAIJob(summaryJob)) return;
+    summarySubmitting.current = context;
     setAiSummaryLoading(true);
     try {
       const lang = getAiLanguage();
-      const res = await apiRequest("POST", `/api/users/${user?.id}/ms365-ai-summary`, {
+      const retrying = summaryJob?.status === "failed";
+      const res = await apiRequest("POST", retrying ? `/api/ai/jobs/${summaryJob.id}/retry` : `/api/users/${user?.id}/ms365-ai-summary`, retrying ? {} : {
+        emailId: selectedEmail.id,
+        mailbox: emailDetailMailbox,
         emailSubject: emailDetail.subject || "",
         emailBody: emailDetail.body?.content || emailDetail.bodyPreview || "",
         emailFrom: emailDetail.from?.emailAddress?.name || emailDetail.from?.emailAddress?.address || "",
         language: lang,
       });
       const data = await res.json();
+      if (summaryContextRef.current !== context) return;
+      if (data.job) {
+        summaryJobs.acceptJob(data.job);
+        if (data.job.status !== "completed") return;
+        data.summary = data.job.result?.summary;
+      }
       if (data.summary) {
         setAiModalContent(data.summary);
         setAiModalType("summary");
         setAiModalOpen(true);
       }
     } catch (err) {
+      if (summaryContextRef.current !== context) return;
       toast({ title: t.nexusOmni.common.error, description: t.nexusOmni.ai.summaryError, variant: "destructive" });
     } finally {
-      setAiSummaryLoading(false);
+      if (summarySubmitting.current === context) summarySubmitting.current = null;
+      if (summaryContextRef.current === context) setAiSummaryLoading(false);
     }
   };
 
@@ -5198,6 +5228,11 @@ export default function EmailClientPage() {
       setAiCheckTranslationLoading(false);
     }
   };
+
+  const renderSummaryJob = () => <EmailSummaryJob job={summaryJob} retrying={aiSummaryLoading}
+    onRetry={() => void handleAiSummary()} onOpen={summary => {
+      setAiModalContent(summary); setAiModalType("summary"); setAiModalOpen(true);
+    }} />;
 
   const handleAiModalInsert = () => {
     const signatureForMailbox = getSignatureForCompose(composeMailbox || effectiveMailbox);
@@ -8298,7 +8333,7 @@ export default function EmailClientPage() {
                 <Button
                   variant="ghost" size="icon"
                   onClick={handleAiSummary}
-                  disabled={aiSummaryLoading}
+                  disabled={aiSummaryLoading || activeAIJob(summaryJob) || !!summaryJob && summaryJob.status === "failed" && summaryJob.attempts >= summaryJob.maxAttempts}
                   title={t.nexusOmni.email.emailSummary}
                   data-testid="button-email-summary"
                 >
@@ -8360,6 +8395,7 @@ export default function EmailClientPage() {
           )}
 
           {!detailError && <EmailMonitoringAnalysis result={emailDetail.emailMonitoringAnalysis} />}
+          {!detailError && renderSummaryJob()}
           {!detailError && !emailDetail.emailMonitoringAnalysis && (emailDetail as any).aiAnalysis && (emailDetail as any).aiAnalysis.alertLevel !== "none" && (
             <div
               className={`flex items-start gap-3 mt-2 p-3 rounded-md border ${
@@ -9125,6 +9161,7 @@ export default function EmailClientPage() {
 
             {detailError && <p role="alert" className="text-sm text-destructive">{t.emailMonitoringDetail.loadError}</p>}
             {!detailError && <EmailMonitoringAnalysis result={detail.emailMonitoringAnalysis} />}
+            {!detailError && detail.id === selectedEmail?.id && detailMailbox === emailDetailMailbox && renderSummaryJob()}
             {!detailError && !detail.emailMonitoringAnalysis && (detail as any).aiAnalysis && (detail as any).aiAnalysis.alertLevel !== "none" && (
               <div
                 className={`flex items-start gap-3 p-3 rounded-md border ${

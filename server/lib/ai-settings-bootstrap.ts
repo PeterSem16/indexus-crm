@@ -6,6 +6,7 @@ import { registerAISettingsRoutes } from "./ai/settings-controller";
 import { parseAIRouterMode } from "./ai/router";
 import { aiSettingsAdminGuard } from "./ai/settings-authorization";
 import { AISettingsError } from "./ai/settings-policy";
+import { inferenceStore } from "./ai-jobs/inference-live";
 export const aiSettingsStore = new AISettingsStore(pool);
 export async function initializeAIAdministration() {
   await aiSettingsStore.initialize();
@@ -19,5 +20,6 @@ export async function initializeAIAdministration() {
 }
 export function registerAIAdministration(app: Express, requireAuth: RequestHandler) {
   const requireAdmin = aiSettingsAdminGuard(pool, requireAuth);
-  registerAISettingsRoutes(app, { store: aiSettingsStore, requireAdmin });
+  registerAISettingsRoutes(app, { store: aiSettingsStore, requireAdmin,
+    queueStatus: () => inferenceStore.status() });
 }

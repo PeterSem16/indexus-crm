@@ -4,6 +4,10 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "ai-worker": "tsx server/ai-worker.ts --run",
+    "ai-worker:check": "tsx server/ai-worker.ts --check",
+    "ai-worker:production": "node dist/ai-worker.cjs --run",
+    "test:ai-async": "tsx --test --test-concurrency=1 server/lib/ai-jobs/inference.test.ts server/lib/ai-jobs/inference.db.test.ts server/lib/ai-jobs/jobs.test.ts server/lib/ai-jobs/jobs.db.test.ts server/lib/ai/settings.test.ts server/lib/ai/settings-routes.db.test.ts server/lib/task-ai-checklist.test.ts server/lib/task-resolution-draft.test.ts server/lib/task-resolution-draft-route.test.ts server/lib/ai/internal-adapter.test.ts server/lib/ai/three-services.test.ts client/src/i18n/ai-settings-translations.test.ts",
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",

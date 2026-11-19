@@ -8102,6 +8102,7 @@ export const taskAiChecklistGenerations = pgTable("task_ai_checklist_generations
   errorCode: text("error_code"),
   attemptCount: integer("attempt_count").notNull().default(0),
   attemptToken: varchar("attempt_token"),
+  aiJobId: uuid("ai_job_id"),
   fingerprint: text("fingerprint"),
   generatedItemCount: integer("generated_item_count").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
