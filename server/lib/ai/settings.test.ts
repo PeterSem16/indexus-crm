@@ -9,7 +9,7 @@ import { checkAIProvider } from "./settings-check";
 import type { AIVerification } from "../../../shared/ai-settings";
 import type { AIProviderAdapter } from "./openai-adapter";
 
-const model = "indexus-document-audio:latest";
+const model = "indexus-ai-solaris:v1";
 const verified = (): AIVerification => ({ kind: "smoke", state: "ready", settingsVersion: 1,
   checkedAt: new Date().toISOString(), durationMs: 5, textVerified: true, jsonVerified: true,
   models: [{ id: model, revision: "unit", outputFormats: ["text", "json_object"], maxInputTokens: null, maxOutputTokens: 1024 }] });

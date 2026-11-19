@@ -72,7 +72,7 @@ test("candidate routes are inert; default production routes and global model all
   assert.deepEqual(AI_ROUTING_OVERRIDES, {});
   assert.deepEqual(DEFAULT_AI_SETTINGS.routes, {});
   assert.equal(DEFAULT_AI_SETTINGS.gateway.enabled, false);
-  assert.deepEqual(INTERNAL_TEXT_MODELS, ["indexus-document-audio:latest"]);
+  assert.deepEqual(INTERNAL_TEXT_MODELS, ["indexus-ai-solaris:v1", "indexus-document-audio:latest"]);
   for (const service of Object.keys(AI_SERVICES)) for (const [owner, profile] of Object.entries(profiles)) {
     assert.equal(internalModelsForService(service).includes(profile.model), service === owner);
     if (service !== owner)

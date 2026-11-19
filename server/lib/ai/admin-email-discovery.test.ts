@@ -6,7 +6,7 @@ import { freshSmoke } from "./settings-policy";
 import { AI_SERVICES } from "./service-catalog";
 import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
 
-const baseline = "indexus-document-audio:latest";
+const baseline = "indexus-ai-solaris:v1";
 function harness(includeEmail = true) {
   const posts: string[] = [];
   const gets: string[] = [];
