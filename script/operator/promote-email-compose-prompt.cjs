@@ -20,22 +20,25 @@ function resolveBaseline(root = PREVIOUS, io = fs) {
     const directory = io.lstatSync(root);
     if (!directory.isDirectory() || directory.uid !== 0 ||
         (directory.mode & 0o777) !== 0o700 || io.realpathSync(root) !== root)
-      fail("previous_release_evidence_invalid");
+      fail("previous_release_directory_invalid");
     const read = name => {
       const file = root + "/" + name, stat = io.lstatSync(file);
-      if (!stat.isFile() || stat.uid !== 0 || (stat.mode & 0o022) || io.realpathSync(file) !== file)
-        fail("previous_release_evidence_invalid");
+      if (!stat.isFile() || stat.uid !== 0 || io.realpathSync(file) !== file)
+        fail("previous_release_file_identity_invalid");
+      // Root's tar extraction preserves Git's usual 0664 source modes.
+      // The root-owned 0700 ancestor prevents group traversal; reject public writes.
+      if (stat.mode & 0o002) fail("previous_release_file_world_writable");
       return io.readFileSync(file);
     };
     const hash = value => crypto.createHash("sha256").update(value).digest("hex");
     const receipt = JSON.parse(read("release.json").toString("utf8"));
     if (receipt.base !== engine.BASE || receipt.target !== BASE || receipt.backend !== PREVIOUS_HASH ||
         Object.keys(receipt.files || {}).sort().join("\n") !== Object.keys(engine.FILES).sort().join("\n"))
-      fail("previous_release_evidence_invalid");
+      fail("previous_release_receipt_identity_invalid");
     for (const [file, expected] of Object.entries(engine.FILES))
       if (receipt.files[file] !== expected || hash(read("build/" + file)) !== expected)
-        fail("previous_release_evidence_invalid");
-    if (hash(read("previous-index.cjs")) !== PREVIOUS_HASH) fail("previous_release_evidence_invalid");
+        fail("previous_release_source_hash_invalid");
+    if (hash(read("previous-index.cjs")) !== PREVIOUS_HASH) fail("previous_release_backup_hash_invalid");
     return hash(read("build/dist/index.cjs"));
   } catch (error) {
     if (error.safeCode) throw error;

@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict");
 const fs = require("node:fs"), os = require("node:os"), path = require("node:path");
 const vm = require("node:vm"), crypto = require("node:crypto");
-const { spawnSync } = require("node:child_process");
+const { spawnSync, execFileSync } = require("node:child_process");
 const engine = require("./promote-email-reply-perspective.cjs");
 const compose = require("./promote-email-compose-prompt.cjs");
 const hash = s => crypto.createHash("sha256").update(s).digest("hex");
@@ -26,6 +26,20 @@ function evidence(t, change = {}) {
   write(root + "/release.json", JSON.stringify(receipt));
   if (change.badSource) write(root + "/build/server/routes.ts", "unreviewed source");
   if (change.missingBuild) fs.unlinkSync(root + "/build/dist/index.cjs");
+  if (change.archiveMode) {
+    const git = args => execFileSync("git", ["-C", root, "-c", "core.hooksPath=/dev/null",
+      "-c", "commit.gpgsign=false", "-c", "user.name=Synthetic",
+      "-c", "user.email=synthetic@example.invalid", ...args], { stdio: "pipe" });
+    git(["init", "-q"]); git(["add", "build/server"]); git(["commit", "-qm", "synthetic"]);
+    git(["-c", "tar.umask=0002", "archive", "--format=tar", "--output=" + root + "/source.tar", "HEAD"]);
+    execFileSync("tar", ["-xpf", root + "/source.tar", "-C", root]);
+    assert.equal(fs.statSync(root + "/build/server/routes.ts").mode & 0o777, 0o664);
+  }
+  if (change.worldWritable) fs.chmodSync(root + "/build/server/routes.ts", 0o666);
+  if (change.symlinkSource) {
+    fs.renameSync(root + "/build/server/routes.ts", root + "/other-source.ts");
+    fs.symlinkSync(root + "/other-source.ts", root + "/build/server/routes.ts");
+  }
   const code = fs.readFileSync(__dirname + "/promote-email-compose-prompt.cjs", "utf8")
     .replace("03e956745252f86f73378e349bf686474fe334c760e3273319dfc454b38de871", hash("pre-reply backend"));
   const m = { exports: {} }, requireMock = name => name === "./promote-email-reply-perspective.cjs" ?
@@ -45,10 +59,19 @@ function evidence(t, change = {}) {
 test("previous private release evidence resolves the deployed backend hash, not the old pre-reply hash", t => {
   assert.equal(evidence(t)(), hash("verified reply backend"));
 });
-for (const kind of ["badReceipt", "badSource", "insecureRoot", "missingBuild"]) {
+test("native Git archive with root-style tar extraction accepts 0664 sources under private 0700 evidence", t => {
+  assert.equal(evidence(t, { archiveMode: true })(), hash("verified reply backend"));
+});
+const failures = {
+  badReceipt: "previous_release_receipt_identity_invalid",
+  badSource: "previous_release_source_hash_invalid",
+  insecureRoot: "previous_release_directory_invalid",
+  missingBuild: "previous_release_evidence_unavailable",
+  worldWritable: "previous_release_file_world_writable",
+  symlinkSource: "previous_release_file_identity_invalid",
+};
+for (const [kind, expected] of Object.entries(failures)) {
   test("previous release evidence fails closed for " + kind, t => {
-    assert.throws(evidence(t, { [kind]: true }), error =>
-      error.safeCode === (kind === "missingBuild" ?
-        "previous_release_evidence_unavailable" : "previous_release_evidence_invalid"));
+    assert.throws(evidence(t, { [kind]: true }), error => error.safeCode === expected);
   });
 }
