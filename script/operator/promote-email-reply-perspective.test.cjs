@@ -5,12 +5,46 @@ const vm = require("node:vm"), crypto = require("node:crypto"), { EventEmitter }
 const { spawnSync } = require("node:child_process");
 const op = require("./promote-email-reply-perspective.cjs");
 const hash = s => crypto.createHash("sha256").update(s).digest("hex");
+const blobHash = s => crypto.createHash("sha1").update(Buffer.from("blob " + Buffer.byteLength(s) + "\0")).update(s).digest("hex");
 const TARGET = "f".repeat(40);
 const source = fs.readFileSync(__dirname + "/promote-email-reply-perspective.cjs", "utf8");
 test("real operator entry rejects an unpinned invocation before any production activity", () => {
   const result = spawnSync(process.execPath, [__dirname + "/promote-email-reply-perspective.cjs", "--apply", "unreviewed"],
     { encoding: "utf8" });
   assert.equal(result.status, 1); assert.match(result.stderr, /explicit_pinned_apply_required/);
+});
+test("the real command runner reproduces the original large-source buffer failure", () => {
+  assert.throws(() => op.run(process.execPath, ["-e", 'process.stdout.write("x".repeat(3*1024*1024))']),
+    error => error.code === "ENOBUFS");
+});
+test("real Git validates a 3 MiB release source using only small object identifiers", t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "reply-native-git-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const commands = [];
+  const git = args => {
+    commands.push(args);
+    return op.run("git", ["-C", root, "-c", "core.hooksPath=/dev/null",
+      "-c", "commit.gpgsign=false", "-c", "user.name=Synthetic Test",
+      "-c", "user.email=synthetic@example.invalid", ...args]).trimEnd();
+  };
+  git(["init", "--quiet"]);
+  git(["commit", "--allow-empty", "-qm", "synthetic base"]);
+  const base = git(["rev-parse", "HEAD"]);
+  const files = { "server/routes.ts": "x".repeat(3 * 1024 * 1024),
+    "server/lib/ai/email-reply-perspective.test.cjs": "synthetic test" };
+  let code = source.replace(op.BASE, base);
+  for (const [file, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(root + "/" + file), { recursive: true });
+    fs.writeFileSync(root + "/" + file, content);
+    code = code.replace(op.BLOBS[file], blobHash(content));
+  }
+  git(["add", "--", ...Object.keys(files)]);
+  git(["commit", "-qm", "synthetic large source"]);
+  const target = git(["rev-parse", "HEAD"]);
+  const m = { exports: {} };
+  vm.runInNewContext(code, { require, module: m, process, console });
+  assert.doesNotThrow(() => m.exports.validateRelease(git, target));
+  assert(!commands.some(args => args[0] === "show"));
 });
 function fixture(t, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "reply-promote-"));
@@ -34,6 +68,7 @@ function fixture(t, options = {}) {
     .replaceAll('"/etc/indexus-ai-runtime/preload.cjs"', JSON.stringify(root + "/loader.cjs"));
   originals.forEach((old, i) => { code = code.replaceAll(old, replacements[i]); });
   Object.entries(op.FILES).forEach(([file, old]) => { code = code.replaceAll(old, hash(files[file])); });
+  Object.entries(op.BLOBS).forEach(([file, old]) => { code = code.replaceAll(old, blobHash(files[file])); });
   const fsProxy = new Proxy(fs, { get(obj, key) {
     if (key === "readFileSync") return (file, ...rest) => {
       if (/^\/proc\/\d+\/status$/.test(file)) return "Uid:\t1001\t1001\t1001\t1001\n";
@@ -53,10 +88,11 @@ function fixture(t, options = {}) {
   function git(args) {
     const at = args.findIndex(a => ["rev-parse", "status", "diff", "show", "archive", "merge", "reset"].includes(a));
     const a = args.slice(at);
-    if (a[0] === "rev-parse") return a[1] === "HEAD" ? head : op.BASE;
+    if (a[0] === "rev-parse") return a[1] === "HEAD" ? head :
+      a[1].includes(":") ? blobHash(files[a[1].slice(41)]) : op.BASE;
     if (a[0] === "status") return "";
     if (a[0] === "diff") return [...Object.keys(files), ...(options.badScope ? ["package.json"] : [])].sort().join("\n");
-    if (a[0] === "show") return files[a[1].slice(41)];
+    if (a[0] === "show") throw Error("Source must not pass through the command output buffer");
     if (a[0] === "archive") { write(a.find(s => s.startsWith("--output=")).slice(9), "disk archive"); return ""; }
     if (a[0] === "merge") {
       assert.deepEqual(Array.from(a), ["merge", "--ff-only", TARGET]);
@@ -78,6 +114,7 @@ function fixture(t, options = {}) {
     if (bin === "tar") {
       const view = args[args.indexOf("-C") + 1];
       for (const [file, text] of Object.entries(files)) write(view + "/" + file, text);
+      if (options.badExtract) write(view + "/server/routes.ts", "unreviewed source");
       write(view + "/script/build.ts", 'const allowlist = ["pg",];');
       write(view + "/package.json", '{"dependencies":{"pg":"1","external-fixture":"1"}}');
       return "";
@@ -164,7 +201,7 @@ test("actual operator promotes only the backend and keeps the running worker and
   assert.equal(fs.readFileSync(result.backupDirectory + "/previous-index.cjs", "utf8"), "old backend");
   assert.equal(fs.existsSync(f.data + "/ai-services-deployment-lock"), false);
 });
-for (const failure of ["badScope", "badTests", "badBuild"]) {
+for (const failure of ["badScope", "badExtract", "badTests", "badBuild"]) {
   test("actual operator leaves live source and runtime untouched after " + failure, async t => {
     const f = fixture(t, { [failure]: true }); await f.run();
     assert.equal(JSON.parse(f.logs.at(-1)).mode, "email_reply_promotion_stopped");

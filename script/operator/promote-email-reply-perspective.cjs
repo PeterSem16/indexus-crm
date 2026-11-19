@@ -14,6 +14,10 @@ const FILES = {
   "server/routes.ts": "2cd627e620c352f197c1b5856b48dcbeed9fd49936f6b71982c5ea279948c100",
   "server/lib/ai/email-reply-perspective.test.cjs": "2e1a51323b90dd1f4b2a75f15f565bc767ed6adb4e6f43d43561fbcfe0067363",
 };
+const BLOBS = {
+  "server/routes.ts": "ba4548301cbda19142e31faafa5f5a3647eddd07",
+  "server/lib/ai/email-reply-perspective.test.cjs": "e66f8981842d34a2565bbda9300f2218b3118af3",
+};
 const OLD = "03e956745252f86f73378e349bf686474fe334c760e3273319dfc454b38de871";
 const INDEX = "1e1768754e6b3c810017b9baa50617b56060c9b5d7c0e675bb37f5e6f7813d7f";
 const WORKER = "6fc5c55a2669129f0442ff9fccdeef9b22262a89144e86e58002a2b71700bf37";
@@ -28,13 +32,15 @@ function run(bin, args, options = {}) {
   return cp.execFileSync(bin, args, { encoding: "utf8", timeout: 30000,
     maxBuffer: 2 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], env: clean(), ...options });
 }
-function validateRelease(git, target, read) {
+function validateRelease(git, target) {
   if (!/^[a-f0-9]{40}$/.test(target) || git(["rev-parse", `${target}^`]) !== BASE)
     fail("release_parent_changed");
   if (git(["diff", "--name-only", BASE, target]).split("\n").filter(Boolean).sort().join("\n") !==
       Object.keys(FILES).sort().join("\n")) fail("release_scope_changed");
-  for (const [file, hash] of Object.entries(FILES))
-    if (sha(read(target, file)) !== hash) fail("release_file_changed");
+  // Never buffer source blobs through execFileSync: routes.ts exceeds 2 MiB.
+  // Full SHA-256 validation follows disk extraction, before tests or bundling.
+  for (const [file, blob] of Object.entries(BLOBS))
+    if (git(["rev-parse", `${target}:${file}`]) !== blob) fail("release_file_changed");
 }
 function assertPreserved(readHash, backend) {
   for (const [file, hash] of [[APP + "/dist/index.cjs", backend],
@@ -127,6 +133,7 @@ async function main(args) {
   try {
     await sequence({
       async prepare() {
+        setPhase("process_identity");
         const passwd = run("getent", ["passwd", "seman"]).trim().split(":");
         if (passwd[2] !== "1001" || !/^\d+$/.test(passwd[3])) fail("user_changed");
         user = { home: passwd[5], gid: Number(passwd[3]) };
@@ -136,8 +143,9 @@ async function main(args) {
         const live = processes(); appPid = live.app; workerPid = live.worker;
         if (git(["rev-parse", "HEAD"]) !== BASE || git(["status", "--porcelain", "--untracked-files=no"]))
           fail("production_sources_changed");
-        validateRelease(git, target, (ref, file) => run("git", ["-c", `safe.directory=${APP}`,
-          "-C", APP, "show", `${ref}:${file}`]));
+        setPhase("release_identity");
+        validateRelease(git, target);
+        setPhase("runtime_identity");
         for (const directory of [APP, APP + "/dist", APP + "/dist/public"])
           if (fs.realpathSync(directory) !== directory) fail("runtime_symlink_rejected");
         for (const file of ["index.cjs", "ai-worker.cjs", "public/index.html"])
@@ -148,9 +156,11 @@ async function main(args) {
         const env = fs.existsSync(APP + "/.env") ? req("dotenv").parse(fs.readFileSync(APP + "/.env")) : {};
         const connectionString = inherited.DATABASE_URL || env.DATABASE_URL;
         if (!connectionString) fail("database_configuration_missing");
+        setPhase("settings_readiness");
         db = new (req("pg").Client)({ connectionString, connectionTimeoutMillis: 10000 });
         await db.connect(); await db.query("SET default_transaction_read_only=on");
         configHash = await settings(); await healthy(false, OLD);
+        setPhase("private_backup");
         stage = fs.mkdtempSync(DATA + "/email-reply-fix-"); fs.chmodSync(stage, 0o700);
         fs.copyFileSync(APP + "/dist/index.cjs", stage + "/previous-index.cjs");
         fs.chmodSync(stage + "/previous-index.cjs", 0o600);
@@ -165,6 +175,8 @@ async function main(args) {
           "server", "shared", "client/src", "script/build.ts", "script/build-server.ts",
           "package.json", "package-lock.json", "tsconfig.json"]);
         run("tar", ["-xf", stage + "/source.tar", "-C", view], { timeout: 120000 });
+        for (const [file, expected] of Object.entries(FILES))
+          if (fileHash(view + "/" + file) !== expected) fail("extracted_source_changed");
         const modules = view + "/node_modules"; fs.mkdirSync(modules);
         for (const entry of fs.readdirSync(APP + "/node_modules", { withFileTypes: true })) {
           if (entry.name.startsWith(".")) continue;
@@ -230,7 +242,9 @@ async function main(args) {
     });
   } catch (error) {
     console.log(JSON.stringify({ mode: "email_reply_promotion_stopped", phase,
-      code: error.safeCode || "operator_operation_failed", backupDirectory: stage || null,
+      code: error.safeCode || (error.code === "ENOBUFS" ? "operator_output_limit_exceeded" : "operator_operation_failed"),
+      nativeCode: typeof error.code === "string" && /^[A-Z_0-9]{1,40}$/.test(error.code) ? error.code : undefined,
+      backupDirectory: stage || null,
       rollbackFailed: !!error.rollbackFailed, databaseRestored: false }, null, 2));
     process.exitCode = 1;
   } finally {
@@ -238,7 +252,7 @@ async function main(args) {
     fs.rmdirSync(lock);
   }
 }
-module.exports = { BASE, FILES, validateRelease, assertPreserved, sequence, main };
+module.exports = { BASE, FILES, BLOBS, run, validateRelease, assertPreserved, sequence, main };
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   console.error("STOP: " + (error.safeCode || "preflight_failed")); process.exitCode = 1;
 });
