@@ -23,6 +23,7 @@ const INDEX = "1e1768754e6b3c810017b9baa50617b56060c9b5d7c0e675bb37f5e6f7813d7f"
 const WORKER = "6fc5c55a2669129f0442ff9fccdeef9b22262a89144e86e58002a2b71700bf37";
 const LOADER = "/etc/indexus-ai-runtime/preload.cjs";
 const LOADER_HASH = "33af3aaff20605583f9152fcad2abe61ec0cef4c4ebe771e43f0cf7d87aa0fac";
+const DEFAULT_RELEASE = { base: BASE, files: FILES, blobs: BLOBS, backend: OLD };
 const sha = value => crypto.createHash("sha256").update(value).digest("hex");
 const fileHash = file => sha(fs.readFileSync(file));
 const fail = code => { throw Object.assign(Error(code), { safeCode: code }); };
@@ -32,14 +33,14 @@ function run(bin, args, options = {}) {
   return cp.execFileSync(bin, args, { encoding: "utf8", timeout: 30000,
     maxBuffer: 2 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"], env: clean(), ...options });
 }
-function validateRelease(git, target) {
-  if (!/^[a-f0-9]{40}$/.test(target) || git(["rev-parse", `${target}^`]) !== BASE)
+function validateRelease(git, target, release = DEFAULT_RELEASE) {
+  if (!/^[a-f0-9]{40}$/.test(target) || git(["rev-parse", `${target}^`]) !== release.base)
     fail("release_parent_changed");
-  if (git(["diff", "--name-only", BASE, target]).split("\n").filter(Boolean).sort().join("\n") !==
-      Object.keys(FILES).sort().join("\n")) fail("release_scope_changed");
+  if (git(["diff", "--name-only", release.base, target]).split("\n").filter(Boolean).sort().join("\n") !==
+      Object.keys(release.files).sort().join("\n")) fail("release_scope_changed");
   // Never buffer source blobs through execFileSync: routes.ts exceeds 2 MiB.
   // Full SHA-256 validation follows disk extraction, before tests or bundling.
-  for (const [file, blob] of Object.entries(BLOBS))
+  for (const [file, blob] of Object.entries(release.blobs))
     if (git(["rev-parse", `${target}:${file}`]) !== blob) fail("release_file_changed");
 }
 function assertPreserved(readHash, backend) {
@@ -64,7 +65,12 @@ function httpStatus(relative) {
     request.on("timeout", () => request.destroy(Error("timeout"))); request.on("error", reject);
   });
 }
-async function main(args) {
+async function main(args, options = {}) {
+  const release = { ...DEFAULT_RELEASE, ...options };
+  const { base: BASE, files: FILES } = release;
+  let OLD = release.backend;
+  const kind = options.kind ?? "email_reply", stem = kind.replaceAll("_", "-");
+  const testFile = options.testFile ?? "server/lib/ai/email-reply-perspective.test.cjs";
   if (args.length !== 2 || args[0] !== "--apply" || !/^[a-f0-9]{40}$/.test(args[1]))
     fail("explicit_pinned_apply_required");
   if (process.getuid() !== 0 || os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01")
@@ -123,7 +129,7 @@ async function main(args) {
     fail("health_failed");
   }
   function atomic(from, hash) {
-    const temp = APP + "/dist/index.cjs.email-reply-promotion";
+    const temp = APP + "/dist/index.cjs." + stem + "-promotion";
     const fd = fs.openSync(temp, "wx", 0o644);
     try { fs.writeFileSync(fd, fs.readFileSync(from)); fs.fchownSync(fd, 1001, user.gid); }
     finally { fs.closeSync(fd); }
@@ -144,12 +150,14 @@ async function main(args) {
         if (git(["rev-parse", "HEAD"]) !== BASE || git(["status", "--porcelain", "--untracked-files=no"]))
           fail("production_sources_changed");
         setPhase("release_identity");
-        validateRelease(git, target);
+        validateRelease(git, target, release);
         setPhase("runtime_identity");
         for (const directory of [APP, APP + "/dist", APP + "/dist/public"])
           if (fs.realpathSync(directory) !== directory) fail("runtime_symlink_rejected");
         for (const file of ["index.cjs", "ai-worker.cjs", "public/index.html"])
           if (!fs.lstatSync(APP + "/dist/" + file).isFile()) fail("runtime_symlink_rejected");
+        if (options.resolveBackendHash) OLD = options.resolveBackendHash();
+        if (!/^[a-f0-9]{64}$/.test(OLD)) fail("backend_baseline_invalid");
         assertPreserved(fileHash, OLD);
         const inherited = Object.fromEntries(fs.readFileSync(`/proc/${appPid}/environ`, "utf8").split("\0")
           .filter(s => s.includes("=")).map(s => { const i = s.indexOf("="); return [s.slice(0, i), s.slice(i + 1)]; }));
@@ -161,7 +169,7 @@ async function main(args) {
         await db.connect(); await db.query("SET default_transaction_read_only=on");
         configHash = await settings(); await healthy(false, OLD);
         setPhase("private_backup");
-        stage = fs.mkdtempSync(DATA + "/email-reply-fix-"); fs.chmodSync(stage, 0o700);
+        stage = fs.mkdtempSync(DATA + "/" + stem + "-fix-"); fs.chmodSync(stage, 0o700);
         fs.copyFileSync(APP + "/dist/index.cjs", stage + "/previous-index.cjs");
         fs.chmodSync(stage + "/previous-index.cjs", 0o600);
         if (fileHash(stage + "/previous-index.cjs") !== OLD) fail("backup_invalid");
@@ -186,7 +194,7 @@ async function main(args) {
               fs.symlinkSync(APP + "/node_modules/" + entry.name + "/" + name, modules + "/" + entry.name + "/" + name);
           } else fs.symlinkSync(APP + "/node_modules/" + entry.name, modules + "/" + entry.name);
         }
-        const tests = run(process.execPath, ["--test", "server/lib/ai/email-reply-perspective.test.cjs"],
+        const tests = run(process.execPath, ["--test", testFile],
           { cwd: view, timeout: 120000 });
         fs.writeFileSync(stage + "/tests.log", tests, { mode: 0o600 });
         const text = fs.readFileSync(view + "/script/build.ts", "utf8");
@@ -221,7 +229,7 @@ async function main(args) {
         if (pid === appPid || await settings() !== configHash) fail("post_deploy_verification_failed");
       },
       async success() {
-        console.log(JSON.stringify({ mode: "email_reply_prompt_deployed", target,
+        console.log(JSON.stringify({ mode: kind + "_prompt_deployed", target,
           backupDirectory: stage, workerPid, workerUnchanged: true, providersUnchanged: true,
           frontendUnchanged: true, liveModelTestPerformed: false }, null, 2));
       },
@@ -241,7 +249,7 @@ async function main(args) {
       },
     });
   } catch (error) {
-    console.log(JSON.stringify({ mode: "email_reply_promotion_stopped", phase,
+    console.log(JSON.stringify({ mode: kind + "_promotion_stopped", phase,
       code: error.safeCode || (error.code === "ENOBUFS" ? "operator_output_limit_exceeded" : "operator_operation_failed"),
       nativeCode: typeof error.code === "string" && /^[A-Z_0-9]{1,40}$/.test(error.code) ? error.code : undefined,
       backupDirectory: stage || null,

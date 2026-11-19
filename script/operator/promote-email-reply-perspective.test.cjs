@@ -56,19 +56,22 @@ function fixture(t, options = {}) {
     "6fc5c55a2669129f0442ff9fccdeef9b22262a89144e86e58002a2b71700bf37",
     "33af3aaff20605583f9152fcad2abe61ec0cef4c4ebe771e43f0cf7d87aa0fac"];
   const replacements = Object.values(contents).map(hash);
-  const files = { "server/routes.ts": "new source", "server/lib/ai/email-reply-perspective.test.cjs": "synthetic test" };
+  const testFile = options.customRelease ? "server/lib/ai/email-compose-prompt.test.cjs" :
+    "server/lib/ai/email-reply-perspective.test.cjs";
+  const files = { "server/routes.ts": "new source", [testFile]: "synthetic test" };
+  const base = options.customRelease ? "a".repeat(40) : op.BASE;
   const write = (file, text) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, text); };
   write(app + "/dist/index.cjs", contents.backend); write(app + "/dist/public/index.html", contents.index);
   write(app + "/dist/ai-worker.cjs", contents.worker); write(app + "/server/routes.ts", "old source");
   write(root + "/loader.cjs", contents.loader); write(home + "/.pm2/pm2.pid", "22545");
   fs.mkdirSync(data);
-  let head = op.BASE, pid = 999493, settings = { active: "original" };
+  let head = base, pid = 999493, settings = { active: "original" }, baselineChecks = 0;
   const calls = [], logs = [], queries = [];
   let code = source.replaceAll('"/var/www/indexus-crm"', JSON.stringify(app))
     .replaceAll('"/etc/indexus-ai-runtime/preload.cjs"', JSON.stringify(root + "/loader.cjs"));
   originals.forEach((old, i) => { code = code.replaceAll(old, replacements[i]); });
-  Object.entries(op.FILES).forEach(([file, old]) => { code = code.replaceAll(old, hash(files[file])); });
-  Object.entries(op.BLOBS).forEach(([file, old]) => { code = code.replaceAll(old, blobHash(files[file])); });
+  Object.entries(op.FILES).forEach(([file, old]) => { if (file in files) code = code.replaceAll(old, hash(files[file])); });
+  Object.entries(op.BLOBS).forEach(([file, old]) => { if (file in files) code = code.replaceAll(old, blobHash(files[file])); });
   const fsProxy = new Proxy(fs, { get(obj, key) {
     if (key === "readFileSync") return (file, ...rest) => {
       if (/^\/proc\/\d+\/status$/.test(file)) return "Uid:\t1001\t1001\t1001\t1001\n";
@@ -89,7 +92,7 @@ function fixture(t, options = {}) {
     const at = args.findIndex(a => ["rev-parse", "status", "diff", "show", "archive", "merge", "reset"].includes(a));
     const a = args.slice(at);
     if (a[0] === "rev-parse") return a[1] === "HEAD" ? head :
-      a[1].includes(":") ? blobHash(files[a[1].slice(41)]) : op.BASE;
+      a[1].includes(":") ? blobHash(files[a[1].slice(41)]) : base;
     if (a[0] === "status") return "";
     if (a[0] === "diff") return [...Object.keys(files), ...(options.badScope ? ["package.json"] : [])].sort().join("\n");
     if (a[0] === "show") throw Error("Source must not pass through the command output buffer");
@@ -100,9 +103,9 @@ function fixture(t, options = {}) {
       return "";
     }
     if (a[0] === "reset") {
-      assert.deepEqual(Array.from(a), ["reset", "--keep", op.BASE]);
-      head = op.BASE; write(app + "/server/routes.ts", "old source");
-      fs.unlinkSync(app + "/server/lib/ai/email-reply-perspective.test.cjs"); return "";
+      assert.deepEqual(Array.from(a), ["reset", "--keep", base]);
+      head = base; write(app + "/server/routes.ts", "old source");
+      fs.unlinkSync(app + "/" + testFile); return "";
     }
     throw Error("Unmocked git");
   }
@@ -133,7 +136,8 @@ function fixture(t, options = {}) {
     }
     if (bin === process.execPath) {
       if (args[0] === "--test") {
-        assert(opts.cwd.startsWith(data + "/email-reply-fix-"));
+        assert(opts.cwd.startsWith(data + (options.customRelease ? "/email-compose-fix-" : "/email-reply-fix-")));
+        assert.equal(args[1], testFile);
         if (options.badTests) throw Error("synthetic tests failure");
         return "4 tests passed";
       }
@@ -152,7 +156,7 @@ function fixture(t, options = {}) {
       }
     } };
     if (name === "esbuild") return { async build(config) {
-      assert(config.absWorkingDir.startsWith(data + "/email-reply-fix-"));
+      assert(config.absWorkingDir.startsWith(data + (options.customRelease ? "/email-compose-fix-" : "/email-reply-fix-")));
       assert.equal(config.outfile, "dist/index.cjs"); assert.equal(config.minify, true);
       assert.deepEqual(Array.from(config.external), ["external-fixture"]);
       if (options.badBuild) throw Error("synthetic build failure");
@@ -186,8 +190,19 @@ function fixture(t, options = {}) {
   vm.runInNewContext(code, { require: requireMock, module, process: fakeProcess,
     console: { log: s => logs.push(s), error: s => logs.push(s) }, Date: FastDate,
     setTimeout: fn => { queueMicrotask(fn); return 0; } });
-  return { app, data, calls, queries, logs, head: () => head, settings: () => settings,
-    run: () => module.exports.main(["--apply", TARGET]) };
+  const custom = options.customRelease ? {
+    base, files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, hash(v)])),
+    blobs: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, blobHash(v)])),
+    kind: "email_compose", testFile,
+    resolveBackendHash() {
+      baselineChecks++;
+      if (options.badBaseline) throw Object.assign(Error("synthetic baseline mismatch"),
+        { safeCode: "previous_release_evidence_invalid" });
+      return hash(contents.backend);
+    },
+  } : undefined;
+  return { app, data, base, calls, queries, logs, head: () => head, settings: () => settings,
+    baselineChecks: () => baselineChecks, run: () => module.exports.main(["--apply", TARGET], custom) };
 }
 test("actual operator promotes only the backend and keeps the running worker and configuration", async t => {
   const f = fixture(t); await f.run();
@@ -200,6 +215,31 @@ test("actual operator promotes only the backend and keeps the running worker and
   assert.equal(fs.statSync(result.backupDirectory).mode & 0o777, 0o700);
   assert.equal(fs.readFileSync(result.backupDirectory + "/previous-index.cjs", "utf8"), "old backend");
   assert.equal(fs.existsSync(f.data + "/ai-services-deployment-lock"), false);
+});
+test("compose release overrides use the new parent, files, tests and verified backend baseline", async t => {
+  const f = fixture(t, { customRelease: true }); await f.run();
+  const result = JSON.parse(f.logs.at(-1));
+  assert.equal(result.mode, "email_compose_prompt_deployed", JSON.stringify(result));
+  assert.equal(f.baselineChecks(), 1);
+  assert.equal(f.head(), TARGET); assert.equal(result.workerUnchanged, true);
+  assert.equal(result.providersUnchanged, true); assert.equal(result.frontendUnchanged, true);
+  assert.equal(result.liveModelTestPerformed, false);
+});
+test("invalid previous release evidence stops compose before a backup or live change", async t => {
+  const f = fixture(t, { customRelease: true, badBaseline: true }); await f.run();
+  const result = JSON.parse(f.logs.at(-1));
+  assert.equal(result.mode, "email_compose_promotion_stopped");
+  assert.equal(result.code, "previous_release_evidence_invalid");
+  assert.equal(result.backupDirectory, null); assert.equal(f.head(), f.base);
+  assert(!f.calls.some(c => c.args.includes("restart")));
+});
+test("compose health failure restores its own source parent and backend without restarting the worker", async t => {
+  const f = fixture(t, { customRelease: true, badHealth: true }); await f.run();
+  const result = JSON.parse(f.logs.at(-1));
+  assert.equal(result.mode, "email_compose_promotion_stopped"); assert.equal(result.rollbackFailed, false);
+  assert.equal(result.databaseRestored, false); assert.equal(f.head(), f.base);
+  assert.equal(fs.readFileSync(f.app + "/dist/index.cjs", "utf8"), "old backend");
+  assert.equal(fs.readFileSync(f.app + "/dist/ai-worker.cjs", "utf8"), "running worker");
 });
 for (const failure of ["badScope", "badExtract", "badTests", "badBuild"]) {
   test("actual operator leaves live source and runtime untouched after " + failure, async t => {
