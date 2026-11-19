@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Activity, AlertTriangle, Clock3, RefreshCw, Search, ShieldCheck, Sparkles } from "lucide-react";
 import type { AISettingsView, AIGatewaySettings, AIServiceRoute } from "@shared/ai-settings";
-import { EMAIL_MONITORING_MODEL } from "@shared/ai-settings";
+import { EMAIL_MONITORING_MODEL, SOLARIS_MODEL, LEGACY_INTERNAL_MODEL } from "@shared/ai-settings";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useI18n } from "@/i18n";
 import type { AISettingsCopy } from "@/i18n/ai-settings-translations";
@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 const queryKey = ["/api/configurator/ai"] as const;
 const canonicalURL = "https://ai.cordbloodcenter.com/gateway/";
-const internalModel = "indexus-document-audio:latest";
+const internalModel = SOLARIS_MODEL;
 const staleMs = 15 * 60 * 1000;
 type TestKind = "connectivity" | "smoke" | "openai";
 
@@ -30,6 +30,12 @@ function localizedError(copy: AISettingsCopy, error: unknown): string {
   const code = errorCode(error);
   const message = code ? copy[code as keyof AISettingsCopy] : undefined;
   return typeof message === "string" ? message : copy.genericError;
+}
+
+function modelLabel(model: string, copy: AISettingsCopy) {
+  if (model === SOLARIS_MODEL) return `Solaris (${model})`;
+  if (model === LEGACY_INTERNAL_MODEL) return `${copy.solarisLegacyAlias} (${model})`;
+  return model;
 }
 
 function StatusPill({ state, label }: { state: string; label: string }) {
@@ -179,7 +185,7 @@ function GatewayEditor({ view, onUpdated }: { view: AISettingsView; onUpdated: (
             {check?.state === "ready" && (check.models?.length ?? 0) > 0 && !stale && <div className="mt-3 border-t pt-3">
               <p className="text-xs font-medium text-muted-foreground">{copy.verifiedModels}</p>
               <div className="mt-2 space-y-1">{check.models?.map(model => <p key={`${model.id}-${model.revision}`} className="flex flex-wrap gap-x-3 font-mono text-xs">
-                <span>{model.id}</span><span className="text-muted-foreground">{model.revision}</span>
+                <span>{modelLabel(model.id, copy)}</span><span className="text-muted-foreground">{model.revision}</span>
                 <span className="text-muted-foreground">{model.outputFormats.join(", ")}</span>
                 <span className="text-muted-foreground">{copy.modelLimits}: {model.maxInputTokens ?? "—"} / {model.maxOutputTokens ?? "—"}</span>
               </p>)}</div>
@@ -260,7 +266,7 @@ function ServiceRouteEditor({ service, view, onUpdated }: { service: AISettingsV
       {route.provider === "internal" ? <select id={`model-${service.id}`} value={route.model || internalModel}
         onChange={e => setRoute({ ...route, model: e.target.value })} className="h-9 w-full rounded-md border border-input bg-background px-3 font-mono text-xs">
         {(service.models ?? [internalModel, ...(service.id === "email.monitoring" ? [EMAIL_MONITORING_MODEL] : [])])
-          .map(model => <option key={model} value={model}>{model}</option>)}</select> :
+          .map(model => <option key={model} value={model}>{modelLabel(model, copy)}</option>)}</select> :
         <div className="flex gap-1.5"><Input id={`model-${service.id}`} value={route.model || ""} placeholder={copy.originalModel}
           onChange={e => setRoute({ ...route, model: e.target.value || null })} className="font-mono text-xs" />
           {route.model !== null && <Button type="button" variant="outline" size="sm" title={copy.originalModel} onClick={() => setRoute({ ...route, model: null })}>{copy.originalModel}</Button>}</div>}

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AI_SERVICES } from "./service-catalog";
 import { internalModelsForService } from "./internal-contract";
 import type { AIPersistedSettings, AIVerification } from "../../../shared/ai-settings";
-import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
+import { EMAIL_MONITORING_MODEL, SOLARIS_MODEL } from "../../../shared/ai-settings";
 
 export const GATEWAY_URL = "https://ai.cordbloodcenter.com/gateway/";
 export const DEFAULT_AI_SETTINGS: AIPersistedSettings = {
@@ -57,7 +57,7 @@ export function assertVersion(value: unknown): asserts value is number {
   if (!Number.isSafeInteger(value) || (value as number) < 1) throw new AISettingsError("version_conflict", 409);
 }
 export function freshSmoke(check: AIVerification | null, version: number, now = Date.now(),
-  modelId = "indexus-document-audio:latest") {
+  modelId = SOLARIS_MODEL) {
   const jsonOnly = modelId === EMAIL_MONITORING_MODEL;
   if (!check || check.kind !== "smoke" || check.state !== "ready" || check.settingsVersion !== version ||
     (!jsonOnly && !check.textVerified) || !check.jsonVerified) return false;

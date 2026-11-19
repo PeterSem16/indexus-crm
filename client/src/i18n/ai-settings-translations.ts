@@ -1,5 +1,6 @@
 import { aiExecutionTranslations } from "./ai-execution-translations";
 export interface AISettingsCopy {
+  solarisLegacyAlias: string;
   asyncMode: string; syncMode: string; workerReady: string; workerOffline: string; workerUnknown: string;
   async_worker_unavailable: string; asyncHelp: string;
   title: string; description: string; gateway: string; gatewayDescription: string; gatewayEnabled: string;
@@ -30,6 +31,7 @@ export interface AISettingsCopy {
 }
 
 const en: AISettingsCopy = {
+  solarisLegacyAlias: "Solaris — legacy alias",
   ...aiExecutionTranslations.en,
   title: "AI control", description: "Manage the gateway and service routing. Configuration never exposes credentials or customer content.",
   gateway: "Gateway", gatewayDescription: "The approved production gateway endpoint. No token can be entered or displayed here.",
@@ -346,8 +348,11 @@ Object.assign(de, {
 });
 
 export const aiSettingsTranslations = {
-  en: { ...en, ...aiExecutionTranslations.en }, sk: { ...sk, ...aiExecutionTranslations.sk },
-  cs: { ...cs, ...aiExecutionTranslations.cs }, hu: { ...hu, ...aiExecutionTranslations.hu },
-  ro: { ...ro, ...aiExecutionTranslations.ro }, it: { ...it, ...aiExecutionTranslations.it },
-  de: { ...de, ...aiExecutionTranslations.de },
+  en: { ...en, ...aiExecutionTranslations.en },
+  sk: { ...sk, ...aiExecutionTranslations.sk, solarisLegacyAlias: "Solaris — pôvodný alias" },
+  cs: { ...cs, ...aiExecutionTranslations.cs, solarisLegacyAlias: "Solaris — původní alias" },
+  hu: { ...hu, ...aiExecutionTranslations.hu, solarisLegacyAlias: "Solaris — korábbi alias" },
+  ro: { ...ro, ...aiExecutionTranslations.ro, solarisLegacyAlias: "Solaris — alias anterior" },
+  it: { ...it, ...aiExecutionTranslations.it, solarisLegacyAlias: "Solaris — alias precedente" },
+  de: { ...de, ...aiExecutionTranslations.de, solarisLegacyAlias: "Solaris — bisheriger Alias" },
 } as const;
