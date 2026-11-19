@@ -1,12 +1,13 @@
 /** Gateway v1 text contract. Never include provider payloads in error messages. */
-import { EMAIL_MONITORING_MODEL } from "../../../shared/ai-settings";
+import { EMAIL_MONITORING_MODEL, SOLARIS_MODEL, LEGACY_INTERNAL_MODEL } from "../../../shared/ai-settings";
 import { EMAIL_SENTIMENT_MODEL } from "./email-sentiment-profile";
 import { THREE_SERVICE_PROFILES, threeServiceProfile } from "./three-services-profile";
 export class InternalAIError extends Error {
   constructor(readonly code: string, readonly status = 502, readonly reviewReason?: string,
     readonly requestId?: string) { super(code); }
 }
-export const INTERNAL_TEXT_MODELS = Object.freeze(["indexus-document-audio:latest"]);
+// Keep persisted routes and already queued work valid during the explicit switch.
+export const INTERNAL_TEXT_MODELS = Object.freeze([SOLARIS_MODEL, LEGACY_INTERNAL_MODEL]);
 /** A service-scoped grant, never a global model allowlist expansion. */
 export function internalModelsForService(service?: string, baseline = INTERNAL_TEXT_MODELS): readonly string[] {
   const scopedModels: readonly string[] = Object.values(THREE_SERVICE_PROFILES).map(profile => profile.model);

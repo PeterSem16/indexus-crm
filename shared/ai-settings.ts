@@ -1,4 +1,6 @@
 /** Public, secret-free AI administration contract. */
+export const SOLARIS_MODEL = "indexus-ai-solaris:v1";
+export const LEGACY_INTERNAL_MODEL = "indexus-document-audio:latest";
 export const EMAIL_MONITORING_MODEL = "indexus-email-monitoring:v1";
 export type AIProvider = "openai" | "internal";
 export type AIServiceRoute = { provider: AIProvider; model: string | null; enabled: boolean };
