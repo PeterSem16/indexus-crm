@@ -3,6 +3,7 @@ import { openAIAdapter } from "./openai-adapter";
 import { InternalAIError } from "./internal-contract";
 import { AISettingsError } from "./settings-policy";
 import type { AIVerification } from "../../../shared/ai-settings";
+import { SOLARIS_MODEL } from "../../../shared/ai-settings";
 
 type InternalAdapter = typeof internalAIAdapter;
 export function assertInternalRuntime(adapter: InternalAdapter) {
@@ -45,7 +46,7 @@ export async function checkAIProvider(kind: AIVerification["kind"], version: num
       if (kind === "smoke") {
         const client = internal.createClient({ timeout: 30_000, maxRetries: 0 });
         const plain = await client.chat.completions.create({
-          model: "indexus-document-audio:latest", messages: [{ role: "user",
+          model: SOLARIS_MODEL, messages: [{ role: "user",
             content: "Synthetic connection test. Reply exactly INDEXUS_TEST_OK." }],
           temperature: 0, max_tokens: 64, stream: false,
         }, { signal: controller.signal });
@@ -53,7 +54,7 @@ export async function checkAIProvider(kind: AIVerification["kind"], version: num
           throw new AISettingsError("ai_internal_text_smoke_failed", 502);
         result.textVerified = true;
         const json = await client.chat.completions.create({
-          model: "indexus-document-audio:latest", messages: [
+          model: SOLARIS_MODEL, messages: [
             { role: "system", content: 'Return only JSON {"marker":"indexus-test","sum":5}.' },
             { role: "user", content: "Synthetic arithmetic check: compute 2 + 3." },
           ], response_format: { type: "json_object" }, temperature: 0, max_tokens: 128, stream: false,
