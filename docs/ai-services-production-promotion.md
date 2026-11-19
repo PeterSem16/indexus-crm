@@ -1,7 +1,12 @@
 # Schválené produkčné nasadenie pripraveného AI buildu
 
-Používateľ schválil zálohu a nasadenie aplikácie. Neschválil spustenie
-AI workera ani aktiváciu alebo zmenu poskytovateľov.
+Používateľ schválil zálohu a nasadenie aplikácie a následne osobitne schválil
+spustenie jedného AI workera so súbežnosťou 1 pre zachovanie aktívneho interného
+e-mailového monitoringu. Aktiváciu ďalších služieb ani zmenu poskytovateľov
+neschválil.
+
+Aktuálny schválený režim je `--apply-with-worker`. Pôvodný `--apply` zostáva
+režimom bez workera a naďalej bezpečne odmietne aktívny interný monitoring.
 
 ## Pripnutý stav
 
@@ -23,10 +28,8 @@ Replit buildy ako náhradu serverového výsledku.
    rozsah, fyzické zdroje, loader, živý build a proces vrátane PM2 identity.
 2. Overí HTTP vstup aj ochranu autentifikovaných API bez prihlasovania.
 3. Len na čítanie načíta aktuálnu konfiguráciu AI a overí kapacitu zálohy.
-   Ak by nasadenie bez workera odstavilo aktívne interné AI služby, zastaví
-   sa bez zmeny produkcie s kódom
-   `active_internal_routes_require_worker_approval` a identifikátormi služieb.
-   Nikdy ich sám nevypne ani nepresmeruje na cloud.
+   V schválenom worker režime musí zostať jedinou aktívnou internou službou
+   `email.monitoring`. Iný stav odmietne bez vypínania alebo presmerovania služieb.
 4. Vytvorí nový root-private priečinok na dátovom disku mimo PG clustra.
    Overí neprístupnosť pre aplikačný účet a zálohuje celý runtime, dotknuté
    zdroje aj konfiguráciu.
@@ -38,13 +41,24 @@ Replit buildy ako náhradu serverového výsledku.
 7. Pod `seman` urobí iba fast-forward na pripnuté vydanie. Publikuje immutable
    assety bez kolízií a zachová staré assety pre otvorené prehliadače.
    Backend, worker bundle a vstupné HTML nahradí atómovo.
-8. Reštartuje iba PM2 ID `4`, bez `--update-env`, bez zmeny loadera a bez
-   spustenia worker procesu. Bežná startup migrácia vytvorí aditívnu schému.
+8. Reštartuje iba existujúcu aplikáciu PM2 ID `4`, bez `--update-env` a bez
+   zmeny loadera. Po aditívnej startup migrácii overí worker cez `--check`
+   vrátane skutočného načítania pôvodného Gateway loadera, bez inferencie.
+   Pod `seman` spustí presne jeden proces `indexus-ai-worker`, fork/instances=1,
+   s 120-sekundovým rozpočtom a 160-sekundovým priestorom na ukončenie.
+   Existujúca konfigurácia prejde súkromnou stdin rúrou do PM2 API; žiadne
+   prihlasovacie údaje nie sú v argumentoch alebo dočasnom čitateľnom JSON.
 9. Overí stabilný nový proces, HTTP, nové hashe, ochranu API, pripravenosť
-   schémy a nezmenenú uloženú AI konfiguráciu. Uloží a vypíše
-   `deployed_worker_off` s umiestnením zálohy.
+   schémy a nezmenenú uloženú AI konfiguráciu. Overí jeden stabilný worker PID,
+   správneho používateľa a čerstvý jediný DB heartbeat. PM2 konfiguráciu uloží
+   s režimom súborov 0600; pôvodná konfigurácia je v súkromnej zálohe.
+   Uloží a vypíše `deployed_worker_ready` s umiestnením zálohy.
 
 ## Návrat pri chybe
+
+Po pokuse spustiť worker ho pri chybe najprv overene odstráni z PM2 s priestorom
+na dokončenie už bežiaceho volania. Nikdy neodstraňuje cudzí preexistujúci worker.
+Ak sa ho nepodarí zastaviť, nepredstiera úspešný návrat.
 
 Po zásahu do zdrojov/buildu sa nástroj pokúsi vrátiť iba pripnuté zdroje
 a pôvodný runtime. Git návrat používa `reset --keep` až po kontrole presných
@@ -63,13 +77,16 @@ aktuálny stav. Predošlé ani čiastočné zálohy sa automaticky nemažú.
 
 ## Overenie nástroja
 
-- 17 jednotkových a bezpečnostných testov.
-- 6 scenárov skutočnej operačnej implementácie nad dočasným súborovým systémom:
+- 19 jednotkových a bezpečnostných testov.
+- 11 scenárov skutočnej operačnej implementácie nad dočasným súborovým systémom:
   úspech, neúspešná záloha, nesúkromné úložisko, aktívna interná služba,
-  neúspešný HTTP štart a neúplná schéma; návrat zachováva údaje a oba asset sety.
+  neúspešný HTTP štart a neúplná schéma; navyše schválený worker, odmietnutý
+  worker check, čiastočný štart, chýbajúci heartbeat a návrat s odstránením workera.
+  Návrat zachováva údaje a oba asset sety.
 - Skutočný schema-only native PostgreSQL dump vo vývojovom prostredí,
   `pg_restore --list` aj úplné dekódovanie prešli. Nejde o produkčnú zálohu.
 
-Nasadzovací nástroj nie je živá AI akceptácia. Konfiguračné stránky za
-prihlásením sa týmto neoverujú ako prihlásený používateľ. Worker a živé
-modelové testy zostávajú oddelene schvaľovaným krokom.
+Nasadzovací nástroj neposiela syntetickú AI požiadavku a nie je živá akceptácia
+všetkých modelov. Worker začne spracúvať reálne požiadavky už aktívneho monitoringu.
+Konfiguračné stránky za prihlásením sa týmto neoverujú ako prihlásený používateľ.
+Aktivácia ďalších služieb a ich živé modelové testy nie sú súčasťou nasadenia.

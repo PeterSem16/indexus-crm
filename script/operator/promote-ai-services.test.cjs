@@ -104,14 +104,42 @@ test("standalone CLI refuses unpinned or worker-start execution without privileg
     assert.equal(JSON.parse(r.stdout).code, "use_apply_pinned_release_and_manifest");
   }
 });
-test("operator has no worker start, provider update, dependency install or DB restoration path", () => {
+test("provider updates, dependency installs and DB restoration remain forbidden; worker start is separately gated", () => {
   const source = fs.readFileSync(require.resolve("./promote-ai-services.cjs"), "utf8");
   assert(!/run\(["'](?:npm|ssh|curl)["']/.test(source));
   assert(!/["'](?:--update-env|--hard|db:push)["']/.test(source));
-  assert(!/asUser\(pm2,\s*\[["'](?:start|reload|delete|stop)["']/.test(source));
+  assert(!/asUser\(pm2,\s*\[["'](?:start|reload|stop)["']/.test(source));
+  assert(source.includes('workerApproved: args[0] === "--apply-with-worker"'));
+  assert(source.includes("if (!workerAttempted) return"));
   assert(!/(?:UPDATE|INSERT INTO)\s+ai_router_configuration/i.test(source));
   assert(source.includes('["--file=/dev/null", backup + "/database.dump"]'));
   assert(source.includes('["reset", "--keep", BASE]'));
   assert(!/pg_restore[^\n]*(?:--clean|--dbname)/.test(source));
   assert(source.includes("for await (const chunk of fs.createReadStream(file))"));
+});
+test("worker cutover is pinned to the observed active monitoring route, not arbitrary new services", () => {
+  const settings = { gateway: { enabled: true }, routes: {
+    "email.monitoring": { enabled: true, provider: "internal" },
+  } };
+  assert.doesNotThrow(() => op.assertWorkerCutover(settings, "routed"));
+  settings.routes["task.checklist"] = { enabled: true, provider: "internal" };
+  assert.throws(() => op.assertWorkerCutover(settings, "routed"), /approved_monitoring_route_changed/);
+  delete settings.routes["task.checklist"];
+  assert.throws(() => op.assertWorkerCutover(settings, "legacy"), /approved_monitoring_route_changed/);
+});
+test("one worker inherits existing configuration without inheriting PM2 process identity", () => {
+  const env = op.workerEnvironment({ DATABASE_URL: "fixture-file", SESSION_SECRET: "synthetic",
+    NODE_OPTIONS: "--require /existing/loader.cjs" },
+  { DATABASE_URL: "fixture-live", pm_id: "4", NODE_APP_INSTANCE: "0", PM2_HOME: "/old",
+    INDEXUS_AI_ROUTER_MODE: "routed" });
+  assert.equal(env.DATABASE_URL, "fixture-live"); assert.equal(env.SESSION_SECRET, "synthetic");
+  assert.equal(env.NODE_OPTIONS, "--require /existing/loader.cjs");
+  assert.equal(env.AI_JOBS_GATEWAY_TIMEOUT_MS, "120000");
+  assert.equal(env.pm_id, undefined); assert.equal(env.NODE_APP_INSTANCE, undefined);
+  const spec = op.workerSpecification(env, "/usr/bin/node");
+  assert.equal(spec.name, "indexus-ai-worker"); assert.equal(spec.instances, 1);
+  assert.equal(spec.exec_mode, "fork"); assert.equal(spec.kill_timeout, 160000);
+  assert.deepEqual(spec.args, ["--run"]);
+  assert.deepEqual(spec.node_args, ["--require", "/etc/indexus-ai-runtime/preload.cjs"]);
+  assert.equal(spec.env, env);
 });

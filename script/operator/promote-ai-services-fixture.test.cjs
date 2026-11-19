@@ -21,6 +21,8 @@ function fixture(t, options = {}) {
     fs.writeFileSync(name, bytes);
   };
   write(home + "/.pm2/pm2.pid", "22545");
+  write(home + "/.pm2/dump.pm2", "original PM2 configuration");
+  write(root + "/pm2/package.json", JSON.stringify({ name: "pm2" }));
   write(loader, "fixture loader");
   const prior = { "dist/index.cjs": "old backend", "dist/public/index.html": "old index",
     "dist/public/assets/old.js": "old asset" };
@@ -29,7 +31,7 @@ function fixture(t, options = {}) {
   for (const [name, bytes] of Object.entries(prior)) write(app + "/" + name, bytes);
   for (const [name, bytes] of Object.entries(next)) write(stage + "/source/" + name, bytes);
   fs.chmodSync(stage, 0o700);
-  let head = real.BASE, pid = 958103;
+  let head = real.BASE, pid = 958103, worker = null;
   const calls = [], messages = [], queries = [];
   const files = Array.from({ length: 70 }, (_, i) => ({ path: `server/source-${i}.ts`,
     baseSha256: sha("old-" + i), sha256: sha("new-" + i) }));
@@ -53,6 +55,8 @@ function fixture(t, options = {}) {
       queries.push(sql);
       if (sql.includes("SELECT value FROM")) return { rows: [{ value }] };
       if (sql.includes("pg_database_size")) return { rows: [{ bytes: 1024 }] };
+      if (sql.includes("count(*)::int AS count FROM ai_inference_workers"))
+        return { rows: [{ count: worker && !options.badHeartbeat ? 1 : 0 }] };
       if (sql.includes("to_regclass")) return { rows: [{ jobs: !options.badSchema, inference: true,
         workers: true, checklist: true }] };
       throw Error("Unexpected SQL");
@@ -66,6 +70,10 @@ function fixture(t, options = {}) {
         if (/^\/proc\/\d+\/cwd$/.test(p)) return app;
         return fs.readlinkSync(p);
       };
+      if (key === "realpathSync") return p => {
+        if (p === "/usr/bin/pm2") return root + "/pm2/bin/pm2";
+        return fs.realpathSync(p);
+      };
       if (key === "readFileSync") return (p, ...args) => {
         if (/^\/proc\/\d+\/status$/.test(p)) return "Uid:\t1001\t1001\t1001\t1001\n";
         if (/^\/proc\/\d+\/environ$/.test(p))
@@ -74,7 +82,8 @@ function fixture(t, options = {}) {
       };
       if (key === "lstatSync") return p => {
         const stat = fs.lstatSync(p);
-        if (p === stage) return new Proxy(stat, { get(s, k) { return k === "uid" ? 0 :
+        if (p === stage || p.startsWith(home + "/.pm2/dump.pm2")) return new Proxy(stat, { get(s, k) {
+          return k === "uid" ? p === stage ? 0 : 1001 :
           typeof s[k] === "function" ? s[k].bind(s) : s[k]; } });
         return stat;
       };
@@ -116,8 +125,36 @@ function fixture(t, options = {}) {
         if (command === "git") return git(parameters, opts);
         if (command === "/usr/bin/pm2") {
           if (parameters[0] === "jlist") return JSON.stringify([{ pm_id: 4, name: "indexus-crm", pid,
-            pm2_env: { status: "online", pm_cwd: app, pm_exec_path: app + "/dist/index.cjs" } }]);
+            pm2_env: { status: "online", pm_cwd: app, pm_exec_path: app + "/dist/index.cjs" } },
+            ...(worker ? [worker] : [])]);
           if (parameters[0] === "restart") { assert.equal(parameters[1], "4"); pid++; return ""; }
+          if (parameters[0] === "delete") { assert.equal(parameters[1], "5"); worker = null; return ""; }
+          if (parameters[0] === "save") {
+            assert.equal(fs.statSync(home + "/.pm2/dump.pm2").mode & 0o777, 0o600);
+            assert.equal(fs.statSync(home + "/.pm2/dump.pm2.bak").mode & 0o777, 0o600);
+            write(home + "/.pm2/dump.pm2", worker ? "saved with worker" : "saved without worker");
+            return "";
+          }
+        }
+        if (command === process.execPath && parameters[0] === "-e") {
+          const code = parameters[1], input = JSON.parse(opts.input);
+          assert(!parameters.some(p => p.includes("postgresql://")), "credentials must never be command arguments");
+          if (code.includes("INDEXUS_WORKER_CHECK")) {
+            assert.equal(input.args[0], "--run");
+            if (options.badWorkerCheck) throw Error("synthetic worker check failure");
+            return "";
+          }
+          if (code.includes("INDEXUS_WORKER_START")) {
+            assert.equal(input.module, root + "/pm2");
+            assert.equal(input.spec.env.DATABASE_URL, "postgresql://synthetic:synthetic@fixture.invalid/fixture");
+            assert.equal(input.spec.instances, 1);
+            worker = { pm_id: 5, name: "indexus-ai-worker", pid: 968001, pm2_env: {
+              status: "online", pm_cwd: app, pm_exec_path: app + "/dist/ai-worker.cjs",
+              exec_mode: "fork_mode", instances: 1, node_args: input.spec.node_args, args: ["--run"],
+            } };
+            if (options.badWorkerStart) throw Error("synthetic partial worker start failure");
+            return "";
+          }
         }
       }
       if (bin === "tar") {
@@ -184,9 +221,33 @@ function fixture(t, options = {}) {
     console: { log: message => messages.push(message) },
     setTimeout: callback => setTimeout(callback, 0),
   });
-  const operations = loaded.exports.productionOperations(manifest);
+  const operations = loaded.exports.productionOperations(manifest, { workerApproved: !!options.workerApproved });
   return { root, app, stage, calls, messages, queries, operations, loaded: loaded.exports,
-    head: () => head, pid: () => pid, prior };
+    head: () => head, pid: () => pid, worker: () => worker, prior };
+}
+test("approved worker path checks schema, starts exactly one worker over stdin and verifies heartbeat and persistence", async t => {
+  const f = fixture(t, { workerApproved: true, activeInternal: true });
+  try { await f.loaded.orchestrate(f.operations); } finally { await f.operations.close(); }
+  assert.equal(f.operations.state.mode, "deployed_worker_ready");
+  assert.equal(f.operations.state.workerConcurrency, 1);
+  assert.equal(f.operations.state.workerReady, true);
+  assert.equal(f.worker().name, "indexus-ai-worker");
+  assert.equal(fs.readFileSync(path.dirname(f.app) + "/home/.pm2/dump.pm2", "utf8"), "saved with worker");
+  assert.equal(fs.statSync(path.dirname(f.app) + "/home/.pm2/dump.pm2").mode & 0o777, 0o600);
+  assert(f.queries.every(q => q.startsWith("SELECT")));
+});
+for (const failure of ["badWorkerCheck", "badWorkerStart", "badHeartbeat", "badHealth"]) {
+  test("approved worker path safely restores original app and removes its own worker after " + failure, async t => {
+    const f = fixture(t, { workerApproved: true, activeInternal: true, [failure]: true });
+    try { await assert.rejects(f.loaded.orchestrate(f.operations)); }
+    finally { await f.operations.close(); }
+    assert.equal(f.head(), real.BASE);
+    assert.equal(f.worker(), null);
+    assert.equal(f.operations.state.databaseRestored, false);
+    assert.equal(f.operations.state.mode, "failed_previous_runtime_restored");
+    assert.equal(fs.readFileSync(f.app + "/dist/index.cjs", "utf8"), "old backend");
+    assert.equal(fs.existsSync(f.app + "/dist/ai-worker.cjs"), false);
+  });
 }
 test("actual implementation validates backup, promotes exact files, retains old assets and restarts seman only", async t => {
   const f = fixture(t);

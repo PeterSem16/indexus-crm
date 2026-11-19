@@ -1,6 +1,7 @@
 "use strict";
 // Operator-run promotion of the already-built, explicitly approved release.
-// No inference, provider changes, worker start or automatic database restoration.
+// Worker start requires the separately approved, explicitly named CLI mode.
+// Never activates providers, sends test inference or restores the database.
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
@@ -16,6 +17,7 @@ const TARGET = "328527d5699f4a13a30b9e945bf1bf5f59cb9f42";
 const TREE = "475ef9067dcb4dc1aac28a33fd24ad61193a3c10";
 const LOADER = "/etc/indexus-ai-runtime/preload.cjs";
 const LOADER_HASH = "33af3aaff20605583f9152fcad2abe61ec0cef4c4ebe771e43f0cf7d87aa0fac";
+const WORKER_NAME = "indexus-ai-worker";
 const BUILT = {
   "dist/index.cjs": "03e956745252f86f73378e349bf686474fe334c760e3273319dfc454b38de871",
   "dist/ai-worker.cjs": "6fc5c55a2669129f0442ff9fccdeef9b22262a89144e86e58002a2b71700bf37",
@@ -69,6 +71,31 @@ function assertOfflineSafe(value, mode) {
   if (mode !== "legacy" && active.length)
     throw Object.assign(new Error("active_internal_routes_require_worker_approval"),
       { safeCode: "active_internal_routes_require_worker_approval", serviceIds: active });
+}
+function assertWorkerCutover(value, mode) {
+  const active = value?.gateway?.enabled
+    ? Object.entries(value.routes || {}).filter(([, r]) => r?.enabled && r.provider === "internal").map(([id]) => id).sort()
+    : [];
+  if (mode === "legacy" || JSON.stringify(active) !== JSON.stringify(["email.monitoring"]))
+    fail("approved_monitoring_route_changed");
+}
+function workerEnvironment(fileEnv, liveEnv) {
+  const combined = { ...fileEnv, ...liveEnv };
+  // PM2's own instance metadata must never become the new process's identity.
+  for (const key of Object.keys(combined))
+    if (/^(?:PM2_|pm_|NODE_APP_INSTANCE$|NODE_CHANNEL_|NODE_UNIQUE_ID$|INSTANCE_ID$|unique_id$|namespace$)/.test(key) ||
+        ["name", "args", "node_args", "exec_mode", "instances", "restart_time",
+          "unstable_restarts", "created_at", "status", "exit_code"].includes(key))
+      delete combined[key];
+  delete combined.REPL_ID; delete combined.REPLIT_DEV_DOMAIN;
+  return { ...combined, NODE_ENV: "production", AI_JOBS_GATEWAY_TIMEOUT_MS: "120000" };
+}
+function workerSpecification(environment, interpreter) {
+  return { name: WORKER_NAME, script: APP + "/dist/ai-worker.cjs", cwd: APP,
+    interpreter, node_args: ["--require", LOADER], args: ["--run"],
+    env: environment, instances: 1, exec_mode: "fork", autorestart: true,
+    min_uptime: 30000, max_restarts: 5, restart_delay: 3000, kill_timeout: 160000,
+    watch: false };
 }
 function run(bin, args, opts = {}) {
   return cp.execFileSync(bin, args, { encoding: "utf8", timeout: 30000,
@@ -151,18 +178,24 @@ async function orchestrate(ops) {
     throw error;
   }
 }
-function productionOperations(manifest) {
+function productionOperations(manifest, { workerApproved = false } = {}) {
   let backup, journal, db, nativeEnv, user, pm2, oldPid, beforeSettings, runtimeBefore, buildFiles, databaseBytes;
+  let workerEnv, pm2Module, workerAttempted = false;
   const stageSource = path.join(STAGE, "source");
   let phase = "initial";
+  function setPhase(value) {
+    phase = value; state.phase = value;
+    console.log("PHASE=" + value);
+    if (journal) fs.appendFileSync(journal, JSON.stringify({ phase: value, at: new Date().toISOString() }) + "\n");
+  }
   const appRequire = createRequire(APP + "/package.json");
   const state = { target: TARGET, productionBase: BASE, backupValidated: false,
     workerStarted: false, providersActivated: false, databaseRestored: false };
   const git = args => run("git", ["--no-optional-locks", "-c", `safe.directory=${APP}`,
     "-c", "core.hooksPath=/dev/null", "-C", APP, ...args]).trim();
-  function asUser(bin, args) {
+  function asUser(bin, args, extra = {}) {
     return run("runuser", ["-u", "seman", "--", bin, ...args],
-      { env: { ...cleanEnv(process.env), HOME: user.home, PM2_HOME: user.home + "/.pm2" } });
+      { ...extra, env: { ...cleanEnv(process.env), HOME: user.home, PM2_HOME: user.home + "/.pm2" } });
   }
   function gitUser(args) {
     return asUser("git", ["--no-optional-locks", "-c", "core.hooksPath=/dev/null", "-C", APP, ...args]).trim();
@@ -177,12 +210,129 @@ function productionOperations(manifest) {
     if (!p || p.pm2_env.status !== "online" || p.pm2_env.pm_cwd !== APP ||
         p.pm2_env.pm_exec_path !== APP + "/dist/index.cjs" || !(p.pid > 0) ||
         expectedPid && p.pid !== expectedPid) fail("application_process_changed");
-    if (rows.some(p => /(?:^|\/)ai-worker\.(?:cjs|[cm]?js|ts)$/.test(p.pm2_env?.pm_exec_path || "")))
+    const workers = rows.filter(p => p.name === WORKER_NAME ||
+      /(?:^|\/)ai-worker\.(?:cjs|[cm]?js|ts)$/.test(p.pm2_env?.pm_exec_path || ""));
+    if (workers.length && (!workerApproved || !workerAttempted || workers.length !== 1 ||
+        workers[0].name !== WORKER_NAME || workers[0].pm2_env.pm_exec_path !== APP + "/dist/ai-worker.cjs"))
       fail("unexpected_existing_worker");
     const status = fs.readFileSync(`/proc/${p.pid}/status`, "utf8");
     if (!/^Uid:\s+1001\s/m.test(status) || fs.readlinkSync(`/proc/${p.pid}/cwd`) !== APP)
       fail("application_owner_changed");
     return p;
+  }
+  function ownedWorker() {
+    const workers = JSON.parse(asUser(pm2, ["jlist"])).filter(p => p.name === WORKER_NAME);
+    if (workers.length !== 1 || workers[0].pm2_env.pm_exec_path !== APP + "/dist/ai-worker.cjs" ||
+        workers[0].pm2_env.pm_cwd !== APP) fail("worker_identity_changed");
+    return workers[0];
+  }
+  function persistProcesses() {
+    for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+      const file = path.join(user.home, ".pm2", name);
+      if (!fs.existsSync(file)) {
+        const fd = fs.openSync(file, "wx", 0o600);
+        fs.closeSync(fd); fs.chownSync(file, user.uid, user.gid);
+      }
+      const stat = fs.lstatSync(file);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== user.uid) fail("pm2_dump_identity_invalid");
+      fs.chmodSync(file, 0o600);
+    }
+    asUser(pm2, ["save"]);
+    for (const name of ["dump.pm2", "dump.pm2.bak"])
+      fs.chmodSync(path.join(user.home, ".pm2", name), 0o600);
+  }
+  async function schemaReady(wait = false) {
+    const deadline = Date.now() + (wait ? 180000 : 10000);
+    do {
+      const result = await db.query(`SELECT
+        to_regclass('public.ai_jobs') IS NOT NULL AS jobs,
+        to_regclass('public.ai_inference_jobs') IS NOT NULL AS inference,
+        to_regclass('public.ai_inference_workers') IS NOT NULL AS workers,
+        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+          AND table_name='task_ai_checklist_generations' AND column_name='ai_job_id') AS checklist`);
+      if (Object.keys(result.rows[0] || {}).length === 4 && Object.values(result.rows[0]).every(v => v === true))
+        return;
+      if (!wait) break;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } while (Date.now() < deadline);
+    fail("ai_schema_not_ready");
+  }
+  async function startWorker() {
+    setPhase("worker_schema");
+    await schemaReady(true);
+    const active = await db.query(`SELECT count(*)::int AS count FROM ai_inference_workers
+      WHERE heartbeat_at > now() - interval '30 seconds'`);
+    if (Number(active.rows[0]?.count) !== 0) fail("unexpected_existing_worker_heartbeat");
+    const spec = workerSpecification(workerEnv, process.execPath);
+    // Configuration, including credentials, travels only over a private stdin pipe.
+    // The child logs neither the configuration nor raw exceptions.
+    const checkCode = `/* INDEXUS_WORKER_CHECK */
+let input="";process.stdin.on("data",b=>input+=b);process.stdin.on("end",()=>{
+try{const s=JSON.parse(input);const r=require("node:child_process").spawnSync(s.interpreter,
+[...s.node_args,"-e",s.check,s.script],{cwd:s.cwd,env:s.env,timeout:30000,stdio:["ignore","pipe","pipe"]});
+process.exitCode=r.status===0?0:2;}catch{process.exitCode=2;}});`;
+    const check = `const e=process.env;
+if(e.NODE_ENV!=="production"||e.INDEXUS_AI_GATEWAY_ENABLED!=="true"||
+e.INDEXUS_AI_ROUTER_MODE!=="routed"||!e.INDEXUS_AI_GATEWAY_TOKEN||
+e.INDEXUS_AI_GATEWAY_BASE_URL!=="https://ai.cordbloodcenter.com/gateway/")process.exit(3);
+const file=process.argv[1];process.argv=[process.execPath,file,"--check"];require(file);`;
+    setPhase("worker_check");
+    try {
+      asUser(process.execPath, ["-e", checkCode], { input: JSON.stringify({ ...spec, check }), timeout: 40000 });
+    } catch { fail("worker_schema_or_gateway_loader_check_failed"); }
+    const startCode = `/* INDEXUS_WORKER_START */
+let input="";process.stdin.on("data",b=>input+=b);process.stdin.on("end",()=>{
+try{const v=JSON.parse(input),pm=require(v.module);pm.connect(e=>{
+if(e){process.exitCode=2;return;}pm.start(v.spec,e=>{pm.disconnect();if(e)process.exitCode=2;});
+});}catch{process.exitCode=2;}});`;
+    workerAttempted = true;
+    setPhase("worker_start");
+    try {
+      asUser(process.execPath, ["-e", startCode],
+        { input: JSON.stringify({ module: pm2Module, spec }), timeout: 40000 });
+    } catch { fail("worker_start_failed"); }
+  }
+  async function verifyWorker() {
+    setPhase("worker_verify");
+    const deadline = Date.now() + 45000;
+    let stable = 0, pid;
+    do {
+      try {
+        const p = ownedWorker(), e = p.pm2_env;
+        if (e.status !== "online" || !(p.pid > 0) || e.exec_mode !== "fork_mode" ||
+            e.instances !== 1 || !Array.isArray(e.node_args) ||
+            !e.node_args.includes(LOADER) || JSON.stringify(e.args) !== JSON.stringify(["--run"]))
+          fail("worker_not_ready");
+        const status = fs.readFileSync(`/proc/${p.pid}/status`, "utf8");
+        if (!/^Uid:\s+1001\s/m.test(status) || fs.readlinkSync(`/proc/${p.pid}/cwd`) !== APP)
+          fail("worker_owner_changed");
+        const heartbeat = await db.query(`SELECT count(*)::int AS count FROM ai_inference_workers
+          WHERE heartbeat_at > now() - interval '30 seconds'`);
+        if (Number(heartbeat.rows[0]?.count) !== 1) fail("worker_heartbeat_unavailable");
+        stable = pid === p.pid ? stable + 1 : 1; pid = p.pid;
+        if (stable >= 3) {
+          state.workerPid = pid; state.workerStarted = true; state.workerReady = true;
+          state.workerConcurrency = 1;
+          return;
+        }
+      } catch { stable = 0; }
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } while (Date.now() < deadline);
+    fail("worker_readiness_failed");
+  }
+  async function stopOwnedWorker() {
+    if (!workerAttempted) return;
+    setPhase("worker_stop");
+    const rows = JSON.parse(asUser(pm2, ["jlist"])).filter(p => p.name === WORKER_NAME);
+    if (rows.length) {
+      const worker = ownedWorker();
+      asUser(pm2, ["delete", String(worker.pm_id)], { timeout: 180000 });
+      if (JSON.parse(asUser(pm2, ["jlist"])).some(p => p.name === WORKER_NAME))
+        fail("worker_stop_failed");
+    }
+    workerAttempted = false;
+    state.workerWasStarted = true; state.workerStarted = false; state.workerReady = false;
+    persistProcesses();
   }
   function protectedRuntime(expected) {
     for (const [file, digest] of Object.entries(expected)) {
@@ -260,11 +410,7 @@ function productionOperations(manifest) {
   }
   return {
     state,
-    phase: async value => {
-      phase = value; state.phase = value;
-      console.log("PHASE=" + value);
-      if (journal) fs.appendFileSync(journal, JSON.stringify({ phase: value, at: new Date().toISOString() }) + "\n");
-    },
+    phase: async value => setPhase(value),
     preflight: async () => {
       if (process.getuid() !== 0 || os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01")
         fail("root_on_corpcrm01_required");
@@ -301,7 +447,18 @@ function productionOperations(manifest) {
       await db.connect();
       beforeSettings = await readSettings();
       const mode = inherited.find(s => s.startsWith("INDEXUS_AI_ROUTER_MODE="))?.split("=")[1];
-      assertOfflineSafe(beforeSettings, mode);
+      if (workerApproved) {
+        assertWorkerCutover(beforeSettings, mode);
+        const live = Object.fromEntries(inherited.filter(s => s.includes("=")).map(s => {
+          const at = s.indexOf("="); return [s.slice(0, at), s.slice(at + 1)];
+        }));
+        const envBytes = regular(APP, ".env");
+        workerEnv = workerEnvironment(envBytes ? appRequire("dotenv").parse(envBytes) : {}, live);
+        workerEnv.DATABASE_URL = connection;
+        pm2Module = path.dirname(path.dirname(fs.realpathSync(pm2)));
+        const pkg = JSON.parse(fs.readFileSync(pm2Module + "/package.json", "utf8"));
+        if (pkg.name !== "pm2") fail("pm2_module_identity_invalid");
+      } else assertOfflineSafe(beforeSettings, mode);
       state.settingsSha256 = settingsHash(beforeSettings);
       databaseBytes = Number((await db.query("SELECT pg_database_size(current_database()) AS bytes")).rows[0].bytes);
       runtimeBefore = inventory(APP + "/dist");
@@ -339,6 +496,12 @@ function productionOperations(manifest) {
           fail("source_backup_mismatch");
       for (const [from, to] of [[APP + "/.env", "application.env"], [LOADER, "preload.cjs"]]) {
         if (fs.existsSync(from)) { fs.copyFileSync(from, backup + "/" + to); fs.chmodSync(backup + "/" + to, 0o600); }
+      }
+      if (workerApproved) for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+        const file = path.join(user.home, ".pm2", name);
+        if (fs.existsSync(file)) {
+          fs.copyFileSync(file, path.join(backup, name)); fs.chmodSync(path.join(backup, name), 0o600);
+        }
       }
       const log = fs.openSync(backup + "/database-backup.log", "wx", 0o600);
       try {
@@ -381,19 +544,16 @@ function productionOperations(manifest) {
       for (const f of buildFiles)
         if (sha(regular(APP + "/dist", f.path)) !== f.sha256) fail("published_runtime_mismatch");
     },
-    restart: async () => { asUser(pm2, ["restart", "4"]); },
+    restart: async () => {
+      asUser(pm2, ["restart", "4"]);
+      if (workerApproved) await startWorker();
+    },
     verify: async () => {
       state.pid = await healthy(BUILT["dist/public/index.html"], true);
       protectedRuntime(BUILT); sources(TARGET, true);
       if (settingsHash(await readSettings()) !== state.settingsSha256) fail("ai_configuration_changed");
-      const result = await db.query(`SELECT
-        to_regclass('public.ai_jobs') IS NOT NULL AS jobs,
-        to_regclass('public.ai_inference_jobs') IS NOT NULL AS inference,
-        to_regclass('public.ai_inference_workers') IS NOT NULL AS workers,
-        EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public'
-          AND table_name='task_ai_checklist_generations' AND column_name='ai_job_id') AS checklist`);
-      if (!Object.values(result.rows[0] || {}).every(v => v === true) || Object.keys(result.rows[0] || {}).length !== 4)
-        fail("ai_schema_not_ready");
+      await schemaReady();
+      if (workerApproved) await verifyWorker();
       for (const f of runtimeBefore.filter(f => f.path.startsWith("public/assets/"))) {
         const bytes = regular(APP + "/dist", f.path);
         if (!bytes || sha(bytes) !== f.sha256) fail("previous_static_asset_lost");
@@ -401,11 +561,13 @@ function productionOperations(manifest) {
       state.schemaReady = true; state.providersUnchanged = true;
     },
     success: async () => {
-      state.mode = "deployed_worker_off";
+      if (workerApproved) persistProcesses();
+      state.mode = workerApproved ? "deployed_worker_ready" : "deployed_worker_off";
       fs.writeFileSync(backup + "/deployment-result.json", JSON.stringify(state, null, 2) + "\n", { mode: 0o600 });
       console.log(JSON.stringify(state, null, 2));
     },
     rollback: async ({ runtimeAttempted }) => {
+      if (workerApproved) await stopOwnedWorker();
       let sourceOk = true;
       const head = git(["rev-parse", "HEAD"]);
       if (head === TARGET) {
@@ -437,16 +599,17 @@ function productionOperations(manifest) {
       ...(error.serviceIds ? { activeServiceIds: error.serviceIds } : {}),
       backupDirectory: backup || null, backupValidated: state.backupValidated,
       rollbackFailed: error.rollbackFailed === true, databaseRestored: false,
-      workerStarted: false, providersActivated: false }),
+      workerStarted: error.rollbackFailed && workerAttempted ? null : state.workerStarted,
+      workerStartAttempted: workerAttempted, providersActivated: false }),
   };
 }
 async function main(args) {
-  if (args.length !== 3 || args[0] !== "--apply" || args[1] !== TARGET)
+  if (args.length !== 3 || !["--apply", "--apply-with-worker"].includes(args[0]) || args[1] !== TARGET)
     fail("use_apply_pinned_release_and_manifest");
   if (process.getuid() !== 0 || os.hostname().split(".")[0].toUpperCase() !== "CORPCRM01")
     fail("root_on_corpcrm01_required");
   const manifest = JSON.parse(fs.readFileSync(args[2], "utf8"));
-  const ops = productionOperations(manifest);
+  const ops = productionOperations(manifest, { workerApproved: args[0] === "--apply-with-worker" });
   // The lock is on the approved data disk; never create it before verifying the mount.
   const mount = JSON.parse(run("findmnt", ["--json", "--target", DATA, "--output", "SOURCE,TARGET"])).filesystems;
   if (mount?.length !== 1 || mount[0].target !== DATA ||
@@ -459,7 +622,8 @@ async function main(args) {
   finally { await ops.close(); fs.rmdirSync(lock); }
 }
 module.exports = { BASE, TARGET, TREE, BUILT, OLD, nativeEnvironment, canonical,
-  settingsHash, assertOfflineSafe, validatePrepared, orchestrate, productionOperations, main };
+  settingsHash, assertOfflineSafe, assertWorkerCutover, workerEnvironment, workerSpecification,
+  validatePrepared, orchestrate, productionOperations, main };
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   console.log(JSON.stringify({ mode: "deployment_refused", code: error.safeCode || "operator_unavailable",
     workerStarted: false, providersActivated: false, databaseRestored: false }));
