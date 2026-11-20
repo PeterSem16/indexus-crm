@@ -2,7 +2,7 @@
 const test = require("node:test"), assert = require("node:assert/strict"), vm = require("node:vm");
 const { runThreeLiveSummaries, browserScript } = require("./live-mailbox-three-summaries.cjs");
 function harness(options = {}) {
-  const posts = [], calls = [], polls = new Map(), jobs = new Map(), prompts = [], histories = new Map();
+  const posts = [], writes = [], calls = [], polls = new Map(), jobs = new Map(), prompts = [], histories = new Map();
   const window = {
     prompt: (question, value) => {
       prompts.push(question);
@@ -12,15 +12,32 @@ function harness(options = {}) {
       return options.selection || value;
     },
     confirm: () => !options.decline,
+    addEventListener() {}, removeEventListener() {},
   };
   let configReads = 0, active = 0, maxActive = 0;
+  let version = 16, route = { provider: "openai", model: null, enabled: true }, smoke;
+  if (options.freshSmoke) smoke = { state: "ready", kind: "smoke", settingsVersion: 16,
+    textVerified: true, jsonVerified: true, checkedAt: new Date().toISOString(),
+    models: [{ id: "indexus-ai-solaris:v1", outputFormats: ["text", "json_object"], maxOutputTokens: 8192 }] };
+  const config = () => ({
+    version: options.changed && configReads > 1 ? version + 1 :
+      options.foreign && posts.length ? version + 1 : version,
+    runtime: { mode: "routed", production: !options.dev, replit: false, serverAllowed: true },
+    gateway: { enabled: true }, queue: { ready: !options.noWorker },
+    gatewayCheck: smoke,
+    services: [{ id: "email.summary", internalEligible: true, models: ["indexus-ai-solaris:v1"],
+      route: options.temporaryWindow ? route : {
+        provider: options.openai ? "openai" : "internal", enabled: true, model: "Solaris" } },
+    { id: "email.reply", route: { provider: "internal", model: "preserved-model", enabled: true } }],
+  });
   const messages = Array.from({ length: options.tooFew ? 2 : 5 }, (_, i) => ({
     id: "real-fixture-message-" + i, subject: "Source " + i,
     body: { content: "<p>Actual saved fixture source " + i + "</p>" },
     from: { emailAddress: { name: "Fixture sender" } }, receivedDateTime: "2026-11-20T12:00:00Z",
   }));
   const reply = (value, status = 200) => ({ status, json: async () => {
-    if (options.badJSON && status === 202) throw Error("invalid JSON"); return value;
+    if (options.badJSON && status === 202) throw Error("invalid JSON");
+    return JSON.parse(JSON.stringify(value));
   } });
   const job = (n, emailId, status) => ({
     id: "aaaaaaaa-aaaa-4aaa-8aaa-" + String(n).padStart(12, "0"),
@@ -32,6 +49,26 @@ function harness(options = {}) {
   });
   const fetch = async (url, init = {}) => {
     calls.push({ url, method: init.method || "GET" });
+    if (["/api/configurator/ai/test", "/api/configurator/ai/route"].includes(url) && init.method) {
+      const body = JSON.parse(init.body); writes.push({ url, method: init.method, body });
+      assert.equal(body.expectedVersion, version);
+      if (url.endsWith("/test")) {
+        assert.equal(init.method, "POST"); assert.equal(body.kind, "smoke");
+        if (options.smokeTransport) throw Error("uncertain smoke");
+        smoke = { state: options.smokeFail ? "failed" : "ready", kind: "smoke", settingsVersion: version,
+          textVerified: true, jsonVerified: true, checkedAt: new Date().toISOString(),
+          models: [{ id: "indexus-ai-solaris:v1", outputFormats: ["text", "json_object"], maxOutputTokens: 8192 }] };
+      } else {
+        assert.equal(init.method, "PUT"); assert.equal(body.service, "email.summary");
+        const restoring = body.route.provider === "openai";
+        if (restoring && options.restoreConflict) return reply({ code: "version_conflict" }, 409);
+        if (!restoring) assert.equal(body.confirmInternal, true);
+        route = body.route; version++;
+        if (restoring ? options.restoreLostAck : options.switchLostAck) throw Error("uncertain route write");
+        if (!restoring && options.badSwitchReadback) return reply({ ...config(), version: 123 });
+      }
+      return reply(config());
+    }
     if (init.method === "POST") {
       assert.equal(url, "/api/users/signed-in-user/ms365-ai-summary");
       const body = JSON.parse(init.body); posts.push(body);
@@ -47,18 +84,18 @@ function harness(options = {}) {
     if (url === "/api/auth/me") return reply({ user: { id: "signed-in-user" } });
     if (url === "/api/configurator/ai") {
       configReads++;
-      return reply({
-        version: options.changed && configReads > 1 ? 17 : 16,
-        runtime: { mode: "routed", production: !options.dev, replit: false, serverAllowed: true },
-        gateway: { enabled: true }, queue: { ready: !options.noWorker },
-        services: [{ id: "email.summary", route: {
-          provider: options.openai ? "openai" : "internal", enabled: true, model: "Solaris",
-        } }],
-      });
+      return reply(config());
     }
     if (url === "/api/configurator/ai/maintenance") return reply({
-      mode: options.paused ? "paused" : "running", version: 0,
+      mode: options.paused || options.pauseDuringRun && posts.length ? "paused" : "running",
+      version: (options.pauseDuringRun || options.maintenanceChanged) && posts.length ? 1 : 0,
       workers: { alive: 1, unsupported: 0, confirmed: options.unconfirmed ? 0 : 1 },
+      queues: {
+        jobs: { pending: [...jobs.values()].filter(j => j.status === "pending").length,
+          processing: [...jobs.values()].filter(j => j.status === "processing").length },
+        inference: { pending: options.busyRestore && posts.length >= 3 ? 1 : 0,
+          processing: options.busyBefore ? 1 : 0 },
+      },
     });
     if (url.endsWith("/ms365-available-mailboxes")) return reply([
       { id: "personal", email: "personal@fixture.invalid", type: "personal", isDefault: true },
@@ -80,21 +117,28 @@ function harness(options = {}) {
     if (url.startsWith("/api/ai/jobs/")) {
       const id = url.split("/").pop(), current = jobs.get(id); assert(current);
       const count = (polls.get(id) || 0) + 1; polls.set(id, count);
-      return reply({ job: job(Number(id.slice(-12)), current.entityId,
-        options.failed ? "failed" : count === 1 ? "processing" : "completed") });
+      const next = job(Number(id.slice(-12)), current.entityId,
+        options.pendingForever ? "pending" : options.failed ? "failed" : count === 1 ? "processing" : "completed");
+      jobs.set(id, next); return reply({ job: next });
     }
     throw Error("UNEXPECTED_ENDPOINT:" + url);
   };
   const context = vm.createContext({ window, fetch, URLSearchParams,
     setTimeout: callback => queueMicrotask(callback),
     console: { log() {}, table() {}, error() {} } });
-  if (options.timeout) {
+  if (options.timeout || options.pendingForever || options.busyRestore) {
     let tick = 0;
-    context.Date = class extends Date { static now() { return tick += 16 * 60_000; } };
+    context.Date = class extends Date { static now() {
+      const advance = options.busyRestore
+        ? posts.length === 3 && [...jobs.values()].every(j => j.status === "completed")
+        : posts.length > 0;
+      return Date.now() + (advance ? tick += 16 * 60_000 : 0);
+    } };
   }
   const run = vm.runInContext("(" + runThreeLiveSummaries.toString() + ")", context);
-  return { posts, calls, window, prompts, context, maxActive: () => maxActive,
-    run: () => run(), messages };
+  return { posts, writes, calls, window, prompts, context, maxActive: () => maxActive,
+    run: () => run({ temporaryWindow: options.temporaryWindow === true }), messages,
+    currentRoute: () => route, version: () => version };
 }
 test("three actual saved IDs produce three sequential asynchronous summaries, not synthetic bodies", async () => {
   const h = harness(), r = await h.run();
@@ -157,4 +201,69 @@ test("all seven existing language codes are accepted without multiplying the thr
 test("the exact generated F12 script parses and runs in a browser context", async () => {
   const h = harness(); await vm.runInContext(browserScript(), h.context);
   assert.equal(h.window.indexusThreeLiveSummaries.results.length, 3);
+});
+test("temporary window refreshes smoke, switches only summary, performs three jobs and verifies OpenAI restoration", async () => {
+  const h = harness({ temporaryWindow: true }), r = await h.run();
+  assert.equal(r.status, "three_live_summaries_completed_openai_restored");
+  assert.equal(r.restoreStatus, "restored_verified"); assert.equal(h.posts.length, 3);
+  assert.deepEqual(h.writes.map(w => [w.method, w.url]), [
+    ["POST", "/api/configurator/ai/test"], ["PUT", "/api/configurator/ai/route"], ["PUT", "/api/configurator/ai/route"],
+  ]);
+  assert.deepEqual(h.writes[1].body, { expectedVersion: 16, service: "email.summary",
+    route: { provider: "internal", model: "indexus-ai-solaris:v1", enabled: true }, confirmInternal: true });
+  assert.deepEqual(h.writes[2].body, { expectedVersion: 17, service: "email.summary",
+    route: { provider: "openai", model: null, enabled: true } });
+  assert.deepEqual(h.currentRoute(), { provider: "openai", model: null, enabled: true });
+  assert.equal(h.version(), 18); assert.equal(r.gatewayDrain, "unverified");
+});
+for (const option of ["cancel", "decline", "busyBefore", "smokeFail", "smokeTransport"]) {
+  test("temporary window never switches or summarizes when " + option, async () => {
+    const h = harness({ temporaryWindow: true, [option]: true }), r = await h.run();
+    assert.equal(h.posts.length, 0); assert.equal(h.writes.filter(w => w.method === "PUT").length, 0);
+    assert.equal(h.currentRoute().provider, "openai"); assert.equal(r.restoreStatus, "not_switched");
+  });
+}
+for (const option of ["switchLostAck", "badSwitchReadback"]) {
+  test("uncertain route switch is never retried or blindly restored: " + option, async () => {
+    const h = harness({ temporaryWindow: true, [option]: true }), r = await h.run();
+    assert.equal(r.status, "manual_verification_required"); assert.equal(h.posts.length, 0);
+    assert.equal(h.writes.filter(w => w.method === "PUT").length, 1);
+  });
+}
+for (const option of ["transport", "badJSON", "wrongIdentity", "foreign", "pauseDuringRun", "maintenanceChanged", "pendingForever", "busyRestore"]) {
+  test("unsafe temporary window state prevents forced restoration: " + option, async () => {
+    const h = harness({ temporaryWindow: true, [option]: true }), r = await h.run();
+    assert.equal(r.restoreStatus, "manual_verification_required");
+    assert.equal(h.writes.filter(w => w.method === "PUT").length, 1);
+    assert.equal(h.currentRoute().provider, "internal");
+    assert(!h.calls.some(c => /retry|cancel|\/maintenance.*PUT/.test(c.url)));
+  });
+}
+test("a known failed job is not retried, and OpenAI is restored after terminal-state checks", async () => {
+  const h = harness({ temporaryWindow: true, failed: true }), r = await h.run();
+  assert.equal(r.status, "test_stopped_original_route_restored"); assert.equal(h.posts.length, 1);
+  assert.equal(r.restoreStatus, "restored_verified"); assert.equal(h.currentRoute().provider, "openai");
+});
+test("lost restoration acknowledgment is reported, never retried or falsely marked restored", async () => {
+  const h = harness({ temporaryWindow: true, restoreLostAck: true }), r = await h.run();
+  assert.equal(r.restoreStatus, "manual_verification_required");
+  assert.equal(h.writes.filter(w => w.method === "PUT").length, 2);
+  assert.equal(h.currentRoute().provider, "openai");
+});
+test("the complete generated temporary-window block runs without DevTools copy helpers", async () => {
+  const h = harness({ temporaryWindow: true });
+  await vm.runInContext(browserScript({ temporaryWindow: true }), h.context);
+  assert.equal(h.window.indexusThreeLiveSummaries.restoreStatus, "restored_verified");
+});
+test("a still-valid smoke is reused without duplicate technical inference calls", async () => {
+  const h = harness({ temporaryWindow: true, freshSmoke: true }), r = await h.run();
+  assert.equal(r.restoreStatus, "restored_verified");
+  assert.equal(h.posts.length, 3); assert.equal(h.writes.length, 2);
+  assert(h.writes.every(w => w.method === "PUT"));
+});
+test("a restoration version conflict is not retried or falsely acknowledged", async () => {
+  const h = harness({ temporaryWindow: true, restoreConflict: true }), r = await h.run();
+  assert.equal(r.restoreStatus, "manual_verification_required");
+  assert.equal(r.restoreError, "WINDOW_ROUTE_HTTP_409_DO_NOT_REPEAT");
+  assert.equal(h.writes.filter(w => w.method === "PUT").length, 2);
 });
