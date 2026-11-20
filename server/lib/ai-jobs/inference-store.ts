@@ -4,6 +4,7 @@ import { AI_SERVICES, type AIService } from "../ai/service-catalog";
 import { internalEligible } from "../ai/settings-policy";
 import { internalModelsForService, validateInternalRequest } from "../ai/internal-contract";
 import { JobError } from "./policy";
+import { maintenanceAllowsClaim } from "./maintenance-gate";
 
 export interface InferenceJob {
   id: string;
@@ -23,8 +24,13 @@ export function createInferenceStore(pool: JobPool) {
         WHERE heartbeat_at > now() - interval '30 seconds') AS ready`)).rows[0]?.ready === true;
     },
     async heartbeat(id: string) {
-      await pool.query(`INSERT INTO ai_inference_workers(id) VALUES($1)
-        ON CONFLICT(id) DO UPDATE SET heartbeat_at=now()`, [id]);
+      const r = await pool.query(`INSERT INTO ai_inference_workers
+        (id,heartbeat_at,maintenance_protocol,maintenance_version)
+        SELECT $1,clock_timestamp(),1,version FROM ai_queue_maintenance WHERE scope='internal-gateway'
+        ON CONFLICT(id) DO UPDATE SET heartbeat_at=EXCLUDED.heartbeat_at,
+          maintenance_protocol=EXCLUDED.maintenance_protocol,maintenance_version=EXCLUDED.maintenance_version
+        RETURNING id`, [id]);
+      if (!r.rows.length) throw new JobError("maintenance_unavailable", 503);
     },
     async offline(id: string) {
       await pool.query("DELETE FROM ai_inference_workers WHERE id=$1", [id]);
@@ -50,6 +56,7 @@ export function createInferenceStore(pool: JobPool) {
       return jobTransaction(pool, async tx => {
         if (!(await tx.query("SELECT pg_try_advisory_xact_lock(517,1) AS acquired")).rows[0].acquired)
           return undefined;
+        if (!await maintenanceAllowsClaim(tx)) return undefined;
         await tx.query(`UPDATE ai_inference_jobs SET status='failed',
           error_code='worker_lost_outcome_unknown',finished_at=now(),locked_until=null,worker_id=null
           WHERE status='processing' AND locked_until<now()`);

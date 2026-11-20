@@ -2,7 +2,11 @@ import type { JobSQL } from "./store";
 import { JobError } from "./policy";
 export async function assertJobSchema(sql: JobSQL) {
   await sql.query("SELECT id,service,model,request,status,response,worker_id,locked_until,attempts FROM ai_inference_jobs LIMIT 0");
-  await sql.query("SELECT id,heartbeat_at FROM ai_inference_workers LIMIT 0");
+  await sql.query("SELECT id,heartbeat_at,maintenance_protocol,maintenance_version FROM ai_inference_workers LIMIT 0");
+  const maintenance = (await sql.query(`SELECT mode,version FROM ai_queue_maintenance
+    WHERE scope='internal-gateway'`)).rows[0];
+  if (!maintenance || !["running", "paused"].includes(maintenance.mode))
+    throw new JobError("maintenance_unavailable", 503);
   await sql.query(`SELECT id,service,entity_type,entity_id,owner_user_id,status,priority,payload,result,
     attempts,max_attempts,error_code,error_message,created_at,started_at,finished_at,locked_until,
     worker_id,idempotency_key,input_fingerprint,history,metrics FROM ai_jobs LIMIT 0`);

@@ -14,6 +14,7 @@ type Dependencies = {
   internal?: typeof internalAIAdapter; openai?: typeof openAIAdapter;
   check?: typeof checkAIProvider;
   queueStatus?: () => Promise<NonNullable<AISettingsView["queue"]>>;
+  allowInternalTest?: () => Promise<boolean>;
 };
 export function registerAISettingsRoutes(app: Express, dependencies: Dependencies) {
   const { store, requireAdmin } = dependencies;
@@ -85,6 +86,12 @@ export function registerAISettingsRoutes(app: Express, dependencies: Dependencie
     if (!req.body || Object.keys(req.body).some(key => !["expectedVersion", "kind"].includes(key)) ||
       !["connectivity", "smoke", "openai"].includes(req.body.kind)) throw new AISettingsError("request_invalid");
     assertVersion(req.body.expectedVersion);
+    // Existing tests admitted before the pause may finish. This is NOT drain evidence.
+    if (req.body.kind !== "openai" && dependencies.allowInternalTest &&
+      !await dependencies.allowInternalTest()) {
+      res.status(409).json({ error: "maintenance_paused", code: "maintenance_paused" });
+      return;
+    }
     // Session advisory lock coordinates PM2 workers; always release the same client.
     const lock = await store.pool.connect();
     let locked = false;

@@ -1,5 +1,7 @@
+import { AI_MAINTENANCE_SCHEMA } from "./maintenance-schema";
 /** Additive schema for every internally routed, text-compatible AI service. */
 export const AI_INFERENCE_SCHEMA = `
+${AI_MAINTENANCE_SCHEMA}
 CREATE TABLE IF NOT EXISTS ai_inference_jobs (
   id uuid PRIMARY KEY,
   service text NOT NULL,
@@ -25,4 +27,6 @@ CREATE TABLE IF NOT EXISTS ai_inference_workers (
   id uuid PRIMARY KEY,
   heartbeat_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE ai_inference_workers ADD COLUMN IF NOT EXISTS maintenance_protocol integer NOT NULL DEFAULT 0;
+ALTER TABLE ai_inference_workers ADD COLUMN IF NOT EXISTS maintenance_version integer NOT NULL DEFAULT -1;
 `;

@@ -1,5 +1,6 @@
 import { aiExecutionTranslations } from "./ai-execution-translations";
-export interface AISettingsCopy {
+import { aiMaintenanceTranslations, type AIMaintenanceCopy } from "./ai-maintenance-translations";
+export interface AISettingsCopy extends AIMaintenanceCopy {
   solarisLegacyAlias: string;
   asyncMode: string; syncMode: string; workerReady: string; workerOffline: string; workerUnknown: string;
   async_worker_unavailable: string; asyncHelp: string;
@@ -31,6 +32,7 @@ export interface AISettingsCopy {
 }
 
 const en: AISettingsCopy = {
+  ...aiMaintenanceTranslations.en,
   solarisLegacyAlias: "Solaris — legacy alias",
   ...aiExecutionTranslations.en,
   title: "AI control", description: "Manage the gateway and service routing. Configuration never exposes credentials or customer content.",
@@ -348,11 +350,11 @@ Object.assign(de, {
 });
 
 export const aiSettingsTranslations = {
-  en: { ...en, ...aiExecutionTranslations.en },
-  sk: { ...sk, ...aiExecutionTranslations.sk, solarisLegacyAlias: "Solaris — pôvodný alias" },
-  cs: { ...cs, ...aiExecutionTranslations.cs, solarisLegacyAlias: "Solaris — původní alias" },
-  hu: { ...hu, ...aiExecutionTranslations.hu, solarisLegacyAlias: "Solaris — korábbi alias" },
-  ro: { ...ro, ...aiExecutionTranslations.ro, solarisLegacyAlias: "Solaris — alias anterior" },
-  it: { ...it, ...aiExecutionTranslations.it, solarisLegacyAlias: "Solaris — alias precedente" },
-  de: { ...de, ...aiExecutionTranslations.de, solarisLegacyAlias: "Solaris — bisheriger Alias" },
+  en: { ...en, ...aiExecutionTranslations.en, ...aiMaintenanceTranslations.en },
+  sk: { ...sk, ...aiExecutionTranslations.sk, ...aiMaintenanceTranslations.sk, solarisLegacyAlias: "Solaris — pôvodný alias" },
+  cs: { ...cs, ...aiExecutionTranslations.cs, ...aiMaintenanceTranslations.cs, solarisLegacyAlias: "Solaris — původní alias" },
+  hu: { ...hu, ...aiExecutionTranslations.hu, ...aiMaintenanceTranslations.hu, solarisLegacyAlias: "Solaris — korábbi alias" },
+  ro: { ...ro, ...aiExecutionTranslations.ro, ...aiMaintenanceTranslations.ro, solarisLegacyAlias: "Solaris — alias anterior" },
+  it: { ...it, ...aiExecutionTranslations.it, ...aiMaintenanceTranslations.it, solarisLegacyAlias: "Solaris — alias precedente" },
+  de: { ...de, ...aiExecutionTranslations.de, ...aiMaintenanceTranslations.de, solarisLegacyAlias: "Solaris — bisheriger Alias" },
 } as const;

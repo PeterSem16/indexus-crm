@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AIMaintenanceControl } from "./AIMaintenanceControl";
 
 const queryKey = ["/api/configurator/ai"] as const;
 const canonicalURL = "https://ai.cordbloodcenter.com/gateway/";
@@ -331,6 +332,7 @@ export function AISettingsTab() {
         label={view.queue ? (view.queue.ready ? copy.workerReady : copy.workerOffline) : copy.workerUnknown} />
       <p className="flex-1 text-xs text-muted-foreground">{copy.asyncHelp}</p>
     </div>
+    <AIMaintenanceControl />
     <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{copy.services}</CardTitle><CardDescription className="mt-1">{copy.servicesDescription}</CardDescription></div>

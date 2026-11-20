@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AIJobService, AIJobStatus, AIJobView } from "../../../shared/ai-jobs";
 import { JobError } from "./policy";
+import { maintenanceAllowsClaim } from "./maintenance-gate";
 
 export interface JobSQL { query(text: string, values?: any[]): Promise<{ rows: any[]; rowCount?: number | null }> }
 export interface JobConnection extends JobSQL { release(): void }
@@ -63,6 +64,7 @@ export function createJobStore(pool: JobPool) {
       return jobTransaction(pool, async tx => {
         // A short global admission lock closes the empty-queue/two-workers race.
         if (!(await tx.query("SELECT pg_try_advisory_xact_lock(517,1) AS acquired")).rows[0].acquired) return null;
+        if (!await maintenanceAllowsClaim(tx)) return null;
         // An uncertain sent inference is NEVER automatically sent again.
         await tx.query(`UPDATE ai_jobs SET status='failed',error_code='worker_lost_outcome_unknown',
           error_message='worker_lost_outcome_unknown',finished_at=now(),worker_id=NULL,locked_until=NULL,

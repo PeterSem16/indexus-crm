@@ -31,6 +31,14 @@ const { chromium } = require("playwright");
   const css = fs.readFileSync(cssPath);
   const statuses = [];
   let posts = 0, puts = 0, gets = 0;
+  let maintenancePuts = 0, failMaintenanceRead = false, loseMaintenanceWrite = false;
+  const maintenanceCommands = [];
+  let maintenance = {
+    mode: "running", version: 0, operationId: null, ownedByMe: false, changedAt: new Date().toISOString(),
+    workers: { alive: 1, confirmed: 1, unsupported: 0 },
+    queues: { jobs: { pending: 2, processing: 0 }, inference: { pending: 3, processing: 0 } },
+    gatewayDrain: "unverified", backendDrain: "unverified", audit: [],
+  };
   let view = {
     version: 1, gateway: { enabled: true, baseURL: "https://ai.cordbloodcenter.com/gateway/",
       timeoutMs: 30000, maxRetries: 0, temperature: null, maxTokens: null },
@@ -42,6 +50,30 @@ const { chromium } = require("playwright");
   const server = http.createServer(async (req, res) => {
     if (req.url === "/ui.js") { res.setHeader("Content-Type", "application/javascript"); return res.end(fs.readFileSync(path.join(out, "ui.js"))); }
     if (req.url === "/style.css") { res.setHeader("Content-Type", "text/css"); return res.end(css); }
+    if (req.url === "/api/configurator/ai/maintenance") {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method === "GET") {
+        if (failMaintenanceRead) { res.statusCode = 503; return res.end(JSON.stringify({ error: "maintenance_unavailable", code: "maintenance_unavailable" })); }
+        return res.end(JSON.stringify(maintenance));
+      }
+      maintenancePuts++;
+      const chunks = []; for await (const chunk of req) chunks.push(chunk);
+      const body = JSON.parse(Buffer.concat(chunks));
+      maintenanceCommands.push(body);
+      if (body.confirm !== true || body.expectedVersion !== maintenance.version ||
+        body.operationId !== maintenance.operationId) {
+        res.statusCode = 409;
+        return res.end(JSON.stringify({ error: "maintenance_conflict", code: "maintenance_conflict" }));
+      }
+      maintenance = { ...maintenance, mode: body.action === "resume" ? "running" : "paused",
+        ownedByMe: body.action !== "resume", operationId: body.action === "resume" ? null :
+          maintenance.operationId || "00000000-0000-4000-8000-000000000001",
+        version: maintenance.version + 1, changedAt: new Date().toISOString(),
+        audit: [{ id: String(maintenance.version + 1), action: body.action,
+          version: maintenance.version + 1, at: new Date().toISOString() }, ...maintenance.audit] };
+      if (loseMaintenanceWrite) { res.statusCode = 503; return res.end(JSON.stringify({ error: "maintenance_unavailable", code: "maintenance_unavailable" })); }
+      return res.end(JSON.stringify(maintenance));
+    }
     if (req.url.startsWith("/api/configurator/ai")) {
       res.setHeader("Content-Type", "application/json");
       if (req.method === "GET") gets++;
@@ -53,8 +85,8 @@ const { chromium } = require("playwright");
           posts++;
           const result = { state: "ready", kind: body.kind, settingsVersion: view.version, checkedAt: new Date().toISOString(),
             durationMs: 5, textVerified: body.kind !== "connectivity", jsonVerified: body.kind === "smoke",
-            models: [{ id: "indexus-document-audio:latest", revision: "ui-unit", outputFormats: ["text", "json_object"],
-              maxInputTokens: 4096, maxOutputTokens: 1024 },
+            models: [{ id: "indexus-ai-solaris:v1", revision: "ui-unit", outputFormats: ["text", "json_object"],
+              maxInputTokens: 4096, maxOutputTokens: 4096 },
               { id: "indexus-email-monitoring:v1", revision: "ui-unit", outputFormats: ["json_object"],
                 maxInputTokens: 8192, maxOutputTokens: 200 }] };
           view[body.kind === "openai" ? "openaiCheck" : "gatewayCheck"] = result;
@@ -84,6 +116,59 @@ const { chromium } = require("playwright");
       .getPropertyValue("--background").trim().length > 0), "production theme CSS must be loaded");
     assert.equal(posts, 0, "mount must never run AI tests");
     assert.equal(puts, 0);
+    const control = page.getByTestId("ai-maintenance-control");
+    const pauseButton = control.getByRole("button", { name: "Pause queue claims", exact: true });
+    const refreshMaintenance = async () => {
+      await page.evaluate(() => window.__aiQueries.invalidateQueries({ queryKey: ["/api/configurator/ai/maintenance"] }));
+    };
+    await pauseButton.waitFor();
+    assert.equal(maintenancePuts, 0, "mount never pauses or resumes");
+    await pauseButton.click();
+    await page.getByRole("dialog").waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    assert.equal(maintenancePuts, 0, "cancelling is not a maintenance write");
+    // Keep a confirmation open across a competing operator change.
+    await pauseButton.click();
+    maintenance.version++;
+    await refreshMaintenance();
+    await page.getByRole("dialog").getByRole("button", { name: "Pause queue claims", exact: true }).click();
+    await control.getByRole("alert").filter({ hasText: /changed|refresh|latest/i }).first().waitFor();
+    assert.equal(maintenanceCommands[0].expectedVersion, 0, "confirmation must not silently refresh its version");
+    assert.equal(maintenance.mode, "running");
+    // Uncertain write committed server-side: fresh GET, no automatic second PUT.
+    loseMaintenanceWrite = true;
+    await pauseButton.click();
+    await page.getByRole("dialog").getByRole("button", { name: "Pause queue claims", exact: true }).click();
+    await control.getByRole("button", { name: "Resume queue claims", exact: true }).waitFor();
+    assert.equal(maintenancePuts, 2);
+    assert.equal(maintenance.mode, "paused");
+    loseMaintenanceWrite = false;
+    assert.equal(await control.getByText("Unverified", { exact: true }).count(), 2,
+      "even zero active queues never prove remote completion");
+    maintenance.ownedByMe = false;
+    await refreshMaintenance();
+    assert.equal(await control.getByRole("button", { name: "Resume queue claims", exact: true }).count(), 0);
+    await control.getByRole("button", { name: "Take over control", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Take over control", exact: true }).click();
+    await control.getByRole("button", { name: "Resume queue claims", exact: true }).waitFor();
+    assert.equal(maintenance.mode, "paused", "takeover must never resume");
+    await control.getByRole("button", { name: "Resume queue claims", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Resume queue claims", exact: true }).click();
+    await pauseButton.waitFor();
+    maintenance.workers.unsupported = 1;
+    await refreshMaintenance();
+    assert.equal(await pauseButton.isDisabled(), true);
+    maintenance.workers.unsupported = 0;
+    failMaintenanceRead = true;
+    await refreshMaintenance();
+    await control.getByRole("alert").first().waitFor();
+    assert.equal(await pauseButton.isDisabled(), true, "failed polling must disable writes");
+    failMaintenanceRead = false;
+    await refreshMaintenance();
+    await page.waitForFunction(() => ![...document.querySelectorAll('[data-testid="ai-maintenance-control"] button')]
+      .find(button => button.textContent.includes("Pause queue claims"))?.disabled);
+    assert.equal(maintenancePuts, 4, "no automatic write or replay on refresh/error");
     await page.getByRole("button", { name: "Test connectivity", exact: true }).click();
     await page.getByText("Connected", { exact: true }).waitFor();
     assert.equal(posts, 1);
@@ -110,7 +195,7 @@ const { chromium } = require("playwright");
     assert.equal(await emailRow.getByLabel("Model", { exact: true }).inputValue(), "indexus-email-monitoring:v1");
     assert.equal(await emailRow.getByRole("button", { name: "Save route", exact: true }).isEnabled(), true);
     assert.deepEqual(await row.getByLabel("Model", { exact: true }).locator("option").evaluateAll(
-      options => options.map(option => option.value)), ["indexus-document-audio:latest"]);
+      options => options.map(option => option.value)), ["indexus-ai-solaris:v1"]);
     assert.equal(puts, 1, "selecting the email model must not activate a service");
     await row.getByLabel("Provider", { exact: true }).selectOption("openai");
     assert.equal(await row.getByLabel("Model", { exact: true }).inputValue(), "");
@@ -131,7 +216,10 @@ const { chromium } = require("playwright");
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     await page.screenshot({ path: path.join(out, "mobile.jpg"), fullPage: true });
-    statuses.push("native fetch", "no automatic tests", "discovery not inference", "text/JSON activation gate",
+    statuses.push("native fetch", "maintenance confirmation/cancel", "frozen maintenance version",
+      "uncertain write reconciliation without replay", "separate takeover and resume",
+      "unsupported worker and failed polling guards", "honest remote drain state",
+      "no automatic tests", "discovery not inference", "text/JSON activation gate",
       "asynchronous route labels", "worker-offline activation guard", "OpenAI remains selectable offline",
       "email model selection without activation", "email-only model option",
       "Escape/confirmation", "provider reset", "dirty edit retention", "390px bounds", "dark render");

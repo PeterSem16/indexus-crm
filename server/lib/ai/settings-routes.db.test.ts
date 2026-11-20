@@ -21,6 +21,7 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
     const store = new AISettingsStore(database);
     let authorized = true, checks = 0, providerCalls = 0, authReads = 0;
     let workerOnline = true;
+    let maintenancePaused = false, maintenanceReadFails = false;
     let releaseCheck: (() => void) | undefined, blocking = false;
     const runtime = { enabled: true, production: true, replit: false,
       baseURL: DEFAULT_AI_SETTINGS.gateway.baseURL, token: "synthetic-test-placeholder" };
@@ -37,6 +38,10 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
     } } as any, requireAuth);
     const app = express(); app.use(express.json());
     registerAISettingsRoutes(app, { store, requireAdmin: guard, internal,
+      allowInternalTest: async () => {
+        if (maintenanceReadFails) throw new Error("Synthetic private database failure");
+        return !maintenancePaused;
+      },
       queueStatus: async () => ({ ready: workerOnline, counts: {} }),
       openai: { id: "openai", isAvailable: () => true, createClient() { throw new Error("No provider calls"); },
         chatProbe() { throw new Error("No provider calls"); } },
@@ -162,6 +167,31 @@ test("AI administration: isolated development DB, real HTTP, persistence, concur
         assert.equal(serialized.includes("synthetic-test-placeholder"), false);
         assert.equal(serialized.includes("do-not-store"), false);
         assert((await store.audit()).length >= 5);
+      });
+      await t.test("maintenance blocks new Gateway diagnostics without blocking OpenAI or replaying calls", async () => {
+        maintenancePaused = true;
+        const before = checks;
+        const version = (await store.read()).version;
+        for (const kind of ["connectivity", "smoke"]) {
+          const result = await call("/test", "POST", { expectedVersion: version, kind });
+          assert.equal(result.status, 409);
+          assert.equal(result.body.code, "maintenance_paused");
+        }
+        assert.equal(checks, before);
+        const current = await store.read();
+        for (const prior of [current.gatewayCheck, current.openaiCheck]) {
+          if (prior) await store.recordCheck(version, "admin-fixture",
+            { ...prior, checkedAt: new Date(Date.now() - 40_000).toISOString() });
+        }
+        const openai = await call("/test", "POST", { expectedVersion: version, kind: "openai" });
+        assert.equal(openai.status, 200);
+        assert.equal(checks, before + 1);
+        maintenanceReadFails = true;
+        const unavailable = await call("/test", "POST", { expectedVersion: version, kind: "smoke" });
+        assert.equal(unavailable.status, 503);
+        assert(!JSON.stringify(unavailable.body).includes("private database"));
+        assert.equal(checks, before + 1);
+        assert.equal(providerCalls, 0);
       });
     } finally {
       releaseCheck?.();
