@@ -64,7 +64,11 @@ function harness(options = {}) {
       { id: "personal", email: "personal@fixture.invalid", type: "personal", isDefault: true },
       ...(options.shared ? [{ id: "shared-id", email: "shared@fixture.invalid", type: "shared" }] : []),
     ]);
-    if (url.includes("/ms365-recent-emails?")) return reply({ connected: !options.disconnected, emails: messages });
+    if (url.includes("/ms365-recent-emails?")) {
+      const mailbox = new URL(url, "https://fixture.invalid").searchParams.get("mailbox");
+      assert.equal(mailbox, options.shared && options.mailboxChoice === "2" ? "shared@fixture.invalid" : "personal");
+      return reply({ connected: !options.disconnected, emails: messages });
+    }
     if (url.startsWith("/api/ai/jobs?")) {
       const p = new URL(url, "https://fixture.invalid").searchParams, id = p.get("entityId");
       assert.equal(p.get("service"), "email.summary");

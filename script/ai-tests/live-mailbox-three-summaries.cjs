@@ -64,7 +64,8 @@ async function runThreeLiveSummaries() {
     language = chosenLanguage.trim().toLowerCase();
     if (!["sk", "cs", "en", "hu", "ro", "it", "de"].includes(language)) fail("INVALID_LANGUAGE");
     run.language = language;
-    const listUrl = base + "/ms365-recent-emails?" + new URLSearchParams({ mailbox, top: "10" });
+    const listMailbox = boxes[Number(boxChoice) - 1].id === "personal" ? "personal" : mailbox;
+    const listUrl = base + "/ms365-recent-emails?" + new URLSearchParams({ mailbox: listMailbox, top: "10" });
     const listing = await get(listUrl);
     if (listing.connected !== true || !Array.isArray(listing.emails)) fail("MAILBOX_NOT_CONNECTED");
     const messages = listing.emails;
