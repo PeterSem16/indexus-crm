@@ -70,22 +70,53 @@ function regular(root, relative, optional = false) {
     throw error;
   }
 }
-function applicationProcesses() {
+function processRole(cmdline, cwd) {
+  const argv = cmdline.split("\0").filter(Boolean);
+  // PM2 replaces its daemon argv with one process title. Do not exempt a
+  // similarly named script, an extra argv entry, or arbitrary root Node.
+  if (argv.length === 1 &&
+      /^PM2 v[0-9][0-9A-Za-z.+-]*: God Daemon \([^()\r\n]+\)$/.test(argv[0]))
+    return "pm2-daemon";
+  const words = argv.flatMap(arg => arg.split(/[ \t]+/));
+  for (const [file, role] of [["index.cjs", "api"], ["ai-worker.cjs", "worker"]]) {
+    if (words.includes(`${APP}/dist/${file}`) ||
+        cwd === APP && [`dist/${file}`, `./dist/${file}`].some(p => words.includes(p)))
+      return role;
+  }
+  return "other-node";
+}
+function applicationProcesses({ procFs = fs, ownPid = process.pid } = {}) {
   const found = [];
-  for (const name of fs.readdirSync("/proc").filter(n => /^\d+$/.test(n) && Number(n) !== process.pid)) {
+  for (const name of procFs.readdirSync("/proc").filter(n => /^\d+$/.test(n) && Number(n) !== ownPid)) {
     try {
-      if (fs.readlinkSync(`/proc/${name}/cwd`) !== APP) continue;
-      if (!/\/node(?:js)?$/.test(fs.readlinkSync(`/proc/${name}/exe`))) continue;
-      const uid = Number(/^Uid:\s+(\d+)/m.exec(fs.readFileSync(`/proc/${name}/status`, "utf8"))?.[1]);
-      if (!Number.isSafeInteger(uid) || uid === 0) fail("application_privacy_not_verified");
-      found.push({ pid: Number(name), uid });
+      const executable = procFs.readlinkSync(`/proc/${name}/exe`);
+      if (!/\/node(?:js)?$/.test(executable)) continue;
+      const cwd = procFs.readlinkSync(`/proc/${name}/cwd`);
+      const role = processRole(procFs.readFileSync(`/proc/${name}/cmdline`, "utf8"), cwd);
+      if (role === "pm2-daemon") continue;
+      if (cwd !== APP && role === "other-node") continue;
+      if (cwd !== APP) fail("application_cwd_changed");
+      const status = procFs.readFileSync(`/proc/${name}/status`, "utf8");
+      const match = /^Uid:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/m.exec(status);
+      const uids = match && match.slice(1).map(Number);
+      if (!uids || uids.some(uid => !Number.isSafeInteger(uid) || uid === 0 || uid !== uids[0]))
+        fail("application_privacy_not_verified");
+      // Linux start time is field 22, after the parenthesized comm field.
+      const stat = procFs.readFileSync(`/proc/${name}/stat`, "utf8");
+      const startTime = stat.slice(stat.lastIndexOf(")") + 2).trim().split(/\s+/)[19];
+      if (!/^\d+$/.test(startTime || "")) fail("application_identity_not_verified");
+      found.push({ pid: Number(name), uid: uids[0], role, startTime, cwd, executable });
     } catch (error) {
       if (["ENOENT", "ESRCH"].includes(error.code)) continue; // Exited process, not an unknown owner.
       throw error;
     }
   }
-  if (!found.length) fail("running_application_not_identified");
-  return found;
+  if (!found.some(p => p.role === "api") || !found.some(p => p.role === "worker"))
+    fail("running_application_not_identified");
+  return found.sort((a, b) => a.pid - b.pid);
+}
+function assertProcessSnapshot(before, after) {
+  if (JSON.stringify(before) !== JSON.stringify(after)) fail("application_process_changed");
 }
 function main(args) {
   if (args.length !== 1 || args[0] !== "--prepare") fail("usage_prepare_only");
@@ -174,11 +205,7 @@ function main(args) {
     } finally { fs.closeSync(log); }
     phase = "verification";
     baseline();
-    for (const p of processes) {
-      const status = fs.readFileSync(`/proc/${p.pid}/status`, "utf8");
-      if (!new RegExp(`^Uid:\\s+${p.uid}\\s`, "m").test(status) ||
-          fs.readlinkSync(`/proc/${p.pid}/cwd`) !== APP) fail("application_process_changed");
-    }
+    assertProcessSnapshot(processes, applicationProcesses());
     const outputs = {};
     for (const file of Object.keys(RUNTIME)) {
       const bytes = regular(staged, file);
@@ -205,4 +232,4 @@ if (require.main === module) {
   catch (e) { if (!e.alreadyReported) console.error(e.safeCode || "preparation_failed"); process.exitCode = 1; }
 }
 module.exports = { main, BASE, TARGET, TREE, RUNTIME, FILES, sha, buildEnvironment, validateScope,
-  assertMount, regular };
+  assertMount, regular, processRole, applicationProcesses, assertProcessSnapshot };

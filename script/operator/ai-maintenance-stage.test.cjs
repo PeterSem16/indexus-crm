@@ -5,7 +5,106 @@ const fs = require("node:fs");
 const path = require("node:path");
 const cp = require("node:child_process");
 const { main, BASE, TARGET, TREE, FILES, buildEnvironment, validateScope, assertMount,
-  regular, sha } = require("./ai-maintenance-stage.cjs");
+  regular, sha, processRole, applicationProcesses, assertProcessSnapshot } = require("./ai-maintenance-stage.cjs");
+
+const APP = "/var/www/indexus-crm";
+function nodeProcess(pid, role, uid = 1001, extra = {}) {
+  return { pid, cwd: APP, executable: "/usr/bin/node", uids: [uid, uid, uid, uid],
+    cmdline: role === "manager" ? `PM2 v6.0.13: God Daemon (/fixture/${uid}/.pm2)\0`
+      : `/usr/bin/node\0${APP}/dist/${role === "api" ? "index" : "ai-worker"}.cjs\0`,
+    startTime: String(pid * 100), ...extra };
+}
+function processFixture(processes) {
+  const entries = new Map(processes.map(p => [String(p.pid), p]));
+  const lookup = name => {
+    const [, , id, file] = name.split("/");
+    const p = entries.get(id);
+    if (!p) throw Object.assign(Error("gone"), { code: "ENOENT" });
+    if (p.error) throw Object.assign(Error("not accessible"), { code: p.error });
+    return { p, file };
+  };
+  return { ownPid: 9999999, procFs: {
+    readdirSync: () => [...entries.keys()],
+    readlinkSync: name => { const { p, file } = lookup(name); return file === "cwd" ? p.cwd : p.executable; },
+    readFileSync: name => {
+      const { p, file } = lookup(name);
+      if (file === "cmdline") return p.cmdline;
+      if (file === "status") return p.status ?? `Name:\tnode\nUid:\t${p.uids.join("\t")}\n`;
+      if (file === "stat") return p.stat ?? `${p.pid} (node (fixture)) ${["S", ...Array(18).fill("0"), p.startTime].join(" ")}\n`;
+      throw Error("unexpected fixture read");
+    },
+  } };
+}
+
+test("observed root and non-root PM2 daemons do not impersonate the web or worker", () => {
+  const fixture = processFixture([nodeProcess(22260, "manager", 0), nodeProcess(22545, "manager"),
+    nodeProcess(1012922, "worker"), nodeProcess(1012949, "api")]);
+  const actual = applicationProcesses(fixture);
+  assert.deepEqual(actual.map(p => [p.pid, p.uid, p.role]),
+    [[1012922, 1001, "worker"], [1012949, 1001, "api"]]);
+  assert(!JSON.stringify(actual).includes("God Daemon"));
+});
+
+test("root web, root worker and ambiguous root Node remain forbidden", () => {
+  for (const bad of [nodeProcess(12, "api", 0), nodeProcess(13, "worker", 0),
+    nodeProcess(14, "api", 0, { cmdline: "/usr/bin/node\0unknown-script.cjs\0" })]) {
+    assert.throws(() => applicationProcesses(processFixture([
+      nodeProcess(10, "api"), nodeProcess(11, "worker"), bad,
+    ])), /application_privacy_not_verified/);
+  }
+});
+
+test("effective, saved and filesystem root or unparseable ownership fail closed", () => {
+  for (const extra of [{ uids: [1001, 0, 1001, 1001] }, { uids: [1001, 1001, 0, 1001] },
+    { uids: [1001, 1001, 1001, 0] }, { uids: [1001, 1002, 1001, 1001] }, { status: "Uid: unknown\n" }]) {
+    assert.throws(() => applicationProcesses(processFixture([
+      nodeProcess(10, "api", 1001, extra), nodeProcess(11, "worker"),
+    ])), /application_privacy_not_verified/);
+  }
+});
+
+test("manager exemption is exact and both application roles must actually exist", () => {
+  assert.equal(processRole("PM2 v6.0.13: God Daemon (/root/.pm2)\0", APP), "pm2-daemon");
+  for (const cmdline of ["node PM2 manager.cjs\0", "PM2 v6.0.13: God Daemon (/root/.pm2)\0extra\0",
+    "/usr/bin/node\0PM2 v6.0.13: God Daemon (/root/.pm2)\0"]) {
+    assert.notEqual(processRole(cmdline, APP), "pm2-daemon");
+    assert.throws(() => applicationProcesses(processFixture([
+      nodeProcess(10, "api"), nodeProcess(11, "worker"), nodeProcess(12, "manager", 0, { cmdline }),
+    ])), /application_privacy_not_verified/);
+  }
+  for (const processes of [[nodeProcess(10, "manager", 0)], [nodeProcess(10, "api")],
+    [nodeProcess(10, "worker")]]) {
+    assert.throws(() => applicationProcesses(processFixture(processes)), /running_application_not_identified/);
+  }
+  assert.equal(processRole(`node ${APP}/dist/index.cjs\0`, APP), "api");
+  assert.equal(processRole("node\0./dist/ai-worker.cjs\0--run\0", APP), "worker");
+});
+
+test("changed process birth, UID, role or PID is detected after the build", () => {
+  const original = [nodeProcess(10, "api"), nodeProcess(11, "worker")];
+  const before = applicationProcesses(processFixture(original));
+  assert.doesNotThrow(() => assertProcessSnapshot(before, applicationProcesses(processFixture([
+    nodeProcess(5, "manager", 0), ...original,
+  ]))));
+  for (const replacement of [nodeProcess(12, "api"), nodeProcess(10, "api", 1001, { startTime: "999" }),
+    nodeProcess(10, "api", 1002)]) {
+    assert.throws(() => assertProcessSnapshot(before, applicationProcesses(processFixture([
+      replacement, original[1],
+    ]))), /application_process_changed/);
+  }
+  assert.throws(() => applicationProcesses(processFixture([
+    nodeProcess(10, "api", 1001, { cwd: "/another-release" }), original[1],
+  ])), /application_cwd_changed/);
+});
+
+test("unreadable process ownership cannot silently remove a process from the inventory", () => {
+  assert.throws(() => applicationProcesses(processFixture([
+    nodeProcess(10, "api"), nodeProcess(11, "worker"), nodeProcess(12, "api", 0, { error: "EACCES" }),
+  ])), /not accessible/);
+  assert.throws(() => applicationProcesses(processFixture([
+    nodeProcess(10, "api", 1001, { stat: "malformed" }), nodeProcess(11, "worker"),
+  ])), /application_identity_not_verified/);
+});
 
 test("production release is an exact 18-file child of the operator-confirmed baseline", () => {
   const git = args => cp.execFileSync("git", args, { encoding: "utf8" }).trim();
