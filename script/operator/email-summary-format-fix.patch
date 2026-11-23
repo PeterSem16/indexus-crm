@@ -1,0 +1,85 @@
+diff --git a/server/lib/ai-jobs/summary.ts b/server/lib/ai-jobs/summary.ts
+--- a/server/lib/ai-jobs/summary.ts
++++ b/server/lib/ai-jobs/summary.ts
+@@ -1,4 +1,4 @@
+-import { JobError } from "./policy";
++import { normalizeSummaryHtml } from "./summary-html";
+ export interface EmailSummaryInput { emailSubject: string; emailBody: string; emailFrom: string; language: string }
+ 
+ /** Byte-compatible with the original ms365-ai-summary prompt and budget. */
+@@ -24,15 +24,5 @@
+   };
+ }
+ export function emailSummaryResult(content: string): { summary: string } {
+-  const summary = content.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
+-  if (!summary || summary.length > 24000 || /<(?!\/?(?:p|ul|li)>)/i.test(summary))
+-    throw new JobError("invalid_output", 422);
+-  const stack: string[] = [];
+-  for (const tag of summary.match(/<[^>]*>/g) ?? []) {
+-    const name = tag.replace(/[<>/]/g, "");
+-    if (tag[1] === "/") { if (stack.pop() !== name) throw new JobError("invalid_output", 422); }
+-    else stack.push(name);
+-  }
+-  if (stack.length) throw new JobError("invalid_output", 422);
+-  return { summary };
++  return { summary: normalizeSummaryHtml(content) };
+ }
+diff --git a/server/lib/ai-jobs/summary-html.ts b/server/lib/ai-jobs/summary-html.ts
+new file mode 100644
+--- /dev/null
++++ b/server/lib/ai-jobs/summary-html.ts
+@@ -0,0 +1,54 @@
++import { load } from "cheerio";
++import { JobError } from "./policy";
++
++type Node = { type: string; name?: string; data?: string; attribs?: Record<string, string>; children?: Node[] };
++const supported = new Set(["p", "ul", "li", "ol", "br", "hr", "div", "span", "strong", "b", "em", "i",
++  "u", "s", "small", "sub", "sup", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "code",
++  "a", "table", "thead", "tbody", "tfoot", "tr", "th", "td", "html", "head", "body"]);
++const paragraphs = new Set(["p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre", "tr"]);
++const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
++const fail = (): never => { throw new JobError("invalid_output", 422); };
++
++/** Normalize presentation only. Never execute markup, retain attributes, or call AI again. */
++export function normalizeSummaryHtml(content: string): string {
++  if (typeof content !== "string" || !content.trim()) return fail();
++  let source = content.trim();
++  if (source.startsWith("```")) {
++    const opening = /^```(?:html)?[ \t]*(?:\r?\n|(?=<))/i;
++    if (!opening.test(source) || !/```\s*$/.test(source)) return fail();
++    source = source.replace(opening, "").replace(/```\s*$/, "").trim();
++  }
++  if (!source || source.length > 24000) return fail();
++  // A structured response is not a prose summary, even if it is safe to display.
++  if (/^[{[]/.test(source)) {
++    try { const value = JSON.parse(source); if (value && typeof value === "object") return fail(); }
++    catch (error) { if (error instanceof JobError) throw error; }
++  }
++  const $ = load(source, undefined, false);
++  const render = (node: Node): string => {
++    if (node.type === "text") return escape(node.data || "");
++    if (node.type === "comment" || node.type === "directive") return "";
++    const tag = node.name?.toLowerCase();
++    if (!tag || !supported.has(tag)) return fail();
++    for (const [key, value] of Object.entries(node.attribs || {})) {
++      if (/^on/i.test(key) || key.toLowerCase() === "srcdoc" ||
++          /^(?:href|src|xlink:href|action|formaction)$/i.test(key) &&
++          /^\s*(?:javascript|vbscript|data)\s*:/i.test(value.replace(/[\u0000-\u0020]/g, "")))
++        return fail();
++    }
++    const children = (node.children || []).map(render).join("");
++    if (tag === "br" || tag === "hr") return "\n";
++    if (tag === "ul" || tag === "ol") return `<ul>${children}</ul>`;
++    if (tag === "li") return `<li>${children}</li>`;
++    if (paragraphs.has(tag)) return `<p>${children}</p>`;
++    if (tag === "th" || tag === "td") return children + " ";
++    return children;
++  };
++  const rendered = ($.root().contents().toArray() as Node[]).map(render).join("");
++  // The second inert parse repairs nested blocks after reducing all tags to p/ul/li.
++  const safe = load(rendered, undefined, false);
++  safe("p:empty").remove();
++  const summary = (safe.root().html() || "").trim();
++  if (!safe.root().text().trim() || !summary || summary.length > 24000) return fail();
++  return summary;
++}
