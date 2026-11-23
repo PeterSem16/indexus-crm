@@ -1,0 +1,264 @@
+diff --git a/server/lib/ai-jobs/jobs.db.test.ts b/server/lib/ai-jobs/jobs.db.test.ts
+index 980252a7..f974eeab 100644
+--- a/server/lib/ai-jobs/jobs.db.test.ts
++++ b/server/lib/ai-jobs/jobs.db.test.ts
+@@ -22,11 +22,11 @@ test("isolated PostgreSQL AI queue: durable admission, HTTP ACL, worker fencing
+     const flags = ["AI_JOBS_TASK_CHECKLIST_ENABLED", "AI_JOBS_TASK_RESOLUTION_ENABLED", "AI_JOBS_EMAIL_SUMMARY_ENABLED"];
+     const before = flags.map(k => process.env[k]);
+     flags.forEach(k => process.env[k] = "true");
+-    let emailAllowed = true;
++    let emailAllowed = true, emailText = "Synthetic text";
+     const loadEmail = async (user: string, id: string, mailbox: unknown, language: unknown) => {
+       if (!emailAllowed || user !== "owner" || !["personal@unit.invalid", "shared@unit.invalid"].includes(String(mailbox)))
+         throw new JobError("forbidden", 403);
+-      const payload = { mailbox: String(mailbox), mailboxRef: String(mailbox), input: { emailSubject: "Synthetic request", emailBody: "Synthetic text", emailFrom: "Fixture", language: String(language) } };
++      const payload = { mailbox: String(mailbox), mailboxRef: String(mailbox), input: { emailSubject: "Synthetic request", emailBody: emailText, emailFrom: "Fixture", language: String(language) } };
+       return { payload, hash: fingerprint(payload), ownerId: user };
+     };
+     const runtime = createAIJobRuntime(sql, loadEmail);
+@@ -39,6 +39,7 @@ test("isolated PostgreSQL AI queue: durable admission, HTTP ACL, worker fencing
+       (req as any).session = { user: { id } }; next();
+     }, {
+       get: store.get, list: store.list, retry: runtime.retryJob,
++      regeneration: runtime.emailJobRegeneration,
+       mailbox: async (_user, mailbox) => mailbox === "personal" ? "personal@unit.invalid" : mailbox.toLowerCase(),
+       authorize: (job, user) => validateJobSource(sql, job, user, loadEmail),
+       create: (user, input) => input.service === "email.summary"
+@@ -187,6 +188,96 @@ test("isolated PostgreSQL AI queue: durable admission, HTTP ACL, worker fencing
+         await sql.query("DELETE FROM tasks WHERE id='draft'");
+         assert.equal((await request(`/api/ai/jobs/${draft.id}`)).status, 404);
+       });
++      await t.test("explicit email regeneration preserves the original and serializes duplicate and lost-response submissions", async () => {
++        const original = await runtime.enqueueEmailJob("owner", "regeneration-message", "personal@unit.invalid", "sk");
++        await sql.query("UPDATE ai_jobs SET status='completed',attempts=1,result=$2::jsonb,finished_at=now() WHERE id=$1",
++          [original.id, JSON.stringify({ summary: "<p>Original synthetic summary.</p>" })]);
++        const saved = await store.get(original.id);
++        const path = `/api/ai/jobs/${original.id}/regeneration`;
++        const count = async () => (await sql.query("SELECT count(*)::int AS n FROM ai_jobs")).rows[0].n;
++        const beforeCount = await count();
++        const peek = await request(path);
++        assert.equal(peek.status, 200); assert.equal((await peek.json()).job, null);
++        assert.equal(await count(), beforeCount, "GET must never admit inference");
++        assert.equal((await fetch(base + path, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).status, 401);
++        assert.equal((await request(path, "other", {})).status, 403);
++        for (const body of [{ force: true }, { model: "injected" }, { sourceJobId: randomUUID() }, []])
++          assert.equal((await request(path, "owner", body)).status, 400);
++        emailText = "Changed synthetic text";
++        assert.equal((await request(path, "owner", {})).status, 409);
++        emailText = "Synthetic text";
++        emailAllowed = false;
++        assert.equal((await request(path, "owner", {})).status, 403);
++        emailAllowed = true;
++        process.env.AI_JOBS_EMAIL_SUMMARY_ENABLED = "false";
++        assert.equal((await request(path, "owner", {})).status, 503);
++        process.env.AI_JOBS_EMAIL_SUMMARY_ENABLED = "true";
++        assert.equal(await count(), beforeCount);
++        const replies = await Promise.all(Array.from({ length: 12 }, () => request(path, "owner", {})));
++        assert(replies.every(r => r.status === 202));
++        const bodies = await Promise.all(replies.map(r => r.json()));
++        const ids = new Set(bodies.map(b => b.jobId));
++        assert.equal(ids.size, 1); assert(!ids.has(original.id));
++        const child = (await store.get(bodies[0].jobId))!;
++        assert.equal(child.status, "pending"); assert.equal(child.attempts, 0);
++        assert.equal(child.entity_id, original.entity_id);
++        assert.deepEqual(child.payload, original.payload);
++        assert.equal(child.input_fingerprint, original.input_fingerprint);
++        assert.deepEqual(await store.get(original.id), saved);
++        assert.equal(await count(), beforeCount + 1);
++        assert.equal((await runtime.enqueueEmailJob("owner", "regeneration-message", "personal@unit.invalid", "sk")).id, original.id);
++        const history = (await sql.query("SELECT history FROM ai_jobs WHERE id=$1", [child.id])).rows[0].history;
++        assert.equal(history[0].event, "manual_regeneration");
++        assert.equal(history[0].sourceJobId, original.id);
++        assert.equal(history[0].actor, "owner");
++        assert(!("payload" in bodies[0].job));
++        assert.equal((await (await request(path)).json()).jobId, child.id, "lost POST response recovers by GET");
++        emailAllowed = false;
++        assert.equal((await request(path)).status, 403, "read-back must reauthorize existing children");
++        assert.equal((await request(path, "owner", {})).status, 403);
++        emailAllowed = true;
++        emailText = "Changed after admission";
++        assert.equal((await request(path)).status, 409);
++        assert.equal((await request(path, "owner", {})).status, 409);
++        emailText = "Synthetic text";
++        await sql.query("UPDATE ai_jobs SET priority=10000 WHERE id=$1", [child.id]);
++        const run = createJobWorker({ store, timeoutMs: 120000,
++          execute: async () => ({ summary: "<p>New synthetic summary.</p>" }), apply: runtime.applyJob });
++        await run.tick(); run.stop();
++        assert.equal((await store.get(child.id))!.status, "completed");
++        assert.equal((await (await request(path, "owner", {})).json()).jobId, child.id);
++        assert.equal(await count(), beforeCount + 1, "even a completed child cannot be regenerated by replaying its parent");
++        assert.deepEqual(await store.get(original.id), saved);
++        await sql.query("UPDATE ai_jobs SET status='failed',result=NULL WHERE id=$1", [child.id]);
++        const failedReplay = await (await request(path, "owner", {})).json();
++        assert.equal(failedReplay.jobId, child.id);
++        assert.equal(failedReplay.job.status, "failed");
++        assert.equal(await count(), beforeCount + 1, "failure must never create another generation automatically");
++        await sql.query("UPDATE ai_jobs SET status='completed',result=$2::jsonb WHERE id=$1",
++          [child.id, JSON.stringify({ summary: "<p>New synthetic summary.</p>" })]);
++        const next = await request(`/api/ai/jobs/${child.id}/regeneration`, "owner", {});
++        assert.equal(next.status, 202); assert.notEqual((await next.json()).jobId, child.id);
++      });
++      await t.test("regeneration preserves the exact saved input and language in all seven INDEXUS languages", async () => {
++        for (const language of ["sk", "cs", "en", "hu", "ro", "it", "de"]) {
++          const original = await runtime.enqueueEmailJob("owner", `regeneration-${language}`, "personal@unit.invalid", language);
++          await sql.query("UPDATE ai_jobs SET status='completed',result=$2::jsonb WHERE id=$1",
++            [original.id, JSON.stringify({ summary: "<p>Synthetic original.</p>" })]);
++          const child = (await runtime.emailJobRegeneration(original.id, "owner", true))!;
++          assert.notEqual(child.id, original.id);
++          assert.deepEqual(child.payload, original.payload);
++          assert.equal(child.payload.input.language, language);
++          assert.equal(child.input_fingerprint, original.input_fingerprint);
++        }
++      });
++      await t.test("regeneration rejects non-email and non-completed sources", async () => {
++        const pending = await runtime.enqueueEmailJob("owner", "pending-regeneration", "personal@unit.invalid", "sk");
++        assert.equal((await request(`/api/ai/jobs/${pending.id}/regeneration`, "owner", {})).status, 409);
++        await sql.query("UPDATE ai_jobs SET status='failed' WHERE id=$1", [pending.id]);
++        assert.equal((await request(`/api/ai/jobs/${pending.id}/regeneration`, "owner", {})).status, 409);
++        assert.equal((await request(`/api/ai/jobs/${checklist.id}/regeneration`, "owner", {})).status, 409);
++        assert.equal((await request(`/api/ai/jobs/${randomUUID()}/regeneration`, "owner", {})).status, 404);
++      });
+       await t.test("email jobs bind owner, mailbox, message and language; personal listing excludes shared IDs", async () => {
+         const personal = await runtime.enqueueEmailJob("owner", "same-graph-id", "personal@unit.invalid", "sk");
+         const shared = await runtime.enqueueEmailJob("owner", "same-graph-id", "shared@unit.invalid", "sk");
+diff --git a/server/lib/ai-jobs/register.ts b/server/lib/ai-jobs/register.ts
+index 510bb696..61a0e097 100644
+--- a/server/lib/ai-jobs/register.ts
++++ b/server/lib/ai-jobs/register.ts
+@@ -1,7 +1,8 @@
+ import type { Express, RequestHandler } from "express";
+ import { pool } from "../../db";
+ import { registerAIJobRoutes } from "./routes";
+-import { aiJobStore, enqueueTaskJob, enqueueEmailJob, retryJob } from "./runtime";
++import { aiJobStore, enqueueTaskJob, enqueueEmailJob, emailJobRegeneration, retryJob } from "./runtime";
++import { refreshAIAdminSnapshot } from "../ai/admin-runtime";
+ import { validateJobSource } from "./context";
+ import { JobError } from "./policy";
+ import { resolveJobMailbox } from "./mailbox";
+@@ -9,6 +10,10 @@ import { resolveJobMailbox } from "./mailbox";
+ export function registerAIJobs(app: Express, auth: RequestHandler) {
+   registerAIJobRoutes(app, auth, {
+     get: aiJobStore.get, list: aiJobStore.list, retry: retryJob,
++    regeneration: async (id, userId, create) => {
++      if (create) await refreshAIAdminSnapshot();
++      return emailJobRegeneration(id, userId, create);
++    },
+     authorize: (job, userId) => validateJobSource(pool, job, userId),
+     mailbox: async (userId, requested) => {
+       return (await resolveJobMailbox(userId, requested)).mailbox;
+diff --git a/server/lib/ai-jobs/routes.ts b/server/lib/ai-jobs/routes.ts
+index 769a3d1c..bd8b1897 100644
+--- a/server/lib/ai-jobs/routes.ts
++++ b/server/lib/ai-jobs/routes.ts
+@@ -8,6 +8,7 @@ export interface AIJobAPI {
+   list(userId: string, service?: string, entityId?: string): Promise<JobRow[]>;
+   authorize(job: JobRow, userId: string): Promise<unknown>;
+   retry(id: string, userId: string): Promise<JobRow>;
++  regeneration(id: string, userId: string, create?: boolean): Promise<JobRow | null>;
+   mailbox(userId: string, requested: string): Promise<string>;
+ }
+ const validId = (value: string) => /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+@@ -77,4 +78,21 @@ export function registerAIJobRoutes(app: Express, auth: RequestHandler, api: AIJ
+       res.status(202).json({ job: jobView(job), jobId: job.id });
+     } catch (error) { fail(res, error); }
+   });
++  app.get("/api/ai/jobs/:id/regeneration", auth, async (req, res) => {
++    try {
++      if (!validId(req.params.id)) throw new JobError("job_not_found", 404);
++      const job = await api.regeneration(req.params.id, principal(req));
++      res.json({ sourceJobId: req.params.id, jobId: job?.id ?? null, job: job ? jobView(job) : null });
++    } catch (error) { fail(res, error); }
++  });
++  app.post("/api/ai/jobs/:id/regeneration", auth, async (req, res) => {
++    try {
++      if (!validId(req.params.id)) throw new JobError("job_not_found", 404);
++      if (req.body && (Array.isArray(req.body) || typeof req.body !== "object" || Object.keys(req.body).length))
++        throw new JobError("invalid_regeneration_request", 400);
++      const job = await api.regeneration(req.params.id, principal(req), true);
++      if (!job) throw new JobError("jobs_unavailable", 503);
++      res.status(202).json({ sourceJobId: req.params.id, jobId: job.id, job: jobView(job) });
++    } catch (error) { fail(res, error); }
++  });
+ }
+diff --git a/server/lib/ai-jobs/runtime.ts b/server/lib/ai-jobs/runtime.ts
+index 5bb68e84..b56b5968 100644
+--- a/server/lib/ai-jobs/runtime.ts
++++ b/server/lib/ai-jobs/runtime.ts
+@@ -2,6 +2,7 @@ import { pool as applicationPool } from "../../db";
+ import { aiJobEnabled, aiJobTimeout, JobError } from "./policy";
+ import { createJobStore, insertJob, jobTransaction, jobView, type JobRow, type JobSQL, type JobPool } from "./store";
+ import { emailPayload, taskPayload, validateJobSource } from "./context";
++import { emailRegeneration } from "./email-regeneration";
+ import type { AIJobService } from "../../../shared/ai-jobs";
+ 
+ import { evaluateChecklistApply } from "../task-ai-checklist";
+@@ -46,6 +47,12 @@ async function enqueueEmailJob(userId: string, entityId: string, mailbox: unknow
+   return insertJob(pool, { service: "email.summary", entityType: "email", entityId, ownerId: userId,
+     payload: source.payload, inputFingerprint: source.hash });
+ }
++async function emailJobRegeneration(id: string, userId: string, create = false) {
++  return emailRegeneration(pool, id, userId, async (job, tx) => {
++    if (create && !aiJobEnabled("email.summary")) throw new JobError("async_service_disabled", 503);
++    await validateJobSource(tx, job, userId, loadEmail);
++  }, create);
++}
+ async function drainingJob(userId: string, service: "task.resolution" | "email.summary",
+   entityId: unknown, locale?: string, mailbox?: unknown) {
+   const job = await aiJobStore.active(userId, service);
+@@ -121,7 +128,7 @@ async function applyJob(job: JobRow, result: any, tx: JobSQL) {
+     generated_item_count=$2,attempt_count=$3,updated_at=now() WHERE task_id=$1`,
+   [job.entity_id, result.steps.length, job.attempts]);
+ }
+-return { aiJobStore, enqueueTaskJob, enqueueEmailJob, linkedChecklistJob, queuedChecklistState, retryJob, applyJob, drainingJob };
++return { aiJobStore, enqueueTaskJob, enqueueEmailJob, emailJobRegeneration, linkedChecklistJob, queuedChecklistState, retryJob, applyJob, drainingJob };
+ }
+-export const { aiJobStore, enqueueTaskJob, enqueueEmailJob, linkedChecklistJob, queuedChecklistState, retryJob, applyJob, drainingJob } =
++export const { aiJobStore, enqueueTaskJob, enqueueEmailJob, emailJobRegeneration, linkedChecklistJob, queuedChecklistState, retryJob, applyJob, drainingJob } =
+   createAIJobRuntime(applicationPool);
+diff --git a/server/lib/ai-jobs/email-regeneration.ts b/server/lib/ai-jobs/email-regeneration.ts
+new file mode 100644
+--- /dev/null
++++ b/server/lib/ai-jobs/email-regeneration.ts
+@@ -0,0 +1,42 @@
++import { randomUUID } from "node:crypto";
++import { JobError } from "./policy";
++import { fingerprint, jobTransaction, type JobPool, type JobRow, type JobSQL } from "./store";
++
++/** One immutable child per completed source. Replaying the request never starts a second child. */
++export async function emailRegeneration(
++  pool: JobPool, sourceId: string, userId: string,
++  authorize: (job: JobRow, sql: JobSQL) => Promise<unknown>, create = false,
++): Promise<JobRow | null> {
++  return jobTransaction(pool, async sql => {
++    const source: JobRow | undefined = (await sql.query(
++      `SELECT * FROM ai_jobs WHERE id=$1${create ? " FOR UPDATE" : ""}`, [sourceId],
++    )).rows[0];
++    if (!source) throw new JobError("job_not_found", 404);
++    if (source.owner_user_id !== userId) throw new JobError("forbidden", 403);
++    if (source.service !== "email.summary" || source.entity_type !== "email")
++      throw new JobError("regeneration_email_only");
++    if (source.status !== "completed" || typeof source.result?.summary !== "string" ||
++        !source.result.summary.trim()) throw new JobError("regeneration_requires_completed");
++    await authorize(source, sql);
++    // No nonce from the browser: even two tabs or a lost POST response share this identity.
++    // Another deliberate generation can target the completed child, never mutate its parent.
++    const key = fingerprint(["email.summary.regeneration", source.id, userId]);
++    const existing = (await sql.query(
++      "SELECT * FROM ai_jobs WHERE idempotency_key=$1", [key],
++    )).rows[0];
++    if (existing || !create) return existing ?? null;
++    const inserted = await sql.query(`INSERT INTO ai_jobs
++      (id,service,entity_type,entity_id,owner_user_id,payload,idempotency_key,input_fingerprint,history)
++      VALUES ($1,'email.summary','email',$2,$3::varchar,$4::jsonb,$5,$6,
++        jsonb_build_array(jsonb_build_object('event','manual_regeneration','at',now(),
++          'sourceJobId',$7::text,'actor',$3::varchar)))
++      ON CONFLICT(idempotency_key) DO NOTHING RETURNING *`,
++    [randomUUID(), source.entity_id, userId, JSON.stringify(source.payload), key,
++      source.input_fingerprint, source.id]);
++    const child = inserted.rows[0] ?? (await sql.query(
++      "SELECT * FROM ai_jobs WHERE idempotency_key=$1", [key],
++    )).rows[0];
++    if (!child) throw new JobError("jobs_unavailable", 503);
++    return child;
++  });
++}

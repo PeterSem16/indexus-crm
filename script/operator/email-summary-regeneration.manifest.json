@@ -1,0 +1,43 @@
+{
+  "kind": "prepared-email-summary-regeneration-patch",
+  "baselineEvidence": "Workspace pre-change sources; must be independently verified against the installed CORPCRM01 runtime before deployment.",
+  "patch": "script/operator/email-summary-regeneration.patch",
+  "patchSha256": "97b4a5263ff9680a21a0fa3143ee907daf799eecd97e68b4db7bd171f1f0ed79",
+  "requiresProductionApproval": true,
+  "requiresFreshRuntimeSourceVerification": true,
+  "migrationRequired": false,
+  "runsInference": false,
+  "applicationFiles": [
+    {
+      "path": "server/lib/ai-jobs/register.ts",
+      "beforeSha256": "af468d040a05102db30a5a1159b02f3fed009e7773f8a00e3228bf42326ecc4e",
+      "afterSha256": "a21bbaa6e3feb73c5391665938752f02b020f052b398cab92c44f5618b0f4ce2"
+    },
+    {
+      "path": "server/lib/ai-jobs/routes.ts",
+      "beforeSha256": "cf2c329cb0098d4d1837194d76e4919e77653f8a2d9667f58b32d9e8ef0787ee",
+      "afterSha256": "8d6aa0bdc8a2198e68581ddfa25e3743d509f8bcbcb6328fd0ff850e5787d939"
+    },
+    {
+      "path": "server/lib/ai-jobs/runtime.ts",
+      "beforeSha256": "e88bb6a3ffb9ca4d8ac2d4bb54ee0c9c22eb8d5ab2264033e6d8ea6b07223cc7",
+      "afterSha256": "edb6e9f7489926e9ef349117f03d285583574dba38e1404ce94b5cace32e63e3"
+    },
+    {
+      "path": "server/lib/ai-jobs/email-regeneration.ts",
+      "beforeSha256": null,
+      "afterSha256": "6dfab3b8502dafa6d7579b7c868e6ea1b7bb5f52c09973bc68e5454a38624896"
+    }
+  ],
+  "testFiles": [
+    {
+      "path": "server/lib/ai-jobs/jobs.db.test.ts",
+      "beforeSha256": "52155e849cc20c333e39e211aa0287b9d84e899990a04c200b381e036b2ff176",
+      "afterSha256": "5cc4e26d5d1fd67a34612095a7767bd0a535bd1f79f93210ca76fda10626d57b"
+    }
+  ],
+  "browserScript": {
+    "path": "script/ai-tests/regenerate-email-f12.js",
+    "sha256": "453db17e523c1dc6994770ab178879adfaabbca4a48399d22e055b5f3a39a08b"
+  }
+}
