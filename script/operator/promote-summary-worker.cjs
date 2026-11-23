@@ -24,14 +24,16 @@ function read(file) {
     return fs.readFileSync(fd);
   } finally { fs.closeSync(fd); }
 }
-function validateManifest(m) {
-  if (m.format !== 1 || m.mode !== "prepared_not_deployed" || m.directory !== STAGE ||
+function validateManifest(m, release) {
+  if (release ? m.format !== 1 || m.mode !== "prepared_not_deployed" || m.directory !== release.stageDirectory ||
+      JSON.stringify(m.processes) !== JSON.stringify(release.processes) || Object.keys(m.inputs || {}).length < 10 :
+      m.format !== 1 || m.mode !== "prepared_not_deployed" || m.directory !== STAGE ||
       m.processes?.web?.pid !== 1040761 || m.processes?.worker?.pid !== 1040871 ||
       m.baseline?.["server/lib/ai-jobs/summary.ts"] !== ORIGINAL ||
       Object.keys(m.inputs || {}).length !== 474 ||
       m.inputs[APP + "/server/lib/ai-jobs/summary.ts"] !== ORIGINAL)
     fail("reviewed_stage_required");
-  for (const [file, value] of Object.entries(FILES))
+  for (const [file, value] of Object.entries(release?.files || FILES))
     if (m.outputs?.[path.basename(file)] !== value) fail("reviewed_stage_required");
   for (const [file, value] of Object.entries({ ...m.inputs, ...m.baseline })) {
     const abs = file.startsWith("/") ? file : APP + "/" + file;
@@ -39,15 +41,19 @@ function validateManifest(m) {
       fail("stage_input_scope_invalid");
   }
 }
+const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object"
+  ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])])) : value;
 function specification(p) {
   const e = p.pm2_env, bool = v => v === "true" ? true : v === "false" ? false : v;
-  return sha(JSON.stringify({ id: p.pm_id, name: p.name, script: e.pm_exec_path, cwd: e.pm_cwd,
+  return sha(JSON.stringify(canonical({ id: p.pm_id, name: p.name, script: e.pm_exec_path, cwd: e.pm_cwd,
     interpreter: e.exec_interpreter, args: e.args || [], nodeArgs: e.node_args || [],
     nodeOptions: e.NODE_OPTIONS || e.env?.NODE_OPTIONS || "", mode: e.exec_mode,
-    instances: e.instances, watch: bool(e.watch), autorestart: bool(e.autorestart),
+    // A single verified fork process is authoritative; PM2 materializes this
+    // inert default differently after restart and save.
+    instances: e.exec_mode === "fork_mode" ? 1 : e.instances, watch: bool(e.watch), autorestart: bool(e.autorestart),
     killTimeout: Number(e.kill_timeout ?? 1600),
     protectedEnvironment: Object.fromEntries(Object.entries(e.env || {}).filter(([k]) =>
-      /^(?:DATABASE_URL$|PG[A-Z_]*$|SESSION_SECRET$|NODE_ENV$|PORT$|AI_|INDEXUS_|INTERNAL_AI_|OPENAI_)/.test(k))) }));
+      /^(?:DATABASE_URL$|PG[A-Z_]*$|SESSION_SECRET$|NODE_ENV$|PORT$|AI_|INDEXUS_|INTERNAL_AI_|OPENAI_)/.test(k))) })));
 }
 async function originalBuildDriver() {
   const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
@@ -75,7 +81,7 @@ async function orchestrate(o) {
   try {
     await o.preflight(); await o.acquire(); await o.drain(); await o.backup();
     stopAttempted = true; await o.stop(); await o.publish(); await o.restart();
-    await o.ready(); await o.verify(); await o.receipt();
+    await o.ready(); await o.verify(); await o.persist?.(); await o.receipt();
     // An unlock with a lost reply may already have admitted work. Never recover
     // by stopping a worker after even an uncertain release.
     releaseAttempted = true; await o.release(); return await o.success();
@@ -83,14 +89,19 @@ async function orchestrate(o) {
     error.releaseAttempted = releaseAttempted;
     if (stopAttempted && !releaseAttempted) {
       try { await o.rollback(); error.rollbackVerified = true; }
-      catch { error.manualRecoveryRequired = true; }
+      catch (recovery) {
+        error.manualRecoveryRequired = true;
+        error.recoveryCode = recovery.safeCode || "recovery_check_failed";
+      }
     }
     throw error;
   } finally { await o.close(); }
 }
-function operations() {
+function operations(release) {
+  const stageDirectory = release?.stageDirectory || STAGE, files = release?.files || FILES;
   let m, account, pm2, daemon, specs, db, gate = false, gateLost = false, backupDir, journal;
   let configHash, maintenanceHash, maintenance, head, since, newPid, interrupted = false, phase = "preflight";
+  let targetWorkerSpec, originalKillTimeout, lastReadiness;
   let restoring = false;
   const metadata = {};
   const signal = () => { interrupted = true; };
@@ -102,7 +113,8 @@ function operations() {
   const gitHead = () => run("git", ["--no-optional-locks", "-c", "safe.directory=" + APP,
     "-c", "core.fsmonitor=false", "-C", APP, "rev-parse", "HEAD"]).trim();
   const asUser = args => run("runuser", ["-u", account.name, "--", pm2, ...args], {
-    env: { ...env, HOME: account.home, PM2_HOME: account.home + "/.pm2" }, timeout: 180000 });
+    env: { ...env, HOME: account.home, PM2_HOME: account.home + "/.pm2" },
+    timeout: Math.max(180000, (release?.killTimeoutMs || 0) + 10000) });
   function log(name) {
     phase = name; console.log("PHASE=" + name);
     if (journal) fs.appendFileSync(journal, JSON.stringify({ phase, at: new Date().toISOString() }) + "\n");
@@ -131,7 +143,9 @@ function operations() {
         processIdentity(daemon.pid).start !== daemon.start) fail("pm2_daemon_changed");
     const socket = fs.lstatSync(account.home + "/.pm2/rpc.sock");
     if (!socket.isSocket() || socket.uid !== account.uid) fail("pm2_socket_changed");
-    const list = JSON.parse(asUser(["jlist"])).filter(p =>
+    const all = JSON.parse(asUser(["jlist"]));
+    if (release?.persistPm2 && all.length !== 2) fail("other_pm2_services_require_separate_review");
+    const list = all.filter(p =>
       ["indexus-crm", "indexus-ai-worker"].includes(p.name) ||
       [APP + "/dist/index.cjs", APP + "/dist/ai-worker.cjs"].includes(p.pm2_env?.pm_exec_path));
     if (list.length !== 2) fail("managed_services_ambiguous");
@@ -141,7 +155,11 @@ function operations() {
       const p = list.find(p => p.pm2_env?.pm_exec_path === APP + "/dist/" + file), e = p?.pm2_env;
       if (!p || e.pm_cwd !== APP || !Number.isInteger(p.pm_id) || e.exec_mode !== "fork_mode" ||
           ![false, "false", undefined].includes(e.watch) ||
-          specs && specification(p) !== specs[role]) fail("managed_configuration_changed");
+          specs && specification(p) !== specs[role] &&
+          !(role === "worker" && ["new", "any", "stopped"].includes(mode) &&
+            targetWorkerSpec && specification(p) === targetWorkerSpec)) fail("managed_configuration_changed");
+      if (role === "worker" && mode === "new" && release?.killTimeoutMs &&
+          Number(e.kill_timeout) !== release.killTimeoutMs) fail("worker_shutdown_budget_not_installed");
       if (e.status === "online" && p.pid > 0) {
         const identity = processIdentity(p.pid);
         if (identity.parent !== daemon.pid || fs.realpathSync(`/proc/${p.pid}/cwd`) !== APP ||
@@ -151,7 +169,8 @@ function operations() {
             (p.pid !== m.processes[role].pid || identity.start !== m.processes[role].start))
           fail("original_process_changed");
         if (role === "worker" && mode === "stopped") fail("worker_not_stopped");
-        if (role === "worker" && mode === "new" && p.pid === m.processes.worker.pid) fail("worker_not_replaced");
+        if (role === "worker" && ["new", "restored"].includes(mode) && p.pid === m.processes.worker.pid)
+          fail("worker_not_replaced");
       } else if (!(role === "worker" && ["stopped", "any"].includes(mode) &&
           p.pid === 0 && e.status === "stopped" && [0, "0"].includes(e.exit_code)))
         fail("managed_service_not_ready");
@@ -172,7 +191,7 @@ function operations() {
       (SELECT count(*)::int FROM ai_inference_jobs WHERE status='processing') AS inference`)).rows[0];
   }
   async function drain() {
-    log("finish_existing_ai_work"); const until = Date.now() + 180000;
+    log("finish_existing_ai_work"); const until = Date.now() + (release?.drainMs || 180000);
     do {
       await guard(); const c = await counts();
       if (c?.jobs === 0 && c.inference === 0) return;
@@ -194,13 +213,14 @@ function operations() {
     if (gitHead() !== head) fail("production_git_head_changed");
     for (const [file, expected] of Object.entries(m.baseline)) {
       const current = sha(read(APP + "/" + file));
-      const allowed = patched === "recovery" ? [expected, FILES[file]] : [patched && FILES[file] || expected];
+      const allowed = patched === "recovery" ? [expected, files[file]] : [patched && files[file] || expected];
       if (!allowed.includes(current)) fail("live_file_changed");
     }
     for (const [file, expected] of Object.entries(m.inputs)) {
-      if (patched && file === APP + "/server/lib/ai-jobs/summary.ts") continue;
+      if (patched && files[file.slice(APP.length + 1)]) continue;
       if (sha(read(file)) !== expected) fail("build_input_changed");
     }
+    if (release) return;
     const helper = APP + "/server/lib/ai-jobs/summary-html.ts";
     const exists = fs.existsSync(helper);
     if (patched === "recovery" ? exists && sha(read(helper)) !== FILES["server/lib/ai-jobs/summary-html.ts"] :
@@ -254,20 +274,44 @@ function operations() {
             AND heartbeat_at >= $2::timestamptz)::int AS compatible
           FROM ai_inference_workers WHERE heartbeat_at > clock_timestamp()-interval '30 seconds'`,
         [maintenance.version, since])).rows[0];
+        lastReadiness = { workers: r?.total ?? null, compatible: r?.compatible ?? null };
         if (r?.total === 1 && r.compatible === 1) {
           stable = p.worker.pid === last ? stable + 1 : 1; last = p.worker.pid;
           if (stable >= 3) { newPid = p.worker.pid; return; }
         } else stable = 0;
-      } catch { stable = 0; }
+      } catch (e) {
+        stable = 0;
+        lastReadiness = { code: e.safeCode || (/^[0-9A-Z]{5}$/.test(e.code || "") ? e.code : "readiness_observation_failed") };
+      }
       await sleep(500);
     } while (Date.now() < until);
     fail("fresh_worker_readiness_unverified");
   }
-  async function release() {
+  async function unlockGate() {
     await guard();
     if ((await db.query("SELECT pg_advisory_unlock(517,1) AS released")).rows[0]?.released !== true)
       fail("claim_gate_release_unverified");
     gate = false;
+  }
+  function persistPm2() {
+    if (!release?.persistPm2) return;
+    for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+      const file = account.home + "/.pm2/" + name, s = fs.lstatSync(file);
+      if (!s.isFile() || s.isSymbolicLink() || s.uid !== account.uid || (s.mode & 0o777) !== 0o600)
+        fail("private_pm2_dump_required");
+    }
+    asUser(["save"]);
+    for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+      const file = account.home + "/.pm2/" + name;
+      fs.chmodSync(file, 0o600);
+      const rows = JSON.parse(read(file));
+      if (name === "dump.pm2") {
+        const worker = rows.filter(p => p.pm_exec_path === APP + "/dist/ai-worker.cjs");
+        const expected = restoring ? originalKillTimeout : release.killTimeoutMs;
+        if (worker.length !== 1 || Number(worker[0].kill_timeout) !== expected)
+          fail("persisted_worker_shutdown_budget_unverified");
+      }
+    }
   }
   return {
     preflight: async () => {
@@ -276,10 +320,10 @@ function operations() {
       const disk = JSON.parse(run("findmnt", ["--json", "--target", DATA, "--output", "SOURCE,TARGET"])).filesystems;
       if (disk.length !== 1 || disk[0].source !== "/dev/sdb1" || disk[0].target !== DATA)
         fail("approved_data_disk_required");
-      m = JSON.parse(read(STAGE + "/manifest.json")); validateManifest(m);
-      privateDirectory(path.dirname(STAGE)); privateDirectory(STAGE);
-      for (const [file, expected] of Object.entries(FILES)) {
-        const staged = STAGE + "/" + path.basename(file), s = fs.lstatSync(staged);
+      m = JSON.parse(read(stageDirectory + "/manifest.json")); validateManifest(m, release);
+      privateDirectory(path.dirname(stageDirectory)); privateDirectory(stageDirectory);
+      for (const [file, expected] of Object.entries(files)) {
+        const staged = stageDirectory + "/" + path.basename(file), s = fs.lstatSync(staged);
         if (s.uid !== 0 || (s.mode & 0o777) !== 0o600 || sha(read(staged)) !== expected)
           fail("prepared_output_changed");
       }
@@ -287,7 +331,7 @@ function operations() {
       if ((worker.match(/pg_try_advisory_xact_lock\(517,1\)/g) || []).length < 2)
         fail("both_live_claim_paths_must_support_gate");
       head = gitHead(); verifyFiles(false);
-      run(process.execPath, ["--input-type=commonjs", "--check"], { input: read(STAGE + "/ai-worker.cjs") });
+      run(process.execPath, ["--input-type=commonjs", "--check"], { input: read(stageDirectory + "/ai-worker.cjs") });
       for (const root of [DATA, APP + "/dist"]) {
         const s = fs.statfsSync(root);
         if (Number(s.bavail) * Number(s.bsize) < 128 * 1024 ** 2) fail("backup_and_promotion_space_required");
@@ -304,9 +348,21 @@ function operations() {
       pm2 = run("runuser", ["-u", name, "--", "sh", "-c", "command -v pm2"],
         { env: { ...env, HOME: account.home } }).trim();
       if (!path.isAbsolute(pm2) || pm2.includes("\n")) fail("pm2_command_unavailable");
+      if (release?.killTimeoutMs && !asUser(["--help"]).includes("--kill-timeout"))
+        fail("pm2_shutdown_option_not_supported_no_service_changes");
       const p = managed();
       if (Number(p.worker.pm2_env.kill_timeout ?? 1600) < 160000) fail("worker_graceful_stop_budget_insufficient");
       specs = Object.fromEntries(Object.entries(p).map(([role, v]) => [role, specification(v)]));
+      originalKillTimeout = Number(p.worker.pm2_env.kill_timeout);
+      if (release?.killTimeoutMs) {
+        targetWorkerSpec = specification({ ...p.worker,
+          pm2_env: { ...p.worker.pm2_env, kill_timeout: release.killTimeoutMs } });
+      }
+      if (release?.persistPm2) for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+        const s = fs.lstatSync(account.home + "/.pm2/" + name);
+        if (!s.isFile() || s.isSymbolicLink() || s.uid !== account.uid || (s.mode & 0o777) !== 0o600)
+          fail("private_pm2_dump_required");
+      }
       log("prove_original_sources_match_running_worker");
       const originalBuild = JSON.parse(run("runuser", ["-u", name, "--", process.execPath, "-e",
         `(${originalBuildDriver.toString()})().catch(()=>process.exit(1))`], {
@@ -348,16 +404,19 @@ function operations() {
     drain,
     backup: async () => {
       log("back_up_current_worker_privately"); await guard(); managed(); verifyFiles(false); await configuration();
-      backupDir = fs.mkdtempSync(STAGE + "/backup-"); fs.chmodSync(backupDir, 0o700);
+      backupDir = fs.mkdtempSync(stageDirectory + "/backup-"); fs.chmodSync(backupDir, 0o700);
       privateDirectory(backupDir);
-      for (const file of ["server/lib/ai-jobs/summary.ts", "dist/ai-worker.cjs"]) {
+      for (const file of Object.keys(files).filter(file => m.baseline[file])) {
         const s = fs.lstatSync(APP + "/" + file), bytes = read(APP + "/" + file);
         if (!s.isFile() || s.isSymbolicLink() || (s.mode & 0o7000)) fail("original_metadata_unverified");
         metadata[file] = { uid: s.uid, gid: s.gid, mode: s.mode & 0o777 };
         fs.writeFileSync(backupDir + "/" + path.basename(file), bytes, { flag: "wx", mode: 0o600 });
         if (sha(read(backupDir + "/" + path.basename(file))) !== m.baseline[file]) fail("backup_hash_mismatch");
       }
-      metadata["server/lib/ai-jobs/summary-html.ts"] = metadata["server/lib/ai-jobs/summary.ts"];
+      if (!release) metadata["server/lib/ai-jobs/summary-html.ts"] = metadata["server/lib/ai-jobs/summary.ts"];
+      if (release?.persistPm2) for (const name of ["dump.pm2", "dump.pm2.bak"]) {
+        fs.writeFileSync(backupDir + "/" + name, read(account.home + "/.pm2/" + name), { flag: "wx", mode: 0o600 });
+      }
       journal = backupDir + "/promotion.jsonl";
       fs.writeFileSync(journal, "", { flag: "wx", mode: 0o600 });
       fs.writeFileSync(backupDir + "/recovery.json", JSON.stringify({ baseline: m.baseline, metadata, head,
@@ -368,9 +427,10 @@ function operations() {
       log("stop_only_the_idle_ai_worker"); managed(); verifyFiles(false); await stopWorker();
     },
     publish: async () => {
-      log("replace_only_two_sources_and_worker"); await guard(); managed("stopped"); verifyFiles(false);
-      for (const [file, expected] of Object.entries(FILES)) {
-        const bytes = read(STAGE + "/" + path.basename(file));
+      log(release ? "replace_only_approved_budget_sources_and_worker" : "replace_only_two_sources_and_worker");
+      await guard(); managed("stopped"); verifyFiles(false);
+      for (const [file, expected] of Object.entries(files)) {
+        const bytes = read(stageDirectory + "/" + path.basename(file));
         if (sha(bytes) !== expected) fail("prepared_output_changed");
         copyAtomic(bytes, file, metadata[file]);
       }
@@ -380,7 +440,8 @@ function operations() {
       log("start_same_worker_configuration"); await guard(); await configuration();
       const p = managed("stopped");
       since = (await db.query("SELECT clock_timestamp() AS since")).rows[0].since;
-      asUser(["restart", String(p.worker.pm_id)]);
+      asUser(["restart", String(p.worker.pm_id),
+        ...(release?.killTimeoutMs ? ["--kill-timeout", String(release.killTimeoutMs)] : [])]);
     },
     ready: async () => { log("verify_fresh_worker_heartbeat"); await ready(); },
     verify: async () => {
@@ -388,18 +449,21 @@ function operations() {
       verifyFiles(true); await configuration(); await healthy();
       const c = await counts(); if (c?.jobs !== 0 || c.inference !== 0) fail("work_started_while_gate_held");
     },
+    persist: async () => { if (release?.persistPm2) { await guard(); persistPm2(); } },
     receipt: async () => {
       fs.writeFileSync(backupDir + "/verified-before-release.json", JSON.stringify({
-        mode: "verified_claims_still_held", workerPid: newPid, workerSha256: FILES["dist/ai-worker.cjs"],
+        mode: "verified_claims_still_held", workerPid: newPid, workerSha256: files["dist/ai-worker.cjs"],
         webPid: m.processes.web.pid, maintenanceMode: maintenance.mode,
       }), { flag: "wx", mode: 0o600 });
     },
-    release: async () => { log("release_only_operator_claim_gate"); await release(); },
+    release: async () => { log("release_only_operator_claim_gate"); await unlockGate(); },
     success: async () => {
       log("deployed");
       const result = { mode: "deployed", workerPid: newPid, previousWorkerPid: m.processes.worker.pid,
         webPid: m.processes.web.pid, webRestarted: false, backupDirectory: backupDir,
-        workerSha256: FILES["dist/ai-worker.cjs"], workerReady: true, operatorClaimGateReleased: true,
+        workerSha256: files["dist/ai-worker.cjs"], workerReady: true, operatorClaimGateReleased: true,
+        ...(release ? { emailSummaryTimeoutMs: 240000, workerShutdownTimeoutMs: 270000,
+          pm2KillTimeoutMs: release.killTimeoutMs, pm2ConfigurationPersisted: !!release.persistPm2 } : {}),
         savedMaintenanceMode: maintenance.mode, providersChanged: false, aiCalls: 0 };
       fs.writeFileSync(backupDir + "/deployed.json", JSON.stringify(result, null, 2), { flag: "wx", mode: 0o600 });
       console.log(JSON.stringify(result, null, 2)); return result;
@@ -409,7 +473,7 @@ function operations() {
       verifyFiles("recovery");
       const p = managed("any");
       if (p.worker.pid > 0) await stopWorker();
-      for (const [file, patched] of Object.entries(FILES)) {
+      for (const [file, patched] of Object.entries(files)) {
         const target = APP + "/" + file, exists = fs.existsSync(target);
         if (!m.baseline[file]) {
           if (exists) {
@@ -426,16 +490,18 @@ function operations() {
       }
       verifyFiles(false); await guard();
       since = (await db.query("SELECT clock_timestamp() AS since")).rows[0].since;
-      asUser(["restart", String(managed("stopped").worker.pm_id)]);
-      await ready("new"); await healthy(); verifyFiles(false); await configuration();
-      await release();
+      asUser(["restart", String(managed("stopped").worker.pm_id),
+        ...(release?.killTimeoutMs ? ["--kill-timeout", String(originalKillTimeout)] : [])]);
+      await ready(release ? "restored" : "new"); await healthy(); verifyFiles(false); await configuration();
+      persistPm2();
+      await unlockGate();
       console.log("ORIGINAL_WORKER_RESTORED=true");
     },
     close: async () => {
       try { if (db) await db.end(); } catch { /* Never print connection details. */ }
       process.off("SIGINT", signal); process.off("SIGTERM", signal);
     },
-    failureState: () => ({ phase, gateLost, backupDirectory: backupDir || null }),
+    failureState: () => ({ phase, gateLost, backupDirectory: backupDir || null, lastReadiness }),
   };
 }
 async function main(args = process.argv.slice(2)) {
@@ -451,6 +517,7 @@ module.exports = { main, operations, orchestrate, validateManifest, specificatio
 if (require.main === module) main().catch(e => {
   console.error(JSON.stringify({ mode: "not_confirmed", code: e.safeCode || "promotion_operation_failed",
     ...e.state, rollbackVerified: !!e.rollbackVerified,
+    recoveryCode: e.recoveryCode || null,
     manualRecoveryRequired: !!e.manualRecoveryRequired || !!e.releaseAttempted,
     claimReleaseAttempted: !!e.releaseAttempted }));
   process.exitCode = 1;
