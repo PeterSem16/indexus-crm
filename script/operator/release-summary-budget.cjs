@@ -5,7 +5,7 @@ const fs = require("node:fs"), cp = require("node:child_process"), os = require(
 const path = require("node:path"), crypto = require("node:crypto");
 const APP = "/var/www/indexus-crm", DATA = APP + "/data";
 const LIVE_WORKER = "1f5d03c8b7f761399f284d5a8e3733f8122a0a073ff8fb2c382d9c05f19efad1";
-const PROMOTER_SHA = "2d476fbcba5412180e1bd1b910cf4f727c934354b7423dfc0281634ac7eae44d";
+const PROMOTER_SHA = "d8ecdcbf47c18e0ddb28d277de17cc2b956adf85a4e55d3ce47d75babaa6832f";
 const sha = b => crypto.createHash("sha256").update(b).digest("hex");
 const fail = code => { throw Object.assign(Error(code), { safeCode: code }); };
 const env = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C.UTF-8" };

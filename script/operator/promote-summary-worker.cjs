@@ -43,6 +43,19 @@ function validateManifest(m, release) {
 }
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === "object"
   ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])])) : value;
+function patchSavedWorker(bytes, killTimeout, required = true) {
+  let rows;
+  try { rows = JSON.parse(bytes.toString()); } catch { fail("saved_pm2_json_invalid"); }
+  if (!Array.isArray(rows)) fail("saved_pm2_list_invalid");
+  const matches = rows.filter(p => p?.name === "indexus-ai-worker" ||
+    p?.pm_exec_path === APP + "/dist/ai-worker.cjs");
+  if (!matches.length && !required) return bytes;
+  if (matches.length !== 1 || matches[0].name !== "indexus-ai-worker" ||
+      matches[0].pm_exec_path !== APP + "/dist/ai-worker.cjs")
+    fail("saved_worker_identity_ambiguous");
+  matches[0].kill_timeout = killTimeout;
+  return Buffer.from(JSON.stringify(rows, null, 2) + "\n");
+}
 function specification(p) {
   const e = p.pm2_env, bool = v => v === "true" ? true : v === "false" ? false : v;
   return sha(JSON.stringify(canonical({ id: p.pm_id, name: p.name, script: e.pm_exec_path, cwd: e.pm_cwd,
@@ -103,6 +116,8 @@ function operations(release) {
   let configHash, maintenanceHash, maintenance, head, since, newPid, interrupted = false, phase = "preflight";
   let targetWorkerSpec, originalKillTimeout, lastReadiness;
   let restoring = false;
+  let otherSpecs;
+  const savedPm2 = {};
   const metadata = {};
   const signal = () => { interrupted = true; };
   const run = (bin, args, opts = {}) => {
@@ -144,11 +159,19 @@ function operations(release) {
     const socket = fs.lstatSync(account.home + "/.pm2/rpc.sock");
     if (!socket.isSocket() || socket.uid !== account.uid) fail("pm2_socket_changed");
     const all = JSON.parse(asUser(["jlist"]));
-    if (release?.persistPm2 && all.length !== 2) fail("other_pm2_services_require_separate_review");
     const list = all.filter(p =>
       ["indexus-crm", "indexus-ai-worker"].includes(p.name) ||
       [APP + "/dist/index.cjs", APP + "/dist/ai-worker.cjs"].includes(p.pm2_env?.pm_exec_path));
     if (list.length !== 2) fail("managed_services_ambiguous");
+    if (release?.persistPm2) {
+      const others = all.filter(p => !list.includes(p)).map(p => ({
+        id: p.pm_id, pid: p.pid, name: p.name, status: p.pm2_env?.status,
+        spec: specification(p), environment: p.pm2_env?.env,
+      })).sort((a, b) => a.id - b.id);
+      const current = sha(JSON.stringify(canonical(others)));
+      if (otherSpecs !== undefined && otherSpecs !== current) fail("unrelated_pm2_service_changed");
+      otherSpecs = current;
+    }
     const result = {};
     for (const role of ["web", "worker"]) {
       const file = role === "web" ? "index.cjs" : "ai-worker.cjs";
@@ -295,23 +318,29 @@ function operations(release) {
   }
   function persistPm2() {
     if (!release?.persistPm2) return;
-    for (const name of ["dump.pm2", "dump.pm2.bak"]) {
-      const file = account.home + "/.pm2/" + name, s = fs.lstatSync(file);
-      if (!s.isFile() || s.isSymbolicLink() || s.uid !== account.uid || (s.mode & 0o777) !== 0o600)
-        fail("private_pm2_dump_required");
+    managed(restoring ? "restored" : "new");
+    // Never run global `pm2 save`: it would also persist unrelated live services.
+    for (const [name, snapshot] of Object.entries(savedPm2)) {
+      const file = account.home + "/.pm2/" + name, s = fs.lstatSync(file), current = read(file);
+      if (!s.isFile() || s.isSymbolicLink() || s.uid !== snapshot.uid ||
+          s.gid !== snapshot.gid || ![snapshot.mode, 0o600].includes(s.mode & 0o777) ||
+          ![sha(snapshot.bytes), sha(snapshot.patched)].includes(sha(current)))
+        fail("saved_pm2_configuration_changed");
+      const wanted = restoring ? snapshot.bytes : snapshot.patched;
+      if (sha(current) === sha(wanted)) continue;
+      const temp = account.home + "/.pm2/summary-budget-" + crypto.randomUUID() + ".tmp";
+      try {
+        const fd = fs.openSync(temp, "wx", 0o600);
+        try {
+          fs.writeFileSync(fd, wanted); fs.fchownSync(fd, snapshot.uid, snapshot.gid);
+          fs.fchmodSync(fd, restoring ? snapshot.mode : 0o600); fs.fsyncSync(fd);
+        } finally { fs.closeSync(fd); }
+        if (sha(read(file)) !== sha(current)) fail("saved_pm2_configuration_changed");
+        fs.renameSync(temp, file);
+      } finally { if (fs.existsSync(temp)) fs.unlinkSync(temp); }
+      if (sha(read(file)) !== sha(wanted)) fail("persisted_worker_shutdown_budget_unverified");
     }
-    asUser(["save"]);
-    for (const name of ["dump.pm2", "dump.pm2.bak"]) {
-      const file = account.home + "/.pm2/" + name;
-      fs.chmodSync(file, 0o600);
-      const rows = JSON.parse(read(file));
-      if (name === "dump.pm2") {
-        const worker = rows.filter(p => p.pm_exec_path === APP + "/dist/ai-worker.cjs");
-        const expected = restoring ? originalKillTimeout : release.killTimeoutMs;
-        if (worker.length !== 1 || Number(worker[0].kill_timeout) !== expected)
-          fail("persisted_worker_shutdown_budget_unverified");
-      }
-    }
+    managed(restoring ? "restored" : "new");
   }
   return {
     preflight: async () => {
@@ -359,9 +388,15 @@ function operations(release) {
           pm2_env: { ...p.worker.pm2_env, kill_timeout: release.killTimeoutMs } });
       }
       if (release?.persistPm2) for (const name of ["dump.pm2", "dump.pm2.bak"]) {
-        const s = fs.lstatSync(account.home + "/.pm2/" + name);
-        if (!s.isFile() || s.isSymbolicLink() || s.uid !== account.uid || (s.mode & 0o777) !== 0o600)
-          fail("private_pm2_dump_required");
+        const file = account.home + "/.pm2/" + name;
+        if (name === "dump.pm2.bak" && !fs.existsSync(file)) continue;
+        const s = fs.lstatSync(file);
+        if (!s.isFile() || s.isSymbolicLink() || s.uid !== account.uid ||
+            ![0o600, 0o640, 0o644].includes(s.mode & 0o777))
+          fail("owned_pm2_dump_required");
+        const bytes = read(file);
+        savedPm2[name] = { bytes, patched: patchSavedWorker(bytes, release.killTimeoutMs, name === "dump.pm2"),
+          uid: s.uid, gid: s.gid, mode: s.mode & 0o777 };
       }
       log("prove_original_sources_match_running_worker");
       const originalBuild = JSON.parse(run("runuser", ["-u", name, "--", process.execPath, "-e",
@@ -414,8 +449,10 @@ function operations(release) {
         if (sha(read(backupDir + "/" + path.basename(file))) !== m.baseline[file]) fail("backup_hash_mismatch");
       }
       if (!release) metadata["server/lib/ai-jobs/summary-html.ts"] = metadata["server/lib/ai-jobs/summary.ts"];
-      if (release?.persistPm2) for (const name of ["dump.pm2", "dump.pm2.bak"]) {
-        fs.writeFileSync(backupDir + "/" + name, read(account.home + "/.pm2/" + name), { flag: "wx", mode: 0o600 });
+      if (release?.persistPm2) for (const [name, snapshot] of Object.entries(savedPm2)) {
+        if (sha(read(account.home + "/.pm2/" + name)) !== sha(snapshot.bytes))
+          fail("saved_pm2_configuration_changed");
+        fs.writeFileSync(backupDir + "/" + name, snapshot.bytes, { flag: "wx", mode: 0o600 });
       }
       journal = backupDir + "/promotion.jsonl";
       fs.writeFileSync(journal, "", { flag: "wx", mode: 0o600 });
@@ -513,7 +550,7 @@ async function main(args = process.argv.slice(2)) {
   catch (e) { e.state = o.failureState(); throw e; }
 }
 module.exports = { main, operations, orchestrate, validateManifest, specification, originalBuildDriver,
-  APP, STAGE, FILES, ORIGINAL, sha };
+  patchSavedWorker, APP, STAGE, FILES, ORIGINAL, sha };
 if (require.main === module) main().catch(e => {
   console.error(JSON.stringify({ mode: "not_confirmed", code: e.safeCode || "promotion_operation_failed",
     ...e.state, rollbackVerified: !!e.rollbackVerified,
